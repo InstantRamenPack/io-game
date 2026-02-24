@@ -1,3 +1,2 @@
 console.log("Hello via 67!");
-
-console.log("brett goons to the files");
+console.log("67 is not funny");
