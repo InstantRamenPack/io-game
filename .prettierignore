@@ -1,0 +1,9 @@
+node_modules
+dist
+out
+coverage
+.cache
+.idea
+*.tsbuildinfo
+bun.lock
+PLAN.md
