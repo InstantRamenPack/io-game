@@ -44,6 +44,8 @@ repo/
     server/
       src/
         index.ts
+        bootstrap/
+          BootstrapRegistries.ts
         server/
           GameServer.ts
           clock.ts
@@ -57,11 +59,11 @@ repo/
           SpatialIndex.ts
           Collision.ts
           EventBus.ts
-        ai/
+        goals/
           Goal.ts
           GoalSelector.ts
           GoalContext.ts
-          goals/
+          builtin/
             TargetNearestGoal.ts
             GoToPositionGoal.ts
             GoToTargetGoal.ts
@@ -81,7 +83,7 @@ repo/
           InputSystem.ts
           MovementSystem.ts
           CollisionSystem.ts
-          AISystem.ts
+          GoalSystem.ts
           ProjectileSystem.ts
           CombatSystem.ts
           StatusSystem.ts
@@ -109,6 +111,27 @@ repo/
             KnockbackEffect.ts
         services/
           AuthService.ts
+        content/
+          enemies/
+            Zombie.ts
+          weapons/
+            BowWeapon.ts
+            PistolWeapon.ts
+            RifleWeapon.ts
+            SwordWeapon.ts
+            PickaxeWeapon.ts
+          projectiles/
+            ArrowProjectile.ts
+            BulletProjectile.ts
+          buildings/
+            Wall.ts
+            SpikeTrap.ts
+            ArrowTower.ts
+            Windmill.ts
+            CraftingStation.ts
+          resources/
+            TreeNode.ts
+            StoneNode.ts
 
     client/
       src/
@@ -141,14 +164,32 @@ repo/
           Vec2.ts
           Rng.ts
           IdGenerator.ts
-        defs/
+        registry/
+          ResourceId.ts
+          RegistryKey.ts
+          Registry.ts
+          MutableRegistry.ts
+          BuiltInRegistries.ts
+          RegistryBootstrap.ts
+        types/
+          EntityType.ts
+          EnemyType.ts
+          ItemType.ts
+          WeaponType.ts
+          ProjectileType.ts
+          StructureType.ts
+          RecipeType.ts
+          WaveTemplate.ts
+          EffectType.ts
+          StatusEffectType.ts
+        ids/
           EntityKinds.ts
-          ItemDef.ts
-          WeaponDef.ts
-          ProjectileDef.ts
-          StructureDef.ts
-          RecipeDef.ts
-          WaveDef.ts
+          ItemIds.ts
+          WeaponIds.ts
+          ProjectileIds.ts
+          StructureIds.ts
+          RecipeIds.ts
+          WaveIds.ts
         net/
           protocol.ts
           snapshots.ts
@@ -244,17 +285,73 @@ Reject mismatches early.
 
 ---
 
-## 7) Data-driven defs (zombs content)
+## 7) Class-driven content (no data-driven defs)
 
-For MVP, keep defs as TypeScript objects; later load JSON.
+Gameplay content is class-based, not `*Def` object-driven.
 
-- Items: wood, stone, food, gold
-- Weapons: bow, pistol, rifle, sword, pickaxe
-- Structures: wall, spike, tower, windmill, crafting station
-- Recipes: ammo, arrows, upgrades
-- Waves: enemy composition per wave
+- Every concrete gameplay thing is a class:
+  - enemy example: `Zombie extends Enemy`
+  - weapon example: `BowWeapon extends RangedWeapon`
+  - building example: `Wall extends Building`
+  - resource example: `TreeNode extends ResourceNode`
+- Registries store class references and/or constructed type instances, not raw `*Def` payloads.
+- IDs are still canonical `namespace:path` and are used for networking and cross-system lookup.
+- Server remains authoritative and reads only frozen registries at runtime.
 
-Server validates all actions using defs.
+This pass is documentation-only: no runtime code implementation is required yet.
+
+---
+
+## 7A) Registry architecture (Minecraft-inspired, class-first TypeScript)
+
+### 7A.1 Core concepts
+- `ResourceId`: canonical typed ID with strict `namespace:path` parsing/validation.
+- `RegistryKey<T>`: typed identity for a registry (for example, `RegistryKeys.ITEM_CLASS`).
+- `Registry<T>`: read-only lookup surface (`get`, `getOrThrow`, `has`, `entries`, `ids`).
+- `MutableRegistry<T>`: bootstrap-time writable registry (`register`) plus `freeze`.
+- `BuiltInRegistries`: authoritative container for all gameplay registries.
+- `RegistryBootstrap`: deterministic startup process that registers concrete classes, validates references, then freezes.
+
+### 7A.2 Gameplay registries (authoritative set)
+- `ENTITY_TYPE` → `Registry<EntityType<any>>`
+- `ENEMY_CLASS` → `Registry<new (...args: any[]) => Enemy>`
+- `ITEM_CLASS` → `Registry<new (...args: any[]) => ItemType>`
+- `WEAPON_CLASS` → `Registry<new (...args: any[]) => Weapon>`
+- `PROJECTILE_CLASS` → `Registry<new (...args: any[]) => Projectile>`
+- `STRUCTURE_CLASS` → `Registry<new (...args: any[]) => Building>`
+- `RECIPE_CLASS` → `Registry<new (...args: any[]) => RecipeType>`
+- `WAVE_CLASS` → `Registry<new (...args: any[]) => WaveTemplate>`
+- `EFFECT_CLASS` → `Registry<new (...args: any[]) => Effect>`
+- `STATUS_EFFECT_CLASS` → `Registry<new (...args: any[]) => StatusEffect>`
+
+### 7A.3 Bootstrap order and lifecycle
+1. Create mutable built-in registries.
+2. Register foundational classes (`ITEM_CLASS`, `PROJECTILE_CLASS`, `STATUS_EFFECT_CLASS`, `EFFECT_CLASS`).
+3. Register dependent classes (`WEAPON_CLASS`, `STRUCTURE_CLASS`, `RECIPE_CLASS`, `ENEMY_CLASS`, `WAVE_CLASS`, `ENTITY_TYPE`).
+4. Validate all IDs and cross-references.
+5. Freeze registries (`register -> validate -> freeze -> read-only`).
+6. Start server systems; runtime reads only from frozen registries.
+
+### 7A.4 Validation and error semantics
+- Duplicate ID registration: fail startup deterministically.
+- Malformed/non-namespaced IDs: fail startup.
+- Missing referenced ID (weapon/projectile/effect/recipe/etc.): fail startup.
+- Attempted runtime mutation after freeze: throw/reject.
+- Unknown IDs in client input: reject at validation boundary and emit error event as needed.
+
+### 7A.5 Inheritance model (Minecraft-style)
+- Runtime inheritance is the primary content model.
+- Base classes provide shared logic; concrete subclasses provide content behavior:
+  - `Enemy` base -> `Zombie`, `FastZombie`, `TankZombie`
+  - `RangedWeapon` base -> `BowWeapon`, `PistolWeapon`, `RifleWeapon`
+  - `Building` base -> `Wall`, `ArrowTower`, `SpikeTrap`, `Windmill`, `CraftingStation`
+- Registries are the discovery/lookup layer for these concrete classes.
+
+### 7A.6 Public interface/type impact
+- All registrable IDs and cross-references are canonical `namespace:path` strings.
+- `*Def` interfaces are removed from the architecture.
+- Systems consume typed registries and class-based content, not ad hoc `Map`/array defs.
+- Registry lifecycle is explicit and required for startup correctness.
 
 ---
 
@@ -382,7 +479,322 @@ export class Rng {
 }
 ```
 
-### Defs — `packages/shared/src/defs/*`
+### `ResourceId` — `packages/shared/src/registry/ResourceId.ts`
+
+```ts
+/**
+ * Canonical namespaced identifier (`namespace:path`) used by all registries.
+ * Mirrors Minecraft's ResourceLocation concept with TypeScript ergonomics.
+ */
+export class ResourceId {
+  namespace: string;
+  path: string;
+
+  constructor(namespace: string, path: string);
+
+  /** Parses and validates `namespace:path`; throws on invalid format. */
+  static parse(raw: string): ResourceId;
+
+  /** Returns true when the raw string matches canonical `namespace:path`. */
+  static isValid(raw: string): boolean;
+
+  /** Canonical string form. */
+  toString(): string;
+}
+```
+
+### `RegistryKey<T>` — `packages/shared/src/registry/RegistryKey.ts`
+
+```ts
+/**
+ * Typed identity for a registry (e.g., ITEM_CLASS, WEAPON_CLASS).
+ */
+export class RegistryKey<T> {
+  id: ResourceId;
+
+  constructor(id: ResourceId);
+
+  /** Convenience constructor from raw string ID. */
+  static of<T>(id: string): RegistryKey<T>;
+}
+```
+
+### `RegistryEntry<T>` — `packages/shared/src/registry/Registry.ts`
+
+```ts
+/**
+ * Stable entry pairing canonical ID with a value in a registry.
+ */
+export interface RegistryEntry<T> {
+  id: ResourceId;
+  value: T;
+}
+```
+
+### `Registry<T>` — `packages/shared/src/registry/Registry.ts`
+
+```ts
+/**
+ * Read-only registry API used by runtime systems.
+ */
+export interface Registry<T> {
+  key: RegistryKey<T>;
+
+  /** Returns value for ID, if present. */
+  get(id: string | ResourceId): T | undefined;
+
+  /** Returns value for ID or throws a deterministic bootstrap/runtime error. */
+  getOrThrow(id: string | ResourceId): T;
+
+  /** Returns true if an entry exists. */
+  has(id: string | ResourceId): boolean;
+
+  /** Iterates entries in deterministic registration order. */
+  entries(): Iterable<RegistryEntry<T>>;
+
+  /** Iterates IDs in deterministic registration order. */
+  ids(): Iterable<ResourceId>;
+}
+```
+
+### `MutableRegistry<T>` — `packages/shared/src/registry/MutableRegistry.ts`
+
+```ts
+/**
+ * Bootstrap-time writable registry.
+ * After freeze(), register/mutate operations are disallowed.
+ */
+export interface MutableRegistry<T> extends Registry<T> {
+  /** Registers a unique ID/value pair; throws on duplicates or frozen state. */
+  register(id: string | ResourceId, value: T): RegistryEntry<T>;
+
+  /** Validates and transitions to read-only mode. */
+  freeze(): Registry<T>;
+
+  /** @returns true once registry is frozen. */
+  isFrozen(): boolean;
+}
+```
+
+### `BuiltInRegistries` — `packages/shared/src/registry/BuiltInRegistries.ts`
+
+```ts
+/**
+ * Global holder for authoritative gameplay registries.
+ * Created at bootstrap and read by server/client systems.
+ */
+export class BuiltInRegistries {
+  ENTITY_TYPE: MutableRegistry<EntityType<any>>;
+  ENEMY_CLASS: MutableRegistry<new (...args: any[]) => Enemy>;
+  ITEM_CLASS: MutableRegistry<new (...args: any[]) => ItemType>;
+  WEAPON_CLASS: MutableRegistry<new (...args: any[]) => Weapon>;
+  PROJECTILE_CLASS: MutableRegistry<new (...args: any[]) => Projectile>;
+  STRUCTURE_CLASS: MutableRegistry<new (...args: any[]) => Building>;
+  RECIPE_CLASS: MutableRegistry<new (...args: any[]) => RecipeType>;
+  WAVE_CLASS: MutableRegistry<new (...args: any[]) => WaveTemplate>;
+  EFFECT_CLASS: MutableRegistry<new (...args: any[]) => Effect>;
+  STATUS_EFFECT_CLASS: MutableRegistry<new (...args: any[]) => StatusEffect>;
+
+  constructor();
+
+  /** Freezes all built-in registries in deterministic order. */
+  freezeAll(): void;
+}
+```
+
+### `RegistryBootstrap` — `packages/shared/src/registry/RegistryBootstrap.ts`
+
+```ts
+/**
+ * Deterministic bootstrapping pipeline for content registries.
+ */
+export class RegistryBootstrap {
+  /**
+   * Registers all concrete content classes into BuiltInRegistries, validates references,
+   * then freezes registries for runtime use.
+   */
+  static bootstrap(registries: BuiltInRegistries): void;
+}
+```
+
+### Gameplay types — `packages/shared/src/types/*`
+
+```ts
+/**
+ * Registrable entity type descriptor/factory.
+ * Runtime entities are still instance classes on the server.
+ */
+export class EntityType<E extends Entity> {
+  id: ResourceId;
+  kind: EntityKind;
+
+  constructor(id: ResourceId, kind: EntityKind);
+
+  /** Spawns one runtime entity instance. */
+  create(idAlloc: number, args?: any): E;
+}
+
+/** Enemy base type metadata used by class-first enemy implementations. */
+export abstract class EnemyType {
+  id: ResourceId;
+  constructor(id: ResourceId);
+}
+
+/** Registrable item base class used by inventory/crafting systems. */
+export abstract class ItemType {
+  id: ResourceId;
+  name: string;
+  stackMax: number;
+  icon?: string;
+
+  constructor(args: { id: ResourceId; name: string; stackMax: number; icon?: string });
+}
+
+/** Base weapon type descriptor. */
+export abstract class WeaponType {
+  id: ResourceId;
+  name: string;
+  damage: number;
+  fireRate: number;
+  range: number;
+  hitEffects: ResourceId[];
+
+  constructor(args: {
+    id: ResourceId;
+    name: string;
+    damage: number;
+    fireRate: number;
+    range: number;
+    hitEffects: ResourceId[];
+  });
+}
+
+/** Ranged weapon type base class with projectile and ammo metadata. */
+export abstract class RangedWeaponType extends WeaponType {
+  projectileClassId: ResourceId;
+  ammo?: { magSize: number; reloadMs: number; reserveMax: number };
+  spread?: number;
+
+  constructor(args: {
+    id: ResourceId;
+    name: string;
+    damage: number;
+    fireRate: number;
+    range: number;
+    hitEffects: ResourceId[];
+    projectileClassId: ResourceId;
+    ammo?: { magSize: number; reloadMs: number; reserveMax: number };
+    spread?: number;
+  });
+}
+
+/** Melee weapon type metadata. */
+export abstract class MeleeWeaponType extends WeaponType {
+  constructor(args: {
+    id: ResourceId;
+    name: string;
+    damage: number;
+    fireRate: number;
+    range: number;
+    hitEffects: ResourceId[];
+  });
+}
+
+/** Registrable projectile base class metadata. */
+export abstract class ProjectileType {
+  id: ResourceId;
+  speed: number;
+  lifeMs: number;
+  hitRadius: number;
+  pierce?: number;
+  bounces?: number;
+
+  constructor(args: {
+    id: ResourceId;
+    speed: number;
+    lifeMs: number;
+    hitRadius: number;
+    pierce?: number;
+    bounces?: number;
+  });
+}
+
+/** Registrable structure base class metadata and behavior flags. */
+export abstract class StructureType {
+  id: ResourceId;
+  name: string;
+  radius: number;
+  maxHp: number;
+  cost: { itemId: ResourceId; amount: number }[];
+  upgradeTo?: ResourceId;
+  behavior?: "wall" | "tower" | "trap" | "generator" | "station";
+  tower?: { weaponClassId: ResourceId; range: number; fireRate: number };
+
+  constructor(args: {
+    id: ResourceId;
+    name: string;
+    radius: number;
+    maxHp: number;
+    cost: { itemId: ResourceId; amount: number }[];
+    upgradeTo?: ResourceId;
+    behavior?: "wall" | "tower" | "trap" | "generator" | "station";
+    tower?: { weaponClassId: ResourceId; range: number; fireRate: number };
+  });
+}
+
+/** Registrable recipe class for crafting rules. */
+export abstract class RecipeType {
+  id: ResourceId;
+  name: string;
+  inputs: { itemId: ResourceId; amount: number }[];
+  outputs: { itemId: ResourceId; amount: number }[];
+  stationId?: ResourceId;
+  craftMs: number;
+
+  constructor(args: {
+    id: ResourceId;
+    name: string;
+    inputs: { itemId: ResourceId; amount: number }[];
+    outputs: { itemId: ResourceId; amount: number }[];
+    stationId?: ResourceId;
+    craftMs: number;
+  });
+}
+
+/** Registrable wave class for deterministic wave progression. */
+export abstract class WaveTemplate {
+  id: ResourceId;
+  waveNumber: number;
+  durationMs: number;
+  spawns: { enemyClassId: ResourceId; count: number; intervalMs: number }[];
+  boss?: { enemyClassId: ResourceId; atMs: number };
+
+  constructor(args: {
+    id: ResourceId;
+    waveNumber: number;
+    durationMs: number;
+    spawns: { enemyClassId: ResourceId; count: number; intervalMs: number }[];
+    boss?: { enemyClassId: ResourceId; atMs: number };
+  });
+}
+
+/** Registrable hit-effect base class metadata/behavior hook reference. */
+export abstract class EffectType {
+  id: ResourceId;
+
+  constructor(id: ResourceId);
+}
+
+/** Registrable status-effect base class metadata/behavior factory reference. */
+export abstract class StatusEffectType {
+  id: ResourceId;
+  defaultDurationMs: number;
+
+  constructor(id: ResourceId, defaultDurationMs: number);
+}
+```
+
+### Concrete content subclasses (no `*Def`) — `apps/server/src/content/*`
 
 ```ts
 /**
@@ -397,65 +809,27 @@ export type EntityKind =
   | "building"
   | "resource_node";
 
-/** Item definition for resources/craftables. */
-export interface ItemDef {
-  id: string;              // e.g., "game:wood"
-  name: string;
-  stackMax: number;
-  icon?: string;           // asset key
+/** Concrete enemy class with behavior overrides. */
+export class Zombie extends Enemy {
+  constructor(id: number);
+
+  /** Registers Minecraft-style goal stack for this mob variant. */
+  initGoals(): void;
 }
 
-/** Weapon definition (data-driven stats + effect IDs). */
-export interface WeaponDef {
-  id: string;
-  name: string;
-  type: "ranged" | "melee";
-  damage: number;
-  fireRate: number;
-  range: number;
-  projectile?: ProjectileDef;
-  hitEffects: string[];
-  ammo?: { magSize: number; reloadMs: number; reserveMax: number };
-  spread?: number;
+/** Concrete ranged weapon implementation. */
+export class BowWeapon extends RangedWeapon {
+  constructor();
 }
 
-/** Projectile definition for ranged weapons. */
-export interface ProjectileDef {
-  speed: number;
-  lifeMs: number;
-  hitRadius: number;
-  pierce?: number;
-  bounces?: number;
+/** Concrete structure implementation. */
+export class Wall extends Building {
+  constructor(id: number, ownerPlayerId: number);
 }
 
-/** Structure definition for building placement and upgrades. */
-export interface StructureDef {
-  id: string;
-  name: string;
-  radius: number;
-  maxHp: number;
-  cost: { itemId: string; amount: number }[];
-  upgradeTo?: string;
-  behavior?: "wall" | "tower" | "trap" | "generator" | "station";
-  tower?: { weaponId: string; range: number; fireRate: number };
-}
-
-/** Recipe definition for crafting. */
-export interface RecipeDef {
-  id: string;
-  name: string;
-  inputs: { itemId: string; amount: number }[];
-  outputs: { itemId: string; amount: number }[];
-  stationId?: string;
-  craftMs: number;
-}
-
-/** Wave definition for scheduled enemy spawns. */
-export interface WaveDef {
-  wave: number;
-  durationMs: number;
-  spawns: { enemyType: string; count: number; intervalMs: number }[];
-  boss?: { enemyType: string; atMs: number };
+/** Concrete resource node implementation. */
+export class TreeNode extends ResourceNode {
+  constructor(id: number);
 }
 ```
 
@@ -829,7 +1203,7 @@ export class Collision {
 
 ## 8B.2) Goal-based AI (server)
 
-### `GoalControl`, `Goal` — `apps/server/src/ai/Goal.ts`
+### `GoalControl`, `Goal` — `apps/server/src/goals/Goal.ts`
 
 ```ts
 /**
@@ -851,19 +1225,19 @@ export interface Goal {
 
   /**
    * Returns true if this goal can start running right now.
-   * @param ctx Shared AI context.
+   * @param ctx Shared goal context.
    */
   canStart(ctx: GoalContext): boolean;
 
   /**
    * Called once when this goal becomes active.
-   * @param ctx Shared AI context.
+   * @param ctx Shared goal context.
    */
   start(ctx: GoalContext): void;
 
   /**
    * Called each tick while active.
-   * @param ctx Shared AI context.
+   * @param ctx Shared goal context.
    * @param dtMs Fixed timestep.
    */
   tick(ctx: GoalContext, dtMs: number): void;
@@ -876,13 +1250,13 @@ export interface Goal {
 
   /**
    * Called once when goal stops (preempted or finished).
-   * @param ctx Shared AI context.
+   * @param ctx Shared goal context.
    */
   stop(ctx: GoalContext): void;
 }
 ```
 
-### `GoalContext` — `apps/server/src/ai/GoalContext.ts`
+### `GoalContext` — `apps/server/src/goals/GoalContext.ts`
 
 ```ts
 /**
@@ -906,7 +1280,7 @@ export class GoalContext {
 }
 ```
 
-### `GoalSelector` — `apps/server/src/ai/GoalSelector.ts`
+### `GoalSelector` — `apps/server/src/goals/GoalSelector.ts`
 
 ```ts
 /**
@@ -942,7 +1316,7 @@ export class GoalSelector {
 }
 ```
 
-### Built-in goals — `apps/server/src/ai/goals/*`
+### Built-in goals — `apps/server/src/goals/builtin/*`
 
 ```ts
 /**
@@ -1051,7 +1425,7 @@ export class ShootAtGoal implements Goal {
   controls: Set<GoalControl>;
   range: number;
   fireRate: number;
-  projectile: ProjectileDef;
+  projectileClassId: string;
   damage: number;
   hitEffects: string[];
   private cooldownMs: number;
@@ -1060,7 +1434,7 @@ export class ShootAtGoal implements Goal {
     priority: number;
     range: number;
     fireRate: number;
-    projectile: ProjectileDef;
+    projectileClassId: string;
     damage: number;
     hitEffects: string[];
   });
@@ -1159,10 +1533,10 @@ export class Player extends Entity {
  * Uses a GoalSelector (Minecraft-style objectives) to decide movement/attacks.
  */
 export class Enemy extends Entity {
-  enemyType: string;
+  enemyClassId: string;
   health: Health;
 
-  /** AI fields */
+  /** Goal fields */
   aggroTargetId?: number;
   aggroRange: number;
 
@@ -1173,13 +1547,29 @@ export class Enemy extends Entity {
   /** Brain: list of Goals (objectives). */
   goals: GoalSelector;
 
-  constructor(id: number, enemyType: string);
+  constructor(id: number, enemyClassId: string);
 
   /** Sets current aggro target. */
   setTarget(entityId: number | undefined): void;
 
   /** Optional per-entity timers; goals do the main AI work. */
   tick(world: World, dtMs: number): void;
+}
+```
+
+### Concrete enemies — `apps/server/src/content/enemies/*`
+
+```ts
+/**
+ * Concrete wave enemy.
+ * This is the canonical pattern for gameplay content:
+ * concrete classes extend runtime base classes.
+ */
+export class Zombie extends Enemy {
+  constructor(id: number);
+
+  /** Installs zombie goals (target, chase, melee, wander). */
+  initGoals(): void;
 }
 ```
 
@@ -1191,13 +1581,13 @@ export class Enemy extends Entity {
  * Simulated by ProjectileSystem; expires after lifetime or on hit.
  */
 export class Projectile extends Entity {
-  projectileDef: ProjectileDef;
+  projectileClassId: string;
   damage: number;
   lifeMs: number;
   hitEffects: string[];
   shooterId: number;
 
-  constructor(id: number, shooterId: number, def: ProjectileDef, damage: number, hitEffects: string[]);
+  constructor(id: number, shooterId: number, projectileClassId: string, damage: number, hitEffects: string[]);
 
   /** Decrements lifetime; movement/hit checks are in ProjectileSystem. */
   tick(world: World, dtMs: number): void;
@@ -1332,11 +1722,11 @@ export class CollisionSystem implements System {
 }
 ```
 
-### `AISystem` — `apps/server/src/systems/AISystem.ts`
+### `GoalSystem` — `apps/server/src/systems/GoalSystem.ts`
 
 ```ts
 /**
- * Runs enemy AI each tick using Minecraft-style Goals (objectives).
+ * Runs enemy goals each tick using Minecraft-style Goals (objectives).
  * For each enemy:
  * - Build GoalContext (world + refs)
  * - Call enemy.goals.tick(ctx, dtMs)
@@ -1346,7 +1736,7 @@ export class CollisionSystem implements System {
  * - call CombatSystem.applyDamage (melee)
  * - spawn projectiles via ProjectileSystem (ranged)
  */
-export class AISystem implements System {
+export class GoalSystem implements System {
   combat: CombatSystem;
   projectiles: ProjectileSystem;
 
@@ -1376,7 +1766,7 @@ export class ProjectileSystem implements System {
     shooterId: number,
     x: number, y: number,
     dirX: number, dirY: number,
-    def: ProjectileDef,
+    projectileClassId: string,
     damage: number,
     hitEffects: string[]
   ): Projectile;
@@ -1441,10 +1831,10 @@ export class InventorySystem implements System {
  * Also runs tower firing behavior (which can reuse ShootAtGoal internally).
  */
 export class BuildingSystem implements System {
-  structures: Map<string, StructureDef>;
+  structures: Registry<StructureType>;
   projectiles: ProjectileSystem;
 
-  constructor(structures: Map<string, StructureDef>, projectiles: ProjectileSystem);
+  constructor(structures: Registry<StructureType>, projectiles: ProjectileSystem);
 
   /** Validates and places a structure for a player; consumes costs. */
   place(world: World, playerId: number, structureId: string, x: number, y: number): boolean;
@@ -1477,9 +1867,9 @@ export class ResourceSystem implements System {
  * Validates and executes crafting recipes; consumes inputs and produces outputs.
  */
 export class CraftingSystem implements System {
-  recipes: Map<string, RecipeDef>;
+  recipes: Registry<RecipeType>;
 
-  constructor(recipes: Map<string, RecipeDef>);
+  constructor(recipes: Registry<RecipeType>);
 
   /** Attempts to craft a recipe count times. */
   craft(world: World, playerId: number, recipeId: string, count: number): boolean;
@@ -1496,17 +1886,17 @@ export class CraftingSystem implements System {
  * Emits events: wave_start, wave_end, boss_spawn.
  */
 export class WaveSystem implements System {
-  waves: WaveDef[];
-  currentWave: number;
+  waves: Registry<WaveTemplate>;
+  currentWaveNumber: number;
   waveTimerMs: number;
 
-  constructor(waves: WaveDef[]);
+  constructor(waves: Registry<WaveTemplate>);
 
   /** Starts the next wave and schedules spawns. */
   startNextWave(world: World): void;
 
   /** Spawns one enemy instance at a spawn location. */
-  spawnEnemy(world: World, enemyType: string): Enemy;
+  spawnEnemy(world: World, enemyClassId: string): Enemy;
 
   /** Chooses a spawn location near map edge or spawner points. */
   chooseSpawn(world: World): { x: number; y: number };
@@ -1578,7 +1968,7 @@ export class Inventory {
   constructor(slotCount: number);
 
   /** Adds a stack; returns true if fully added. */
-  add(stack: ItemStack, itemDefs?: Map<string, ItemDef>): boolean;
+  add(stack: ItemStack, itemRegistry?: Registry<ItemType>): boolean;
 
   /** Removes up to amount from slot; returns removed stack or null. */
   remove(slot: number, amount?: number): ItemStack | null;
@@ -1620,14 +2010,14 @@ export class Wallet {
 
 ```ts
 /**
- * Base weapon runtime wrapper around WeaponDef.
+ * Base weapon runtime wrapper around a concrete weapon class ID.
  * Handles cooldown and delegates attack behavior to subclasses.
  */
 export abstract class Weapon {
-  def: WeaponDef;
+  weaponClassId: string;
   cooldownMs: number;
 
-  constructor(def: WeaponDef);
+  constructor(weaponClassId: string);
 
   /** @returns True if weapon can fire now. */
   canFire(): boolean;
@@ -1654,7 +2044,7 @@ export class RangedWeapon extends Weapon {
   reserveAmmo: number;
   reloadTimerMs: number;
 
-  constructor(def: WeaponDef);
+  constructor(weaponClassId: string);
 
   /** Starts reload if possible. */
   reload(): void;
@@ -1679,7 +2069,7 @@ export class RangedWeapon extends Weapon {
 export class MeleeWeapon extends Weapon {
   meleeRange: number;
 
-  constructor(def: WeaponDef);
+  constructor(weaponClassId: string);
 
   /** Performs melee hit query and applies damage/effects. */
   fire(world: World, owner: Player, aimX: number, aimY: number): void;
@@ -1694,7 +2084,7 @@ export class MeleeWeapon extends Weapon {
 
 ```ts
 /**
- * Base hit-effect hook referenced by string IDs in defs.
+ * Base hit-effect hook referenced by effect class IDs in registries.
  * Effects apply immediate logic (knockback) or apply status effects (burn/slow).
  */
 export abstract class Effect {
@@ -1771,32 +2161,35 @@ export class StatusContainer {
 }
 ```
 
-### `EffectRegistry` — `apps/server/src/effects/EffectRegistry.ts`
+### `EffectRegistry` — `apps/server/src/effects/EffectRegistry.ts` (compatibility adapter)
 
 ```ts
 /**
- * Maps effect IDs to implementations and status factories.
- * Lets defs reference effects by string ID safely.
+ * Transitional adapter over generic registries for effect/status lookups.
+ * Preferred long-term source of truth is:
+ * - Registry<new (...args: any[]) => Effect>
+ * - Registry<new (...args: any[]) => StatusEffect>
  */
 export class EffectRegistry {
-  effects: Map<string, Effect>;
-  statusFactories: Map<string, (params?: any) => StatusEffect>;
+  effectClasses: Registry<new (...args: any[]) => Effect>;
+  statusEffectClasses: Registry<new (...args: any[]) => StatusEffect>;
 
-  constructor();
+  constructor(
+    effectClasses: Registry<new (...args: any[]) => Effect>,
+    statusEffectClasses: Registry<new (...args: any[]) => StatusEffect>
+  );
 
-  /** Registers a hit effect. */
-  registerEffect(effect: Effect): void;
+  /** Retrieves effect class by namespaced ID. */
+  getEffectClass(id: string): new (...args: any[]) => Effect;
 
-  /** Registers a status effect factory. */
-  registerStatus(id: string, factory: (params?: any) => StatusEffect): void;
-
-  /** Retrieves effect by ID; throws if missing. */
-  getEffect(id: string): Effect;
-
-  /** Creates a status instance by ID. */
-  createStatus(id: string, params?: any): StatusEffect;
+  /** Retrieves status effect class by namespaced ID. */
+  getStatusEffectClass(id: string): new (...args: any[]) => StatusEffect;
 }
 ```
+
+Compatibility note:
+- Existing code paths may keep `EffectRegistry` temporarily as an adapter.
+- New code should read from frozen `EFFECT_CLASS` and `STATUS_EFFECT_CLASS` registries directly.
 
 ### Built-in effects — `apps/server/src/effects/builtin/*`
 
@@ -2177,7 +2570,7 @@ Run systems in this order every tick:
 
 1. `World.step(dtMs)`
 2. `InputSystem.update()`
-3. `AISystem.update()`  (goal selection + actions)
+3. `GoalSystem.update()`  (goal selection + actions)
 4. `MovementSystem.update()`
 5. `CollisionSystem.update()`
 6. `ProjectileSystem.update()`
@@ -2189,6 +2582,8 @@ Run systems in this order every tick:
 12. `WaveSystem.update()`
 13. Snapshot build + `WsServer.broadcast()`
 
+All systems resolve content through frozen class registries (for example `STRUCTURE_CLASS`, `RECIPE_CLASS`, `WAVE_CLASS`) and not ad hoc mutable maps.
+
 ---
 
 # 10) MVP milestones
@@ -2197,7 +2592,7 @@ Run systems in this order every tick:
 2. Move + collide + interpolate + Pixi render
 3. Projectiles + damage + death events
 4. Build walls (cost + collision)
-5. Waves + goal-based enemy AI (chase + melee)
+5. Waves + goal-based enemy goals (chase + melee)
 6. Gather/craft + build upgrades
 7. Towers + ranged goals (ShootAtGoal) + polish
 
@@ -2210,6 +2605,7 @@ Run systems in this order every tick:
   - Always: id, kind, x,y,vx,vy,rot,r
   - Optional: hp/maxHp only when needed
   - data flags only when needed (e.g., `data: { burning: true }`)
+- Pre-resolve hot-path registry references (ID -> registry entry/value) during bootstrap/spawn to avoid repeated string lookups in tight tick loops.
 - Delta snapshots can come later after gameplay is fun
 
 ---
@@ -2221,6 +2617,113 @@ Run systems in this order every tick:
   - placement legality or costs
   - crafting validity
 - Clamp input vectors and rate limit actions server-side
+- Reject unknown or malformed (`namespace:path`) IDs during bootstrap and runtime input validation.
+- Disallow registry mutation after freeze; runtime content registration must throw/reject.
+
+---
+
+# 13) Registry bootstrap test scenarios
+
+1. Bootstrap success: valid IDs + valid references => all registries populated and frozen.
+2. Duplicate registration: same ID registered twice => deterministic startup failure.
+3. Missing cross-reference: weapon/recipe/structure references unknown ID => startup failure.
+4. Invalid ID format: non-`namespace:path` ID => startup failure.
+5. Post-freeze mutation: any `register()` call after `freeze()` => throws/rejects.
+6. System integration: building/crafting/wave/effect lookups resolve through registries only.
+7. Serialization consistency: snapshot/event payload IDs are canonical namespaced IDs.
+
+---
+
+# 14) Testing requirements and codebase integration
+
+### 14.1 Test layers (required)
+- Unit tests:
+  - Goal modules (`GoalSelector`, built-in goals, goal lifecycle methods)
+  - World primitives (`World`, `EntityStore`, `SpatialIndex`, `Collision`)
+  - Gameplay core (`Inventory`, `Health`, `CombatSystem`, `BuildingSystem`)
+  - Registry bootstrap validation and protocol codec (`JsonCodec`)
+- Integration tests:
+  - Server tick pipeline: `World.step -> InputSystem -> GoalSystem -> ... -> WaveSystem`
+  - Networking contract: input command validation, snapshot broadcast, disconnect behavior
+  - Wave progression and goal-driven enemy behavior under deterministic tick updates
+- Client integration tests:
+  - Snapshot ingestion + interpolation behavior
+  - Render sync contracts for entity spawn/update/despawn
+- Regression tests:
+  - Goal naming/wiring (`GoalSystem` + goals registry lookup paths)
+  - Registry lookup regressions after bootstrap/freeze
+
+### 14.2 Test layout in codebase (required)
+- `apps/server/test/unit/...`
+- `apps/server/test/integration/...`
+- `apps/client/test/unit/...`
+- `apps/client/test/integration/...`
+- `packages/shared/test/unit/...`
+- `test/fixtures/...`
+- `.github/workflows/ci.yml`
+- `scripts/coverage-gate.ts`
+
+### 14.3 Required package scripts
+- `typecheck` (TypeScript static checks)
+- `test` (full suite)
+- `test:unit` (unit only)
+- `test:integration` (integration only)
+- `test:coverage` (coverage report generation)
+- `test:coverage:gate` (coverage threshold enforcement)
+
+### 14.4 Runner and coverage tooling
+- Test runner: `bun test`
+- Coverage command: `bun test --coverage`
+- Coverage thresholds are enforced by `scripts/coverage-gate.ts` and run in CI.
+
+### 14.5 CI integration requirements
+- CI must run on every pull request and block merges on failure.
+- Required CI steps:
+  1. Install dependencies
+  2. Lint
+  3. Typecheck
+  4. Unit + integration tests
+  5. Coverage generation + coverage gate
+- Branch protection must require all test/typecheck/lint CI checks to pass before merge.
+
+### 14.6 Deterministic test requirements
+- Use fixed tick deltas for simulation tests.
+- Use seeded RNG for repeatable outcomes.
+- Do not assert against wall-clock timing unless time is controlled/mocked.
+
+### 14.7 Coverage policy (gradual gate)
+- Milestones 1-3:
+  - Global line coverage >= 60%
+  - Global branch coverage >= 50%
+  - Shared net/goal modules line coverage >= 70%
+- Milestones 4-5:
+  - Global line coverage >= 70%
+  - Global branch coverage >= 60%
+  - Server `goals`, `systems`, `world` line coverage >= 75%
+- Milestones 6-7:
+  - Global line coverage >= 80%
+  - Global branch coverage >= 70%
+  - Critical modules line coverage >= 85%:
+    - `GoalSystem`
+    - `CombatSystem`
+    - `BuildingSystem`
+    - `WaveSystem`
+    - registry bootstrap
+    - protocol codec
+
+### 14.8 Test interface expectations
+- Any new or updated system requires corresponding unit tests.
+- Any server tick pipeline change requires integration test updates.
+- Any protocol or snapshot schema change requires contract tests.
+
+### 14.9 Required scenarios
+1. `GoalSelector` conflict resolution for `move/look/attack` control channels.
+2. Goal lifecycle correctness: `canStart`, `start`, `tick`, `shouldContinue`, `stop`.
+3. `GoalSystem` applies expected world-state effects in tick order.
+4. Wave spawning uses deterministic goal-driven enemy behavior.
+5. Client interpolation remains stable under delayed snapshots.
+6. Registry bootstrap rejects malformed IDs, duplicates, and missing references.
+7. End-to-end authoritative flow: input command -> server simulation -> snapshot output.
 
 ---
 
