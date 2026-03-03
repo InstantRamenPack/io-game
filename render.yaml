@@ -3,7 +3,7 @@ services:
     name: io-game-server
     runtime: node
     plan: free
-    buildCommand: bun install
+    buildCommand: bun install --frozen-lockfile
     startCommand: bun run dev:server
     healthCheckPath: /
     envVars:
