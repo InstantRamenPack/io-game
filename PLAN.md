@@ -48,7 +48,7 @@ repo/
           BootstrapRegistries.ts
         server/
           GameServer.ts
-          clock.ts
+          TickClock.ts
         net/
           WsServer.ts
           SnapshotManager.ts
@@ -211,6 +211,8 @@ repo/
 Use a base tsconfig with:
 
 - `@shared/*` → `packages/shared/src/*`
+- `@client/*` → `apps/client/src/*`
+- `@server/*` → `apps/server/src/*`
 
 ### 3.2 Server — WebSockets via `bun.serve()`
 - `apps/server/src/index.ts` creates server:
@@ -863,8 +865,8 @@ export interface EntitySnapshot {
   y: number;
   vx: number;
   vy: number;
-  rot: number;
-  r: number;
+  rotation: number;
+  radius: number;
   hp?: number;
   maxHp?: number;
   ownerId?: number;
@@ -945,7 +947,7 @@ export class RingBuffer<T> {
 export function main(): void;
 ```
 
-### `TickClock` — `apps/server/src/server/clock.ts`
+### `TickClock` — `apps/server/src/server/TickClock.ts`
 
 ```ts
 /**
@@ -1173,7 +1175,7 @@ export class SpatialIndex {
   remove(e: Entity): void;
 
   /** Returns candidate entity IDs within a circle area (broadphase). */
-  queryCircle(x: number, y: number, r: number): number[];
+  queryCircle(x: number, y: number, radius: number): number[];
 }
 ```
 
@@ -1465,8 +1467,8 @@ export abstract class Entity {
   y: number;
   vx: number;
   vy: number;
-  rot: number;
-  r: number;
+  rotation: number;
+  radius: number;
   alive: boolean;
   teamId?: number;
   ownerId?: number;
@@ -2354,7 +2356,7 @@ export class Interpolator {
 
   /**
    * Produces interpolated entity map for the given render tick.
-   * MVP: linear interpolate x,y,rot; copy other fields from nearest snapshot.
+   * MVP: linear interpolate x,y,rotation; copy other fields from nearest snapshot.
    */
   sample(history: WorldSnapshot[], renderTick: number): Map<number, EntitySnapshot>;
 }
@@ -2602,7 +2604,7 @@ All systems resolve content through frozen class registries (for example `STRUCT
 
 - Always use `SpatialIndex` for proximity queries; avoid O(n²)
 - Keep snapshots compact:
-  - Always: id, kind, x,y,vx,vy,rot,r
+  - Always: id, kind, x,y,vx,vy,rotation,radius
   - Optional: hp/maxHp only when needed
   - data flags only when needed (e.g., `data: { burning: true }`)
 - Pre-resolve hot-path registry references (ID -> registry entry/value) during bootstrap/spawn to avoid repeated string lookups in tight tick loops.
@@ -2724,6 +2726,68 @@ All systems resolve content through frozen class registries (for example `STRUCT
 5. Client interpolation remains stable under delayed snapshots.
 6. Registry bootstrap rejects malformed IDs, duplicates, and missing references.
 7. End-to-end authoritative flow: input command -> server simulation -> snapshot output.
+
+---
+
+# 15) Implementation conventions and documented deviations (2026-03-03)
+
+This section records what is currently implemented in the repo, including intentional deviations from earlier planning text. Future humans/agents should treat this section as source-of-truth for current code conventions.
+
+### 15.1 Naming conventions now enforced in code
+- Prefer verbose identifiers over short abbreviations in code-facing names.
+  - Examples used in code: `gameConfig`, `networkServer`, `networkClient`, `snapshotManager`, `antiCheatValidator`, `latestSnapshot`.
+- Use `rotation` instead of `rot`.
+- Use `radius` instead of `r`.
+- Use `deltaMs` casing for timestep variables (not `deltaMS`).
+
+### 15.2 Documentation conventions
+- New runtime classes and methods are documented with concise JSDoc comments.
+- Parsing/validation helper functions are also documented.
+- Goal: preserve readability for handoff between human contributors and agents.
+
+### 15.3 External package usage (actual implementation)
+- `zod`: protocol message schema validation/parsing (`parseClientToServerMessage`, `parseServerToClientMessage`).
+- `denque`: bounded snapshot history/event queue mechanics.
+- `seedrandom`: deterministic RNG used directly in `World` (no custom RNG wrapper).
+- `lodash-es` (`uniqueId`): backing allocator for `IdGenerator`.
+
+### 15.4 Custom utility replacements and removals
+- Removed/replaced custom wrappers/utilities in favor of direct imports:
+  - `packages/shared/src/net/codec-json.ts` removed.
+  - `packages/shared/src/util/ringbuffer.ts` removed.
+  - `apps/server/src/world/EventBus.ts` removed.
+  - `packages/shared/src/math/Vec2.ts` removed.
+  - `packages/shared/src/math/Rng.ts` removed.
+- Current policy: prefer direct third-party imports for common primitives unless a project-specific abstraction is explicitly needed.
+
+### 15.5 Protocol/input scope deviation (current M1 behavior)
+- Current `InputCommand` is intentionally movement-only:
+  - `seq`, `tick`, `moveX`, `moveY`.
+- Earlier planned fields (aim/fire/reload/use/build/craft/switchSlot) are not active in the current implementation pass.
+- Server/client validation and tests are aligned to this reduced contract for M1 stability.
+
+### 15.6 Runtime architecture status notes
+- Server is authoritative and broadcasts snapshots at configured cadence.
+- Client runs interpolation over authoritative snapshots.
+- `TickClock` remains a small local wrapper over timer scheduling; can be inlined later if desired.
+- `IdGenerator` remains as a thin seam over external ID generation for future swap flexibility.
+
+### 15.7 Testing + CI notes reflected in codebase
+- Bun test stack is active (`bun test`, `bun test --coverage`).
+- Coverage gate is enforced by `scripts/coverage-gate.ts`.
+- Current tests include:
+  - unit: input validation and interpolation
+  - integration: snapshot pipeline and client render sync
+  - shared protocol parse contract tests
+
+### 15.8 Guidance for future changes
+- Preserve naming conventions from 15.1 in all new code and docs.
+- When protocol shape changes, update:
+  - zod schemas/types
+  - server/client message handlers
+  - contract tests
+- When replacing custom code with external imports, record the decision here and keep behavior deterministic for tests.
+- Always log specifications, deviations from prior plan text, and design decisions in this section as they happen.
 
 ---
 
