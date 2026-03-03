@@ -3,8 +3,8 @@ services:
     name: io-game-server
     runtime: node
     plan: free
-    buildCommand: bun install --frozen-lockfile
-    startCommand: bun run apps/server/index.ts
+    buildCommand: bun install
+    startCommand: bun run dev:server
     healthCheckPath: /
     envVars:
       - key: BUN_VERSION
