@@ -1,82 +1,11 @@
 <!doctype html>
-<html lang="">
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>io-game mwe</title>
-    <style>
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        margin: 24px;
-      }
-      pre {
-        background: #111;
-        color: #d8f4d0;
-        padding: 12px;
-        border-radius: 8px;
-        overflow: auto;
-      }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>io-game client</title>
   </head>
   <body>
-    <h1>io-game MWE</h1>
-    <p>WebSocket snapshot echo loop is active.</p>
-    <pre id="log">connecting...</pre>
-    <script>
-      const log = document.getElementById("log");
-      const webSocketProtocol = location.protocol === "https:" ? "wss" : "ws";
-      const webSocketClient = new WebSocket(
-        webSocketProtocol + "://" + location.host + "/ws",
-      );
-      let inputSequence = 0;
-
-      webSocketClient.addEventListener("open", () => {
-        webSocketClient.send(
-          JSON.stringify({ t: "hello", protocolVersion: __PROTOCOL_VERSION__ }),
-        );
-        log.textContent = "connected\n";
-      });
-
-      webSocketClient.addEventListener("message", (messageEvent) => {
-        try {
-          const serverMessage = JSON.parse(messageEvent.data);
-          if (serverMessage.t === "snapshot") {
-            const snapshot = serverMessage.snapshot;
-            log.textContent =
-              "connected\n" +
-              JSON.stringify(
-                {
-                  tick: snapshot.tick,
-                  timeMs: snapshot.timeMs,
-                  entities: snapshot.entities.length,
-                },
-                null,
-                2,
-              );
-          } else {
-            log.textContent += "\n" + JSON.stringify(serverMessage);
-          }
-        } catch {
-          log.textContent += "\n(raw) " + String(messageEvent.data);
-        }
-      });
-
-      setInterval(() => {
-        if (webSocketClient.readyState !== WebSocket.OPEN) {
-          return;
-        }
-        webSocketClient.send(
-          JSON.stringify({
-            t: "input",
-            cmd: {
-              seq: inputSequence++,
-              tick: 0,
-              moveX: 0,
-              moveY: 0,
-            },
-          }),
-        );
-      }, __INPUT_INTERVAL_MS__);
-    </script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
