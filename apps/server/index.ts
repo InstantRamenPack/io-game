@@ -6,15 +6,14 @@ import { join } from "node:path";
 
 const homeHtmlTemplatePath = join(import.meta.dir, "../client/index.html");
 const homeHtmlTemplate = readFileSync(homeHtmlTemplatePath, "utf8");
+const clientMainSourcePath = join(import.meta.dir, "../client/src/main.ts");
+const clientMainSource = readFileSync(clientMainSourcePath, "utf8");
+const browserTranspiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
+const clientMainModule = browserTranspiler.transformSync(clientMainSource);
 
 /** Renders the client template with runtime protocol and cadence values. */
-function renderHomeHtml(
-  protocolVersion: number,
-  inputIntervalMs: number,
-): string {
-  return homeHtmlTemplate
-    .replaceAll("__PROTOCOL_VERSION__", String(protocolVersion))
-    .replaceAll("__INPUT_INTERVAL_MS__", String(inputIntervalMs));
+function renderHomeHtml(): string {
+  return homeHtmlTemplate;
 }
 
 /** Boots the Bun HTTP/WebSocket server and authoritative game loop. */
@@ -22,8 +21,7 @@ export function main(): void {
   const gameConfig = GameConfig.load();
   const networkServer = new WsServer();
   const gameServer = new GameServer(gameConfig, networkServer);
-  const inputIntervalMs = Math.max(1, Math.floor(1000 / gameConfig.tickRate));
-  const homeHtml = renderHomeHtml(gameConfig.protocolVersion, inputIntervalMs);
+  const homeHtml = renderHomeHtml();
   gameServer.start();
 
   const port = Number(process.env.PORT ?? 3000);
@@ -44,6 +42,12 @@ export function main(): void {
 
       if (url.pathname === "/healthz") {
         return new Response("ok");
+      }
+
+      if (url.pathname === "/src/main.ts") {
+        return new Response(clientMainModule, {
+          headers: { "content-type": "text/javascript; charset=utf-8" },
+        });
       }
 
       return new Response(homeHtml, {
