@@ -1,13 +1,13 @@
 # PLAN.md — Zombs.io‑style .io game (TypeScript + Bun + WebSockets + PixiJS)
 
+Plan largely written by AI.
+
 This document is the **single source of truth** for building a **zombs.io clone** with:
 
 - **Server:** Bun runtime (TypeScript) using `bun.serve()` + WebSocket upgrade
 - **Client:** Browser TypeScript with **PixiJS** renderer
 - **Networking:** Server‑authoritative simulation; clients send **inputs**, server sends **snapshots + events**
 - **Gameplay:** Gather → craft → build/upgrade → survive enemy **waves** (walls, towers, traps, generators)
-
-It is written so an agent can implement the app end‑to‑end.
 
 ---
 
