@@ -4,4 +4,5 @@ export type EntityKind =
   | "projectile"
   | "pickup"
   | "building"
+  | "item"
   | "resource_node";

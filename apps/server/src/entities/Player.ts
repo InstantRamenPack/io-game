@@ -1,6 +1,7 @@
 import type { InputCommand } from "@shared/net/protocol.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
+import { Inventory } from "@server/items/Inventory.ts";
 
 /** Authoritative player entity driven by latest buffered input. */
 export class Player extends Entity {
@@ -8,9 +9,11 @@ export class Player extends Entity {
   inputBuffer: InputCommand[] = [];
   moveSpeed = 180;
 
+
   /** Creates a player entity with default movement tuning. */
   constructor(id: number, name = "player") {
-    super(id, "player");
+    // allocate inventory in base class
+    super(id, "player", new Inventory(20));
     this.name = name;
     this.radius = 14;
   }
@@ -21,6 +24,14 @@ export class Player extends Entity {
     if (this.inputBuffer.length > 10) {
       this.inputBuffer.shift();
     }
+  }
+
+  /** Converts player state into a snapshot, including name and inherited inventory. */
+  override toSnapshot(): import("@shared/net/snapshots.ts").EntitySnapshot {
+    const snap = super.toSnapshot();
+    snap.data = snap.data || {};
+    snap.data.name = this.name;
+    return snap;
   }
 
   /** Applies the most recent buffered input to movement velocity. */

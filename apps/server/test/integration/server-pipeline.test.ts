@@ -34,8 +34,21 @@ describe("snapshot pipeline", () => {
     for (let tickIndex = 0; tickIndex < ticksToSimulate; tickIndex += 1) {
       world.step(deltaMsPerTick);
       if (snapshotManager.shouldSendSnapshot(world.tick)) {
-        snapshotManager.makeSnapshot(world);
+        const snap = snapshotManager.makeSnapshot(world);
         sentSnapshotCount += 1;
+
+        // the spawned player should appear with inventory data attached
+        const playerSnap = snap.entities.find((e) => e.kind === "player");
+        expect(playerSnap).toBeDefined();
+        expect(playerSnap!.data).toBeDefined();
+        expect(Array.isArray(playerSnap!.data!.inventory)).toBe(true);
+        // each slot is ItemStackSnapshot | null
+        for (const slot of playerSnap!.data!.inventory) {
+          if (slot) {
+            expect(typeof slot.id).toBe("number");
+            expect(typeof slot.stackSize).toBe("number");
+          }
+        }
       }
     }
 
