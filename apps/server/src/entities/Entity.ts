@@ -1,6 +1,7 @@
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
+import { Inventory } from "@server/items/Inventory.ts";
 
 /** Base authoritative entity class for world simulation. */
 export abstract class Entity {
@@ -17,10 +18,16 @@ export abstract class Entity {
   ownerId?: number;
   data: Record<string, unknown> = {};
 
+  /** Optional fixed-slot inventory; many entity types may not use it. */
+  inventory?: Inventory;
+
   /** Initializes common identity fields for entity subclasses. */
-  constructor(id: number, kind: EntityKind) {
+  constructor(id: number, kind: EntityKind, inventory?: Inventory) {
     this.id = id;
     this.kind = kind;
+    if (inventory) {
+      this.inventory = inventory;
+    }
   }
 
   /** Per-tick extension point for subclass-specific behavior. */
@@ -30,7 +37,7 @@ export abstract class Entity {
 
   /** Converts runtime entity state into network snapshot shape. */
   toSnapshot(): EntitySnapshot {
-    return {
+    const snap: EntitySnapshot = {
       id: this.id,
       kind: this.kind,
       x: this.x,
@@ -42,6 +49,15 @@ export abstract class Entity {
       ownerId: this.ownerId,
       data: this.data,
     };
+
+    // include inventory if present (Player used to do this itself)
+    if (this.inventory) {
+      snap.data = snap.data || {};
+      snap.data.inventory = this.inventory.toSnapshot();
+      snap.data.activeSlot = this.inventory.activeIndex;
+    }
+
+    return snap;
   }
 
   /** Applies an instantaneous velocity impulse. */

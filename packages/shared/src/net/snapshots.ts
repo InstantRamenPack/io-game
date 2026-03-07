@@ -1,4 +1,5 @@
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
+import type { ItemKind } from "@shared/ids/ItemKinds";
 import type { NetEvent } from "@shared/net/events.ts";
 
 /** Serialized representation of one entity in an authoritative snapshot. */
@@ -23,4 +24,20 @@ export interface WorldSnapshot {
   timeMs: number;
   entities: EntitySnapshot[];
   events: NetEvent[];
+}
+
+
+export interface ItemSnapshot {
+  id: number;
+  kind: ItemKind;
+  ownerId?: number;
+  data?: Record<string, unknown>;
+}
+
+export interface ItemStackSnapshot {
+  id: number;
+  kind: ItemKind;
+  stackSize: number;
+  ownerId?: number;
+  data?: Record<string, unknown>;
 }
