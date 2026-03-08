@@ -3,7 +3,10 @@ import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 
-/** Base authoritative entity class for world simulation. */
+/**
+ * Base authoritative entity class for world simulation.
+ * All server-side runtime entities inherit transform and snapshot behavior from here.
+ */
 export abstract class Entity {
   id: number;
   kind: EntityKind;
@@ -17,11 +20,15 @@ export abstract class Entity {
   teamId?: number;
   ownerId?: number;
   data: Record<string, unknown> = {};
-
   /** Optional fixed-slot inventory; many entity types may not use it. */
   inventory?: Inventory;
 
-  /** Initializes common identity fields for entity subclasses. */
+  /**
+   * Initializes common identity fields for entity subclasses.
+   * @param id Stable runtime entity id.
+   * @param kind Shared entity kind tag.
+   * @param inventory Optional inventory attached to the entity at construction time.
+   */
   constructor(id: number, kind: EntityKind, inventory?: Inventory) {
     this.id = id;
     this.kind = kind;
@@ -30,12 +37,19 @@ export abstract class Entity {
     }
   }
 
-  /** Per-tick extension point for subclass-specific behavior. */
+  /**
+   * Per-tick extension point for subclass-specific behavior.
+   * @param _world World being simulated.
+   * @param _deltaMs Tick delta in milliseconds.
+   */
   tick(_world: World, _deltaMs: number): void {
     // placeholder; per-entity logic hooks can be added later
   }
 
-  /** Converts runtime entity state into network snapshot shape. */
+  /**
+   * Converts runtime entity state into the replicated snapshot shape.
+   * @returns Serialized snapshot record for this entity.
+   */
   toSnapshot(): EntitySnapshot {
     const snap: EntitySnapshot = {
       id: this.id,
@@ -60,7 +74,11 @@ export abstract class Entity {
     return snap;
   }
 
-  /** Applies an instantaneous velocity impulse. */
+  /**
+   * Applies an instantaneous velocity impulse.
+   * @param impulseX X-axis impulse.
+   * @param impulseY Y-axis impulse.
+   */
   applyImpulse(impulseX: number, impulseY: number): void {
     this.vx += impulseX;
     this.vy += impulseY;

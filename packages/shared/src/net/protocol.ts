@@ -97,7 +97,11 @@ export type ServerToClientMessage = z.infer<
   snapshot?: WorldSnapshot;
 };
 
-/** Parses JSON and returns null instead of throwing on invalid payloads. */
+/**
+ * Parses raw JSON text and returns null instead of throwing on malformed input.
+ * @param rawMessage Raw text received from a transport boundary.
+ * @returns Parsed JSON value or null when decoding fails.
+ */
 function parseJson(rawMessage: string): unknown | null {
   try {
     return JSON.parse(rawMessage) as unknown;
@@ -106,7 +110,11 @@ function parseJson(rawMessage: string): unknown | null {
   }
 }
 
-/** Parses and validates a client-to-server protocol message. */
+/**
+ * Parses and validates a client-to-server protocol message.
+ * @param rawMessage Raw JSON message received from a client.
+ * @returns Typed client message or null when validation fails.
+ */
 export function parseClientToServerMessage(
   rawMessage: string,
 ): ClientToServerMessage | null {
@@ -118,7 +126,11 @@ export function parseClientToServerMessage(
   return parsedMessage.success ? parsedMessage.data : null;
 }
 
-/** Parses and validates a server-to-client protocol message. */
+/**
+ * Parses and validates a server-to-client protocol message.
+ * @param rawMessage Raw JSON message received from the server.
+ * @returns Typed server message or null when validation fails.
+ */
 export function parseServerToClientMessage(
   rawMessage: string,
 ): ServerToClientMessage | null {

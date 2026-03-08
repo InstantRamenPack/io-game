@@ -2,7 +2,10 @@ import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { ItemKind } from "@shared/ids/ItemKinds";
 import type { NetEvent } from "@shared/net/events.ts";
 
-/** Serialized representation of one entity in an authoritative snapshot. */
+/**
+ * Serialized representation of one entity in an authoritative snapshot.
+ * This is the per-entity payload replicated from server to client.
+ */
 export interface EntitySnapshot {
   id: number;
   kind: EntityKind;
@@ -18,7 +21,10 @@ export interface EntitySnapshot {
   data?: Record<string, unknown>;
 }
 
-/** Serialized representation of full world state at one server tick. */
+/**
+ * Serialized representation of full world state at one server tick.
+ * Combines replicated entities with any discrete events emitted for that frame.
+ */
 export interface WorldSnapshot {
   tick: number;
   timeMs: number;

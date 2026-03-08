@@ -8,15 +8,25 @@ const homeHtmlTemplatePath = join(import.meta.dir, "../client/index.html");
 const homeHtmlTemplate = readFileSync(homeHtmlTemplatePath, "utf8");
 const clientMainSourcePath = join(import.meta.dir, "../client/src/main.ts");
 const clientMainSource = readFileSync(clientMainSourcePath, "utf8");
-const browserTranspiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
+const browserTranspiler = new Bun.Transpiler({
+  loader: "ts",
+  target: "browser",
+});
 const clientMainModule = browserTranspiler.transformSync(clientMainSource);
 
-/** Renders the client template with runtime protocol and cadence values. */
+/**
+ * Renders the client HTML shell.
+ * This stays as a helper so server startup keeps the response generation concerns local.
+ * @returns HTML served for the browser entrypoint.
+ */
 function renderHomeHtml(): string {
   return homeHtmlTemplate;
 }
 
-/** Boots the Bun HTTP/WebSocket server and authoritative game loop. */
+/**
+ * Boots the Bun HTTP server, WebSocket endpoint, and authoritative game loop.
+ * @returns Nothing. Process lifetime is owned by Bun after the server starts.
+ */
 export function main(): void {
   const gameConfig = GameConfig.load();
   const networkServer = new WsServer();

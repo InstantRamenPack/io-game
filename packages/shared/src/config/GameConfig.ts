@@ -1,4 +1,7 @@
-/** Shared runtime configuration used by server and client. */
+/**
+ * Shared runtime configuration used by both server and client.
+ * Keeps cadence, world, networking, and interpolation settings together.
+ */
 export class GameConfig {
   static readonly DEFAULT_TICK_RATE = 20;
   static readonly DEFAULT_SNAPSHOT_RATE = 10;
@@ -14,7 +17,10 @@ export class GameConfig {
     GameConfig.DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY;
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
-  /** Loads config with environment overrides for core rates. */
+  /**
+   * Creates a config instance and applies environment overrides for the core numeric settings.
+   * @returns Loaded runtime configuration.
+   */
   static load(): GameConfig {
     const gameConfig = new GameConfig();
     const tickRate = Number(process.env.TICK_RATE ?? gameConfig.tickRate);

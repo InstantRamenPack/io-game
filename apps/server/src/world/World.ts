@@ -5,7 +5,10 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 
-/** Authoritative world container for entities, events, and time. */
+/**
+ * Authoritative world container for entities, events, time, and shared world services.
+ * This is the main state holder stepped by the server loop.
+ */
 export class World {
   tick = 0;
   timeMs = 0;
@@ -15,7 +18,10 @@ export class World {
   events: Denque<NetEvent>;
   gameConfig: GameConfig;
 
-  /** Creates a new world with deterministic RNG and empty state indexes. */
+  /**
+   * Creates a new world with deterministic RNG and empty state indexes.
+   * @param gameConfig Runtime configuration shared with the server.
+   */
   constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
@@ -24,7 +30,10 @@ export class World {
     this.events = new Denque<NetEvent>();
   }
 
-  /** Advances world time and applies entity velocity integration. */
+  /**
+   * Advances world time and applies the base entity update/integration pass.
+   * @param deltaMs Fixed or measured tick delta in milliseconds.
+   */
   step(deltaMs: number): void {
     this.tick += 1;
     this.timeMs += deltaMs;
@@ -37,17 +46,27 @@ export class World {
     }
   }
 
-  /** Adds an entity to world storage. */
+  /**
+   * Adds an entity to world storage.
+   * @param entity Entity to spawn into the world.
+   */
   spawn(entity: Entity): void {
     this.entities.add(entity);
   }
 
-  /** Removes an entity from world storage by ID. */
+  /**
+   * Removes an entity from world storage by id.
+   * @param id Entity id to despawn.
+   */
   despawn(id: number): void {
     this.entities.remove(id);
   }
 
-  /** Resolves an entity by ID with optional caller-provided subtype. */
+  /**
+   * Resolves an entity by id with an optional caller-provided subtype.
+   * @param id Entity id to look up.
+   * @returns Matching entity when present.
+   */
   get<T extends Entity = Entity>(id: number): T | undefined {
     return this.entities.get<T>(id);
   }

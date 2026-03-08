@@ -3,14 +3,19 @@ import { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 
-/** Authoritative player entity driven by latest buffered input. */
+/**
+ * Authoritative player entity driven by buffered client input.
+ * The player owns movement tuning and any per-player runtime state.
+ */
 export class Player extends Entity {
   name: string;
   inputBuffer: InputCommand[] = [];
   moveSpeed = 180;
-
-
-  /** Creates a player entity with default movement tuning. */
+  /**
+   * Creates a player entity with default movement tuning.
+   * @param id Stable runtime entity id.
+   * @param name Display/player name.
+   */
   constructor(id: number, name = "player") {
     // allocate inventory in base class
     super(id, "player", new Inventory(20));
@@ -18,7 +23,10 @@ export class Player extends Entity {
     this.radius = 14;
   }
 
-  /** Buffers a client input command for processing on tick. */
+  /**
+   * Buffers a client input command for later processing on the server tick.
+   * @param inputCommand Input command received from the client.
+   */
   enqueueInput(inputCommand: InputCommand): void {
     this.inputBuffer.push(inputCommand);
     if (this.inputBuffer.length > 10) {
@@ -34,7 +42,11 @@ export class Player extends Entity {
     return snap;
   }
 
-  /** Applies the most recent buffered input to movement velocity. */
+  /**
+   * Applies the most recent buffered input to movement velocity.
+   * @param _world World being simulated.
+   * @param _tick Current world tick.
+   */
   applyInputForTick(_world: World, _tick: number): void {
     const latestInputCommand = this.inputBuffer[this.inputBuffer.length - 1];
     if (!latestInputCommand) {
