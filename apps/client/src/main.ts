@@ -530,27 +530,3 @@ accountBtn?.addEventListener("click", () => {
 });
 
 refreshGateUi();
-
-window.render_game_to_text = () => {
-  return JSON.stringify({
-    mode: "menu",
-    menu: {
-      selectedTab: menuState.mode,
-      title: menuState.menuTitle,
-      started: menuState.started,
-      hasAccount: menuState.hasAccount,
-    },
-    coordinates: "UI-only menu, no world coordinates",
-  });
-};
-
-window.advanceTime = (_ms: number) => {
-  // UI prototype does not rely on simulation stepping yet.
-};
-
-declare global {
-  interface Window {
-    render_game_to_text: () => string;
-    advanceTime: (ms: number) => void;
-  }
-}

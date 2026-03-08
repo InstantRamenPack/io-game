@@ -5,7 +5,10 @@ import {
 } from "@shared/net/protocol.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
-/** Minimal browser WebSocket client for protocol messaging. */
+/**
+ * Minimal browser WebSocket client for protocol messaging.
+ * Wraps a browser socket with the shared message parsing helpers.
+ */
 export class WsClient {
   socket?: WebSocket;
 
@@ -13,7 +16,10 @@ export class WsClient {
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
 
-  /** Opens a WebSocket connection and registers message handlers. */
+  /**
+   * Opens a WebSocket connection and registers protocol message handlers.
+   * @param url WebSocket endpoint to connect to.
+   */
   connect(url: string): void {
     this.disconnect();
 
@@ -54,7 +60,10 @@ export class WsClient {
     });
   }
 
-  /** Sends a validated input command to the server. */
+  /**
+   * Sends a validated input command to the server.
+   * @param inputCommand Serialized input payload for the current tick.
+   */
   sendInput(inputCommand: InputCommand): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
@@ -62,22 +71,34 @@ export class WsClient {
     this.socket.send(JSON.stringify({ t: "input", cmd: inputCommand }));
   }
 
-  /** Registers a callback for incoming snapshot messages. */
+  /**
+   * Registers a callback for incoming snapshot messages.
+   * @param snapshotHandler Callback invoked for each snapshot payload.
+   */
   onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
     this.snapshotHandlers.push(snapshotHandler);
   }
 
-  /** Registers a callback for socket open events. */
+  /**
+   * Registers a callback for socket open events.
+   * @param openHandler Callback invoked once the socket opens.
+   */
   onOpen(openHandler: () => void): void {
     this.openHandlers.push(openHandler);
   }
 
-  /** Registers a callback for socket close events. */
+  /**
+   * Registers a callback for socket close events.
+   * @param closeHandler Callback invoked when the socket closes.
+   */
   onClose(closeHandler: () => void): void {
     this.closeHandlers.push(closeHandler);
   }
 
-  /** Closes the current socket connection, if any. */
+  /**
+   * Closes the current socket connection, if any.
+   * @param reason Optional close reason passed through to the socket.
+   */
   disconnect(reason?: string): void {
     if (!this.socket) {
       return;

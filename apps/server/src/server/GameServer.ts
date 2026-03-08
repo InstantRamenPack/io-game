@@ -17,7 +17,10 @@ import { TickClock } from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
 import type { System } from "@server/systems/System.ts";
 
-/** Authoritative server runtime for players, input, and snapshots. */
+/**
+ * Authoritative server runtime for players, input handling, and snapshot output.
+ * This class coordinates the world, networking layer, and tick loop.
+ */
 export class GameServer {
   world: World;
   systems: System[] = [];
@@ -33,7 +36,11 @@ export class GameServer {
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
 
-  /** Wires server subsystems and WebSocket event handlers. */
+  /**
+   * Wires server subsystems and WebSocket event handlers.
+   * @param gameConfig Shared runtime configuration.
+   * @param networkServer Socket registry and transport helper.
+   */
   constructor(gameConfig: GameConfig, networkServer: WsServer) {
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
@@ -58,17 +65,24 @@ export class GameServer {
     });
   }
 
-  /** Starts the fixed-tick server clock. */
+  /**
+   * Starts the fixed-tick server clock.
+   */
   start(): void {
     this.clock.start((deltaMs) => this.tick(deltaMs));
   }
 
-  /** Stops the fixed-tick server clock. */
+  /**
+   * Stops the fixed-tick server clock.
+   */
   stop(): void {
     this.clock.stop();
   }
 
-  /** Processes one server tick and broadcasts snapshots at cadence. */
+  /**
+   * Processes one server tick and broadcasts snapshots on the configured cadence.
+   * @param deltaMs Tick delta in milliseconds.
+   */
   tick(deltaMs: number): void {
     this.world.step(deltaMs);
 
@@ -89,7 +103,11 @@ export class GameServer {
     }
   }
 
-  /** Validates and buffers client input for the associated player. */
+  /**
+   * Validates and buffers client input for the associated player.
+   * @param clientId Connected client id.
+   * @param inputCommand Parsed input command from that client.
+   */
   handleInput(clientId: string, inputCommand: InputCommand): void {
     const playerId = this.playerIdByClientId.get(clientId);
     if (!playerId) {
@@ -128,7 +146,11 @@ export class GameServer {
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
   }
 
-  /** Creates a player entity for a newly connected client. */
+  /**
+   * Creates a player entity for a newly connected client.
+   * @param clientId Connected client id.
+   * @returns Allocated player entity id.
+   */
   onConnect(clientId: string): number {
     const playerId = this.entityIdGenerator.alloc();
     const playerEntity = new Player(playerId, `player-${playerId}`);
@@ -144,7 +166,10 @@ export class GameServer {
     return playerId;
   }
 
-  /** Cleans up state for a disconnected client. */
+  /**
+   * Cleans up runtime state for a disconnected client.
+   * @param clientId Disconnected client id.
+   */
   onDisconnect(clientId: string): void {
     this.clientsWithCompletedHello.delete(clientId);
     this.lastInputSequenceByClientId.delete(clientId);
@@ -156,7 +181,11 @@ export class GameServer {
     }
   }
 
-  /** Parses and routes protocol messages from a client. */
+  /**
+   * Parses and routes protocol messages from a client.
+   * @param clientId Connected client id.
+   * @param rawMessage Raw JSON protocol payload.
+   */
   private handleRawMessage(clientId: string, rawMessage: string): void {
     const clientMessage = parseClientToServerMessage(rawMessage);
     if (!clientMessage) {
@@ -198,7 +227,11 @@ export class GameServer {
     }
   }
 
-  /** Verifies protocol compatibility and marks hello completion. */
+  /**
+   * Verifies protocol compatibility and marks the client handshake as complete.
+   * @param clientId Connected client id.
+   * @param helloMessage Parsed hello payload.
+   */
   private handleHello(clientId: string, helloMessage: HelloMessage): void {
     if (helloMessage.protocolVersion !== PROTOCOL_VERSION) {
       this.networkServer.send(

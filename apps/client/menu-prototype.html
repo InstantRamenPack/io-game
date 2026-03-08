@@ -547,20 +547,6 @@
         }
 
         refreshGateUi();
-
-        window.render_game_to_text = () =>
-          JSON.stringify({
-            mode: "menu",
-            menu: {
-              selectedTab: state.mode,
-              title: state.title,
-              started: state.started,
-              hasAccount: state.hasAccount,
-            },
-            coordinates: "UI-only menu, no world coordinates",
-          });
-
-        window.advanceTime = (_ms) => {};
       })();
     </script>
   </body>

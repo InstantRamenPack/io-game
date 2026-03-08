@@ -1,6 +1,12 @@
 import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
-/** Performs linear interpolation for numeric snapshot fields. */
+/**
+ * Performs linear interpolation for numeric snapshot fields.
+ * @param startValue Starting numeric value.
+ * @param endValue Ending numeric value.
+ * @param interpolationFactor Interpolation amount in the range [0, 1].
+ * @returns Interpolated numeric value.
+ */
 function interpolateLinear(
   startValue: number,
   endValue: number,
@@ -9,21 +15,35 @@ function interpolateLinear(
   return startValue + (endValue - startValue) * interpolationFactor;
 }
 
-/** Samples interpolated render-state entities from buffered snapshots. */
+/**
+ * Samples interpolated render-state entities from buffered snapshots.
+ * Clients use this to render slightly behind the authoritative server tick.
+ */
 export class Interpolator {
   bufferTicks: number;
 
-  /** Creates an interpolator with a target buffer length in ticks. */
+  /**
+   * Creates an interpolator with a target buffer length in ticks.
+   * @param bufferTicks Desired interpolation delay in server ticks.
+   */
   constructor(bufferTicks: number) {
     this.bufferTicks = bufferTicks;
   }
 
-  /** Updates interpolation buffer size in ticks. */
+  /**
+   * Updates the interpolation buffer size in ticks.
+   * @param bufferTickCount Desired interpolation delay in ticks.
+   */
   setBufferTicks(bufferTickCount: number): void {
     this.bufferTicks = Math.max(0, Math.floor(bufferTickCount));
   }
 
-  /** Returns interpolated entity states for the requested render tick. */
+  /**
+   * Returns interpolated entity states for the requested render tick.
+   * @param history Snapshot history ordered from oldest to newest.
+   * @param renderTick Tick to sample for rendering.
+   * @returns Interpolated entity map keyed by entity id.
+   */
   sample(
     history: WorldSnapshot[],
     renderTick: number,
