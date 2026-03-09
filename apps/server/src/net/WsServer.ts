@@ -15,19 +15,19 @@ export class WsServer {
   private readonly closeHandlers: Array<(clientId: string) => void> = [];
 
   /**
-   * Registers a handler for raw inbound client messages.
-   * @param handler Callback invoked with client id and raw message text.
-   */
-  onMessage(handler: (clientId: string, rawMessage: string) => void): void {
-    this.messageHandlers.push(handler);
-  }
-
-  /**
    * Registers a handler for socket-open events.
    * @param handler Callback invoked when a client connection opens.
    */
   onOpen(handler: (clientId: string) => void): void {
     this.openHandlers.push(handler);
+  }
+
+  /**
+   * Registers a handler for raw inbound client messages.
+   * @param handler Callback invoked with client id and raw message text.
+   */
+  onMessage(handler: (clientId: string, rawMessage: string) => void): void {
+    this.messageHandlers.push(handler);
   }
 
   /**
