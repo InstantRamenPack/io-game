@@ -12,8 +12,10 @@ import {
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TickClock } from "@server/server/TickClock.ts";
+import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { World } from "@server/world/World.ts";
 import type { System } from "@server/systems/System.ts";
 
@@ -35,6 +37,7 @@ export class GameServer {
   private readonly clientsWithCompletedHello = new Set<string>();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
+  private initialEnemiesSpawned = false;
 
   /**
    * Wires server subsystems and WebSocket event handlers.
@@ -51,6 +54,7 @@ export class GameServer {
     );
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
+    this.systems = [new CollisionSystem()];
 
     this.networkServer.onOpen((clientId) => {
       this.onConnect(clientId);
@@ -69,6 +73,10 @@ export class GameServer {
    * Starts the fixed-tick server clock.
    */
   start(): void {
+    if (!this.initialEnemiesSpawned) {
+      this.spawnInitialEnemies();
+      this.initialEnemiesSpawned = true;
+    }
     this.clock.start((deltaMs) => this.tick(deltaMs));
   }
 
@@ -84,13 +92,19 @@ export class GameServer {
    * @param deltaMs Tick delta in milliseconds.
    */
   tick(deltaMs: number): void {
-    this.world.step(deltaMs);
+    const simulationTick = this.world.tick + 1;
 
     for (const [, playerId] of this.playerIdByClientId) {
       const player = this.world.get<Player>(playerId);
       if (player) {
-        player.applyInputForTick(this.world, this.world.tick);
+        player.applyInputForTick(this.world, simulationTick);
       }
+    }
+
+    this.world.step(deltaMs);
+
+    for (const system of this.systems) {
+      system.update(this.world, deltaMs);
     }
 
     if (this.snapshotManager.shouldSendSnapshot(this.world.tick)) {
@@ -178,6 +192,25 @@ export class GameServer {
     if (playerId) {
       this.world.despawn(playerId);
       this.playerIdByClientId.delete(clientId);
+    }
+  }
+
+  /**
+   * Spawns the initial set of static enemies at deterministic map locations.
+   */
+  private spawnInitialEnemies(): void {
+    const enemyPositions = [
+      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.25 },
+      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.25 },
+      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.75 },
+      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.75 },
+    ];
+
+    for (const enemyPosition of enemyPositions) {
+      const enemy = new Enemy(this.entityIdGenerator.alloc());
+      enemy.x = enemyPosition.x;
+      enemy.y = enemyPosition.y;
+      this.world.spawn(enemy);
     }
   }
 

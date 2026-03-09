@@ -21,6 +21,7 @@ export class Player extends Entity {
     super(id, "player", new Inventory(20));
     this.name = name;
     this.radius = 14;
+    this.collisionMode = "dynamic";
   }
 
   /**
