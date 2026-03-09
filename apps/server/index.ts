@@ -1,6 +1,7 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
+import { AuthService } from "@server/services/AuthService.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -8,7 +9,10 @@ const homeHtmlTemplatePath = join(import.meta.dir, "../client/index.html");
 const homeHtmlTemplate = readFileSync(homeHtmlTemplatePath, "utf8");
 const clientMainSourcePath = join(import.meta.dir, "../client/src/main.ts");
 const clientMainSource = readFileSync(clientMainSourcePath, "utf8");
-const browserTranspiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
+const browserTranspiler = new Bun.Transpiler({
+  loader: "ts",
+  target: "browser",
+});
 const clientMainModule = browserTranspiler.transformSync(clientMainSource);
 
 /** Renders the client template with runtime protocol and cadence values. */
@@ -19,8 +23,10 @@ function renderHomeHtml(): string {
 /** Boots the Bun HTTP/WebSocket server and authoritative game loop. */
 export function main(): void {
   const gameConfig = GameConfig.load();
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const authService = new AuthService(googleClientId);
   const networkServer = new WsServer();
-  const gameServer = new GameServer(gameConfig, networkServer);
+  const gameServer = new GameServer(gameConfig, networkServer, authService);
   const homeHtml = renderHomeHtml();
   gameServer.start();
 
@@ -42,6 +48,20 @@ export function main(): void {
 
       if (url.pathname === "/healthz") {
         return new Response("ok");
+      }
+
+      if (url.pathname === "/runtime-config") {
+        return new Response(
+          JSON.stringify({
+            googleClientId: googleClientId ?? null,
+          }),
+          {
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            },
+          },
+        );
       }
 
       if (url.pathname === "/src/main.ts") {

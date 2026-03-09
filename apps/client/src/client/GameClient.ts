@@ -32,13 +32,13 @@ export class GameClient {
   }
 
   /** Connects to the game server and starts periodic input sends. */
-  start(url: string): void {
+  start(url: string, googleIdToken?: string): void {
     if (this.started) {
       return;
     }
     this.started = true;
 
-    this.networkClient.connect(url);
+    this.networkClient.connect(url, googleIdToken);
 
     const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
     this.inputTimer = setInterval(() => {
