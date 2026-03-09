@@ -7,10 +7,12 @@ export class GameConfig {
   static readonly DEFAULT_SNAPSHOT_RATE = 10;
   static readonly DEFAULT_PROTOCOL_VERSION = 1;
   static readonly DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY = 120;
+  static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
   tickRate = GameConfig.DEFAULT_TICK_RATE;
   snapshotRate = GameConfig.DEFAULT_SNAPSHOT_RATE;
   worldSize = { w: 2000, h: 2000 };
+  collision = { spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE };
   network = { maxPlayers: 64, maxPacketBytes: 16 * 1024 };
   interpolation = { bufferTicks: 2 };
   clientSnapshotHistoryCapacity =
@@ -27,6 +29,9 @@ export class GameConfig {
     const snapshotRate = Number(
       process.env.SNAPSHOT_RATE ?? gameConfig.snapshotRate,
     );
+    const spatialCellSize = Number(
+      process.env.SPATIAL_CELL_SIZE ?? gameConfig.collision.spatialCellSize,
+    );
     const clientSnapshotHistoryCapacity = Number(
       process.env.CLIENT_SNAPSHOT_HISTORY_CAPACITY ??
         gameConfig.clientSnapshotHistoryCapacity,
@@ -37,6 +42,9 @@ export class GameConfig {
     }
     if (Number.isFinite(snapshotRate) && snapshotRate > 0) {
       gameConfig.snapshotRate = Math.floor(snapshotRate);
+    }
+    if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
+      gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);
     }
     if (
       Number.isFinite(clientSnapshotHistoryCapacity) &&

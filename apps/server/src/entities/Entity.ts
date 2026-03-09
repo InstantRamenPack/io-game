@@ -3,6 +3,8 @@ import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 
+export type CollisionMode = "none" | "dynamic" | "static";
+
 /**
  * Base authoritative entity class for world simulation.
  * All server-side runtime entities inherit transform and snapshot behavior from here.
@@ -15,8 +17,12 @@ export abstract class Entity {
   vx = 0;
   vy = 0;
   rotation = 0;
+  /** Half-size of the square hitbox; radius 12 means a 24x24 box. */
   radius = 12;
+  collisionMode: CollisionMode = "none";
   alive = true;
+  hp?: number;
+  maxHp?: number;
   teamId?: number;
   ownerId?: number;
   data: Record<string, unknown> = {};
@@ -29,7 +35,7 @@ export abstract class Entity {
    * @param kind Shared entity kind tag.
    * @param inventory Optional inventory attached to the entity at construction time.
    */
-  constructor(id: number, kind: EntityKind, inventory?: Inventory) {
+  protected constructor(id: number, kind: EntityKind, inventory?: Inventory) {
     this.id = id;
     this.kind = kind;
     if (inventory) {
@@ -64,6 +70,13 @@ export abstract class Entity {
       data: this.data,
     };
 
+    if (this.hp !== undefined) {
+      snap.hp = this.hp;
+    }
+    if (this.maxHp !== undefined) {
+      snap.maxHp = this.maxHp;
+    }
+
     // include inventory if present (Player used to do this itself)
     if (this.inventory) {
       snap.data = snap.data || {};
@@ -75,7 +88,7 @@ export abstract class Entity {
   }
 
   /**
-   * Applies an instantaneous velocity impulse.
+   * Applies an instantaneous velocity impulse. Used for knockback effects.
    * @param impulseX X-axis impulse.
    * @param impulseY Y-axis impulse.
    */
