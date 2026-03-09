@@ -1,3 +1,5 @@
+import { WsClient } from "@client/net/WsClient.ts";
+
 const styleText = `
 :root {
   --bg-0: #0d160f;
@@ -207,6 +209,22 @@ body {
   cursor: pointer;
 }
 
+.account-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.guest-btn {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(12, 18, 13, 0.75);
+  color: #d9ead6;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
 .play-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -381,7 +399,10 @@ const markup = `
 
       <div class="account-gate" id="account-gate">
         <span id="account-gate-text">Account required to deploy.</span>
-        <button class="account-btn" id="account-btn">Create Account</button>
+        <div class="account-actions">
+          <button class="account-btn" id="account-btn">Sign in with Google</button>
+          <button class="guest-btn" id="guest-btn">Continue as Guest</button>
+        </div>
       </div>
 
       <div class="play-grid">
@@ -414,6 +435,26 @@ const markup = `
 `;
 
 type MenuMode = "play" | "loadout" | "settings" | "account";
+type AuthMode = "none" | "guest" | "google";
+type RuntimeConfig = { googleClientId: string | null };
+type GoogleCredentialResponse = { credential?: string };
+type GoogleIdApi = {
+  initialize: (options: {
+    client_id: string;
+    callback: (response: GoogleCredentialResponse) => void;
+  }) => void;
+  prompt: () => void;
+};
+type GoogleApi = { accounts?: { id?: GoogleIdApi } };
+type MetaProgress = {
+  coins: number;
+  unlockedScout: boolean;
+};
+
+const DEFAULT_META_PROGRESS: MetaProgress = {
+  coins: 100,
+  unlockedScout: false,
+};
 
 const menuState: {
   mode: MenuMode;
@@ -426,6 +467,28 @@ const menuState: {
   started: false,
   hasAccount: false,
 };
+
+const authState: {
+  googleClientId: string | null;
+  googleIdToken: string | null;
+  googleEmail: string | null;
+  googleSubjectId: string | null;
+  authMode: AuthMode;
+  initialized: boolean;
+  errorMessage: string | null;
+} = {
+  googleClientId: null,
+  googleIdToken: null,
+  googleEmail: null,
+  googleSubjectId: null,
+  authMode: "none",
+  initialized: false,
+  errorMessage: null,
+};
+
+let metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
+
+const socketClient = new WsClient();
 
 const titles: Record<MenuMode, string> = {
   play: "OUTBREAK SECTOR",
@@ -447,26 +510,134 @@ const launchBtn = document.getElementById("launch-btn");
 const accountGate = document.getElementById("account-gate");
 const accountGateText = document.getElementById("account-gate-text");
 const accountBtn = document.getElementById("account-btn");
+const guestBtn = document.getElementById("guest-btn");
+
+const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
+  const payloadBase64Url = jwt.split(".")[1];
+  if (!payloadBase64Url) {
+    return null;
+  }
+
+  const payloadBase64 = payloadBase64Url
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(payloadBase64Url.length / 4) * 4, "=");
+  try {
+    return JSON.parse(atob(payloadBase64)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const deriveEmailFromToken = (jwt: string): string | null => {
+  const payload = decodeJwtPayload(jwt);
+  const emailClaim = payload?.email;
+  return typeof emailClaim === "string" ? emailClaim : null;
+};
+
+const deriveSubjectFromToken = (jwt: string): string | null => {
+  const payload = decodeJwtPayload(jwt);
+  const subClaim = payload?.sub;
+  return typeof subClaim === "string" ? subClaim : null;
+};
+
+const getGoogleIdApi = (): GoogleIdApi | null => {
+  return ((window.google as GoogleApi | undefined)?.accounts?.id ??
+    null) as GoogleIdApi | null;
+};
+
+const metaStorageKey = (googleSubjectId: string): string =>
+  `zombs-meta-progress:${googleSubjectId}`;
+
+const loadMetaProgress = (): void => {
+  if (authState.authMode !== "google" || !authState.googleSubjectId) {
+    metaProgress = { ...DEFAULT_META_PROGRESS };
+    return;
+  }
+
+  const rawPayload = window.localStorage.getItem(
+    metaStorageKey(authState.googleSubjectId),
+  );
+  if (!rawPayload) {
+    metaProgress = { ...DEFAULT_META_PROGRESS };
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(rawPayload) as Partial<MetaProgress>;
+    metaProgress = {
+      coins:
+        typeof parsed.coins === "number" && Number.isFinite(parsed.coins)
+          ? Math.max(0, Math.floor(parsed.coins))
+          : DEFAULT_META_PROGRESS.coins,
+      unlockedScout:
+        typeof parsed.unlockedScout === "boolean"
+          ? parsed.unlockedScout
+          : DEFAULT_META_PROGRESS.unlockedScout,
+    };
+  } catch {
+    metaProgress = { ...DEFAULT_META_PROGRESS };
+  }
+};
+
+const persistMetaProgress = (): void => {
+  if (authState.authMode !== "google" || !authState.googleSubjectId) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    metaStorageKey(authState.googleSubjectId),
+    JSON.stringify(metaProgress),
+  );
+};
 
 const refreshGateUi = () => {
-  if (!launchBtn || !accountGate || !accountGateText || !accountBtn) {
+  if (
+    !launchBtn ||
+    !accountGate ||
+    !accountGateText ||
+    !accountBtn ||
+    !guestBtn
+  ) {
     return;
   }
 
   const deployButton = launchBtn as HTMLButtonElement;
   const createButton = accountBtn as HTMLButtonElement;
+  const continueAsGuestButton = guestBtn as HTMLButtonElement;
   if (menuState.hasAccount) {
     accountGate.classList.add("ok");
-    accountGateText.textContent = "Account verified. You can deploy.";
+    const suffix = authState.googleEmail ? ` (${authState.googleEmail})` : "";
+    accountGateText.textContent = `Google account verified${suffix}. You can deploy.`;
     createButton.textContent = "Account Ready";
     createButton.disabled = true;
+    continueAsGuestButton.disabled = false;
+    deployButton.disabled = false;
+  } else if (authState.authMode === "guest") {
+    accountGate.classList.add("ok");
+    accountGateText.textContent =
+      "Guest session active. Progress will not be saved.";
+    createButton.textContent = authState.initialized
+      ? "Sign in with Google"
+      : "Loading...";
+    createButton.disabled = !authState.initialized;
+    continueAsGuestButton.textContent = "Guest Active";
+    continueAsGuestButton.disabled = true;
     deployButton.disabled = false;
   } else {
     accountGate.classList.remove("ok");
-    accountGateText.textContent = "Account required to deploy.";
-    createButton.textContent = "Create Account";
-    createButton.disabled = false;
-    deployButton.disabled = false;
+    accountGateText.textContent =
+      authState.errorMessage ??
+      (authState.initialized
+        ? "Sign in with Google to deploy."
+        : "Preparing Google sign-in...");
+    createButton.textContent = authState.initialized
+      ? "Sign in with Google"
+      : "Loading...";
+    createButton.disabled = !authState.initialized;
+    continueAsGuestButton.textContent = "Continue as Guest";
+    continueAsGuestButton.disabled = false;
+    deployButton.disabled = authState.authMode === "none";
   }
 };
 
@@ -495,41 +666,196 @@ sideButtons.forEach((button) => {
 });
 
 launchBtn?.addEventListener("click", () => {
-  if (!menuState.hasAccount) {
+  if (authState.authMode === "none") {
     updateMode("account");
     if (accountGateText) {
-      accountGateText.textContent = "Create an account first, then deploy.";
+      accountGateText.textContent =
+        "Sign in with Google or continue as guest first.";
     }
     return;
   }
 
-  menuState.started = true;
   const button = launchBtn as HTMLButtonElement;
   button.textContent = "Connecting...";
   button.disabled = true;
-  window.setTimeout(() => {
-    button.textContent = "Deploy";
-    button.disabled = false;
-  }, 1200);
+  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+  const token =
+    authState.authMode === "google"
+      ? (authState.googleIdToken ?? undefined)
+      : undefined;
+  socketClient.connect(wsUrl, token);
 });
 
 accountBtn?.addEventListener("click", () => {
-  menuState.hasAccount = true;
-  menuState.mode = "play";
-  menuState.menuTitle = titles.play;
-  if (titleEl) {
-    titleEl.textContent = menuState.menuTitle;
+  if (menuState.hasAccount) {
+    return;
   }
-  sideButtons.forEach((button) => {
-    button.setAttribute(
-      "aria-current",
-      button.dataset.view === menuState.mode ? "true" : "false",
-    );
-  });
+  if (!authState.initialized) {
+    return;
+  }
+  getGoogleIdApi()?.prompt();
+});
+
+guestBtn?.addEventListener("click", () => {
+  authState.authMode = "guest";
+  authState.googleIdToken = null;
+  authState.googleEmail = null;
+  authState.googleSubjectId = null;
+  authState.errorMessage = null;
+  menuState.hasAccount = false;
+  menuState.started = false;
+  loadMetaProgress();
+  updateMode("play");
   refreshGateUi();
 });
 
+socketClient.onOpen(() => {
+  menuState.started = true;
+  if (launchBtn) {
+    const button = launchBtn as HTMLButtonElement;
+    button.textContent = "Connected";
+    button.disabled = true;
+  }
+});
+
+socketClient.onClose(() => {
+  if (!launchBtn || menuState.started) {
+    return;
+  }
+
+  const button = launchBtn as HTMLButtonElement;
+  button.textContent = "Deploy";
+  button.disabled = authState.authMode === "none";
+});
+
+socketClient.onError((message) => {
+  if (message === "auth_invalid" || message === "auth_not_configured") {
+    menuState.hasAccount = false;
+    menuState.started = false;
+    if (authState.authMode === "google") {
+      authState.googleIdToken = null;
+      authState.googleEmail = null;
+      authState.googleSubjectId = null;
+      authState.authMode = "none";
+      authState.errorMessage =
+        message === "auth_not_configured"
+          ? "Google sign-in unavailable. Continue as guest or configure GOOGLE_CLIENT_ID."
+          : "Google sign-in expired. Please sign in again or continue as guest.";
+      loadMetaProgress();
+    }
+    updateMode("account");
+  }
+
+  if (launchBtn) {
+    const button = launchBtn as HTMLButtonElement;
+    button.textContent = "Deploy";
+    button.disabled = authState.authMode === "none";
+  }
+  refreshGateUi();
+});
+
+const loadGoogleScript = async (): Promise<void> => {
+  if (getGoogleIdApi()) {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]',
+    );
+    if (existing) {
+      if (getGoogleIdApi()) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("script_error")),
+        {
+          once: true,
+        },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error("script_error")), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  });
+};
+
+const initializeGoogleAuth = async (): Promise<void> => {
+  try {
+    const response = await fetch("/runtime-config");
+    if (!response.ok) {
+      throw new Error("runtime_config_error");
+    }
+    const runtimeConfig = (await response.json()) as RuntimeConfig;
+    authState.googleClientId = runtimeConfig.googleClientId;
+  } catch {
+    authState.errorMessage = "Unable to load auth config.";
+    refreshGateUi();
+    return;
+  }
+
+  if (!authState.googleClientId) {
+    authState.errorMessage =
+      "Server auth is not configured. Set GOOGLE_CLIENT_ID.";
+    refreshGateUi();
+    return;
+  }
+
+  try {
+    await loadGoogleScript();
+  } catch {
+    authState.errorMessage = "Google sign-in failed to load.";
+    refreshGateUi();
+    return;
+  }
+
+  const googleIdApi = getGoogleIdApi();
+  if (!googleIdApi) {
+    authState.errorMessage = "Google sign-in API is unavailable.";
+    refreshGateUi();
+    return;
+  }
+
+  googleIdApi.initialize({
+    client_id: authState.googleClientId,
+    callback: (response) => {
+      const credential = response.credential;
+      if (!credential) {
+        return;
+      }
+
+      authState.googleIdToken = credential;
+      authState.googleEmail = deriveEmailFromToken(credential);
+      authState.googleSubjectId = deriveSubjectFromToken(credential);
+      authState.authMode = "google";
+      authState.errorMessage = null;
+      menuState.hasAccount = true;
+      loadMetaProgress();
+      updateMode("play");
+      refreshGateUi();
+    },
+  });
+
+  authState.initialized = true;
+  refreshGateUi();
+  googleIdApi.prompt();
+};
+
 refreshGateUi();
+loadMetaProgress();
+void initializeGoogleAuth();
 
 window.render_game_to_text = () => {
   return JSON.stringify({
@@ -539,6 +865,9 @@ window.render_game_to_text = () => {
       title: menuState.menuTitle,
       started: menuState.started,
       hasAccount: menuState.hasAccount,
+      authMode: authState.authMode,
+      googleEmail: authState.googleEmail,
+      metaProgress,
     },
     coordinates: "UI-only menu, no world coordinates",
   });
@@ -552,5 +881,6 @@ declare global {
   interface Window {
     render_game_to_text: () => string;
     advanceTime: (ms: number) => void;
+    google?: GoogleApi;
   }
 }

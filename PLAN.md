@@ -222,7 +222,7 @@ Use a base tsconfig with:
   - `open(ws)`
   - `message(ws, message)`
   - `close(ws, code, reason)`
-
+    cd /Users/brettwang/Documents/io-game
 ### 3.3 Client
 - Bundle however you like.
 - Connect to `ws(s)://<host>/ws`.
