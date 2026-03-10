@@ -31,6 +31,8 @@ function renderHomeHtml(): string {
 export function main(): void {
   const gameConfig = GameConfig.load();
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const tlsCertPath = process.env.TLS_CERT_PATH;
+  const tlsKeyPath = process.env.TLS_KEY_PATH;
   const authService = new AuthService(googleClientId);
   const networkServer = new WsServer();
   const gameServer = new GameServer(gameConfig, networkServer, authService);
@@ -38,9 +40,23 @@ export function main(): void {
   gameServer.start();
 
   const port = Number(process.env.PORT ?? 3000);
+  if ((tlsCertPath && !tlsKeyPath) || (!tlsCertPath && tlsKeyPath)) {
+    throw new Error(
+      "TLS_CERT_PATH and TLS_KEY_PATH must both be set to enable HTTPS.",
+    );
+  }
+  const tls =
+    tlsCertPath && tlsKeyPath
+      ? {
+          cert: Bun.file(tlsCertPath),
+          key: Bun.file(tlsKeyPath),
+        }
+      : undefined;
+  const protocol = tls ? "https" : "http";
 
   Bun.serve<{ clientId: string }>({
     port,
+    ...(tls ? { tls } : {}),
     fetch(req, server) {
       const url = new URL(req.url);
 
@@ -96,7 +112,7 @@ export function main(): void {
   });
 
   // eslint-disable-next-line no-console
-  console.log(`server listening on http://localhost:${port}`);
+  console.log(`server listening on ${protocol}://localhost:${port}`);
 }
 
 main();
