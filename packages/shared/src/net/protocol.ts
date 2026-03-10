@@ -14,6 +14,7 @@ export const InputCommandSchema = z.object({
 export const HelloMessageSchema = z.object({
   t: z.literal("hello"),
   protocolVersion: z.number(),
+  googleIdToken: z.string().min(1).optional(),
 });
 
 export const InputMessageSchema = z.object({

@@ -40,14 +40,15 @@ export class GameClient {
   /**
    * Connects to the game server and starts periodic input sends.
    * @param url WebSocket endpoint for the authoritative server.
+   * @param googleIdToken Optional Google ID token sent during the hello handshake.
    */
-  start(url: string): void {
+  start(url: string, googleIdToken?: string): void {
     if (this.started) {
       return;
     }
     this.started = true;
 
-    this.networkClient.connect(url);
+    this.networkClient.connect(url, googleIdToken);
 
     const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
     this.inputTimer = setInterval(() => {

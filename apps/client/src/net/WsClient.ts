@@ -15,12 +15,14 @@ export class WsClient {
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
+  private errorHandlers: Array<(message: string) => void> = [];
 
   /**
    * Opens a WebSocket connection and registers protocol message handlers.
    * @param url WebSocket endpoint to connect to.
+   * @param googleIdToken Optional Google ID token sent during the hello handshake.
    */
-  connect(url: string): void {
+  connect(url: string, googleIdToken?: string): void {
     this.disconnect();
 
     const socket = new WebSocket(url);
@@ -28,7 +30,11 @@ export class WsClient {
 
     socket.addEventListener("open", () => {
       socket.send(
-        JSON.stringify({ t: "hello", protocolVersion: PROTOCOL_VERSION }),
+        JSON.stringify({
+          t: "hello",
+          protocolVersion: PROTOCOL_VERSION,
+          googleIdToken,
+        }),
       );
       for (const openHandler of this.openHandlers) {
         openHandler();
@@ -55,6 +61,13 @@ export class WsClient {
       if (serverMessage.t === "snapshot") {
         for (const snapshotHandler of this.snapshotHandlers) {
           snapshotHandler(serverMessage.snapshot);
+        }
+        return;
+      }
+
+      if (serverMessage.t === "error") {
+        for (const errorHandler of this.errorHandlers) {
+          errorHandler(serverMessage.message);
         }
       }
     });
@@ -93,6 +106,11 @@ export class WsClient {
    */
   onClose(closeHandler: () => void): void {
     this.closeHandlers.push(closeHandler);
+  }
+
+  /** Registers a callback for server error protocol messages. */
+  onError(errorHandler: (message: string) => void): void {
+    this.errorHandlers.push(errorHandler);
   }
 
   /**
