@@ -1,25 +1,36 @@
-/** Shared runtime configuration used by server and client. */
+/**
+ * Shared runtime configuration used by both server and client.
+ * Keeps cadence, world, networking, and interpolation settings together.
+ */
 export class GameConfig {
   static readonly DEFAULT_TICK_RATE = 20;
   static readonly DEFAULT_SNAPSHOT_RATE = 10;
   static readonly DEFAULT_PROTOCOL_VERSION = 1;
   static readonly DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY = 120;
+  static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
   tickRate = GameConfig.DEFAULT_TICK_RATE;
   snapshotRate = GameConfig.DEFAULT_SNAPSHOT_RATE;
   worldSize = { w: 2000, h: 2000 };
+  collision = { spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE };
   network = { maxPlayers: 64, maxPacketBytes: 16 * 1024 };
   interpolation = { bufferTicks: 2 };
   clientSnapshotHistoryCapacity =
     GameConfig.DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY;
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
-  /** Loads config with environment overrides for core rates. */
+  /**
+   * Creates a config instance and applies environment overrides for the core numeric settings.
+   * @returns Loaded runtime configuration.
+   */
   static load(): GameConfig {
     const gameConfig = new GameConfig();
     const tickRate = Number(process.env.TICK_RATE ?? gameConfig.tickRate);
     const snapshotRate = Number(
       process.env.SNAPSHOT_RATE ?? gameConfig.snapshotRate,
+    );
+    const spatialCellSize = Number(
+      process.env.SPATIAL_CELL_SIZE ?? gameConfig.collision.spatialCellSize,
     );
     const clientSnapshotHistoryCapacity = Number(
       process.env.CLIENT_SNAPSHOT_HISTORY_CAPACITY ??
@@ -31,6 +42,9 @@ export class GameConfig {
     }
     if (Number.isFinite(snapshotRate) && snapshotRate > 0) {
       gameConfig.snapshotRate = Math.floor(snapshotRate);
+    }
+    if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
+      gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);
     }
     if (
       Number.isFinite(clientSnapshotHistoryCapacity) &&

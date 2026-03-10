@@ -6,7 +6,10 @@ import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
-/** Coordinates networking, client state, interpolation, and rendering. */
+/**
+ * Coordinates client networking, snapshot state, interpolation, and rendering.
+ * This stays presentation-only and does not own authoritative gameplay rules.
+ */
 export class GameClient {
   networkClient: WsClient;
   worldState: ClientWorldState;
@@ -18,7 +21,10 @@ export class GameClient {
   private inputTimer: ReturnType<typeof setInterval> | undefined;
   private started = false;
 
-  /** Creates a client runtime with network, state, and renderer dependencies. */
+  /**
+   * Creates a client runtime with network, state, and renderer dependencies.
+   * @param gameConfig Shared runtime configuration used by the client.
+   */
   constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
@@ -31,7 +37,11 @@ export class GameClient {
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
   }
 
-  /** Connects to the game server and starts periodic input sends. */
+  /**
+   * Connects to the game server and starts periodic input sends.
+   * @param url WebSocket endpoint for the authoritative server.
+   * @param googleIdToken Optional Google ID token sent during the hello handshake.
+   */
   start(url: string, googleIdToken?: string): void {
     if (this.started) {
       return;
@@ -48,7 +58,10 @@ export class GameClient {
     }, periodMs);
   }
 
-  /** Advances client simulation/render state for one frame. */
+  /**
+   * Advances client simulation and render state for one frame.
+   * @param deltaMs Frame delta in milliseconds.
+   */
   update(deltaMs: number): void {
     const latestSnapshot = this.worldState.getLatest();
     if (!latestSnapshot) {
@@ -65,12 +78,17 @@ export class GameClient {
     this.renderer.update(deltaMs);
   }
 
-  /** Stores an authoritative world snapshot from the server. */
+  /**
+   * Stores an authoritative world snapshot received from the server.
+   * @param snapshot Snapshot payload from the authoritative server.
+   */
   onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState.pushSnapshot(snapshot);
   }
 
-  /** Stops periodic input sends and releases timer resources. */
+  /**
+   * Stops periodic input sends and releases client-side timer resources.
+   */
   stop(): void {
     this.started = false;
     if (this.inputTimer) {

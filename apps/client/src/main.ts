@@ -210,6 +210,16 @@ body {
 .account-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.google-auth-slot {
+  min-width: 220px;
+}
+
+.google-signin-target {
+  min-height: 40px;
 }
 
 .guest-btn {
@@ -398,7 +408,10 @@ const markup = `
       <div class="account-gate" id="account-gate">
         <span id="account-gate-text">Account required to deploy.</span>
         <div class="account-actions">
-          <button class="account-btn" id="account-btn">Sign in with Google</button>
+          <div class="google-auth-slot">
+            <button class="account-btn" id="account-btn" type="button">Loading...</button>
+            <div class="google-signin-target" id="google-signin-target" hidden></div>
+          </div>
           <button class="guest-btn" id="guest-btn">Continue as Guest</button>
         </div>
       </div>
@@ -444,6 +457,17 @@ type GoogleIdApi = {
     client_id: string;
     callback: (response: GoogleCredentialResponse) => void;
   }) => void;
+  renderButton: (
+    parent: HTMLElement,
+    options: {
+      text?: "signin_with" | "signup_with" | "continue_with" | "signin";
+      theme?: "outline" | "filled_blue" | "filled_black";
+      size?: "large" | "medium" | "small";
+      shape?: "rectangular" | "pill" | "circle" | "square";
+      width?: number;
+      logo_alignment?: "left" | "center";
+    },
+  ) => void;
   prompt: () => void;
 };
 type GoogleApi = { accounts?: { id?: GoogleIdApi } };
@@ -591,7 +615,9 @@ const launchBtn = document.getElementById("launch-btn");
 const accountGate = document.getElementById("account-gate");
 const accountGateText = document.getElementById("account-gate-text");
 const accountBtn = document.getElementById("account-btn");
+const googleSignInTarget = document.getElementById("google-signin-target");
 const guestBtn = document.getElementById("guest-btn");
+let googleButtonRendered = false;
 
 const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
   const payloadBase64Url = jwt.split(".")[1];
@@ -672,6 +698,40 @@ const persistMetaProgress = (): void => {
   );
 };
 
+const syncGoogleSignInButton = (): void => {
+  if (!accountBtn || !googleSignInTarget) {
+    return;
+  }
+
+  const fallbackButton = accountBtn as HTMLButtonElement;
+  const shouldShowGoogleButton = authState.initialized && !menuState.hasAccount;
+
+  fallbackButton.hidden = shouldShowGoogleButton;
+  googleSignInTarget.hidden = !shouldShowGoogleButton;
+
+  if (!shouldShowGoogleButton || googleButtonRendered) {
+    return;
+  }
+
+  const googleIdApi = getGoogleIdApi();
+  if (!googleIdApi) {
+    fallbackButton.hidden = false;
+    googleSignInTarget.hidden = true;
+    return;
+  }
+
+  googleSignInTarget.replaceChildren();
+  googleIdApi.renderButton(googleSignInTarget, {
+    theme: "outline",
+    size: "large",
+    text: "signin_with",
+    shape: "pill",
+    width: 240,
+    logo_alignment: "left",
+  });
+  googleButtonRendered = true;
+};
+
 const refreshGateUi = () => {
   if (
     !launchBtn ||
@@ -700,7 +760,9 @@ const refreshGateUi = () => {
       "Guest session active. Progress will not be saved.";
     createButton.textContent = authState.initialized
       ? "Sign in with Google"
-      : "Loading...";
+      : authState.errorMessage
+        ? "Google Sign-in Unavailable"
+        : "Loading...";
     createButton.disabled = !authState.initialized;
     continueAsGuestButton.textContent = "Guest Active";
     continueAsGuestButton.disabled = true;
@@ -714,12 +776,16 @@ const refreshGateUi = () => {
         : "Preparing Google sign-in...");
     createButton.textContent = authState.initialized
       ? "Sign in with Google"
-      : "Loading...";
+      : authState.errorMessage
+        ? "Google Sign-in Unavailable"
+        : "Loading...";
     createButton.disabled = !authState.initialized;
     continueAsGuestButton.textContent = "Continue as Guest";
     continueAsGuestButton.disabled = false;
     deployButton.disabled = authState.authMode === "none";
   }
+
+  syncGoogleSignInButton();
 };
 
 const updateMode = (mode: MenuMode) => {
@@ -773,6 +839,9 @@ accountBtn?.addEventListener("click", () => {
     return;
   }
   if (!authState.initialized) {
+    return;
+  }
+  if (!googleSignInTarget?.hidden) {
     return;
   }
   getGoogleIdApi()?.prompt();
@@ -937,7 +1006,6 @@ const initializeGoogleAuth = async (): Promise<void> => {
 
   authState.initialized = true;
   refreshGateUi();
-  googleIdApi.prompt();
 };
 
 refreshGateUi();
