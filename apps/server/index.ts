@@ -54,6 +54,7 @@ export function main(): void {
         return new Response(
           JSON.stringify({
             googleClientId: googleClientId ?? null,
+            protocolVersion: GameConfig.DEFAULT_PROTOCOL_VERSION,
           }),
           {
             headers: {

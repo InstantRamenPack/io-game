@@ -1,5 +1,3 @@
-import { WsClient } from "@client/net/WsClient.ts";
-
 const styleText = `
 :root {
   --bg-0: #0d160f;
@@ -436,7 +434,10 @@ const markup = `
 
 type MenuMode = "play" | "loadout" | "settings" | "account";
 type AuthMode = "none" | "guest" | "google";
-type RuntimeConfig = { googleClientId: string | null };
+type RuntimeConfig = {
+  googleClientId: string | null;
+  protocolVersion?: number;
+};
 type GoogleCredentialResponse = { credential?: string };
 type GoogleIdApi = {
   initialize: (options: {
@@ -446,6 +447,12 @@ type GoogleIdApi = {
   prompt: () => void;
 };
 type GoogleApi = { accounts?: { id?: GoogleIdApi } };
+type WsMenuClient = {
+  connect: (url: string, googleIdToken?: string) => void;
+  onOpen: (handler: () => void) => void;
+  onClose: (handler: () => void) => void;
+  onError: (handler: (message: string) => void) => void;
+};
 type MetaProgress = {
   coins: number;
   unlockedScout: boolean;
@@ -487,8 +494,82 @@ const authState: {
 };
 
 let metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
+let protocolVersion = 1;
 
-const socketClient = new WsClient();
+const createWsMenuClient = (): WsMenuClient => {
+  let socket: WebSocket | undefined;
+  const openHandlers: Array<() => void> = [];
+  const closeHandlers: Array<() => void> = [];
+  const errorHandlers: Array<(message: string) => void> = [];
+
+  return {
+    connect(url: string, googleIdToken?: string): void {
+      if (socket) {
+        if (
+          socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING
+        ) {
+          socket.close(1000, "reconnect");
+        }
+        socket = undefined;
+      }
+
+      const nextSocket = new WebSocket(url);
+      socket = nextSocket;
+      nextSocket.addEventListener("open", () => {
+        const helloMessage: {
+          t: "hello";
+          protocolVersion: number;
+          googleIdToken?: string;
+        } = { t: "hello", protocolVersion };
+        if (googleIdToken) {
+          helloMessage.googleIdToken = googleIdToken;
+        }
+        nextSocket.send(JSON.stringify(helloMessage));
+        openHandlers.forEach((handler) => handler());
+      });
+
+      nextSocket.addEventListener("close", () => {
+        if (socket === nextSocket) {
+          socket = undefined;
+        }
+        closeHandlers.forEach((handler) => handler());
+      });
+
+      nextSocket.addEventListener("message", (event) => {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(String(event.data)) as unknown;
+        } catch {
+          return;
+        }
+
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "t" in payload &&
+          (payload as { t?: unknown }).t === "error"
+        ) {
+          const message = (payload as { message?: unknown }).message;
+          errorHandlers.forEach((handler) =>
+            handler(typeof message === "string" ? message : "unknown_error"),
+          );
+        }
+      });
+    },
+    onOpen(handler: () => void): void {
+      openHandlers.push(handler);
+    },
+    onClose(handler: () => void): void {
+      closeHandlers.push(handler);
+    },
+    onError(handler: (message: string) => void): void {
+      errorHandlers.push(handler);
+    },
+  };
+};
+
+const socketClient = createWsMenuClient();
 
 const titles: Record<MenuMode, string> = {
   play: "OUTBREAK SECTOR",
@@ -800,6 +881,12 @@ const initializeGoogleAuth = async (): Promise<void> => {
     }
     const runtimeConfig = (await response.json()) as RuntimeConfig;
     authState.googleClientId = runtimeConfig.googleClientId;
+    if (
+      typeof runtimeConfig.protocolVersion === "number" &&
+      Number.isFinite(runtimeConfig.protocolVersion)
+    ) {
+      protocolVersion = runtimeConfig.protocolVersion;
+    }
   } catch {
     authState.errorMessage = "Unable to load auth config.";
     refreshGateUi();
