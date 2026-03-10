@@ -18,6 +18,7 @@ import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { World } from "@server/world/World.ts";
 import type { System } from "@server/systems/System.ts";
+import { AuthService } from "@server/services/AuthService.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -32,9 +33,11 @@ export class GameServer {
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
+  private readonly authService: AuthService;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly playerIdByClientId = new Map<string, number>();
   private readonly clientsWithCompletedHello = new Set<string>();
+  private readonly clientsWithPendingHello = new Set<string>();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
   private initialEnemiesSpawned = false;
@@ -43,10 +46,16 @@ export class GameServer {
    * Wires server subsystems and WebSocket event handlers.
    * @param gameConfig Shared runtime configuration.
    * @param networkServer Socket registry and transport helper.
+   * @param authService Optional Google token verification service.
    */
-  constructor(gameConfig: GameConfig, networkServer: WsServer) {
+  constructor(
+    gameConfig: GameConfig,
+    networkServer: WsServer,
+    authService: AuthService,
+  ) {
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
+    this.authService = authService;
     this.world = new World(gameConfig);
     this.snapshotManager = new SnapshotManager(
       gameConfig.snapshotRate,
@@ -55,10 +64,6 @@ export class GameServer {
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
     this.systems = [new CollisionSystem()];
-
-    this.networkServer.onOpen((clientId) => {
-      this.onConnect(clientId);
-    });
 
     this.networkServer.onClose((clientId) => {
       this.onDisconnect(clientId);
@@ -166,6 +171,11 @@ export class GameServer {
    * @returns Allocated player entity id.
    */
   onConnect(clientId: string): number {
+    const existingPlayerId = this.playerIdByClientId.get(clientId);
+    if (existingPlayerId) {
+      return existingPlayerId;
+    }
+
     const playerId = this.entityIdGenerator.alloc();
     const playerEntity = new Player(playerId, `player-${playerId}`);
 
@@ -186,6 +196,7 @@ export class GameServer {
    */
   onDisconnect(clientId: string): void {
     this.clientsWithCompletedHello.delete(clientId);
+    this.clientsWithPendingHello.delete(clientId);
     this.lastInputSequenceByClientId.delete(clientId);
     this.lastInputTickByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
@@ -231,7 +242,7 @@ export class GameServer {
 
     switch (clientMessage.t) {
       case "hello":
-        this.handleHello(clientId, clientMessage);
+        void this.handleHello(clientId, clientMessage);
         return;
       case "input":
         if (!this.clientsWithCompletedHello.has(clientId)) {
@@ -265,7 +276,17 @@ export class GameServer {
    * @param clientId Connected client id.
    * @param helloMessage Parsed hello payload.
    */
-  private handleHello(clientId: string, helloMessage: HelloMessage): void {
+  private async handleHello(
+    clientId: string,
+    helloMessage: HelloMessage,
+  ): Promise<void> {
+    if (this.clientsWithCompletedHello.has(clientId)) {
+      return;
+    }
+
+    if (this.clientsWithPendingHello.has(clientId)) {
+      return;
+    }
     if (helloMessage.protocolVersion !== PROTOCOL_VERSION) {
       this.networkServer.send(
         clientId,
@@ -275,6 +296,35 @@ export class GameServer {
       return;
     }
 
+    if (helloMessage.googleIdToken) {
+      if (!this.authService.isConfigured()) {
+        this.networkServer.send(
+          clientId,
+          JSON.stringify({ t: "error", message: "auth_not_configured" }),
+        );
+        this.networkServer.disconnect(clientId, "auth_not_configured");
+        return;
+      }
+
+      this.clientsWithPendingHello.add(clientId);
+      const authenticatedUser = await this.authService.verifyGoogleIdToken(
+        helloMessage.googleIdToken,
+      );
+      if (!this.clientsWithPendingHello.has(clientId)) {
+        return;
+      }
+      this.clientsWithPendingHello.delete(clientId);
+      if (!authenticatedUser) {
+        this.networkServer.send(
+          clientId,
+          JSON.stringify({ t: "error", message: "auth_invalid" }),
+        );
+        this.networkServer.disconnect(clientId, "auth_invalid");
+        return;
+      }
+    }
+
+    this.onConnect(clientId);
     this.clientsWithCompletedHello.add(clientId);
     this.networkServer.send(
       clientId,

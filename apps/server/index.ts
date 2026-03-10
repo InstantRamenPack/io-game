@@ -1,6 +1,7 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
+import { AuthService } from "@server/services/AuthService.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,8 +30,10 @@ function renderHomeHtml(): string {
  */
 export function main(): void {
   const gameConfig = GameConfig.load();
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const authService = new AuthService(googleClientId);
   const networkServer = new WsServer();
-  const gameServer = new GameServer(gameConfig, networkServer);
+  const gameServer = new GameServer(gameConfig, networkServer, authService);
   const homeHtml = renderHomeHtml();
   gameServer.start();
 
@@ -52,6 +55,21 @@ export function main(): void {
 
       if (url.pathname === "/healthz") {
         return new Response("ok");
+      }
+
+      if (url.pathname === "/runtime-config") {
+        return new Response(
+          JSON.stringify({
+            googleClientId: googleClientId ?? null,
+            protocolVersion: GameConfig.DEFAULT_PROTOCOL_VERSION,
+          }),
+          {
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            },
+          },
+        );
       }
 
       if (url.pathname === "/src/main.ts") {
