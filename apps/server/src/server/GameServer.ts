@@ -12,13 +12,18 @@ import {
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TickClock } from "@server/server/TickClock.ts";
+import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { World } from "@server/world/World.ts";
 import type { System } from "@server/systems/System.ts";
 import { AuthService } from "@server/services/AuthService.ts";
 
-/** Authoritative server runtime for players, input, and snapshots. */
+/**
+ * Authoritative server runtime for players, input handling, and snapshot output.
+ * This class coordinates the world, networking layer, and tick loop.
+ */
 export class GameServer {
   world: World;
   systems: System[] = [];
@@ -35,8 +40,14 @@ export class GameServer {
   private readonly clientsWithPendingHello = new Set<string>();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
+  private initialEnemiesSpawned = false;
 
-  /** Wires server subsystems and WebSocket event handlers. */
+  /**
+   * Wires server subsystems and WebSocket event handlers.
+   * @param gameConfig Shared runtime configuration.
+   * @param networkServer Socket registry and transport helper.
+   * @param authService Optional Google token verification service.
+   */
   constructor(
     gameConfig: GameConfig,
     networkServer: WsServer,
@@ -52,6 +63,7 @@ export class GameServer {
     );
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
+    this.systems = [new CollisionSystem()];
 
     this.networkServer.onClose((clientId) => {
       this.onDisconnect(clientId);
@@ -62,25 +74,42 @@ export class GameServer {
     });
   }
 
-  /** Starts the fixed-tick server clock. */
+  /**
+   * Starts the fixed-tick server clock.
+   */
   start(): void {
+    if (!this.initialEnemiesSpawned) {
+      this.spawnInitialEnemies();
+      this.initialEnemiesSpawned = true;
+    }
     this.clock.start((deltaMs) => this.tick(deltaMs));
   }
 
-  /** Stops the fixed-tick server clock. */
+  /**
+   * Stops the fixed-tick server clock.
+   */
   stop(): void {
     this.clock.stop();
   }
 
-  /** Processes one server tick and broadcasts snapshots at cadence. */
+  /**
+   * Processes one server tick and broadcasts snapshots on the configured cadence.
+   * @param deltaMs Tick delta in milliseconds.
+   */
   tick(deltaMs: number): void {
-    this.world.step(deltaMs);
+    const simulationTick = this.world.tick + 1;
 
     for (const [, playerId] of this.playerIdByClientId) {
       const player = this.world.get<Player>(playerId);
       if (player) {
-        player.applyInputForTick(this.world, this.world.tick);
+        player.applyInputForTick(this.world, simulationTick);
       }
+    }
+
+    this.world.step(deltaMs);
+
+    for (const system of this.systems) {
+      system.update(this.world, deltaMs);
     }
 
     if (this.snapshotManager.shouldSendSnapshot(this.world.tick)) {
@@ -93,7 +122,11 @@ export class GameServer {
     }
   }
 
-  /** Validates and buffers client input for the associated player. */
+  /**
+   * Validates and buffers client input for the associated player.
+   * @param clientId Connected client id.
+   * @param inputCommand Parsed input command from that client.
+   */
   handleInput(clientId: string, inputCommand: InputCommand): void {
     const playerId = this.playerIdByClientId.get(clientId);
     if (!playerId) {
@@ -132,7 +165,11 @@ export class GameServer {
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
   }
 
-  /** Creates a player entity for a newly connected client. */
+  /**
+   * Creates a player entity for a newly connected client.
+   * @param clientId Connected client id.
+   * @returns Allocated player entity id.
+   */
   onConnect(clientId: string): number {
     const existingPlayerId = this.playerIdByClientId.get(clientId);
     if (existingPlayerId) {
@@ -153,7 +190,10 @@ export class GameServer {
     return playerId;
   }
 
-  /** Cleans up state for a disconnected client. */
+  /**
+   * Cleans up runtime state for a disconnected client.
+   * @param clientId Disconnected client id.
+   */
   onDisconnect(clientId: string): void {
     this.clientsWithCompletedHello.delete(clientId);
     this.clientsWithPendingHello.delete(clientId);
@@ -166,7 +206,30 @@ export class GameServer {
     }
   }
 
-  /** Parses and routes protocol messages from a client. */
+  /**
+   * Spawns the initial set of static enemies at deterministic map locations.
+   */
+  private spawnInitialEnemies(): void {
+    const enemyPositions = [
+      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.25 },
+      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.25 },
+      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.75 },
+      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.75 },
+    ];
+
+    for (const enemyPosition of enemyPositions) {
+      const enemy = new Enemy(this.entityIdGenerator.alloc());
+      enemy.x = enemyPosition.x;
+      enemy.y = enemyPosition.y;
+      this.world.spawn(enemy);
+    }
+  }
+
+  /**
+   * Parses and routes protocol messages from a client.
+   * @param clientId Connected client id.
+   * @param rawMessage Raw JSON protocol payload.
+   */
   private handleRawMessage(clientId: string, rawMessage: string): void {
     const clientMessage = parseClientToServerMessage(rawMessage);
     if (!clientMessage) {
@@ -208,7 +271,11 @@ export class GameServer {
     }
   }
 
-  /** Verifies protocol compatibility and marks hello completion. */
+  /**
+   * Verifies protocol compatibility and marks the client handshake as complete.
+   * @param clientId Connected client id.
+   * @param helloMessage Parsed hello payload.
+   */
   private async handleHello(
     clientId: string,
     helloMessage: HelloMessage,
@@ -220,7 +287,6 @@ export class GameServer {
     if (this.clientsWithPendingHello.has(clientId)) {
       return;
     }
-
     if (helloMessage.protocolVersion !== PROTOCOL_VERSION) {
       this.networkServer.send(
         clientId,
