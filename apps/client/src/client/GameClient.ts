@@ -3,17 +3,15 @@ import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
-import { Interpolator } from "@client/net/Interpolator.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
 /**
- * Coordinates client networking, snapshot state, interpolation, and rendering.
+ * Coordinates client networking, snapshot state, extrapolation, and rendering.
  * This stays presentation-only and does not own authoritative gameplay rules.
  */
 export class GameClient {
   networkClient: WsClient;
   worldState: ClientWorldState;
-  interpolator: Interpolator;
   inputManager: InputManager;
   renderer: PixiRenderer;
   gameConfig: GameConfig;
@@ -28,10 +26,7 @@ export class GameClient {
   constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
-    this.worldState = new ClientWorldState(
-      gameConfig.clientSnapshotHistoryCapacity,
-    );
-    this.interpolator = new Interpolator(gameConfig.interpolation.bufferTicks);
+    this.worldState = new ClientWorldState();
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer();
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
@@ -68,13 +63,8 @@ export class GameClient {
       return;
     }
 
-    const renderTick =
-      latestSnapshot.tick - this.gameConfig.interpolation.bufferTicks;
-    const interpolatedEntities = this.interpolator.sample(
-      this.worldState.getHistory(),
-      renderTick,
-    );
-    this.renderer.sync(interpolatedEntities);
+    this.worldState.advance(deltaMs);
+    this.renderer.sync(this.worldState.getEntities());
     this.renderer.update(deltaMs);
   }
 

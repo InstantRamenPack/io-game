@@ -1,12 +1,11 @@
 /**
  * Shared runtime configuration used by both server and client.
- * Keeps cadence, world, networking, and interpolation settings together.
+ * Keeps cadence, world, networking, and protocol settings together.
  */
 export class GameConfig {
   static readonly DEFAULT_TICK_RATE = 20;
   static readonly DEFAULT_SNAPSHOT_RATE = 10;
   static readonly DEFAULT_PROTOCOL_VERSION = 1;
-  static readonly DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY = 120;
   static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
   tickRate = GameConfig.DEFAULT_TICK_RATE;
@@ -14,9 +13,6 @@ export class GameConfig {
   worldSize = { w: 2000, h: 2000 };
   collision = { spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE };
   network = { maxPlayers: 64, maxPacketBytes: 16 * 1024 };
-  interpolation = { bufferTicks: 2 };
-  clientSnapshotHistoryCapacity =
-    GameConfig.DEFAULT_CLIENT_SNAPSHOT_HISTORY_CAPACITY;
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
   /**
@@ -32,10 +28,6 @@ export class GameConfig {
     const spatialCellSize = Number(
       process.env.SPATIAL_CELL_SIZE ?? gameConfig.collision.spatialCellSize,
     );
-    const clientSnapshotHistoryCapacity = Number(
-      process.env.CLIENT_SNAPSHOT_HISTORY_CAPACITY ??
-        gameConfig.clientSnapshotHistoryCapacity,
-    );
 
     if (Number.isFinite(tickRate) && tickRate > 0) {
       gameConfig.tickRate = Math.floor(tickRate);
@@ -45,14 +37,6 @@ export class GameConfig {
     }
     if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
       gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);
-    }
-    if (
-      Number.isFinite(clientSnapshotHistoryCapacity) &&
-      clientSnapshotHistoryCapacity > 0
-    ) {
-      gameConfig.clientSnapshotHistoryCapacity = Math.floor(
-        clientSnapshotHistoryCapacity,
-      );
     }
 
     return gameConfig;

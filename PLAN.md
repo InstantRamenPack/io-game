@@ -141,7 +141,6 @@ repo/
           GameClient.ts
         net/
           WsClient.ts
-          Interpolator.ts
           ClientWorldState.ts
         input/
           InputManager.ts
@@ -235,9 +234,9 @@ Use a base tsconfig with:
 - Snapshot rate: `GameConfig.snapshotRate` (default 10–20)
 - Snapshots include `tick`, `timeMs`, `entities[]`, `events[]`
 
-### 4.3 Client interpolation
-- Client renders at: `renderTick = latestServerTick - bufferTicks`
-- `bufferTicks` default: 2–4
+### 4.3 Client extrapolation
+- Client resets visible state from each authoritative snapshot.
+- Between snapshots, client advances `x`/`y` locally using snapshot `vx`/`vy`.
 
 ---
 
@@ -364,8 +363,8 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `GameConfig` — `packages/shared/src/config/GameConfig.ts`
 
-- Purpose: shared runtime tuning for server cadence, snapshots, world bounds, and client interpolation.
-- Key fields: `tickRate`, `snapshotRate`, `worldSize`, `network`, `interpolation`, `clientSnapshotHistoryCapacity`, `protocolVersion`.
+- Purpose: shared runtime tuning for server cadence, snapshots, world bounds, networking, and protocol settings.
+- Key fields: `tickRate`, `snapshotRate`, `worldSize`, `network`, `protocolVersion`.
 - Key methods: `load`.
 
 ### `IdGenerator` — `packages/shared/src/math/IdGenerator.ts`
@@ -636,8 +635,8 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `GameClient` — `apps/client/src/client/GameClient.ts`
 
-- Purpose: gameplay client coordinator for networking, snapshot history, interpolation, input, and rendering.
-- Key fields: `networkClient`, `worldState`, `interpolator`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
+- Purpose: gameplay client coordinator for networking, snapshot state, extrapolation, input, and rendering.
+- Key fields: `networkClient`, `worldState`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
 - Key methods: `start`, `update`, `onSnapshot`, `stop`.
 
 ### `WsClient` — `apps/client/src/net/WsClient.ts`
@@ -648,15 +647,9 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `ClientWorldState` — `apps/client/src/net/ClientWorldState.ts`
 
-- Purpose: bounded history of authoritative snapshots.
-- Key fields: `history`, `latest`, capacity bookkeeping.
-- Key methods: `pushSnapshot`, `getLatest`, `getHistory`.
-
-### `Interpolator` — `apps/client/src/net/Interpolator.ts`
-
-- Purpose: sample snapshot history to produce render-time entity state.
-- Key fields: `bufferTicks`.
-- Key methods: `setBufferTicks`, `sample`.
+- Purpose: store the latest authoritative snapshot and advance a local present-state between snapshots.
+- Key fields: `latest`, extrapolated `entities`.
+- Key methods: `pushSnapshot`, `getLatest`, `advance`, `getEntities`.
 
 ### `InputManager` — `apps/client/src/input/InputManager.ts`
 
@@ -783,7 +776,7 @@ This section records what is currently implemented in the repo, including intent
 
 ### 13.6 Runtime architecture status notes
 - Server is authoritative and broadcasts snapshots at configured cadence.
-- Client runs interpolation over authoritative snapshots.
+- Client extrapolates authoritative snapshots forward with `vx`/`vy` until the next snapshot arrives.
 - `TickClock` remains a small local wrapper over timer scheduling; can be inlined later if desired.
 - `IdGenerator` remains as a thin seam over external ID generation for future swap flexibility.
 
