@@ -768,7 +768,8 @@ const loadPixiScript = async (): Promise<void> => {
 };
 
 const renderSnapshotToPixi = (snapshot: WorldSnapshotPayload): void => {
-  if (!pixiApp) {
+  const pixi = window.PIXI;
+  if (!pixiApp || !pixi) {
     latestSnapshot = snapshot;
     return;
   }
@@ -798,7 +799,7 @@ const renderSnapshotToPixi = (snapshot: WorldSnapshotPayload): void => {
   for (const entity of snapshot.entities) {
     let circle = circleByEntityId.get(entity.id);
     if (!circle) {
-      circle = new window.PIXI.Graphics();
+      circle = new pixi.Graphics();
       pixiApp.stage.addChild(circle);
       circleByEntityId.set(entity.id, circle);
     }
@@ -1243,30 +1244,8 @@ refreshGateUi();
 loadMetaProgress();
 void initializeGoogleAuth();
 
-window.render_game_to_text = () => {
-  return JSON.stringify({
-    mode: "menu",
-    menu: {
-      selectedTab: menuState.mode,
-      title: menuState.menuTitle,
-      started: menuState.started,
-      hasAccount: menuState.hasAccount,
-      authMode: authState.authMode,
-      googleEmail: authState.googleEmail,
-      metaProgress,
-    },
-    coordinates: "UI-only menu, no world coordinates",
-  });
-};
-
-window.advanceTime = (_ms: number) => {
-  // UI prototype does not rely on simulation stepping yet.
-};
-
 declare global {
   interface Window {
-    render_game_to_text: () => string;
-    advanceTime: (ms: number) => void;
     google?: GoogleApi;
     PIXI?: {
       Application: new (options: {

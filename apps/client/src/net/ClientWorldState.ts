@@ -1,34 +1,32 @@
-import Denque from "denque";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  EntitySnapshot,
+  WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 
 /**
- * Stores recent authoritative snapshots for interpolation.
- * Snapshot history is bounded so the client does not grow unbounded memory.
+ * Stores the latest authoritative snapshot plus a client-side present-state view.
+ * The present-state entities are reset from snapshots and advanced locally until
+ * the next authoritative update arrives.
  */
 export class ClientWorldState {
-  history: Denque<WorldSnapshot>;
   latest?: WorldSnapshot;
-  private readonly maxHistorySize: number;
+  private entities = new Map<number, EntitySnapshot>();
 
   /**
-   * Creates bounded snapshot storage with fixed capacity.
-   * @param capacity Maximum number of snapshots to retain.
+   * Creates empty client-side world state.
    */
-  constructor(capacity: number) {
-    this.maxHistorySize = Math.max(1, Math.floor(capacity));
-    this.history = new Denque<WorldSnapshot>();
-  }
+  constructor() {}
 
   /**
-   * Adds a snapshot and enforces the configured history capacity.
-   * @param s Authoritative snapshot to append.
+   * Replaces the local present-state with a fresh authoritative snapshot.
+   * @param snapshot Authoritative snapshot to apply.
    */
-  pushSnapshot(s: WorldSnapshot): void {
-    this.latest = s;
-    if (this.history.length >= this.maxHistorySize) {
-      this.history.shift();
+  pushSnapshot(snapshot: WorldSnapshot): void {
+    this.latest = snapshot;
+    this.entities.clear();
+    for (const entity of snapshot.entities) {
+      this.entities.set(entity.id, { ...entity });
     }
-    this.history.push(s);
   }
 
   /**
@@ -40,10 +38,24 @@ export class ClientWorldState {
   }
 
   /**
-   * Returns a copy of snapshot history in arrival order.
-   * @returns Snapshot history from oldest to newest.
+   * Advances locally presented entities using their authoritative velocities.
+   * @param deltaMs Frame delta in milliseconds.
    */
-  getHistory(): WorldSnapshot[] {
-    return this.history.toArray();
+  advance(deltaMs: number): void {
+    const deltaSeconds = deltaMs / 1000;
+    for (const entity of this.entities.values()) {
+      entity.x += entity.vx * deltaSeconds;
+      entity.y += entity.vy * deltaSeconds;
+    }
+  }
+
+  /**
+   * Returns a copy of the locally presented entity state keyed by id.
+   * @returns Extrapolated entity map.
+   */
+  getEntities(): Map<number, EntitySnapshot> {
+    return new Map(
+      Array.from(this.entities.entries(), ([id, entity]) => [id, { ...entity }]),
+    );
   }
 }
