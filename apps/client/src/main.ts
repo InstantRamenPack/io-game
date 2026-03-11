@@ -29,6 +29,13 @@ body {
   background: radial-gradient(circle at 18% 20%, #1d311f 0%, #0d140f 58%, #070a08 100%);
 }
 
+#game-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #d7f3d2;
+}
+
 .menu-scene {
   position: relative;
   min-height: 100vh;
@@ -443,6 +450,7 @@ const markup = `
     </div>
   </footer>
 </main>
+<div id="game-root" hidden></div>
 `;
 
 type MenuMode = "play" | "loadout" | "settings" | "account";
@@ -450,6 +458,7 @@ type AuthMode = "none" | "guest" | "google";
 type RuntimeConfig = {
   googleClientId: string | null;
   protocolVersion?: number;
+  worldSize?: { w: number; h: number };
 };
 type GoogleCredentialResponse = { credential?: string };
 type GoogleIdApi = {
@@ -476,10 +485,22 @@ type WsMenuClient = {
   onOpen: (handler: () => void) => void;
   onClose: (handler: () => void) => void;
   onError: (handler: (message: string) => void) => void;
+  onSnapshot: (handler: (snapshot: WorldSnapshotPayload) => void) => void;
 };
 type MetaProgress = {
   coins: number;
   unlockedScout: boolean;
+};
+type WorldSnapshotEntity = {
+  id: number;
+  kind: string;
+  x: number;
+  y: number;
+  radius: number;
+};
+type WorldSnapshotPayload = {
+  tick: number;
+  entities: WorldSnapshotEntity[];
 };
 
 const DEFAULT_META_PROGRESS: MetaProgress = {
@@ -519,12 +540,14 @@ const authState: {
 
 let metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
 let protocolVersion = 1;
+let runtimeWorldSize = { w: 2000, h: 2000 };
 
 const createWsMenuClient = (): WsMenuClient => {
   let socket: WebSocket | undefined;
   const openHandlers: Array<() => void> = [];
   const closeHandlers: Array<() => void> = [];
   const errorHandlers: Array<(message: string) => void> = [];
+  const snapshotHandlers: Array<(snapshot: WorldSnapshotPayload) => void> = [];
 
   return {
     connect(url: string, googleIdToken?: string): void {
@@ -572,6 +595,26 @@ const createWsMenuClient = (): WsMenuClient => {
           typeof payload === "object" &&
           payload !== null &&
           "t" in payload &&
+          (payload as { t?: unknown }).t === "snapshot"
+        ) {
+          const snapshot = (payload as { snapshot?: unknown }).snapshot;
+          if (
+            typeof snapshot === "object" &&
+            snapshot !== null &&
+            "tick" in snapshot &&
+            "entities" in snapshot
+          ) {
+            snapshotHandlers.forEach((handler) =>
+              handler(snapshot as WorldSnapshotPayload),
+            );
+          }
+          return;
+        }
+
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "t" in payload &&
           (payload as { t?: unknown }).t === "error"
         ) {
           const message = (payload as { message?: unknown }).message;
@@ -589,6 +632,9 @@ const createWsMenuClient = (): WsMenuClient => {
     },
     onError(handler: (message: string) => void): void {
       errorHandlers.push(handler);
+    },
+    onSnapshot(handler: (snapshot: WorldSnapshotPayload) => void): void {
+      snapshotHandlers.push(handler);
     },
   };
 };
@@ -617,7 +663,32 @@ const accountGateText = document.getElementById("account-gate-text");
 const accountBtn = document.getElementById("account-btn");
 const googleSignInTarget = document.getElementById("google-signin-target");
 const guestBtn = document.getElementById("guest-btn");
+const menuRoot = document.querySelector<HTMLElement>('[data-screen="menu"]');
+const gameRoot = document.getElementById("game-root");
 let googleButtonRendered = false;
+let pixiScriptPromise: Promise<void> | null = null;
+let pixiApp: {
+  screen: { width: number; height: number };
+  stage: {
+    addChild: (child: unknown) => void;
+    removeChild: (child: unknown) => void;
+  };
+  renderer: { resize: (w: number, h: number) => void };
+  view: HTMLCanvasElement;
+} | null = null;
+let latestSnapshot: WorldSnapshotPayload | null = null;
+const circleByEntityId = new Map<
+  number,
+  {
+    clear: () => void;
+    beginFill: (color: number, alpha?: number) => void;
+    lineStyle: (width: number, color?: number, alpha?: number) => void;
+    drawCircle: (x: number, y: number, radius: number) => void;
+    endFill: () => void;
+    x: number;
+    y: number;
+  }
+>();
 
 const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
   const payloadBase64Url = jwt.split(".")[1];
@@ -651,6 +722,127 @@ const deriveSubjectFromToken = (jwt: string): string | null => {
 const getGoogleIdApi = (): GoogleIdApi | null => {
   return ((window.google as GoogleApi | undefined)?.accounts?.id ??
     null) as GoogleIdApi | null;
+};
+
+const loadPixiScript = async (): Promise<void> => {
+  if (window.PIXI) {
+    return;
+  }
+  if (pixiScriptPromise) {
+    await pixiScriptPromise;
+    return;
+  }
+
+  pixiScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("pixi_load_failed")),
+        {
+          once: true,
+        },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js";
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener(
+      "error",
+      () => reject(new Error("pixi_load_failed")),
+      {
+        once: true,
+      },
+    );
+    document.head.appendChild(script);
+  });
+
+  await pixiScriptPromise;
+};
+
+const renderSnapshotToPixi = (snapshot: WorldSnapshotPayload): void => {
+  if (!pixiApp) {
+    latestSnapshot = snapshot;
+    return;
+  }
+
+  const currentIds = new Set(snapshot.entities.map((entity) => entity.id));
+  for (const [entityId, circle] of circleByEntityId) {
+    if (!currentIds.has(entityId)) {
+      pixiApp.stage.removeChild(circle);
+      circleByEntityId.delete(entityId);
+    }
+  }
+
+  const scale = Math.min(
+    pixiApp.screen.width / runtimeWorldSize.w,
+    pixiApp.screen.height / runtimeWorldSize.h,
+  );
+  const colorForKind = (kind: string): number => {
+    if (kind === "player") {
+      return 0x67d944;
+    }
+    if (kind === "enemy") {
+      return 0xff5f5f;
+    }
+    return 0xd6e5d2;
+  };
+
+  for (const entity of snapshot.entities) {
+    let circle = circleByEntityId.get(entity.id);
+    if (!circle) {
+      circle = new window.PIXI.Graphics();
+      pixiApp.stage.addChild(circle);
+      circleByEntityId.set(entity.id, circle);
+    }
+
+    circle.clear();
+    circle.beginFill(colorForKind(entity.kind), 1);
+    circle.lineStyle(2, 0x0f210f, 0.8);
+    circle.drawCircle(0, 0, Math.max(4, entity.radius * scale));
+    circle.endFill();
+    circle.x = entity.x * scale;
+    circle.y = entity.y * scale;
+  }
+};
+
+const ensurePixiReady = async (): Promise<void> => {
+  if (pixiApp || !gameRoot) {
+    return;
+  }
+
+  await loadPixiScript();
+  if (!window.PIXI) {
+    throw new Error("pixi_unavailable");
+  }
+
+  const app = new window.PIXI.Application({
+    resizeTo: window,
+    backgroundColor: 0xd7f3d2,
+    antialias: true,
+  });
+  gameRoot.innerHTML = "";
+  gameRoot.appendChild(app.view as HTMLCanvasElement);
+  pixiApp = app;
+  window.addEventListener("resize", () => {
+    if (!pixiApp) {
+      return;
+    }
+    pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
+    if (latestSnapshot) {
+      renderSnapshotToPixi(latestSnapshot);
+    }
+  });
+  if (latestSnapshot) {
+    renderSnapshotToPixi(latestSnapshot);
+  }
 };
 
 const metaStorageKey = (googleSubjectId: string): string =>
@@ -862,6 +1054,21 @@ guestBtn?.addEventListener("click", () => {
 
 socketClient.onOpen(() => {
   menuState.started = true;
+  void ensurePixiReady()
+    .then(() => {
+      if (gameRoot) {
+        gameRoot.hidden = false;
+      }
+      if (menuRoot) {
+        menuRoot.style.display = "none";
+      }
+    })
+    .catch(() => {
+      if (accountGateText) {
+        accountGateText.textContent =
+          "Renderer failed to load. Check network and refresh.";
+      }
+    });
   if (launchBtn) {
     const button = launchBtn as HTMLButtonElement;
     button.textContent = "Connected";
@@ -869,14 +1076,26 @@ socketClient.onOpen(() => {
   }
 });
 
+socketClient.onSnapshot((snapshot) => {
+  latestSnapshot = snapshot;
+  renderSnapshotToPixi(snapshot);
+});
+
 socketClient.onClose(() => {
-  if (!launchBtn || menuState.started) {
+  if (!launchBtn) {
     return;
   }
 
   const button = launchBtn as HTMLButtonElement;
   button.textContent = "Deploy";
   button.disabled = authState.authMode === "none";
+  menuState.started = false;
+  if (gameRoot) {
+    gameRoot.hidden = true;
+  }
+  if (menuRoot) {
+    menuRoot.style.display = "";
+  }
 });
 
 socketClient.onError((message) => {
@@ -955,6 +1174,18 @@ const initializeGoogleAuth = async (): Promise<void> => {
       Number.isFinite(runtimeConfig.protocolVersion)
     ) {
       protocolVersion = runtimeConfig.protocolVersion;
+    }
+    if (
+      runtimeConfig.worldSize &&
+      Number.isFinite(runtimeConfig.worldSize.w) &&
+      Number.isFinite(runtimeConfig.worldSize.h) &&
+      runtimeConfig.worldSize.w > 0 &&
+      runtimeConfig.worldSize.h > 0
+    ) {
+      runtimeWorldSize = {
+        w: runtimeConfig.worldSize.w,
+        h: runtimeConfig.worldSize.h,
+      };
     }
   } catch {
     authState.errorMessage = "Unable to load auth config.";
@@ -1037,5 +1268,29 @@ declare global {
     render_game_to_text: () => string;
     advanceTime: (ms: number) => void;
     google?: GoogleApi;
+    PIXI?: {
+      Application: new (options: {
+        resizeTo?: Window;
+        backgroundColor?: number;
+        antialias?: boolean;
+      }) => {
+        screen: { width: number; height: number };
+        stage: {
+          addChild: (child: unknown) => void;
+          removeChild: (child: unknown) => void;
+        };
+        renderer: { resize: (w: number, h: number) => void };
+        view: HTMLCanvasElement;
+      };
+      Graphics: new () => {
+        clear: () => void;
+        beginFill: (color: number, alpha?: number) => void;
+        lineStyle: (width: number, color?: number, alpha?: number) => void;
+        drawCircle: (x: number, y: number, radius: number) => void;
+        endFill: () => void;
+        x: number;
+        y: number;
+      };
+    };
   }
 }
