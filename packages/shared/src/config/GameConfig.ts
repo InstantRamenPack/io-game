@@ -13,6 +13,11 @@ export class GameConfig {
   worldSize = { w: 2000, h: 2000 };
   collision = { spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE };
   network = { maxPlayers: 64, maxPacketBytes: 16 * 1024 };
+  extrapolation = {
+    maxPredictionMs: 125,
+    correctionRate: 14,
+    snapDistance: 96,
+  };
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
   /**

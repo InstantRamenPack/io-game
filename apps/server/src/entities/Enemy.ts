@@ -12,7 +12,7 @@ export class Enemy extends Entity {
    */
   constructor(id: number) {
     super(id, "enemy");
-    this.collisionMode = "static";
+    this.collisionMode = "dynamic";
     this.radius = 16;
     this.hp = 100;
     this.maxHp = 100;

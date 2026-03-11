@@ -3,6 +3,7 @@ import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { Extrapolator } from "@client/net/Extrapolator.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
 /**
@@ -12,6 +13,7 @@ import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 export class GameClient {
   networkClient: WsClient;
   worldState: ClientWorldState;
+  extrapolator: Extrapolator;
   inputManager: InputManager;
   renderer: PixiRenderer;
   gameConfig: GameConfig;
@@ -30,6 +32,7 @@ export class GameClient {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
     this.worldState = new ClientWorldState();
+    this.extrapolator = new Extrapolator(gameConfig.extrapolation);
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer();
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
@@ -94,17 +97,10 @@ export class GameClient {
   /**
    * Advances client simulation and render state for one frame.
    * @param deltaMs Frame delta in milliseconds.
+   * @param frameTimeMs Monotonic timestamp for the current frame.
    */
-  update(deltaMs: number): void {
-    const latestSnapshot = this.worldState.getLatest();
-    if (!latestSnapshot) {
-      this.renderer.sync(new Map());
-      this.renderer.update(deltaMs);
-      return;
-    }
-
-    this.worldState.advance(deltaMs);
-    this.renderer.sync(this.worldState.getEntities());
+  update(deltaMs: number, frameTimeMs = performance.now()): void {
+    this.renderer.sync(this.extrapolator.sample(frameTimeMs, deltaMs));
     this.renderer.update(deltaMs);
   }
 
@@ -114,6 +110,7 @@ export class GameClient {
    */
   onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState.pushSnapshot(snapshot);
+    this.extrapolator.pushSnapshot(snapshot, performance.now());
   }
 
   /**
@@ -128,6 +125,7 @@ export class GameClient {
     }
     this.networkClient.disconnect();
     this.worldState.clear();
+    this.extrapolator.clear();
     this.renderer.clear();
   }
 
@@ -150,7 +148,7 @@ export class GameClient {
           ? 0
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
-      this.update(deltaMs);
+      this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
     };
 
@@ -180,6 +178,7 @@ export class GameClient {
       this.inputTimer = undefined;
     }
     this.worldState.clear();
+    this.extrapolator.clear();
     this.renderer.clear();
   }
 }
