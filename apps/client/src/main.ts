@@ -1,3 +1,6 @@
+import { GameClient } from "@client/client/GameClient.ts";
+import { GameConfig } from "@shared/config/GameConfig.ts";
+
 const styleText = `
 :root {
   --bg-0: #0d160f;
@@ -480,27 +483,9 @@ type GoogleIdApi = {
   prompt: () => void;
 };
 type GoogleApi = { accounts?: { id?: GoogleIdApi } };
-type WsMenuClient = {
-  connect: (url: string, googleIdToken?: string) => void;
-  onOpen: (handler: () => void) => void;
-  onClose: (handler: () => void) => void;
-  onError: (handler: (message: string) => void) => void;
-  onSnapshot: (handler: (snapshot: WorldSnapshotPayload) => void) => void;
-};
 type MetaProgress = {
   coins: number;
   unlockedScout: boolean;
-};
-type WorldSnapshotEntity = {
-  id: number;
-  kind: string;
-  x: number;
-  y: number;
-  radius: number;
-};
-type WorldSnapshotPayload = {
-  tick: number;
-  entities: WorldSnapshotEntity[];
 };
 
 const DEFAULT_META_PROGRESS: MetaProgress = {
@@ -542,105 +527,6 @@ let metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
 let protocolVersion = 1;
 let runtimeWorldSize = { w: 2000, h: 2000 };
 
-const createWsMenuClient = (): WsMenuClient => {
-  let socket: WebSocket | undefined;
-  const openHandlers: Array<() => void> = [];
-  const closeHandlers: Array<() => void> = [];
-  const errorHandlers: Array<(message: string) => void> = [];
-  const snapshotHandlers: Array<(snapshot: WorldSnapshotPayload) => void> = [];
-
-  return {
-    connect(url: string, googleIdToken?: string): void {
-      if (socket) {
-        if (
-          socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING
-        ) {
-          socket.close(1000, "reconnect");
-        }
-        socket = undefined;
-      }
-
-      const nextSocket = new WebSocket(url);
-      socket = nextSocket;
-      nextSocket.addEventListener("open", () => {
-        const helloMessage: {
-          t: "hello";
-          protocolVersion: number;
-          googleIdToken?: string;
-        } = { t: "hello", protocolVersion };
-        if (googleIdToken) {
-          helloMessage.googleIdToken = googleIdToken;
-        }
-        nextSocket.send(JSON.stringify(helloMessage));
-        openHandlers.forEach((handler) => handler());
-      });
-
-      nextSocket.addEventListener("close", () => {
-        if (socket === nextSocket) {
-          socket = undefined;
-        }
-        closeHandlers.forEach((handler) => handler());
-      });
-
-      nextSocket.addEventListener("message", (event) => {
-        let payload: unknown;
-        try {
-          payload = JSON.parse(String(event.data)) as unknown;
-        } catch {
-          return;
-        }
-
-        if (
-          typeof payload === "object" &&
-          payload !== null &&
-          "t" in payload &&
-          (payload as { t?: unknown }).t === "snapshot"
-        ) {
-          const snapshot = (payload as { snapshot?: unknown }).snapshot;
-          if (
-            typeof snapshot === "object" &&
-            snapshot !== null &&
-            "tick" in snapshot &&
-            "entities" in snapshot
-          ) {
-            snapshotHandlers.forEach((handler) =>
-              handler(snapshot as WorldSnapshotPayload),
-            );
-          }
-          return;
-        }
-
-        if (
-          typeof payload === "object" &&
-          payload !== null &&
-          "t" in payload &&
-          (payload as { t?: unknown }).t === "error"
-        ) {
-          const message = (payload as { message?: unknown }).message;
-          errorHandlers.forEach((handler) =>
-            handler(typeof message === "string" ? message : "unknown_error"),
-          );
-        }
-      });
-    },
-    onOpen(handler: () => void): void {
-      openHandlers.push(handler);
-    },
-    onClose(handler: () => void): void {
-      closeHandlers.push(handler);
-    },
-    onError(handler: (message: string) => void): void {
-      errorHandlers.push(handler);
-    },
-    onSnapshot(handler: (snapshot: WorldSnapshotPayload) => void): void {
-      snapshotHandlers.push(handler);
-    },
-  };
-};
-
-const socketClient = createWsMenuClient();
-
 const titles: Record<MenuMode, string> = {
   play: "OUTBREAK SECTOR",
   loadout: "LOADOUT",
@@ -666,29 +552,11 @@ const guestBtn = document.getElementById("guest-btn");
 const menuRoot = document.querySelector<HTMLElement>('[data-screen="menu"]');
 const gameRoot = document.getElementById("game-root");
 let googleButtonRendered = false;
-let pixiScriptPromise: Promise<void> | null = null;
-let pixiApp: {
-  screen: { width: number; height: number };
-  stage: {
-    addChild: (child: unknown) => void;
-    removeChild: (child: unknown) => void;
-  };
-  renderer: { resize: (w: number, h: number) => void };
-  view: HTMLCanvasElement;
-} | null = null;
-let latestSnapshot: WorldSnapshotPayload | null = null;
-const circleByEntityId = new Map<
-  number,
-  {
-    clear: () => void;
-    beginFill: (color: number, alpha?: number) => void;
-    lineStyle: (width: number, color?: number, alpha?: number) => void;
-    drawCircle: (x: number, y: number, radius: number) => void;
-    endFill: () => void;
-    x: number;
-    y: number;
-  }
->();
+const gameConfig = new GameConfig();
+gameConfig.protocolVersion = protocolVersion;
+gameConfig.worldSize = { ...runtimeWorldSize };
+const gameClient = new GameClient(gameConfig);
+gameClient.bindInput(window);
 
 const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
   const payloadBase64Url = jwt.split(".")[1];
@@ -722,128 +590,6 @@ const deriveSubjectFromToken = (jwt: string): string | null => {
 const getGoogleIdApi = (): GoogleIdApi | null => {
   return ((window.google as GoogleApi | undefined)?.accounts?.id ??
     null) as GoogleIdApi | null;
-};
-
-const loadPixiScript = async (): Promise<void> => {
-  if (window.PIXI) {
-    return;
-  }
-  if (pixiScriptPromise) {
-    await pixiScriptPromise;
-    return;
-  }
-
-  pixiScriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js"]',
-    );
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("pixi_load_failed")),
-        {
-          once: true,
-        },
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js";
-    script.async = true;
-    script.defer = true;
-    script.addEventListener("load", () => resolve(), { once: true });
-    script.addEventListener(
-      "error",
-      () => reject(new Error("pixi_load_failed")),
-      {
-        once: true,
-      },
-    );
-    document.head.appendChild(script);
-  });
-
-  await pixiScriptPromise;
-};
-
-const renderSnapshotToPixi = (snapshot: WorldSnapshotPayload): void => {
-  const pixi = window.PIXI;
-  if (!pixiApp || !pixi) {
-    latestSnapshot = snapshot;
-    return;
-  }
-
-  const currentIds = new Set(snapshot.entities.map((entity) => entity.id));
-  for (const [entityId, circle] of circleByEntityId) {
-    if (!currentIds.has(entityId)) {
-      pixiApp.stage.removeChild(circle);
-      circleByEntityId.delete(entityId);
-    }
-  }
-
-  const scale = Math.min(
-    pixiApp.screen.width / runtimeWorldSize.w,
-    pixiApp.screen.height / runtimeWorldSize.h,
-  );
-  const colorForKind = (kind: string): number => {
-    if (kind === "player") {
-      return 0x67d944;
-    }
-    if (kind === "enemy") {
-      return 0xff5f5f;
-    }
-    return 0xd6e5d2;
-  };
-
-  for (const entity of snapshot.entities) {
-    let circle = circleByEntityId.get(entity.id);
-    if (!circle) {
-      circle = new pixi.Graphics();
-      pixiApp.stage.addChild(circle);
-      circleByEntityId.set(entity.id, circle);
-    }
-
-    circle.clear();
-    circle.beginFill(colorForKind(entity.kind), 1);
-    circle.lineStyle(2, 0x0f210f, 0.8);
-    circle.drawCircle(0, 0, Math.max(4, entity.radius * scale));
-    circle.endFill();
-    circle.x = entity.x * scale;
-    circle.y = entity.y * scale;
-  }
-};
-
-const ensurePixiReady = async (): Promise<void> => {
-  if (pixiApp || !gameRoot) {
-    return;
-  }
-
-  await loadPixiScript();
-  if (!window.PIXI) {
-    throw new Error("pixi_unavailable");
-  }
-
-  const app = new window.PIXI.Application({
-    resizeTo: window,
-    backgroundColor: 0xd7f3d2,
-    antialias: true,
-  });
-  gameRoot.innerHTML = "";
-  gameRoot.appendChild(app.view as HTMLCanvasElement);
-  pixiApp = app;
-  window.addEventListener("resize", () => {
-    if (!pixiApp) {
-      return;
-    }
-    pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
-    if (latestSnapshot) {
-      renderSnapshotToPixi(latestSnapshot);
-    }
-  });
-  if (latestSnapshot) {
-    renderSnapshotToPixi(latestSnapshot);
-  }
 };
 
 const metaStorageKey = (googleSubjectId: string): string =>
@@ -1024,7 +770,28 @@ launchBtn?.addEventListener("click", () => {
     authState.authMode === "google"
       ? (authState.googleIdToken ?? undefined)
       : undefined;
-  socketClient.connect(wsUrl, token);
+  if (!gameRoot) {
+    if (accountGateText) {
+      accountGateText.textContent = "Game root is unavailable.";
+    }
+    button.textContent = "Deploy";
+    button.disabled = false;
+    return;
+  }
+
+  void gameClient
+    .attachRenderer(gameRoot)
+    .then(() => {
+      gameClient.start(wsUrl, token);
+    })
+    .catch(() => {
+      if (accountGateText) {
+        accountGateText.textContent =
+          "Renderer failed to load. Check network and refresh.";
+      }
+      button.textContent = "Deploy";
+      button.disabled = authState.authMode === "none";
+    });
 });
 
 accountBtn?.addEventListener("click", () => {
@@ -1053,23 +820,14 @@ guestBtn?.addEventListener("click", () => {
   refreshGateUi();
 });
 
-socketClient.onOpen(() => {
+gameClient.networkClient.onOpen(() => {
   menuState.started = true;
-  void ensurePixiReady()
-    .then(() => {
-      if (gameRoot) {
-        gameRoot.hidden = false;
-      }
-      if (menuRoot) {
-        menuRoot.style.display = "none";
-      }
-    })
-    .catch(() => {
-      if (accountGateText) {
-        accountGateText.textContent =
-          "Renderer failed to load. Check network and refresh.";
-      }
-    });
+  if (gameRoot) {
+    gameRoot.hidden = false;
+  }
+  if (menuRoot) {
+    menuRoot.style.display = "none";
+  }
   if (launchBtn) {
     const button = launchBtn as HTMLButtonElement;
     button.textContent = "Connected";
@@ -1077,12 +835,7 @@ socketClient.onOpen(() => {
   }
 });
 
-socketClient.onSnapshot((snapshot) => {
-  latestSnapshot = snapshot;
-  renderSnapshotToPixi(snapshot);
-});
-
-socketClient.onClose(() => {
+gameClient.networkClient.onClose(() => {
   if (!launchBtn) {
     return;
   }
@@ -1099,7 +852,7 @@ socketClient.onClose(() => {
   }
 });
 
-socketClient.onError((message) => {
+gameClient.networkClient.onError((message) => {
   if (message === "auth_invalid" || message === "auth_not_configured") {
     menuState.hasAccount = false;
     menuState.started = false;
@@ -1115,6 +868,11 @@ socketClient.onError((message) => {
       loadMetaProgress();
     }
     updateMode("account");
+  }
+
+  if (message === "socket_error" && accountGateText) {
+    accountGateText.textContent =
+      "Connection failed before gameplay started. Check the server and refresh.";
   }
 
   if (launchBtn) {
@@ -1175,6 +933,7 @@ const initializeGoogleAuth = async (): Promise<void> => {
       Number.isFinite(runtimeConfig.protocolVersion)
     ) {
       protocolVersion = runtimeConfig.protocolVersion;
+      gameConfig.protocolVersion = protocolVersion;
     }
     if (
       runtimeConfig.worldSize &&
@@ -1187,6 +946,7 @@ const initializeGoogleAuth = async (): Promise<void> => {
         w: runtimeConfig.worldSize.w,
         h: runtimeConfig.worldSize.h,
       };
+      gameClient.setWorldSize(runtimeWorldSize);
     }
   } catch {
     authState.errorMessage = "Unable to load auth config.";
@@ -1247,29 +1007,5 @@ void initializeGoogleAuth();
 declare global {
   interface Window {
     google?: GoogleApi;
-    PIXI?: {
-      Application: new (options: {
-        resizeTo?: Window;
-        backgroundColor?: number;
-        antialias?: boolean;
-      }) => {
-        screen: { width: number; height: number };
-        stage: {
-          addChild: (child: unknown) => void;
-          removeChild: (child: unknown) => void;
-        };
-        renderer: { resize: (w: number, h: number) => void };
-        view: HTMLCanvasElement;
-      };
-      Graphics: new () => {
-        clear: () => void;
-        beginFill: (color: number, alpha?: number) => void;
-        lineStyle: (width: number, color?: number, alpha?: number) => void;
-        drawCircle: (x: number, y: number, radius: number) => void;
-        endFill: () => void;
-        x: number;
-        y: number;
-      };
-    };
   }
 }

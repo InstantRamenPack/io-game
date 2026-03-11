@@ -3,17 +3,16 @@ import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
 import { AuthService } from "@server/services/AuthService.ts";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 const homeHtmlTemplatePath = join(import.meta.dir, "../client/index.html");
 const homeHtmlTemplate = readFileSync(homeHtmlTemplatePath, "utf8");
-const clientMainSourcePath = join(import.meta.dir, "../client/src/main.ts");
-const clientMainSource = readFileSync(clientMainSourcePath, "utf8");
+const clientSourceRoot = resolve(import.meta.dir, "../client/src");
+const sharedSourceRoot = resolve(import.meta.dir, "../../packages/shared/src");
 const browserTranspiler = new Bun.Transpiler({
   loader: "ts",
   target: "browser",
 });
-const clientMainModule = browserTranspiler.transformSync(clientMainSource);
 
 /**
  * Renders the client HTML shell.
@@ -22,6 +21,52 @@ const clientMainModule = browserTranspiler.transformSync(clientMainSource);
  */
 function renderHomeHtml(): string {
   return homeHtmlTemplate;
+}
+
+/**
+ * Resolves a browser module URL to a local TypeScript source file.
+ * Only files under the client and shared source roots are exposed.
+ * @param urlPath Request pathname from the browser.
+ * @returns Absolute path to a source file when the URL is allowed.
+ */
+function resolveBrowserModulePath(urlPath: string): string | null {
+  const rootMatch = urlPath.startsWith("/src/")
+    ? { prefix: "/src/", root: clientSourceRoot }
+    : urlPath.startsWith("/packages/shared/src/")
+      ? { prefix: "/packages/shared/src/", root: sharedSourceRoot }
+      : null;
+  if (!rootMatch) {
+    return null;
+  }
+
+  if (!urlPath.endsWith(".ts")) {
+    return null;
+  }
+
+  const relativePath = urlPath.slice(rootMatch.prefix.length);
+  const resolvedPath = resolve(rootMatch.root, relativePath);
+  const withinRoot =
+    resolvedPath === rootMatch.root ||
+    resolvedPath.startsWith(`${rootMatch.root}${sep}`);
+  return withinRoot ? resolvedPath : null;
+}
+
+/**
+ * Builds a browser-ready JavaScript response for a TypeScript module request.
+ * @param urlPath Request pathname from the browser.
+ * @returns Response when the module path is valid and readable.
+ */
+function renderBrowserModule(urlPath: string): Response | null {
+  const sourcePath = resolveBrowserModulePath(urlPath);
+  if (!sourcePath) {
+    return null;
+  }
+
+  const sourceText = readFileSync(sourcePath, "utf8");
+  const compiledModule = browserTranspiler.transformSync(sourceText);
+  return new Response(compiledModule, {
+    headers: { "content-type": "text/javascript; charset=utf-8" },
+  });
 }
 
 /**
@@ -89,10 +134,9 @@ export function main(): void {
         );
       }
 
-      if (url.pathname === "/src/main.ts") {
-        return new Response(clientMainModule, {
-          headers: { "content-type": "text/javascript; charset=utf-8" },
-        });
+      const browserModule = renderBrowserModule(url.pathname);
+      if (browserModule) {
+        return browserModule;
       }
 
       return new Response(homeHtml, {

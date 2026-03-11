@@ -38,6 +38,14 @@ export class ClientWorldState {
   }
 
   /**
+   * Clears both authoritative and locally extrapolated client state.
+   */
+  clear(): void {
+    this.latest = undefined;
+    this.entities.clear();
+  }
+
+  /**
    * Advances locally presented entities using their authoritative velocities.
    * @param deltaMs Frame delta in milliseconds.
    */

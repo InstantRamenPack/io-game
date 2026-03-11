@@ -1,8 +1,7 @@
 import {
-  PROTOCOL_VERSION,
   type InputCommand,
-  parseServerToClientMessage,
 } from "@shared/net/protocol.ts";
+import { GameConfig } from "@shared/config/GameConfig.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 /**
@@ -21,8 +20,13 @@ export class WsClient {
    * Opens a WebSocket connection and registers protocol message handlers.
    * @param url WebSocket endpoint to connect to.
    * @param googleIdToken Optional Google ID token sent during the hello handshake.
+   * @param protocolVersion Protocol version to send in the hello handshake.
    */
-  connect(url: string, googleIdToken?: string): void {
+  connect(
+    url: string,
+    googleIdToken?: string,
+    protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION,
+  ): void {
     this.disconnect();
 
     const socket = new WebSocket(url);
@@ -32,7 +36,7 @@ export class WsClient {
       socket.send(
         JSON.stringify({
           t: "hello",
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion,
           googleIdToken,
         }),
       );
@@ -50,24 +54,52 @@ export class WsClient {
       }
     });
 
+    socket.addEventListener("error", () => {
+      for (const errorHandler of this.errorHandlers) {
+        errorHandler("socket_error");
+      }
+    });
+
     socket.addEventListener("message", (messageEvent) => {
-      const serverMessage = parseServerToClientMessage(
-        String(messageEvent.data),
-      );
-      if (!serverMessage) {
+      let serverMessage: unknown;
+      try {
+        serverMessage = JSON.parse(String(messageEvent.data)) as unknown;
+      } catch {
         return;
       }
 
-      if (serverMessage.t === "snapshot") {
+      if (
+        typeof serverMessage === "object" &&
+        serverMessage !== null &&
+        "t" in serverMessage &&
+        (serverMessage as { t?: unknown }).t === "snapshot"
+      ) {
+        const snapshot = (serverMessage as { snapshot?: unknown }).snapshot;
+        if (
+          typeof snapshot !== "object" ||
+          snapshot === null ||
+          !("tick" in snapshot) ||
+          !("entities" in snapshot)
+        ) {
+          return;
+        }
         for (const snapshotHandler of this.snapshotHandlers) {
-          snapshotHandler(serverMessage.snapshot);
+          snapshotHandler(snapshot as WorldSnapshot);
         }
         return;
       }
 
-      if (serverMessage.t === "error") {
+      if (
+        typeof serverMessage === "object" &&
+        serverMessage !== null &&
+        "t" in serverMessage &&
+        (serverMessage as { t?: unknown }).t === "error"
+      ) {
+        const message = (serverMessage as { message?: unknown }).message;
         for (const errorHandler of this.errorHandlers) {
-          errorHandler(serverMessage.message);
+          errorHandler(
+            typeof message === "string" ? message : "unknown_error",
+          );
         }
       }
     });
