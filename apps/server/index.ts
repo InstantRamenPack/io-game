@@ -78,6 +78,7 @@ export function main(): void {
           JSON.stringify({
             googleClientId: googleClientId ?? null,
             protocolVersion: GameConfig.DEFAULT_PROTOCOL_VERSION,
+            worldSize: gameConfig.worldSize,
           }),
           {
             headers: {
