@@ -1,16 +1,10 @@
-import type {
-  EntitySnapshot,
-  WorldSnapshot,
-} from "@shared/net/snapshots.ts";
+import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 /**
- * Stores the latest authoritative snapshot plus a client-side present-state view.
- * The present-state entities are reset from snapshots and advanced locally until
- * the next authoritative update arrives.
+ * Stores the latest authoritative snapshot received from the server.
  */
 export class ClientWorldState {
   latest?: WorldSnapshot;
-  private entities = new Map<number, EntitySnapshot>();
 
   /**
    * Creates empty client-side world state.
@@ -23,10 +17,6 @@ export class ClientWorldState {
    */
   pushSnapshot(snapshot: WorldSnapshot): void {
     this.latest = snapshot;
-    this.entities.clear();
-    for (const entity of snapshot.entities) {
-      this.entities.set(entity.id, { ...entity });
-    }
   }
 
   /**
@@ -42,28 +32,5 @@ export class ClientWorldState {
    */
   clear(): void {
     this.latest = undefined;
-    this.entities.clear();
-  }
-
-  /**
-   * Advances locally presented entities using their authoritative velocities.
-   * @param deltaMs Frame delta in milliseconds.
-   */
-  advance(deltaMs: number): void {
-    const deltaSeconds = deltaMs / 1000;
-    for (const entity of this.entities.values()) {
-      entity.x += entity.vx * deltaSeconds;
-      entity.y += entity.vy * deltaSeconds;
-    }
-  }
-
-  /**
-   * Returns a copy of the locally presented entity state keyed by id.
-   * @returns Extrapolated entity map.
-   */
-  getEntities(): Map<number, EntitySnapshot> {
-    return new Map(
-      Array.from(this.entities.entries(), ([id, entity]) => [id, { ...entity }]),
-    );
   }
 }

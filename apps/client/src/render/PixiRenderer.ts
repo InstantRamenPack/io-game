@@ -128,7 +128,6 @@ export class PixiRenderer {
    */
   sync(entities: Map<number, EntitySnapshot>): void {
     this.entities = new Map(entities);
-    this.renderScene();
   }
 
   /**

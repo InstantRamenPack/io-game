@@ -142,6 +142,7 @@ repo/
         net/
           WsClient.ts
           ClientWorldState.ts
+          Extrapolator.ts
         input/
           InputManager.ts
         render/
@@ -235,8 +236,9 @@ Use a base tsconfig with:
 - Snapshots include `tick`, `timeMs`, `entities[]`, `events[]`
 
 ### 4.3 Client extrapolation
-- Client resets visible state from each authoritative snapshot.
-- Between snapshots, client advances `x`/`y` locally using snapshot `vx`/`vy`.
+- Client stores the latest authoritative snapshot separately from render state.
+- An `Extrapolator` predicts a short distance ahead from authoritative `vx`/`vy`.
+- Rendered entities ease toward predicted targets and snap only when error grows too large.
 
 ---
 
@@ -636,7 +638,7 @@ For each class or class family, it records purpose, likely fields, and the metho
 ### `GameClient` — `apps/client/src/client/GameClient.ts`
 
 - Purpose: gameplay client coordinator for networking, snapshot state, extrapolation, input, and rendering.
-- Key fields: `networkClient`, `worldState`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
+- Key fields: `networkClient`, `worldState`, `extrapolator`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
 - Key methods: `start`, `update`, `onSnapshot`, `stop`.
 
 ### `WsClient` — `apps/client/src/net/WsClient.ts`
@@ -647,9 +649,15 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `ClientWorldState` — `apps/client/src/net/ClientWorldState.ts`
 
-- Purpose: store the latest authoritative snapshot and advance a local present-state between snapshots.
-- Key fields: `latest`, extrapolated `entities`.
-- Key methods: `pushSnapshot`, `getLatest`, `advance`, `getEntities`.
+- Purpose: store the latest authoritative snapshot received from the server.
+- Key fields: `latest`.
+- Key methods: `pushSnapshot`, `getLatest`, `clear`.
+
+### `Extrapolator` — `apps/client/src/net/Extrapolator.ts`
+
+- Purpose: turn authoritative snapshots into smoothed render-state entities using clamped velocity prediction and reconciliation.
+- Key fields: latest snapshot timing, authoritative entities, render entities, and extrapolation settings.
+- Key methods: `pushSnapshot`, `sample`, `clear`.
 
 ### `InputManager` — `apps/client/src/input/InputManager.ts`
 
@@ -776,7 +784,7 @@ This section records what is currently implemented in the repo, including intent
 
 ### 13.6 Runtime architecture status notes
 - Server is authoritative and broadcasts snapshots at configured cadence.
-- Client extrapolates authoritative snapshots forward with `vx`/`vy` until the next snapshot arrives.
+- Client extrapolates a short distance from authoritative `vx`/`vy` and smooths render state toward predicted targets.
 - `TickClock` remains a small local wrapper over timer scheduling; can be inlined later if desired.
 - `IdGenerator` remains as a thin seam over external ID generation for future swap flexibility.
 
