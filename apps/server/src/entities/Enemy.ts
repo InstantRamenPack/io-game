@@ -1,13 +1,21 @@
 import { Entity } from "@server/entities/Entity.ts";
+import { GoalSelector } from "@server/goals/GoalSelector.ts";
+import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
- * Static hostile entity used as the first server-authoritative enemy body.
- * This class deliberately has no AI yet; it only contributes collision and hp state.
+ * Hostile entity with goal-driven targeting and movement state.
  */
 export class Enemy extends Entity {
+  goalSelector: GoalSelector;
+  moveSpeed = 110;
+  aggroRange = 480;
+  arrivalRadius = 20;
+  targetId?: number;
+
   /**
-   * Creates a stationary enemy with collision and hp enabled.
+   * Creates an enemy with collision, hp, and its default goal stack.
    * @param id Stable runtime entity id.
    */
   constructor(id: number) {
@@ -18,14 +26,17 @@ export class Enemy extends Entity {
     this.maxHp = 100;
     this.vx = 0;
     this.vy = 0;
+    this.goalSelector = new GoalSelector();
+    this.goalSelector.add(new TargetEntityGoal(0));
+    this.goalSelector.add(new GoToTargetGoal(1, this.arrivalRadius));
   }
 
   /**
-   * Static enemies do not have AI behavior in this pass.
+   * Enemy behavior is driven by GoalSystem in this pass.
    * @param _world World being simulated.
    * @param _deltaMs Tick delta in milliseconds.
    */
   override tick(_world: World, _deltaMs: number): void {
-    // empty for now
+    // GoalSystem owns enemy AI updates.
   }
 }

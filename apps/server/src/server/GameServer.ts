@@ -16,6 +16,7 @@ import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
+import { GoalSystem } from "@server/systems/GoalSystem.ts";
 import { World } from "@server/world/World.ts";
 import type { System } from "@server/systems/System.ts";
 import { AuthService } from "@server/services/AuthService.ts";
@@ -30,6 +31,7 @@ export class GameServer {
   networkServer: WsServer;
   snapshotManager: SnapshotManager;
   antiCheatValidator: AntiCheatValidator;
+  preStepSystems: System[] = [];
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
@@ -63,6 +65,7 @@ export class GameServer {
     );
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
+    this.preStepSystems = [new GoalSystem()];
     this.systems = [new CollisionSystem()];
 
     this.networkServer.onClose((clientId) => {
@@ -104,6 +107,10 @@ export class GameServer {
       if (player) {
         player.applyInputForTick(this.world, simulationTick);
       }
+    }
+
+    for (const system of this.preStepSystems) {
+      system.update(this.world, deltaMs);
     }
 
     this.world.step(deltaMs);
