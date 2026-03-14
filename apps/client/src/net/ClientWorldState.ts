@@ -11,6 +11,8 @@ export class ClientWorldState {
   pixiRenderer: PixiRenderer;
   public latestSnapshot?: WorldSnapshot;
   public latestSnapshotReceivedAt?: number;
+  public previousSnapshot?: WorldSnapshot;
+  public previousSnapshotReceivedAt?: number;
   
   public clientWorld?: ClientWorld;
 
@@ -30,8 +32,11 @@ export class ClientWorldState {
    * Replaces the local present-state with a fresh authoritative snapshot.
    * @param snapshot Authoritative snapshot to apply.
    */
-  pushSnapshot(snapshot: WorldSnapshot): void {
+  pushSnapshot(snapshot: WorldSnapshot, receivedAt: number = performance.now()): void {
+    this.previousSnapshot = this.latestSnapshot;
+    this.previousSnapshotReceivedAt = this.latestSnapshotReceivedAt;
     this.latestSnapshot = snapshot;
+    this.latestSnapshotReceivedAt = receivedAt;
     if (!this.clientWorld) {
       this.clientWorld = new ClientWorld(this.pixiRenderer, snapshot);
     } else {
@@ -41,6 +46,9 @@ export class ClientWorldState {
 
   public clear(): void {
     this.latestSnapshot = undefined;
+    this.latestSnapshotReceivedAt = undefined;
+    this.previousSnapshot = undefined;
+    this.previousSnapshotReceivedAt = undefined;
     if (this.clientWorld) {
       this.clientWorld.destroy();
       this.clientWorld = undefined;
