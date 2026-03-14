@@ -1,5 +1,6 @@
 import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import type { PixiApp, PixiContainer, PixiGraphics, PixiSprite, PixiTexture, WorldSize } from "./PixiTypes.ts";
+import type { GameConfig } from "@shared/config/GameConfig.ts";
 
 let pixiScriptPromise: Promise<void> | null = null;
 
@@ -58,6 +59,11 @@ export class PixiRenderer {
   private world: PixiContainer | null = null;
   private grid: PixiGraphics | null = null;
   private gridCellSize = 100;
+  private worldSize: WorldSize;
+
+  constructor(worldSize: WorldSize) {
+    this.worldSize = worldSize;
+  }
 
   /*
   entity container should store all entities for easy of rendering and stuff
@@ -72,7 +78,6 @@ export class PixiRenderer {
 
   public entityContainer: PixiContainer | null = null;
   private hostElement: HTMLElement | null = null;
-  private worldSize: WorldSize = { w: 2000, h: 2000 };
   private readonly handleResize = (): void => {
     if (!this.app) {
       return;

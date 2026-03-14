@@ -4,9 +4,10 @@ import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import { Interpolator } from "@client/net/Interpolator.ts";
 
 /**
- * Coordinates client networking, snapshot state, extrapolation, and rendering.
+ * Coordinates client networking, snapshot state, interpolation, and rendering.
  * This stays presentation-only and does not own authoritative gameplay rules.
  */
 export class GameClient {
@@ -16,6 +17,7 @@ export class GameClient {
   renderer: PixiRenderer;
   gameConfig: GameConfig;
   playerEntityId?: number;
+  interpolator: Interpolator;
 
   private inputTimer: ReturnType<typeof setInterval> | undefined;
   private animationFrameId: number | undefined;
@@ -31,7 +33,8 @@ export class GameClient {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
     this.inputManager = new InputManager();
-    this.renderer = new PixiRenderer();
+    this.renderer = new PixiRenderer(this.gameConfig.worldSize);
+    this.interpolator = new Interpolator(this.gameConfig.interpolation);
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
@@ -102,7 +105,9 @@ export class GameClient {
    * @param frameTimeMs Monotonic timestamp for the current frame.
    */
   update(deltaMs: number, frameTimeMs = performance.now()): void {
-    //to do extrapolation
+    if (this.worldState){
+      this.interpolator.updateInterpolation(this.worldState, frameTimeMs)
+    }
     this.renderer.update(deltaMs);
   }
 
