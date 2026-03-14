@@ -12,8 +12,8 @@ import {
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
-import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { GoalSystem } from "@server/systems/GoalSystem.ts";
@@ -42,7 +42,7 @@ export class GameServer {
   private readonly clientsWithPendingHello = new Set<string>();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
-  private initialEnemiesSpawned = false;
+  private initialZombiesSpawned = false;
 
   /**
    * Wires server subsystems and WebSocket event handlers.
@@ -81,9 +81,9 @@ export class GameServer {
    * Starts the fixed-tick server clock.
    */
   start(): void {
-    if (!this.initialEnemiesSpawned) {
-      this.spawnInitialEnemies();
-      this.initialEnemiesSpawned = true;
+    if (!this.initialZombiesSpawned) {
+      this.spawnInitialZombies();
+      this.initialZombiesSpawned = true;
     }
     this.clock.start((deltaMs) => this.tick(deltaMs));
   }
@@ -214,21 +214,21 @@ export class GameServer {
   }
 
   /**
-   * Spawns the initial set of static enemies at deterministic map locations.
+   * Spawns the initial set of zombies at deterministic map locations.
    */
-  private spawnInitialEnemies(): void {
-    const enemyPositions = [
+  private spawnInitialZombies(): void {
+    const zombiePositions = [
       { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.25 },
       { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.25 },
       { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.75 },
       { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.75 },
     ];
 
-    for (const enemyPosition of enemyPositions) {
-      const enemy = new Enemy(this.entityIdGenerator.alloc());
-      enemy.x = enemyPosition.x;
-      enemy.y = enemyPosition.y;
-      this.world.spawn(enemy);
+    for (const zombiePosition of zombiePositions) {
+      const zombie = new Zombie(this.entityIdGenerator.alloc());
+      zombie.x = zombiePosition.x;
+      zombie.y = zombiePosition.y;
+      this.world.spawn(zombie);
     }
   }
 
