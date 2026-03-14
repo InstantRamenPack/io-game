@@ -331,11 +331,15 @@ export class GameServer {
       }
     }
 
-    this.onConnect(clientId);
+    const playerId = this.onConnect(clientId);
     this.clientsWithCompletedHello.add(clientId);
     this.networkServer.send(
       clientId,
       JSON.stringify({ t: "pong", timeMs: Date.now() }),
+    );
+    this.networkServer.send(
+      clientId,
+      JSON.stringify({ t: "welcome", entityId: playerId }),
     );
   }
 }

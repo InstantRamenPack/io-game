@@ -12,6 +12,7 @@ export class WsClient {
   socket?: WebSocket;
 
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
+  private welcomeHandlers: Array<(entityId: number) => void> = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
@@ -93,6 +94,22 @@ export class WsClient {
         typeof serverMessage === "object" &&
         serverMessage !== null &&
         "t" in serverMessage &&
+        (serverMessage as { t?: unknown }).t === "welcome"
+      ) {
+        const entityId = (serverMessage as { entityId?: unknown }).entityId;
+        if (typeof entityId !== "number" || !Number.isFinite(entityId)) {
+          return;
+        }
+        for (const welcomeHandler of this.welcomeHandlers) {
+          welcomeHandler(entityId);
+        }
+        return;
+      }
+
+      if (
+        typeof serverMessage === "object" &&
+        serverMessage !== null &&
+        "t" in serverMessage &&
         (serverMessage as { t?: unknown }).t === "error"
       ) {
         const message = (serverMessage as { message?: unknown }).message;
@@ -122,6 +139,14 @@ export class WsClient {
    */
   onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
     this.snapshotHandlers.push(snapshotHandler);
+  }
+
+  /**
+   * Registers a callback for welcome messages that carry the player entity id.
+   * @param welcomeHandler Callback invoked with the assigned entity id.
+   */
+  onWelcome(welcomeHandler: (entityId: number) => void): void {
+    this.welcomeHandlers.push(welcomeHandler);
   }
 
   /**

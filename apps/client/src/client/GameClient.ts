@@ -3,7 +3,6 @@ import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
-import { Extrapolator } from "@client/net/Extrapolator.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
 /**
@@ -12,11 +11,11 @@ import { PixiRenderer } from "@client/render/PixiRenderer.ts";
  */
 export class GameClient {
   networkClient: WsClient;
-  worldState: ClientWorldState;
-  extrapolator: Extrapolator;
+  worldState?: ClientWorldState;
   inputManager: InputManager;
   renderer: PixiRenderer;
   gameConfig: GameConfig;
+  playerEntityId?: number;
 
   private inputTimer: ReturnType<typeof setInterval> | undefined;
   private animationFrameId: number | undefined;
@@ -31,12 +30,13 @@ export class GameClient {
   constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
-    this.worldState = new ClientWorldState();
-    this.extrapolator = new Extrapolator(gameConfig.extrapolation);
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer();
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
+    this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
+
+    window.gameClient = this; // Expose game client for debugging
   }
 
   /**
@@ -55,8 +55,8 @@ export class GameClient {
    * Attaches the Pixi renderer to a host element.
    * @param hostElement DOM node that should contain the game canvas.
    */
-  async attachRenderer(hostElement: HTMLElement): Promise<void> {
-    await this.renderer.attach(hostElement, this.gameConfig.worldSize);
+  async initRenderer(hostElement: HTMLElement): Promise<void> {
+    await this.renderer.init(hostElement, this.gameConfig.worldSize);
   }
 
   /**
@@ -79,6 +79,8 @@ export class GameClient {
     }
     this.started = true;
 
+    this.worldState = new ClientWorldState(this.renderer);
+
     this.startFrameLoop();
     this.networkClient.connect(
       url,
@@ -88,7 +90,7 @@ export class GameClient {
 
     const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
     this.inputTimer = setInterval(() => {
-      const latestTick = this.worldState.latest?.tick ?? 0;
+      const latestTick = this.worldState?.latestSnapshot?.tick ?? 0;
       this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
       this.inputManager.clearOneShots();
     }, periodMs);
@@ -100,7 +102,7 @@ export class GameClient {
    * @param frameTimeMs Monotonic timestamp for the current frame.
    */
   update(deltaMs: number, frameTimeMs = performance.now()): void {
-    this.renderer.sync(this.extrapolator.sample(frameTimeMs, deltaMs));
+    //to do extrapolation
     this.renderer.update(deltaMs);
   }
 
@@ -109,8 +111,15 @@ export class GameClient {
    * @param snapshot Snapshot payload from the authoritative server.
    */
   onSnapshot(snapshot: WorldSnapshot): void {
-    this.worldState.pushSnapshot(snapshot);
-    this.extrapolator.pushSnapshot(snapshot, performance.now());
+    this.worldState?.pushSnapshot(snapshot);
+  }
+
+  /**
+   * Stores the authoritative player entity id assigned by the server.
+   */
+  onWelcome(entityId: number): void {
+    this.playerEntityId = entityId;
+    this.renderer.setPlayerEntityId(entityId);
   }
 
   /**
@@ -124,9 +133,9 @@ export class GameClient {
       this.inputTimer = undefined;
     }
     this.networkClient.disconnect();
-    this.worldState.clear();
-    this.extrapolator.clear();
-    this.renderer.clear();
+    this.worldState?.clear(); //clears rendered entities too
+    this.playerEntityId = undefined;
+    this.renderer.setPlayerEntityId(undefined);
   }
 
   /**
@@ -177,8 +186,16 @@ export class GameClient {
       clearInterval(this.inputTimer);
       this.inputTimer = undefined;
     }
-    this.worldState.clear();
-    this.extrapolator.clear();
-    this.renderer.clear();
+    this.worldState?.clear();
+    this.playerEntityId = undefined;
+    this.renderer.setPlayerEntityId(undefined);
+  }
+}
+
+
+declare global {
+  interface Window {
+    gameClient: GameClient;
+
   }
 }

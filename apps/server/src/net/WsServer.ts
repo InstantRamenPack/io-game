@@ -64,6 +64,7 @@ export class WsServer {
       typeof rawMessageData === "string"
         ? rawMessageData
         : rawMessageData.toString();
+    
     for (const messageHandler of this.messageHandlers) {
       messageHandler(clientId, rawMessage);
     }

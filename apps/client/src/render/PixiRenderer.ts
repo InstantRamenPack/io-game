@@ -1,26 +1,5 @@
 import type { EntitySnapshot } from "@shared/net/snapshots.ts";
-
-type WorldSize = { w: number; h: number };
-
-type PixiGraphics = {
-  clear: () => void;
-  beginFill: (color: number, alpha?: number) => void;
-  lineStyle: (width: number, color?: number, alpha?: number) => void;
-  drawCircle: (x: number, y: number, radius: number) => void;
-  endFill: () => void;
-  x: number;
-  y: number;
-};
-
-type PixiApp = {
-  screen: { width: number; height: number };
-  stage: {
-    addChild: (child: unknown) => void;
-    removeChild: (child: unknown) => void;
-  };
-  renderer: { resize: (w: number, h: number) => void };
-  view: HTMLCanvasElement;
-};
+import type { PixiApp, PixiContainer, PixiGraphics, PixiSprite, PixiTexture, WorldSize } from "./PixiTypes.ts";
 
 let pixiScriptPromise: Promise<void> | null = null;
 
@@ -71,10 +50,27 @@ async function loadPixiScript(): Promise<void> {
  * Rendering adapter for visible entity state.
  * Owns the Pixi scene lifecycle and keeps authoritative entity state in sync.
  */
+
+
 export class PixiRenderer {
-  private entities = new Map<number, EntitySnapshot>();
-  private circlesByEntityId = new Map<number, PixiGraphics>();
   private app: PixiApp | null = null;
+  // World container should store everything because transformations applied to it create illusion of following the player
+  private world: PixiContainer | null = null;
+  private grid: PixiGraphics | null = null;
+  private gridCellSize = 100;
+
+  /*
+  entity container should store all entities for easy of rendering and stuff
+  */
+
+  public playerEntityId?: number;
+
+  public setPlayerEntityId(entityId: number | undefined): void {
+    this.playerEntityId = entityId;
+  }
+
+
+  public entityContainer: PixiContainer | null = null;
   private hostElement: HTMLElement | null = null;
   private worldSize: WorldSize = { w: 2000, h: 2000 };
   private readonly handleResize = (): void => {
@@ -83,13 +79,58 @@ export class PixiRenderer {
     }
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.renderScene();
+    // Manually render after resize to sync with our game loop
+    this.app.renderer.render(this.app.stage);
   };
 
   /**
    * Attaches the Pixi application to the given host element.
    * @param hostElement DOM element that should contain the game canvas.
    * @param worldSize World bounds used to scale entity positions.
+   * 
    */
+
+
+  async init(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
+
+    await this.attach(hostElement, worldSize);
+
+    if (!window.PIXI) {
+      throw new Error("pixi_unavailable");
+    }
+
+    if (!this.app) {
+      throw new Error("Pixi App not created");
+    }
+
+    window.app = this.app; // Expose Pixi app for debugging
+
+    //load textures here
+
+    await this.loadPixiTextures();
+
+    // create world hierarchy
+
+    
+    if (!this.world){
+      this.world = new window.PIXI.Container();
+    }
+
+    this.ensureGrid();
+    this.app.stage.addChild(this.world);
+
+    if (!this.entityContainer){
+      this.entityContainer = new window.PIXI.Container();
+    }
+
+    this.world.addChild(this.entityContainer);
+
+
+
+    // initial render to populate the scene
+    this.renderScene();
+  }
+
   async attach(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
     this.hostElement = hostElement;
     this.worldSize = { ...worldSize };
@@ -104,13 +145,22 @@ export class PixiRenderer {
         resizeTo: window,
         backgroundColor: 0xd7f3d2,
         antialias: true,
+        autoStart: false,  // Disable Pixi's automatic ticker
       });
       window.addEventListener("resize", this.handleResize);
     }
 
     this.hostElement.innerHTML = "";
     this.hostElement.appendChild(this.app.view as HTMLCanvasElement);
-    this.renderScene();
+  }
+
+  async loadPixiTextures(): Promise<void> {
+    if (!window.PIXI) {
+      throw new Error("PIXI is not available on the window object.");
+    }
+    
+
+    //empty rn
   }
 
   /**
@@ -119,16 +169,10 @@ export class PixiRenderer {
    */
   setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
+    this.drawGrid();
     this.renderScene();
   }
 
-  /**
-   * Replaces the current visible entity set.
-   * @param entities Extrapolated entities keyed by id.
-   */
-  sync(entities: Map<number, EntitySnapshot>): void {
-    this.entities = new Map(entities);
-  }
 
   /**
    * Advances render internals for one frame.
@@ -136,79 +180,72 @@ export class PixiRenderer {
    */
   update(_deltaMs: number): void {
     this.renderScene();
+
+
   }
 
-  /**
-   * Placeholder spawn hook for future renderer-specific setup.
-   * @param _id Entity id being created.
-   * @param _kind Entity kind being created.
-   */
-  spawn(_id: number, _kind: string): void {
-    // Renderer-specific creation is handled lazily in renderScene.
-  }
-
-  /**
-   * Removes an entity from the renderer cache.
-   * @param id Entity id to remove.
-   */
-  despawn(id: number): void {
-    this.entities.delete(id);
-    const circle = this.circlesByEntityId.get(id);
-    if (circle && this.app) {
-      this.app.stage.removeChild(circle);
+  public setCameraToPlayer(x: number, y: number): void {
+    if (!this.world) {
+      throw new Error("World container not initialized.");
     }
-    this.circlesByEntityId.delete(id);
+    if (!this.app) {
+      throw new Error("Pixi App not initialized.");
+    }
+    this.world.pivot.set(x, y)
+    this.world.position.set(this.app.screen.width/2, this.app.screen.height/2)
   }
 
-  /**
-   * Clears visible scene state without tearing down the mounted Pixi app.
-   */
-  clear(): void {
-    for (const entityId of Array.from(this.circlesByEntityId.keys())) {
-      this.despawn(entityId);
-    }
-    this.entities.clear();
-  }
+
 
   /**
    * Draws the current scene state into the mounted Pixi application.
    */
   private renderScene(): void {
-    const pixi = window.PIXI;
-    if (!this.app || !pixi) {
+    // actually render the scene (runs every update tick)
+    if (!this.app) {
+      throw new Error("Pixi App not initialized");
+    }
+    
+    this.app.renderer.render(this.app.stage);
+
+  }
+
+  private ensureGrid(): void {
+    if (!window.PIXI) {
+      throw new Error("PIXI is not available on the window object.");
+    }
+    if (!this.app) {
+      throw new Error("Pixi App not initialized.");
+    }
+    if (!this.grid) {
+      this.grid = new window.PIXI.Graphics();
+    }
+    if (this.world && this.grid.parent !== this.world) {
+      this.world.addChild(this.grid);
+    }
+    this.drawGrid();
+  }
+
+  private drawGrid(): void {
+    if (!this.grid) {
       return;
     }
+    const { w, h } = this.worldSize;
+    const cell = Math.max(10, Math.floor(this.gridCellSize));
 
-    const currentIds = new Set(this.entities.keys());
-    for (const [entityId, circle] of this.circlesByEntityId) {
-      if (!currentIds.has(entityId)) {
-        this.app.stage.removeChild(circle);
-        this.circlesByEntityId.delete(entityId);
-      }
+    this.grid.clear();
+    this.grid.lineStyle(1, 0x9fd69a, 0.4);
+
+    this.grid.position.set(0, 0);
+
+    for (let x = 0; x <= w; x += cell) {
+      this.grid.moveTo(x, 0);
+      this.grid.lineTo(x, h);
     }
 
-    const worldWidth = Math.max(1, this.worldSize.w);
-    const worldHeight = Math.max(1, this.worldSize.h);
-    const scale = Math.min(
-      this.app.screen.width / worldWidth,
-      this.app.screen.height / worldHeight,
-    );
-
-    for (const entity of this.entities.values()) {
-      let circle = this.circlesByEntityId.get(entity.id);
-      if (!circle) {
-        circle = new pixi.Graphics();
-        this.app.stage.addChild(circle);
-        this.circlesByEntityId.set(entity.id, circle);
-      }
-
-      circle.clear();
-      circle.beginFill(this.colorForKind(entity.kind), 1);
-      circle.lineStyle(2, 0x0f210f, 0.8);
-      circle.drawCircle(0, 0, Math.max(4, entity.radius * scale));
-      circle.endFill();
-      circle.x = entity.x * scale;
-      circle.y = entity.y * scale;
+    for (let y = 0; y <= h; y += cell) {
+      this.grid.moveTo(0, y);
+      this.grid.lineTo(w, y);
     }
   }
 
@@ -230,13 +267,70 @@ export class PixiRenderer {
 
 declare global {
   interface Window {
+    app: PixiApp;
     PIXI?: {
-      Application: new (options: {
+      // Application
+      Application: new (options?: {
         resizeTo?: Window;
         backgroundColor?: number;
         antialias?: boolean;
+        autoStart?: boolean;
+        width?: number;
+        height?: number;
+        view?: HTMLCanvasElement;
       }) => PixiApp;
+
+      // Display Objects
+      Container: new () => PixiContainer;
+      Sprite: new (texture?: PixiTexture) => PixiSprite;
       Graphics: new () => PixiGraphics;
+
+      // Assets/Loading
+      Assets: {
+        load: {
+          (url: string): Promise<PixiTexture>;
+          (urls: string[]): Promise<PixiTexture[]>;
+        };
+        get: (url: string) => PixiTexture;
+        add: (key: string, url: string) => void;
+      };
+
+      // Textures
+      Texture: {
+        from: (source: string | HTMLImageElement | HTMLCanvasElement) => PixiTexture;
+        WHITE: PixiTexture;
+        EMPTY: PixiTexture;
+      };
+
+      // Math/Utilities
+      Point: new (x?: number, y?: number) => { x: number; y: number };
+      ObservablePoint: new (cb: Function, scope: any, x?: number, y?: number) => { x: number; y: number };
+
+      // Colors
+      Color: {
+        shared: {
+          setValue: (value: number | string) => void;
+        };
+      };
+
+      // Render Texture
+      RenderTexture: {
+        create: (options: { width: number; height: number }) => PixiTexture;
+      };
+
+      // Blend Modes
+      BLEND_MODES: {
+        NORMAL: number;
+        ADD: number;
+        MULTIPLY: number;
+        SCREEN: number;
+      };
+
+      // Scale Modes
+      SCALE_MODES: {
+        LINEAR: number;
+        NEAREST: number;
+      };
     };
   }
 }

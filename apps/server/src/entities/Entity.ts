@@ -25,8 +25,6 @@ export abstract class Entity {
   maxHp?: number;
   teamId?: number;
   ownerId?: number;
-  data: Record<string, unknown> = {};
-  /** Optional fixed-slot inventory; many entity types may not use it. */
   inventory?: Inventory;
 
   /**
@@ -67,7 +65,6 @@ export abstract class Entity {
       rotation: this.rotation,
       radius: this.radius,
       ownerId: this.ownerId,
-      data: this.data,
     };
 
     if (this.hp !== undefined) {
@@ -79,9 +76,8 @@ export abstract class Entity {
 
     // include inventory if present (Player used to do this itself)
     if (this.inventory) {
-      snap.data = snap.data || {};
-      snap.data.inventory = this.inventory.toSnapshot();
-      snap.data.activeSlot = this.inventory.activeIndex;
+      snap.inventory = this.inventory.toSnapshot();
+      snap.activeSlot = this.inventory.activeIndex;
     }
 
     return snap;

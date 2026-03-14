@@ -1,4 +1,5 @@
 import { Item } from "./Item.ts";
+import type { ItemStackSnapshot } from "@shared/net/snapshots.ts";
 
 /**
  * A stack of items, holding an Item instance with its quantity in stackSize.
@@ -22,7 +23,14 @@ export class ItemStack {
   }
 
   /** Converts the stack into a network snapshot. */
-  toSnapshot(): import("@shared/net/snapshots.ts").ItemStackSnapshot {
-    return { ...this.item.toSnapshot(), stackSize: this.stackSize };
+  toSnapshot(): ItemStackSnapshot {
+    return {
+      id: this.item.id,
+      kind: this.item.kind,
+      stackSize: this.stackSize,
+      ownerId: this.item.ownerId,
+      data: this.item.data,
+    };
   }
+
 }

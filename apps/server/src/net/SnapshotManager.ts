@@ -35,7 +35,7 @@ export class SnapshotManager {
   makeSnapshot(world: World): WorldSnapshot {
     const drainedEvents = world.events.toArray();
     world.events.clear();
-
+    
     return {
       tick: world.tick,
       timeMs: world.timeMs,

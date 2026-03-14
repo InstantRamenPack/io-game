@@ -780,7 +780,7 @@ launchBtn?.addEventListener("click", () => {
   }
 
   void gameClient
-    .attachRenderer(gameRoot)
+    .initRenderer(gameRoot)
     .then(() => {
       gameClient.start(wsUrl, token);
     })

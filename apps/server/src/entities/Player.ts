@@ -38,8 +38,7 @@ export class Player extends Entity {
   /** Converts player state into a snapshot, including name and inherited inventory. */
   override toSnapshot(): import("@shared/net/snapshots.ts").EntitySnapshot {
     const snap = super.toSnapshot();
-    snap.data = snap.data || {};
-    snap.data.name = this.name;
+    snap.name = this.name;
     return snap;
   }
 
