@@ -1,34 +1,50 @@
 import { Entity } from "@server/entities/Entity.ts";
+import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
-import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
-import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { World } from "@server/world/World.ts";
+
+export type EnemyConfig = {
+  radius: number;
+  hp: number;
+  maxHp: number;
+  vx: number;
+  vy: number;
+  moveSpeed?: number;
+  aggroRange?: number;
+  arrivalRadius?: number;
+  goals?: readonly Goal[];
+};
 
 /**
  * Hostile entity with goal-driven targeting and movement state.
  */
 export class Enemy extends Entity {
   goalSelector: GoalSelector;
-  moveSpeed = 110;
-  aggroRange = 480;
-  arrivalRadius = 20;
+  moveSpeed: number;
+  aggroRange: number;
+  arrivalRadius: number;
   targetId?: number;
 
   /**
-   * Creates an enemy with collision, hp, and its default goal stack.
+   * Creates a hostile entity with caller-provided combat and movement defaults.
    * @param id Stable runtime entity id.
+   * @param config Enemy tuning and goal stack.
    */
-  constructor(id: number) {
+  constructor(id: number, config: EnemyConfig) {
     super(id, "enemy");
     this.collisionMode = "dynamic";
-    this.radius = 16;
-    this.hp = 100;
-    this.maxHp = 100;
-    this.vx = 0;
-    this.vy = 0;
+    this.radius = config.radius;
+    this.hp = config.hp;
+    this.maxHp = config.maxHp;
+    this.vx = config.vx;
+    this.vy = config.vy;
+    this.moveSpeed = config.moveSpeed ?? 110;
+    this.aggroRange = config.aggroRange ?? 480;
+    this.arrivalRadius = config.arrivalRadius ?? 20;
     this.goalSelector = new GoalSelector();
-    this.goalSelector.add(new TargetEntityGoal(0));
-    this.goalSelector.add(new GoToTargetGoal(1, this.arrivalRadius));
+    for (const goal of config.goals ?? []) {
+      this.goalSelector.add(goal);
+    }
   }
 
   /**

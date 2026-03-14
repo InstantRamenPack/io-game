@@ -1,0 +1,31 @@
+import { Enemy } from "@server/entities/Enemy.ts";
+import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
+
+/**
+ * Default melee chaser enemy used for the initial hostile population.
+ */
+export class Zombie extends Enemy {
+  /**
+   * Creates a zombie with its default stats and chase goal stack.
+   * @param id Stable runtime entity id.
+   */
+  constructor(id: number) {
+    const arrivalRadius = 20;
+
+    super(id, {
+      radius: 16,
+      hp: 100,
+      maxHp: 100,
+      vx: 0,
+      vy: 0,
+      moveSpeed: 110,
+      aggroRange: 480,
+      arrivalRadius,
+      goals: [
+        new TargetEntityGoal(0),
+        new GoToTargetGoal(1, arrivalRadius)
+      ],
+    });
+  }
+}
