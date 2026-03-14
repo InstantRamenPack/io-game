@@ -32,6 +32,11 @@ export const PongMessageSchema = z.object({
   timeMs: z.number().optional(),
 });
 
+export const WelcomeMessageSchema = z.object({
+  t: z.literal("welcome"),
+  entityId: z.number().int().nonnegative(),
+});
+
 const WorldSnapshotSchema = z.object({
   tick: z.number(),
   timeMs: z.number(),
@@ -79,6 +84,7 @@ export const ClientToServerMessageSchema = z.discriminatedUnion("t", [
 export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
   SnapshotMessageSchema,
   PongMessageSchema,
+  WelcomeMessageSchema,
   ErrorMessageSchema,
 ]);
 
@@ -87,6 +93,7 @@ export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type InputMessage = z.infer<typeof InputMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
 export type PongMessage = z.infer<typeof PongMessageSchema>;
+export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
 export type SnapshotMessage = z.infer<typeof SnapshotMessageSchema> & {
   snapshot: WorldSnapshot;
 };

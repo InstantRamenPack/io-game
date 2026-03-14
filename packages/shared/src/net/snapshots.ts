@@ -1,3 +1,4 @@
+import type { ItemStack } from "@server/items/ItemStack";
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { ItemKind } from "@shared/ids/ItemKinds";
 import type { NetEvent } from "@shared/net/events.ts";
@@ -18,7 +19,10 @@ export interface EntitySnapshot {
   hp?: number;
   maxHp?: number;
   ownerId?: number;
-  data?: Record<string, unknown>;
+  name?: string;
+
+  inventory?: Array<ItemStackSnapshot | null>;
+  activeSlot?: number;
 }
 
 /**
@@ -32,13 +36,6 @@ export interface WorldSnapshot {
   events: NetEvent[];
 }
 
-
-export interface ItemSnapshot {
-  id: number;
-  kind: ItemKind;
-  ownerId?: number;
-  data?: Record<string, unknown>;
-}
 
 export interface ItemStackSnapshot {
   id: number;
