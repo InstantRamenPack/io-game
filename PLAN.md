@@ -142,7 +142,7 @@ repo/
         net/
           WsClient.ts
           ClientWorldState.ts
-          Extrapolator.ts
+          Interpolator.ts
         input/
           InputManager.ts
         render/
@@ -232,13 +232,13 @@ Use a base tsconfig with:
 - Fixed delta: `dtMs = 1000 / tickRate`
 
 ### 4.2 Snapshots
-- Snapshot rate: `GameConfig.snapshotRate` (default 10–20)
+- Snapshot emission: every completed server tick
 - Snapshots include `tick`, `timeMs`, `entities[]`, `events[]`
 
-### 4.3 Client extrapolation
-- Client stores the latest authoritative snapshot separately from render state.
-- An `Extrapolator` predicts a short distance ahead from authoritative `vx`/`vy`.
-- Rendered entities ease toward predicted targets and snap only when error grows too large.
+### 4.3 Client interpolation
+- Client stores the latest two authoritative snapshots separately from render state.
+- The interpolation delay is the observed spacing between the last two snapshot arrivals.
+- Rendered entities blend from the previous authoritative position toward the latest one and snap only when error grows too large.
 
 ---
 
@@ -365,8 +365,8 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `GameConfig` — `packages/shared/src/config/GameConfig.ts`
 
-- Purpose: shared runtime tuning for server cadence, snapshots, world bounds, networking, and protocol settings.
-- Key fields: `tickRate`, `snapshotRate`, `worldSize`, `network`, `protocolVersion`.
+- Purpose: shared runtime tuning for server cadence, world bounds, networking, interpolation, and protocol settings.
+- Key fields: `tickRate`, `worldSize`, `network`, `interpolation.snapDistance`, `protocolVersion`.
 - Key methods: `load`.
 
 ### `IdGenerator` — `packages/shared/src/math/IdGenerator.ts`
@@ -444,9 +444,8 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `SnapshotManager` — `apps/server/src/net/SnapshotManager.ts`
 
-- Purpose: decide when snapshots are emitted and serialize world state into wire format.
-- Key fields: snapshot cadence such as `everyTicks`.
-- Key methods: `shouldSendSnapshot`, `makeSnapshot`, and optional delta helpers if they are added later.
+- Purpose: serialize world state into snapshot payloads after each completed tick.
+- Key methods: `makeSnapshot`, and optional delta helpers if they are added later.
 
 ### `AntiCheatValidator` — `apps/server/src/net/AntiCheatValidator.ts`
 
@@ -637,8 +636,8 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `GameClient` — `apps/client/src/client/GameClient.ts`
 
-- Purpose: gameplay client coordinator for networking, snapshot state, extrapolation, input, and rendering.
-- Key fields: `networkClient`, `worldState`, `extrapolator`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
+- Purpose: gameplay client coordinator for networking, snapshot state, interpolation, input, and rendering.
+- Key fields: `networkClient`, `worldState`, `interpolator`, `inputManager`, `renderer`, `gameConfig`, `inputTimer`, `started`.
 - Key methods: `start`, `update`, `onSnapshot`, `stop`.
 
 ### `WsClient` — `apps/client/src/net/WsClient.ts`
@@ -649,15 +648,15 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### `ClientWorldState` — `apps/client/src/net/ClientWorldState.ts`
 
-- Purpose: store the latest authoritative snapshot received from the server.
-- Key fields: `latest`.
-- Key methods: `pushSnapshot`, `getLatest`, `clear`.
+- Purpose: store the latest two authoritative snapshots and their receive times for interpolation.
+- Key fields: `latestSnapshot`, `previousSnapshot`, `latestSnapshotReceivedAt`, `previousSnapshotReceivedAt`, `clientWorld`.
+- Key methods: `pushSnapshot`, `clear`.
 
-### `Extrapolator` — `apps/client/src/net/Extrapolator.ts`
+### `Interpolator` — `apps/client/src/net/Interpolator.ts`
 
-- Purpose: turn authoritative snapshots into smoothed render-state entities using clamped velocity prediction and reconciliation.
-- Key fields: latest snapshot timing, authoritative entities, render entities, and extrapolation settings.
-- Key methods: `pushSnapshot`, `sample`, `clear`.
+- Purpose: turn the latest two authoritative snapshots into smoothed render-state entities using last-interval interpolation.
+- Key fields: `snapDistance`.
+- Key methods: `updateInterpolation`.
 
 ### `InputManager` — `apps/client/src/input/InputManager.ts`
 
@@ -671,7 +670,7 @@ For each class or class family, it records purpose, likely fields, and the metho
 
 ### Rendering classes — `apps/client/src/render/*`
 
-- `PixiRenderer`: top-level rendering facade that keeps scene state in sync with interpolated entities. Key methods should stay around `sync`, `update`, `spawn`, and `despawn`.
+- `PixiRenderer`: top-level rendering facade that keeps scene state in sync with interpolated entities.
 - `SpriteStore`: entity id to display-object mapping with `get`, `set`, and `remove`.
 - `SpriteFactory`: sprite/container creation and snapshot-to-visual application. Expect methods such as `create` and `apply`.
 - `Camera`: follow/position/zoom logic for the local player view. Expect methods such as `follow`, `update`, and `worldToScreen`.
@@ -783,8 +782,8 @@ This section records what is currently implemented in the repo, including intent
 - Server/client validation and docs are aligned to this reduced contract for M1 stability.
 
 ### 13.6 Runtime architecture status notes
-- Server is authoritative and broadcasts snapshots at configured cadence.
-- Client extrapolates a short distance from authoritative `vx`/`vy` and smooths render state toward predicted targets.
+- Server is authoritative and broadcasts a snapshot after every completed tick.
+- Client interpolates between the last two authoritative snapshots and uses their observed spacing as the interpolation delay.
 - `TickClock` remains a small local wrapper over timer scheduling; can be inlined later if desired.
 - `IdGenerator` remains as a thin seam over external ID generation for future swap flexibility.
 

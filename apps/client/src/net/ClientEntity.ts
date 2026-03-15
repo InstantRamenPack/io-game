@@ -1,4 +1,7 @@
-import type { EntitySnapshot, ItemStackSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  EntitySnapshot,
+  ItemStackSnapshot,
+} from "@shared/net/snapshots.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer";
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { PixiContainer, PixiGraphics } from "@client/render/PixiTypes.ts";
@@ -32,7 +35,6 @@ export class ClientEntity {
   public ownerId?: number;
   public inventory?: Array<ClientItemStack | null>;
   public activeSlot?: number;
-
 
   /*
   Stores the "true" x,y coords given by the server through snapshots. Used for interpolation and reconciliation. Should not be modified directly, only through snapshot updates.
@@ -131,7 +133,6 @@ export class ClientEntity {
    * Updates position and keeps the camera locked to the player entity when needed.
    */
   public updatePosition(x: number, y: number): void {
-
     //DOESNT UPDATE SERVER POSITION, ONLY CLIENT POSITION. SERVER POSITION SHOULD BE UPDATED THROUGH SNAPSHOT UPDATES
     this.x = x;
     this.y = y;
@@ -219,8 +220,6 @@ export class ClientEntity {
     if (!inventory) {
       return undefined;
     }
-    return inventory.map((item) =>
-      item ? new ClientItemStack(item) : null,
-    );
+    return inventory.map((item) => (item ? new ClientItemStack(item) : null));
   }
 }

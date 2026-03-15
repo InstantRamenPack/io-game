@@ -59,10 +59,7 @@ export class GameServer {
     this.networkServer = networkServer;
     this.authService = authService;
     this.world = new World(gameConfig);
-    this.snapshotManager = new SnapshotManager(
-      gameConfig.snapshotRate,
-      gameConfig.tickRate,
-    );
+    this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
     this.preStepSystems = [new GoalSystem()];
@@ -96,7 +93,7 @@ export class GameServer {
   }
 
   /**
-   * Processes one server tick and broadcasts snapshots on the configured cadence.
+   * Processes one server tick and broadcasts a snapshot after it completes.
    * @param deltaMs Tick delta in milliseconds.
    */
   tick(deltaMs: number): void {
@@ -119,14 +116,12 @@ export class GameServer {
       system.update(this.world, deltaMs);
     }
 
-    if (this.snapshotManager.shouldSendSnapshot(this.world.tick)) {
-      const snapshot = this.snapshotManager.makeSnapshot(this.world);
-      const snapshotMessage: ServerToClientMessage = {
-        t: "snapshot",
-        snapshot,
-      };
-      this.networkServer.broadcast(JSON.stringify(snapshotMessage));
-    }
+    const snapshot = this.snapshotManager.makeSnapshot(this.world);
+    const snapshotMessage: ServerToClientMessage = {
+      t: "snapshot",
+      snapshot,
+    };
+    this.networkServer.broadcast(JSON.stringify(snapshotMessage));
   }
 
   /**

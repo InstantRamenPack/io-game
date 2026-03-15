@@ -105,8 +105,8 @@ export class GameClient {
    * @param frameTimeMs Monotonic timestamp for the current frame.
    */
   update(deltaMs: number, frameTimeMs = performance.now()): void {
-    if (this.worldState){
-      this.interpolator.updateInterpolation(this.worldState, frameTimeMs)
+    if (this.worldState) {
+      this.interpolator.updateInterpolation(this.worldState, frameTimeMs);
     }
     this.renderer.update(deltaMs);
   }
@@ -144,7 +144,7 @@ export class GameClient {
   }
 
   /**
-   * Starts the requestAnimationFrame loop used for extrapolated movement.
+   * Starts the requestAnimationFrame loop used for client-side interpolation.
    */
   private startFrameLoop(): void {
     if (this.animationFrameId !== undefined) {
@@ -182,7 +182,7 @@ export class GameClient {
   }
 
   /**
-   * Handles socket closure by resetting extrapolated state and frame timers.
+   * Handles socket closure by resetting interpolation state and frame timers.
    */
   private onDisconnected(): void {
     this.started = false;
@@ -197,10 +197,8 @@ export class GameClient {
   }
 }
 
-
 declare global {
   interface Window {
     gameClient: GameClient;
-
   }
 }
