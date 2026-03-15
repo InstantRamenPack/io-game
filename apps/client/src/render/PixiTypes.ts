@@ -62,8 +62,9 @@ export type PixiGraphics = {
   visible: boolean;
   rotation: number;
   scale: { x: number; y: number };
-  position: { x: number; y: number };
+  position: { x: number; y: number; set: (x: number, y: number) => void };
   pivot: { x: number; y: number; set: (x: number, y: number) => void };
+  parent?: PixiContainer;
   lineStyle: (width: number, color: number, alpha?: number) => PixiGraphics;
   beginFill: (color: number, alpha?: number) => PixiGraphics;
   endFill: () => PixiGraphics;

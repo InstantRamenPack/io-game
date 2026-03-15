@@ -31,6 +31,7 @@ export class ClientWorldState {
   /**
    * Replaces the local present-state with a fresh authoritative snapshot.
    * @param snapshot Authoritative snapshot to apply.
+   * @param receivedAt
    */
   pushSnapshot(snapshot: WorldSnapshot, receivedAt: number = performance.now()): void {
     this.previousSnapshot = this.latestSnapshot;

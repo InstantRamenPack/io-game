@@ -4,10 +4,10 @@ import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
  * Interpolates between the two most recent snapshots to produce smooth motion.
  */
 export class Interpolator {
-  private interpolationConfig: InterpolationConfig;
+  private readonly snapDistance: number;
 
   constructor(interpolationConfig: InterpolationConfig) {
-    this.interpolationConfig = interpolationConfig;
+    this.snapDistance = interpolationConfig.snapDistance;
   }
 
   updateInterpolation(worldState: ClientWorldState, frameTimeMs: number): void {
@@ -25,8 +25,10 @@ export class Interpolator {
       return;
     }
 
-    const renderTimeMs = frameTimeMs - this.interpolationConfig.bufferMs;
     const spanMs = Math.max(1, latestAt - previousAt);
+    // Stay exactly one observed snapshot interval behind so interpolation
+    // always happens across the latest two received snapshots.
+    const renderTimeMs = frameTimeMs - spanMs;
     const alpha = clamp((renderTimeMs - previousAt) / spanMs, 0, 1);
 
     for (const entity of worldState.clientWorld.entities) {
@@ -34,7 +36,7 @@ export class Interpolator {
       const deltaY = entity.serverY - entity.prevServerY;
       const distance = Math.hypot(deltaX, deltaY);
 
-      if (distance > this.interpolationConfig.snapDistance) {
+      if (distance > this.snapDistance) {
         entity.updatePosition(entity.serverX, entity.serverY);
         continue;
       }
@@ -47,7 +49,6 @@ export class Interpolator {
 }
 
 export type InterpolationConfig = {
-  bufferMs: number;
   snapDistance: number;
 };
 

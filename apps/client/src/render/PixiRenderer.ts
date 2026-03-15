@@ -1,6 +1,11 @@
-import type { EntitySnapshot } from "@shared/net/snapshots.ts";
-import type { PixiApp, PixiContainer, PixiGraphics, PixiSprite, PixiTexture, WorldSize } from "./PixiTypes.ts";
-import type { GameConfig } from "@shared/config/GameConfig.ts";
+import type {
+  PixiApp,
+  PixiContainer,
+  PixiGraphics,
+  PixiSprite,
+  PixiTexture,
+  WorldSize,
+} from "./PixiTypes.ts";
 
 let pixiScriptPromise: Promise<void> | null = null;
 
@@ -52,7 +57,6 @@ async function loadPixiScript(): Promise<void> {
  * Owns the Pixi scene lifecycle and keeps authoritative entity state in sync.
  */
 
-
 export class PixiRenderer {
   private app: PixiApp | null = null;
   // World container should store everything because transformations applied to it create illusion of following the player
@@ -75,7 +79,6 @@ export class PixiRenderer {
     this.playerEntityId = entityId;
   }
 
-
   public entityContainer: PixiContainer | null = null;
   private hostElement: HTMLElement | null = null;
   private readonly handleResize = (): void => {
@@ -92,12 +95,10 @@ export class PixiRenderer {
    * Attaches the Pixi application to the given host element.
    * @param hostElement DOM element that should contain the game canvas.
    * @param worldSize World bounds used to scale entity positions.
-   * 
+   *
    */
 
-
   async init(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
-
     await this.attach(hostElement, worldSize);
 
     if (!window.PIXI) {
@@ -116,21 +117,18 @@ export class PixiRenderer {
 
     // create world hierarchy
 
-    
-    if (!this.world){
+    if (!this.world) {
       this.world = new window.PIXI.Container();
     }
 
     this.ensureGrid();
     this.app.stage.addChild(this.world);
 
-    if (!this.entityContainer){
+    if (!this.entityContainer) {
       this.entityContainer = new window.PIXI.Container();
     }
 
     this.world.addChild(this.entityContainer);
-
-
 
     // initial render to populate the scene
     this.renderScene();
@@ -150,7 +148,7 @@ export class PixiRenderer {
         resizeTo: window,
         backgroundColor: 0xd7f3d2,
         antialias: true,
-        autoStart: false,  // Disable Pixi's automatic ticker
+        autoStart: false, // Disable Pixi's automatic ticker
       });
       window.addEventListener("resize", this.handleResize);
     }
@@ -163,7 +161,6 @@ export class PixiRenderer {
     if (!window.PIXI) {
       throw new Error("PIXI is not available on the window object.");
     }
-    
 
     //empty rn
   }
@@ -178,15 +175,12 @@ export class PixiRenderer {
     this.renderScene();
   }
 
-
   /**
    * Advances render internals for one frame.
    * @param _deltaMs Frame delta in milliseconds.
    */
   update(_deltaMs: number): void {
     this.renderScene();
-
-
   }
 
   public setCameraToPlayer(x: number, y: number): void {
@@ -196,11 +190,12 @@ export class PixiRenderer {
     if (!this.app) {
       throw new Error("Pixi App not initialized.");
     }
-    this.world.pivot.set(x, y)
-    this.world.position.set(this.app.screen.width/2, this.app.screen.height/2)
+    this.world.pivot.set(x, y);
+    this.world.position.set(
+      this.app.screen.width / 2,
+      this.app.screen.height / 2,
+    );
   }
-
-
 
   /**
    * Draws the current scene state into the mounted Pixi application.
@@ -210,9 +205,8 @@ export class PixiRenderer {
     if (!this.app) {
       throw new Error("Pixi App not initialized");
     }
-    
-    this.app.renderer.render(this.app.stage);
 
+    this.app.renderer.render(this.app.stage);
   }
 
   private ensureGrid(): void {
@@ -302,14 +296,21 @@ declare global {
 
       // Textures
       Texture: {
-        from: (source: string | HTMLImageElement | HTMLCanvasElement) => PixiTexture;
+        from: (
+          source: string | HTMLImageElement | HTMLCanvasElement,
+        ) => PixiTexture;
         WHITE: PixiTexture;
         EMPTY: PixiTexture;
       };
 
       // Math/Utilities
       Point: new (x?: number, y?: number) => { x: number; y: number };
-      ObservablePoint: new (cb: Function, scope: any, x?: number, y?: number) => { x: number; y: number };
+      ObservablePoint: new (
+        cb: Function,
+        scope: any,
+        x?: number,
+        y?: number,
+      ) => { x: number; y: number };
 
       // Colors
       Color: {
