@@ -1,5 +1,11 @@
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { TypeRegistry } from "@shared/registry/TypeRegistry.ts";
+import {
+  CraftingStation,
+  Tower,
+  Wall,
+  Windmill,
+} from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -10,6 +16,17 @@ import type {
   ProjectileSpawnConfig,
 } from "@server/entities/projectiles/Projectile.ts";
 import type { Item } from "@server/items/Item.ts";
+import {
+  FoodItem,
+  StoneItem,
+  WoodItem,
+} from "@server/items/resources/Materials.ts";
+import {
+  CraftingStationItem,
+  TowerItem,
+  WallItem,
+  WindmillItem,
+} from "@server/items/resources/StructureItems.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
@@ -49,11 +66,22 @@ export function bootstrapTypeRegistries(): void {
 
   registerEntityType(Player);
   registerEntityType(Zombie);
+  registerEntityType(Wall);
+  registerEntityType(Tower);
+  registerEntityType(Windmill);
+  registerEntityType(CraftingStation);
   registerEntityType(ItemEntity);
   registerEntityType(BasicBullet);
 
   registerItemType(BasicGun);
   registerItemType(BasicSword);
+  registerItemType(WoodItem);
+  registerItemType(StoneItem);
+  registerItemType(FoodItem);
+  registerItemType(WallItem);
+  registerItemType(TowerItem);
+  registerItemType(WindmillItem);
+  registerItemType(CraftingStationItem);
   registerItemType(ZombieSword);
   registerProjectileType(BasicBullet);
 

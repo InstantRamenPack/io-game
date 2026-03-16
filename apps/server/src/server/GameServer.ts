@@ -12,6 +12,13 @@ import {
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
+import {
+  Building,
+  CraftingStation,
+  Tower,
+  Wall,
+  Windmill,
+} from "@server/entities/Building.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
@@ -49,6 +56,7 @@ export class GameServer {
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
   private initialZombiesSpawned = false;
+  private initialBuildingsSpawned = false;
 
   /**
    * Wires server subsystems and WebSocket event handlers.
@@ -88,6 +96,10 @@ export class GameServer {
     if (!this.initialZombiesSpawned) {
       this.spawnInitialZombies();
       this.initialZombiesSpawned = true;
+    }
+    if (!this.initialBuildingsSpawned) {
+      this.spawnInitialBuildings();
+      this.initialBuildingsSpawned = true;
     }
     this.clock.start(() => this.tick());
   }
@@ -221,6 +233,7 @@ export class GameServer {
       );
       playerEntity.inventory.activeIndex = 1;
     }
+    playerEntity.seedStarterInventory(() => this.itemIdGenerator.alloc());
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
@@ -275,6 +288,53 @@ export class GameServer {
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);
+    }
+  }
+
+  /**
+   * Spawns a simple starter base cluster so building rendering and HUD state
+   * have authoritative structures to display.
+   */
+  private spawnInitialBuildings(): void {
+    const centerX = this.gameConfig.worldSize.w / 2;
+    const centerY = this.gameConfig.worldSize.h / 2;
+    const starterBuildings: Array<{
+      x: number;
+      y: number;
+      create: (id: number) => Building;
+    }> = [
+      {
+        x: centerX - 180,
+        y: centerY - 120,
+        create: (id) => new Wall(id, "North Wall"),
+      },
+      {
+        x: centerX + 180,
+        y: centerY - 120,
+        create: (id) => new Wall(id, "East Wall"),
+      },
+      {
+        x: centerX,
+        y: centerY - 180,
+        create: (id) => new Tower(id, "Arrow Tower"),
+      },
+      {
+        x: centerX - 120,
+        y: centerY + 130,
+        create: (id) => new Windmill(id, "Windmill"),
+      },
+      {
+        x: centerX + 120,
+        y: centerY + 130,
+        create: (id) => new CraftingStation(id, "Craft Bench"),
+      },
+    ];
+
+    for (const starterBuilding of starterBuildings) {
+      const building = starterBuilding.create(this.world.allocEntityId());
+      building.x = starterBuilding.x;
+      building.y = starterBuilding.y;
+      this.world.spawn(building);
     }
   }
 

@@ -1,7 +1,6 @@
 export type ResourceId = `${string}:${string}`;
 
-export const RESOURCE_ID_PATTERN =
-  /^[a-z][a-z0-9_-]*:[a-z0-9_./-]+$/;
+export const RESOURCE_ID_PATTERN = /^[a-z][a-z0-9_-]*:[a-z0-9_./-]+$/;
 
 /**
  * Returns whether a string matches the shared namespace:path identifier format.
