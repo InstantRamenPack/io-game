@@ -2,71 +2,37 @@ import { GameConfig } from "@shared/config/GameConfig.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
 import { AuthService } from "@server/services/AuthService.ts";
-import { readFileSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 
-const homeHtmlTemplatePath = join(import.meta.dir, "../client/index.html");
-const homeHtmlTemplate = readFileSync(homeHtmlTemplatePath, "utf8");
-const clientSourceRoot = resolve(import.meta.dir, "../client/src");
-const sharedSourceRoot = resolve(import.meta.dir, "../../packages/shared/src");
-const browserTranspiler = new Bun.Transpiler({
-  loader: "ts",
-  target: "browser",
-});
+const clientDistRoot = resolve(import.meta.dir, "../client/dist");
+const clientIndexPath = join(clientDistRoot, "index.html");
 
 /**
- * Renders the client HTML shell.
- * This stays as a helper so server startup keeps the response generation concerns local.
- * @returns HTML served for the browser entrypoint.
- */
-function renderHomeHtml(): string {
-  return homeHtmlTemplate;
-}
-
-/**
- * Resolves a browser module URL to a local TypeScript source file.
- * Only files under the client and shared source roots are exposed.
+ * Resolves a request pathname to a file under the built client root.
  * @param urlPath Request pathname from the browser.
- * @returns Absolute path to a source file when the URL is allowed.
+ * @returns Absolute path when it stays within the built client root.
  */
-function resolveBrowserModulePath(urlPath: string): string | null {
-  const rootMatch = urlPath.startsWith("/src/")
-    ? { prefix: "/src/", root: clientSourceRoot }
-    : urlPath.startsWith("/packages/shared/src/")
-      ? { prefix: "/packages/shared/src/", root: sharedSourceRoot }
-      : null;
-  if (!rootMatch) {
-    return null;
-  }
-
-  if (!urlPath.endsWith(".ts")) {
-    return null;
-  }
-
-  const relativePath = urlPath.slice(rootMatch.prefix.length);
-  const resolvedPath = resolve(rootMatch.root, relativePath);
+function resolveClientAssetPath(urlPath: string): string | null {
+  const relativePath = urlPath.replace(/^\/+/, "");
+  const resolvedPath = resolve(clientDistRoot, relativePath);
   const withinRoot =
-    resolvedPath === rootMatch.root ||
-    resolvedPath.startsWith(`${rootMatch.root}${sep}`);
+    resolvedPath === clientDistRoot ||
+    resolvedPath.startsWith(`${clientDistRoot}${sep}`);
   return withinRoot ? resolvedPath : null;
 }
 
 /**
- * Builds a browser-ready JavaScript response for a TypeScript module request.
+ * Serves a built client asset when the request maps to a file in dist.
  * @param urlPath Request pathname from the browser.
- * @returns Response when the module path is valid and readable.
+ * @returns Response for an existing built asset.
  */
-function renderBrowserModule(urlPath: string): Response | null {
-  const sourcePath = resolveBrowserModulePath(urlPath);
-  if (!sourcePath) {
+function renderClientAsset(urlPath: string): Response | null {
+  const assetPath = resolveClientAssetPath(urlPath);
+  if (!assetPath || !existsSync(assetPath) || !statSync(assetPath).isFile()) {
     return null;
   }
-
-  const sourceText = readFileSync(sourcePath, "utf8");
-  const compiledModule = browserTranspiler.transformSync(sourceText);
-  return new Response(compiledModule, {
-    headers: { "content-type": "text/javascript; charset=utf-8" },
-  });
+  return new Response(Bun.file(assetPath));
 }
 
 /**
@@ -74,6 +40,12 @@ function renderBrowserModule(urlPath: string): Response | null {
  * @returns Nothing. Process lifetime is owned by Bun after the server starts.
  */
 export function main(): void {
+  if (!existsSync(clientIndexPath)) {
+    throw new Error(
+      "Built client bundle not found. Run `bun run build:client` before starting the server.",
+    );
+  }
+
   const gameConfig = GameConfig.load();
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const tlsCertPath = process.env.TLS_CERT_PATH;
@@ -81,7 +53,6 @@ export function main(): void {
   const authService = new AuthService(googleClientId);
   const networkServer = new WsServer();
   const gameServer = new GameServer(gameConfig, networkServer, authService);
-  const homeHtml = renderHomeHtml();
   gameServer.start();
 
   const port = Number(process.env.PORT ?? 3000);
@@ -134,14 +105,12 @@ export function main(): void {
         );
       }
 
-      const browserModule = renderBrowserModule(url.pathname);
-      if (browserModule) {
-        return browserModule;
+      const clientAsset = renderClientAsset(url.pathname);
+      if (clientAsset) {
+        return clientAsset;
       }
 
-      return new Response(homeHtml, {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return new Response(Bun.file(clientIndexPath));
     },
     websocket: {
       open(webSocket) {

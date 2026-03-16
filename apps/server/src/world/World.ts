@@ -12,7 +12,6 @@ import { SpatialIndex } from "@server/world/SpatialIndex.ts";
  */
 export class World {
   tick = 0;
-  timeMs = 0;
   entities: EntityStore;
   spatial: SpatialIndex;
   randomNumberGenerator: seedrandom.PRNG;
@@ -32,16 +31,13 @@ export class World {
   }
 
   /**
-   * Advances world time and applies the base entity update/integration pass.
-   * @param deltaMs Fixed or measured tick delta in milliseconds.
+   * Advances the world by one fixed simulation tick.
    */
-  step(deltaMs: number): void {
+  step(): void {
     this.tick += 1;
-    this.timeMs += deltaMs;
-
-    const deltaSeconds = deltaMs / 1000;
+    const deltaSeconds = 1 / this.gameConfig.tickRate;
     for (const entity of this.entities.all()) {
-      entity.tick(this, deltaMs);
+      entity.tick(this);
       if (entity.collisionMode !== "static") {
         entity.x += entity.vx * deltaSeconds;
         entity.y += entity.vy * deltaSeconds;

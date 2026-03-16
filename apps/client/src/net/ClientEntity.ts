@@ -4,8 +4,8 @@ import type {
 } from "@shared/net/snapshots.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer";
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
-import type { PixiContainer, PixiGraphics } from "@client/render/PixiTypes.ts";
 import { ClientItemStack } from "@client/net/ClientItemStack.ts";
+import * as PIXI from "pixijs";
 
 /**
  * Client-side entity that owns both replicated attributes and its Pixi render objects.
@@ -44,10 +44,10 @@ export class ClientEntity {
   public prevServerX: number;
   public prevServerY: number;
 
-  private entityContainer: PixiContainer;
-  private entityGraphic: PixiGraphics;
-  private debugContainer?: PixiContainer;
-  private debugGraphic?: PixiGraphics;
+  private entityContainer: PIXI.Container;
+  private entityGraphic: PIXI.Graphics;
+  private debugContainer?: PIXI.Container;
+  private debugGraphic?: PIXI.Graphics;
   private pixiRenderer: PixiRenderer;
 
   constructor(
@@ -75,11 +75,7 @@ export class ClientEntity {
     this.activeSlot = snapshot.activeSlot;
     this.pixiRenderer = pixiRenderer;
 
-    if (!window.PIXI) {
-      throw new Error("PIXI is not available on the window object.");
-    }
-
-    this.entityContainer = new window.PIXI.Container();
+    this.entityContainer = new PIXI.Container();
     this.entityContainer.position.set(this.x, this.y);
     this.entityContainer.rotation = this.rotation;
 
@@ -89,15 +85,9 @@ export class ClientEntity {
 
     this.pixiRenderer.entityContainer.addChild(this.entityContainer);
 
-    const graphics = new window.PIXI.Graphics();
+    const graphics = new PIXI.Graphics();
     graphics.lineStyle(2, 0x000000, 1);
-    if (this.kind === "player") {
-      graphics.beginFill(0x00ff00, 1);
-    } else if (this.kind === "enemy") {
-      graphics.beginFill(0xbf2a2a, 1);
-    } else {
-      throw new Error(`Unknown entity kind: ${this.kind}`);
-    }
+    graphics.beginFill(this.fillColorForKind(1), 1);
     graphics.drawCircle(0, 0, this.radius);
     graphics.endFill();
     graphics.pivot.set(0, 0);
@@ -106,20 +96,14 @@ export class ClientEntity {
     this.entityContainer.addChild(this.entityGraphic);
 
     if (debug) {
-      this.debugContainer = new window.PIXI.Container();
+      this.debugContainer = new PIXI.Container();
       this.debugContainer.position.set(this.serverX, this.serverY);
       this.debugContainer.rotation = this.rotation;
       this.pixiRenderer.entityContainer.addChild(this.debugContainer);
 
-      const debugGraphics = new window.PIXI.Graphics();
+      const debugGraphics = new PIXI.Graphics();
       debugGraphics.lineStyle(2, 0x000000, 0.35);
-      if (this.kind === "player") {
-        debugGraphics.beginFill(0x00ff00, 0.2);
-      } else if (this.kind === "enemy") {
-        debugGraphics.beginFill(0xbf2a2a, 0.2);
-      } else {
-        debugGraphics.beginFill(0xffffff, 0.2);
-      }
+      debugGraphics.beginFill(this.fillColorForKind(0.2), 0.2);
       debugGraphics.drawCircle(0, 0, this.radius);
       debugGraphics.endFill();
       debugGraphics.pivot.set(0, 0);
@@ -177,20 +161,14 @@ export class ClientEntity {
       this.radius = snapshot.radius;
       this.entityGraphic.clear();
       this.entityGraphic.lineStyle(2, 0x000000, 1);
-      this.entityGraphic.beginFill(0x00ff00, 1);
+      this.entityGraphic.beginFill(this.fillColorForKind(1), 1);
       this.entityGraphic.drawCircle(0, 0, this.radius);
       this.entityGraphic.endFill();
 
       if (this.debugGraphic) {
         this.debugGraphic.clear();
         this.debugGraphic.lineStyle(2, 0x000000, 0.35);
-        if (this.kind === "player") {
-          this.debugGraphic.beginFill(0x00ff00, 0.2);
-        } else if (this.kind === "enemy") {
-          this.debugGraphic.beginFill(0xbf2a2a, 0.2);
-        } else {
-          this.debugGraphic.beginFill(0xffffff, 0.2);
-        }
+        this.debugGraphic.beginFill(this.fillColorForKind(0.2), 0.2);
         this.debugGraphic.drawCircle(0, 0, this.radius);
         this.debugGraphic.endFill();
       }
@@ -221,5 +199,15 @@ export class ClientEntity {
       return undefined;
     }
     return inventory.map((item) => (item ? new ClientItemStack(item) : null));
+  }
+
+  private fillColorForKind(_alpha: number): number {
+    if (this.kind === "player") {
+      return 0x00ff00;
+    }
+    if (this.kind === "enemy") {
+      return 0xbf2a2a;
+    }
+    throw new Error(`Unknown entity kind: ${this.kind}`);
   }
 }

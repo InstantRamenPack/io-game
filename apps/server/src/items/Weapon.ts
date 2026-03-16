@@ -13,8 +13,8 @@ export abstract class Weapon extends Item {
   range: number;
   hitEffects: string[]; // effect IDs to apply on hit
 
-  /** Cooldown timer in ms until next fire. */
-  protected cooldownMs: number = 0;
+  /** Fixed-tick cooldown until next fire. */
+  protected cooldownTicks = 0;
 
   constructor(
     id: number,
@@ -31,23 +31,23 @@ export abstract class Weapon extends Item {
     this.hitEffects = hitEffects;
   }
 
-  /** Advances cooldown timer. */
-  override tick(_world: World, dtMs: number): void {
-    if (this.cooldownMs > 0) {
-      this.cooldownMs = Math.max(0, this.cooldownMs - dtMs);
+  /** Advances cooldown state by one fixed tick. */
+  override tick(_world: World): void {
+    if (this.cooldownTicks > 0) {
+      this.cooldownTicks -= 1;
     }
   }
 
   /** @returns True if weapon can fire now. */
   canFire(): boolean {
-    return this.cooldownMs <= 0;
+    return this.cooldownTicks <= 0;
   }
 
   /** Fires the weapon; resets cooldown. Subclasses implement specifics. */
   abstract fire(world: World, owner: Entity, aimX: number, aimY: number): void;
 
   /** Resets cooldown after firing. */
-  protected resetCooldown(): void {
-    this.cooldownMs = 1000 / this.fireRate;
+  protected resetCooldown(tickRate: number): void {
+    this.cooldownTicks = Math.max(1, Math.round(tickRate / this.fireRate));
   }
 }

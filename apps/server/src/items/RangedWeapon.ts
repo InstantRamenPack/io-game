@@ -10,11 +10,11 @@ export class RangedWeapon extends Weapon {
   projectileClassId: string;
   ammoInMag: number;
   magSize: number;
-  reloadMs: number;
+  reloadTicks: number;
   spread: number; // radians
 
-  /** Reload timer in ms. */
-  private reloadTimerMs: number = 0;
+  /** Reload timer in fixed ticks. */
+  private reloadTicksRemaining = 0;
 
   constructor(
     id: number,
@@ -24,23 +24,23 @@ export class RangedWeapon extends Weapon {
     hitEffects: string[],
     projectileClassId: string,
     magSize: number,
-    reloadMs: number,
+    reloadTicks: number,
     spread: number = 0
   ) {
     super(id, "weapon" as ItemKind, damage, fireRate, range, hitEffects);
     this.projectileClassId = projectileClassId;
     this.magSize = magSize;
-    this.reloadMs = reloadMs;
+    this.reloadTicks = reloadTicks;
     this.spread = spread;
     this.ammoInMag = magSize; // start full
   }
 
-  /** Advances cooldown and reload timers. */
-  override tick(_world: World, dtMs: number): void {
-    super.tick(_world, dtMs);
-    if (this.reloadTimerMs > 0) {
-      this.reloadTimerMs = Math.max(0, this.reloadTimerMs - dtMs);
-      if (this.reloadTimerMs <= 0) {
+  /** Advances cooldown and reload timers by one fixed tick. */
+  override tick(_world: World): void {
+    super.tick(_world);
+    if (this.reloadTicksRemaining > 0) {
+      this.reloadTicksRemaining -= 1;
+      if (this.reloadTicksRemaining <= 0) {
         this.ammoInMag = this.magSize;
       }
     }
@@ -48,7 +48,7 @@ export class RangedWeapon extends Weapon {
 
   /** @returns True if weapon can fire now (has ammo, not reloading, cooldown ready). */
   override canFire(): boolean {
-    return super.canFire() && this.ammoInMag > 0 && this.reloadTimerMs <= 0;
+    return super.canFire() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0;
   }
 
   fire(world: World, owner: Entity, aimX: number, aimY: number): void {
@@ -58,10 +58,10 @@ export class RangedWeapon extends Weapon {
     // world.spawnProjectile(this.projectileClassId, owner, aimX, aimY, this.damage, this.hitEffects);
 
     this.ammoInMag--;
-    this.resetCooldown();
+    this.resetCooldown(world.gameConfig.tickRate);
 
     if (this.ammoInMag <= 0) {
-      this.reloadTimerMs = this.reloadMs;
+      this.reloadTicksRemaining = this.reloadTicks;
     }
   }
 }

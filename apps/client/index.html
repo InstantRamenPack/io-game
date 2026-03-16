@@ -4,16 +4,90 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>io-game client</title>
-    <script type="importmap">
-      {
-        "imports": {
-          "@client/": "/src/",
-          "@shared/": "/packages/shared/src/"
-        }
-      }
-    </script>
   </head>
   <body>
+    <main class="menu-scene" data-screen="menu">
+      <header class="hud-top">
+        <section class="brand">
+          <h1>ZOMBS.IO</h1>
+          <p>Build. Defend. Survive.</p>
+        </section>
+        <aside class="status">
+          US-EAST // tick 60 // ping 42ms // infected sectors: 3
+        </aside>
+      </header>
+
+      <section class="layout">
+        <nav class="side-menu" aria-label="Main menu actions">
+          <button data-view="play" aria-current="true">PLAY</button>
+          <button data-view="loadout">LOADOUT</button>
+          <button data-view="settings">SETTINGS</button>
+          <button data-view="account">ACCOUNT</button>
+        </nav>
+
+        <section class="play-card" aria-label="Server join card">
+          <div class="card-top">
+            <h2 id="menu-title">OUTBREAK SECTOR</h2>
+            <span class="danger-pill">Night +1 incoming</span>
+          </div>
+
+          <div class="metrics" id="menu-metrics">
+            <span>Survivors: 284</span>
+            <span>Alive: 152</span>
+            <span>Queue: 3</span>
+          </div>
+
+          <div class="account-gate" id="account-gate">
+            <span id="account-gate-text">
+              Deploy as guest, or sign in with Google to save progress.
+            </span>
+            <div class="account-actions">
+              <div class="google-auth-slot">
+                <button class="account-btn" id="account-btn" type="button">
+                  Loading...
+                </button>
+                <div
+                  class="google-signin-target"
+                  id="google-signin-target"
+                  hidden
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="play-grid">
+            <input
+              class="field"
+              type="text"
+              value="Player-071"
+              aria-label="Player name"
+            />
+
+            <select class="server" aria-label="Server selector">
+              <option>US East #1 [High]</option>
+              <option>US Central #2 [Medium]</option>
+              <option>EU West #4 [Low]</option>
+            </select>
+
+            <button class="launch" id="launch-btn">Deploy</button>
+          </div>
+
+          <label class="footer-row">
+            <input type="checkbox" /> Disable particles
+          </label>
+        </section>
+      </section>
+
+      <footer class="bottom-stats" aria-label="Player progression">
+        <div class="hp">250</div>
+        <div>
+          <div class="meta">Level 8</div>
+          <div class="meta">Gold 1320</div>
+          <div class="meta">Bonds 0</div>
+        </div>
+      </footer>
+    </main>
+    <div id="game-root" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

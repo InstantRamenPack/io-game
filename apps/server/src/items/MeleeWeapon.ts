@@ -32,6 +32,6 @@ export class MeleeWeapon extends Weapon {
     //   }
     // }
 
-    this.resetCooldown();
+    this.resetCooldown(world.gameConfig.tickRate);
   }
 }

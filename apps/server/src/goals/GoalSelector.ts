@@ -34,9 +34,8 @@ export class GoalSelector {
   /**
    * Chooses the desired active goal set, starts/stops deltas, then ticks actives.
    * @param ctx Runtime goal context for the acting enemy.
-   * @param deltaMs Tick delta in milliseconds.
    */
-  tick(ctx: GoalContext, deltaMs: number): void {
+  tick(ctx: GoalContext): void {
     const desired = new Set<Goal>();
     const claimedControls = new Set<GoalControl>();
 
@@ -70,7 +69,7 @@ export class GoalSelector {
 
     for (const goal of this.goals) {
       if (this.active.has(goal)) {
-        goal.tick(ctx, deltaMs);
+        goal.tick(ctx);
       }
     }
   }

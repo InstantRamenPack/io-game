@@ -35,9 +35,8 @@ export abstract class Goal {
   /**
    * Runs the active goal for one server tick.
    * @param ctx Runtime goal context for the acting enemy.
-   * @param deltaMs Tick delta in milliseconds.
    */
-  abstract tick(ctx: GoalContext, deltaMs: number): void;
+  abstract tick(ctx: GoalContext): void;
 
   /**
    * Returns whether the goal should remain active on this tick.

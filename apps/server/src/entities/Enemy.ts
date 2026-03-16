@@ -50,9 +50,8 @@ export class Enemy extends Entity {
   /**
    * Enemy behavior is driven by GoalSystem in this pass.
    * @param _world World being simulated.
-   * @param _deltaMs Tick delta in milliseconds.
    */
-  override tick(_world: World, _deltaMs: number): void {
+  override tick(_world: World): void {
     // GoalSystem owns enemy AI updates.
   }
 }

@@ -17,7 +17,6 @@ export class SnapshotManager {
 
     return {
       tick: world.tick,
-      timeMs: world.timeMs,
       entities: world.entities.all().map((entity) => entity.toSnapshot()),
       events: drainedEvents,
     };

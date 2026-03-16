@@ -15,7 +15,7 @@ export class Item {
   }
 
   /** Per-tick extension point for subclass-specific behavior. */
-  tick(_world: World, _deltaMs: number): void {
+  tick(_world: World): void {
     // placeholder; per-entity logic hooks can be added later
   }
 

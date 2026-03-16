@@ -93,7 +93,7 @@ export class GameClient {
 
     const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
     this.inputTimer = setInterval(() => {
-      const latestTick = this.worldState?.latestSnapshot?.tick ?? 0;
+      const latestTick = this.worldState?.latestTick ?? 0;
       this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
       this.inputManager.clearOneShots();
     }, periodMs);

@@ -35,7 +35,7 @@ export class GoToPositionGoal extends Goal {
     // no-op for direct steering
   }
 
-  override tick(ctx: GoalContext, _deltaMs: number): void {
+  override tick(ctx: GoalContext): void {
     const destination = this.destinationProvider(ctx);
     if (!destination) {
       this.stop(ctx);

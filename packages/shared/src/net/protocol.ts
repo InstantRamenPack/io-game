@@ -39,7 +39,6 @@ export const WelcomeMessageSchema = z.object({
 
 const WorldSnapshotSchema = z.object({
   tick: z.number(),
-  timeMs: z.number(),
   entities: z.array(
     z.object({
       id: z.number(),
@@ -53,7 +52,21 @@ const WorldSnapshotSchema = z.object({
       hp: z.number().optional(),
       maxHp: z.number().optional(),
       ownerId: z.number().optional(),
-      data: z.record(z.string(), z.unknown()).optional(),
+      name: z.string().optional(),
+      inventory: z
+        .array(
+          z
+            .object({
+              id: z.number(),
+              kind: z.string(),
+              stackSize: z.number(),
+              ownerId: z.number().optional(),
+              data: z.record(z.string(), z.unknown()).optional(),
+            })
+            .nullable(),
+        )
+        .optional(),
+      activeSlot: z.number().optional(),
     }),
   ),
   events: z.array(
@@ -90,20 +103,24 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 
 export type InputCommand = z.infer<typeof InputCommandSchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
-export type InputMessage = z.infer<typeof InputMessageSchema>;
+export type InputMessage = {
+  t: "input";
+  cmd: InputCommand;
+};
 export type PingMessage = z.infer<typeof PingMessageSchema>;
 export type PongMessage = z.infer<typeof PongMessageSchema>;
 export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
-export type SnapshotMessage = z.infer<typeof SnapshotMessageSchema> & {
+export type SnapshotMessage = {
+  t: "snapshot";
   snapshot: WorldSnapshot;
 };
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
-export type ClientToServerMessage = z.infer<typeof ClientToServerMessageSchema>;
-export type ServerToClientMessage = z.infer<
-  typeof ServerToClientMessageSchema
-> & {
-  snapshot?: WorldSnapshot;
-};
+export type ClientToServerMessage = HelloMessage | InputMessage | PingMessage;
+export type ServerToClientMessage =
+  | SnapshotMessage
+  | PongMessage
+  | WelcomeMessage
+  | ErrorMessage;
 
 /**
  * Parses raw JSON text and returns null instead of throwing on malformed input.
@@ -131,7 +148,9 @@ export function parseClientToServerMessage(
     return null;
   }
   const parsedMessage = ClientToServerMessageSchema.safeParse(parsedJson);
-  return parsedMessage.success ? parsedMessage.data : null;
+  return parsedMessage.success
+    ? (parsedMessage.data as ClientToServerMessage)
+    : null;
 }
 
 /**

@@ -16,23 +16,16 @@ export class TickClock {
   }
 
   /**
-   * Starts periodic callbacks with a computed frame delta in milliseconds.
+   * Starts periodic callbacks at the configured fixed interval.
    * @param cb Tick callback invoked on each interval.
    */
-  start(cb: (deltaMs: number) => void): void {
+  start(cb: () => void): void {
     if (this.running) {
       return;
     }
 
     this.running = true;
-    let last = this.nowMs();
-
-    this.timer = setInterval(() => {
-      const now = this.nowMs();
-      const deltaMs = now - last;
-      last = now;
-      cb(deltaMs);
-    }, this.intervalMs);
+    this.timer = setInterval(cb, this.intervalMs);
   }
 
   /**
@@ -44,13 +37,5 @@ export class TickClock {
       clearInterval(this.timer);
       this.timer = undefined;
     }
-  }
-
-  /**
-   * Returns a monotonic timestamp in milliseconds.
-   * @returns Monotonic timestamp suitable for delta calculations.
-   */
-  nowMs(): number {
-    return performance.now();
   }
 }

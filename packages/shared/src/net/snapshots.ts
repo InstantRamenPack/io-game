@@ -1,4 +1,3 @@
-import type { ItemStack } from "@server/items/ItemStack";
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { ItemKind } from "@shared/ids/ItemKinds";
 import type { NetEvent } from "@shared/net/events.ts";
@@ -31,7 +30,6 @@ export interface EntitySnapshot {
  */
 export interface WorldSnapshot {
   tick: number;
-  timeMs: number;
   entities: EntitySnapshot[];
   events: NetEvent[];
 }

@@ -6,9 +6,8 @@ import type { World } from "@server/world/World.ts";
  */
 export interface System {
   /**
-   * Runs one update step for the current world state.
+   * Runs one fixed update step for the current world state.
    * @param world Authoritative world being simulated.
-   * @param deltaMs Tick delta in milliseconds.
    */
-  update(world: World, deltaMs: number): void;
+  update(world: World): void;
 }

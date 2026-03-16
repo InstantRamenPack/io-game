@@ -82,7 +82,7 @@ export class GameServer {
       this.spawnInitialZombies();
       this.initialZombiesSpawned = true;
     }
-    this.clock.start((deltaMs) => this.tick(deltaMs));
+    this.clock.start(() => this.tick());
   }
 
   /**
@@ -93,10 +93,9 @@ export class GameServer {
   }
 
   /**
-   * Processes one server tick and broadcasts a snapshot after it completes.
-   * @param deltaMs Tick delta in milliseconds.
+   * Processes one fixed server tick and broadcasts a snapshot after it completes.
    */
-  tick(deltaMs: number): void {
+  tick(): void {
     const simulationTick = this.world.tick + 1;
 
     for (const [, playerId] of this.playerIdByClientId) {
@@ -107,13 +106,13 @@ export class GameServer {
     }
 
     for (const system of this.preStepSystems) {
-      system.update(this.world, deltaMs);
+      system.update(this.world);
     }
 
-    this.world.step(deltaMs);
+    this.world.step();
 
     for (const system of this.systems) {
-      system.update(this.world, deltaMs);
+      system.update(this.world);
     }
 
     const snapshot = this.snapshotManager.makeSnapshot(this.world);

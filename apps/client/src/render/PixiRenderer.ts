@@ -1,56 +1,6 @@
-import type {
-  PixiApp,
-  PixiContainer,
-  PixiGraphics,
-  PixiSprite,
-  PixiTexture,
-  WorldSize,
-} from "./PixiTypes.ts";
+import * as PIXI from "pixijs";
 
-let pixiScriptPromise: Promise<void> | null = null;
-
-/**
- * Loads the Pixi browser bundle on demand through the existing CDN path.
- * @returns Promise that resolves once the global PIXI namespace is ready.
- */
-async function loadPixiScript(): Promise<void> {
-  if (window.PIXI) {
-    return;
-  }
-  if (pixiScriptPromise) {
-    await pixiScriptPromise;
-    return;
-  }
-
-  pixiScriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js"]',
-    );
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("pixi_load_failed")),
-        { once: true },
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js";
-    script.async = true;
-    script.defer = true;
-    script.addEventListener("load", () => resolve(), { once: true });
-    script.addEventListener(
-      "error",
-      () => reject(new Error("pixi_load_failed")),
-      { once: true },
-    );
-    document.head.appendChild(script);
-  });
-
-  await pixiScriptPromise;
-}
+type WorldSize = { w: number; h: number };
 
 /**
  * Rendering adapter for visible entity state.
@@ -58,10 +8,10 @@ async function loadPixiScript(): Promise<void> {
  */
 
 export class PixiRenderer {
-  private app: PixiApp | null = null;
+  private app: PIXI.Application<HTMLCanvasElement> | null = null;
   // World container should store everything because transformations applied to it create illusion of following the player
-  private world: PixiContainer | null = null;
-  private grid: PixiGraphics | null = null;
+  private world: PIXI.Container | null = null;
+  private grid: PIXI.Graphics | null = null;
   private gridCellSize = 100;
   private worldSize: WorldSize;
 
@@ -79,7 +29,7 @@ export class PixiRenderer {
     this.playerEntityId = entityId;
   }
 
-  public entityContainer: PixiContainer | null = null;
+  public entityContainer: PIXI.Container | null = null;
   private hostElement: HTMLElement | null = null;
   private readonly handleResize = (): void => {
     if (!this.app) {
@@ -101,10 +51,6 @@ export class PixiRenderer {
   async init(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
     await this.attach(hostElement, worldSize);
 
-    if (!window.PIXI) {
-      throw new Error("pixi_unavailable");
-    }
-
     if (!this.app) {
       throw new Error("Pixi App not created");
     }
@@ -118,14 +64,14 @@ export class PixiRenderer {
     // create world hierarchy
 
     if (!this.world) {
-      this.world = new window.PIXI.Container();
+      this.world = new PIXI.Container();
     }
 
     this.ensureGrid();
     this.app.stage.addChild(this.world);
 
     if (!this.entityContainer) {
-      this.entityContainer = new window.PIXI.Container();
+      this.entityContainer = new PIXI.Container();
     }
 
     this.world.addChild(this.entityContainer);
@@ -138,13 +84,8 @@ export class PixiRenderer {
     this.hostElement = hostElement;
     this.worldSize = { ...worldSize };
 
-    await loadPixiScript();
-    if (!window.PIXI) {
-      throw new Error("pixi_unavailable");
-    }
-
     if (!this.app) {
-      this.app = new window.PIXI.Application({
+      this.app = new PIXI.Application({
         resizeTo: window,
         backgroundColor: 0xd7f3d2,
         antialias: true,
@@ -158,10 +99,6 @@ export class PixiRenderer {
   }
 
   async loadPixiTextures(): Promise<void> {
-    if (!window.PIXI) {
-      throw new Error("PIXI is not available on the window object.");
-    }
-
     //empty rn
   }
 
@@ -210,14 +147,11 @@ export class PixiRenderer {
   }
 
   private ensureGrid(): void {
-    if (!window.PIXI) {
-      throw new Error("PIXI is not available on the window object.");
-    }
     if (!this.app) {
       throw new Error("Pixi App not initialized.");
     }
     if (!this.grid) {
-      this.grid = new window.PIXI.Graphics();
+      this.grid = new PIXI.Graphics();
     }
     if (this.world && this.grid.parent !== this.world) {
       this.world.addChild(this.grid);
@@ -266,77 +200,6 @@ export class PixiRenderer {
 
 declare global {
   interface Window {
-    app: PixiApp;
-    PIXI?: {
-      // Application
-      Application: new (options?: {
-        resizeTo?: Window;
-        backgroundColor?: number;
-        antialias?: boolean;
-        autoStart?: boolean;
-        width?: number;
-        height?: number;
-        view?: HTMLCanvasElement;
-      }) => PixiApp;
-
-      // Display Objects
-      Container: new () => PixiContainer;
-      Sprite: new (texture?: PixiTexture) => PixiSprite;
-      Graphics: new () => PixiGraphics;
-
-      // Assets/Loading
-      Assets: {
-        load: {
-          (url: string): Promise<PixiTexture>;
-          (urls: string[]): Promise<PixiTexture[]>;
-        };
-        get: (url: string) => PixiTexture;
-        add: (key: string, url: string) => void;
-      };
-
-      // Textures
-      Texture: {
-        from: (
-          source: string | HTMLImageElement | HTMLCanvasElement,
-        ) => PixiTexture;
-        WHITE: PixiTexture;
-        EMPTY: PixiTexture;
-      };
-
-      // Math/Utilities
-      Point: new (x?: number, y?: number) => { x: number; y: number };
-      ObservablePoint: new (
-        cb: Function,
-        scope: any,
-        x?: number,
-        y?: number,
-      ) => { x: number; y: number };
-
-      // Colors
-      Color: {
-        shared: {
-          setValue: (value: number | string) => void;
-        };
-      };
-
-      // Render Texture
-      RenderTexture: {
-        create: (options: { width: number; height: number }) => PixiTexture;
-      };
-
-      // Blend Modes
-      BLEND_MODES: {
-        NORMAL: number;
-        ADD: number;
-        MULTIPLY: number;
-        SCREEN: number;
-      };
-
-      // Scale Modes
-      SCALE_MODES: {
-        LINEAR: number;
-        NEAREST: number;
-      };
-    };
+    app: PIXI.Application<HTMLCanvasElement>;
   }
 }

@@ -22,7 +22,7 @@ export class TargetEntityGoal extends Goal {
     // no-op for continuous targeting
   }
 
-  override tick(ctx: GoalContext, _deltaMs: number): void {
+  override tick(ctx: GoalContext): void {
     const currentTarget = this.resolveValidTarget(ctx, ctx.self.targetId);
     if (currentTarget) {
       ctx.self.targetId = currentTarget.id;

@@ -44,9 +44,8 @@ export abstract class Entity {
   /**
    * Per-tick extension point for subclass-specific behavior.
    * @param _world World being simulated.
-   * @param _deltaMs Tick delta in milliseconds.
    */
-  tick(_world: World, _deltaMs: number): void {
+  tick(_world: World): void {
     // placeholder; per-entity logic hooks can be added later
   }
 

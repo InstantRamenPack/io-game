@@ -12,9 +12,8 @@ export class CollisionSystem implements System {
   /**
    * Rebuilds the broad-phase index, resolves nearby overlaps, then clamps bodies to world bounds.
    * @param world Authoritative world being simulated.
-   * @param _deltaMs Tick delta in milliseconds.
    */
-  update(world: World, _deltaMs: number): void {
+  update(world: World): void {
     const collidableEntities = world
       .entities
       .all()

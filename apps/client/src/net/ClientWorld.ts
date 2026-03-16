@@ -9,7 +9,6 @@ import { ClientEntity } from "@client/net/ClientEntity.ts";
  */
 export class ClientWorld {
   public tick: number;
-  public timeMs: number;
   public entities: ClientEntity[];
   public events: NetEvent[];
   private pixiRenderer: PixiRenderer;
@@ -17,7 +16,6 @@ export class ClientWorld {
   constructor(pixiRenderer: PixiRenderer, snapshot: WorldSnapshot) {
     this.pixiRenderer = pixiRenderer;
     this.tick = snapshot.tick;
-    this.timeMs = snapshot.timeMs;
     this.entities = snapshot.entities.map(
       (entitySnapshot) => new ClientEntity(this.pixiRenderer, entitySnapshot),
     );
@@ -39,7 +37,6 @@ export class ClientWorld {
    */
   public updateFromSnapshot(snapshot: WorldSnapshot): void {
     this.tick = snapshot.tick;
-    this.timeMs = snapshot.timeMs;
     this.events = [...snapshot.events];
 
     const updatedEntityIds = new Set<number>();
@@ -49,7 +46,7 @@ export class ClientWorld {
 
       const existingEntity = this.entities.find(
         (entity) => entity.id === entitySnapshot.id,
-      ); // hella slow but its ok for now
+      ); // hella slow but it's ok for now
       if (existingEntity) {
         existingEntity.updateFromSnapshot(entitySnapshot);
       } else {

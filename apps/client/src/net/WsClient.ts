@@ -1,5 +1,6 @@
 import {
   type InputCommand,
+  parseServerToClientMessage,
 } from "@shared/net/protocol.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
@@ -62,61 +63,28 @@ export class WsClient {
     });
 
     socket.addEventListener("message", (messageEvent) => {
-      let serverMessage: unknown;
-      try {
-        serverMessage = JSON.parse(String(messageEvent.data)) as unknown;
-      } catch {
+      const serverMessage = parseServerToClientMessage(String(messageEvent.data));
+      if (!serverMessage) {
         return;
       }
 
-      if (
-        typeof serverMessage === "object" &&
-        serverMessage !== null &&
-        "t" in serverMessage &&
-        (serverMessage as { t?: unknown }).t === "snapshot"
-      ) {
-        const snapshot = (serverMessage as { snapshot?: unknown }).snapshot;
-        if (
-          typeof snapshot !== "object" ||
-          snapshot === null ||
-          !("tick" in snapshot) ||
-          !("entities" in snapshot)
-        ) {
-          return;
-        }
+      if (serverMessage.t === "snapshot") {
         for (const snapshotHandler of this.snapshotHandlers) {
-          snapshotHandler(snapshot as WorldSnapshot);
+          snapshotHandler(serverMessage.snapshot as WorldSnapshot);
         }
         return;
       }
 
-      if (
-        typeof serverMessage === "object" &&
-        serverMessage !== null &&
-        "t" in serverMessage &&
-        (serverMessage as { t?: unknown }).t === "welcome"
-      ) {
-        const entityId = (serverMessage as { entityId?: unknown }).entityId;
-        if (typeof entityId !== "number" || !Number.isFinite(entityId)) {
-          return;
-        }
+      if (serverMessage.t === "welcome") {
         for (const welcomeHandler of this.welcomeHandlers) {
-          welcomeHandler(entityId);
+          welcomeHandler(serverMessage.entityId);
         }
         return;
       }
 
-      if (
-        typeof serverMessage === "object" &&
-        serverMessage !== null &&
-        "t" in serverMessage &&
-        (serverMessage as { t?: unknown }).t === "error"
-      ) {
-        const message = (serverMessage as { message?: unknown }).message;
+      if (serverMessage.t === "error") {
         for (const errorHandler of this.errorHandlers) {
-          errorHandler(
-            typeof message === "string" ? message : "unknown_error",
-          );
+          errorHandler(serverMessage.message);
         }
       }
     });
