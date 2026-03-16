@@ -94,6 +94,7 @@ export function main(): void {
           JSON.stringify({
             googleClientId: googleClientId ?? null,
             protocolVersion: GameConfig.DEFAULT_PROTOCOL_VERSION,
+            tickRate: gameConfig.tickRate,
             worldSize: gameConfig.worldSize,
           }),
           {

@@ -13,7 +13,7 @@ export class ClientWorldState {
   public latestSnapshotReceivedAt?: number;
   public previousSnapshotReceivedAt?: number;
   private readonly debugHitbox: boolean;
-  private readonly debugInterpolation: boolean;
+  private readonly debugInterpolationMode: number;
 
   public clientWorld?: ClientWorld;
 
@@ -22,16 +22,16 @@ export class ClientWorldState {
    * Requires a PixiRenderer because client entities own both state and Pixi render objects.
    * @param pixiRenderer Renderer used by client entities created from snapshots.
    * @param debugHitbox Whether square hitbox overlays should be created for entities.
-   * @param debugInterpolation Whether interpolation ghost overlays should be created.
+   * @param debugInterpolationMode Whether interpolation ghost overlays should be created.
    */
   constructor(
     pixiRenderer: PixiRenderer,
     debugHitbox: boolean,
-    debugInterpolation: boolean,
+    debugInterpolationMode: number,
   ) {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
-    this.debugInterpolation = debugInterpolation;
+    this.debugInterpolationMode = debugInterpolationMode;
   }
 
   /**
@@ -51,7 +51,7 @@ export class ClientWorldState {
         this.pixiRenderer,
         snapshot,
         this.debugHitbox,
-        this.debugInterpolation,
+        this.debugInterpolationMode,
       );
     } else {
       this.clientWorld.updateFromSnapshot(snapshot);

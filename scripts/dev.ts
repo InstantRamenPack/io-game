@@ -1,12 +1,61 @@
 const backendTarget = "http://127.0.0.1:3000";
+const debugTickRateArg = process.argv.find((arg) =>
+  arg.startsWith("--DEBUG_TICK_RATE="),
+);
 const enableDebugHitbox =
   process.argv.includes("--DEBUG_HITBOX") ||
   process.env.VITE_DEBUG_HITBOX === "1";
-const enableDebugInterpolation =
-  process.argv.includes("--DEBUG_INTERPOLATION") ||
-  process.env.VITE_DEBUG_INTERPOLATION === "1";
+const debugInterpolationArg = process.argv.find(
+  (arg) =>
+    arg === "--DEBUG_INTERPOLATION" || arg.startsWith("--DEBUG_INTERPOLATION="),
+);
 const bunExecutable = process.execPath;
 const sharedEnv = { ...process.env };
+
+function parseDebugTickRate(arg: string | undefined): string | undefined {
+  if (!arg) {
+    return undefined;
+  }
+
+  const rawTickRate = arg.slice("--DEBUG_TICK_RATE=".length);
+  const parsedTickRate = Number(rawTickRate);
+  if (!Number.isFinite(parsedTickRate) || parsedTickRate <= 0) {
+    console.error(
+      `[dev] invalid --DEBUG_TICK_RATE value "${rawTickRate}". Expected a positive number.`,
+    );
+    process.exit(1);
+  }
+
+  return String(Math.floor(parsedTickRate));
+}
+
+const debugTickRate = parseDebugTickRate(debugTickRateArg);
+
+function parseDebugInterpolationMode(
+  arg: string | undefined,
+): string | undefined {
+  if (!arg) {
+    return process.env.VITE_DEBUG_INTERPOLATION;
+  }
+
+  if (arg === "--DEBUG_INTERPOLATION") {
+    return "1";
+  }
+
+  const rawMode = arg.slice("--DEBUG_INTERPOLATION=".length);
+  if (rawMode === "1" || rawMode === "2") {
+    return rawMode;
+  }
+
+  console.error(
+    `[dev] invalid --DEBUG_INTERPOLATION value "${rawMode}". Expected 1 or 2.`,
+  );
+  process.exit(1);
+}
+
+const debugInterpolationMode = parseDebugInterpolationMode(
+  debugInterpolationArg,
+);
 
 function spawnChild(
   name: "server" | "client",
@@ -65,6 +114,7 @@ const serverProcess = spawnChild(
   {
     ...sharedEnv,
     DISABLE_TLS: "1",
+    ...(debugTickRate ? { TICK_RATE: debugTickRate } : {}),
   },
 );
 const clientProcess = spawnChild(
@@ -74,7 +124,9 @@ const clientProcess = spawnChild(
     ...sharedEnv,
     VITE_BACKEND_TARGET: backendTarget,
     ...(enableDebugHitbox ? { VITE_DEBUG_HITBOX: "1" } : {}),
-    ...(enableDebugInterpolation ? { VITE_DEBUG_INTERPOLATION: "1" } : {}),
+    ...(debugInterpolationMode
+      ? { VITE_DEBUG_INTERPOLATION: debugInterpolationMode }
+      : {}),
   },
 );
 

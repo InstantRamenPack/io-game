@@ -56,7 +56,7 @@ export class ClientEntity {
     pixiRenderer: PixiRenderer,
     snapshot: EntitySnapshot,
     debugHitbox: boolean,
-    debugInterpolation: boolean,
+    debugInterpolationMode: number,
   ) {
     this.id = snapshot.id;
     this.kind = snapshot.kind;
@@ -97,6 +97,7 @@ export class ClientEntity {
 
     this.entityGraphic = graphics;
     this.entityContainer.addChild(this.entityGraphic);
+    this.entityGraphic.visible = debugInterpolationMode !== 2;
 
     if (debugHitbox) {
       this.hitboxContainer = new PIXI.Container();
@@ -116,7 +117,7 @@ export class ClientEntity {
       this.hitboxContainer.addChild(this.hitboxGraphic);
     }
 
-    if (debugInterpolation) {
+    if (debugInterpolationMode > 0) {
       this.debugContainer = new PIXI.Container();
       this.debugContainer.position.set(this.serverX, this.serverY);
       this.debugContainer.rotation = this.rotation;

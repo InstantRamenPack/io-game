@@ -5,7 +5,7 @@ import {
   type RuntimeConfig,
 } from "@client/auth/Auth.ts";
 import { GameClient } from "@client/client/GameClient.ts";
-import { DEBUG_HITBOX, DEBUG_INTERPOLATION } from "@client/debug.ts";
+import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 type MenuMode = "play" | "loadout" | "settings" | "account";
@@ -38,7 +38,7 @@ const playerNameInput = document.getElementById(
 const gameConfig = new GameConfig();
 const gameClient = new GameClient(gameConfig, {
   debugHitbox: DEBUG_HITBOX,
-  debugInterpolation: DEBUG_INTERPOLATION,
+  debugInterpolationMode: DEBUG_INTERPOLATION_MODE,
 });
 const authController = new AuthController();
 gameClient.bindInput(window);
@@ -244,6 +244,14 @@ void authController.initialize((runtimeConfig: RuntimeConfig) => {
     Number.isFinite(runtimeConfig.protocolVersion)
   ) {
     gameConfig.protocolVersion = runtimeConfig.protocolVersion;
+  }
+
+  if (
+    typeof runtimeConfig.tickRate === "number" &&
+    Number.isFinite(runtimeConfig.tickRate) &&
+    runtimeConfig.tickRate > 0
+  ) {
+    gameConfig.tickRate = Math.floor(runtimeConfig.tickRate);
   }
 
   if (

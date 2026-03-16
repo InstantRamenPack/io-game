@@ -3,6 +3,7 @@ export type AuthMode = "none" | "guest" | "google";
 export type RuntimeConfig = {
   googleClientId: string | null;
   protocolVersion?: number;
+  tickRate?: number;
   worldSize?: { w: number; h: number };
 };
 

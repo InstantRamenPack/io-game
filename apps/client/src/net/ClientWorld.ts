@@ -13,17 +13,17 @@ export class ClientWorld {
   public events: NetEvent[];
   private readonly debugHitbox: boolean;
   private pixiRenderer: PixiRenderer;
-  private readonly debugInterpolation: boolean;
+  private readonly debugInterpolationMode: number;
 
   constructor(
     pixiRenderer: PixiRenderer,
     snapshot: WorldSnapshot,
     debugHitbox: boolean,
-    debugInterpolation: boolean,
+    debugInterpolationMode: number,
   ) {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
-    this.debugInterpolation = debugInterpolation;
+    this.debugInterpolationMode = debugInterpolationMode;
     this.tick = snapshot.tick;
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
@@ -32,7 +32,7 @@ export class ClientWorld {
           this.pixiRenderer,
           entitySnapshot,
           this.debugHitbox,
-          this.debugInterpolation,
+          this.debugInterpolationMode,
         ),
       ]),
     );
@@ -70,7 +70,7 @@ export class ClientWorld {
           this.pixiRenderer,
           entitySnapshot,
           this.debugHitbox,
-          this.debugInterpolation,
+          this.debugInterpolationMode,
         );
         this.entities.set(entitySnapshot.id, newEntity);
       }

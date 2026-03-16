@@ -25,7 +25,7 @@ export class GameClient {
   private inputBound = false;
   private started = false;
   private readonly debugHitbox: boolean;
-  private readonly debugInterpolation: boolean;
+  private readonly debugInterpolationMode: number;
 
   /**
    * Creates a client runtime with network, state, and renderer dependencies.
@@ -34,7 +34,7 @@ export class GameClient {
    */
   constructor(
     gameConfig: GameConfig,
-    options: { debugHitbox?: boolean; debugInterpolation?: boolean } = {},
+    options: { debugHitbox?: boolean; debugInterpolationMode?: number } = {},
   ) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
@@ -42,7 +42,7 @@ export class GameClient {
     this.renderer = new PixiRenderer(this.gameConfig.worldSize);
     this.interpolator = new Interpolator(this.gameConfig.interpolation);
     this.debugHitbox = options.debugHitbox ?? false;
-    this.debugInterpolation = options.debugInterpolation ?? false;
+    this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
@@ -96,7 +96,7 @@ export class GameClient {
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
-      this.debugInterpolation,
+      this.debugInterpolationMode,
     );
 
     this.startFrameLoop();
