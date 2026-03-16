@@ -114,7 +114,9 @@ export class PixiRenderer {
   setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
     this.drawGrid();
-    this.renderScene();
+    if (this.app) {
+      this.renderScene();
+    }
   }
 
   /**
@@ -185,7 +187,7 @@ export class PixiRenderer {
   private renderScene(): void {
     // actually render the scene (runs every update tick)
     if (!this.app) {
-      throw new Error("Pixi App not initialized");
+      return;
     }
 
     this.app.renderer.render(this.app.stage);
@@ -276,7 +278,6 @@ export class PixiRenderer {
     this.damageOverlay.alpha = alpha;
     this.damageOverlay.visible = alpha > 0.001;
   }
-
 }
 
 declare global {

@@ -1,68 +1,96 @@
 import { Entity } from "@server/entities/Entity.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
-export type BuildingType = "wall" | "tower" | "windmill" | "crafting_station";
+type BuildingStats = {
+  baseHp: number;
+  radius: number;
+};
+
+type BuildingSnapshotData = {
+  tier: number;
+};
 
 /**
- * Static structure replicated to clients for simple base-building visuals.
+ * Shared static-structure base for all concrete building entities.
  */
-export class Building extends Entity {
-  readonly buildingType: BuildingType;
+export abstract class Building extends Entity {
   readonly label: string;
   tier: number;
 
-  constructor(
+  protected constructor(
     id: number,
-    buildingType: BuildingType,
+    typeId: ResourceId,
     label: string,
-    tier = 1,
-    ownerId?: number,
+    tier: number,
+    ownerId: number | undefined,
+    stats: BuildingStats,
   ) {
-    super(id, "building");
-    this.buildingType = buildingType;
+    super(id, typeId);
     this.label = label;
-    this.tier = tier;
+    this.tier = Math.max(1, tier);
     this.ownerId = ownerId;
     this.collisionMode = "static";
-    this.maxHp = this.resolveMaxHp(buildingType, tier);
+    this.radius = stats.radius;
+    this.maxHp = stats.baseHp * this.tier;
     this.hp = this.maxHp;
-    this.radius = this.resolveRadius(buildingType);
   }
 
   override toSnapshot(): import("@shared/net/snapshots.ts").EntitySnapshot {
     const snapshot = super.toSnapshot();
-    snapshot.name = this.label;
-    snapshot.data = {
-      buildingType: this.buildingType,
-      label: this.label,
+    const data: BuildingSnapshotData = {
       tier: this.tier,
     };
+    snapshot.name = this.label;
+    snapshot.data = data;
     return snapshot;
   }
+}
 
-  private resolveRadius(buildingType: BuildingType): number {
-    if (buildingType === "wall") {
-      return 20;
-    }
-    if (buildingType === "tower") {
-      return 24;
-    }
-    if (buildingType === "windmill") {
-      return 28;
-    }
-    return 26;
+export class Wall extends Building {
+  static readonly typeId = "building:wall" as const;
+
+  constructor(id: number, label = "Wall", tier = 1, ownerId?: number) {
+    super(id, Wall.typeId, label, tier, ownerId, {
+      baseHp: 180,
+      radius: 20,
+    });
   }
+}
 
-  private resolveMaxHp(buildingType: BuildingType, tier: number): number {
-    const tierScale = Math.max(1, tier);
-    if (buildingType === "wall") {
-      return 180 * tierScale;
-    }
-    if (buildingType === "tower") {
-      return 240 * tierScale;
-    }
-    if (buildingType === "windmill") {
-      return 220 * tierScale;
-    }
-    return 260 * tierScale;
+export class Tower extends Building {
+  static readonly typeId = "building:tower" as const;
+
+  constructor(id: number, label = "Tower", tier = 1, ownerId?: number) {
+    super(id, Tower.typeId, label, tier, ownerId, {
+      baseHp: 240,
+      radius: 24,
+    });
+  }
+}
+
+export class Windmill extends Building {
+  static readonly typeId = "building:windmill" as const;
+
+  constructor(id: number, label = "Windmill", tier = 1, ownerId?: number) {
+    super(id, Windmill.typeId, label, tier, ownerId, {
+      baseHp: 220,
+      radius: 28,
+    });
+  }
+}
+
+export class CraftingStation extends Building {
+  static readonly typeId = "building:crafting_station" as const;
+
+  constructor(
+    id: number,
+    label = "Crafting Station",
+    tier = 1,
+    ownerId?: number,
+  ) {
+    super(id, CraftingStation.typeId, label, tier, ownerId, {
+      baseHp: 260,
+      radius: 26,
+    });
   }
 }

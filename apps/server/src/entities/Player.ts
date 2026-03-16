@@ -3,6 +3,18 @@ import { Entity } from "@server/entities/Entity.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { ItemStack } from "@server/items/ItemStack.ts";
+import {
+  FoodItem,
+  StoneItem,
+  WoodItem,
+} from "@server/items/resources/Materials.ts";
+import {
+  CraftingStationItem,
+  TowerItem,
+  WallItem,
+  WindmillItem,
+} from "@server/items/resources/StructureItems.ts";
 
 /**
  * Authoritative player entity driven by buffered client input.
@@ -17,6 +29,7 @@ export class Player extends Entity {
   inputBuffer: InputCommand[] = [];
   // Distance moved per simulation tick at full input.
   moveSpeed = 15;
+  activeEffects = ["Fortified", "Well Fed"];
   /**
    * Creates a player entity with default movement tuning.
    * @param id Stable runtime entity id.
@@ -54,6 +67,10 @@ export class Player extends Entity {
   override toSnapshot(): import("@shared/net/snapshots.ts").EntitySnapshot {
     const snap = super.toSnapshot();
     snap.name = this.name;
+    snap.data = {
+      activeEffects: [...this.activeEffects],
+      moveSpeed: this.moveSpeed,
+    };
     return snap;
   }
 
@@ -82,5 +99,25 @@ export class Player extends Entity {
   getActiveWeapon(): Weapon | undefined {
     const activeStack = this.inventory?.getActive();
     return activeStack?.item instanceof Weapon ? activeStack.item : undefined;
+  }
+
+  seedStarterInventory(allocateItemId: () => number): void {
+    if (!this.inventory) {
+      return;
+    }
+
+    const starterStacks = [
+      new ItemStack(new WoodItem(allocateItemId()), 120),
+      new ItemStack(new StoneItem(allocateItemId()), 80),
+      new ItemStack(new FoodItem(allocateItemId()), 6),
+      new ItemStack(new WallItem(allocateItemId()), 8),
+      new ItemStack(new TowerItem(allocateItemId()), 2),
+      new ItemStack(new WindmillItem(allocateItemId()), 1),
+      new ItemStack(new CraftingStationItem(allocateItemId()), 1),
+    ];
+
+    for (const stack of starterStacks) {
+      this.inventory.add(stack);
+    }
   }
 }

@@ -36,6 +36,7 @@ export class ClientEntity {
   public hp?: number;
   public maxHp?: number;
   public ownerId?: number;
+  public name?: string;
   public data?: Record<string, unknown>;
   public inventory?: Array<ClientItemStack | null>;
   public activeSlot?: number;
@@ -84,6 +85,7 @@ export class ClientEntity {
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
+    this.name = snapshot.name;
     this.data = snapshot.data;
     this.inventory = this.mapInventory(snapshot.inventory);
     this.activeSlot = snapshot.activeSlot;
@@ -99,16 +101,11 @@ export class ClientEntity {
 
     this.pixiRenderer.entityContainer.addChild(this.entityContainer);
 
-    const graphics = new PIXI.Graphics();
-    this.drawEntityShape(graphics, this.fillColorForKind(), 1);
-    graphics.pivot.set(0, 0);
-
-    this.entityGraphic = graphics;
+    this.entityGraphic = new PIXI.Graphics();
     this.entityContainer.addChild(this.entityGraphic);
     this.entityGraphic.visible = debugInterpolationMode !== 2;
 
     this.damageFlashGraphic = new PIXI.Graphics();
-    this.drawEntityShape(this.damageFlashGraphic, 0xff4242, 1);
     this.damageFlashGraphic.alpha = 0;
     this.damageFlashGraphic.visible = false;
     this.entityContainer.addChild(this.damageFlashGraphic);
@@ -119,23 +116,13 @@ export class ClientEntity {
     this.healthBarContainer.addChild(this.healthBarTrackGraphic);
     this.healthBarContainer.addChild(this.healthBarFillGraphic);
     this.entityContainer.addChild(this.healthBarContainer);
-    this.redrawHealthBar();
 
     if (debugHitbox) {
       this.hitboxContainer = new PIXI.Container();
       this.hitboxContainer.position.set(this.x, this.y);
       this.pixiRenderer.entityContainer.addChild(this.hitboxContainer);
 
-      const hitboxGraphics = new PIXI.Graphics();
-      hitboxGraphics.lineStyle(2, 0x2d68ff, 0.8);
-      hitboxGraphics.drawRect(
-        -this.radius,
-        -this.radius,
-        this.radius * 2,
-        this.radius * 2,
-      );
-
-      this.hitboxGraphic = hitboxGraphics;
+      this.hitboxGraphic = new PIXI.Graphics();
       this.hitboxContainer.addChild(this.hitboxGraphic);
     }
 
@@ -145,13 +132,12 @@ export class ClientEntity {
       this.debugContainer.rotation = this.rotation;
       this.pixiRenderer.entityContainer.addChild(this.debugContainer);
 
-      const debugGraphics = new PIXI.Graphics();
-      this.drawEntityShape(debugGraphics, this.fillColorForKind(), 0.2, 0.35);
-      debugGraphics.pivot.set(0, 0);
-
-      this.debugGraphic = debugGraphics;
+      this.debugGraphic = new PIXI.Graphics();
       this.debugContainer.addChild(this.debugGraphic);
     }
+
+    this.redrawPresentation();
+    this.redrawHealthBar();
   }
 
   /**
@@ -192,9 +178,11 @@ export class ClientEntity {
     this.vx = snapshot.vx;
     this.vy = snapshot.vy;
     this.rotation = snapshot.rotation;
+    this.radius = snapshot.radius;
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
+    this.name = snapshot.name;
     this.data = snapshot.data;
     this.inventory = this.mapInventory(snapshot.inventory);
     this.activeSlot = snapshot.activeSlot;
@@ -205,32 +193,7 @@ export class ClientEntity {
       this.debugContainer.rotation = this.rotation;
     }
 
-    if (snapshot.radius !== this.radius) {
-      this.radius = snapshot.radius;
-      this.drawEntityShape(this.entityGraphic, this.fillColorForKind(), 1);
-      this.drawEntityShape(this.damageFlashGraphic, 0xff4242, 1);
-
-      if (this.hitboxGraphic) {
-        this.hitboxGraphic.clear();
-        this.hitboxGraphic.lineStyle(2, 0x2d68ff, 0.8);
-        this.hitboxGraphic.drawRect(
-          -this.radius,
-          -this.radius,
-          this.radius * 2,
-          this.radius * 2,
-        );
-      }
-
-      if (this.debugGraphic) {
-        this.drawEntityShape(
-          this.debugGraphic,
-          this.fillColorForKind(),
-          0.2,
-          0.35,
-        );
-      }
-    }
-
+    this.redrawPresentation();
     this.redrawHealthBar();
   }
 
@@ -296,6 +259,31 @@ export class ClientEntity {
     return inventory.map((item) => (item ? new ClientItemStack(item) : null));
   }
 
+  private redrawPresentation(): void {
+    this.drawEntityShape(this.entityGraphic, this.fillColorForType(), 1);
+    this.drawEntityShape(this.damageFlashGraphic, 0xff4242, 1);
+
+    if (this.hitboxGraphic) {
+      this.hitboxGraphic.clear();
+      this.hitboxGraphic.lineStyle(2, 0x2d68ff, 0.8);
+      this.hitboxGraphic.drawRect(
+        -this.radius,
+        -this.radius,
+        this.radius * 2,
+        this.radius * 2,
+      );
+    }
+
+    if (this.debugGraphic) {
+      this.drawEntityShape(
+        this.debugGraphic,
+        this.fillColorForType(),
+        0.2,
+        0.35,
+      );
+    }
+  }
+
   private drawEntityShape(
     graphics: PIXI.Graphics,
     fillColor: number,
@@ -304,9 +292,61 @@ export class ClientEntity {
   ): void {
     graphics.clear();
     graphics.lineStyle(2, 0x000000, lineAlpha);
+
+    if (this.hasTypeNamespace("building")) {
+      this.drawBuildingShape(graphics, fillColor, alpha, lineAlpha);
+      return;
+    }
+
     graphics.beginFill(fillColor, alpha);
     graphics.drawCircle(0, 0, this.radius);
     graphics.endFill();
+  }
+
+  private drawBuildingShape(
+    graphics: PIXI.Graphics,
+    fillColor: number,
+    alpha: number,
+    lineAlpha: number,
+  ): void {
+    const typePath = this.getTypePath();
+
+    graphics.beginFill(fillColor, alpha);
+    if (typePath === "wall") {
+      graphics.drawRoundedRect(
+        -this.radius,
+        -this.radius * 0.6,
+        this.radius * 2,
+        this.radius * 1.2,
+        4,
+      );
+    } else if (typePath === "tower") {
+      graphics.drawRect(
+        -this.radius * 0.75,
+        -this.radius * 0.85,
+        this.radius * 1.5,
+        this.radius * 1.7,
+      );
+    } else if (typePath === "windmill") {
+      graphics.drawCircle(0, 0, this.radius * 0.72);
+    } else {
+      graphics.drawRoundedRect(
+        -this.radius,
+        -this.radius * 0.8,
+        this.radius * 2,
+        this.radius * 1.6,
+        6,
+      );
+    }
+    graphics.endFill();
+
+    if (typePath === "windmill") {
+      graphics.lineStyle(2, 0xffffff, lineAlpha);
+      graphics.moveTo(-this.radius * 1.05, 0);
+      graphics.lineTo(this.radius * 1.05, 0);
+      graphics.moveTo(0, -this.radius * 1.05);
+      graphics.lineTo(0, this.radius * 1.05);
+    }
   }
 
   private redrawHealthBar(): void {
@@ -340,9 +380,9 @@ export class ClientEntity {
     this.healthBarFillGraphic.endFill();
   }
 
-  private fillColorForKind(): number {
+  private fillColorForType(): number {
     if (this.hasTypeNamespace("player")) {
-      return 0x00ff00;
+      return 0x67d944;
     }
     if (this.hasTypeNamespace("enemy")) {
       return 0xbf2a2a;
@@ -350,7 +390,32 @@ export class ClientEntity {
     if (this.hasTypeNamespace("projectile")) {
       return 0xffb703;
     }
+    if (this.hasTypeNamespace("building")) {
+      return this.buildingColor();
+    }
     return 0xd6e5d2;
+  }
+
+  private buildingColor(): number {
+    const typePath = this.getTypePath();
+    if (typePath === "wall") {
+      return 0x8b6f57;
+    }
+    if (typePath === "tower") {
+      return 0xc78d2d;
+    }
+    if (typePath === "windmill") {
+      return 0x6fb676;
+    }
+    if (typePath === "crafting_station") {
+      return 0x4b77b9;
+    }
+    return 0xd6e5d2;
+  }
+
+  private getTypePath(): string {
+    const [, path = this.typeId] = this.typeId.split(":");
+    return path;
   }
 
   private hasTypeNamespace(namespace: string): boolean {
