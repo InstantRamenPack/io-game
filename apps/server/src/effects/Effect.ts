@@ -1,6 +1,9 @@
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 
+/**
+ * Base gameplay effect for lightweight server-authoritative status hooks.
+ */
 export abstract class Effect {
   readonly id: string;
   readonly label: string;
