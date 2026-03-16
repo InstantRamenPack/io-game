@@ -1,0 +1,59 @@
+Original prompt: I'm in charge of designing the main menu right now. I want to use something like this decaying winter menu screen, but simplfy it to make it more zombsio like.
+
+- Initialized progress tracking for develop-web-game skill.
+- Discovered current client entry files are empty, so implementing a standalone menu prototype first.
+- Added a new visual menu prototype at apps/client/menu-prototype.html.
+- Implemented the same menu in apps/client/src/main.ts with interactive tab switching and a deploy button state.
+- Exposed window.render_game_to_text and window.advanceTime in the client entry for testing compatibility.
+- Added apps/client/index.html to provide a browser entry that loads src/main.ts.
+- Attempted required Playwright loop using the skill script, but execution failed because the playwright package is not installed.
+- Attempted to install playwright locally with npm, but registry access is blocked in this environment (ENOTFOUND registry.npmjs.org).
+- Updated tsconfig.json lib list to include DOM and DOM.Iterable so client-side browser globals type-check.
+- Verified formatting with Prettier and verified TypeScript check with `bunx tsc --noEmit`.
+- Removed CHALLENGES and CREDITS from main menu options.
+- Added account gate UI and logic in both main.ts and menu-prototype.html.
+- Deploy is now blocked until user creates an account; clicking Deploy without an account redirects user to ACCOUNT prompt.
+- Added hasAccount flag to render_game_to_text output.
+- Switched apps/client/index.html from the MWE inline websocket template to module entry loading /src/main.ts.
+- Updated apps/server/index.ts to serve /src/main.ts as transpiled browser JS via Bun.Transpiler so the menu screen code executes in the browser.
+- Verified old localhost:3000 output was from an already-running stale server process (EADDRINUSE for new run).
+- Verified new wiring on PORT=3001: `/` serves module-based index and `/src/main.ts` serves transpiled menu JS.
+- Re-ran develop-web-game Playwright client check; still blocked because `playwright` package is not installed in this environment.
+- New request: implement real Google login and block gameplay until authenticated.
+- Added Google ID token to `hello` protocol payload and updated client websocket handshake to send it.
+- Implemented server auth verification service in `apps/server/src/services/AuthService.ts` using Google tokeninfo + audience check.
+- Updated `GameServer` handshake flow to require successful Google token verification before marking hello complete/spawning a player.
+- Added `/runtime-config` endpoint and `GOOGLE_CLIENT_ID` wiring in server startup for client-side Google SDK initialization.
+- Replaced fake "Create Account" behavior in `apps/client/src/main.ts` with Google sign-in initialization + prompt flow and deploy lock until authenticated.
+- Deploy now opens websocket only with Google ID token; server-side auth errors reset account gate and require re-login.
+- Validation: unit tests pass (`bun test apps/server/test/unit apps/client/test/unit packages/shared/test/unit`).
+- Validation blocker: required Playwright skill script still fails because `playwright` package is unavailable (`ERR_MODULE_NOT_FOUND`).
+- Follow-up fix: prevented a hello/auth race where a disconnect during async token verification could spawn a stale player.
+- Validation: formatting/lint pass (`bun run lint`).
+- Follow-up request: allow guest play, while signed-in users keep meta progression.
+- Protocol change: `hello.googleIdToken` is now optional; websocket guest sessions send no token.
+- Server handshake now allows guest hello without auth and only verifies Google token when provided.
+- Added `Continue as Guest` flow in menu; deploy is now allowed for either guest or signed-in modes.
+- Added lightweight meta progression model (coins + Scout class unlock) in menu UI.
+- Guests can play but progress is ephemeral (in-memory only for current page session).
+- Google sign-in sessions persist meta progress in localStorage keyed by Google `sub` claim.
+- Added small progression interaction: successful server connection awards 25 coins; Scout unlock costs 120 coins.
+- Validation: prettier/lint and unit tests pass.
+- Skill blocker remains: Playwright client cannot run because `playwright` package is unavailable (`ERR_MODULE_NOT_FOUND`).
+- Diagnosed blank page root cause: browser entry `main.ts` imported `@client/net/WsClient.ts`, but server only serves transpiled `/src/main.ts` and does not resolve TS path aliases for browser module imports.
+- Fixed by removing alias import from browser entry and inlining a small menu WebSocket helper in `main.ts`.
+- Added runtime protocol version to `/runtime-config` so browser hello handshake stays aligned with server protocol.
+- Validation: lint and unit tests pass after fix.
+- New request: start rendering player and enemies as basic circles via Pixi.
+- Implemented a minimal in-browser WebSocket snapshot client in `main.ts` (no path alias imports) and added snapshot callback handling.
+- Added PixiJS CDN loader and circle rendering: player in green, enemies in red, all entities drawn from authoritative snapshot positions.
+- Added game canvas root (`#game-root`) and menu-to-canvas transition on successful connection.
+- Added `worldSize` to `/runtime-config` for proper world-to-screen scaling in renderer.
+- Validation status on this branch: no discoverable bun test files; `bun test` reports "No tests found". `bun run lint` reports pre-existing unrelated formatting issues in multiple files outside this change set.
+- Added authoritative `Building` entities on the server and spawned a small starter base cluster so the client now receives real structure snapshots.
+- Expanded starter player inventory with wood/stone/build kits and surfaced lightweight active-effect data in player snapshots for HUD rendering.
+- Added base gameplay effect scaffolding with a reusable `Effect` class and a `KnockbackEffect` implementation to line up with existing weapon hitEffect hooks.
+- Updated client entity snapshots/rendering to support replicated `data`, building visuals, and richer item stack metadata.
+- Added an in-game HUD overlay in `apps/client/src/main.ts` with resources, effects, hotbar, build-placement panel (`B`), and crafting panel (`C`), styled to match the existing menu direction.
+- Added `window.render_game_to_text` and `window.advanceTime` back to the live client entry so the automated web-game loop can inspect gameplay state.
+- Validation blocker: local `bun run typecheck`, direct `tsc --noEmit`, and quick server boot commands hang in this environment instead of returning diagnostics, so final verification is limited to source inspection.
