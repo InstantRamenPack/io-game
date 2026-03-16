@@ -9,6 +9,8 @@ import { Inventory } from "@server/items/Inventory.ts";
  */
 export class Player extends Entity {
   name: string;
+  // The buffer currently feeds latest-input movement, but it is retained so
+  // future actions can preserve tick/sequence ordering for reconciliation.
   inputBuffer: InputCommand[] = [];
   moveSpeed = 180;
   /**

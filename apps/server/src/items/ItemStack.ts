@@ -19,7 +19,11 @@ export class ItemStack {
 
   /** @returns A copy suitable for safe transfers. */
   clone(): ItemStack {
-    return new ItemStack(this.item.clone(), this.stackSize, this.meta ? { ...this.meta } : undefined);
+    return new ItemStack(
+      this.item.clone(),
+      this.stackSize,
+      this.meta ? { ...this.meta } : undefined,
+    );
   }
 
   /** Converts the stack into a network snapshot. */
@@ -32,5 +36,4 @@ export class ItemStack {
       data: this.item.data,
     };
   }
-
 }

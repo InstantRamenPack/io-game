@@ -25,7 +25,7 @@ export class RangedWeapon extends Weapon {
     projectileClassId: string,
     magSize: number,
     reloadTicks: number,
-    spread: number = 0
+    spread: number = 0,
   ) {
     super(id, "weapon" as ItemKind, damage, fireRate, range, hitEffects);
     this.projectileClassId = projectileClassId;
@@ -48,7 +48,9 @@ export class RangedWeapon extends Weapon {
 
   /** @returns True if weapon can fire now (has ammo, not reloading, cooldown ready). */
   override canFire(): boolean {
-    return super.canFire() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0;
+    return (
+      super.canFire() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0
+    );
   }
 
   fire(world: World, owner: Entity, aimX: number, aimY: number): void {

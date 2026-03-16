@@ -15,7 +15,9 @@ export class GoalSelector {
    */
   add(goal: Goal): void {
     this.goals.push(goal);
-    this.goals.sort((leftGoal, rightGoal) => leftGoal.priority - rightGoal.priority);
+    this.goals.sort(
+      (leftGoal, rightGoal) => leftGoal.priority - rightGoal.priority,
+    );
   }
 
   /**
@@ -43,7 +45,10 @@ export class GoalSelector {
       const eligible = this.active.has(goal)
         ? goal.shouldContinue(ctx)
         : goal.canStart(ctx);
-      if (!eligible || this.hasControlConflict(claimedControls, goal.controls)) {
+      if (
+        !eligible ||
+        this.hasControlConflict(claimedControls, goal.controls)
+      ) {
         continue;
       }
       desired.add(goal);

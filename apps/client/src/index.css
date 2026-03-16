@@ -25,7 +25,12 @@ body {
   min-height: 100%;
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--text-main);
-  background: radial-gradient(circle at 18% 20%, #1d311f 0%, #0d140f 58%, #070a08 100%);
+  background: radial-gradient(
+    circle at 18% 20%,
+    #1d311f 0%,
+    #0d140f 58%,
+    #070a08 100%
+  );
 }
 
 #game-root {
@@ -63,7 +68,11 @@ body {
   inset: 0;
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.7) 100%),
-    linear-gradient(92deg, rgba(130, 236, 79, 0.03) 0%, rgba(191, 56, 47, 0.22) 85%);
+    linear-gradient(
+      92deg,
+      rgba(130, 236, 79, 0.03) 0%,
+      rgba(191, 56, 47, 0.22) 85%
+    );
   pointer-events: none;
 }
 
@@ -114,7 +123,11 @@ body {
 }
 
 .side-menu {
-  background: linear-gradient(180deg, rgba(13, 30, 16, 0.68), rgba(7, 15, 9, 0.7));
+  background: linear-gradient(
+    180deg,
+    rgba(13, 30, 16, 0.68),
+    rgba(7, 15, 9, 0.7)
+  );
   border: 1px solid rgba(157, 236, 123, 0.18);
   box-shadow: var(--shadow);
   backdrop-filter: blur(6px);
@@ -131,7 +144,9 @@ body {
   font-size: 27px;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
 }
 
 .side-menu button:hover,
@@ -235,7 +250,6 @@ body {
 }
 
 .field,
-.server,
 .launch {
   width: 100%;
   border: 0;
@@ -245,8 +259,7 @@ body {
   padding: 0 18px;
 }
 
-.field,
-.server {
+.field {
   background: rgba(233, 247, 223, 0.93);
   color: #081006;
 }
@@ -256,20 +269,14 @@ body {
   color: #f4ffe9;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 160ms ease, filter 160ms ease;
+  transition:
+    transform 160ms ease,
+    filter 160ms ease;
 }
 
 .launch:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
-}
-
-.footer-row {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-dim);
 }
 
 .bottom-stats {
@@ -300,10 +307,12 @@ body {
 
 @keyframes drift {
   from {
-    transform: perspective(900px) rotateX(64deg) translateY(22vh) translateX(-10px);
+    transform: perspective(900px) rotateX(64deg) translateY(22vh)
+      translateX(-10px);
   }
   to {
-    transform: perspective(900px) rotateX(64deg) translateY(22vh) translateX(38px);
+    transform: perspective(900px) rotateX(64deg) translateY(22vh)
+      translateX(38px);
   }
 }
 
@@ -357,7 +366,6 @@ body {
   }
 
   .field,
-  .server,
   .launch {
     height: 54px;
     font-size: 24px;

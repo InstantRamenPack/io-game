@@ -34,7 +34,6 @@ export interface WorldSnapshot {
   events: NetEvent[];
 }
 
-
 export interface ItemStackSnapshot {
   id: number;
   kind: ItemKind;

@@ -4,20 +4,37 @@ import type { PixiRenderer } from "@client/render/PixiRenderer";
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 
 /**
- * Client-side world representation that owns entity render objects.
+ * Client-side world representation that owns entity render objects in an id-keyed map.
  * Needs a PixiRenderer so new entities can attach their Pixi graphics to the scene.
  */
 export class ClientWorld {
   public tick: number;
-  public entities: ClientEntity[];
+  public entities: Map<number, ClientEntity>;
   public events: NetEvent[];
+  private readonly debugHitbox: boolean;
   private pixiRenderer: PixiRenderer;
+  private readonly debugInterpolation: boolean;
 
-  constructor(pixiRenderer: PixiRenderer, snapshot: WorldSnapshot) {
+  constructor(
+    pixiRenderer: PixiRenderer,
+    snapshot: WorldSnapshot,
+    debugHitbox: boolean,
+    debugInterpolation: boolean,
+  ) {
     this.pixiRenderer = pixiRenderer;
+    this.debugHitbox = debugHitbox;
+    this.debugInterpolation = debugInterpolation;
     this.tick = snapshot.tick;
-    this.entities = snapshot.entities.map(
-      (entitySnapshot) => new ClientEntity(this.pixiRenderer, entitySnapshot),
+    this.entities = new Map(
+      snapshot.entities.map((entitySnapshot) => [
+        entitySnapshot.id,
+        new ClientEntity(
+          this.pixiRenderer,
+          entitySnapshot,
+          this.debugHitbox,
+          this.debugInterpolation,
+        ),
+      ]),
     );
     this.events = [...snapshot.events];
   }
@@ -29,6 +46,7 @@ export class ClientWorld {
     for (const entity of this.entities.values()) {
       entity.destroy();
     }
+    this.entities.clear();
   }
 
   /**
@@ -44,23 +62,25 @@ export class ClientWorld {
     for (const entitySnapshot of snapshot.entities) {
       updatedEntityIds.add(entitySnapshot.id);
 
-      const existingEntity = this.entities.find(
-        (entity) => entity.id === entitySnapshot.id,
-      ); // hella slow but it's ok for now
+      const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
         existingEntity.updateFromSnapshot(entitySnapshot);
       } else {
-        const newEntity = new ClientEntity(this.pixiRenderer, entitySnapshot);
-        this.entities.push(newEntity);
+        const newEntity = new ClientEntity(
+          this.pixiRenderer,
+          entitySnapshot,
+          this.debugHitbox,
+          this.debugInterpolation,
+        );
+        this.entities.set(entitySnapshot.id, newEntity);
       }
     }
 
-    this.entities = this.entities.filter((entity) => {
-      if (!updatedEntityIds.has(entity.id)) {
+    for (const [entityId, entity] of this.entities) {
+      if (!updatedEntityIds.has(entityId)) {
         entity.destroy();
-        return false;
+        this.entities.delete(entityId);
       }
-      return true;
-    });
+    }
   }
 }

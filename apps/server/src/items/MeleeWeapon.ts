@@ -15,7 +15,7 @@ export class MeleeWeapon extends Weapon {
     fireRate: number,
     range: number,
     hitEffects: string[],
-    meleeRange: number
+    meleeRange: number,
   ) {
     super(id, "weapon" as ItemKind, damage, fireRate, range, hitEffects);
     this.meleeRange = meleeRange;

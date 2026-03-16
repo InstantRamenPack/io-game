@@ -57,24 +57,16 @@
 
           <div class="play-grid">
             <input
+              id="player-name-input"
               class="field"
               type="text"
               value="Player-071"
               aria-label="Player name"
+              autocomplete="nickname"
             />
-
-            <select class="server" aria-label="Server selector">
-              <option>US East #1 [High]</option>
-              <option>US Central #2 [Medium]</option>
-              <option>EU West #4 [Low]</option>
-            </select>
 
             <button class="launch" id="launch-btn">Deploy</button>
           </div>
-
-          <label class="footer-row">
-            <input type="checkbox" /> Disable particles
-          </label>
         </section>
       </section>
 
@@ -88,6 +80,6 @@
       </footer>
     </main>
     <div id="game-root" hidden></div>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

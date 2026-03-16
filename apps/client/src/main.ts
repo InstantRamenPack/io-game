@@ -2,10 +2,10 @@ import "./index.css";
 import {
   AuthController,
   createAuthGateViewState,
-  type AuthState,
   type RuntimeConfig,
 } from "@client/auth/Auth.ts";
 import { GameClient } from "@client/client/GameClient.ts";
+import { DEBUG_HITBOX, DEBUG_INTERPOLATION } from "@client/debug.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 type MenuMode = "play" | "loadout" | "settings" | "account";
@@ -18,6 +18,7 @@ const titles: Record<MenuMode, string> = {
 };
 
 let currentMode: MenuMode = "play";
+const PLAYER_NAME_STORAGE_KEY = "zombs-player-name";
 
 const titleEl = document.getElementById("menu-title");
 const sideButtons = Array.from(
@@ -30,13 +31,45 @@ const accountBtn = document.getElementById("account-btn");
 const googleSignInTarget = document.getElementById("google-signin-target");
 const menuRoot = document.querySelector<HTMLElement>('[data-screen="menu"]');
 const gameRoot = document.getElementById("game-root");
+const playerNameInput = document.getElementById(
+  "player-name-input",
+) as HTMLInputElement | null;
 
 const gameConfig = new GameConfig();
-const gameClient = new GameClient(gameConfig);
+const gameClient = new GameClient(gameConfig, {
+  debugHitbox: DEBUG_HITBOX,
+  debugInterpolation: DEBUG_INTERPOLATION,
+});
 const authController = new AuthController();
 gameClient.bindInput(window);
 
-function syncGoogleSignInButton(authState: Readonly<AuthState>): void {
+function createDefaultPlayerName(): string {
+  return `Player-${Math.floor(100 + Math.random() * 900)}`;
+}
+
+function loadInitialPlayerName(): string {
+  const storedPlayerName = window.localStorage
+    .getItem(PLAYER_NAME_STORAGE_KEY)
+    ?.trim();
+  return storedPlayerName || createDefaultPlayerName();
+}
+
+function resolvePlayerName(): string {
+  const rawPlayerName = playerNameInput?.value ?? "";
+  const trimmedPlayerName = rawPlayerName.trim();
+  const nextPlayerName = trimmedPlayerName || createDefaultPlayerName();
+  window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, nextPlayerName);
+  if (playerNameInput) {
+    playerNameInput.value = nextPlayerName;
+  }
+  return nextPlayerName;
+}
+
+if (playerNameInput) {
+  playerNameInput.value = loadInitialPlayerName();
+}
+
+function syncGoogleSignInButton(): void {
   if (!accountBtn || !googleSignInTarget) {
     return;
   }
@@ -53,12 +86,7 @@ function syncGoogleSignInButton(authState: Readonly<AuthState>): void {
 }
 
 function refreshGateUi(): void {
-  if (
-    !launchBtn ||
-    !accountGate ||
-    !accountGateText ||
-    !accountBtn
-  ) {
+  if (!launchBtn || !accountGate || !accountGateText || !accountBtn) {
     return;
   }
 
@@ -73,7 +101,7 @@ function refreshGateUi(): void {
   createButton.disabled = gateView.accountButtonDisabled;
   deployButton.disabled = gateView.deployButtonDisabled;
 
-  syncGoogleSignInButton(authState);
+  syncGoogleSignInButton();
 }
 
 function updateMode(mode: MenuMode): void {
@@ -110,6 +138,7 @@ launchBtn?.addEventListener("click", () => {
   const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
   const token = authController.getLaunchToken();
+  const playerName = resolvePlayerName();
 
   if (!gameRoot) {
     if (accountGateText) {
@@ -123,7 +152,10 @@ launchBtn?.addEventListener("click", () => {
   void gameClient
     .initRenderer(gameRoot)
     .then(() => {
-      gameClient.start(wsUrl, token);
+      gameClient.start(wsUrl, {
+        googleIdToken: token,
+        playerName,
+      });
     })
     .catch(() => {
       if (accountGateText) {

@@ -22,7 +22,7 @@ export abstract class Weapon extends Item {
     damage: number,
     fireRate: number,
     range: number,
-    hitEffects: string[]
+    hitEffects: string[],
   ) {
     super(id, kind);
     this.damage = damage;

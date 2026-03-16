@@ -19,7 +19,7 @@ export class Interpolator {
     const previousAt = worldState.previousSnapshotReceivedAt;
 
     if (latestAt === undefined || previousAt === undefined) {
-      for (const entity of worldState.clientWorld.entities) {
+      for (const entity of worldState.clientWorld.entities.values()) {
         entity.updatePosition(entity.serverX, entity.serverY);
       }
       return;
@@ -31,7 +31,7 @@ export class Interpolator {
     const renderTimeMs = frameTimeMs - spanMs;
     const alpha = clamp((renderTimeMs - previousAt) / spanMs, 0, 1);
 
-    for (const entity of worldState.clientWorld.entities) {
+    for (const entity of worldState.clientWorld.entities.values()) {
       const deltaX = entity.serverX - entity.prevServerX;
       const deltaY = entity.serverY - entity.prevServerY;
       const distance = Math.hypot(deltaX, deltaY);

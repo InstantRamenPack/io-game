@@ -38,7 +38,12 @@ export class TargetEntityGoal extends Goal {
         continue;
       }
 
-      const distanceSquared = this.distanceSquared(ctx.self.x, ctx.self.y, entity.x, entity.y);
+      const distanceSquared = this.distanceSquared(
+        ctx.self.x,
+        ctx.self.y,
+        entity.x,
+        entity.y,
+      );
       if (
         distanceSquared > aggroRangeSquared ||
         distanceSquared >= bestDistanceSquared
@@ -74,7 +79,12 @@ export class TargetEntityGoal extends Goal {
       return null;
     }
 
-    const distanceSquared = this.distanceSquared(ctx.self.x, ctx.self.y, target.x, target.y);
+    const distanceSquared = this.distanceSquared(
+      ctx.self.x,
+      ctx.self.y,
+      target.x,
+      target.y,
+    );
     const aggroRangeSquared = ctx.self.aggroRange * ctx.self.aggroRange;
     return distanceSquared <= aggroRangeSquared ? target : null;
   }

@@ -41,7 +41,11 @@ export class Inventory {
     // put remaining into empty slots
     for (let i = 0; i < this.slots.length && stack.stackSize > 0; i++) {
       if (this.slots[i] === null) {
-        this.slots[i] = new ItemStack(stack.item.clone(), stack.stackSize, stack.meta);
+        this.slots[i] = new ItemStack(
+          stack.item.clone(),
+          stack.stackSize,
+          stack.meta,
+        );
         stack.stackSize = 0;
         break;
       }
@@ -64,12 +68,17 @@ export class Inventory {
     // partial remove
     const removedItem = s.item.clone();
     s.stackSize -= amount;
-    return new ItemStack(removedItem, amount, s.meta ? { ...s.meta } : undefined);
+    return new ItemStack(
+      removedItem,
+      amount,
+      s.meta ? { ...s.meta } : undefined,
+    );
   }
 
   /** @returns Active slot stack. */
   getActive(): ItemStack | null {
-    if (this.activeIndex < 0 || this.activeIndex >= this.slots.length) return null;
+    if (this.activeIndex < 0 || this.activeIndex >= this.slots.length)
+      return null;
     // non-undefined assertion after bounds check
     return this.slots[this.activeIndex] ?? null;
   }
@@ -85,7 +94,8 @@ export class Inventory {
     const counts: Record<string, number> = {};
     for (const slot of this.slots) {
       if (slot) {
-        counts[slot.item.id.toString()] = (counts[slot.item.id.toString()] || 0) + slot.stackSize;
+        counts[slot.item.id.toString()] =
+          (counts[slot.item.id.toString()] || 0) + slot.stackSize;
       }
     }
     for (const r of req) {
@@ -116,7 +126,10 @@ export class Inventory {
   }
 
   /** Serializes the inventory into an array of item stack snapshots. */
-  toSnapshot(): (import("@shared/net/snapshots.ts").ItemStackSnapshot | null)[] {
-    return this.slots.map((s) => s ? s.toSnapshot() : null);
+  toSnapshot(): (
+    | import("@shared/net/snapshots.ts").ItemStackSnapshot
+    | null
+  )[] {
+    return this.slots.map((s) => (s ? s.toSnapshot() : null));
   }
 }

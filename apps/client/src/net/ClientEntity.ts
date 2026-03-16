@@ -46,6 +46,8 @@ export class ClientEntity {
 
   private entityContainer: PIXI.Container;
   private entityGraphic: PIXI.Graphics;
+  private hitboxContainer?: PIXI.Container;
+  private hitboxGraphic?: PIXI.Graphics;
   private debugContainer?: PIXI.Container;
   private debugGraphic?: PIXI.Graphics;
   private pixiRenderer: PixiRenderer;
@@ -53,7 +55,8 @@ export class ClientEntity {
   constructor(
     pixiRenderer: PixiRenderer,
     snapshot: EntitySnapshot,
-    debug = true,
+    debugHitbox: boolean,
+    debugInterpolation: boolean,
   ) {
     this.id = snapshot.id;
     this.kind = snapshot.kind;
@@ -95,7 +98,25 @@ export class ClientEntity {
     this.entityGraphic = graphics;
     this.entityContainer.addChild(this.entityGraphic);
 
-    if (debug) {
+    if (debugHitbox) {
+      this.hitboxContainer = new PIXI.Container();
+      this.hitboxContainer.position.set(this.x, this.y);
+      this.pixiRenderer.entityContainer.addChild(this.hitboxContainer);
+
+      const hitboxGraphics = new PIXI.Graphics();
+      hitboxGraphics.lineStyle(2, 0x2d68ff, 0.8);
+      hitboxGraphics.drawRect(
+        -this.radius,
+        -this.radius,
+        this.radius * 2,
+        this.radius * 2,
+      );
+
+      this.hitboxGraphic = hitboxGraphics;
+      this.hitboxContainer.addChild(this.hitboxGraphic);
+    }
+
+    if (debugInterpolation) {
       this.debugContainer = new PIXI.Container();
       this.debugContainer.position.set(this.serverX, this.serverY);
       this.debugContainer.rotation = this.rotation;
@@ -121,6 +142,7 @@ export class ClientEntity {
     this.x = x;
     this.y = y;
     this.entityContainer.position.set(this.x, this.y);
+    this.hitboxContainer?.position.set(this.x, this.y);
 
     if (this.pixiRenderer.playerEntityId === this.id) {
       this.pixiRenderer.setCameraToPlayer(this.x, this.y);
@@ -165,6 +187,17 @@ export class ClientEntity {
       this.entityGraphic.drawCircle(0, 0, this.radius);
       this.entityGraphic.endFill();
 
+      if (this.hitboxGraphic) {
+        this.hitboxGraphic.clear();
+        this.hitboxGraphic.lineStyle(2, 0x2d68ff, 0.8);
+        this.hitboxGraphic.drawRect(
+          -this.radius,
+          -this.radius,
+          this.radius * 2,
+          this.radius * 2,
+        );
+      }
+
       if (this.debugGraphic) {
         this.debugGraphic.clear();
         this.debugGraphic.lineStyle(2, 0x000000, 0.35);
@@ -182,12 +215,17 @@ export class ClientEntity {
     if (this.pixiRenderer.entityContainer && this.entityContainer.parent) {
       this.pixiRenderer.entityContainer.removeChild(this.entityContainer);
     }
+    if (this.pixiRenderer.entityContainer && this.hitboxContainer?.parent) {
+      this.pixiRenderer.entityContainer.removeChild(this.hitboxContainer);
+    }
     if (this.pixiRenderer.entityContainer && this.debugContainer?.parent) {
       this.pixiRenderer.entityContainer.removeChild(this.debugContainer);
     }
 
     this.entityGraphic.destroy();
     this.entityContainer.destroy();
+    this.hitboxGraphic?.destroy();
+    this.hitboxContainer?.destroy();
     this.debugGraphic?.destroy();
     this.debugContainer?.destroy();
   }

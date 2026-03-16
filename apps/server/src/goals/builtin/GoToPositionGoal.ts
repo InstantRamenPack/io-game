@@ -2,7 +2,9 @@ import { Goal } from "@server/goals/Goal.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 export type GoalDestination = { x: number; y: number };
-export type GoalDestinationProvider = (ctx: GoalContext) => GoalDestination | null;
+export type GoalDestinationProvider = (
+  ctx: GoalContext,
+) => GoalDestination | null;
 
 /**
  * Straight-line movement goal that walks toward a computed destination.

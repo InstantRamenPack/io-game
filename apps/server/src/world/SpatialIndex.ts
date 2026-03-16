@@ -38,8 +38,16 @@ export class SpatialIndex {
   queryBox(minX: number, minY: number, maxX: number, maxY: number): Entity[] {
     const candidates = new Set<Entity>();
 
-    for (let gridX = this.toCell(minX); gridX <= this.toCell(maxX); gridX += 1) {
-      for (let gridY = this.toCell(minY); gridY <= this.toCell(maxY); gridY += 1) {
+    for (
+      let gridX = this.toCell(minX);
+      gridX <= this.toCell(maxX);
+      gridX += 1
+    ) {
+      for (
+        let gridY = this.toCell(minY);
+        gridY <= this.toCell(maxY);
+        gridY += 1
+      ) {
         const bucket = this.buckets.get(this.makeKey(gridX, gridY));
         if (!bucket) {
           continue;
@@ -59,8 +67,16 @@ export class SpatialIndex {
     const minY = entity.y - entity.radius;
     const maxY = entity.y + entity.radius;
 
-    for (let gridX = this.toCell(minX); gridX <= this.toCell(maxX); gridX += 1) {
-      for (let gridY = this.toCell(minY); gridY <= this.toCell(maxY); gridY += 1) {
+    for (
+      let gridX = this.toCell(minX);
+      gridX <= this.toCell(maxX);
+      gridX += 1
+    ) {
+      for (
+        let gridY = this.toCell(minY);
+        gridY <= this.toCell(maxY);
+        gridY += 1
+      ) {
         const key = this.makeKey(gridX, gridY);
         let bucket = this.buckets.get(key);
         if (!bucket) {

@@ -18,6 +18,11 @@ This document is the **single source of truth** for building a **zombs.io clone*
 - No persistence / DB initially (session-only)
 - No binary protocol initially (start with JSON; optimize after gameplay feels good)
 
+## 0.5) Current repo status / near-term roadmap
+
+- Live now: authoritative player movement, zombie chase AI, collision, snapshot interpolation, guest deploy, optional Google sign-in, and client-selected player names.
+- Near-term roadmap: harden the connection/handshake flow, make combat/events real, bring inventory and slotting into live gameplay, add more enemy behaviors, and start landing building/resource progression.
+
 ---
 
 ## 1) Architecture at a glance
@@ -218,9 +223,8 @@ Use a base tsconfig with:
   - `open(ws)`
   - `message(ws, message)`
   - `close(ws, code, reason)`
-    cd /Users/brettwang/Documents/io-game
 ### 3.3 Client
-- Bundle however you like.
+- Client currently uses Vite for local development and production builds.
 - Connect to `ws(s)://<host>/ws`.
 
 ---
@@ -233,10 +237,10 @@ Use a base tsconfig with:
 
 ### 4.2 Snapshots
 - Snapshot emission: every completed server tick
-- Snapshots include `tick`, `timeMs`, `entities[]`, `events[]`
+- Snapshots include `tick`, `entities[]`, `events[]`
 
 ### 4.3 Client interpolation
-- Client stores the latest two authoritative snapshots separately from render state.
+- Client stores the latest receive-time metadata separately from render state, while entities keep their previous/current authoritative positions.
 - The interpolation delay is the observed spacing between the last two snapshot arrivals.
 - Rendered entities blend from the previous authoritative position toward the latest one and snap only when error grows too large.
 

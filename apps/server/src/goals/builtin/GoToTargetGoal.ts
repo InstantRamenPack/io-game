@@ -1,5 +1,8 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import { GoToPositionGoal, type GoalDestination } from "@server/goals/builtin/GoToPositionGoal.ts";
+import {
+  GoToPositionGoal,
+  type GoalDestination,
+} from "@server/goals/builtin/GoToPositionGoal.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 /**

@@ -15,6 +15,7 @@ export const HelloMessageSchema = z.object({
   t: z.literal("hello"),
   protocolVersion: z.number(),
   googleIdToken: z.string().min(1).optional(),
+  playerName: z.string().optional(),
 });
 
 export const InputMessageSchema = z.object({

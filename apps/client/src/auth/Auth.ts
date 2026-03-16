@@ -99,12 +99,23 @@ export class AuthController {
   async initialize(
     onRuntimeConfig: (runtimeConfig: RuntimeConfig) => void,
   ): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch("/runtime-config");
+    } catch {
+      this.state.errorMessage = "Unable to load auth config.";
+      this.emit();
+      return;
+    }
+
+    if (!response.ok) {
+      this.state.errorMessage = "Unable to load auth config.";
+      this.emit();
+      return;
+    }
+
     let runtimeConfig: RuntimeConfig;
     try {
-      const response = await fetch("/runtime-config");
-      if (!response.ok) {
-        throw new Error("runtime_config_error");
-      }
       runtimeConfig = (await response.json()) as RuntimeConfig;
     } catch {
       this.state.errorMessage = "Unable to load auth config.";
@@ -372,7 +383,8 @@ export function createAuthGateViewState(
   if (authState.authMode === "guest") {
     return {
       showReadyState: true,
-      gateText: "Guest session active. Sign in with Google if you want saved progress.",
+      gateText:
+        "Guest session active. Sign in with Google if you want saved progress.",
       accountButtonText: authState.initialized
         ? "Sign in with Google"
         : authState.errorMessage

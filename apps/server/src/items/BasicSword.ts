@@ -11,7 +11,7 @@ export class BasicSword extends MeleeWeapon {
       2, // fireRate (attacks per second)
       50, // range
       ["knockback"], // hitEffects
-      30 // meleeRange
+      30, // meleeRange
     );
   }
 }

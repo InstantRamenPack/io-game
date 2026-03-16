@@ -14,8 +14,7 @@ export class CollisionSystem implements System {
    * @param world Authoritative world being simulated.
    */
   update(world: World): void {
-    const collidableEntities = world
-      .entities
+    const collidableEntities = world.entities
       .all()
       .filter((entity) => entity.collisionMode !== "none");
 
@@ -37,10 +36,7 @@ export class CollisionSystem implements System {
         if (candidate.id === entity.id) {
           continue;
         }
-        if (
-          candidate.collisionMode === "dynamic" &&
-          candidate.id < entity.id
-        ) {
+        if (candidate.collisionMode === "dynamic" && candidate.id < entity.id) {
           continue;
         }
         this.resolveEntityPair(entity, candidate);

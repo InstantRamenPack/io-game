@@ -24,17 +24,25 @@ export class GameClient {
   private lastAnimationFrameTime: number | undefined;
   private inputBound = false;
   private started = false;
+  private readonly debugHitbox: boolean;
+  private readonly debugInterpolation: boolean;
 
   /**
    * Creates a client runtime with network, state, and renderer dependencies.
    * @param gameConfig Shared runtime configuration used by the client.
+   * @param options Local debug overlay flags applied to client-side render state.
    */
-  constructor(gameConfig: GameConfig) {
+  constructor(
+    gameConfig: GameConfig,
+    options: { debugHitbox?: boolean; debugInterpolation?: boolean } = {},
+  ) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer(this.gameConfig.worldSize);
     this.interpolator = new Interpolator(this.gameConfig.interpolation);
+    this.debugHitbox = options.debugHitbox ?? false;
+    this.debugInterpolation = options.debugInterpolation ?? false;
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
@@ -74,22 +82,29 @@ export class GameClient {
   /**
    * Connects to the game server and starts periodic input sends/render updates.
    * @param url WebSocket endpoint for the authoritative server.
-   * @param googleIdToken Optional Google ID token sent during the hello handshake.
+   * @param connectOptions Hello-handshake data such as auth token and player name.
    */
-  start(url: string, googleIdToken?: string): void {
+  start(
+    url: string,
+    connectOptions: { googleIdToken?: string; playerName: string },
+  ): void {
     if (this.started) {
       return;
     }
     this.started = true;
 
-    this.worldState = new ClientWorldState(this.renderer);
+    this.worldState = new ClientWorldState(
+      this.renderer,
+      this.debugHitbox,
+      this.debugInterpolation,
+    );
 
     this.startFrameLoop();
-    this.networkClient.connect(
-      url,
-      googleIdToken,
-      this.gameConfig.protocolVersion,
-    );
+    this.networkClient.connect(url, {
+      googleIdToken: connectOptions.googleIdToken,
+      playerName: connectOptions.playerName,
+      protocolVersion: this.gameConfig.protocolVersion,
+    });
 
     const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
     this.inputTimer = setInterval(() => {

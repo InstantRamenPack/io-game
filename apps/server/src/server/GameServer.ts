@@ -169,16 +169,21 @@ export class GameServer {
   /**
    * Creates a player entity for a newly connected client.
    * @param clientId Connected client id.
+   * @param requestedPlayerName Optional requested display name from the hello handshake.
    * @returns Allocated player entity id.
    */
-  onConnect(clientId: string): number {
+  onConnect(clientId: string, requestedPlayerName?: string): number {
     const existingPlayerId = this.playerIdByClientId.get(clientId);
     if (existingPlayerId) {
       return existingPlayerId;
     }
 
     const playerId = this.entityIdGenerator.alloc();
-    const playerEntity = new Player(playerId, `player-${playerId}`);
+    const fallbackPlayerName = `player-${playerId}`;
+    const playerEntity = new Player(
+      playerId,
+      this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
+    );
 
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
@@ -212,10 +217,22 @@ export class GameServer {
    */
   private spawnInitialZombies(): void {
     const zombiePositions = [
-      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.25 },
-      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.25 },
-      { x: this.gameConfig.worldSize.w * 0.25, y: this.gameConfig.worldSize.h * 0.75 },
-      { x: this.gameConfig.worldSize.w * 0.75, y: this.gameConfig.worldSize.h * 0.75 },
+      {
+        x: this.gameConfig.worldSize.w * 0.25,
+        y: this.gameConfig.worldSize.h * 0.25,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.75,
+        y: this.gameConfig.worldSize.h * 0.25,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.25,
+        y: this.gameConfig.worldSize.h * 0.75,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.75,
+        y: this.gameConfig.worldSize.h * 0.75,
+      },
     ];
 
     for (const zombiePosition of zombiePositions) {
@@ -325,7 +342,7 @@ export class GameServer {
       }
     }
 
-    const playerId = this.onConnect(clientId);
+    const playerId = this.onConnect(clientId, helloMessage.playerName);
     this.clientsWithCompletedHello.add(clientId);
     this.networkServer.send(
       clientId,
@@ -335,5 +352,16 @@ export class GameServer {
       clientId,
       JSON.stringify({ t: "welcome", entityId: playerId }),
     );
+  }
+
+  private sanitizePlayerName(
+    requestedPlayerName: string | undefined,
+    fallbackPlayerName: string,
+  ): string {
+    const sanitizedPlayerName = (requestedPlayerName ?? "")
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .trim()
+      .slice(0, 20);
+    return sanitizedPlayerName || fallbackPlayerName;
   }
 }

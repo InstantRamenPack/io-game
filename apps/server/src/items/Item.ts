@@ -1,7 +1,6 @@
 import type { World } from "@server/world/World.ts";
 import type { ItemKind } from "@shared/ids/ItemKinds.ts";
 
-
 export class Item {
   id: number;
   kind: ItemKind;
@@ -26,5 +25,4 @@ export class Item {
     cloned.data = { ...this.data };
     return cloned;
   }
-
 }

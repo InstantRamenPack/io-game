@@ -5,6 +5,12 @@ import {
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
+export type ConnectOptions = {
+  protocolVersion?: number;
+  googleIdToken?: string;
+  playerName?: string;
+};
+
 /**
  * Minimal browser WebSocket client for protocol messaging.
  * Wraps a browser socket with the shared message parsing helpers.
@@ -21,13 +27,15 @@ export class WsClient {
   /**
    * Opens a WebSocket connection and registers protocol message handlers.
    * @param url WebSocket endpoint to connect to.
-   * @param googleIdToken Optional Google ID token sent during the hello handshake.
-   * @param protocolVersion Protocol version to send in the hello handshake.
+   * @param options Optional hello-handshake fields sent once the socket opens.
    */
   connect(
     url: string,
-    googleIdToken?: string,
-    protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION,
+    {
+      googleIdToken,
+      playerName,
+      protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION,
+    }: ConnectOptions = {},
   ): void {
     this.disconnect();
 
@@ -40,6 +48,7 @@ export class WsClient {
           t: "hello",
           protocolVersion,
           googleIdToken,
+          playerName,
         }),
       );
       for (const openHandler of this.openHandlers) {
@@ -63,14 +72,16 @@ export class WsClient {
     });
 
     socket.addEventListener("message", (messageEvent) => {
-      const serverMessage = parseServerToClientMessage(String(messageEvent.data));
+      const serverMessage = parseServerToClientMessage(
+        String(messageEvent.data),
+      );
       if (!serverMessage) {
         return;
       }
 
       if (serverMessage.t === "snapshot") {
         for (const snapshotHandler of this.snapshotHandlers) {
-          snapshotHandler(serverMessage.snapshot as WorldSnapshot);
+          snapshotHandler(serverMessage.snapshot);
         }
         return;
       }
