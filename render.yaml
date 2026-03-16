@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: io-game-server
+    name: io-game
     runtime: node
     plan: free
     buildCommand: bun install --frozen-lockfile && bun run build:client
