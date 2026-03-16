@@ -9,6 +9,12 @@ export const InputCommandSchema = z.object({
   tick: z.number().int().nonnegative(),
   moveX: z.number(),
   moveY: z.number(),
+  attack: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+    })
+    .optional(),
 });
 
 export const HelloMessageSchema = z.object({
@@ -54,6 +60,7 @@ const WorldSnapshotSchema = z.object({
       maxHp: z.number().optional(),
       ownerId: z.number().optional(),
       name: z.string().optional(),
+      data: z.record(z.string(), z.unknown()).optional(),
       inventory: z
         .array(
           z
@@ -72,9 +79,18 @@ const WorldSnapshotSchema = z.object({
   ),
   events: z.array(
     z.object({
-      type: z.string(),
+      type: z.literal("damage"),
       tick: z.number(),
-      payload: z.unknown(),
+      payload: z.object({
+        sourceId: z.number(),
+        targetId: z.number(),
+        amount: z.number(),
+        remainingHp: z.number(),
+        maxHp: z.number(),
+        x: z.number(),
+        y: z.number(),
+        isFatal: z.boolean(),
+      }),
     }),
   ),
 });

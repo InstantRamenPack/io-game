@@ -1,4 +1,5 @@
 import { Item } from "./Item.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { ItemKind } from "@shared/ids/ItemKinds.ts";
@@ -11,7 +12,7 @@ export abstract class Weapon extends Item {
   damage: number;
   fireRate: number; // attacks per second
   range: number;
-  hitEffects: string[]; // effect IDs to apply on hit
+  hitEffects: Effect[];
 
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
@@ -22,7 +23,7 @@ export abstract class Weapon extends Item {
     damage: number,
     fireRate: number,
     range: number,
-    hitEffects: string[],
+    hitEffects: Effect[],
   ) {
     super(id, kind);
     this.damage = damage;

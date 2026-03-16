@@ -1,5 +1,5 @@
 import type { EntityKind } from "@shared/ids/EntityKinds.ts";
-import type { ItemKind } from "@shared/ids/ItemKinds";
+import type { ItemKind } from "@shared/ids/ItemKinds.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 
 /**
@@ -19,6 +19,7 @@ export interface EntitySnapshot {
   maxHp?: number;
   ownerId?: number;
   name?: string;
+  data?: Record<string, unknown>;
 
   inventory?: Array<ItemStackSnapshot | null>;
   activeSlot?: number;

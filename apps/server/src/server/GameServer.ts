@@ -14,6 +14,9 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
+import { BasicSword } from "@server/items/BasicSword.ts";
+import { ItemStack } from "@server/items/ItemStack.ts";
+import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { GoalSystem } from "@server/systems/GoalSystem.ts";
@@ -37,6 +40,7 @@ export class GameServer {
   private readonly clock: TickClock;
   private readonly authService: AuthService;
   private readonly entityIdGenerator = new IdGenerator();
+  private readonly itemIdGenerator = new IdGenerator();
   private readonly playerIdByClientId = new Map<string, number>();
   private readonly clientsWithCompletedHello = new Set<string>();
   private readonly clientsWithPendingHello = new Set<string>();
@@ -153,7 +157,7 @@ export class GameServer {
       return;
     }
 
-    if (!this.antiCheatValidator.validate(inputCommand, player)) {
+    if (!this.antiCheatValidator.validate(inputCommand, player, this.world)) {
       this.networkServer.send(
         clientId,
         JSON.stringify({ t: "error", message: "invalid_input" }),
@@ -164,6 +168,18 @@ export class GameServer {
     player.enqueueInput(inputCommand);
     this.lastInputSequenceByClientId.set(clientId, inputCommand.seq);
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
+
+    if (inputCommand.attack) {
+      const activeWeapon = player.getActiveWeapon();
+      if (activeWeapon instanceof MeleeWeapon) {
+        activeWeapon.tryAttackAtPoint(
+          this.world,
+          player,
+          inputCommand.attack.x,
+          inputCommand.attack.y,
+        );
+      }
+    }
   }
 
   /**
@@ -187,6 +203,13 @@ export class GameServer {
 
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
+    if (playerEntity.inventory) {
+      playerEntity.inventory.slots[0] = new ItemStack(
+        new BasicSword(this.itemIdGenerator.alloc()),
+        1,
+      );
+      playerEntity.inventory.activeIndex = 0;
+    }
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
@@ -237,6 +260,7 @@ export class GameServer {
 
     for (const zombiePosition of zombiePositions) {
       const zombie = new Zombie(this.entityIdGenerator.alloc());
+      zombie.meleeWeapon = new BasicSword(this.itemIdGenerator.alloc());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);

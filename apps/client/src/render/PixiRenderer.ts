@@ -12,6 +12,9 @@ export class PixiRenderer {
   // World container should store everything because transformations applied to it create illusion of following the player
   private world: PIXI.Container | null = null;
   private grid: PIXI.Graphics | null = null;
+  private damageOverlay: PIXI.Graphics | null = null;
+  private damageOverlayRemainingMs = 0;
+  private damageOverlayDurationMs = 200;
   private gridCellSize = 100;
   private worldSize: WorldSize;
 
@@ -36,6 +39,7 @@ export class PixiRenderer {
       return;
     }
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
+    this.drawDamageOverlay();
     this.renderScene();
     // Manually render after resize to sync with our game loop
     this.app.renderer.render(this.app.stage);
@@ -75,6 +79,7 @@ export class PixiRenderer {
     }
 
     this.world.addChild(this.entityContainer);
+    this.ensureDamageOverlay();
 
     // initial render to populate the scene
     this.renderScene();
@@ -117,6 +122,7 @@ export class PixiRenderer {
    * @param _deltaMs Frame delta in milliseconds.
    */
   update(_deltaMs: number): void {
+    this.updateDamageOverlay(_deltaMs);
     this.renderScene();
   }
 
@@ -132,6 +138,45 @@ export class PixiRenderer {
       this.app.screen.width / 2,
       this.app.screen.height / 2,
     );
+  }
+
+  /**
+   * Converts a pointer position in viewport coordinates into world coordinates.
+   * @param clientX Viewport X coordinate.
+   * @param clientY Viewport Y coordinate.
+   * @returns World-space point matching the current camera transform.
+   */
+  screenToWorld(clientX: number, clientY: number): { x: number; y: number } {
+    if (!this.app || !this.world) {
+      return { x: clientX, y: clientY };
+    }
+
+    const rect = this.app.view.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+
+    return {
+      x: localX - this.world.position.x + this.world.pivot.x,
+      y: localY - this.world.position.y + this.world.pivot.y,
+    };
+  }
+
+  /**
+   * Returns the mounted canvas element when the renderer is initialized.
+   * @returns Canvas view or null.
+   */
+  getView(): HTMLCanvasElement | null {
+    return this.app?.view ?? null;
+  }
+
+  /**
+   * Triggers the full-screen red damage overlay for the local player.
+   * @param durationMs Fade duration in milliseconds.
+   */
+  triggerDamageOverlay(durationMs = 200): void {
+    this.damageOverlayDurationMs = Math.max(1, durationMs);
+    this.damageOverlayRemainingMs = this.damageOverlayDurationMs;
+    this.updateDamageOverlay(0);
   }
 
   /**
@@ -182,6 +227,56 @@ export class PixiRenderer {
     }
   }
 
+  private ensureDamageOverlay(): void {
+    if (!this.app) {
+      throw new Error("Pixi App not initialized.");
+    }
+
+    if (!this.damageOverlay) {
+      this.damageOverlay = new PIXI.Graphics();
+    }
+
+    if (this.damageOverlay.parent !== this.app.stage) {
+      this.app.stage.addChild(this.damageOverlay);
+    }
+
+    this.drawDamageOverlay();
+    this.updateDamageOverlay(0);
+  }
+
+  private drawDamageOverlay(): void {
+    if (!this.app || !this.damageOverlay) {
+      return;
+    }
+
+    this.damageOverlay.clear();
+    this.damageOverlay.beginFill(0x8f0f0f, 1);
+    this.damageOverlay.drawRect(
+      0,
+      0,
+      this.app.screen.width,
+      this.app.screen.height,
+    );
+    this.damageOverlay.endFill();
+  }
+
+  private updateDamageOverlay(deltaMs: number): void {
+    if (!this.damageOverlay) {
+      return;
+    }
+
+    this.damageOverlayRemainingMs = Math.max(
+      0,
+      this.damageOverlayRemainingMs - deltaMs,
+    );
+    const alpha =
+      this.damageOverlayDurationMs <= 0
+        ? 0
+        : (this.damageOverlayRemainingMs / this.damageOverlayDurationMs) * 0.28;
+    this.damageOverlay.alpha = alpha;
+    this.damageOverlay.visible = alpha > 0.001;
+  }
+
   /**
    * Picks a debug-friendly fill color for the current entity type.
    * @param kind Entity kind label.
@@ -193,6 +288,9 @@ export class PixiRenderer {
     }
     if (kind === "enemy") {
       return 0xff5f5f;
+    }
+    if (kind === "building") {
+      return 0x7f8c69;
     }
     return 0xd6e5d2;
   }

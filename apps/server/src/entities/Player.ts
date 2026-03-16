@@ -1,5 +1,6 @@
 import type { InputCommand } from "@shared/net/protocol.ts";
 import { Entity } from "@server/entities/Entity.ts";
+import { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 
@@ -24,6 +25,8 @@ export class Player extends Entity {
     this.name = name;
     this.radius = 14;
     this.collisionMode = "dynamic";
+    this.hp = 100;
+    this.maxHp = 100;
   }
 
   /**
@@ -34,6 +37,13 @@ export class Player extends Entity {
     this.inputBuffer.push(inputCommand);
     if (this.inputBuffer.length > 10) {
       this.inputBuffer.shift();
+    }
+  }
+
+  override tick(world: World): void {
+    super.tick(world);
+    for (const slot of this.inventory?.slots ?? []) {
+      slot?.item.tick(world);
     }
   }
 
@@ -52,12 +62,22 @@ export class Player extends Entity {
   applyInputForTick(_world: World, _tick: number): void {
     const latestInputCommand = this.inputBuffer[this.inputBuffer.length - 1];
     if (!latestInputCommand) {
-      this.vx = 0;
-      this.vy = 0;
+      this.setMovementVelocity(0, 0);
       return;
     }
 
-    this.vx = latestInputCommand.moveX * this.moveSpeed;
-    this.vy = latestInputCommand.moveY * this.moveSpeed;
+    this.setMovementVelocity(
+      latestInputCommand.moveX * this.moveSpeed,
+      latestInputCommand.moveY * this.moveSpeed,
+    );
+  }
+
+  /**
+   * Returns the currently equipped weapon when the active slot contains one.
+   * @returns Equipped weapon instance or undefined.
+   */
+  getActiveWeapon(): Weapon | undefined {
+    const activeStack = this.inventory?.getActive();
+    return activeStack?.item instanceof Weapon ? activeStack.item : undefined;
   }
 }

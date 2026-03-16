@@ -21,6 +21,10 @@ export abstract class Entity {
   radius = 12;
   collisionMode: CollisionMode = "none";
   alive = true;
+  protected moveVx = 0;
+  protected moveVy = 0;
+  protected impulseVx = 0;
+  protected impulseVy = 0;
   hp?: number;
   maxHp?: number;
   teamId?: number;
@@ -46,7 +50,15 @@ export abstract class Entity {
    * @param _world World being simulated.
    */
   tick(_world: World): void {
-    // placeholder; per-entity logic hooks can be added later
+    this.impulseVx *= 0.85;
+    this.impulseVy *= 0.85;
+    if (Math.abs(this.impulseVx) < 1) {
+      this.impulseVx = 0;
+    }
+    if (Math.abs(this.impulseVy) < 1) {
+      this.impulseVy = 0;
+    }
+    this.syncVelocity();
   }
 
   /**
@@ -88,7 +100,50 @@ export abstract class Entity {
    * @param impulseY Y-axis impulse.
    */
   applyImpulse(impulseX: number, impulseY: number): void {
-    this.vx += impulseX;
-    this.vy += impulseY;
+    this.impulseVx += impulseX;
+    this.impulseVy += impulseY;
+    this.syncVelocity();
+  }
+
+  /**
+   * Sets the movement-controlled velocity component before impulses are applied.
+   * @param velocityX Movement X velocity.
+   * @param velocityY Movement Y velocity.
+   */
+  setMovementVelocity(velocityX: number, velocityY: number): void {
+    this.moveVx = velocityX;
+    this.moveVy = velocityY;
+    this.syncVelocity();
+  }
+
+  /**
+   * Clears both movement and impulse velocity components.
+   */
+  resetVelocity(): void {
+    this.moveVx = 0;
+    this.moveVy = 0;
+    this.impulseVx = 0;
+    this.impulseVy = 0;
+    this.syncVelocity();
+  }
+
+  private syncVelocity(): void {
+    this.vx = this.moveVx + this.impulseVx;
+    this.vy = this.moveVy + this.impulseVy;
+  }
+
+  /**
+   * Returns whether a world point falls inside the entity's square hitbox.
+   * @param pointX World-space X coordinate.
+   * @param pointY World-space Y coordinate.
+   * @returns True when the point is inside the current hitbox bounds.
+   */
+  containsPoint(pointX: number, pointY: number): boolean {
+    return (
+      pointX >= this.x - this.radius &&
+      pointX <= this.x + this.radius &&
+      pointY >= this.y - this.radius &&
+      pointY <= this.y + this.radius
+    );
   }
 }

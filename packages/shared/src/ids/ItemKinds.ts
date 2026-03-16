@@ -1,1 +1,1 @@
-export type ItemKind = "gun" | "food";
+export type ItemKind = "gun" | "food" | "weapon";

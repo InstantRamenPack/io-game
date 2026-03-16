@@ -59,8 +59,10 @@ export class GoToPositionGoal extends Goal {
       return;
     }
 
-    ctx.self.vx = (deltaX / distance) * ctx.self.moveSpeed;
-    ctx.self.vy = (deltaY / distance) * ctx.self.moveSpeed;
+    ctx.self.setMovementVelocity(
+      (deltaX / distance) * ctx.self.moveSpeed,
+      (deltaY / distance) * ctx.self.moveSpeed,
+    );
   }
 
   override shouldContinue(ctx: GoalContext): boolean {
@@ -68,8 +70,7 @@ export class GoToPositionGoal extends Goal {
   }
 
   override stop(ctx: GoalContext): void {
-    ctx.self.vx = 0;
-    ctx.self.vy = 0;
+    ctx.self.setMovementVelocity(0, 0);
   }
 
   private hasArrived(ctx: GoalContext): boolean {

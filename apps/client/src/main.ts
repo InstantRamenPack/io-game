@@ -1,4 +1,4 @@
-import "./index.css";
+import "../index.css";
 import {
   AuthController,
   createAuthGateViewState,
@@ -267,3 +267,15 @@ void authController.initialize((runtimeConfig: RuntimeConfig) => {
     });
   }
 });
+
+window.render_game_to_text = () => gameClient.renderGameToText();
+window.advanceTime = (ms: number) => {
+  gameClient.advanceTime(ms);
+};
+
+declare global {
+  interface Window {
+    render_game_to_text: () => string;
+    advanceTime: (ms: number) => void;
+  }
+}

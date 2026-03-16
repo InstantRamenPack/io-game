@@ -37,6 +37,7 @@ export class ClientWorld {
       ]),
     );
     this.events = [...snapshot.events];
+    this.applyEvents(snapshot.events);
   }
 
   /**
@@ -76,10 +77,35 @@ export class ClientWorld {
       }
     }
 
+    this.applyEvents(snapshot.events);
+
     for (const [entityId, entity] of this.entities) {
       if (!updatedEntityIds.has(entityId)) {
         entity.destroy();
         this.entities.delete(entityId);
+      }
+    }
+  }
+
+  /**
+   * Advances presentation-only client effects on replicated entities.
+   * @param deltaMs Frame delta in milliseconds.
+   */
+  public update(deltaMs: number): void {
+    for (const entity of this.entities.values()) {
+      entity.update(deltaMs);
+    }
+  }
+
+  private applyEvents(events: NetEvent[]): void {
+    for (const event of events) {
+      if (event.type !== "damage") {
+        continue;
+      }
+
+      this.entities.get(event.payload.targetId)?.triggerDamageFlash();
+      if (event.payload.targetId === this.pixiRenderer.playerEntityId) {
+        this.pixiRenderer.triggerDamageOverlay();
       }
     }
   }

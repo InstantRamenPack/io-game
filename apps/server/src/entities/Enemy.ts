@@ -1,6 +1,7 @@
 import { Entity } from "@server/entities/Entity.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
+import type { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import type { World } from "@server/world/World.ts";
 
 export type EnemyConfig = {
@@ -24,6 +25,7 @@ export class Enemy extends Entity {
   aggroRange: number;
   arrivalRadius: number;
   targetId?: number;
+  meleeWeapon?: MeleeWeapon;
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -36,8 +38,7 @@ export class Enemy extends Entity {
     this.radius = config.radius;
     this.hp = config.hp;
     this.maxHp = config.maxHp;
-    this.vx = config.vx;
-    this.vy = config.vy;
+    this.setMovementVelocity(config.vx, config.vy);
     this.moveSpeed = config.moveSpeed ?? 110;
     this.aggroRange = config.aggroRange ?? 480;
     this.arrivalRadius = config.arrivalRadius ?? 20;
@@ -52,6 +53,7 @@ export class Enemy extends Entity {
    * @param _world World being simulated.
    */
   override tick(_world: World): void {
-    // GoalSystem owns enemy AI updates.
+    super.tick(_world);
+    this.meleeWeapon?.tick(_world);
   }
 }

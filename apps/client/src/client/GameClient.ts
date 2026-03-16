@@ -23,9 +23,22 @@ export class GameClient {
   private animationFrameId: number | undefined;
   private lastAnimationFrameTime: number | undefined;
   private inputBound = false;
+  private rendererPointerBound = false;
   private started = false;
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (!this.started || event.button !== 0 || !event.isPrimary) {
+      return;
+    }
+
+    const worldPoint = this.renderer.screenToWorld(
+      event.clientX,
+      event.clientY,
+    );
+    this.inputManager.queueAttack(worldPoint.x, worldPoint.y);
+    event.preventDefault();
+  };
 
   /**
    * Creates a client runtime with network, state, and renderer dependencies.
@@ -68,6 +81,13 @@ export class GameClient {
    */
   async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
+
+    if (!this.rendererPointerBound) {
+      this.renderer
+        .getView()
+        ?.addEventListener("pointerdown", this.handlePointerDown);
+      this.rendererPointerBound = true;
+    }
   }
 
   /**
@@ -122,6 +142,7 @@ export class GameClient {
   update(deltaMs: number, frameTimeMs = performance.now()): void {
     if (this.worldState) {
       this.interpolator.updateInterpolation(this.worldState, frameTimeMs);
+      this.worldState.clientWorld?.update(deltaMs);
     }
     this.renderer.update(deltaMs);
   }
@@ -209,6 +230,58 @@ export class GameClient {
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
+  }
+
+  /**
+   * Returns a concise JSON string describing the current interactive game state.
+   * @returns Text-rendered snapshot of client state for automated checks.
+   */
+  renderGameToText(): string {
+    const entities = [
+      ...(this.worldState?.clientWorld?.entities.values() ?? []),
+    ];
+    const player = entities.find((entity) => entity.id === this.playerEntityId);
+    const enemies = entities
+      .filter((entity) => entity.kind === "enemy")
+      .map((entity) => ({
+        id: entity.id,
+        x: Math.round(entity.x),
+        y: Math.round(entity.y),
+        hp: entity.hp,
+        maxHp: entity.maxHp,
+      }));
+
+    return JSON.stringify({
+      connected:
+        this.networkClient.socket?.readyState === WebSocket.OPEN &&
+        this.started,
+      coordinateSystem: "origin top-left; +x right; +y down",
+      tick: this.worldState?.latestTick ?? null,
+      playerEntityId: this.playerEntityId ?? null,
+      player: player
+        ? {
+            id: player.id,
+            x: Math.round(player.x),
+            y: Math.round(player.y),
+            hp: player.hp,
+            maxHp: player.maxHp,
+          }
+        : null,
+      enemies,
+      events: this.worldState?.clientWorld?.events ?? [],
+    });
+  }
+
+  /**
+   * Advances client interpolation and presentation state without waiting for rAF.
+   * @param ms Amount of simulated frame time to advance.
+   */
+  advanceTime(ms: number): void {
+    const frameMs = 1000 / 60;
+    const steps = Math.max(1, Math.round(ms / frameMs));
+    for (let index = 0; index < steps; index += 1) {
+      this.update(frameMs, performance.now() + index * frameMs);
+    }
   }
 }
 

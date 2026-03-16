@@ -1,7 +1,7 @@
 import { Weapon } from "./Weapon.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { ItemKind } from "@shared/ids/ItemKinds.ts";
 
 /**
  * Ranged weapon that fires projectiles.
@@ -21,13 +21,13 @@ export class RangedWeapon extends Weapon {
     damage: number,
     fireRate: number,
     range: number,
-    hitEffects: string[],
+    hitEffects: Effect[],
     projectileClassId: string,
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
   ) {
-    super(id, "weapon" as ItemKind, damage, fireRate, range, hitEffects);
+    super(id, "weapon", damage, fireRate, range, hitEffects);
     this.projectileClassId = projectileClassId;
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;

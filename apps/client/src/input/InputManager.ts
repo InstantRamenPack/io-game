@@ -1,5 +1,10 @@
 import type { InputCommand } from "@shared/net/protocol.ts";
 
+type AttackTarget = {
+  x: number;
+  y: number;
+};
+
 /**
  * Collects keyboard input and serializes movement commands.
  * This remains focused on local input capture rather than gameplay decisions.
@@ -8,6 +13,7 @@ export class InputManager {
   commandSequence = 1;
   moveX = 0;
   moveY = 0;
+  pendingAttack?: AttackTarget;
   private readonly pressedKeys = new Set<string>();
 
   /**
@@ -44,6 +50,7 @@ export class InputManager {
       tick: serverTick,
       moveX: this.moveX,
       moveY: this.moveY,
+      attack: this.pendingAttack ? { ...this.pendingAttack } : undefined,
     };
   }
 
@@ -52,7 +59,16 @@ export class InputManager {
    * This is currently a no-op because movement is the only active input family.
    */
   clearOneShots(): void {
-    // No one-shot inputs in WASD-only mode.
+    this.pendingAttack = undefined;
+  }
+
+  /**
+   * Queues a world-space melee attack point to be sent with the next input command.
+   * @param x World-space X coordinate.
+   * @param y World-space Y coordinate.
+   */
+  queueAttack(x: number, y: number): void {
+    this.pendingAttack = { x, y };
   }
 
   /**

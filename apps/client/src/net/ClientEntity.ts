@@ -33,6 +33,7 @@ export class ClientEntity {
   public hp?: number;
   public maxHp?: number;
   public ownerId?: number;
+  public data?: Record<string, unknown>;
   public inventory?: Array<ClientItemStack | null>;
   public activeSlot?: number;
 
@@ -46,11 +47,17 @@ export class ClientEntity {
 
   private entityContainer: PIXI.Container;
   private entityGraphic: PIXI.Graphics;
+  private damageFlashGraphic: PIXI.Graphics;
+  private healthBarContainer: PIXI.Container;
+  private healthBarTrackGraphic: PIXI.Graphics;
+  private healthBarFillGraphic: PIXI.Graphics;
   private hitboxContainer?: PIXI.Container;
   private hitboxGraphic?: PIXI.Graphics;
   private debugContainer?: PIXI.Container;
   private debugGraphic?: PIXI.Graphics;
   private pixiRenderer: PixiRenderer;
+  private damageFlashRemainingMs = 0;
+  private damageFlashDurationMs = 150;
 
   constructor(
     pixiRenderer: PixiRenderer,
@@ -74,6 +81,7 @@ export class ClientEntity {
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
+    this.data = snapshot.data;
     this.inventory = this.mapInventory(snapshot.inventory);
     this.activeSlot = snapshot.activeSlot;
     this.pixiRenderer = pixiRenderer;
@@ -89,15 +97,26 @@ export class ClientEntity {
     this.pixiRenderer.entityContainer.addChild(this.entityContainer);
 
     const graphics = new PIXI.Graphics();
-    graphics.lineStyle(2, 0x000000, 1);
-    graphics.beginFill(this.fillColorForKind(1), 1);
-    graphics.drawCircle(0, 0, this.radius);
-    graphics.endFill();
+    this.drawEntityShape(graphics, this.fillColorForKind(), 1);
     graphics.pivot.set(0, 0);
 
     this.entityGraphic = graphics;
     this.entityContainer.addChild(this.entityGraphic);
     this.entityGraphic.visible = debugInterpolationMode !== 2;
+
+    this.damageFlashGraphic = new PIXI.Graphics();
+    this.drawEntityShape(this.damageFlashGraphic, 0xff4242, 1);
+    this.damageFlashGraphic.alpha = 0;
+    this.damageFlashGraphic.visible = false;
+    this.entityContainer.addChild(this.damageFlashGraphic);
+
+    this.healthBarContainer = new PIXI.Container();
+    this.healthBarTrackGraphic = new PIXI.Graphics();
+    this.healthBarFillGraphic = new PIXI.Graphics();
+    this.healthBarContainer.addChild(this.healthBarTrackGraphic);
+    this.healthBarContainer.addChild(this.healthBarFillGraphic);
+    this.entityContainer.addChild(this.healthBarContainer);
+    this.redrawHealthBar();
 
     if (debugHitbox) {
       this.hitboxContainer = new PIXI.Container();
@@ -124,10 +143,7 @@ export class ClientEntity {
       this.pixiRenderer.entityContainer.addChild(this.debugContainer);
 
       const debugGraphics = new PIXI.Graphics();
-      debugGraphics.lineStyle(2, 0x000000, 0.35);
-      debugGraphics.beginFill(this.fillColorForKind(0.2), 0.2);
-      debugGraphics.drawCircle(0, 0, this.radius);
-      debugGraphics.endFill();
+      this.drawEntityShape(debugGraphics, this.fillColorForKind(), 0.2, 0.35);
       debugGraphics.pivot.set(0, 0);
 
       this.debugGraphic = debugGraphics;
@@ -171,6 +187,7 @@ export class ClientEntity {
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
+    this.data = snapshot.data;
     this.inventory = this.mapInventory(snapshot.inventory);
     this.activeSlot = snapshot.activeSlot;
 
@@ -182,11 +199,8 @@ export class ClientEntity {
 
     if (snapshot.radius !== this.radius) {
       this.radius = snapshot.radius;
-      this.entityGraphic.clear();
-      this.entityGraphic.lineStyle(2, 0x000000, 1);
-      this.entityGraphic.beginFill(this.fillColorForKind(1), 1);
-      this.entityGraphic.drawCircle(0, 0, this.radius);
-      this.entityGraphic.endFill();
+      this.drawEntityShape(this.entityGraphic, this.fillColorForKind(), 1);
+      this.drawEntityShape(this.damageFlashGraphic, 0xff4242, 1);
 
       if (this.hitboxGraphic) {
         this.hitboxGraphic.clear();
@@ -200,13 +214,43 @@ export class ClientEntity {
       }
 
       if (this.debugGraphic) {
-        this.debugGraphic.clear();
-        this.debugGraphic.lineStyle(2, 0x000000, 0.35);
-        this.debugGraphic.beginFill(this.fillColorForKind(0.2), 0.2);
-        this.debugGraphic.drawCircle(0, 0, this.radius);
-        this.debugGraphic.endFill();
+        this.drawEntityShape(
+          this.debugGraphic,
+          this.fillColorForKind(),
+          0.2,
+          0.35,
+        );
       }
     }
+
+    this.redrawHealthBar();
+  }
+
+  /**
+   * Advances short-lived presentation-only effects like hit flashes.
+   * @param deltaMs Frame delta in milliseconds.
+   */
+  public update(deltaMs: number): void {
+    this.damageFlashRemainingMs = Math.max(
+      0,
+      this.damageFlashRemainingMs - deltaMs,
+    );
+    const alpha =
+      this.damageFlashDurationMs <= 0
+        ? 0
+        : (this.damageFlashRemainingMs / this.damageFlashDurationMs) * 0.7;
+    this.damageFlashGraphic.alpha = alpha;
+    this.damageFlashGraphic.visible = alpha > 0.001;
+  }
+
+  /**
+   * Triggers a red flash on top of the entity for one short hit-confirm window.
+   * @param durationMs Flash duration in milliseconds.
+   */
+  public triggerDamageFlash(durationMs = 150): void {
+    this.damageFlashDurationMs = Math.max(1, durationMs);
+    this.damageFlashRemainingMs = this.damageFlashDurationMs;
+    this.update(0);
   }
 
   /**
@@ -224,6 +268,10 @@ export class ClientEntity {
     }
 
     this.entityGraphic.destroy();
+    this.damageFlashGraphic.destroy();
+    this.healthBarTrackGraphic.destroy();
+    this.healthBarFillGraphic.destroy();
+    this.healthBarContainer.destroy();
     this.entityContainer.destroy();
     this.hitboxGraphic?.destroy();
     this.hitboxContainer?.destroy();
@@ -240,13 +288,70 @@ export class ClientEntity {
     return inventory.map((item) => (item ? new ClientItemStack(item) : null));
   }
 
-  private fillColorForKind(_alpha: number): number {
+  private drawEntityShape(
+    graphics: PIXI.Graphics,
+    fillColor: number,
+    alpha: number,
+    lineAlpha = 1,
+  ): void {
+    graphics.clear();
+    graphics.lineStyle(2, 0x000000, lineAlpha);
+    graphics.beginFill(fillColor, alpha);
+    if (this.kind === "building") {
+      graphics.drawRoundedRect(
+        -this.radius,
+        -this.radius,
+        this.radius * 2,
+        this.radius * 2,
+        6,
+      );
+    } else {
+      graphics.drawCircle(0, 0, this.radius);
+    }
+    graphics.endFill();
+  }
+
+  private redrawHealthBar(): void {
+    const canShow =
+      this.hp !== undefined && this.maxHp !== undefined && this.maxHp > 0;
+    this.healthBarContainer.visible = canShow;
+    if (!canShow) {
+      return;
+    }
+
+    const width = Math.max(20, this.radius * 2);
+    const height = 5;
+    const ratio = Math.max(0, Math.min(1, (this.hp ?? 0) / (this.maxHp ?? 1)));
+    const left = -width / 2;
+    const top = -this.radius - 12;
+
+    this.healthBarTrackGraphic.clear();
+    this.healthBarTrackGraphic.beginFill(0x1b1b1b, 0.85);
+    this.healthBarTrackGraphic.drawRoundedRect(left, top, width, height, 3);
+    this.healthBarTrackGraphic.endFill();
+
+    this.healthBarFillGraphic.clear();
+    this.healthBarFillGraphic.beginFill(0x57d34d, 0.95);
+    this.healthBarFillGraphic.drawRoundedRect(
+      left,
+      top,
+      width * ratio,
+      height,
+      3,
+    );
+    this.healthBarFillGraphic.endFill();
+  }
+
+  private fillColorForKind(): number {
     if (this.kind === "player") {
       return 0x00ff00;
     }
     if (this.kind === "enemy") {
       return 0xbf2a2a;
     }
-    throw new Error(`Unknown entity kind: ${this.kind}`);
+    if (this.kind === "building") {
+      return 0x7f8c69;
+    }
+    return 0xd6e5d2;
   }
 }
