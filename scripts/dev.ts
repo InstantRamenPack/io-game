@@ -1,23 +1,69 @@
+import { parseArgs } from "node:util";
+
 const backendTarget = "http://127.0.0.1:3000";
-const debugTickRateArg = process.argv.find((arg) =>
-  arg.startsWith("--DEBUG_TICK_RATE="),
-);
-const enableDebugHitbox =
-  process.argv.includes("--DEBUG_HITBOX") ||
-  process.env.VITE_DEBUG_HITBOX === "1";
-const debugInterpolationArg = process.argv.find(
-  (arg) =>
-    arg === "--DEBUG_INTERPOLATION" || arg.startsWith("--DEBUG_INTERPOLATION="),
-);
 const bunExecutable = process.execPath;
 const sharedEnv = { ...process.env };
+const cliArgs = process.argv.slice(2);
+const normalizedCliArgs = cliArgs.map((arg) =>
+  arg === "--DEBUG_INTERPOLATION" ? "--DEBUG_INTERPOLATION=1" : arg,
+);
+const parsedArgs = parseArgs({
+  args: normalizedCliArgs,
+  options: {
+    DEBUG_HITBOX: {
+      type: "boolean",
+    },
+    DEBUG_INTERPOLATION: {
+      type: "string",
+    },
+    DEBUG_TICK_RATE: {
+      type: "string",
+    },
+  },
+  allowPositionals: true,
+  strict: false,
+  tokens: true,
+});
+const consumedCustomArgIndexes = new Set<number>();
+for (const token of parsedArgs.tokens ?? []) {
+  if (token.kind !== "option") {
+    continue;
+  }
 
-function parseDebugTickRate(arg: string | undefined): string | undefined {
-  if (!arg) {
+  if (
+    token.name !== "DEBUG_HITBOX" &&
+    token.name !== "DEBUG_INTERPOLATION" &&
+    token.name !== "DEBUG_TICK_RATE"
+  ) {
+    continue;
+  }
+
+  consumedCustomArgIndexes.add(token.index);
+  if (token.value !== undefined && !token.inlineValue) {
+    consumedCustomArgIndexes.add(token.index + 1);
+  }
+}
+const clientArgs = normalizedCliArgs.filter(
+  (_, index) => !consumedCustomArgIndexes.has(index),
+);
+
+function ensureViteHostArg(args: string[]): string[] {
+  if (args.some((arg) => arg === "--host" || arg.startsWith("--host="))) {
+    return args;
+  }
+
+  return ["--host", ...args];
+}
+
+function getStringArgValue(value: string | boolean | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseDebugTickRate(rawTickRate: string | undefined): string | undefined {
+  if (rawTickRate === undefined) {
     return undefined;
   }
 
-  const rawTickRate = arg.slice("--DEBUG_TICK_RATE=".length);
   const parsedTickRate = Number(rawTickRate);
   if (!Number.isFinite(parsedTickRate) || parsedTickRate <= 0) {
     console.error(
@@ -29,20 +75,17 @@ function parseDebugTickRate(arg: string | undefined): string | undefined {
   return String(Math.floor(parsedTickRate));
 }
 
-const debugTickRate = parseDebugTickRate(debugTickRateArg);
+const debugTickRate = parseDebugTickRate(
+  getStringArgValue(parsedArgs.values.DEBUG_TICK_RATE),
+);
 
 function parseDebugInterpolationMode(
-  arg: string | undefined,
+  rawMode: string | undefined,
 ): string | undefined {
-  if (!arg) {
+  if (rawMode === undefined) {
     return process.env.VITE_DEBUG_INTERPOLATION;
   }
 
-  if (arg === "--DEBUG_INTERPOLATION") {
-    return "1";
-  }
-
-  const rawMode = arg.slice("--DEBUG_INTERPOLATION=".length);
   if (rawMode === "1" || rawMode === "2") {
     return rawMode;
   }
@@ -54,8 +97,11 @@ function parseDebugInterpolationMode(
 }
 
 const debugInterpolationMode = parseDebugInterpolationMode(
-  debugInterpolationArg,
+  getStringArgValue(parsedArgs.values.DEBUG_INTERPOLATION),
 );
+const enableDebugHitbox =
+  parsedArgs.values.DEBUG_HITBOX === true ||
+  process.env.VITE_DEBUG_HITBOX === "1";
 
 function spawnChild(
   name: "server" | "client",
@@ -119,7 +165,7 @@ const serverProcess = spawnChild(
 );
 const clientProcess = spawnChild(
   "client",
-  [bunExecutable, "run", "dev:client"],
+  [bunExecutable, "run", "dev:client", "--", ...ensureViteHostArg(clientArgs)],
   {
     ...sharedEnv,
     VITE_BACKEND_TARGET: backendTarget,
