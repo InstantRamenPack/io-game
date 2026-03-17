@@ -14,8 +14,8 @@ export class BasicSword extends MeleeWeapon {
       BasicSword.typeId,
       25, // damage
       2, // fireRate (attacks per second)
-      30, // range
-      [new DamageEffect(5), new KnockbackEffect()], // hitEffects
+      60, // range
+      [new DamageEffect(25), new KnockbackEffect()], // hitEffects
       60, // meleeRange
     );
   }

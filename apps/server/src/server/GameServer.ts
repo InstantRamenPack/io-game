@@ -24,6 +24,7 @@ import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { System } from "@server/systems/System.ts";
 import { AuthService } from "@server/services/AuthService.ts";
+import {ZombieSword} from "@server/items/weapons/ZombieSword.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -257,28 +258,12 @@ export class GameServer {
       {
         x: this.gameConfig.worldSize.w * 0.75,
         y: this.gameConfig.worldSize.h * 0.75,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.25,
-        y: this.gameConfig.worldSize.h * 0.25,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.75,
-        y: this.gameConfig.worldSize.h * 0.25,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.25,
-        y: this.gameConfig.worldSize.h * 0.75,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.75,
-        y: this.gameConfig.worldSize.h * 0.75,
-      },
+      }
     ];
 
     for (const zombiePosition of zombiePositions) {
       const zombie = new Zombie(this.entityIdGenerator.alloc());
-      zombie.meleeWeapon = new BasicSword(this.itemIdGenerator.alloc());
+      zombie.meleeWeapon = new ZombieSword(this.itemIdGenerator.alloc());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);

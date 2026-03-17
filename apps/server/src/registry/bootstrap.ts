@@ -6,6 +6,7 @@ import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import type { Item } from "@server/items/Item.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
+import {ZombieSword} from "@server/items/weapons/ZombieSword.ts";
 
 export type EntityCtor<T extends Entity = Entity> = new (...args: any[]) => T;
 export type ItemCtor<T extends Item = Item> = new (...args: any[]) => T;
@@ -35,6 +36,7 @@ export function bootstrapTypeRegistries(): void {
   registerEntityType(ItemEntity);
 
   registerItemType(BasicSword);
+  registerItemType(ZombieSword);
 
   entityTypeRegistry.freeze();
   itemTypeRegistry.freeze();
