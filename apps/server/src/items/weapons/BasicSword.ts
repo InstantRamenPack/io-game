@@ -1,4 +1,5 @@
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
+import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { MeleeWeapon } from "../MeleeWeapon.ts";
 
 /**
@@ -13,8 +14,8 @@ export class BasicSword extends MeleeWeapon {
       BasicSword.typeId,
       25, // damage
       2, // fireRate (attacks per second)
-      60, // range
-      [new DamageEffect(25)], // hitEffects
+      30, // range
+      [new DamageEffect(5), new KnockbackEffect()], // hitEffects
       60, // meleeRange
     );
   }

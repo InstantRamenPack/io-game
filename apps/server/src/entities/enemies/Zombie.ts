@@ -17,12 +17,12 @@ export class Zombie extends Enemy {
     const arrivalRadius = 20;
 
     super(id, Zombie.typeId, {
-      radius: 16,
+      radius: 12,
       hp: 100,
       maxHp: 100,
       vx: 0,
       vy: 0,
-      moveSpeed: 110,
+      moveSpeed: 8,
       aggroRange: 480,
       arrivalRadius,
       goals: [

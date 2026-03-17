@@ -50,7 +50,7 @@ export class MeleeWeapon extends Weapon {
       return false;
     }
     if (
-      !world.canAttackTarget(owner, target) ||
+      !world.combat.canAttackTarget(owner, target) ||
       !this.isTargetInRange(owner, target)
     ) {
       return false;
@@ -86,7 +86,7 @@ export class MeleeWeapon extends Weapon {
         continue;
       }
       if (
-        !world.canAttackTarget(owner, entity) ||
+        !world.combat.canAttackTarget(owner, entity) ||
         !this.isTargetInRange(owner, entity)
       ) {
         continue;

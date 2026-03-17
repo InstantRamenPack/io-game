@@ -9,8 +9,10 @@ export type EnemyConfig = {
   radius: number;
   hp: number;
   maxHp: number;
+  // Initial per-tick movement deltas.
   vx: number;
   vy: number;
+  // Distance moved per simulation tick while steering.
   moveSpeed?: number;
   aggroRange?: number;
   arrivalRadius?: number;
@@ -22,6 +24,7 @@ export type EnemyConfig = {
  */
 export class Enemy extends Entity {
   goalSelector: GoalSelector;
+  /** Distance moved per simulation tick while steering. */
   moveSpeed: number;
   aggroRange: number;
   arrivalRadius: number;
@@ -41,7 +44,7 @@ export class Enemy extends Entity {
     this.hp = config.hp;
     this.maxHp = config.maxHp;
     this.setMovementVelocity(config.vx, config.vy);
-    this.moveSpeed = config.moveSpeed ?? 110;
+    this.moveSpeed = config.moveSpeed ?? 8;
     this.aggroRange = config.aggroRange ?? 480;
     this.arrivalRadius = config.arrivalRadius ?? 20;
     this.goalSelector = new GoalSelector();

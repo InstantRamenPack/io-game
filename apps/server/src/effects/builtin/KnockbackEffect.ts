@@ -8,7 +8,7 @@ import type { World } from "@server/world/World.ts";
 export class KnockbackEffect extends Effect {
   readonly impulseStrength: number;
 
-  constructor(impulseStrength = 140) {
+  constructor(impulseStrength = 15) {
     super("knockback", "Knockback");
     this.impulseStrength = impulseStrength;
   }

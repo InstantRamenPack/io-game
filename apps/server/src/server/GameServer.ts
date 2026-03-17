@@ -258,6 +258,22 @@ export class GameServer {
         x: this.gameConfig.worldSize.w * 0.75,
         y: this.gameConfig.worldSize.h * 0.75,
       },
+      {
+        x: this.gameConfig.worldSize.w * 0.25,
+        y: this.gameConfig.worldSize.h * 0.25,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.75,
+        y: this.gameConfig.worldSize.h * 0.25,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.25,
+        y: this.gameConfig.worldSize.h * 0.75,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.75,
+        y: this.gameConfig.worldSize.h * 0.75,
+      },
     ];
 
     for (const zombiePosition of zombiePositions) {

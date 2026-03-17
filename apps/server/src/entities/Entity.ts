@@ -95,9 +95,9 @@ export abstract class Entity {
   }
 
   /**
-   * Applies an instantaneous velocity impulse. Used for knockback effects.
-   * @param impulseX X-axis impulse.
-   * @param impulseY Y-axis impulse.
+   * Applies an instantaneous per-tick movement impulse. Used for knockback effects.
+   * @param impulseX X-axis impulse delta applied each tick until it decays.
+   * @param impulseY Y-axis impulse delta applied each tick until it decays.
    */
   applyImpulse(impulseX: number, impulseY: number): void {
     this.impulseVx += impulseX;
@@ -106,9 +106,9 @@ export abstract class Entity {
   }
 
   /**
-   * Sets the movement-controlled velocity component before impulses are applied.
-   * @param velocityX Movement X velocity.
-   * @param velocityY Movement Y velocity.
+   * Sets the movement-controlled per-tick delta before impulses are applied.
+   * @param velocityX Movement X delta applied each simulation tick.
+   * @param velocityY Movement Y delta applied each simulation tick.
    */
   setMovementVelocity(velocityX: number, velocityY: number): void {
     this.moveVx = velocityX;

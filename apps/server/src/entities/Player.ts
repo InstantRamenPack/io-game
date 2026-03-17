@@ -15,7 +15,8 @@ export class Player extends Entity {
   // The buffer currently feeds latest-input movement, but it is retained so
   // future actions can preserve tick/sequence ordering for reconciliation.
   inputBuffer: InputCommand[] = [];
-  moveSpeed = 180;
+  // Distance moved per simulation tick at full input.
+  moveSpeed = 15;
   /**
    * Creates a player entity with default movement tuning.
    * @param id Stable runtime entity id.
@@ -25,7 +26,7 @@ export class Player extends Entity {
     // allocate inventory in base class
     super(id, Player.typeId, new Inventory(20));
     this.name = name;
-    this.radius = 14;
+    this.radius = 16;
     this.collisionMode = "dynamic";
     this.hp = 100;
     this.maxHp = 100;
