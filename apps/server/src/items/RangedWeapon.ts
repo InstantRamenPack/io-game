@@ -2,12 +2,13 @@ import { Weapon } from "./Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Ranged weapon that fires projectiles.
  */
 export class RangedWeapon extends Weapon {
-  projectileClassId: string;
+  projectileTypeId: ResourceId;
   ammoInMag: number;
   magSize: number;
   reloadTicks: number;
@@ -18,17 +19,18 @@ export class RangedWeapon extends Weapon {
 
   constructor(
     id: number,
+    typeId: ResourceId,
     damage: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
-    projectileClassId: string,
+    projectileTypeId: ResourceId,
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
   ) {
-    super(id, "weapon", damage, fireRate, range, hitEffects);
-    this.projectileClassId = projectileClassId;
+    super(id, typeId, damage, fireRate, range, hitEffects);
+    this.projectileTypeId = projectileTypeId;
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
     this.spread = spread;
@@ -57,7 +59,7 @@ export class RangedWeapon extends Weapon {
     if (!this.canFire()) return;
 
     // Spawn projectile (placeholder; integrate with ProjectileSystem)
-    // world.spawnProjectile(this.projectileClassId, owner, aimX, aimY, this.damage, this.hitEffects);
+    // world.spawnProjectile(this.projectileTypeId, owner, aimX, aimY, this.damage, this.hitEffects);
 
     this.ammoInMag--;
     this.resetCooldown(world.gameConfig.tickRate);

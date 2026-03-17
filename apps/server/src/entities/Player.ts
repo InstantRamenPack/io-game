@@ -9,6 +9,8 @@ import { Inventory } from "@server/items/Inventory.ts";
  * The player owns movement tuning and any per-player runtime state.
  */
 export class Player extends Entity {
+  static readonly typeId = "player:base" as const;
+
   name: string;
   // The buffer currently feeds latest-input movement, but it is retained so
   // future actions can preserve tick/sequence ordering for reconciliation.
@@ -21,7 +23,7 @@ export class Player extends Entity {
    */
   constructor(id: number, name = "player") {
     // allocate inventory in base class
-    super(id, "player", new Inventory(20));
+    super(id, Player.typeId, new Inventory(20));
     this.name = name;
     this.radius = 14;
     this.collisionMode = "dynamic";

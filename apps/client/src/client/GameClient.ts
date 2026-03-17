@@ -1,4 +1,5 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
@@ -242,7 +243,7 @@ export class GameClient {
     ];
     const player = entities.find((entity) => entity.id === this.playerEntityId);
     const enemies = entities
-      .filter((entity) => entity.kind === "enemy")
+      .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
       .map((entity) => ({
         id: entity.id,
         x: Math.round(entity.x),

@@ -14,13 +14,14 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
-import { BasicSword } from "@server/items/BasicSword.ts";
+import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { ItemStack } from "@server/items/ItemStack.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { GoalSystem } from "@server/systems/GoalSystem.ts";
 import { World } from "@server/world/World.ts";
+import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { System } from "@server/systems/System.ts";
 import { AuthService } from "@server/services/AuthService.ts";
 
@@ -59,6 +60,7 @@ export class GameServer {
     networkServer: WsServer,
     authService: AuthService,
   ) {
+    bootstrapTypeRegistries();
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
     this.authService = authService;

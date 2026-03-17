@@ -33,16 +33,16 @@ export class TargetEntityGoal extends Goal {
     let bestTarget: Player | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
 
-    for (const entity of ctx.world.entities.queryKind("player")) {
-      if (!(entity instanceof Player) || !entity.alive) {
+    for (const player of ctx.world.entities.queryInstances(Player)) {
+      if (!player.alive) {
         continue;
       }
 
       const distanceSquared = this.distanceSquared(
         ctx.self.x,
         ctx.self.y,
-        entity.x,
-        entity.y,
+        player.x,
+        player.y,
       );
       if (
         distanceSquared > aggroRangeSquared ||
@@ -51,7 +51,7 @@ export class TargetEntityGoal extends Goal {
         continue;
       }
 
-      bestTarget = entity;
+      bestTarget = player;
       bestDistanceSquared = distanceSquared;
     }
 

@@ -1,4 +1,4 @@
-import type { EntityKind } from "@shared/ids/EntityKinds.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -11,7 +11,7 @@ export type CollisionMode = "none" | "dynamic" | "static";
  */
 export abstract class Entity {
   id: number;
-  kind: EntityKind;
+  readonly typeId: ResourceId;
   x = 0;
   y = 0;
   vx = 0;
@@ -34,12 +34,12 @@ export abstract class Entity {
   /**
    * Initializes common identity fields for entity subclasses.
    * @param id Stable runtime entity id.
-   * @param kind Shared entity kind tag.
+   * @param typeId Shared entity type id.
    * @param inventory Optional inventory attached to the entity at construction time.
    */
-  protected constructor(id: number, kind: EntityKind, inventory?: Inventory) {
+  protected constructor(id: number, typeId: ResourceId, inventory?: Inventory) {
     this.id = id;
-    this.kind = kind;
+    this.typeId = typeId;
     if (inventory) {
       this.inventory = inventory;
     }
@@ -68,7 +68,7 @@ export abstract class Entity {
   toSnapshot(): EntitySnapshot {
     const snap: EntitySnapshot = {
       id: this.id,
-      kind: this.kind,
+      typeId: this.typeId,
       x: this.x,
       y: this.y,
       vx: this.vx,

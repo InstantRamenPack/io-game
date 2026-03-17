@@ -3,7 +3,7 @@ import type {
   ItemStackSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer";
-import type { EntityKind } from "@shared/ids/EntityKinds.ts";
+import { getResourceNamespace, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { ClientItemStack } from "@client/net/ClientItemStack.ts";
 import * as PIXI from "pixijs";
 
@@ -13,7 +13,7 @@ import * as PIXI from "pixijs";
  */
 export class ClientEntity {
   public readonly id: number;
-  public readonly kind: EntityKind;
+  public readonly typeId: ResourceId;
 
   /*
   IMPORTANT:
@@ -66,7 +66,7 @@ export class ClientEntity {
     debugInterpolationMode: number,
   ) {
     this.id = snapshot.id;
-    this.kind = snapshot.kind;
+    this.typeId = snapshot.typeId;
     this.x = snapshot.x;
     this.y = snapshot.y;
     this.vx = snapshot.vx;
@@ -174,6 +174,11 @@ export class ClientEntity {
     if (snapshot.id !== this.id) {
       throw new Error(
         `Snapshot id (${snapshot.id}) does not match entity id (${this.id}).`,
+      );
+    }
+    if (snapshot.typeId !== this.typeId) {
+      throw new Error(
+        `Snapshot typeId (${snapshot.typeId}) does not match entity typeId (${this.typeId}).`,
       );
     }
 
@@ -297,17 +302,7 @@ export class ClientEntity {
     graphics.clear();
     graphics.lineStyle(2, 0x000000, lineAlpha);
     graphics.beginFill(fillColor, alpha);
-    if (this.kind === "building") {
-      graphics.drawRoundedRect(
-        -this.radius,
-        -this.radius,
-        this.radius * 2,
-        this.radius * 2,
-        6,
-      );
-    } else {
-      graphics.drawCircle(0, 0, this.radius);
-    }
+    graphics.drawCircle(0, 0, this.radius);
     graphics.endFill();
   }
 
@@ -343,15 +338,16 @@ export class ClientEntity {
   }
 
   private fillColorForKind(): number {
-    if (this.kind === "player") {
+    if (this.hasTypeNamespace("player")) {
       return 0x00ff00;
     }
-    if (this.kind === "enemy") {
+    if (this.hasTypeNamespace("enemy")) {
       return 0xbf2a2a;
     }
-    if (this.kind === "building") {
-      return 0x7f8c69;
-    }
     return 0xd6e5d2;
+  }
+
+  private hasTypeNamespace(namespace: string): boolean {
+    return getResourceNamespace(this.typeId) === namespace;
   }
 }

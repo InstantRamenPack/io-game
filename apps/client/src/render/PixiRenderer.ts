@@ -277,23 +277,6 @@ export class PixiRenderer {
     this.damageOverlay.visible = alpha > 0.001;
   }
 
-  /**
-   * Picks a debug-friendly fill color for the current entity type.
-   * @param kind Entity kind label.
-   * @returns Pixi color value.
-   */
-  private colorForKind(kind: string): number {
-    if (kind === "player") {
-      return 0x67d944;
-    }
-    if (kind === "enemy") {
-      return 0xff5f5f;
-    }
-    if (kind === "building") {
-      return 0x7f8c69;
-    }
-    return 0xd6e5d2;
-  }
 }
 
 declare global {

@@ -3,6 +3,7 @@ import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
 import type { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import type { World } from "@server/world/World.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type EnemyConfig = {
   radius: number;
@@ -30,10 +31,11 @@ export class Enemy extends Entity {
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
    * @param id Stable runtime entity id.
+   * @param typeId Concrete enemy type id.
    * @param config Enemy tuning and goal stack.
    */
-  constructor(id: number, config: EnemyConfig) {
-    super(id, "enemy");
+  constructor(id: number, typeId: ResourceId, config: EnemyConfig) {
+    super(id, typeId);
     this.collisionMode = "dynamic";
     this.radius = config.radius;
     this.hp = config.hp;

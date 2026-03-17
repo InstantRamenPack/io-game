@@ -1,13 +1,16 @@
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
-import { MeleeWeapon } from "./MeleeWeapon.ts";
+import { MeleeWeapon } from "../MeleeWeapon.ts";
 
 /**
  * Basic sword melee weapon.
  */
 export class BasicSword extends MeleeWeapon {
+  static readonly typeId = "item:basic_sword" as const;
+
   constructor(id: number) {
     super(
       id,
+      BasicSword.typeId,
       25, // damage
       2, // fireRate (attacks per second)
       60, // range

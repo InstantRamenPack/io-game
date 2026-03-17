@@ -1,5 +1,5 @@
 import type { ItemStackSnapshot } from "@shared/net/snapshots.ts";
-import type { ItemKind } from "@shared/ids/ItemKinds";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Client-side representation of an item stack snapshot.
@@ -7,13 +7,13 @@ import type { ItemKind } from "@shared/ids/ItemKinds";
  */
 export class ClientItemStack {
   public readonly id: number;
-  public readonly kind: ItemKind;
+  public readonly typeId: ResourceId;
   public readonly stackSize: number;
   public readonly ownerId?: number;
 
   constructor(snapshot: ItemStackSnapshot) {
     this.id = snapshot.id;
-    this.kind = snapshot.kind;
+    this.typeId = snapshot.typeId;
     this.stackSize = snapshot.stackSize;
     this.ownerId = snapshot.ownerId;
   }

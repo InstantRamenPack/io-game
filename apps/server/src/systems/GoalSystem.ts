@@ -12,13 +12,9 @@ export class GoalSystem implements System {
    * @param world Authoritative world being simulated.
    */
   update(world: World): void {
-    for (const entity of world.entities.queryKind("enemy")) {
-      if (!(entity instanceof Enemy)) {
-        continue;
-      }
-
-      const goalContext = new GoalContext(world, entity);
-      entity.goalSelector.tick(goalContext);
+    for (const enemy of world.entities.queryInstances(Enemy)) {
+      const goalContext = new GoalContext(world, enemy);
+      enemy.goalSelector.tick(goalContext);
     }
   }
 }

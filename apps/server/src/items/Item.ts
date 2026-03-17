@@ -1,16 +1,16 @@
 import type { World } from "@server/world/World.ts";
-import type { ItemKind } from "@shared/ids/ItemKinds.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export class Item {
   id: number;
-  kind: ItemKind;
+  readonly typeId: ResourceId;
   ownerId?: number;
   data: Record<string, unknown> = {};
 
-  /** Initializes common identity fields for entity subclasses. */
-  constructor(id: number, kind: ItemKind) {
+  /** Initializes common identity fields for item subclasses. */
+  constructor(id: number, typeId: ResourceId) {
     this.id = id;
-    this.kind = kind;
+    this.typeId = typeId;
   }
 
   /** Per-tick extension point for subclass-specific behavior. */
@@ -20,7 +20,7 @@ export class Item {
 
   /** @returns A shallow copy of this item. */
   clone(): Item {
-    const cloned = new Item(this.id, this.kind);
+    const cloned = new Item(this.id, this.typeId);
     cloned.ownerId = this.ownerId;
     cloned.data = { ...this.data };
     return cloned;

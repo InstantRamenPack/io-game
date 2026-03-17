@@ -1,4 +1,5 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
@@ -49,7 +50,7 @@ const WorldSnapshotSchema = z.object({
   entities: z.array(
     z.object({
       id: z.number(),
-      kind: z.string(),
+      typeId: z.string().regex(RESOURCE_ID_PATTERN),
       x: z.number(),
       y: z.number(),
       vx: z.number(),
@@ -66,7 +67,7 @@ const WorldSnapshotSchema = z.object({
           z
             .object({
               id: z.number(),
-              kind: z.string(),
+              typeId: z.string().regex(RESOURCE_ID_PATTERN),
               stackSize: z.number(),
               ownerId: z.number().optional(),
               data: z.record(z.string(), z.unknown()).optional(),

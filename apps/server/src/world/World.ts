@@ -1,8 +1,10 @@
 import Denque from "denque";
 import seedrandom from "seedrandom";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import type { DamageEventPayload, NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { Player } from "@server/entities/Player.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
@@ -81,11 +83,11 @@ export class World {
       return false;
     }
 
-    if (source.kind === "player") {
-      return target.kind === "enemy" || target.kind === "player";
+    if (source instanceof Player) {
+      return target instanceof Enemy || target instanceof Player;
     }
-    if (source.kind === "enemy") {
-      return target.kind === "player";
+    if (source instanceof Enemy) {
+      return target instanceof Player;
     }
     return false;
   }
@@ -139,7 +141,7 @@ export class World {
       return { applied: true, isFatal: false };
     }
 
-    if (target.kind === "player") {
+    if (target instanceof Player) {
       target.hp = target.maxHp;
       target.x = this.gameConfig.worldSize.w / 2;
       target.y = this.gameConfig.worldSize.h / 2;
@@ -147,7 +149,7 @@ export class World {
       return { applied: true, isFatal: true };
     }
 
-    if (target.kind === "enemy") {
+    if (target instanceof Enemy) {
       target.alive = false;
       this.despawn(target.id);
     }

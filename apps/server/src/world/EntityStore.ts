@@ -1,39 +1,27 @@
-import type { EntityKind } from "@shared/ids/EntityKinds.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { EntityCtor } from "@server/registry/bootstrap.ts";
 
 /**
- * Indexes entities by id and kind for fast lookup and filtered queries.
+ * Indexes entities by id for fast lookup and instance-based queries.
  * World owns one EntityStore for its authoritative entities.
  */
 export class EntityStore {
   byId = new Map<number, Entity>();
-  byKind = new Map<EntityKind, Set<number>>();
 
   /**
-   * Inserts an entity and updates the secondary kind index.
+   * Inserts an entity into the primary id index.
    * @param entity Entity to add.
    */
   add(entity: Entity): void {
     this.byId.set(entity.id, entity);
-    let entityIdsByKind = this.byKind.get(entity.kind);
-    if (!entityIdsByKind) {
-      entityIdsByKind = new Set<number>();
-      this.byKind.set(entity.kind, entityIdsByKind);
-    }
-    entityIdsByKind.add(entity.id);
   }
 
   /**
-   * Removes an entity and cleans up its kind index membership.
+   * Removes an entity from the primary id index.
    * @param id Entity id to remove.
    */
   remove(id: number): void {
-    const entity = this.byId.get(id);
-    if (!entity) {
-      return;
-    }
     this.byId.delete(id);
-    this.byKind.get(entity.kind)?.delete(id);
   }
 
   /**
@@ -46,19 +34,14 @@ export class EntityStore {
   }
 
   /**
-   * Returns all entities matching a specific kind.
-   * @param kind Entity kind to filter by.
-   * @returns Entities that currently belong to the requested kind.
+   * Returns all entities matching a specific runtime class.
+   * @param ctor Entity constructor to filter by.
+   * @returns Entities that are instances of the requested constructor.
    */
-  queryKind(kind: EntityKind): Entity[] {
-    const entityIdsForKind = this.byKind.get(kind);
-    if (!entityIdsForKind) {
-      return [];
-    }
-    const matchingEntities: Entity[] = [];
-    for (const entityId of entityIdsForKind) {
-      const entity = this.byId.get(entityId);
-      if (entity) {
+  queryInstances<T extends Entity>(ctor: EntityCtor<T>): T[] {
+    const matchingEntities: T[] = [];
+    for (const entity of this.byId.values()) {
+      if (entity instanceof ctor) {
         matchingEntities.push(entity);
       }
     }

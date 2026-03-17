@@ -30,7 +30,7 @@ export class ItemStack {
   toSnapshot(): ItemStackSnapshot {
     return {
       id: this.item.id,
-      kind: this.item.kind,
+      typeId: this.item.typeId,
       stackSize: this.stackSize,
       ownerId: this.item.ownerId,
       data: this.item.data,

@@ -1,5 +1,4 @@
-import type { EntityKind } from "@shared/ids/EntityKinds.ts";
-import type { ItemKind } from "@shared/ids/ItemKinds.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 
 /**
@@ -8,7 +7,7 @@ import type { NetEvent } from "@shared/net/events.ts";
  */
 export interface EntitySnapshot {
   id: number;
-  kind: EntityKind;
+  typeId: ResourceId;
   x: number;
   y: number;
   vx: number;
@@ -37,7 +36,7 @@ export interface WorldSnapshot {
 
 export interface ItemStackSnapshot {
   id: number;
-  kind: ItemKind;
+  typeId: ResourceId;
   stackSize: number;
   ownerId?: number;
   data?: Record<string, unknown>;

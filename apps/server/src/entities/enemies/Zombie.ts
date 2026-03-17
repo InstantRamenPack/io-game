@@ -7,6 +7,8 @@ import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
  * Default melee chaser enemy used for the initial hostile population.
  */
 export class Zombie extends Enemy {
+  static readonly typeId = "enemy:zombie" as const;
+
   /**
    * Creates a zombie with its default stats and chase goal stack.
    * @param id Stable runtime entity id.
@@ -14,7 +16,7 @@ export class Zombie extends Enemy {
   constructor(id: number) {
     const arrivalRadius = 20;
 
-    super(id, {
+    super(id, Zombie.typeId, {
       radius: 16,
       hp: 100,
       maxHp: 100,
