@@ -9,9 +9,16 @@ import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 
 export type EntityCtor<T extends Entity = Entity> = new (...args: any[]) => T;
 export type ItemCtor<T extends Item = Item> = new (...args: any[]) => T;
+// enforce constructors to contain a ResourceId
+export type RegistrableEntityCtor<T extends Entity = Entity> = EntityCtor<T> & {
+  readonly typeId: ResourceId;
+};
+export type RegistrableItemCtor<T extends Item = Item> = ItemCtor<T> & {
+  readonly typeId: ResourceId;
+};
 
-export const entityTypeRegistry = new TypeRegistry<EntityCtor>();
-export const itemTypeRegistry = new TypeRegistry<ItemCtor>();
+export const entityTypeRegistry = new TypeRegistry<RegistrableEntityCtor>();
+export const itemTypeRegistry = new TypeRegistry<RegistrableItemCtor>();
 
 let registriesBootstrapped = false;
 
@@ -23,21 +30,21 @@ export function bootstrapTypeRegistries(): void {
     return;
   }
 
-  registerEntityType(Player.typeId, Player);
-  registerEntityType(Zombie.typeId, Zombie);
-  registerEntityType(ItemEntity.typeId, ItemEntity);
+  registerEntityType(Player);
+  registerEntityType(Zombie);
+  registerEntityType(ItemEntity);
 
-  registerItemType(BasicSword.typeId, BasicSword);
+  registerItemType(BasicSword);
 
   entityTypeRegistry.freeze();
   itemTypeRegistry.freeze();
   registriesBootstrapped = true;
 }
 
-function registerEntityType(typeId: ResourceId, ctor: EntityCtor): void {
-  entityTypeRegistry.register(typeId, ctor);
+function registerEntityType(ctor: RegistrableEntityCtor): void {
+  entityTypeRegistry.register(ctor.typeId, ctor);
 }
 
-function registerItemType(typeId: ResourceId, ctor: ItemCtor): void {
-  itemTypeRegistry.register(typeId, ctor);
+function registerItemType(ctor: RegistrableItemCtor): void {
+  itemTypeRegistry.register(ctor.typeId, ctor);
 }
