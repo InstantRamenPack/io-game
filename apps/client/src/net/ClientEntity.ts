@@ -3,7 +3,10 @@ import type {
   ItemStackSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer";
-import { getResourceNamespace, type ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getResourceNamespace,
+  type ResourceId,
+} from "@shared/ids/ResourceId.ts";
 import { ClientItemStack } from "@client/net/ClientItemStack.ts";
 import * as PIXI from "pixijs";
 
@@ -343,6 +346,9 @@ export class ClientEntity {
     }
     if (this.hasTypeNamespace("enemy")) {
       return 0xbf2a2a;
+    }
+    if (this.hasTypeNamespace("projectile")) {
+      return 0xffb703;
     }
     return 0xd6e5d2;
   }

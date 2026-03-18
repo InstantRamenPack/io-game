@@ -10,6 +10,7 @@ export const InputCommandSchema = z.object({
   tick: z.number().int().nonnegative(),
   moveX: z.number(),
   moveY: z.number(),
+  selectSlot: z.number().int().nonnegative().optional(),
   attack: z
     .object({
       x: z.number(),

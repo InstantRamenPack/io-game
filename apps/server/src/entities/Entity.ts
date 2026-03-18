@@ -146,4 +146,14 @@ export abstract class Entity {
       pointY <= this.y + this.radius
     );
   }
+
+  /**
+   * Resolves the combat instigator for attacks sourced from this entity.
+   * Plain entities are their own instigator; proxy entities like projectiles can override.
+   * @param _world World used to resolve related runtime state.
+   * @returns Entity that should be credited for combat rules and events.
+   */
+  getCombatInstigator(_world: World): Entity | null {
+    return this;
+  }
 }

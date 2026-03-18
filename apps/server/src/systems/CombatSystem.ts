@@ -14,15 +14,19 @@ export class CombatSystem {
    * @param target Potential target.
    * @returns True when the matchup is allowed.
    */
-  canAttackTarget(source: Entity, target: Entity): boolean {
-    if (!source.alive || !target.alive || source.id === target.id) {
+  canAttackTarget(world: World, source: Entity, target: Entity): boolean {
+    const instigator = source.getCombatInstigator(world);
+    if (!instigator || !instigator.alive || !target.alive) {
+      return false;
+    }
+    if (instigator.id === target.id) {
       return false;
     }
 
-    if (source instanceof Player) {
+    if (instigator instanceof Player) {
       return target instanceof Enemy || target instanceof Player;
     }
-    if (source instanceof Enemy) {
+    if (instigator instanceof Enemy) {
       return target instanceof Player;
     }
     return false;
@@ -42,8 +46,10 @@ export class CombatSystem {
     target: Entity,
     amount: number,
   ): { applied: boolean; isFatal: boolean } {
+    const instigator = source.getCombatInstigator(world);
     if (
-      !this.canAttackTarget(source, target) ||
+      !instigator ||
+      !this.canAttackTarget(world, source, target) ||
       target.hp === undefined ||
       target.maxHp === undefined ||
       !Number.isFinite(amount) ||
@@ -63,7 +69,7 @@ export class CombatSystem {
       type: "damage",
       tick: world.tick + 1,
       payload: {
-        sourceId: source.id,
+        sourceId: instigator.id,
         targetId: target.id,
         amount,
         remainingHp: nextHp,

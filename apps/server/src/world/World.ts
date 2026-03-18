@@ -1,6 +1,7 @@
 import Denque from "denque";
 import seedrandom from "seedrandom";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { CombatSystem } from "@server/systems/CombatSystem.ts";
@@ -19,6 +20,7 @@ export class World {
   events: Denque<NetEvent>;
   gameConfig: GameConfig;
   combat: CombatSystem;
+  private readonly entityIdGenerator = new IdGenerator();
 
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
@@ -61,6 +63,7 @@ export class World {
    */
   despawn(id: number): void {
     this.entities.remove(id);
+    this.entityIdGenerator.free(id);
   }
 
   /**
@@ -70,5 +73,13 @@ export class World {
    */
   get<T extends Entity = Entity>(id: number): T | undefined {
     return this.entities.get<T>(id);
+  }
+
+  /**
+   * Allocates a new authoritative runtime entity id.
+   * @returns Newly allocated entity id.
+   */
+  allocEntityId(): number {
+    return this.entityIdGenerator.alloc();
   }
 }

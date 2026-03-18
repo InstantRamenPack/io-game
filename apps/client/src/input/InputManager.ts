@@ -14,6 +14,7 @@ export class InputManager {
   moveX = 0;
   moveY = 0;
   pendingAttack?: AttackTarget;
+  pendingSelectSlot?: number;
   private readonly pressedKeys = new Set<string>();
 
   /**
@@ -23,6 +24,15 @@ export class InputManager {
   bind(targetElement: HTMLElement | Window): void {
     targetElement.addEventListener("keydown", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.code === "Digit1") {
+        this.pendingSelectSlot = 0;
+        return;
+      }
+      if (keyboardEvent.code === "Digit2") {
+        this.pendingSelectSlot = 1;
+        return;
+      }
+
       this.pressedKeys.add(keyboardEvent.key.toLowerCase());
       this.recomputeMovementVector();
     });
@@ -50,6 +60,7 @@ export class InputManager {
       tick: serverTick,
       moveX: this.moveX,
       moveY: this.moveY,
+      selectSlot: this.pendingSelectSlot,
       attack: this.pendingAttack ? { ...this.pendingAttack } : undefined,
     };
   }
@@ -60,6 +71,7 @@ export class InputManager {
    */
   clearOneShots(): void {
     this.pendingAttack = undefined;
+    this.pendingSelectSlot = undefined;
   }
 
   /**

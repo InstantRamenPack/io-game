@@ -40,7 +40,10 @@ function renderClientAsset(urlPath: string): Response | null {
  * @returns Nothing. Process lifetime is owned by Bun after the server starts.
  */
 export function main(): void {
-  if (!existsSync(clientIndexPath)) {
+  const canServeClient = existsSync(clientIndexPath);
+  const requireClientDist = process.env.REQUIRE_CLIENT_DIST !== "0";
+
+  if (requireClientDist && !canServeClient) {
     throw new Error(
       "Built client bundle not found. Run `bun run build:client` before starting the server.",
     );
@@ -106,12 +109,18 @@ export function main(): void {
         );
       }
 
-      const clientAsset = renderClientAsset(url.pathname);
-      if (clientAsset) {
-        return clientAsset;
+      if (canServeClient) {
+        const clientAsset = renderClientAsset(url.pathname);
+        if (clientAsset) {
+          return clientAsset;
+        }
+
+        return new Response(Bun.file(clientIndexPath));
       }
 
-      return new Response(Bun.file(clientIndexPath));
+      return new Response("Client bundle unavailable in server-only mode.", {
+        status: 404,
+      });
     },
     websocket: {
       open(webSocket) {

@@ -31,9 +31,11 @@ const accountBtn = document.getElementById("account-btn");
 const googleSignInTarget = document.getElementById("google-signin-target");
 const menuRoot = document.querySelector<HTMLElement>('[data-screen="menu"]');
 const gameRoot = document.getElementById("game-root");
+const runtimeStatus = document.getElementById("runtime-status");
 const playerNameInput = document.getElementById(
   "player-name-input",
 ) as HTMLInputElement | null;
+let runtimeStatusTimer: number | undefined;
 
 const gameConfig = new GameConfig();
 const gameClient = new GameClient(gameConfig, {
@@ -117,6 +119,62 @@ function updateMode(mode: MenuMode): void {
   });
 }
 
+function refreshRuntimeStatus(): void {
+  if (!runtimeStatus) {
+    return;
+  }
+
+  const hudState = gameClient.getGameplayHudState();
+  if (!hudState) {
+    runtimeStatus.textContent = [
+      "Weapon Syncing...",
+      "Ammo Awaiting snapshot",
+      "Slots 1 Sword  2 Gun",
+      "Fire Left click",
+    ].join("\n");
+    return;
+  }
+
+  const ammoLine = hudState.reloadTicksRemaining
+    ? `Reload ${hudState.reloadTicksRemaining} ticks`
+    : hudState.ammoLabel
+      ? `Ammo ${hudState.ammoLabel}`
+      : "Ammo Melee";
+
+  runtimeStatus.textContent = [
+    `Weapon ${hudState.activeWeaponLabel}`,
+    ammoLine,
+    `Slots ${hudState.slotLabels.join("  ")}`,
+    "Fire Left click",
+  ].join("\n");
+}
+
+function startRuntimeStatus(): void {
+  if (!runtimeStatus) {
+    return;
+  }
+
+  runtimeStatus.hidden = false;
+  refreshRuntimeStatus();
+  if (runtimeStatusTimer !== undefined) {
+    window.clearInterval(runtimeStatusTimer);
+  }
+  runtimeStatusTimer = window.setInterval(refreshRuntimeStatus, 50);
+}
+
+function stopRuntimeStatus(): void {
+  if (!runtimeStatus) {
+    return;
+  }
+
+  if (runtimeStatusTimer !== undefined) {
+    window.clearInterval(runtimeStatusTimer);
+    runtimeStatusTimer = undefined;
+  }
+  runtimeStatus.hidden = true;
+  runtimeStatus.textContent = "";
+}
+
 sideButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const requested = button.dataset.view as MenuMode | undefined;
@@ -195,6 +253,7 @@ gameClient.networkClient.onOpen(() => {
   if (gameRoot) {
     gameRoot.hidden = false;
   }
+  startRuntimeStatus();
   if (menuRoot) {
     menuRoot.style.display = "none";
   }
@@ -206,6 +265,7 @@ gameClient.networkClient.onOpen(() => {
 });
 
 gameClient.networkClient.onClose(() => {
+  stopRuntimeStatus();
   if (launchBtn) {
     const button = launchBtn as HTMLButtonElement;
     button.textContent = "Deploy";
@@ -220,6 +280,7 @@ gameClient.networkClient.onClose(() => {
 });
 
 gameClient.networkClient.onError((message) => {
+  stopRuntimeStatus();
   if (authController.handleNetworkError(message)) {
     updateMode("account");
   }

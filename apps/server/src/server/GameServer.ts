@@ -14,17 +14,18 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
+import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { ItemStack } from "@server/items/ItemStack.ts";
-import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { GoalSystem } from "@server/systems/GoalSystem.ts";
+import { ProjectileSystem } from "@server/systems/ProjectileSystem.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { System } from "@server/systems/System.ts";
 import { AuthService } from "@server/services/AuthService.ts";
-import {ZombieSword} from "@server/items/weapons/ZombieSword.ts";
+import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -41,7 +42,6 @@ export class GameServer {
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
   private readonly authService: AuthService;
-  private readonly entityIdGenerator = new IdGenerator();
   private readonly itemIdGenerator = new IdGenerator();
   private readonly playerIdByClientId = new Map<string, number>();
   private readonly clientsWithCompletedHello = new Set<string>();
@@ -70,7 +70,7 @@ export class GameServer {
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
     this.preStepSystems = [new GoalSystem()];
-    this.systems = [new CollisionSystem()];
+    this.systems = [new CollisionSystem(), new ProjectileSystem()];
 
     this.networkServer.onClose((clientId) => {
       this.onDisconnect(clientId);
@@ -172,10 +172,14 @@ export class GameServer {
     this.lastInputSequenceByClientId.set(clientId, inputCommand.seq);
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
 
+    if (inputCommand.selectSlot !== undefined) {
+      player.inventory?.setActive(inputCommand.selectSlot);
+    }
+
     if (inputCommand.attack) {
       const activeWeapon = player.getActiveWeapon();
-      if (activeWeapon instanceof MeleeWeapon) {
-        activeWeapon.tryAttackAtPoint(
+      if (activeWeapon) {
+        activeWeapon.fire(
           this.world,
           player,
           inputCommand.attack.x,
@@ -197,7 +201,7 @@ export class GameServer {
       return existingPlayerId;
     }
 
-    const playerId = this.entityIdGenerator.alloc();
+    const playerId = this.world.allocEntityId();
     const fallbackPlayerName = `player-${playerId}`;
     const playerEntity = new Player(
       playerId,
@@ -211,7 +215,11 @@ export class GameServer {
         new BasicSword(this.itemIdGenerator.alloc()),
         1,
       );
-      playerEntity.inventory.activeIndex = 0;
+      playerEntity.inventory.slots[1] = new ItemStack(
+        new BasicGun(this.itemIdGenerator.alloc()),
+        1,
+      );
+      playerEntity.inventory.activeIndex = 1;
     }
 
     this.world.spawn(playerEntity);
@@ -258,11 +266,11 @@ export class GameServer {
       {
         x: this.gameConfig.worldSize.w * 0.75,
         y: this.gameConfig.worldSize.h * 0.75,
-      }
+      },
     ];
 
     for (const zombiePosition of zombiePositions) {
-      const zombie = new Zombie(this.entityIdGenerator.alloc());
+      const zombie = new Zombie(this.world.allocEntityId());
       zombie.meleeWeapon = new ZombieSword(this.itemIdGenerator.alloc());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
