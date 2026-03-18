@@ -10,11 +10,13 @@ export class ClientItemStack {
   public readonly typeId: ResourceId;
   public readonly stackSize: number;
   public readonly ownerId?: number;
+  public readonly data?: Record<string, unknown>;
 
   constructor(snapshot: ItemStackSnapshot) {
     this.id = snapshot.id;
     this.typeId = snapshot.typeId;
     this.stackSize = snapshot.stackSize;
     this.ownerId = snapshot.ownerId;
+    this.data = snapshot.data;
   }
 }

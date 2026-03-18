@@ -42,7 +42,10 @@ export class AttackAtGoal extends Goal {
     }
 
     const target = ctx.world.get(targetId);
-    if (!target || !ctx.world.combat.canAttackTarget(ctx.self, target)) {
+    if (
+      !target ||
+      !ctx.world.combat.canAttackTarget(ctx.world, ctx.self, target)
+    ) {
       return null;
     }
 

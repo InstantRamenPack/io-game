@@ -40,6 +40,27 @@ body {
   background: #d7f3d2;
 }
 
+.runtime-status {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 20;
+  min-width: 220px;
+  padding: 12px 14px;
+  border: 1px solid rgba(37, 60, 31, 0.28);
+  background: rgba(248, 255, 245, 0.84);
+  box-shadow: 0 14px 36px rgba(20, 32, 18, 0.18);
+  color: #162113;
+  font:
+    600 13px/1.5 "SFMono-Regular",
+    "Cascadia Mono",
+    "Menlo",
+    monospace;
+  white-space: pre-line;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
 .menu-scene {
   position: relative;
   min-height: 100vh;
@@ -341,6 +362,13 @@ body {
 @media (max-width: 640px) {
   .menu-scene {
     padding: 16px;
+  }
+
+  .runtime-status {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    min-width: 0;
   }
 
   .hud-top {

@@ -1,5 +1,6 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import type { EntityCtor } from "@server/registry/bootstrap.ts";
+
+type EntityInstanceCtor<T extends Entity> = abstract new (...args: any[]) => T;
 
 /**
  * Indexes entities by id for fast lookup and instance-based queries.
@@ -38,7 +39,7 @@ export class EntityStore {
    * @param ctor Entity constructor to filter by.
    * @returns Entities that are instances of the requested constructor.
    */
-  queryInstances<T extends Entity>(ctor: EntityCtor<T>): T[] {
+  queryInstances<T extends Entity>(ctor: EntityInstanceCtor<T>): T[] {
     const matchingEntities: T[] = [];
     for (const entity of this.byId.values()) {
       if (entity instanceof ctor) {

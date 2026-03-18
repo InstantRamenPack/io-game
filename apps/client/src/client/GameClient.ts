@@ -3,9 +3,18 @@ import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import { WsClient } from "@client/net/WsClient.ts";
+import { ClientEntity } from "@client/net/ClientEntity.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
+
+export type GameplayHudState = {
+  activeWeaponLabel: string;
+  ammoLabel: string | null;
+  reloadTicksRemaining: number | null;
+  activeSlot: number | null;
+  slotLabels: string[];
+};
 
 /**
  * Coordinates client networking, snapshot state, interpolation, and rendering.
@@ -242,6 +251,13 @@ export class GameClient {
       ...(this.worldState?.clientWorld?.entities.values() ?? []),
     ];
     const player = entities.find((entity) => entity.id === this.playerEntityId);
+    const projectiles = entities
+      .filter((entity) => getResourceNamespace(entity.typeId) === "projectile")
+      .map((entity) => ({
+        id: entity.id,
+        x: Math.round(entity.x),
+        y: Math.round(entity.y),
+      }));
     const enemies = entities
       .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
       .map((entity) => ({
@@ -251,6 +267,7 @@ export class GameClient {
         hp: entity.hp,
         maxHp: entity.maxHp,
       }));
+    const hudState = this.getGameplayHudState();
 
     return JSON.stringify({
       connected:
@@ -268,9 +285,52 @@ export class GameClient {
             maxHp: player.maxHp,
           }
         : null,
+      activeWeapon: hudState?.activeWeaponLabel ?? null,
+      ammo: hudState?.ammoLabel ?? null,
+      reloadTicksRemaining: hudState?.reloadTicksRemaining ?? null,
       enemies,
+      projectiles,
       events: this.worldState?.clientWorld?.events ?? [],
     });
+  }
+
+  getGameplayHudState(): GameplayHudState | null {
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return null;
+    }
+
+    const activeSlot =
+      typeof player.activeSlot === "number" ? player.activeSlot : null;
+    const activeItem =
+      activeSlot !== null ? (player.inventory?.[activeSlot] ?? null) : null;
+    const ammoInMag = this.readItemNumber(activeItem?.data, "ammoInMag");
+    const magSize = this.readItemNumber(activeItem?.data, "magSize");
+    const reloadTicksRemaining = this.readItemNumber(
+      activeItem?.data,
+      "reloadTicksRemaining",
+    );
+
+    return {
+      activeWeaponLabel: activeItem
+        ? this.formatResourceLabel(activeItem.typeId)
+        : "Unarmed",
+      ammoLabel:
+        ammoInMag !== null && magSize !== null
+          ? `${ammoInMag}/${magSize}`
+          : null,
+      reloadTicksRemaining:
+        reloadTicksRemaining !== null && reloadTicksRemaining > 0
+          ? reloadTicksRemaining
+          : null,
+      activeSlot,
+      slotLabels: [0, 1].map((slotIndex) => {
+        const item = player.inventory?.[slotIndex] ?? null;
+        const label = item ? this.formatResourceLabel(item.typeId) : "Empty";
+        const prefix = activeSlot === slotIndex ? ">" : "";
+        return `${prefix}${slotIndex + 1} ${label}`;
+      }),
+    };
   }
 
   /**
@@ -283,6 +343,32 @@ export class GameClient {
     for (let index = 0; index < steps; index += 1) {
       this.update(frameMs, performance.now() + index * frameMs);
     }
+  }
+
+  private getLocalPlayerEntity(): ClientEntity | undefined {
+    if (this.playerEntityId === undefined) {
+      return undefined;
+    }
+
+    return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private readItemNumber(
+    data: Record<string, unknown> | undefined,
+    key: string,
+  ): number | null {
+    const value = data?.[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  private formatResourceLabel(typeId: string): string {
+    const [, path = typeId] = typeId.split(":");
+    const baseLabel = path.split("/").pop() ?? path;
+    return baseLabel
+      .split(/[_-]+/g)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   }
 }
 

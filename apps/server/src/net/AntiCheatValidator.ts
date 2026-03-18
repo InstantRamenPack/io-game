@@ -16,11 +16,12 @@ export class AntiCheatValidator {
    */
   validate(
     inputCommand: InputCommand,
-    _playerEntity: Player,
+    playerEntity: Player,
     world: World,
   ): boolean {
     this.clampMove(inputCommand);
     this.clampAttack(inputCommand, world);
+    this.clampSelectSlot(inputCommand, playerEntity);
 
     return !(
       !Number.isFinite(inputCommand.seq) || !Number.isFinite(inputCommand.tick)
@@ -62,5 +63,26 @@ export class AntiCheatValidator {
       x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
       y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
     };
+  }
+
+  private clampSelectSlot(
+    inputCommand: InputCommand,
+    playerEntity: Player,
+  ): void {
+    if (inputCommand.selectSlot === undefined) {
+      return;
+    }
+
+    const { selectSlot } = inputCommand;
+    if (
+      !Number.isFinite(selectSlot) ||
+      !Number.isInteger(selectSlot) ||
+      !playerEntity.inventory ||
+      selectSlot < 0 ||
+      selectSlot >= playerEntity.inventory.slots.length
+    ) {
+      inputCommand.selectSlot = undefined;
+      return;
+    }
   }
 }

@@ -1,6 +1,27 @@
 import { parseArgs } from "node:util";
 
-const backendTarget = "http://127.0.0.1:3000";
+function parseIntegerEnv(name: string, fallback: number): number {
+  const rawValue = process.env[name];
+  if (rawValue === undefined) {
+    return fallback;
+  }
+
+  const parsedValue = Number(rawValue);
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    console.error(
+      `[dev] invalid ${name} value "${rawValue}". Expected a positive integer.`,
+    );
+    process.exit(1);
+  }
+
+  return parsedValue;
+}
+
+const serverPort = parseIntegerEnv("PORT", 3000);
+const clientPort = parseIntegerEnv("VITE_PORT", 5173);
+const clientHost = process.env.VITE_HOST ?? "127.0.0.1";
+const backendTarget =
+  process.env.VITE_BACKEND_TARGET ?? `http://127.0.0.1:${serverPort}`;
 const bunExecutable = process.execPath;
 const sharedEnv = { ...process.env };
 const cliArgs = process.argv.slice(2);
@@ -47,19 +68,23 @@ const clientArgs = normalizedCliArgs.filter(
   (_, index) => !consumedCustomArgIndexes.has(index),
 );
 
-function ensureViteHostArg(args: string[]): string[] {
+function ensureViteHostArg(args: string[], host: string): string[] {
   if (args.some((arg) => arg === "--host" || arg.startsWith("--host="))) {
     return args;
   }
 
-  return ["--host", ...args];
+  return ["--host", host, ...args];
 }
 
-function getStringArgValue(value: string | boolean | undefined): string | undefined {
+function getStringArgValue(
+  value: string | boolean | undefined,
+): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function parseDebugTickRate(rawTickRate: string | undefined): string | undefined {
+function parseDebugTickRate(
+  rawTickRate: string | undefined,
+): string | undefined {
   if (rawTickRate === undefined) {
     return undefined;
   }
@@ -160,15 +185,25 @@ const serverProcess = spawnChild(
   {
     ...sharedEnv,
     DISABLE_TLS: "1",
+    PORT: String(serverPort),
+    REQUIRE_CLIENT_DIST: "0",
     ...(debugTickRate ? { TICK_RATE: debugTickRate } : {}),
   },
 );
 const clientProcess = spawnChild(
   "client",
-  [bunExecutable, "run", "dev:client", "--", ...ensureViteHostArg(clientArgs)],
+  [
+    bunExecutable,
+    "run",
+    "dev:client",
+    "--",
+    ...ensureViteHostArg(clientArgs, clientHost),
+  ],
   {
     ...sharedEnv,
     VITE_BACKEND_TARGET: backendTarget,
+    VITE_HOST: clientHost,
+    VITE_PORT: String(clientPort),
     ...(enableDebugHitbox ? { VITE_DEBUG_HITBOX: "1" } : {}),
     ...(debugInterpolationMode
       ? { VITE_DEBUG_INTERPOLATION: debugInterpolationMode }
