@@ -1,9 +1,11 @@
 import { Entity } from "@server/entities/Entity.ts";
+import { GoalContext } from "@server/goals/GoalContext.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
 import type { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 import type { World } from "@server/world/World.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 
 export type EnemyConfig = {
   radius: number;
@@ -23,13 +25,13 @@ export type EnemyConfig = {
  * Hostile entity with goal-driven targeting and movement state.
  */
 export class Enemy extends Entity {
-  goalSelector: GoalSelector;
+  public goalSelector: GoalSelector;
   /** Distance moved per simulation tick while steering. */
-  moveSpeed: number;
-  aggroRange: number;
-  arrivalRadius: number;
-  targetId?: number;
-  meleeWeapon?: MeleeWeapon;
+  public moveSpeed: number;
+  public aggroRange: number;
+  public arrivalRadius: number;
+  public targetId?: number;
+  public meleeWeapon?: MeleeWeapon;
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -37,7 +39,7 @@ export class Enemy extends Entity {
    * @param typeId Concrete enemy type id.
    * @param config Enemy tuning and goal stack.
    */
-  constructor(id: number, typeId: ResourceId, config: EnemyConfig) {
+  public constructor(id: number, typeId: ResourceId, config: EnemyConfig) {
     super(id, typeId);
     this.collisionMode = "dynamic";
     this.radius = config.radius;
@@ -55,10 +57,22 @@ export class Enemy extends Entity {
 
   /**
    * Enemy behavior is driven by GoalSystem in this pass.
-   * @param _world World being simulated.
+   * @param world World being simulated.
    */
-  override tick(_world: World): void {
-    super.tick(_world);
-    this.meleeWeapon?.tick(_world);
+  public override tick(world: World): void {
+    this.goalSelector.tick(new GoalContext(world, this));
+    this.meleeWeapon?.tick(world);
+    super.tick(world);
+  }
+
+  public override toSnapshot(): EnemySnapshot {
+    const snapshot = super.toSnapshot();
+    return {
+      ...snapshot,
+      kind: "enemy",
+      hp: this.hp ?? 0,
+      maxHp: this.maxHp ?? 0,
+      targetId: this.targetId,
+    };
   }
 }

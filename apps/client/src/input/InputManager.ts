@@ -1,6 +1,14 @@
+import type { RecipeId } from "@shared/content/types.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
 
 type AttackTarget = {
+  x: number;
+  y: number;
+};
+
+type BuildPlacement = {
+  itemTypeId: ResourceId;
   x: number;
   y: number;
 };
@@ -10,26 +18,25 @@ type AttackTarget = {
  * This remains focused on local input capture rather than gameplay decisions.
  */
 export class InputManager {
-  commandSequence = 1;
-  moveX = 0;
-  moveY = 0;
-  pendingAttack?: AttackTarget;
-  pendingSelectSlot?: number;
+  public commandSequence = 1;
+  public moveX = 0;
+  public moveY = 0;
+  public pendingAttack?: AttackTarget;
+  public pendingCraft?: { recipeId: RecipeId };
+  public pendingBuild?: BuildPlacement;
+  public pendingSelectSlot?: number;
   private readonly pressedKeys = new Set<string>();
 
   /**
    * Binds WASD key handlers on the provided event target.
    * @param targetElement Window or element that should receive keyboard events.
    */
-  bind(targetElement: HTMLElement | Window): void {
+  public bind(targetElement: HTMLElement | Window): void {
     targetElement.addEventListener("keydown", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.code === "Digit1") {
-        this.pendingSelectSlot = 0;
-        return;
-      }
-      if (keyboardEvent.code === "Digit2") {
-        this.pendingSelectSlot = 1;
+      const slotIndex = this.parseSlotDigit(keyboardEvent.code);
+      if (slotIndex !== null) {
+        this.pendingSelectSlot = slotIndex;
         return;
       }
 
@@ -54,7 +61,7 @@ export class InputManager {
    * @param serverTick Latest authoritative tick known by the client.
    * @returns Serialized input command for transmission.
    */
-  toCommand(serverTick: number): InputCommand {
+  public toCommand(serverTick: number): InputCommand {
     return {
       seq: this.commandSequence++,
       tick: serverTick,
@@ -62,25 +69,40 @@ export class InputManager {
       moveY: this.moveY,
       selectSlot: this.pendingSelectSlot,
       attack: this.pendingAttack ? { ...this.pendingAttack } : undefined,
+      craft: this.pendingCraft ? { ...this.pendingCraft } : undefined,
+      build: this.pendingBuild ? { ...this.pendingBuild } : undefined,
     };
   }
 
   /**
-   * Clears one-shot inputs when they exist.
-   * This is currently a no-op because movement is the only active input family.
+   * Clears one-shot inputs after they have been sent.
    */
-  clearOneShots(): void {
+  public clearOneShots(): void {
     this.pendingAttack = undefined;
+    this.pendingCraft = undefined;
+    this.pendingBuild = undefined;
     this.pendingSelectSlot = undefined;
   }
 
-  /**
-   * Queues a world-space melee attack point to be sent with the next input command.
-   * @param x World-space X coordinate.
-   * @param y World-space Y coordinate.
-   */
-  queueAttack(x: number, y: number): void {
+  public queueAttack(x: number, y: number): void {
+    this.clearPendingAction();
     this.pendingAttack = { x, y };
+  }
+
+  public queueCraft(recipeId: RecipeId): void {
+    this.clearPendingAction();
+    this.pendingCraft = { recipeId };
+  }
+
+  public queueBuild(itemTypeId: ResourceId, x: number, y: number): void {
+    this.clearPendingAction();
+    this.pendingBuild = { itemTypeId, x, y };
+  }
+
+  private clearPendingAction(): void {
+    this.pendingAttack = undefined;
+    this.pendingCraft = undefined;
+    this.pendingBuild = undefined;
   }
 
   /**
@@ -94,5 +116,14 @@ export class InputManager {
 
     this.moveX = moveLeft + moveRight;
     this.moveY = moveUp + moveDown;
+  }
+
+  private parseSlotDigit(code: string): number | null {
+    const match = /^Digit([1-9])$/.exec(code);
+    if (!match) {
+      return null;
+    }
+
+    return Number(match[1]) - 1;
   }
 }

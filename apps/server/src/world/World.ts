@@ -1,10 +1,11 @@
 import Denque from "denque";
 import seedrandom from "seedrandom";
-import { GameConfig } from "@shared/config/GameConfig.ts";
+import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { CombatSystem } from "@server/systems/CombatSystem.ts";
+import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
@@ -13,20 +14,22 @@ import { SpatialIndex } from "@server/world/SpatialIndex.ts";
  * This is the main state holder stepped by the server loop.
  */
 export class World {
-  tick = 0;
-  entities: EntityStore;
-  spatial: SpatialIndex;
-  randomNumberGenerator: seedrandom.PRNG;
-  events: Denque<NetEvent>;
-  gameConfig: GameConfig;
-  combat: CombatSystem;
+  public tick = 0;
+  public entities: EntityStore;
+  public spatial: SpatialIndex;
+  public randomNumberGenerator: seedrandom.PRNG;
+  public events: Denque<NetEvent>;
+  public gameConfig: GameConfig;
+  public combat: CombatSystem;
   private readonly entityIdGenerator = new IdGenerator();
+  private readonly itemIdGenerator = new IdGenerator();
+  private readonly collisionSystem = new CollisionSystem();
 
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
    * @param gameConfig Runtime configuration shared with the server.
    */
-  constructor(gameConfig: GameConfig) {
+  public constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
@@ -38,14 +41,28 @@ export class World {
   /**
    * Advances the world by one fixed simulation tick.
    */
-  step(): void {
+  public step(): void {
     this.tick += 1;
-    for (const entity of this.entities.all()) {
+
+    const entities = this.entities.all();
+    for (const entity of entities) {
       entity.tick(this);
       if (entity.collisionMode !== "static") {
         entity.x += entity.vx;
         entity.y += entity.vy;
       }
+    }
+
+    this.spatial.rebuild(
+      this.entities.all().filter((entity) => entity.collisionMode !== "none"),
+    );
+    this.collisionSystem.update(this);
+    this.spatial.rebuild(
+      this.entities.all().filter((entity) => entity.collisionMode !== "none"),
+    );
+
+    for (const entity of this.entities.all()) {
+      entity.afterMovement(this);
     }
   }
 
@@ -53,7 +70,7 @@ export class World {
    * Adds an entity to world storage.
    * @param entity Entity to spawn into the world.
    */
-  spawn(entity: Entity): void {
+  public spawn(entity: Entity): void {
     this.entities.add(entity);
   }
 
@@ -61,7 +78,7 @@ export class World {
    * Removes an entity from world storage by id.
    * @param id Entity id to despawn.
    */
-  despawn(id: number): void {
+  public despawn(id: number): void {
     this.entities.remove(id);
     this.entityIdGenerator.free(id);
   }
@@ -71,7 +88,7 @@ export class World {
    * @param id Entity id to look up.
    * @returns Matching entity when present.
    */
-  get<T extends Entity = Entity>(id: number): T | undefined {
+  public get<T extends Entity = Entity>(id: number): T | undefined {
     return this.entities.get<T>(id);
   }
 
@@ -79,7 +96,11 @@ export class World {
    * Allocates a new authoritative runtime entity id.
    * @returns Newly allocated entity id.
    */
-  allocEntityId(): number {
+  public allocEntityId(): number {
     return this.entityIdGenerator.alloc();
+  }
+
+  public allocItemId(): number {
+    return this.itemIdGenerator.alloc();
   }
 }

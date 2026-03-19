@@ -1,12 +1,14 @@
-import { GameConfig } from "@shared/config/GameConfig.ts";
-import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { InputManager } from "@client/input/InputManager.ts";
-import { WsClient } from "@client/net/WsClient.ts";
-import { ClientEntity } from "@client/net/ClientEntity.ts";
-import { ClientWorldState } from "@client/net/ClientWorldState.ts";
-import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
+import { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { WsClient } from "@client/net/WsClient.ts";
+import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import type { RecipeId } from "@shared/content/types.ts";
+import type { GameConfig } from "@shared/config/GameConfig.ts";
+import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export type GameplayHudState = {
   activeWeaponLabel: string;
@@ -17,17 +19,16 @@ export type GameplayHudState = {
 };
 
 /**
- * Coordinates client networking, snapshot state, interpolation, and rendering.
- * This stays presentation-only and does not own authoritative gameplay rules.
+ * Coordinates client networking, snapshots, interpolation, and renderer sync.
  */
 export class GameClient {
-  networkClient: WsClient;
-  worldState?: ClientWorldState;
-  inputManager: InputManager;
-  renderer: PixiRenderer;
-  gameConfig: GameConfig;
-  playerEntityId?: number;
-  interpolator: Interpolator;
+  public networkClient: WsClient;
+  public worldState?: ClientWorldState;
+  public inputManager: InputManager;
+  public renderer: PixiRenderer;
+  public gameConfig: GameConfig;
+  public playerEntityId?: number;
+  public interpolator: Interpolator;
 
   private inputTimer: ReturnType<typeof setInterval> | undefined;
   private animationFrameId: number | undefined;
@@ -37,6 +38,8 @@ export class GameClient {
   private started = false;
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
+  private pointerActionHandler?: (worldPoint: { x: number; y: number }) => void;
+
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
       return;
@@ -46,16 +49,15 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
-    this.inputManager.queueAttack(worldPoint.x, worldPoint.y);
+    if (this.pointerActionHandler) {
+      this.pointerActionHandler(worldPoint);
+    } else {
+      this.inputManager.queueAttack(worldPoint.x, worldPoint.y);
+    }
     event.preventDefault();
   };
 
-  /**
-   * Creates a client runtime with network, state, and renderer dependencies.
-   * @param gameConfig Shared runtime configuration used by the client.
-   * @param options Local debug overlay flags applied to client-side render state.
-   */
-  constructor(
+  public constructor(
     gameConfig: GameConfig,
     options: { debugHitbox?: boolean; debugInterpolationMode?: number } = {},
   ) {
@@ -66,18 +68,15 @@ export class GameClient {
     this.interpolator = new Interpolator(this.gameConfig.interpolation);
     this.debugHitbox = options.debugHitbox ?? false;
     this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
+
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
 
-    window.gameClient = this; // Expose game client for debugging
+    window.gameClient = this;
   }
 
-  /**
-   * Binds the input manager to the given browser event target once.
-   * @param targetElement Window or element that should receive movement input.
-   */
-  bindInput(targetElement: HTMLElement | Window): void {
+  public bindInput(targetElement: HTMLElement | Window): void {
     if (this.inputBound) {
       return;
     }
@@ -85,11 +84,7 @@ export class GameClient {
     this.inputBound = true;
   }
 
-  /**
-   * Attaches the Pixi renderer to a host element.
-   * @param hostElement DOM node that should contain the game canvas.
-   */
-  async initRenderer(hostElement: HTMLElement): Promise<void> {
+  public async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
 
     if (!this.rendererPointerBound) {
@@ -100,21 +95,34 @@ export class GameClient {
     }
   }
 
-  /**
-   * Updates the renderer projection to the current authoritative world size.
-   * @param worldSize Runtime world bounds.
-   */
-  setWorldSize(worldSize: GameConfig["worldSize"]): void {
+  public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
   }
 
-  /**
-   * Connects to the game server and starts periodic input sends/render updates.
-   * @param url WebSocket endpoint for the authoritative server.
-   * @param connectOptions Hello-handshake data such as auth token and player name.
-   */
-  start(
+  public setPointerActionHandler(
+    handler: ((worldPoint: { x: number; y: number }) => void) | undefined,
+  ): void {
+    this.pointerActionHandler = handler;
+  }
+
+  public queueAttack(x: number, y: number): void {
+    this.inputManager.queueAttack(x, y);
+  }
+
+  public queueCraftRecipe(recipeId: RecipeId): void {
+    this.inputManager.queueCraft(recipeId);
+  }
+
+  public queueBuildPlacement(
+    itemTypeId: ResourceId,
+    x: number,
+    y: number,
+  ): void {
+    this.inputManager.queueBuild(itemTypeId, x, y);
+  }
+
+  public start(
     url: string,
     connectOptions: { googleIdToken?: string; playerName: string },
   ): void {
@@ -122,14 +130,13 @@ export class GameClient {
       return;
     }
     this.started = true;
-
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
       this.debugInterpolationMode,
     );
-
     this.startFrameLoop();
+
     this.networkClient.connect(url, {
       googleIdToken: connectOptions.googleIdToken,
       playerName: connectOptions.playerName,
@@ -144,12 +151,7 @@ export class GameClient {
     }, periodMs);
   }
 
-  /**
-   * Advances client simulation and render state for one frame.
-   * @param deltaMs Frame delta in milliseconds.
-   * @param frameTimeMs Monotonic timestamp for the current frame.
-   */
-  update(deltaMs: number, frameTimeMs = performance.now()): void {
+  public update(deltaMs: number, frameTimeMs = performance.now()): void {
     if (this.worldState) {
       this.interpolator.updateInterpolation(this.worldState, frameTimeMs);
       this.worldState.clientWorld?.update(deltaMs);
@@ -157,26 +159,16 @@ export class GameClient {
     this.renderer.update(deltaMs);
   }
 
-  /**
-   * Stores an authoritative world snapshot received from the server.
-   * @param snapshot Snapshot payload from the authoritative server.
-   */
-  onSnapshot(snapshot: WorldSnapshot): void {
+  public onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState?.pushSnapshot(snapshot);
   }
 
-  /**
-   * Stores the authoritative player entity id assigned by the server.
-   */
-  onWelcome(entityId: number): void {
+  public onWelcome(entityId: number): void {
     this.playerEntityId = entityId;
     this.renderer.setPlayerEntityId(entityId);
   }
 
-  /**
-   * Stops periodic input sends and releases client-side timer resources.
-   */
-  stop(): void {
+  public stop(): void {
     this.started = false;
     this.stopFrameLoop();
     if (this.inputTimer) {
@@ -184,14 +176,111 @@ export class GameClient {
       this.inputTimer = undefined;
     }
     this.networkClient.disconnect();
-    this.worldState?.clear(); //clears rendered entities too
+    this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
   }
 
-  /**
-   * Starts the requestAnimationFrame loop used for client-side interpolation.
-   */
+  public renderGameToText(): string {
+    const entities = [
+      ...(this.worldState?.clientWorld?.entities.values() ?? []),
+    ];
+    const player = entities.find((entity) => entity.id === this.playerEntityId);
+    const hudState = this.getGameplayHudState();
+
+    return JSON.stringify({
+      connected:
+        this.networkClient.socket?.readyState === WebSocket.OPEN &&
+        this.started,
+      coordinateSystem: "origin top-left; +x right; +y down",
+      tick: this.worldState?.latestTick ?? null,
+      playerEntityId: this.playerEntityId ?? null,
+      player: player
+        ? {
+            id: player.id,
+            x: Math.round(player.x),
+            y: Math.round(player.y),
+            hp: player.hp,
+            maxHp: player.maxHp,
+          }
+        : null,
+      activeWeapon: hudState?.activeWeaponLabel ?? null,
+      ammo: hudState?.ammoLabel ?? null,
+      reloadTicksRemaining: hudState?.reloadTicksRemaining ?? null,
+      enemies: entities
+        .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
+        .map((entity) => ({
+          id: entity.id,
+          x: Math.round(entity.x),
+          y: Math.round(entity.y),
+          hp: entity.hp,
+          maxHp: entity.maxHp,
+        })),
+      projectiles: entities
+        .filter(
+          (entity) => getResourceNamespace(entity.typeId) === "projectile",
+        )
+        .map((entity) => ({
+          id: entity.id,
+          x: Math.round(entity.x),
+          y: Math.round(entity.y),
+        })),
+      events: this.worldState?.clientWorld?.events ?? [],
+    });
+  }
+
+  public getGameplayHudState(): GameplayHudState | null {
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return null;
+    }
+
+    const activeSlot =
+      typeof player.activeSlot === "number" ? player.activeSlot : null;
+    const activeItem =
+      activeSlot !== null ? (player.inventory?.[activeSlot] ?? null) : null;
+    const ammoInMag =
+      typeof activeItem?.ammoInMag === "number" ? activeItem.ammoInMag : null;
+    const magSize =
+      typeof activeItem?.magSize === "number" ? activeItem.magSize : null;
+    const reloadTicksRemaining =
+      typeof activeItem?.reloadTicksRemaining === "number"
+        ? activeItem.reloadTicksRemaining
+        : null;
+
+    return {
+      activeWeaponLabel: activeItem
+        ? this.formatResourceLabel(activeItem.typeId)
+        : "Unarmed",
+      ammoLabel:
+        ammoInMag !== null && magSize !== null
+          ? `${ammoInMag}/${magSize}`
+          : null,
+      reloadTicksRemaining:
+        reloadTicksRemaining !== null && reloadTicksRemaining > 0
+          ? reloadTicksRemaining
+          : null,
+      activeSlot,
+      slotLabels: Array.from(
+        { length: player.inventory?.length ?? 0 },
+        (_, slotIndex) => {
+          const item = player.inventory?.[slotIndex] ?? null;
+          const label = item ? this.formatResourceLabel(item.typeId) : "Empty";
+          const prefix = activeSlot === slotIndex ? ">" : "";
+          return `${prefix}${slotIndex + 1} ${label}`;
+        },
+      ),
+    };
+  }
+
+  public advanceTime(ms: number): void {
+    const frameMs = 1000 / 60;
+    const steps = Math.max(1, Math.round(ms / frameMs));
+    for (let index = 0; index < steps; index += 1) {
+      this.update(frameMs, performance.now() + index * frameMs);
+    }
+  }
+
   private startFrameLoop(): void {
     if (this.animationFrameId !== undefined) {
       return;
@@ -216,9 +305,6 @@ export class GameClient {
     this.animationFrameId = window.requestAnimationFrame(tick);
   }
 
-  /**
-   * Stops the requestAnimationFrame loop.
-   */
   private stopFrameLoop(): void {
     if (this.animationFrameId !== undefined) {
       window.cancelAnimationFrame(this.animationFrameId);
@@ -227,9 +313,6 @@ export class GameClient {
     this.lastAnimationFrameTime = undefined;
   }
 
-  /**
-   * Handles socket closure by resetting interpolation state and frame timers.
-   */
   private onDisconnected(): void {
     this.started = false;
     this.stopFrameLoop();
@@ -242,123 +325,12 @@ export class GameClient {
     this.renderer.setPlayerEntityId(undefined);
   }
 
-  /**
-   * Returns a concise JSON string describing the current interactive game state.
-   * @returns Text-rendered snapshot of client state for automated checks.
-   */
-  renderGameToText(): string {
-    const entities = [
-      ...(this.worldState?.clientWorld?.entities.values() ?? []),
-    ];
-    const player = entities.find((entity) => entity.id === this.playerEntityId);
-    const projectiles = entities
-      .filter((entity) => getResourceNamespace(entity.typeId) === "projectile")
-      .map((entity) => ({
-        id: entity.id,
-        x: Math.round(entity.x),
-        y: Math.round(entity.y),
-      }));
-    const enemies = entities
-      .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
-      .map((entity) => ({
-        id: entity.id,
-        x: Math.round(entity.x),
-        y: Math.round(entity.y),
-        hp: entity.hp,
-        maxHp: entity.maxHp,
-      }));
-    const hudState = this.getGameplayHudState();
-
-    return JSON.stringify({
-      connected:
-        this.networkClient.socket?.readyState === WebSocket.OPEN &&
-        this.started,
-      coordinateSystem: "origin top-left; +x right; +y down",
-      tick: this.worldState?.latestTick ?? null,
-      playerEntityId: this.playerEntityId ?? null,
-      player: player
-        ? {
-            id: player.id,
-            x: Math.round(player.x),
-            y: Math.round(player.y),
-            hp: player.hp,
-            maxHp: player.maxHp,
-          }
-        : null,
-      activeWeapon: hudState?.activeWeaponLabel ?? null,
-      ammo: hudState?.ammoLabel ?? null,
-      reloadTicksRemaining: hudState?.reloadTicksRemaining ?? null,
-      enemies,
-      projectiles,
-      events: this.worldState?.clientWorld?.events ?? [],
-    });
-  }
-
-  getGameplayHudState(): GameplayHudState | null {
-    const player = this.getLocalPlayerEntity();
-    if (!player) {
-      return null;
-    }
-
-    const activeSlot =
-      typeof player.activeSlot === "number" ? player.activeSlot : null;
-    const activeItem =
-      activeSlot !== null ? (player.inventory?.[activeSlot] ?? null) : null;
-    const ammoInMag = this.readItemNumber(activeItem?.data, "ammoInMag");
-    const magSize = this.readItemNumber(activeItem?.data, "magSize");
-    const reloadTicksRemaining = this.readItemNumber(
-      activeItem?.data,
-      "reloadTicksRemaining",
-    );
-
-    return {
-      activeWeaponLabel: activeItem
-        ? this.formatResourceLabel(activeItem.typeId)
-        : "Unarmed",
-      ammoLabel:
-        ammoInMag !== null && magSize !== null
-          ? `${ammoInMag}/${magSize}`
-          : null,
-      reloadTicksRemaining:
-        reloadTicksRemaining !== null && reloadTicksRemaining > 0
-          ? reloadTicksRemaining
-          : null,
-      activeSlot,
-      slotLabels: [0, 1].map((slotIndex) => {
-        const item = player.inventory?.[slotIndex] ?? null;
-        const label = item ? this.formatResourceLabel(item.typeId) : "Empty";
-        const prefix = activeSlot === slotIndex ? ">" : "";
-        return `${prefix}${slotIndex + 1} ${label}`;
-      }),
-    };
-  }
-
-  /**
-   * Advances client interpolation and presentation state without waiting for rAF.
-   * @param ms Amount of simulated frame time to advance.
-   */
-  advanceTime(ms: number): void {
-    const frameMs = 1000 / 60;
-    const steps = Math.max(1, Math.round(ms / frameMs));
-    for (let index = 0; index < steps; index += 1) {
-      this.update(frameMs, performance.now() + index * frameMs);
-    }
-  }
-
   private getLocalPlayerEntity(): ClientEntity | undefined {
     if (this.playerEntityId === undefined) {
       return undefined;
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
-  }
-
-  private readItemNumber(
-    data: Record<string, unknown> | undefined,
-    key: string,
-  ): number | null {
-    const value = data?.[key];
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
   }
 
   private formatResourceLabel(typeId: string): string {

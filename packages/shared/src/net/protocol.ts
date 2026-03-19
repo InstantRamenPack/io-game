@@ -1,3 +1,4 @@
+import type { RecipeId } from "@shared/content/types.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
@@ -5,19 +6,44 @@ import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export const PROTOCOL_VERSION = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
-export const InputCommandSchema = z.object({
-  seq: z.number().int().nonnegative(),
-  tick: z.number().int().nonnegative(),
-  moveX: z.number(),
-  moveY: z.number(),
-  selectSlot: z.number().int().nonnegative().optional(),
-  attack: z
-    .object({
-      x: z.number(),
-      y: z.number(),
-    })
-    .optional(),
+const AttackInputSchema = z.object({
+  x: z.number(),
+  y: z.number(),
 });
+
+const CraftInputSchema = z.object({
+  recipeId: z.string().regex(/^recipe:[a-z0-9_./-]+$/),
+});
+
+const BuildInputSchema = z.object({
+  itemTypeId: z.string().regex(RESOURCE_ID_PATTERN),
+  x: z.number(),
+  y: z.number(),
+});
+
+export const InputCommandSchema = z
+  .object({
+    seq: z.number().int().nonnegative(),
+    tick: z.number().int().nonnegative(),
+    moveX: z.number(),
+    moveY: z.number(),
+    selectSlot: z.number().int().nonnegative().optional(),
+    attack: AttackInputSchema.optional(),
+    craft: CraftInputSchema.optional(),
+    build: BuildInputSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    const actionCount =
+      Number(Boolean(value.attack)) +
+      Number(Boolean(value.craft)) +
+      Number(Boolean(value.build));
+    if (actionCount > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only one action of attack, craft, or build is allowed.",
+      });
+    }
+  });
 
 export const HelloMessageSchema = z.object({
   t: z.literal("hello"),
@@ -49,35 +75,127 @@ export const WelcomeMessageSchema = z.object({
 const WorldSnapshotSchema = z.object({
   tick: z.number(),
   entities: z.array(
-    z.object({
-      id: z.number(),
-      typeId: z.string().regex(RESOURCE_ID_PATTERN),
-      x: z.number(),
-      y: z.number(),
-      vx: z.number(),
-      vy: z.number(),
-      rotation: z.number(),
-      radius: z.number(),
-      hp: z.number().optional(),
-      maxHp: z.number().optional(),
-      ownerId: z.number().optional(),
-      name: z.string().optional(),
-      data: z.record(z.string(), z.unknown()).optional(),
-      inventory: z
-        .array(
+    z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("player"),
+        id: z.number(),
+        typeId: z.string().regex(RESOURCE_ID_PATTERN),
+        x: z.number(),
+        y: z.number(),
+        vx: z.number(),
+        vy: z.number(),
+        rotation: z.number(),
+        radius: z.number(),
+        hp: z.number(),
+        maxHp: z.number(),
+        ownerId: z.number().optional(),
+        name: z.string(),
+        inventory: z.array(
           z
-            .object({
-              id: z.number(),
-              typeId: z.string().regex(RESOURCE_ID_PATTERN),
-              stackSize: z.number(),
-              ownerId: z.number().optional(),
-              data: z.record(z.string(), z.unknown()).optional(),
-            })
+            .discriminatedUnion("typeId", [
+              z.object({
+                id: z.number(),
+                typeId: z.literal("item:basic_gun"),
+                stackSize: z.number(),
+                ownerId: z.number().optional(),
+                ammoInMag: z.number(),
+                magSize: z.number(),
+                reloadTicksRemaining: z.number(),
+              }),
+            ])
+            .or(
+              z.object({
+                id: z.number(),
+                typeId: z.string().regex(RESOURCE_ID_PATTERN),
+                stackSize: z.number(),
+                ownerId: z.number().optional(),
+              }),
+            )
             .nullable(),
-        )
-        .optional(),
-      activeSlot: z.number().optional(),
-    }),
+        ),
+        activeSlot: z.number(),
+        activeEffects: z.array(z.string()),
+        moveSpeed: z.number(),
+      }),
+      z.object({
+        kind: z.literal("enemy"),
+        id: z.number(),
+        typeId: z.string().regex(RESOURCE_ID_PATTERN),
+        x: z.number(),
+        y: z.number(),
+        vx: z.number(),
+        vy: z.number(),
+        rotation: z.number(),
+        radius: z.number(),
+        hp: z.number(),
+        maxHp: z.number(),
+        ownerId: z.number().optional(),
+        targetId: z.number().optional(),
+      }),
+      z.object({
+        kind: z.literal("building"),
+        id: z.number(),
+        typeId: z.string().regex(RESOURCE_ID_PATTERN),
+        x: z.number(),
+        y: z.number(),
+        vx: z.number(),
+        vy: z.number(),
+        rotation: z.number(),
+        radius: z.number(),
+        hp: z.number(),
+        maxHp: z.number(),
+        ownerId: z.number().optional(),
+        label: z.string(),
+        tier: z.number(),
+      }),
+      z.object({
+        kind: z.literal("projectile"),
+        id: z.number(),
+        typeId: z.string().regex(RESOURCE_ID_PATTERN),
+        x: z.number(),
+        y: z.number(),
+        vx: z.number(),
+        vy: z.number(),
+        rotation: z.number(),
+        radius: z.number(),
+        ownerId: z.number().optional(),
+      }),
+      z.object({
+        kind: z.literal("pickup"),
+        id: z.number(),
+        typeId: z.string().regex(RESOURCE_ID_PATTERN),
+        x: z.number(),
+        y: z.number(),
+        vx: z.number(),
+        vy: z.number(),
+        rotation: z.number(),
+        radius: z.number(),
+        ownerId: z.number().optional(),
+        inventory: z.array(
+          z
+            .discriminatedUnion("typeId", [
+              z.object({
+                id: z.number(),
+                typeId: z.literal("item:basic_gun"),
+                stackSize: z.number(),
+                ownerId: z.number().optional(),
+                ammoInMag: z.number(),
+                magSize: z.number(),
+                reloadTicksRemaining: z.number(),
+              }),
+            ])
+            .or(
+              z.object({
+                id: z.number(),
+                typeId: z.string().regex(RESOURCE_ID_PATTERN),
+                stackSize: z.number(),
+                ownerId: z.number().optional(),
+              }),
+            )
+            .nullable(),
+        ),
+      }),
+    ]),
   ),
   events: z.array(
     z.object({
@@ -121,6 +239,7 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 ]);
 
 export type InputCommand = z.infer<typeof InputCommandSchema>;
+export type CraftInput = { recipeId: RecipeId };
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type InputMessage = {
   t: "input";

@@ -18,8 +18,6 @@ export class CollisionSystem implements System {
       .all()
       .filter((entity) => entity.collisionMode !== "none");
 
-    world.spatial.rebuild(collidableEntities);
-
     for (const entity of collidableEntities) {
       if (entity.collisionMode !== "dynamic") {
         continue;

@@ -3,6 +3,7 @@ import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ProjectileSnapshot } from "@shared/net/snapshots.ts";
 
 export type ProjectileSpawnConfig = {
   ownerId: number;
@@ -14,7 +15,6 @@ export type ProjectileSpawnConfig = {
   range: number;
   rotation?: number;
   radius?: number;
-  damage?: number;
   hitEffects?: readonly Effect[];
 };
 
@@ -23,10 +23,10 @@ export type ProjectileSpawnConfig = {
  * Projectiles own their post-move lifetime and hit resolution; ProjectileSystem only iterates them.
  */
 export abstract class Projectile extends Entity {
-  previousX: number;
-  previousY: number;
-  readonly speed: number;
-  remainingRange: number;
+  public previousX: number;
+  public previousY: number;
+  public readonly speed: number;
+  public remainingRange: number;
   protected readonly directionX: number;
   protected readonly directionY: number;
 
@@ -58,7 +58,7 @@ export abstract class Projectile extends Entity {
     );
   }
 
-  override tick(world: World): void {
+  public override tick(world: World): void {
     this.previousX = this.x;
     this.previousY = this.y;
     super.tick(world);
@@ -68,7 +68,7 @@ export abstract class Projectile extends Entity {
     );
   }
 
-  override getCombatInstigator(world: World): CombatEntity | null {
+  public override getCombatInstigator(world: World): CombatEntity | null {
     if (this.ownerId === undefined) {
       return null;
     }
@@ -81,7 +81,7 @@ export abstract class Projectile extends Entity {
    * @param world World holding authoritative entities and combat state.
    * @returns True when the projectile should be despawned.
    */
-  resolvePostStep(world: World): boolean {
+  public resolvePostStep(world: World): boolean {
     const instigator = this.getCombatInstigator(world);
     if (!instigator) {
       return true;
@@ -110,6 +110,21 @@ export abstract class Projectile extends Entity {
   }
 
   protected abstract applyImpact(world: World, target: CombatEntity): void;
+
+  public override afterMovement(world: World): void {
+    if (this.resolvePostStep(world)) {
+      this.alive = false;
+      world.despawn(this.id);
+    }
+  }
+
+  public override toSnapshot(): ProjectileSnapshot {
+    const snapshot = super.toSnapshot();
+    return {
+      ...snapshot,
+      kind: "projectile",
+    };
+  }
 
   private resolveImpactTarget(world: World): CombatEntity | null {
     const minX = Math.min(this.previousX, this.x) - this.radius;

@@ -1,6 +1,8 @@
 import type { Entity } from "@server/entities/Entity.ts";
 
-type EntityInstanceCtor<T extends Entity> = abstract new (...args: any[]) => T;
+type EntityInstanceCtor<T extends Entity> = abstract new (
+  ...args: never[]
+) => T;
 
 /**
  * Indexes entities by id for fast lookup and instance-based queries.

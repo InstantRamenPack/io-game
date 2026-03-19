@@ -9,11 +9,10 @@ export abstract class ResourceItem extends Item {
     super(id, typeId);
   }
 
-  override clone(): this {
+  public override clone(): this {
     const Ctor = this.constructor as new (id: number) => this;
     const cloned = new Ctor(this.id);
     cloned.ownerId = this.ownerId;
-    cloned.data = { ...this.data };
     return cloned;
   }
 }

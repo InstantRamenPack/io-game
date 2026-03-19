@@ -10,7 +10,7 @@ export class AntiCheatValidator {
   /**
    * Validates and normalizes one input command payload.
    * @param inputCommand Input payload received from the client.
-   * @param _playerEntity Player entity associated with the payload.
+   * @param playerEntity Player entity associated with the payload.
    * @param world
    * @returns True when the command is acceptable.
    */
@@ -21,6 +21,7 @@ export class AntiCheatValidator {
   ): boolean {
     this.clampMove(inputCommand);
     this.clampAttack(inputCommand, world);
+    this.clampBuild(inputCommand, world);
     this.clampSelectSlot(inputCommand, playerEntity);
 
     return !(
@@ -84,5 +85,23 @@ export class AntiCheatValidator {
       inputCommand.selectSlot = undefined;
       return;
     }
+  }
+
+  private clampBuild(inputCommand: InputCommand, world: World): void {
+    if (!inputCommand.build) {
+      return;
+    }
+
+    const { x, y } = inputCommand.build;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      inputCommand.build = undefined;
+      return;
+    }
+
+    inputCommand.build = {
+      ...inputCommand.build,
+      x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
+      y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
+    };
   }
 }

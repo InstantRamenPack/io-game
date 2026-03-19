@@ -1,4 +1,4 @@
-import { Weapon } from "./Weapon.ts";
+import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -8,26 +8,30 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
  * Melee weapon that hits nearby targets.
  */
 export class MeleeWeapon extends Weapon {
-  meleeRange: number;
+  public meleeRange: number;
 
-  constructor(
+  public constructor(
     id: number,
     typeId: ResourceId,
-    damage: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
     meleeRange: number,
   ) {
-    super(id, typeId, damage, fireRate, range, hitEffects);
+    super(id, typeId, fireRate, range, hitEffects);
     this.meleeRange = meleeRange;
   }
 
-  override fire(world: World, owner: Entity, aimX: number, aimY: number): void {
+  public override fire(
+    world: World,
+    owner: Entity,
+    aimX: number,
+    aimY: number,
+  ): void {
     this.tryAttackAtPoint(world, owner, aimX, aimY);
   }
 
-  tryAttackAtPoint(
+  public tryAttackAtPoint(
     world: World,
     owner: Entity,
     aimX: number,
@@ -45,7 +49,7 @@ export class MeleeWeapon extends Weapon {
     return this.tryAttackEntity(world, owner, target);
   }
 
-  tryAttackEntity(world: World, owner: Entity, target: Entity): boolean {
+  public tryAttackEntity(world: World, owner: Entity, target: Entity): boolean {
     if (!this.canFire()) {
       return false;
     }
@@ -61,13 +65,13 @@ export class MeleeWeapon extends Weapon {
     return true;
   }
 
-  hit(world: World, owner: Entity, target: Entity): void {
+  public hit(world: World, owner: Entity, target: Entity): void {
     for (const effect of this.hitEffects) {
       effect.apply(world, owner, target);
     }
   }
 
-  isTargetInRange(owner: Entity, target: Entity): boolean {
+  public isTargetInRange(owner: Entity, target: Entity): boolean {
     const distance = Math.hypot(target.x - owner.x, target.y - owner.y);
     return distance <= owner.radius + target.radius + this.meleeRange;
   }

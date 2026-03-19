@@ -1,61 +1,93 @@
 /**
  * Fixed-slot inventory for ItemStacks.
  */
-import { ItemStack } from "./ItemStack.ts";
+import { requireItemDefinition } from "@shared/content/index.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ItemRequirement } from "@shared/content/types.ts";
+import type { ItemStackSnapshot } from "@shared/net/snapshots.ts";
+import { ItemStack } from "@server/items/ItemStack.ts";
+
+function shallowMetaEquals(
+  leftMeta: Record<string, unknown> | undefined,
+  rightMeta: Record<string, unknown> | undefined,
+): boolean {
+  if (leftMeta === rightMeta) {
+    return true;
+  }
+  if (!leftMeta || !rightMeta) {
+    return false;
+  }
+
+  const leftEntries = Object.entries(leftMeta);
+  const rightEntries = Object.entries(rightMeta);
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  for (const [key, value] of leftEntries) {
+    if (rightMeta[key] !== value) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export class Inventory {
-  slots: Array<ItemStack | null>;
-  activeIndex: number;
+  public slots: Array<ItemStack | null>;
+  public activeIndex: number;
 
-  constructor(slotCount: number) {
+  public constructor(slotCount: number) {
     this.slots = new Array(slotCount).fill(null);
     this.activeIndex = 0;
   }
 
   /** Adds a stack; returns true if fully added. */
-  add(stack: ItemStack, itemRegistry?: any): boolean {
-    // try merging into existing slots first
-    for (let i = 0; i < this.slots.length && stack.stackSize > 0; i++) {
-      const s = this.slots[i];
-      if (s && s.item.id === stack.item.id) {
-        // if a registry is provided we could enforce stack limits, else just merge all
-        let space = Infinity;
-        if (itemRegistry) {
-          try {
-            const entry = itemRegistry.get(stack.item.id);
-            if (entry && typeof entry.stackMax === "number") {
-              space = entry.stackMax - s.stackSize;
-            }
-          } catch {
-            space = Infinity;
-          }
-        }
-        const toTransfer = Math.min(space, stack.stackSize);
-        if (toTransfer > 0) {
-          s.stackSize += toTransfer;
-          stack.stackSize -= toTransfer;
-        }
+  public add(stack: ItemStack): boolean {
+    const definition = requireItemDefinition(stack.item.typeId);
+    let remaining = stack.stackSize;
+
+    for (let i = 0; i < this.slots.length && remaining > 0; i += 1) {
+      const slot = this.slots[i];
+      if (
+        !slot ||
+        slot.item.typeId !== stack.item.typeId ||
+        definition.stackMax <= 1 ||
+        !shallowMetaEquals(slot.meta, stack.meta)
+      ) {
+        continue;
       }
+
+      const space = Math.max(0, definition.stackMax - slot.stackSize);
+      const transfer = Math.min(space, remaining);
+      if (transfer <= 0) {
+        continue;
+      }
+      slot.stackSize += transfer;
+      remaining -= transfer;
     }
 
-    // put remaining into empty slots
-    for (let i = 0; i < this.slots.length && stack.stackSize > 0; i++) {
-      if (this.slots[i] === null) {
-        this.slots[i] = new ItemStack(
-          stack.item.clone(),
-          stack.stackSize,
-          stack.meta,
-        );
-        stack.stackSize = 0;
+    while (remaining > 0) {
+      const slotIndex = this.slots.findIndex((slot) => slot === null);
+      if (slotIndex < 0) {
         break;
       }
+
+      const nextStackSize = Math.min(definition.stackMax, remaining);
+      this.slots[slotIndex] = new ItemStack(
+        stack.item.clone(),
+        nextStackSize,
+        stack.meta ? { ...stack.meta } : undefined,
+      );
+      remaining -= nextStackSize;
     }
 
-    return stack.stackSize === 0;
+    stack.stackSize = remaining;
+    return remaining === 0;
   }
 
   /** Removes up to amount from slot; returns removed stack or null. */
-  remove(slot: number, amount?: number): ItemStack | null {
+  public remove(slot: number, amount?: number): ItemStack | null {
     if (slot < 0 || slot >= this.slots.length) return null;
     const s = this.slots[slot];
     if (!s) return null;
@@ -76,7 +108,7 @@ export class Inventory {
   }
 
   /** @returns Active slot stack. */
-  getActive(): ItemStack | null {
+  public getActive(): ItemStack | null {
     if (this.activeIndex < 0 || this.activeIndex >= this.slots.length)
       return null;
     // non-undefined assertion after bounds check
@@ -84,52 +116,69 @@ export class Inventory {
   }
 
   /** Sets active slot index. */
-  setActive(i: number): void {
+  public setActive(i: number): void {
     if (i < 0 || i >= this.slots.length) return;
     this.activeIndex = i;
   }
 
-  /** @returns True if inventory contains required items. */
-  hasItems(req: { itemId: string; amount: number }[]): boolean {
-    const counts: Record<string, number> = {};
+  public canAdd(stack: ItemStack): boolean {
+    const simulatedInventory = new Inventory(this.slots.length);
+    simulatedInventory.activeIndex = this.activeIndex;
+    simulatedInventory.slots = this.slots.map((slot) =>
+      slot ? slot.clone() : null,
+    );
+    return simulatedInventory.add(stack.clone());
+  }
+
+  public countType(typeId: ResourceId): number {
+    let count = 0;
     for (const slot of this.slots) {
-      if (slot) {
-        counts[slot.item.id.toString()] =
-          (counts[slot.item.id.toString()] || 0) + slot.stackSize;
+      if (slot?.item.typeId === typeId) {
+        count += slot.stackSize;
       }
     }
-    for (const r of req) {
-      if ((counts[r.itemId] || 0) < r.amount) return false;
+    return count;
+  }
+
+  /** @returns True if inventory contains required items. */
+  public hasTypes(requirements: ItemRequirement[]): boolean {
+    for (const requirement of requirements) {
+      if (this.countType(requirement.typeId) < requirement.amount) {
+        return false;
+      }
     }
     return true;
   }
 
   /** Consumes required items if available. */
-  consume(req: { itemId: string; amount: number }[]): boolean {
-    if (!this.hasItems(req)) return false;
-    for (const r of req) {
-      let remaining = r.amount;
-      for (let i = 0; i < this.slots.length && remaining > 0; i++) {
+  public consumeTypes(requirements: ItemRequirement[]): boolean {
+    if (!this.hasTypes(requirements)) {
+      return false;
+    }
+
+    for (const requirement of requirements) {
+      let remaining = requirement.amount;
+      for (let i = 0; i < this.slots.length && remaining > 0; i += 1) {
         const slot = this.slots[i];
-        if (slot && slot.item.id.toString() === r.itemId) {
-          if (slot.stackSize <= remaining) {
-            remaining -= slot.stackSize;
-            this.slots[i] = null;
-          } else {
-            slot.stackSize -= remaining;
-            remaining = 0;
-          }
+        if (!slot || slot.item.typeId !== requirement.typeId) {
+          continue;
+        }
+
+        if (slot.stackSize <= remaining) {
+          remaining -= slot.stackSize;
+          this.slots[i] = null;
+        } else {
+          slot.stackSize -= remaining;
+          remaining = 0;
         }
       }
     }
+
     return true;
   }
 
   /** Serializes the inventory into an array of item stack snapshots. */
-  toSnapshot(): (
-    | import("@shared/net/snapshots.ts").ItemStackSnapshot
-    | null
-  )[] {
+  public toSnapshot(): (ItemStackSnapshot | null)[] {
     return this.slots.map((s) => (s ? s.toSnapshot() : null));
   }
 }

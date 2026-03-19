@@ -5,13 +5,12 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
  * Starter firearm that fires single-hit bullets.
  */
 export class BasicGun extends RangedWeapon {
-  static readonly typeId = "item:basic_gun" as const;
+  public static readonly typeId = "item:basic_gun" as const;
 
-  constructor(id: number) {
+  public constructor(id: number) {
     super(
       id,
       BasicGun.typeId,
-      12,
       4,
       700,
       [new DamageEffect(12)],
@@ -24,11 +23,10 @@ export class BasicGun extends RangedWeapon {
     );
   }
 
-  override clone(): BasicGun {
+  public override clone(): BasicGun {
     const cloned = new BasicGun(this.id);
     cloned.ownerId = this.ownerId;
-    cloned.data = { ...this.data };
-    cloned.ammoInMag = this.ammoInMag;
+    this.copyRuntimeStateTo(cloned);
     return cloned;
   }
 }

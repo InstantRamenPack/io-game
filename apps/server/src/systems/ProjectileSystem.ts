@@ -1,4 +1,4 @@
-import { Projectile } from "@server/entities/projectiles/Projectile.ts";
+import { Projectile } from "@server/entities/Projectile.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 

@@ -1,4 +1,4 @@
-import { Weapon } from "./Weapon.ts";
+import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -6,28 +6,27 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   projectileTypeRegistry,
   type RegistrableProjectileCtor,
-} from "@server/registry/bootstrap.ts";
-import type { ProjectileSpawnConfig } from "@server/entities/projectiles/Projectile.ts";
+} from "@server/registry/registries.ts";
+import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
 
 /**
  * Ranged weapon that fires projectiles.
  */
 export class RangedWeapon extends Weapon {
-  projectileTypeId: ResourceId;
-  projectileSpeed: number;
-  projectileRadius: number;
-  ammoInMag: number;
-  magSize: number;
-  reloadTicks: number;
-  spread: number; // radians
+  public projectileTypeId: ResourceId;
+  public projectileSpeed: number;
+  public projectileRadius: number;
+  public ammoInMag: number;
+  public magSize: number;
+  public reloadTicks: number;
+  public spread: number;
 
   /** Reload timer in fixed ticks. */
-  private reloadTicksRemaining = 0;
+  protected reloadTicksRemaining = 0;
 
-  constructor(
+  public constructor(
     id: number,
     typeId: ResourceId,
-    damage: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
@@ -38,7 +37,7 @@ export class RangedWeapon extends Weapon {
     reloadTicks: number,
     spread: number = 0,
   ) {
-    super(id, typeId, damage, fireRate, range, hitEffects);
+    super(id, typeId, fireRate, range, hitEffects);
     this.projectileTypeId = projectileTypeId;
     this.projectileSpeed = projectileSpeed;
     this.projectileRadius = projectileRadius;
@@ -46,11 +45,10 @@ export class RangedWeapon extends Weapon {
     this.reloadTicks = reloadTicks;
     this.spread = spread;
     this.ammoInMag = magSize;
-    this.syncRuntimeData();
   }
 
   /** Advances cooldown and reload timers by one fixed tick. */
-  override tick(_world: World): void {
+  public override tick(_world: World): void {
     super.tick(_world);
     if (this.reloadTicksRemaining > 0) {
       this.reloadTicksRemaining -= 1;
@@ -58,17 +56,21 @@ export class RangedWeapon extends Weapon {
         this.ammoInMag = this.magSize;
       }
     }
-    this.syncRuntimeData();
   }
 
   /** @returns True if weapon can fire now (has ammo, not reloading, cooldown ready). */
-  override canFire(): boolean {
+  public override canFire(): boolean {
     return (
       super.canFire() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0
     );
   }
 
-  override fire(world: World, owner: Entity, aimX: number, aimY: number): void {
+  public override fire(
+    world: World,
+    owner: Entity,
+    aimX: number,
+    aimY: number,
+  ): void {
     if (!this.canFire()) {
       return;
     }
@@ -99,7 +101,6 @@ export class RangedWeapon extends Weapon {
       range: this.range,
       rotation: angle,
       radius: this.projectileRadius,
-      damage: this.damage,
       hitEffects: this.hitEffects,
     };
     const ProjectileCtor: RegistrableProjectileCtor =
@@ -112,16 +113,22 @@ export class RangedWeapon extends Weapon {
     if (this.ammoInMag <= 0) {
       this.reloadTicksRemaining = this.reloadTicks;
     }
-
-    this.syncRuntimeData();
   }
 
-  protected syncRuntimeData(): void {
-    this.data = {
-      ...this.data,
+  public getAmmoSnapshot(): {
+    ammoInMag: number;
+    magSize: number;
+    reloadTicksRemaining: number;
+  } {
+    return {
       ammoInMag: this.ammoInMag,
       magSize: this.magSize,
       reloadTicksRemaining: this.reloadTicksRemaining,
     };
+  }
+
+  protected copyRuntimeStateTo(target: RangedWeapon): void {
+    target.ammoInMag = this.ammoInMag;
+    target.reloadTicksRemaining = this.reloadTicksRemaining;
   }
 }

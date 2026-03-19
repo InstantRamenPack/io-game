@@ -1,4 +1,4 @@
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -17,7 +17,9 @@ export class SnapshotManager {
 
     return {
       tick: world.tick,
-      entities: world.entities.all().map((entity) => entity.toSnapshot()),
+      entities: world.entities
+        .all()
+        .map((entity) => entity.toSnapshot() as EntitySnapshot),
       events: drainedEvents,
     };
   }
