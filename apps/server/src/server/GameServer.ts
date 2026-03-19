@@ -1,5 +1,4 @@
-import { GameConfig } from "@shared/config/GameConfig.ts";
-import { IdGenerator } from "@shared/math/IdGenerator.ts";
+import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
   type HelloMessage,
   type InputCommand,
@@ -11,27 +10,21 @@ import {
 } from "@shared/net/protocol.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
-import { WsServer } from "@server/net/WsServer.ts";
-import {
-  Building,
-  CraftingStation,
-  Tower,
-  Wall,
-  Windmill,
-} from "@server/entities/Building.ts";
+import type { WsServer } from "@server/net/WsServer.ts";
+import type { Building } from "@server/entities/Building.ts";
+import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { Tower } from "@server/entities/buildings/Tower.ts";
+import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { ItemStack } from "@server/items/ItemStack.ts";
 import { TickClock } from "@server/server/TickClock.ts";
-import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
-import { GoalSystem } from "@server/systems/GoalSystem.ts";
-import { ProjectileSystem } from "@server/systems/ProjectileSystem.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
-import type { System } from "@server/systems/System.ts";
-import { AuthService } from "@server/services/AuthService.ts";
+import type { AuthService } from "@server/services/AuthService.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
 /**
@@ -39,17 +32,14 @@ import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
  * This class coordinates the world, networking layer, and tick loop.
  */
 export class GameServer {
-  world: World;
-  systems: System[] = [];
-  networkServer: WsServer;
-  snapshotManager: SnapshotManager;
-  antiCheatValidator: AntiCheatValidator;
-  preStepSystems: System[] = [];
+  public world: World;
+  public networkServer: WsServer;
+  public snapshotManager: SnapshotManager;
+  public antiCheatValidator: AntiCheatValidator;
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
   private readonly authService: AuthService;
-  private readonly itemIdGenerator = new IdGenerator();
   private readonly playerIdByClientId = new Map<string, number>();
   private readonly clientsWithCompletedHello = new Set<string>();
   private readonly clientsWithPendingHello = new Set<string>();
@@ -77,8 +67,6 @@ export class GameServer {
     this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
-    this.preStepSystems = [new GoalSystem()];
-    this.systems = [new CollisionSystem(), new ProjectileSystem()];
 
     this.networkServer.onClose((clientId) => {
       this.onDisconnect(clientId);
@@ -115,24 +103,7 @@ export class GameServer {
    * Processes one fixed server tick and broadcasts a snapshot after it completes.
    */
   tick(): void {
-    const simulationTick = this.world.tick + 1;
-
-    for (const [, playerId] of this.playerIdByClientId) {
-      const player = this.world.get<Player>(playerId);
-      if (player) {
-        player.applyInputForTick(this.world, simulationTick);
-      }
-    }
-
-    for (const system of this.preStepSystems) {
-      system.update(this.world);
-    }
-
     this.world.step();
-
-    for (const system of this.systems) {
-      system.update(this.world);
-    }
 
     const snapshot = this.snapshotManager.makeSnapshot(this.world);
     const snapshotMessage: ServerToClientMessage = {
@@ -183,22 +154,6 @@ export class GameServer {
     player.enqueueInput(inputCommand);
     this.lastInputSequenceByClientId.set(clientId, inputCommand.seq);
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
-
-    if (inputCommand.selectSlot !== undefined) {
-      player.inventory?.setActive(inputCommand.selectSlot);
-    }
-
-    if (inputCommand.attack) {
-      const activeWeapon = player.getActiveWeapon();
-      if (activeWeapon) {
-        activeWeapon.fire(
-          this.world,
-          player,
-          inputCommand.attack.x,
-          inputCommand.attack.y,
-        );
-      }
-    }
   }
 
   /**
@@ -224,16 +179,16 @@ export class GameServer {
     playerEntity.y = this.gameConfig.worldSize.h / 2;
     if (playerEntity.inventory) {
       playerEntity.inventory.slots[0] = new ItemStack(
-        new BasicSword(this.itemIdGenerator.alloc()),
+        new BasicSword(this.world.allocItemId()),
         1,
       );
       playerEntity.inventory.slots[1] = new ItemStack(
-        new BasicGun(this.itemIdGenerator.alloc()),
+        new BasicGun(this.world.allocItemId()),
         1,
       );
       playerEntity.inventory.activeIndex = 1;
     }
-    playerEntity.seedStarterInventory(() => this.itemIdGenerator.alloc());
+    playerEntity.seedStarterInventory(() => this.world.allocItemId());
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
@@ -284,7 +239,7 @@ export class GameServer {
 
     for (const zombiePosition of zombiePositions) {
       const zombie = new Zombie(this.world.allocEntityId());
-      zombie.meleeWeapon = new ZombieSword(this.itemIdGenerator.alloc());
+      zombie.meleeWeapon = new ZombieSword(this.world.allocItemId());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);

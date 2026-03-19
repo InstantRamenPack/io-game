@@ -1,58 +1,29 @@
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { TypeRegistry } from "@shared/registry/TypeRegistry.ts";
-import {
-  CraftingStation,
-  Tower,
-  Wall,
-  Windmill,
-} from "@server/entities/Building.ts";
-import type { Entity } from "@server/entities/Entity.ts";
+import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { Tower } from "@server/entities/buildings/Tower.ts";
+import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
-import type {
-  Projectile,
-  ProjectileSpawnConfig,
-} from "@server/entities/projectiles/Projectile.ts";
-import type { Item } from "@server/items/Item.ts";
-import {
-  FoodItem,
-  StoneItem,
-  WoodItem,
-} from "@server/items/resources/Materials.ts";
-import {
-  CraftingStationItem,
-  TowerItem,
-  WallItem,
-  WindmillItem,
-} from "@server/items/resources/StructureItems.ts";
+import { FoodItem } from "@server/items/resources/materials/FoodItem.ts";
+import { StoneItem } from "@server/items/resources/materials/StoneItem.ts";
+import { WoodItem } from "@server/items/resources/materials/WoodItem.ts";
+import { CraftingStationItem } from "@server/items/resources/structures/CraftingStationItem.ts";
+import { TowerItem } from "@server/items/resources/structures/TowerItem.ts";
+import { WallItem } from "@server/items/resources/structures/WallItem.ts";
+import { WindmillItem } from "@server/items/resources/structures/WindmillItem.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
-
-export type EntityCtor<T extends Entity = Entity> = new (...args: any[]) => T;
-export type ItemCtor<T extends Item = Item> = new (...args: any[]) => T;
-export type ProjectileCtor<T extends Projectile = Projectile> = new (
-  id: number,
-  config: ProjectileSpawnConfig,
-) => T;
-// enforce constructors to contain a ResourceId
-export type RegistrableEntityCtor<T extends Entity = Entity> = EntityCtor<T> & {
-  readonly typeId: ResourceId;
-};
-export type RegistrableItemCtor<T extends Item = Item> = ItemCtor<T> & {
-  readonly typeId: ResourceId;
-};
-export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
-  ProjectileCtor<T> & {
-    readonly typeId: ResourceId;
-  };
-
-export const entityTypeRegistry = new TypeRegistry<RegistrableEntityCtor>();
-export const itemTypeRegistry = new TypeRegistry<RegistrableItemCtor>();
-export const projectileTypeRegistry =
-  new TypeRegistry<RegistrableProjectileCtor>();
+import {
+  entityTypeRegistry,
+  itemTypeRegistry,
+  projectileTypeRegistry,
+  type RegistrableEntityCtor,
+  type RegistrableItemCtor,
+  type RegistrableProjectileCtor,
+} from "@server/registry/registries.ts";
 
 let registriesBootstrapped = false;
 
@@ -83,6 +54,7 @@ export function bootstrapTypeRegistries(): void {
   registerItemType(WindmillItem);
   registerItemType(CraftingStationItem);
   registerItemType(ZombieSword);
+
   registerProjectileType(BasicBullet);
 
   entityTypeRegistry.freeze();

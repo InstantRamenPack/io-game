@@ -23,6 +23,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  testMatch: "**/*.e2e.ts",
   outputDir: "output/playwright/test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

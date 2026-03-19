@@ -1,7 +1,8 @@
+import { requireEntityDefinition } from "@shared/content/index.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { EntitySnapshot } from "@shared/net/snapshots.ts";
+import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
-import { Inventory } from "@server/items/Inventory.ts";
+import type { Inventory } from "@server/items/Inventory.ts";
 
 export type CollisionMode = "none" | "dynamic" | "static";
 
@@ -10,26 +11,26 @@ export type CollisionMode = "none" | "dynamic" | "static";
  * All server-side runtime entities inherit transform and snapshot behavior from here.
  */
 export abstract class Entity {
-  id: number;
-  readonly typeId: ResourceId;
-  x = 0;
-  y = 0;
-  vx = 0;
-  vy = 0;
-  rotation = 0;
+  public id: number;
+  public readonly typeId: ResourceId;
+  public x = 0;
+  public y = 0;
+  public vx = 0;
+  public vy = 0;
+  public rotation = 0;
   /** Half-size of the square hitbox; radius 12 means a 24x24 box. */
-  radius = 12;
-  collisionMode: CollisionMode = "none";
-  alive = true;
+  public radius = 12;
+  public collisionMode: CollisionMode = "none";
+  public alive = true;
   protected moveVx = 0;
   protected moveVy = 0;
   protected impulseVx = 0;
   protected impulseVy = 0;
-  hp?: number;
-  maxHp?: number;
-  teamId?: number;
-  ownerId?: number;
-  inventory?: Inventory;
+  public hp?: number;
+  public maxHp?: number;
+  public teamId?: number;
+  public ownerId?: number;
+  public inventory?: Inventory;
 
   /**
    * Initializes common identity fields for entity subclasses.
@@ -49,7 +50,7 @@ export abstract class Entity {
    * Per-tick extension point for subclass-specific behavior.
    * @param _world World being simulated.
    */
-  tick(_world: World): void {
+  public tick(_world: World): void {
     this.impulseVx *= 0.85;
     this.impulseVy *= 0.85;
     if (Math.abs(this.impulseVx) < 1) {
@@ -65,9 +66,10 @@ export abstract class Entity {
    * Converts runtime entity state into the replicated snapshot shape.
    * @returns Serialized snapshot record for this entity.
    */
-  toSnapshot(): EntitySnapshot {
-    const snap: EntitySnapshot = {
+  public toSnapshot(): EntitySnapshotBase {
+    return {
       id: this.id,
+      kind: requireEntityDefinition(this.typeId).kind,
       typeId: this.typeId,
       x: this.x,
       y: this.y,
@@ -77,21 +79,6 @@ export abstract class Entity {
       radius: this.radius,
       ownerId: this.ownerId,
     };
-
-    if (this.hp !== undefined) {
-      snap.hp = this.hp;
-    }
-    if (this.maxHp !== undefined) {
-      snap.maxHp = this.maxHp;
-    }
-
-    // include inventory if present (Player used to do this itself)
-    if (this.inventory) {
-      snap.inventory = this.inventory.toSnapshot();
-      snap.activeSlot = this.inventory.activeIndex;
-    }
-
-    return snap;
   }
 
   /**
@@ -99,7 +86,7 @@ export abstract class Entity {
    * @param impulseX X-axis impulse delta applied each tick until it decays.
    * @param impulseY Y-axis impulse delta applied each tick until it decays.
    */
-  applyImpulse(impulseX: number, impulseY: number): void {
+  public applyImpulse(impulseX: number, impulseY: number): void {
     this.impulseVx += impulseX;
     this.impulseVy += impulseY;
     this.syncVelocity();
@@ -110,7 +97,7 @@ export abstract class Entity {
    * @param velocityX Movement X delta applied each simulation tick.
    * @param velocityY Movement Y delta applied each simulation tick.
    */
-  setMovementVelocity(velocityX: number, velocityY: number): void {
+  public setMovementVelocity(velocityX: number, velocityY: number): void {
     this.moveVx = velocityX;
     this.moveVy = velocityY;
     this.syncVelocity();
@@ -119,7 +106,7 @@ export abstract class Entity {
   /**
    * Clears both movement and impulse velocity components.
    */
-  resetVelocity(): void {
+  public resetVelocity(): void {
     this.moveVx = 0;
     this.moveVy = 0;
     this.impulseVx = 0;
@@ -138,7 +125,7 @@ export abstract class Entity {
    * @param pointY World-space Y coordinate.
    * @returns True when the point is inside the current hitbox bounds.
    */
-  containsPoint(pointX: number, pointY: number): boolean {
+  public containsPoint(pointX: number, pointY: number): boolean {
     return (
       pointX >= this.x - this.radius &&
       pointX <= this.x + this.radius &&
@@ -153,7 +140,11 @@ export abstract class Entity {
    * @param _world World used to resolve related runtime state.
    * @returns Entity that should be credited for combat rules and events.
    */
-  getCombatInstigator(_world: World): Entity | null {
+  public getCombatInstigator(_world: World): Entity | null {
     return this;
+  }
+
+  public afterMovement(_world: World): void {
+    // default no-op for entities without post-move behavior
   }
 }

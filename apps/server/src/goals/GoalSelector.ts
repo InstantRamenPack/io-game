@@ -1,6 +1,5 @@
 import type { GoalContext } from "@server/goals/GoalContext.ts";
-import type { GoalControl } from "@server/goals/Goal.ts";
-import { Goal } from "@server/goals/Goal.ts";
+import type { Goal, GoalControl } from "@server/goals/Goal.ts";
 
 /**
  * Selects and runs the best compatible goal set for one enemy each tick.

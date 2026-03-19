@@ -4,36 +4,23 @@ type WorldSize = { w: number; h: number };
 
 /**
  * Rendering adapter for visible entity state.
- * Owns the Pixi scene lifecycle and keeps authoritative entity state in sync.
+ * Owns the Pixi scene lifecycle while client entities manage their own Pixi
+ * objects through the shared `entityContainer`.
  */
-
 export class PixiRenderer {
   private app: PIXI.Application<HTMLCanvasElement> | null = null;
-  // World container should store everything because transformations applied to it create illusion of following the player
   private world: PIXI.Container | null = null;
   private grid: PIXI.Graphics | null = null;
+  public entityContainer: PIXI.Container | null = null;
   private damageOverlay: PIXI.Graphics | null = null;
   private damageOverlayRemainingMs = 0;
   private damageOverlayDurationMs = 200;
   private gridCellSize = 100;
   private worldSize: WorldSize;
-
-  constructor(worldSize: WorldSize) {
-    this.worldSize = worldSize;
-  }
-
-  /*
-  entity container should store all entities for easy of rendering and stuff
-  */
+  private hostElement: HTMLElement | null = null;
 
   public playerEntityId?: number;
 
-  public setPlayerEntityId(entityId: number | undefined): void {
-    this.playerEntityId = entityId;
-  }
-
-  public entityContainer: PIXI.Container | null = null;
-  private hostElement: HTMLElement | null = null;
   private readonly handleResize = (): void => {
     if (!this.app) {
       return;
@@ -41,51 +28,49 @@ export class PixiRenderer {
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.drawDamageOverlay();
     this.renderScene();
-    // Manually render after resize to sync with our game loop
     this.app.renderer.render(this.app.stage);
   };
 
-  /**
-   * Attaches the Pixi application to the given host element.
-   * @param hostElement DOM element that should contain the game canvas.
-   * @param worldSize World bounds used to scale entity positions.
-   *
-   */
+  public constructor(worldSize: WorldSize) {
+    this.worldSize = worldSize;
+  }
 
-  async init(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
+  public setPlayerEntityId(entityId: number | undefined): void {
+    this.playerEntityId = entityId;
+  }
+
+  public async init(
+    hostElement: HTMLElement,
+    worldSize: WorldSize,
+  ): Promise<void> {
     await this.attach(hostElement, worldSize);
 
     if (!this.app) {
       throw new Error("Pixi App not created");
     }
 
-    window.app = this.app; // Expose Pixi app for debugging
-
-    //load textures here
-
+    window.app = this.app;
     await this.loadPixiTextures();
-
-    // create world hierarchy
 
     if (!this.world) {
       this.world = new PIXI.Container();
     }
-
     this.ensureGrid();
     this.app.stage.addChild(this.world);
 
     if (!this.entityContainer) {
       this.entityContainer = new PIXI.Container();
     }
-
     this.world.addChild(this.entityContainer);
-    this.ensureDamageOverlay();
 
-    // initial render to populate the scene
+    this.ensureDamageOverlay();
     this.renderScene();
   }
 
-  async attach(hostElement: HTMLElement, worldSize: WorldSize): Promise<void> {
+  public async attach(
+    hostElement: HTMLElement,
+    worldSize: WorldSize,
+  ): Promise<void> {
     this.hostElement = hostElement;
     this.worldSize = { ...worldSize };
 
@@ -94,7 +79,7 @@ export class PixiRenderer {
         resizeTo: window,
         backgroundColor: 0xd7f3d2,
         antialias: true,
-        autoStart: false, // Disable Pixi's automatic ticker
+        autoStart: false,
       });
       window.addEventListener("resize", this.handleResize);
     }
@@ -103,15 +88,11 @@ export class PixiRenderer {
     this.hostElement.appendChild(this.app.view as HTMLCanvasElement);
   }
 
-  async loadPixiTextures(): Promise<void> {
-    //empty rn
+  public async loadPixiTextures(): Promise<void> {
+    // placeholder for future sprite loading
   }
 
-  /**
-   * Updates the world size used when projecting world coordinates to screen.
-   * @param worldSize Current runtime world size.
-   */
-  setWorldSize(worldSize: WorldSize): void {
+  public setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
     this.drawGrid();
     if (this.app) {
@@ -119,12 +100,8 @@ export class PixiRenderer {
     }
   }
 
-  /**
-   * Advances render internals for one frame.
-   * @param _deltaMs Frame delta in milliseconds.
-   */
-  update(_deltaMs: number): void {
-    this.updateDamageOverlay(_deltaMs);
+  public update(deltaMs: number): void {
+    this.updateDamageOverlay(deltaMs);
     this.renderScene();
   }
 
@@ -142,13 +119,10 @@ export class PixiRenderer {
     );
   }
 
-  /**
-   * Converts a pointer position in viewport coordinates into world coordinates.
-   * @param clientX Viewport X coordinate.
-   * @param clientY Viewport Y coordinate.
-   * @returns World-space point matching the current camera transform.
-   */
-  screenToWorld(clientX: number, clientY: number): { x: number; y: number } {
+  public screenToWorld(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
     if (!this.app || !this.world) {
       return { x: clientX, y: clientY };
     }
@@ -163,33 +137,20 @@ export class PixiRenderer {
     };
   }
 
-  /**
-   * Returns the mounted canvas element when the renderer is initialized.
-   * @returns Canvas view or null.
-   */
-  getView(): HTMLCanvasElement | null {
+  public getView(): HTMLCanvasElement | null {
     return this.app?.view ?? null;
   }
 
-  /**
-   * Triggers the full-screen red damage overlay for the local player.
-   * @param durationMs Fade duration in milliseconds.
-   */
-  triggerDamageOverlay(durationMs = 200): void {
+  public triggerDamageOverlay(durationMs = 200): void {
     this.damageOverlayDurationMs = Math.max(1, durationMs);
     this.damageOverlayRemainingMs = this.damageOverlayDurationMs;
     this.updateDamageOverlay(0);
   }
 
-  /**
-   * Draws the current scene state into the mounted Pixi application.
-   */
   private renderScene(): void {
-    // actually render the scene (runs every update tick)
     if (!this.app) {
       return;
     }
-
     this.app.renderer.render(this.app.stage);
   }
 
@@ -210,12 +171,12 @@ export class PixiRenderer {
     if (!this.grid) {
       return;
     }
+
     const { w, h } = this.worldSize;
     const cell = Math.max(10, Math.floor(this.gridCellSize));
 
     this.grid.clear();
     this.grid.lineStyle(1, 0x9fd69a, 0.4);
-
     this.grid.position.set(0, 0);
 
     for (let x = 0; x <= w; x += cell) {
@@ -237,7 +198,6 @@ export class PixiRenderer {
     if (!this.damageOverlay) {
       this.damageOverlay = new PIXI.Graphics();
     }
-
     if (this.damageOverlay.parent !== this.app.stage) {
       this.app.stage.addChild(this.damageOverlay);
     }
