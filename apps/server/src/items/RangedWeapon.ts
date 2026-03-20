@@ -58,28 +58,40 @@ export class RangedWeapon extends Weapon {
     }
   }
 
-  /** @returns True if weapon can fire now (has ammo, not reloading, cooldown ready). */
-  public override canFire(): boolean {
+  /** @returns True if weapon can hit now (has ammo, not reloading, cooldown ready). */
+  public override canHit(): boolean {
     return (
-      super.canFire() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0
+      super.canHit() && this.ammoInMag > 0 && this.reloadTicksRemaining <= 0
     );
   }
 
-  public override fire(
+  public override canHitTarget(
+    world: World,
+    owner: Entity,
+    target: Entity,
+  ): boolean {
+    return (
+      this.canHit() &&
+      world.combat.canAttackTarget(world, owner, target) &&
+      this.isTargetInRange(owner, target)
+    );
+  }
+
+  public override hit(
     world: World,
     owner: Entity,
     aimX: number,
     aimY: number,
-  ): void {
-    if (!this.canFire()) {
-      return;
+  ): boolean {
+    if (!this.canHit()) {
+      return false;
     }
 
     const deltaX = aimX - owner.x;
     const deltaY = aimY - owner.y;
     const aimDistance = Math.hypot(deltaX, deltaY);
     if (aimDistance <= 0) {
-      return;
+      return false;
     }
 
     const baseAngle = Math.atan2(deltaY, deltaX);
@@ -113,6 +125,8 @@ export class RangedWeapon extends Weapon {
     if (this.ammoInMag <= 0) {
       this.reloadTicksRemaining = this.reloadTicks;
     }
+
+    return true;
   }
 
   public getAmmoSnapshot(): {
@@ -130,5 +144,9 @@ export class RangedWeapon extends Weapon {
   protected copyRuntimeStateTo(target: RangedWeapon): void {
     target.ammoInMag = this.ammoInMag;
     target.reloadTicksRemaining = this.reloadTicksRemaining;
+  }
+
+  private isTargetInRange(owner: Entity, target: Entity): boolean {
+    return Math.hypot(target.x - owner.x, target.y - owner.y) <= this.range;
   }
 }

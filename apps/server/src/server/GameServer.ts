@@ -17,6 +17,7 @@ import { Tower } from "@server/entities/buildings/Tower.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
@@ -45,7 +46,7 @@ export class GameServer {
   private readonly clientsWithPendingHello = new Set<string>();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
-  private initialZombiesSpawned = false;
+  private initialEnemiesSpawned = false;
   private initialBuildingsSpawned = false;
 
   /**
@@ -81,9 +82,9 @@ export class GameServer {
    * Starts the fixed-tick server clock.
    */
   start(): void {
-    if (!this.initialZombiesSpawned) {
-      this.spawnInitialZombies();
-      this.initialZombiesSpawned = true;
+    if (!this.initialEnemiesSpawned) {
+      this.spawnInitialEnemies();
+      this.initialEnemiesSpawned = true;
     }
     if (!this.initialBuildingsSpawned) {
       this.spawnInitialBuildings();
@@ -215,9 +216,9 @@ export class GameServer {
   }
 
   /**
-   * Spawns the initial set of zombies at deterministic map locations.
+   * Spawns the initial set of enemies at deterministic map locations.
    */
-  private spawnInitialZombies(): void {
+  private spawnInitialEnemies(): void {
     const zombiePositions = [
       {
         x: this.gameConfig.worldSize.w * 0.25,
@@ -239,10 +240,29 @@ export class GameServer {
 
     for (const zombiePosition of zombiePositions) {
       const zombie = new Zombie(this.world.allocEntityId());
-      zombie.meleeWeapon = new ZombieSword(this.world.allocItemId());
+      zombie.weapons[0] = new ZombieSword(this.world.allocItemId());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);
+    }
+
+    const skeletonPositions = [
+      {
+        x: this.gameConfig.worldSize.w * 0.5,
+        y: this.gameConfig.worldSize.h * 0.2,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.5,
+        y: this.gameConfig.worldSize.h * 0.8,
+      },
+    ];
+
+    for (const skeletonPosition of skeletonPositions) {
+      const skeleton = new Skeleton(this.world.allocEntityId());
+      skeleton.weapons[0] = new BasicGun(this.world.allocItemId());
+      skeleton.x = skeletonPosition.x;
+      skeleton.y = skeletonPosition.y;
+      this.world.spawn(skeleton);
     }
   }
 

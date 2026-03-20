@@ -28,7 +28,7 @@ export class Zombie extends Enemy {
       goals: [
         new TargetEntityGoal(0),
         new GoToTargetGoal(1, arrivalRadius),
-        new AttackAtGoal(2),
+        new AttackAtGoal(2, 0),
       ],
     });
   }

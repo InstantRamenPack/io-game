@@ -22,13 +22,25 @@ export class MeleeWeapon extends Weapon {
     this.meleeRange = meleeRange;
   }
 
-  public override fire(
+  public override canHitTarget(
+    world: World,
+    owner: Entity,
+    target: Entity,
+  ): boolean {
+    return (
+      this.canHit() &&
+      world.combat.canAttackTarget(world, owner, target) &&
+      this.isTargetInRange(owner, target)
+    );
+  }
+
+  public override hit(
     world: World,
     owner: Entity,
     aimX: number,
     aimY: number,
-  ): void {
-    this.tryAttackAtPoint(world, owner, aimX, aimY);
+  ): boolean {
+    return this.tryAttackAtPoint(world, owner, aimX, aimY);
   }
 
   public tryAttackAtPoint(
@@ -37,7 +49,7 @@ export class MeleeWeapon extends Weapon {
     aimX: number,
     aimY: number,
   ): boolean {
-    if (!this.canFire()) {
+    if (!this.canHit()) {
       return false;
     }
 
@@ -50,22 +62,16 @@ export class MeleeWeapon extends Weapon {
   }
 
   public tryAttackEntity(world: World, owner: Entity, target: Entity): boolean {
-    if (!this.canFire()) {
-      return false;
-    }
-    if (
-      !world.combat.canAttackTarget(world, owner, target) ||
-      !this.isTargetInRange(owner, target)
-    ) {
+    if (!this.canHitTarget(world, owner, target)) {
       return false;
     }
 
-    this.hit(world, owner, target);
+    this.applyHitEffects(world, owner, target);
     this.resetCooldown(world.gameConfig.tickRate);
     return true;
   }
 
-  public hit(world: World, owner: Entity, target: Entity): void {
+  protected applyHitEffects(world: World, owner: Entity, target: Entity): void {
     for (const effect of this.hitEffects) {
       effect.apply(world, owner, target);
     }

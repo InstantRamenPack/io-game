@@ -118,7 +118,7 @@ export class Player extends Entity {
       }
 
       if (inputCommand.attack) {
-        this.getActiveWeapon()?.fire(
+        this.getActiveWeapon()?.hit(
           world,
           this,
           inputCommand.attack.x,
