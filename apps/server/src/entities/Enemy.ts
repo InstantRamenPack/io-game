@@ -2,7 +2,7 @@ import { Entity } from "@server/entities/Entity.ts";
 import { GoalContext } from "@server/goals/GoalContext.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
-import type { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
@@ -31,7 +31,7 @@ export class Enemy extends Entity {
   public aggroRange: number;
   public arrivalRadius: number;
   public targetId?: number;
-  public meleeWeapon?: MeleeWeapon;
+  public weapons: Weapon[] = [];
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -61,7 +61,9 @@ export class Enemy extends Entity {
    */
   public override tick(world: World): void {
     this.goalSelector.tick(new GoalContext(world, this));
-    this.meleeWeapon?.tick(world);
+    for (const weapon of this.weapons) {
+      weapon.tick(world);
+    }
     super.tick(world);
   }
 

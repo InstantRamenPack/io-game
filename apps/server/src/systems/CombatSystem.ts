@@ -10,6 +10,7 @@ import type { World } from "@server/world/World.ts";
 export class CombatSystem {
   /**
    * Returns whether the source can deal damage to the target in this combat pass.
+   * @param world
    * @param source Attacking entity.
    * @param target Potential target.
    * @returns True when the matchup is allowed.

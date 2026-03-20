@@ -12,6 +12,11 @@ const entityDefinitions = {
     label: "Zombie",
     kind: "enemy",
   },
+  "enemy:skeleton": {
+    typeId: "enemy:skeleton",
+    label: "Skeleton",
+    kind: "enemy",
+  },
   "building:wall": {
     typeId: "building:wall",
     label: "Wall",

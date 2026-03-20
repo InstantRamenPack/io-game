@@ -4,6 +4,7 @@ import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { FoodItem } from "@server/items/resources/materials/FoodItem.ts";
@@ -37,6 +38,7 @@ export function bootstrapTypeRegistries(): void {
 
   registerEntityType(Player);
   registerEntityType(Zombie);
+  registerEntityType(Skeleton);
   registerEntityType(Wall);
   registerEntityType(Tower);
   registerEntityType(Windmill);

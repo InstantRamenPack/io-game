@@ -5,8 +5,8 @@ import type { Entity } from "@server/entities/Entity.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
- * Abstract weapon item that can be fired.
- * Subclasses implement specific firing behavior (ranged vs melee).
+ * Abstract weapon item that can perform attacks.
+ * Subclasses implement specific attack behavior (ranged vs melee).
  */
 export abstract class Weapon extends Item {
   public fireRate: number;
@@ -36,20 +36,30 @@ export abstract class Weapon extends Item {
     }
   }
 
-  /** @returns True if weapon can fire now. */
-  public canFire(): boolean {
+  /** @returns True if weapon can hit now. */
+  public canHit(): boolean {
     return this.cooldownTicks <= 0;
   }
 
-  /** Fires the weapon; resets cooldown. Subclasses implement specifics. */
-  public abstract fire(
+  /**
+   * Returns whether this weapon can currently hit the provided target.
+   * Used by AI goals to select attacks by weapon slot.
+   */
+  public abstract canHitTarget(
+    world: World,
+    owner: Entity,
+    target: Entity,
+  ): boolean;
+
+  /** Attempts an attack toward the given aim point. */
+  public abstract hit(
     world: World,
     owner: Entity,
     aimX: number,
     aimY: number,
-  ): void;
+  ): boolean;
 
-  /** Resets cooldown after firing. */
+  /** Resets cooldown after a successful hit attempt. */
   protected resetCooldown(tickRate: number): void {
     this.cooldownTicks = Math.max(1, Math.round(tickRate / this.fireRate));
   }
