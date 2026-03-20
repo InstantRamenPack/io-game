@@ -1,4 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
+import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
@@ -6,7 +7,9 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 /**
  * Strafing ranged attack goal that maintains distance while firing one weapon slot.
  */
-export class RangedAttackGoal extends Goal {
+export class RangedAttackGoal<
+  TSelf extends GoalControlledEntity = GoalControlledEntity,
+> extends Goal<TSelf> {
   private readonly weaponSlot: number;
   private readonly preferredDistance: number;
   private readonly distanceTolerance: number;
@@ -29,16 +32,16 @@ export class RangedAttackGoal extends Goal {
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
-  override canStart(ctx: GoalContext): boolean {
+  override canStart(ctx: GoalContext<TSelf>): boolean {
     this.resolveWeapon(ctx);
     return this.resolveTarget(ctx) !== null;
   }
 
-  override start(_ctx: GoalContext): void {
+  override start(_ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
-  override tick(ctx: GoalContext): void {
+  override tick(ctx: GoalContext<TSelf>): void {
     const weapon = this.resolveWeapon(ctx);
     const target = this.resolveTarget(ctx);
     if (!target) {
@@ -98,17 +101,17 @@ export class RangedAttackGoal extends Goal {
     }
   }
 
-  override shouldContinue(ctx: GoalContext): boolean {
+  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     this.resolveWeapon(ctx);
     return this.resolveTarget(ctx) !== null;
   }
 
-  override stop(ctx: GoalContext): void {
+  override stop(ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
     ctx.self.setMovementVelocity(0, 0);
   }
 
-  private resolveTarget(ctx: GoalContext): Entity | null {
+  private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
     const { targetId } = ctx.self;
     if (targetId === undefined) {
       return null;
@@ -125,7 +128,7 @@ export class RangedAttackGoal extends Goal {
     return target;
   }
 
-  private resolveWeapon(ctx: GoalContext): RangedWeapon {
+  private resolveWeapon(ctx: GoalContext<TSelf>): RangedWeapon {
     const weapon = ctx.self.weapons[this.weaponSlot];
     if (weapon instanceof RangedWeapon) {
       return weapon;
@@ -137,7 +140,7 @@ export class RangedAttackGoal extends Goal {
   }
 
   private resolveStrafeVector(
-    ctx: GoalContext,
+    ctx: GoalContext<TSelf>,
     directionX: number,
     directionY: number,
   ): { x: number; y: number } {
@@ -157,7 +160,7 @@ export class RangedAttackGoal extends Goal {
   }
 
   private wouldStayWithinBounds(
-    ctx: GoalContext,
+    ctx: GoalContext<TSelf>,
     directionX: number,
     directionY: number,
   ): boolean {

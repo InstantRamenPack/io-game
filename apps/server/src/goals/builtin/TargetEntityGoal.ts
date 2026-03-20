@@ -1,11 +1,14 @@
+import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 
 /**
- * Maintains the nearest valid player target for the acting enemy.
+ * Maintains the nearest valid player target for the acting goal-controlled entity.
  */
-export class TargetEntityGoal extends Goal {
+export class TargetEntityGoal<
+  TSelf extends GoalControlledEntity = GoalControlledEntity,
+> extends Goal<TSelf> {
   /**
    * Creates a target-acquisition goal for live player entities.
    * @param priority Lower values run first.
@@ -14,15 +17,15 @@ export class TargetEntityGoal extends Goal {
     super(priority, ["target"]);
   }
 
-  override canStart(_ctx: GoalContext): boolean {
+  override canStart(_ctx: GoalContext<TSelf>): boolean {
     return true;
   }
 
-  override start(_ctx: GoalContext): void {
+  override start(_ctx: GoalContext<TSelf>): void {
     // no-op for continuous targeting
   }
 
-  override tick(ctx: GoalContext): void {
+  override tick(ctx: GoalContext<TSelf>): void {
     const currentTarget = this.resolveValidTarget(ctx, ctx.self.targetId);
     if (currentTarget) {
       ctx.self.targetId = currentTarget.id;
@@ -58,16 +61,16 @@ export class TargetEntityGoal extends Goal {
     ctx.self.targetId = bestTarget?.id;
   }
 
-  override shouldContinue(_ctx: GoalContext): boolean {
+  override shouldContinue(_ctx: GoalContext<TSelf>): boolean {
     return true;
   }
 
-  override stop(_ctx: GoalContext): void {
+  override stop(_ctx: GoalContext<TSelf>): void {
     // no-op for continuous targeting
   }
 
   private resolveValidTarget(
-    ctx: GoalContext,
+    ctx: GoalContext<TSelf>,
     targetId: number | undefined,
   ): Player | null {
     if (targetId === undefined) {

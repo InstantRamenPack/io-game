@@ -1,5 +1,5 @@
-import { Entity } from "@server/entities/Entity.ts";
 import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
+import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -20,9 +20,9 @@ export type ProjectileSpawnConfig = {
 
 /**
  * Shared base for server-authoritative projectiles.
- * Projectiles own their post-move lifetime and hit resolution; ProjectileSystem only iterates them.
+ * Projectiles own their post-move lifetime and hit resolution after movement.
  */
-export abstract class Projectile extends Entity {
+export abstract class Projectile extends GoalControlledEntity {
   public previousX: number;
   public previousY: number;
   public readonly speed: number;
@@ -62,10 +62,12 @@ export abstract class Projectile extends Entity {
     this.previousX = this.x;
     this.previousY = this.y;
     super.tick(world);
-    this.setMovementVelocity(
-      this.directionX * this.speed,
-      this.directionY * this.speed,
-    );
+    if (!this.goalSelector.hasActiveControl("move")) {
+      this.setMovementVelocity(
+        this.directionX * this.speed,
+        this.directionY * this.speed,
+      );
+    }
   }
 
   public override getCombatInstigator(world: World): CombatEntity | null {

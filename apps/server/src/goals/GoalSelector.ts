@@ -1,18 +1,21 @@
+import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import type { Goal, GoalControl } from "@server/goals/Goal.ts";
 
 /**
- * Selects and runs the best compatible goal set for one enemy each tick.
+ * Selects and runs the best compatible goal set for one goal-controlled entity each tick.
  */
-export class GoalSelector {
-  private readonly goals: Goal[] = [];
-  private readonly active = new Set<Goal>();
+export class GoalSelector<
+  TSelf extends GoalControlledEntity = GoalControlledEntity,
+> {
+  private readonly goals: Goal<TSelf>[] = [];
+  private readonly active = new Set<Goal<TSelf>>();
 
   /**
    * Registers a new goal and keeps the selector sorted by priority.
    * @param goal Goal to add.
    */
-  add(goal: Goal): void {
+  add(goal: Goal<TSelf>): void {
     this.goals.push(goal);
     this.goals.sort(
       (leftGoal, rightGoal) => leftGoal.priority - rightGoal.priority,
@@ -21,9 +24,9 @@ export class GoalSelector {
 
   /**
    * Stops and removes all active goals.
-   * @param ctx Runtime goal context for the acting enemy.
+   * @param ctx Runtime goal context for the acting entity.
    */
-  clear(ctx: GoalContext): void {
+  clear(ctx: GoalContext<TSelf>): void {
     for (const goal of this.goals) {
       if (this.active.has(goal)) {
         goal.stop(ctx);
@@ -34,10 +37,10 @@ export class GoalSelector {
 
   /**
    * Chooses the desired active goal set, starts/stops deltas, then ticks actives.
-   * @param ctx Runtime goal context for the acting enemy.
+   * @param ctx Runtime goal context for the acting entity.
    */
-  tick(ctx: GoalContext): void {
-    const desired = new Set<Goal>();
+  tick(ctx: GoalContext<TSelf>): void {
+    const desired = new Set<Goal<TSelf>>();
     const claimedControls = new Set<GoalControl>();
 
     for (const goal of this.goals) {
@@ -85,6 +88,15 @@ export class GoalSelector {
     return this.goals
       .filter((goal) => this.active.has(goal))
       .map((goal) => goal.constructor.name);
+  }
+
+  hasActiveControl(control: GoalControl): boolean {
+    for (const goal of this.active) {
+      if (goal.controls.includes(control)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private hasControlConflict(
