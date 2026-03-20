@@ -1,16 +1,19 @@
 import { Goal } from "@server/goals/Goal.ts";
+import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 export type GoalDestination = { x: number; y: number };
-export type GoalDestinationProvider = (
-  ctx: GoalContext,
+export type GoalDestinationProvider<TSelf extends GoalControlledEntity> = (
+  ctx: GoalContext<TSelf>,
 ) => GoalDestination | null;
 
 /**
  * Straight-line movement goal that walks toward a computed destination.
  */
-export class GoToPositionGoal extends Goal {
-  private readonly destinationProvider: GoalDestinationProvider;
+export class GoToPositionGoal<
+  TSelf extends GoalControlledEntity = GoalControlledEntity,
+> extends Goal<TSelf> {
+  private readonly destinationProvider: GoalDestinationProvider<TSelf>;
   private readonly arrivalRadius: number;
 
   /**
@@ -21,7 +24,7 @@ export class GoToPositionGoal extends Goal {
    */
   constructor(
     priority: number,
-    destinationProvider: GoalDestinationProvider,
+    destinationProvider: GoalDestinationProvider<TSelf>,
     arrivalRadius: number,
   ) {
     super(priority, ["move"]);
@@ -29,15 +32,15 @@ export class GoToPositionGoal extends Goal {
     this.arrivalRadius = arrivalRadius;
   }
 
-  override canStart(ctx: GoalContext): boolean {
+  override canStart(ctx: GoalContext<TSelf>): boolean {
     return !this.hasArrived(ctx);
   }
 
-  override start(_ctx: GoalContext): void {
+  override start(_ctx: GoalContext<TSelf>): void {
     // no-op for direct steering
   }
 
-  override tick(ctx: GoalContext): void {
+  override tick(ctx: GoalContext<TSelf>): void {
     const destination = this.destinationProvider(ctx);
     if (!destination) {
       this.stop(ctx);
@@ -65,15 +68,15 @@ export class GoToPositionGoal extends Goal {
     );
   }
 
-  override shouldContinue(ctx: GoalContext): boolean {
+  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     return !this.hasArrived(ctx);
   }
 
-  override stop(ctx: GoalContext): void {
+  override stop(ctx: GoalContext<TSelf>): void {
     ctx.self.setMovementVelocity(0, 0);
   }
 
-  private hasArrived(ctx: GoalContext): boolean {
+  private hasArrived(ctx: GoalContext<TSelf>): boolean {
     const destination = this.destinationProvider(ctx);
     if (!destination) {
       return true;

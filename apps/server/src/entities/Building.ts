@@ -1,4 +1,4 @@
-import { Entity } from "@server/entities/Entity.ts";
+import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { BuildingSnapshot } from "@shared/net/snapshots.ts";
 
@@ -10,7 +10,7 @@ type BuildingStats = {
 /**
  * Shared static-structure base for all concrete building entities.
  */
-export abstract class Building extends Entity {
+export abstract class Building extends GoalControlledEntity {
   public readonly label: string;
   public tier: number;
 

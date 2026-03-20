@@ -1,4 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
+import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import {
   GoToPositionGoal,
   type GoalDestination,
@@ -8,7 +9,9 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
 /**
  * Straight-line chase goal that walks toward the current target entity.
  */
-export class GoToTargetGoal extends GoToPositionGoal {
+export class GoToTargetGoal<
+  TSelf extends GoalControlledEntity = GoalControlledEntity,
+> extends GoToPositionGoal<TSelf> {
   /**
    * Creates a chase goal that follows the acting enemy's current target entity.
    * @param priority Lower values run first.
@@ -18,15 +21,15 @@ export class GoToTargetGoal extends GoToPositionGoal {
     super(priority, (ctx) => this.resolveDestination(ctx), arrivalRadius);
   }
 
-  override canStart(ctx: GoalContext): boolean {
+  override canStart(ctx: GoalContext<TSelf>): boolean {
     return this.resolveTarget(ctx) !== null && super.canStart(ctx);
   }
 
-  override shouldContinue(ctx: GoalContext): boolean {
+  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     return this.resolveTarget(ctx) !== null && super.shouldContinue(ctx);
   }
 
-  private resolveTarget(ctx: GoalContext): Entity | null {
+  private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
     const { targetId } = ctx.self;
     if (targetId === undefined) {
       return null;
@@ -40,7 +43,7 @@ export class GoToTargetGoal extends GoToPositionGoal {
     return target;
   }
 
-  private resolveDestination(ctx: GoalContext): GoalDestination | null {
+  private resolveDestination(ctx: GoalContext<TSelf>): GoalDestination | null {
     const target = this.resolveTarget(ctx);
     if (!target) {
       return null;

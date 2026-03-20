@@ -26,9 +26,9 @@ export class Zombie extends Enemy {
       aggroRange: 480,
       arrivalRadius,
       goals: [
-        new TargetEntityGoal(0),
-        new GoToTargetGoal(1, arrivalRadius),
-        new AttackAtGoal(2, 0),
+        new TargetEntityGoal<Enemy>(0),
+        new GoToTargetGoal<Enemy>(1, arrivalRadius),
+        new AttackAtGoal<Enemy>(2, 0),
       ],
     });
   }
