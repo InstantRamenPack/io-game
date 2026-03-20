@@ -33,7 +33,6 @@ export type AppElements = {
   craftingPanel: HTMLElement | null;
   craftingList: HTMLElement | null;
   craftingHint: HTMLElement | null;
-  runtimeStatus: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
 };
 
@@ -67,7 +66,6 @@ export function getAppElements(): AppElements {
     craftingPanel: document.getElementById("crafting-panel"),
     craftingList: document.getElementById("crafting-list"),
     craftingHint: document.getElementById("crafting-hint"),
-    runtimeStatus: document.getElementById("runtime-status"),
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,

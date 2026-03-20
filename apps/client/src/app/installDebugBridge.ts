@@ -27,6 +27,7 @@ export function installDebugBridge({
     const playerEntity = selectors.getPlayerEntity();
     const worldEntities = selectors.getWorldEntities();
     const hudState = hudController.getState();
+    const performanceRates = gameClient.getMeasuredRates();
 
     return JSON.stringify({
       mode: elements.menuRoot?.style.display === "none" ? "game" : "menu",
@@ -35,6 +36,10 @@ export function installDebugBridge({
         elements.menuRoot?.style.display === "none",
       coordinateSystem: "origin top-left; +x right; +y down",
       tick: gameClient.worldState?.latestTick ?? null,
+      performance: {
+        tickRate: performanceRates.tickRate,
+        frameRate: performanceRates.frameRate,
+      },
       player: playerEntity
         ? {
             id: playerEntity.id,
