@@ -111,6 +111,16 @@ export function createHudController({
     const worldEntities = selectors.getWorldEntities();
     const buildings = selectors.getTrackedBuildings();
     const activeEffects = selectors.getActiveEffects();
+    const performanceRates = gameClient.getMeasuredRates();
+
+    const tickRateLabel =
+      performanceRates.tickRate === null
+        ? "TPS --"
+        : `TPS ${performanceRates.tickRate.toFixed(1)}`;
+    const frameRateLabel =
+      performanceRates.frameRate === null
+        ? "FPS --"
+        : `FPS ${performanceRates.frameRate.toFixed(1)}`;
 
     if (elements.worldStat) {
       elements.worldStat.textContent = playerEntity
@@ -119,7 +129,13 @@ export function createHudController({
     }
 
     if (elements.worldDetail) {
-      elements.worldDetail.textContent = `Tick ${gameClient.worldState?.latestTick ?? 0} // ${buildings.length} structures // ${worldEntities.length} entities`;
+      elements.worldDetail.textContent = [
+        `Tick ${gameClient.worldState?.latestTick ?? 0}`,
+        tickRateLabel,
+        frameRateLabel,
+        `${buildings.length} structures`,
+        `${worldEntities.length} entities`,
+      ].join(" // ");
     }
 
     if (elements.resourceStrip) {

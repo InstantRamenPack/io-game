@@ -44,8 +44,6 @@ const menuController = createMenuController({
   authController,
 });
 const runtimeStatusController = createRuntimeStatusController({
-  elements,
-  gameClient,
   hudController,
 });
 const launchController = createLaunchController({

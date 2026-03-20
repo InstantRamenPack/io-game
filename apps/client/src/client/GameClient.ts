@@ -18,6 +18,14 @@ export type GameplayHudState = {
   slotLabels: string[];
 };
 
+export type PerformanceRateState = {
+  frameRate: number | null;
+  tickRate: number | null;
+};
+
+const RATE_SAMPLE_WINDOW_MS = 1000;
+const MIN_RATE_SAMPLE_WINDOW_MS = 250;
+
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
  */
@@ -36,6 +44,8 @@ export class GameClient {
   private inputBound = false;
   private rendererPointerBound = false;
   private started = false;
+  private frameSamples: number[] = [];
+  private tickSamples: Array<{ tick: number; timeMs: number }> = [];
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (worldPoint: { x: number; y: number }) => void;
@@ -130,6 +140,7 @@ export class GameClient {
       return;
     }
     this.started = true;
+    this.resetPerformanceRateSamples();
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
@@ -161,6 +172,7 @@ export class GameClient {
 
   public onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState?.pushSnapshot(snapshot);
+    this.recordTickSample(snapshot.tick, performance.now());
   }
 
   public onWelcome(entityId: number): void {
@@ -171,6 +183,7 @@ export class GameClient {
   public stop(): void {
     this.started = false;
     this.stopFrameLoop();
+    this.resetPerformanceRateSamples();
     if (this.inputTimer) {
       clearInterval(this.inputTimer);
       this.inputTimer = undefined;
@@ -187,6 +200,7 @@ export class GameClient {
     ];
     const player = entities.find((entity) => entity.id === this.playerEntityId);
     const hudState = this.getGameplayHudState();
+    const performanceRates = this.getMeasuredRates();
 
     return JSON.stringify({
       connected:
@@ -194,6 +208,8 @@ export class GameClient {
         this.started,
       coordinateSystem: "origin top-left; +x right; +y down",
       tick: this.worldState?.latestTick ?? null,
+      tickRate: performanceRates.tickRate,
+      frameRate: performanceRates.frameRate,
       playerEntityId: this.playerEntityId ?? null,
       player: player
         ? {
@@ -273,6 +289,17 @@ export class GameClient {
     };
   }
 
+  public getMeasuredRates(): PerformanceRateState {
+    const now = performance.now();
+    this.trimFrameSamples(now);
+    this.trimTickSamples(now);
+
+    return {
+      frameRate: this.calculateFrameRate(now),
+      tickRate: this.calculateTickRate(now),
+    };
+  }
+
   public advanceTime(ms: number): void {
     const frameMs = 1000 / 60;
     const steps = Math.max(1, Math.round(ms / frameMs));
@@ -297,6 +324,7 @@ export class GameClient {
           ? 0
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
+      this.recordFrameSample(timestamp);
       this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
     };
@@ -316,6 +344,7 @@ export class GameClient {
   private onDisconnected(): void {
     this.started = false;
     this.stopFrameLoop();
+    this.resetPerformanceRateSamples();
     if (this.inputTimer) {
       clearInterval(this.inputTimer);
       this.inputTimer = undefined;
@@ -341,6 +370,86 @@ export class GameClient {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
+  }
+
+  private recordFrameSample(timestamp: number): void {
+    this.frameSamples.push(timestamp);
+    this.trimFrameSamples(timestamp);
+  }
+
+  private recordTickSample(tick: number, timeMs: number): void {
+    this.tickSamples.push({ tick, timeMs });
+    this.trimTickSamples(timeMs);
+  }
+
+  private trimFrameSamples(now: number): void {
+    while (
+      this.frameSamples.length > 1 &&
+      now - (this.frameSamples[0] ?? now) > RATE_SAMPLE_WINDOW_MS
+    ) {
+      this.frameSamples.shift();
+    }
+  }
+
+  private trimTickSamples(now: number): void {
+    while (
+      this.tickSamples.length > 1 &&
+      now - (this.tickSamples[0]?.timeMs ?? now) > RATE_SAMPLE_WINDOW_MS
+    ) {
+      this.tickSamples.shift();
+    }
+  }
+
+  private calculateFrameRate(now: number): number | null {
+    if (this.frameSamples.length >= 2) {
+      const firstSample = this.frameSamples[0] ?? now;
+      const lastSample = this.frameSamples[this.frameSamples.length - 1] ?? now;
+      const elapsedMs = lastSample - firstSample;
+      if (elapsedMs <= 0) {
+        return null;
+      }
+
+      return ((this.frameSamples.length - 1) * 1000) / elapsedMs;
+    }
+
+    if (this.frameSamples.length === 1) {
+      return now - (this.frameSamples[0] ?? now) >= MIN_RATE_SAMPLE_WINDOW_MS
+        ? 0
+        : null;
+    }
+
+    return null;
+  }
+
+  private calculateTickRate(now: number): number | null {
+    if (this.tickSamples.length >= 2) {
+      const firstSample = this.tickSamples[0];
+      const lastSample = this.tickSamples[this.tickSamples.length - 1];
+      if (!firstSample || !lastSample) {
+        return null;
+      }
+
+      const elapsedMs = lastSample.timeMs - firstSample.timeMs;
+      if (elapsedMs <= 0) {
+        return null;
+      }
+
+      return ((lastSample.tick - firstSample.tick) * 1000) / elapsedMs;
+    }
+
+    if (this.tickSamples.length === 1) {
+      return now - (this.tickSamples[0]?.timeMs ?? now) >=
+        MIN_RATE_SAMPLE_WINDOW_MS
+        ? 0
+        : null;
+    }
+
+    return null;
+  }
+
+  private resetPerformanceRateSamples(): void {
+    this.frameSamples = [];
+    this.tickSamples = [];
   }
 }
 
