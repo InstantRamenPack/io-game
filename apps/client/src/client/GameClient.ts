@@ -4,7 +4,6 @@ import { Interpolator } from "@client/net/Interpolator.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import type { RecipeId } from "@shared/content/types.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -120,8 +119,8 @@ export class GameClient {
     this.inputManager.queueAttack(x, y);
   }
 
-  public queueCraftRecipe(recipeId: RecipeId): void {
-    this.inputManager.queueCraft(recipeId);
+  public queueCraftItem(itemTypeId: ResourceId): void {
+    this.inputManager.queueCraft(itemTypeId);
   }
 
   public queueBuildPlacement(

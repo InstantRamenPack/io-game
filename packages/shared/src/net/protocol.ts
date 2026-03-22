@@ -1,8 +1,8 @@
-import type { RecipeId } from "@shared/content/types.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export const PROTOCOL_VERSION = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
@@ -12,7 +12,7 @@ const AttackInputSchema = z.object({
 });
 
 const CraftInputSchema = z.object({
-  recipeId: z.string().regex(/^recipe:[a-z0-9_./-]+$/),
+  itemTypeId: z.string().regex(RESOURCE_ID_PATTERN),
 });
 
 const BuildInputSchema = z.object({
@@ -239,7 +239,7 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 ]);
 
 export type InputCommand = z.infer<typeof InputCommandSchema>;
-export type CraftInput = { recipeId: RecipeId };
+export type CraftInput = { itemTypeId: ResourceId };
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type InputMessage = {
   t: "input";

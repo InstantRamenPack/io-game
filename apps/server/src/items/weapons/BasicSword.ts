@@ -6,12 +6,11 @@ import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
  * Basic sword melee weapon.
  */
 export class BasicSword extends MeleeWeapon {
-  public static readonly typeId = "item:basic_sword" as const;
+  public static override readonly resourceName = "basic_sword";
 
   public constructor(id: number) {
     super(
       id,
-      BasicSword.typeId,
       2, // fireRate (attacks per second)
       60, // range
       [new DamageEffect(25), new KnockbackEffect()], // hitEffects

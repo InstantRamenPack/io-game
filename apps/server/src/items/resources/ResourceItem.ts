@@ -1,12 +1,11 @@
 import { Item } from "@server/items/Item.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Shared base for simple concrete inventory resources with one-argument constructors.
  */
 export abstract class ResourceItem extends Item {
-  protected constructor(id: number, typeId: ResourceId) {
-    super(id, typeId);
+  protected constructor(id: number) {
+    super(id);
   }
 
   public override clone(): this {

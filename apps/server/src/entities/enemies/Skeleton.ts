@@ -6,14 +6,14 @@ import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
  * Default ranged enemy that keeps distance and fires basic bullets.
  */
 export class Skeleton extends Enemy {
-  public static readonly typeId = "enemy:skeleton" as const;
+  public static override readonly resourceName = "skeleton";
 
   /**
    * Creates a skeleton with zombie-like stats and a ranged strafing goal stack.
    * @param id Stable runtime entity id.
    */
   public constructor(id: number) {
-    super(id, Skeleton.typeId, {
+    super(id, {
       radius: 12,
       hp: 100,
       maxHp: 100,

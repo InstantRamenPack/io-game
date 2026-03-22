@@ -1,3 +1,7 @@
+import {
+  requireEntityContent,
+  requireItemContent,
+} from "@shared/content/catalog.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Tower } from "@server/entities/buildings/Tower.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
@@ -21,10 +25,16 @@ import {
   entityTypeRegistry,
   itemTypeRegistry,
   projectileTypeRegistry,
+  type EntityTypeEntry,
+  type ItemTypeEntry,
   type RegistrableEntityCtor,
   type RegistrableItemCtor,
   type RegistrableProjectileCtor,
 } from "@server/registry/registries.ts";
+import {
+  requireEntityClassMetadata,
+  requireItemClassMetadata,
+} from "@server/registry/typeMetadata.ts";
 
 let registriesBootstrapped = false;
 
@@ -59,6 +69,8 @@ export function bootstrapTypeRegistries(): void {
 
   registerProjectileType(BasicBullet);
 
+  validateRegistryContent();
+
   entityTypeRegistry.freeze();
   itemTypeRegistry.freeze();
   projectileTypeRegistry.freeze();
@@ -66,13 +78,54 @@ export function bootstrapTypeRegistries(): void {
 }
 
 function registerEntityType(ctor: RegistrableEntityCtor): void {
-  entityTypeRegistry.register(ctor.typeId, ctor);
+  const metadata = requireEntityClassMetadata(ctor);
+  const content = requireEntityContent(ctor.typeId);
+  const entry: EntityTypeEntry = {
+    typeId: ctor.typeId,
+    kind: metadata.kind,
+    resourceName: metadata.resourceName,
+    label: content.label,
+    content,
+    ctor,
+  };
+  entityTypeRegistry.register(entry.typeId, entry);
 }
 
 function registerItemType(ctor: RegistrableItemCtor): void {
-  itemTypeRegistry.register(ctor.typeId, ctor);
+  const metadata = requireItemClassMetadata(ctor);
+  const content = requireItemContent(ctor.typeId);
+  const entry: ItemTypeEntry = {
+    typeId: ctor.typeId,
+    kind: "item",
+    resourceName: metadata.resourceName,
+    label: content.label,
+    stackMax: metadata.stackMax,
+    buildingTypeId: metadata.buildingTypeId,
+    content,
+    recipe: content.recipe,
+    ctor,
+  };
+  itemTypeRegistry.register(entry.typeId, entry);
 }
 
 function registerProjectileType(ctor: RegistrableProjectileCtor): void {
   projectileTypeRegistry.register(ctor.typeId, ctor);
+}
+
+function validateRegistryContent(): void {
+  for (const [, itemEntry] of itemTypeRegistry.entries()) {
+    if (itemEntry.buildingTypeId && !entityTypeRegistry.has(itemEntry.buildingTypeId)) {
+      throw new Error(
+        `Item ${itemEntry.typeId} references unknown building type ${itemEntry.buildingTypeId}.`,
+      );
+    }
+
+    for (const cost of itemEntry.recipe?.costs ?? []) {
+      if (!itemTypeRegistry.has(cost.typeId)) {
+        throw new Error(
+          `Item ${itemEntry.typeId} recipe references unknown item ${cost.typeId}.`,
+        );
+      }
+    }
+  }
 }

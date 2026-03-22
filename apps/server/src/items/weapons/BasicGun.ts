@@ -5,12 +5,11 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
  * Starter firearm that fires single-hit bullets.
  */
 export class BasicGun extends RangedWeapon {
-  public static readonly typeId = "item:basic_gun" as const;
+  public static override readonly resourceName = "basic_gun";
 
   public constructor(id: number) {
     super(
       id,
-      BasicGun.typeId,
       4,
       700,
       [new DamageEffect(12)],

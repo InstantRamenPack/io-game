@@ -1,0 +1,11 @@
+{
+  "label": "Windmill Item",
+  "recipe": {
+    "hint": "Economy piece. Best tucked behind walls.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 45 },
+      { "typeId": "item:stone", "amount": 20 }
+    ]
+  }
+}

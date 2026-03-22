@@ -2,10 +2,11 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import {
-  BUILD_RECIPE_IDS,
-  getRecipeDefinition,
-} from "@shared/content/index.ts";
-import type { RecipeDefinition, RecipeId } from "@shared/content/types.ts";
+  CRAFTABLE_ITEM_TYPE_IDS,
+  getItemContent,
+} from "@shared/content/catalog.ts";
+import type { ItemRecipeContent } from "@shared/content/schema.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const RESOURCE_TYPE_IDS = ["item:wood", "item:stone", "item:food"] as const;
 const HOTBAR_SLOT_COUNT = 9;
@@ -13,13 +14,13 @@ const HOTBAR_SLOT_COUNT = 9;
 /**
  * Stores the local, purely presentational HUD state that does not come from
  * server snapshots. The build/crafting panel toggles and the currently
- * selected recipe live here because they are browser UI state, not gameplay
+ * selected build item live here because they are browser UI state, not gameplay
  * authority.
  */
 export type HudState = {
   buildMenuOpen: boolean;
   craftingMenuOpen: boolean;
-  selectedBuild: RecipeId;
+  selectedBuild: ResourceId;
 };
 
 /**
@@ -47,12 +48,12 @@ export type HudController = {
    */
   toggleCraftingMenu(): void;
   /**
-   * Updates the selected build recipe from a one-based hotkey ordinal.
-   * Returns `true` when a matching recipe existed and was selected.
+   * Updates the selected build item from a one-based hotkey ordinal.
+   * Returns `true` when a matching craftable item existed and was selected.
    */
   selectBuildByOrdinal(ordinal: number): boolean;
   /**
-   * Queues a craft request for the currently selected recipe.
+   * Queues a craft request for the currently selected item.
    */
   queueSelectedCraft(): void;
   /**
@@ -92,14 +93,19 @@ export function createHudController({
   gameClient,
   selectors,
 }: HudControllerOptions): HudController {
+  const defaultBuildItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[0];
+  if (!defaultBuildItemTypeId) {
+    throw new Error("Expected at least one craftable item in shared content.");
+  }
+
   const state: HudState = {
     buildMenuOpen: false,
     craftingMenuOpen: false,
-    selectedBuild: BUILD_RECIPE_IDS[0]!,
+    selectedBuild: defaultBuildItemTypeId,
   };
 
-  function getSelectedRecipe(): RecipeDefinition {
-    return getRecipeDefinition(state.selectedBuild);
+  function getSelectedRecipe(): ItemRecipeContent {
+    return getSelectedRecipeForItem(state.selectedBuild);
   }
 
   function refreshUi(): void {
@@ -195,25 +201,25 @@ export function createHudController({
     }
 
     if (elements.buildList) {
-      elements.buildList.innerHTML = BUILD_RECIPE_IDS.map((recipeId, index) => {
-        const recipe = getRecipeDefinition(recipeId);
-        const availableCount = selectors.countInventoryType(
-          recipe.outputItemTypeId,
-        );
-        return `
-          <div class="build-card${state.selectedBuild === recipeId ? " selected" : ""}${availableCount > 0 ? "" : " locked"}">
-            <div class="build-meta">${index + 1} // ${availableCount > 0 ? `${availableCount} ready` : "Out of stock"}</div>
-            <div class="build-title">${selectors.escapeHtml(recipe.label)}</div>
-            <div class="build-cost">${selectors.escapeHtml(selectors.formatCosts(recipe.costs))}</div>
-          </div>
-        `;
-      }).join("");
+      elements.buildList.innerHTML = CRAFTABLE_ITEM_TYPE_IDS.map(
+        (itemTypeId, index) => {
+          const recipe = getSelectedRecipeForItem(itemTypeId);
+          const availableCount = selectors.countInventoryType(itemTypeId);
+          return `
+            <div class="build-card${state.selectedBuild === itemTypeId ? " selected" : ""}${availableCount > 0 ? "" : " locked"}">
+              <div class="build-meta">${index + 1} // ${availableCount > 0 ? `${availableCount} ready` : "Out of stock"}</div>
+              <div class="build-title">${selectors.escapeHtml(selectors.formatTypeLabel(itemTypeId))}</div>
+              <div class="build-cost">${selectors.escapeHtml(selectors.formatCosts(recipe.costs))}</div>
+            </div>
+          `;
+        },
+      ).join("");
     }
 
     if (elements.buildHint) {
       const selectedRecipe = getSelectedRecipe();
       const availableCount = selectors.countInventoryType(
-        selectedRecipe.outputItemTypeId,
+        state.selectedBuild,
       );
       elements.buildHint.textContent = `${selectedRecipe.hint ?? "Place the selected structure at your cursor."}  ${availableCount} in inventory. Press 1-4 while this panel is open to switch selection. Left click to place.`;
     }
@@ -223,17 +229,19 @@ export function createHudController({
     }
 
     if (elements.craftingList) {
-      elements.craftingList.innerHTML = BUILD_RECIPE_IDS.map((recipeId) => {
-        const recipe = getRecipeDefinition(recipeId);
-        const available = selectors.hasRecipeResources(recipe);
-        return `
-          <div class="recipe-card${state.selectedBuild === recipeId ? " selected" : ""}${available ? "" : " locked"}">
-            <div class="recipe-meta">${available ? "Craftable" : "Missing materials"}</div>
-            <div class="recipe-title">${selectors.escapeHtml(recipe.label)}</div>
-            <div class="recipe-cost">${selectors.escapeHtml(selectors.formatCosts(recipe.costs))}</div>
-          </div>
-        `;
-      }).join("");
+      elements.craftingList.innerHTML = CRAFTABLE_ITEM_TYPE_IDS.map(
+        (itemTypeId) => {
+          const recipe = getSelectedRecipeForItem(itemTypeId);
+          const available = selectors.hasRecipeResources(recipe);
+          return `
+            <div class="recipe-card${state.selectedBuild === itemTypeId ? " selected" : ""}${available ? "" : " locked"}">
+              <div class="recipe-meta">${available ? "Craftable" : "Missing materials"}</div>
+              <div class="recipe-title">${selectors.escapeHtml(selectors.formatTypeLabel(itemTypeId))}</div>
+              <div class="recipe-cost">${selectors.escapeHtml(selectors.formatCosts(recipe.costs))}</div>
+            </div>
+          `;
+        },
+      ).join("");
     }
 
     if (elements.craftingHint) {
@@ -250,8 +258,8 @@ export function createHudController({
 
       elements.craftingHint.textContent =
         nearbyLabels.length > 0
-          ? `Nearby structures: ${nearbyLabels}  Press Enter to craft ${selectedRecipe.label}.`
-          : `Press Enter to craft ${selectedRecipe.label}.`;
+          ? `Nearby structures: ${nearbyLabels}  Press Enter to craft ${selectors.formatTypeLabel(state.selectedBuild)}.`
+          : `Press Enter to craft ${selectors.formatTypeLabel(state.selectedBuild)}.`;
     }
   }
 
@@ -266,18 +274,18 @@ export function createHudController({
   }
 
   function selectBuildByOrdinal(ordinal: number): boolean {
-    const nextRecipe = BUILD_RECIPE_IDS[ordinal - 1];
-    if (!nextRecipe) {
+    const nextItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[ordinal - 1];
+    if (!nextItemTypeId) {
       return false;
     }
 
-    state.selectedBuild = nextRecipe;
+    state.selectedBuild = nextItemTypeId;
     refreshUi();
     return true;
   }
 
   function queueSelectedCraft(): void {
-    gameClient.queueCraftRecipe(state.selectedBuild);
+    gameClient.queueCraftItem(state.selectedBuild);
     refreshUi();
   }
 
@@ -286,9 +294,8 @@ export function createHudController({
     y: number;
   }): void {
     if (state.buildMenuOpen) {
-      const selectedRecipe = getSelectedRecipe();
       gameClient.queueBuildPlacement(
-        selectedRecipe.outputItemTypeId,
+        state.selectedBuild,
         worldPoint.x,
         worldPoint.y,
       );
@@ -302,6 +309,14 @@ export function createHudController({
     state.buildMenuOpen = false;
     state.craftingMenuOpen = false;
     refreshUi();
+  }
+
+  function getSelectedRecipeForItem(itemTypeId: ResourceId): ItemRecipeContent {
+    const recipe = getItemContent(itemTypeId)?.recipe;
+    if (!recipe) {
+      throw new Error(`Expected craft recipe for ${itemTypeId}.`);
+    }
+    return recipe;
   }
 
   return {

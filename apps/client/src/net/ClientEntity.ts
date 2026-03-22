@@ -1,6 +1,6 @@
 import { ClientItemStack } from "@client/net/ClientItemStack.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import type { EntityKind } from "@shared/content/types.ts";
+import type { EntityKind } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   EntitySnapshot,

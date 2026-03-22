@@ -1,0 +1,11 @@
+{
+  "label": "Tower Item",
+  "recipe": {
+    "hint": "High ground pressure for outer lanes.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 35 },
+      { "typeId": "item:stone", "amount": 30 }
+    ]
+  }
+}

@@ -1,9 +1,3 @@
-import {
-  getItemDefinition,
-  getRecipeDefinition,
-  isStructureItemDefinition,
-} from "@shared/content/index.ts";
-import type { RecipeId } from "@shared/content/types.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
 import { Entity } from "@server/entities/Entity.ts";
@@ -11,7 +5,6 @@ import { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { ItemStack } from "@server/items/ItemStack.ts";
-import type { Item } from "@server/items/Item.ts";
 import {
   FoodItem,
   StoneItem,
@@ -35,7 +28,8 @@ import type { Building } from "@server/entities/Building.ts";
  * The player owns movement tuning and any per-player runtime state.
  */
 export class Player extends Entity {
-  public static readonly typeId = "player:base" as const;
+  public static readonly kind = "player" as const;
+  public static override readonly resourceName = "base";
 
   public name: string;
   // The buffer currently feeds latest-input movement, but it is retained so
@@ -51,7 +45,7 @@ export class Player extends Entity {
    */
   public constructor(id: number, name = "player") {
     // allocate inventory in base class
-    super(id, Player.typeId, new Inventory(20));
+    super(id, new Inventory(20));
     this.name = name;
     this.radius = 16;
     this.collisionMode = "dynamic";
@@ -125,7 +119,7 @@ export class Player extends Entity {
           inputCommand.attack.y,
         );
       } else if (inputCommand.craft) {
-        this.craft(world, inputCommand.craft.recipeId as RecipeId);
+        this.craft(world, inputCommand.craft.itemTypeId as ResourceId);
       } else if (inputCommand.build) {
         this.placeStructure(
           world,
@@ -156,13 +150,14 @@ export class Player extends Entity {
     return activeStack?.item instanceof Weapon ? activeStack.item : undefined;
   }
 
-  public craft(world: World, recipeId: RecipeId): void {
+  public craft(world: World, itemTypeId: ResourceId): void {
     if (!this.inventory) {
       return;
     }
 
-    const recipe = getRecipeDefinition(recipeId);
-    if (!recipe) {
+    const outputEntry = itemTypeRegistry.get(itemTypeId);
+    const recipe = outputEntry?.recipe;
+    if (!outputEntry || !recipe) {
       return;
     }
 
@@ -170,15 +165,8 @@ export class Player extends Entity {
       return;
     }
 
-    const OutputCtor = itemTypeRegistry.get(recipe.outputItemTypeId) as
-      | (new (id: number) => Item)
-      | undefined;
-    if (!OutputCtor) {
-      return;
-    }
-
     const outputStack = new ItemStack(
-      new OutputCtor(world.allocItemId()),
+      new outputEntry.ctor(world.allocItemId()),
       recipe.outputAmount,
     );
     if (!this.inventory.canAdd(outputStack)) {
@@ -199,8 +187,8 @@ export class Player extends Entity {
       return;
     }
 
-    const definition = getItemDefinition(itemTypeId);
-    if (!isStructureItemDefinition(definition)) {
+    const itemEntry = itemTypeRegistry.get(itemTypeId);
+    if (!itemEntry?.buildingTypeId) {
       return;
     }
 
@@ -208,7 +196,7 @@ export class Player extends Entity {
       return;
     }
 
-    const BuildingCtor = entityTypeRegistry.get(definition.buildingTypeId) as
+    const BuildingCtor = entityTypeRegistry.get(itemEntry.buildingTypeId)?.ctor as
       | (new (id: number) => Building)
       | undefined;
     if (!BuildingCtor) {

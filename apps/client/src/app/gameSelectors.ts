@@ -2,10 +2,10 @@ import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { ClientItemStack } from "@client/net/ClientItemStack.ts";
 import {
-  getEntityDefinition,
-  getItemDefinition,
-} from "@shared/content/index.ts";
-import type { RecipeDefinition } from "@shared/content/types.ts";
+  getEntityContent,
+  getItemContent,
+} from "@shared/content/catalog.ts";
+import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import {
   getResourceNamespace,
   type ResourceId,
@@ -56,7 +56,7 @@ export type GameSelectors = {
   /**
    * Checks whether the currently replicated inventory can satisfy a recipe.
    */
-  hasRecipeResources(recipe: RecipeDefinition): boolean;
+  hasRecipeResources(recipe: ItemRecipeContent): boolean;
   /**
    * Formats a recipe cost list into a concise, player-facing string.
    */
@@ -79,14 +79,14 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
   }
 
   function formatTypeLabel(typeId: string): string {
-    const itemDefinition = getItemDefinition(typeId as ResourceId);
-    if (itemDefinition) {
-      return itemDefinition.label;
+    const itemContent = getItemContent(typeId as ResourceId);
+    if (itemContent) {
+      return itemContent.label;
     }
 
-    const entityDefinition = getEntityDefinition(typeId as ResourceId);
-    if (entityDefinition) {
-      return entityDefinition.label;
+    const entityContent = getEntityContent(typeId as ResourceId);
+    if (entityContent) {
+      return entityContent.label;
     }
 
     const baseLabel = getTypePath(typeId).split("/").pop() ?? typeId;
@@ -140,7 +140,7 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     }, 0);
   }
 
-  function hasRecipeResources(recipe: RecipeDefinition): boolean {
+  function hasRecipeResources(recipe: ItemRecipeContent): boolean {
     return recipe.costs.every(
       (cost) => countInventoryType(cost.typeId) >= cost.amount,
     );
