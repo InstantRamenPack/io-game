@@ -26,7 +26,6 @@ export class RangedWeapon extends Weapon {
 
   public constructor(
     id: number,
-    typeId: ResourceId,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
@@ -37,7 +36,7 @@ export class RangedWeapon extends Weapon {
     reloadTicks: number,
     spread: number = 0,
   ) {
-    super(id, typeId, fireRate, range, hitEffects);
+    super(id, fireRate, range, hitEffects);
     this.projectileTypeId = projectileTypeId;
     this.projectileSpeed = projectileSpeed;
     this.projectileRadius = projectileRadius;

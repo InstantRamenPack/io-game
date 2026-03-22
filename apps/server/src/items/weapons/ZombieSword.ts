@@ -6,12 +6,11 @@ import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
  * Sword melee weapon used by zombies.
  */
 export class ZombieSword extends MeleeWeapon {
-  public static readonly typeId = "item:zombie_sword" as const;
+  public static override readonly resourceName = "zombie_sword";
 
   public constructor(id: number) {
     super(
       id,
-      ZombieSword.typeId,
       1, // fireRate (attacks per second)
       10, // range
       [new DamageEffect(5), new KnockbackEffect()], // hitEffects

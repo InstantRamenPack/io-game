@@ -1,6 +1,5 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { Goal } from "@server/goals/Goal.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 
 export type EnemyConfig = {
@@ -20,14 +19,15 @@ export type EnemyConfig = {
  * Hostile entity with goal-driven targeting and movement state.
  */
 export class Enemy extends GoalControlledEntity {
+  public static readonly kind = "enemy" as const;
+
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
    * @param id Stable runtime entity id.
-   * @param typeId Concrete enemy type id.
    * @param config Enemy tuning and goal stack.
    */
-  public constructor(id: number, typeId: ResourceId, config: EnemyConfig) {
-    super(id, typeId, config);
+  public constructor(id: number, config: EnemyConfig) {
+    super(id, config);
     this.registerGoals(config.goals ?? []);
     this.collisionMode = "dynamic";
     this.radius = config.radius;

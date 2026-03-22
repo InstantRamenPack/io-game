@@ -10,12 +10,12 @@ import type { World } from "@server/world/World.ts";
  * Default single-hit bullet fired by the starter gun.
  */
 export class BasicBullet extends Projectile {
-  public static readonly typeId = "projectile:basic_bullet" as const;
+  public static override readonly resourceName = "basic_bullet";
 
   public readonly hitEffects: Effect[];
 
   public constructor(id: number, config: ProjectileSpawnConfig) {
-    super(id, BasicBullet.typeId, config);
+    super(id, config);
     this.hitEffects = [...(config.hitEffects ?? [])];
     this.radius = config.radius ?? 4;
   }

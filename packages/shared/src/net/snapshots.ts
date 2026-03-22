@@ -1,4 +1,4 @@
-import type { EntityKind } from "@shared/content/types.ts";
+import type { EntityKind } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 

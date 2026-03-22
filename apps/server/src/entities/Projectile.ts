@@ -2,7 +2,6 @@ import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ProjectileSnapshot } from "@shared/net/snapshots.ts";
 
 export type ProjectileSpawnConfig = {
@@ -23,6 +22,7 @@ export type ProjectileSpawnConfig = {
  * Projectiles own their post-move lifetime and hit resolution after movement.
  */
 export abstract class Projectile extends GoalControlledEntity {
+  public static readonly kind = "projectile" as const;
   public previousX: number;
   public previousY: number;
   public readonly speed: number;
@@ -32,10 +32,9 @@ export abstract class Projectile extends GoalControlledEntity {
 
   protected constructor(
     id: number,
-    typeId: ResourceId,
     config: ProjectileSpawnConfig,
   ) {
-    super(id, typeId);
+    super(id);
 
     const directionLength =
       Math.hypot(config.directionX, config.directionY) || 1;

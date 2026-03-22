@@ -1,8 +1,10 @@
-import { requireEntityDefinition } from "@shared/content/index.ts";
+import type { EntityKind } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
 
 export type CollisionMode = "none" | "dynamic" | "static";
 
@@ -11,6 +13,17 @@ export type CollisionMode = "none" | "dynamic" | "static";
  * All server-side runtime entities inherit transform and snapshot behavior from here.
  */
 export abstract class Entity {
+  public static readonly resourceName: string = "";
+
+  public static get typeId(): ResourceId {
+    return deriveTypeIdFromStaticMetadata(
+      this as typeof Entity & {
+        readonly kind: EntityKind;
+        readonly resourceName: string;
+      },
+    );
+  }
+
   public id: number;
   public readonly typeId: ResourceId;
   public x = 0;
@@ -38,9 +51,9 @@ export abstract class Entity {
    * @param typeId Shared entity type id.
    * @param inventory Optional inventory attached to the entity at construction time.
    */
-  protected constructor(id: number, typeId: ResourceId, inventory?: Inventory) {
+  protected constructor(id: number, inventory?: Inventory) {
     this.id = id;
-    this.typeId = typeId;
+    this.typeId = (this.constructor as typeof Entity).typeId;
     if (inventory) {
       this.inventory = inventory;
     }
@@ -69,7 +82,7 @@ export abstract class Entity {
   public toSnapshot(): EntitySnapshotBase {
     return {
       id: this.id,
-      kind: requireEntityDefinition(this.typeId).kind,
+      kind: entityTypeRegistry.require(this.typeId).kind,
       typeId: this.typeId,
       x: this.x,
       y: this.y,

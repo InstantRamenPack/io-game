@@ -1,11 +1,11 @@
 /**
  * Fixed-slot inventory for ItemStacks.
  */
-import { requireItemDefinition } from "@shared/content/index.ts";
+import type { ItemRequirement } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { ItemRequirement } from "@shared/content/types.ts";
 import type { ItemStackSnapshot } from "@shared/net/snapshots.ts";
 import { ItemStack } from "@server/items/ItemStack.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
 
 function shallowMetaEquals(
   leftMeta: Record<string, unknown> | undefined,
@@ -44,7 +44,7 @@ export class Inventory {
 
   /** Adds a stack; returns true if fully added. */
   public add(stack: ItemStack): boolean {
-    const definition = requireItemDefinition(stack.item.typeId);
+    const definition = itemTypeRegistry.require(stack.item.typeId);
     let remaining = stack.stackSize;
 
     for (let i = 0; i < this.slots.length && remaining > 0; i += 1) {

@@ -4,12 +4,13 @@ import { Inventory } from "@server/items/Inventory.ts";
 import type { PickupSnapshot } from "@shared/net/snapshots.ts";
 
 export class ItemEntity extends Entity {
-  public static readonly typeId = "pickup:item_entity" as const;
+  public static readonly kind = "pickup" as const;
+  public static override readonly resourceName = "item_entity";
 
   /** Creates an item-world entity. Optionally give it an inventory. */
   public constructor(id: number, itemStack: ItemStack) {
     // item entities rarely need an inventory, but we support it generically
-    super(id, ItemEntity.typeId, new Inventory(1));
+    super(id, new Inventory(1));
     this.inventory?.add(itemStack);
     this.radius = 14;
   }

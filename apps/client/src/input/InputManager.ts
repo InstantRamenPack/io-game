@@ -1,4 +1,3 @@
-import type { RecipeId } from "@shared/content/types.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
 
@@ -22,7 +21,7 @@ export class InputManager {
   public moveX = 0;
   public moveY = 0;
   public pendingAttack?: AttackTarget;
-  public pendingCraft?: { recipeId: RecipeId };
+  public pendingCraft?: { itemTypeId: ResourceId };
   public pendingBuild?: BuildPlacement;
   public pendingSelectSlot?: number;
   private readonly pressedKeys = new Set<string>();
@@ -89,9 +88,9 @@ export class InputManager {
     this.pendingAttack = { x, y };
   }
 
-  public queueCraft(recipeId: RecipeId): void {
+  public queueCraft(itemTypeId: ResourceId): void {
     this.clearPendingAction();
-    this.pendingCraft = { recipeId };
+    this.pendingCraft = { itemTypeId };
   }
 
   public queueBuild(itemTypeId: ResourceId, x: number, y: number): void {

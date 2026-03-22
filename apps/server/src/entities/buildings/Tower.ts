@@ -1,10 +1,16 @@
 import { Building } from "@server/entities/Building.ts";
+import { requireEntityContent } from "@shared/content/catalog.ts";
 
 export class Tower extends Building {
-  public static readonly typeId = "building:tower" as const;
+  public static override readonly resourceName = "tower";
 
-  public constructor(id: number, label = "Tower", tier = 1, ownerId?: number) {
-    super(id, Tower.typeId, label, tier, ownerId, {
+  public constructor(
+    id: number,
+    label = requireEntityContent(Tower.typeId).label,
+    tier = 1,
+    ownerId?: number,
+  ) {
+    super(id, label, tier, ownerId, {
       baseHp: 240,
       radius: 24,
     });

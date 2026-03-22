@@ -24,6 +24,16 @@ export function assertResourceId(value: string): ResourceId {
 }
 
 /**
+ * Builds a canonical resource id from a namespace and path segment.
+ * @param namespace Prefix before the colon.
+ * @param path Resource name/path after the colon.
+ * @returns Validated resource id.
+ */
+export function makeResourceId(namespace: string, path: string): ResourceId {
+  return assertResourceId(`${namespace}:${path}`);
+}
+
+/**
  * Extracts the namespace portion of a resource id.
  * @param typeId Resource id value.
  * @returns Namespace before the first colon, or an empty string when malformed.
@@ -31,4 +41,14 @@ export function assertResourceId(value: string): ResourceId {
 export function getResourceNamespace(typeId: string): string {
   const separatorIndex = typeId.indexOf(":");
   return separatorIndex >= 0 ? typeId.slice(0, separatorIndex) : "";
+}
+
+/**
+ * Extracts the path portion of a resource id.
+ * @param typeId Resource id value.
+ * @returns Path after the first colon, or an empty string when malformed.
+ */
+export function getResourcePath(typeId: string): string {
+  const separatorIndex = typeId.indexOf(":");
+  return separatorIndex >= 0 ? typeId.slice(separatorIndex + 1) : "";
 }

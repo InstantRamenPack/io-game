@@ -1,9 +1,10 @@
 import { ResourceItem } from "@server/items/resources/ResourceItem.ts";
 
 export class StoneItem extends ResourceItem {
-  public static readonly typeId = "item:stone" as const;
+  public static override readonly resourceName = "stone";
+  public static override readonly stackMax = 999;
 
   public constructor(id: number) {
-    super(id, StoneItem.typeId);
+    super(id);
   }
 }

@@ -2,7 +2,6 @@ import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Melee weapon that hits nearby targets.
@@ -12,13 +11,12 @@ export class MeleeWeapon extends Weapon {
 
   public constructor(
     id: number,
-    typeId: ResourceId,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
     meleeRange: number,
   ) {
-    super(id, typeId, fireRate, range, hitEffects);
+    super(id, fireRate, range, hitEffects);
     this.meleeRange = meleeRange;
   }
 

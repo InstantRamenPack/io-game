@@ -4,7 +4,6 @@ import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Shared base for entities that participate in goal-driven movement or combat.
@@ -19,14 +18,13 @@ export abstract class GoalControlledEntity extends Entity {
 
   protected constructor(
     id: number,
-    typeId: ResourceId,
     config: {
       moveSpeed?: number;
       aggroRange?: number;
       arrivalRadius?: number;
     } = {},
   ) {
-    super(id, typeId);
+    super(id);
     this.goalSelector = new GoalSelector<this>();
     this.moveSpeed = config.moveSpeed ?? 0;
     this.aggroRange = config.aggroRange ?? 0;

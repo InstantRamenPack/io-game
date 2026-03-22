@@ -2,7 +2,6 @@ import { Item } from "@server/items/Item.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Abstract weapon item that can perform attacks.
@@ -18,12 +17,11 @@ export abstract class Weapon extends Item {
 
   public constructor(
     id: number,
-    typeId: ResourceId,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
   ) {
-    super(id, typeId);
+    super(id);
     this.fireRate = fireRate;
     this.range = range;
     this.hitEffects = hitEffects;
