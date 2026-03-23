@@ -76,7 +76,10 @@ export class GameClient {
     this.networkClient = new WsClient();
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer(this.gameConfig.worldSize);
-    this.interpolator = new Interpolator(this.gameConfig.interpolation);
+    this.interpolator = new Interpolator({
+      snapDistance: this.gameConfig.interpolation.snapDistance,
+      expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
+    });
     this.debugHitbox = options.debugHitbox ?? false;
     this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
 
@@ -121,6 +124,15 @@ export class GameClient {
   public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
+  }
+
+  public setTickRate(tickRate: number): void {
+    if (!Number.isFinite(tickRate) || tickRate <= 0) {
+      return;
+    }
+
+    this.gameConfig.tickRate = Math.floor(tickRate);
+    this.interpolator.setExpectedSnapshotMs(1000 / this.gameConfig.tickRate);
   }
 
   public setPointerActionHandler(

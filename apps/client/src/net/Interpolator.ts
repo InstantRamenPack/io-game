@@ -5,9 +5,20 @@ import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
  */
 export class Interpolator {
   private readonly snapDistance: number;
+  private expectedSnapshotMs: number;
+  private renderDelayMs: number;
+  private lastSnapshotTime?: number;
+  private readonly smoothing = 0.1;
 
   constructor(interpolationConfig: InterpolationConfig) {
     this.snapDistance = interpolationConfig.snapDistance;
+    this.expectedSnapshotMs = Math.max(1, interpolationConfig.expectedSnapshotMs);
+    this.renderDelayMs = this.expectedSnapshotMs;
+  }
+
+  public setExpectedSnapshotMs(expectedSnapshotMs: number): void {
+    this.expectedSnapshotMs = Math.max(1, expectedSnapshotMs);
+    this.renderDelayMs = this.expectedSnapshotMs;
   }
 
   updateInterpolation(worldState: ClientWorldState, frameTimeMs: number): void {
@@ -26,9 +37,17 @@ export class Interpolator {
     }
 
     const spanMs = Math.max(1, latestAt - previousAt);
-    // Stay exactly one observed snapshot interval behind so interpolation
-    // always happens across the latest two received snapshots.
-    const renderTimeMs = frameTimeMs - spanMs;
+    if (this.lastSnapshotTime !== latestAt) {
+      const minDelay = this.expectedSnapshotMs * 0.5;
+      const maxDelay = this.expectedSnapshotMs * 2.0;
+      const clampedSpan = clamp(spanMs, minDelay, maxDelay);
+      this.renderDelayMs = lerp(this.renderDelayMs, clampedSpan, this.smoothing);
+      this.lastSnapshotTime = latestAt;
+    }
+
+    // Stay roughly one expected snapshot interval behind to smooth
+    // over network jitter and bursty delivery.
+    const renderTimeMs = frameTimeMs - this.renderDelayMs;
     const alpha = clamp((renderTimeMs - previousAt) / spanMs, 0, 1);
 
     for (const entity of worldState.clientWorld.entities.values()) {
@@ -50,6 +69,7 @@ export class Interpolator {
 
 export type InterpolationConfig = {
   snapDistance: number;
+  expectedSnapshotMs: number;
 };
 
 function lerp(start: number, end: number, t: number): number {
