@@ -5,8 +5,6 @@ import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 
 export type EnemyConfig = {
   moveSpeed?: number;
-  aggroRange?: number;
-  arrivalRadius?: number;
   radius: number;
   hp: number;
   maxHp: number;

@@ -20,13 +20,15 @@ export class Player extends Entity {
   public static override readonly resourceName = "base";
 
   public name: string;
+  public inventory: Inventory;
   public inputBuffer: InputCommand[] = [];
   public moveSpeed = 15;
   public activeEffects = ["Fortified", "Well Fed"];
 
   public constructor(id: number, name = "player") {
-    super(id, new Inventory());
+    super(id);
     this.name = name;
+    this.inventory = new Inventory();
     this.radius = 16;
     this.collisionMode = "dynamic";
     this.hp = 100;
@@ -42,7 +44,7 @@ export class Player extends Entity {
 
   public override tick(world: World): void {
     super.tick(world);
-    for (const weapon of this.inventory?.weapons ?? []) {
+    for (const weapon of this.inventory.weapons) {
       weapon.tick(world);
     }
     this.applyBufferedInputs(world);
@@ -56,11 +58,7 @@ export class Player extends Entity {
       name: this.name,
       hp: this.hp ?? 0,
       maxHp: this.maxHp ?? 0,
-      inventory: this.inventory?.toSnapshot() ?? {
-        stackables: [],
-        weapons: [],
-        activeWeaponIndex: null,
-      },
+      inventory: this.inventory.toSnapshot(),
       activeEffects: [...this.activeEffects],
       moveSpeed: this.moveSpeed,
     };
@@ -82,7 +80,7 @@ export class Player extends Entity {
       sawMovement = true;
 
       if (inputCommand.selectWeaponIndex !== undefined) {
-        this.inventory?.setActiveWeaponIndex(inputCommand.selectWeaponIndex);
+        this.inventory.setActiveWeaponIndex(inputCommand.selectWeaponIndex);
       }
 
       if (inputCommand.attack) {
@@ -116,14 +114,21 @@ export class Player extends Entity {
   }
 
   public getActiveWeapon(): Weapon | undefined {
-    return this.inventory?.getActiveWeapon();
+    return this.inventory.getActiveWeapon();
   }
 
-  public craft(world: World, itemTypeId: ResourceId): void {
-    if (!this.inventory) {
+  public handleDeath(world: World): void {
+    if (this.maxHp === undefined) {
       return;
     }
 
+    this.hp = this.maxHp;
+    this.x = world.gameConfig.worldSize.w / 2;
+    this.y = world.gameConfig.worldSize.h / 2;
+    this.resetVelocity();
+  }
+
+  public craft(world: World, itemTypeId: ResourceId): void {
     const outputEntry = itemTypeRegistry.get(itemTypeId);
     const recipe = outputEntry?.content.recipe;
     if (!outputEntry || !recipe) {
@@ -151,10 +156,6 @@ export class Player extends Entity {
     targetX: number,
     targetY: number,
   ): void {
-    if (!this.inventory) {
-      return;
-    }
-
     const itemEntry = itemTypeRegistry.get(itemTypeId);
     if (!itemEntry?.buildingTypeId) {
       return;
@@ -165,14 +166,22 @@ export class Player extends Entity {
     }
 
     const buildingEntry = entityTypeRegistry.get(itemEntry.buildingTypeId);
-    const BuildingCtor = buildingEntry?.ctor as
-      | (new (id: number) => Building)
-      | undefined;
-    if (!BuildingCtor) {
+    if (!buildingEntry) {
       return;
     }
 
-    const building = new BuildingCtor(world.allocEntityId());
+    type BuildableCtor = new (
+      id: number,
+      label: string,
+      tier?: number,
+      ownerId?: number,
+    ) => Building;
+    const BuildingCtor = buildingEntry.ctor as unknown as BuildableCtor;
+
+    const building = new BuildingCtor(
+      world.allocEntityId(),
+      buildingEntry.content.label,
+    );
     building.x = targetX;
     building.y = targetY;
     building.ownerId = this.id;
@@ -206,10 +215,6 @@ export class Player extends Entity {
   }
 
   public seedStarterInventory(): void {
-    if (!this.inventory) {
-      return;
-    }
-
     this.inventory.addStackable("item:wood", 120);
     this.inventory.addStackable("item:stone", 80);
     this.inventory.addStackable("item:food", 6);
