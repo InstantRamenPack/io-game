@@ -120,9 +120,7 @@ export function createLaunchController({
     if (elements.gameRoot) {
       elements.gameRoot.hidden = false;
     }
-    if (elements.hudRoot) {
-      elements.hudRoot.hidden = false;
-    }
+    hudController.setVisible(true);
 
     runtimeStatusController.start();
     menuController.showGameScreen();
@@ -148,9 +146,7 @@ export function createLaunchController({
     if (elements.gameRoot) {
       elements.gameRoot.hidden = true;
     }
-    if (elements.hudRoot) {
-      elements.hudRoot.hidden = true;
-    }
+    hudController.setVisible(false);
 
     menuController.showMenuScreen();
     hudController.refreshUi();
@@ -174,9 +170,7 @@ export function createLaunchController({
       button.textContent = "Deploy";
       button.disabled = false;
     }
-    if (elements.hudRoot) {
-      elements.hudRoot.hidden = true;
-    }
+    hudController.setVisible(false);
 
     menuController.refreshGateUi();
     hudController.refreshUi();
@@ -185,7 +179,7 @@ export function createLaunchController({
   return {
     applyRuntimeConfig(runtimeConfig: ClientRuntimeConfig): void {
       gameConfig.protocolVersion = runtimeConfig.protocolVersion;
-      gameConfig.tickRate = runtimeConfig.tickRate;
+      gameClient.setTickRate(runtimeConfig.tickRate);
       gameClient.setWorldSize(runtimeConfig.worldSize);
     },
   };
