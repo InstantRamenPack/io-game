@@ -101,10 +101,6 @@ export class WsServer {
     }
   }
 
-  getConnectionCount(): number {
-    return this.sockets.size;
-  }
-
   /**
    * Closes and removes a connected client socket.
    * @param clientId Connected client id.

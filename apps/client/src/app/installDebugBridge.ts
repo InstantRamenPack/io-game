@@ -24,8 +24,6 @@ export function installDebugBridge({
     const activeWeaponIndex = inventory?.activeWeaponIndex ?? null;
     const hudState = hudController.getState();
     const performanceRates = gameClient.getMeasuredRates();
-    const snapshotCadence = gameClient.worldState?.getSnapshotCadenceTelemetry() ?? null;
-    const interpolation = gameClient.interpolator.getTelemetry();
 
     return JSON.stringify({
       mode: elements.menuRoot?.style.display === "none" ? "game" : "menu",
@@ -36,8 +34,6 @@ export function installDebugBridge({
       performance: {
         tickRate: performanceRates.tickRate,
         frameRate: performanceRates.frameRate,
-        snapshotCadence,
-        interpolation,
       },
       playerEntityId: gameClient.playerEntityId ?? null,
       player: playerEntity
