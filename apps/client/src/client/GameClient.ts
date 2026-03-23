@@ -78,7 +78,7 @@ export class GameClient {
     this.renderer = new PixiRenderer(this.gameConfig.worldSize);
     this.interpolator = new Interpolator({
       snapDistance: this.gameConfig.interpolation.snapDistance,
-      expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
+      fallbackSnapshotMs: 1000 / this.gameConfig.tickRate,
     });
     this.debugHitbox = options.debugHitbox ?? false;
     this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
@@ -132,7 +132,7 @@ export class GameClient {
     }
 
     this.gameConfig.tickRate = Math.floor(tickRate);
-    this.interpolator.setExpectedSnapshotMs(1000 / this.gameConfig.tickRate);
+    this.interpolator.setFallbackSnapshotMs(1000 / this.gameConfig.tickRate);
   }
 
   public setPointerActionHandler(
@@ -163,6 +163,7 @@ export class GameClient {
     this.started = true;
     this.sessionReady = false;
     this.resetPerformanceRateSamples();
+    this.interpolator.reset();
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
@@ -206,6 +207,7 @@ export class GameClient {
     this.stopFrameLoop();
     this.stopInputLoop();
     this.resetPerformanceRateSamples();
+    this.interpolator.reset();
     this.networkClient.disconnect();
     this.worldState?.clear();
     this.playerEntityId = undefined;
@@ -331,6 +333,7 @@ export class GameClient {
     this.stopFrameLoop();
     this.stopInputLoop();
     this.resetPerformanceRateSamples();
+    this.interpolator.reset();
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);

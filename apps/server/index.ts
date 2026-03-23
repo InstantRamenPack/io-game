@@ -93,6 +93,15 @@ export function main(): void {
         return new Response("ok");
       }
 
+      if (url.pathname === "/telemetry/tick") {
+        return new Response(JSON.stringify(gameServer.getTickTelemetry()), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        });
+      }
+
       if (url.pathname === "/runtime-config") {
         return new Response(
           JSON.stringify(makeClientRuntimeConfig(gameConfig, googleClientId)),

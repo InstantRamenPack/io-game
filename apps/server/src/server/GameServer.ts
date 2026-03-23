@@ -20,10 +20,19 @@ import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
-import { TickClock } from "@server/server/TickClock.ts";
+import {
+  TickClock,
+  type TickClockTelemetrySnapshot,
+} from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
+
+export type GameServerTickTelemetrySnapshot = TickClockTelemetrySnapshot & {
+  capturedAtMs: number;
+  worldTick: number;
+  connectedClients: number;
+};
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -95,6 +104,15 @@ export class GameServer {
    */
   stop(): void {
     this.clock.stop();
+  }
+
+  getTickTelemetry(): GameServerTickTelemetrySnapshot {
+    return {
+      capturedAtMs: Date.now(),
+      worldTick: this.world.tick,
+      connectedClients: this.networkServer.getConnectionCount(),
+      ...this.clock.getTelemetry(),
+    };
   }
 
   /**
