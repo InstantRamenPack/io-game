@@ -117,6 +117,17 @@ export class Player extends Entity {
     return this.inventory.getActiveWeapon();
   }
 
+  public handleDeath(world: World): void {
+    if (this.maxHp === undefined) {
+      return;
+    }
+
+    this.hp = this.maxHp;
+    this.x = world.gameConfig.worldSize.w / 2;
+    this.y = world.gameConfig.worldSize.h / 2;
+    this.resetVelocity();
+  }
+
   public craft(world: World, itemTypeId: ResourceId): void {
     const outputEntry = itemTypeRegistry.get(itemTypeId);
     const recipe = outputEntry?.content.recipe;
