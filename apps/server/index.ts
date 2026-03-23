@@ -1,3 +1,4 @@
+import { makeClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
@@ -94,12 +95,7 @@ export function main(): void {
 
       if (url.pathname === "/runtime-config") {
         return new Response(
-          JSON.stringify({
-            googleClientId: googleClientId ?? null,
-            protocolVersion: GameConfig.DEFAULT_PROTOCOL_VERSION,
-            tickRate: gameConfig.tickRate,
-            worldSize: gameConfig.worldSize,
-          }),
+          JSON.stringify(makeClientRuntimeConfig(gameConfig, googleClientId)),
           {
             headers: {
               "content-type": "application/json; charset=utf-8",

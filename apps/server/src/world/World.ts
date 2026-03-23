@@ -22,7 +22,6 @@ export class World {
   public gameConfig: GameConfig;
   public combat: CombatSystem;
   private readonly entityIdGenerator = new IdGenerator();
-  private readonly itemIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
 
   /**
@@ -98,9 +97,5 @@ export class World {
    */
   public allocEntityId(): number {
     return this.entityIdGenerator.alloc();
-  }
-
-  public allocItemId(): number {
-    return this.itemIdGenerator.alloc();
   }
 }

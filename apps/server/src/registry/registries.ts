@@ -2,7 +2,6 @@ import type {
   EntityContent,
   EntityKind,
   ItemContent,
-  ItemRecipeContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { TypeRegistry } from "@shared/registry/TypeRegistry.ts";
@@ -18,7 +17,7 @@ import type {
 } from "@server/registry/typeMetadata.ts";
 
 export type EntityCtor<T extends Entity = Entity> = new (...args: never[]) => T;
-export type ItemCtor<T extends Item = Item> = new (id: number) => T;
+export type ItemCtor<T extends Item = Item> = new () => T;
 export type ProjectileCtor<T extends Projectile = Projectile> = new (
   id: number,
   config: ProjectileSpawnConfig,
@@ -42,21 +41,15 @@ export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
 export type EntityTypeEntry = {
   typeId: ResourceId;
   kind: EntityKind;
-  resourceName: string;
-  label: string;
   content: EntityContent;
   ctor: RegistrableEntityCtor;
 };
 
 export type ItemTypeEntry = {
   typeId: ResourceId;
-  kind: "item";
-  resourceName: string;
-  label: string;
   stackMax: number;
   buildingTypeId?: ResourceId;
   content: ItemContent;
-  recipe?: ItemRecipeContent;
   ctor: RegistrableItemCtor;
 };
 

@@ -2,8 +2,9 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { MenuController } from "@client/app/MenuController.ts";
 import type { RuntimeStatusController } from "@client/app/RuntimeStatusController.ts";
-import type { AuthController, RuntimeConfig } from "@client/auth/Auth.ts";
+import type { AuthController } from "@client/auth/Auth.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
+import type { ClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 
 /**
@@ -18,7 +19,7 @@ export type LaunchController = {
    * runtime. The method updates protocol/tick settings and world bounds while
    * validating that the incoming values are finite and usable.
    */
-  applyRuntimeConfig(runtimeConfig: RuntimeConfig): void;
+  applyRuntimeConfig(runtimeConfig: ClientRuntimeConfig): void;
 };
 
 type LaunchControllerOptions = {
@@ -115,7 +116,7 @@ export function createLaunchController({
     menuController.refreshGateUi();
   });
 
-  gameClient.networkClient.onOpen(() => {
+  gameClient.onSessionReady(() => {
     if (elements.gameRoot) {
       elements.gameRoot.hidden = false;
     }
@@ -182,34 +183,10 @@ export function createLaunchController({
   });
 
   return {
-    applyRuntimeConfig(runtimeConfig: RuntimeConfig): void {
-      if (
-        typeof runtimeConfig.protocolVersion === "number" &&
-        Number.isFinite(runtimeConfig.protocolVersion)
-      ) {
-        gameConfig.protocolVersion = runtimeConfig.protocolVersion;
-      }
-
-      if (
-        typeof runtimeConfig.tickRate === "number" &&
-        Number.isFinite(runtimeConfig.tickRate) &&
-        runtimeConfig.tickRate > 0
-      ) {
-        gameConfig.tickRate = Math.floor(runtimeConfig.tickRate);
-      }
-
-      if (
-        runtimeConfig.worldSize &&
-        Number.isFinite(runtimeConfig.worldSize.w) &&
-        Number.isFinite(runtimeConfig.worldSize.h) &&
-        runtimeConfig.worldSize.w > 0 &&
-        runtimeConfig.worldSize.h > 0
-      ) {
-        gameClient.setWorldSize({
-          w: runtimeConfig.worldSize.w,
-          h: runtimeConfig.worldSize.h,
-        });
-      }
+    applyRuntimeConfig(runtimeConfig: ClientRuntimeConfig): void {
+      gameConfig.protocolVersion = runtimeConfig.protocolVersion;
+      gameConfig.tickRate = runtimeConfig.tickRate;
+      gameClient.setWorldSize(runtimeConfig.worldSize);
     },
   };
 }

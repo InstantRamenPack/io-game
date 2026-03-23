@@ -22,7 +22,7 @@ export class AntiCheatValidator {
     this.clampMove(inputCommand);
     this.clampAttack(inputCommand, world);
     this.clampBuild(inputCommand, world);
-    this.clampSelectSlot(inputCommand, playerEntity);
+    this.clampSelectWeaponIndex(inputCommand, playerEntity);
 
     return !(
       !Number.isFinite(inputCommand.seq) || !Number.isFinite(inputCommand.tick)
@@ -66,23 +66,23 @@ export class AntiCheatValidator {
     };
   }
 
-  private clampSelectSlot(
+  private clampSelectWeaponIndex(
     inputCommand: InputCommand,
     playerEntity: Player,
   ): void {
-    if (inputCommand.selectSlot === undefined) {
+    if (inputCommand.selectWeaponIndex === undefined) {
       return;
     }
 
-    const { selectSlot } = inputCommand;
+    const { selectWeaponIndex } = inputCommand;
     if (
-      !Number.isFinite(selectSlot) ||
-      !Number.isInteger(selectSlot) ||
+      !Number.isFinite(selectWeaponIndex) ||
+      !Number.isInteger(selectWeaponIndex) ||
       !playerEntity.inventory ||
-      selectSlot < 0 ||
-      selectSlot >= playerEntity.inventory.slots.length
+      selectWeaponIndex < 0 ||
+      selectWeaponIndex >= playerEntity.inventory.weapons.length
     ) {
-      inputCommand.selectSlot = undefined;
+      inputCommand.selectWeaponIndex = undefined;
       return;
     }
   }

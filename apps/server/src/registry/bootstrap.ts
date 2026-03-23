@@ -2,25 +2,13 @@ import {
   requireEntityContent,
   requireItemContent,
 } from "@shared/content/catalog.ts";
-import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { Tower } from "@server/entities/buildings/Tower.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
-import { Windmill } from "@server/entities/buildings/Windmill.ts";
-import { ItemEntity } from "@server/entities/ItemEntity.ts";
-import { Player } from "@server/entities/Player.ts";
-import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
-import { Zombie } from "@server/entities/enemies/Zombie.ts";
-import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
-import { FoodItem } from "@server/items/resources/materials/FoodItem.ts";
-import { StoneItem } from "@server/items/resources/materials/StoneItem.ts";
-import { WoodItem } from "@server/items/resources/materials/WoodItem.ts";
-import { CraftingStationItem } from "@server/items/resources/structures/CraftingStationItem.ts";
-import { TowerItem } from "@server/items/resources/structures/TowerItem.ts";
-import { WallItem } from "@server/items/resources/structures/WallItem.ts";
-import { WindmillItem } from "@server/items/resources/structures/WindmillItem.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
-import { BasicSword } from "@server/items/weapons/BasicSword.ts";
-import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
+import { coreEntityTypes } from "@server/entities/index.ts";
+import { buildingEntityTypes } from "@server/entities/buildings/index.ts";
+import { enemyEntityTypes } from "@server/entities/enemies/index.ts";
+import { projectileEntityTypes } from "@server/entities/projectiles/index.ts";
+import { materialItemTypes } from "@server/items/resources/Materials.ts";
+import { structureItemTypes } from "@server/items/resources/StructureItems.ts";
+import { weaponItemTypes } from "@server/items/weapons/index.ts";
 import {
   entityTypeRegistry,
   itemTypeRegistry,
@@ -46,28 +34,26 @@ export function bootstrapTypeRegistries(): void {
     return;
   }
 
-  registerEntityType(Player);
-  registerEntityType(Zombie);
-  registerEntityType(Skeleton);
-  registerEntityType(Wall);
-  registerEntityType(Tower);
-  registerEntityType(Windmill);
-  registerEntityType(CraftingStation);
-  registerEntityType(ItemEntity);
-  registerEntityType(BasicBullet);
+  for (const ctor of [
+    ...coreEntityTypes,
+    ...enemyEntityTypes,
+    ...buildingEntityTypes,
+    ...projectileEntityTypes,
+  ]) {
+    registerEntityType(ctor);
+  }
 
-  registerItemType(BasicGun);
-  registerItemType(BasicSword);
-  registerItemType(WoodItem);
-  registerItemType(StoneItem);
-  registerItemType(FoodItem);
-  registerItemType(WallItem);
-  registerItemType(TowerItem);
-  registerItemType(WindmillItem);
-  registerItemType(CraftingStationItem);
-  registerItemType(ZombieSword);
+  for (const ctor of [
+    ...weaponItemTypes,
+    ...materialItemTypes,
+    ...structureItemTypes,
+  ]) {
+    registerItemType(ctor);
+  }
 
-  registerProjectileType(BasicBullet);
+  for (const ctor of projectileEntityTypes) {
+    registerProjectileType(ctor);
+  }
 
   validateRegistryContent();
 
@@ -83,8 +69,6 @@ function registerEntityType(ctor: RegistrableEntityCtor): void {
   const entry: EntityTypeEntry = {
     typeId: ctor.typeId,
     kind: metadata.kind,
-    resourceName: metadata.resourceName,
-    label: content.label,
     content,
     ctor,
   };
@@ -96,13 +80,9 @@ function registerItemType(ctor: RegistrableItemCtor): void {
   const content = requireItemContent(ctor.typeId);
   const entry: ItemTypeEntry = {
     typeId: ctor.typeId,
-    kind: "item",
-    resourceName: metadata.resourceName,
-    label: content.label,
     stackMax: metadata.stackMax,
     buildingTypeId: metadata.buildingTypeId,
     content,
-    recipe: content.recipe,
     ctor,
   };
   itemTypeRegistry.register(entry.typeId, entry);
@@ -114,13 +94,16 @@ function registerProjectileType(ctor: RegistrableProjectileCtor): void {
 
 function validateRegistryContent(): void {
   for (const [, itemEntry] of itemTypeRegistry.entries()) {
-    if (itemEntry.buildingTypeId && !entityTypeRegistry.has(itemEntry.buildingTypeId)) {
+    if (
+      itemEntry.buildingTypeId &&
+      !entityTypeRegistry.has(itemEntry.buildingTypeId)
+    ) {
       throw new Error(
         `Item ${itemEntry.typeId} references unknown building type ${itemEntry.buildingTypeId}.`,
       );
     }
 
-    for (const cost of itemEntry.recipe?.costs ?? []) {
+    for (const cost of itemEntry.content.recipe?.costs ?? []) {
       if (!itemTypeRegistry.has(cost.typeId)) {
         throw new Error(
           `Item ${itemEntry.typeId} recipe references unknown item ${cost.typeId}.`,

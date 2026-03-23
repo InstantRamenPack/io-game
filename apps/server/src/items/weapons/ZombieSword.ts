@@ -8,19 +8,12 @@ import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 export class ZombieSword extends MeleeWeapon {
   public static override readonly resourceName = "zombie_sword";
 
-  public constructor(id: number) {
+  public constructor() {
     super(
-      id,
       1, // fireRate (attacks per second)
       10, // range
       [new DamageEffect(5), new KnockbackEffect()], // hitEffects
       10, // meleeRange
     );
-  }
-
-  public override clone(): ZombieSword {
-    const cloned = new ZombieSword(this.id);
-    cloned.ownerId = this.ownerId;
-    return cloned;
   }
 }

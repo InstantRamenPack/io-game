@@ -23,7 +23,7 @@ export class InputManager {
   public pendingAttack?: AttackTarget;
   public pendingCraft?: { itemTypeId: ResourceId };
   public pendingBuild?: BuildPlacement;
-  public pendingSelectSlot?: number;
+  public pendingSelectWeaponIndex?: number;
   private readonly pressedKeys = new Set<string>();
 
   /**
@@ -35,7 +35,7 @@ export class InputManager {
       const keyboardEvent = event as KeyboardEvent;
       const slotIndex = this.parseSlotDigit(keyboardEvent.code);
       if (slotIndex !== null) {
-        this.pendingSelectSlot = slotIndex;
+        this.pendingSelectWeaponIndex = slotIndex;
         return;
       }
 
@@ -66,7 +66,7 @@ export class InputManager {
       tick: serverTick,
       moveX: this.moveX,
       moveY: this.moveY,
-      selectSlot: this.pendingSelectSlot,
+      selectWeaponIndex: this.pendingSelectWeaponIndex,
       attack: this.pendingAttack ? { ...this.pendingAttack } : undefined,
       craft: this.pendingCraft ? { ...this.pendingCraft } : undefined,
       build: this.pendingBuild ? { ...this.pendingBuild } : undefined,
@@ -80,7 +80,7 @@ export class InputManager {
     this.pendingAttack = undefined;
     this.pendingCraft = undefined;
     this.pendingBuild = undefined;
-    this.pendingSelectSlot = undefined;
+    this.pendingSelectWeaponIndex = undefined;
   }
 
   public queueAttack(x: number, y: number): void {

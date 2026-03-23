@@ -171,11 +171,14 @@ export function createHudController({
     }
 
     if (elements.hotbarList) {
+      const inventory = selectors.getInventory();
+      const hotbarWeapons = selectors.getHotbarWeapons();
+      const activeWeaponIndex = inventory?.activeWeaponIndex ?? null;
       elements.hotbarList.innerHTML = Array.from(
         { length: HOTBAR_SLOT_COUNT },
         (_, slotIndex) => {
-          const stack = selectors.getInventoryStacks()[slotIndex] ?? null;
-          if (!stack) {
+          const weapon = hotbarWeapons[slotIndex] ?? null;
+          if (!weapon) {
             return `
               <div class="hotbar-slot">
                 <div class="slot-index">Slot ${slotIndex + 1}</div>
@@ -184,12 +187,17 @@ export function createHudController({
             `;
           }
 
-          const isActive = playerEntity?.activeSlot === slotIndex;
+          const isActive = activeWeaponIndex === slotIndex;
+          const ammoLabel =
+            typeof weapon.ammoInMag === "number" &&
+            typeof weapon.magSize === "number"
+              ? `${weapon.ammoInMag}/${weapon.magSize}`
+              : "Ready";
           return `
             <div class="hotbar-slot${isActive ? " active" : ""}">
               <div class="slot-index">Slot ${slotIndex + 1}</div>
-              <div class="slot-label">${selectors.escapeHtml(selectors.formatTypeLabel(stack.typeId))}</div>
-              <div class="slot-count">x${stack.stackSize}</div>
+              <div class="slot-label">${selectors.escapeHtml(selectors.formatTypeLabel(weapon.typeId))}</div>
+              <div class="slot-count">${selectors.escapeHtml(ammoLabel)}</div>
             </div>
           `;
         },
@@ -245,7 +253,6 @@ export function createHudController({
     }
 
     if (elements.craftingHint) {
-      const selectedRecipe = getSelectedRecipe();
       const nearbyLabels = buildings
         .map(
           (entity) =>
