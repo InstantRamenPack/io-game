@@ -21,10 +21,9 @@ export class Skeleton extends Enemy {
       vx: 0,
       vy: 0,
       moveSpeed: 8,
-      aggroRange: 480,
       weapons: [new BasicGun()],
       goals: [
-        new TargetEntityGoal<Enemy>(0),
+        new TargetEntityGoal<Enemy>(0, 480),
         new RangedAttackGoal<Enemy>(1, 0, 220, 32, 45),
       ],
     });

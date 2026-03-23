@@ -9,12 +9,16 @@ import { Goal } from "@server/goals/Goal.ts";
 export class TargetEntityGoal<
   TSelf extends GoalControlledEntity = GoalControlledEntity,
 > extends Goal<TSelf> {
+  private readonly aggroRange: number;
+
   /**
    * Creates a target-acquisition goal for live player entities.
    * @param priority Lower values run first.
+   * @param aggroRange Maximum chase/target acquisition distance.
    */
-  constructor(priority: number) {
+  constructor(priority: number, aggroRange: number) {
     super(priority, ["target"]);
+    this.aggroRange = aggroRange;
   }
 
   override canStart(_ctx: GoalContext<TSelf>): boolean {
@@ -32,7 +36,7 @@ export class TargetEntityGoal<
       return;
     }
 
-    const aggroRangeSquared = ctx.self.aggroRange * ctx.self.aggroRange;
+    const aggroRangeSquared = this.aggroRange * this.aggroRange;
     let bestTarget: Player | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
 
@@ -88,7 +92,7 @@ export class TargetEntityGoal<
       target.x,
       target.y,
     );
-    const aggroRangeSquared = ctx.self.aggroRange * ctx.self.aggroRange;
+    const aggroRangeSquared = this.aggroRange * this.aggroRange;
     return distanceSquared <= aggroRangeSquared ? target : null;
   }
 

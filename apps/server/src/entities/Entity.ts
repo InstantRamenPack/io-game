@@ -2,7 +2,6 @@ import type { EntityKind } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
-import type { Inventory } from "@server/items/Inventory.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
 
@@ -43,20 +42,14 @@ export abstract class Entity {
   public maxHp?: number;
   public teamId?: number;
   public ownerId?: number;
-  public inventory?: Inventory;
 
   /**
    * Initializes common identity fields for entity subclasses.
    * @param id Stable runtime entity id.
-   * @param typeId Shared entity type id.
-   * @param inventory Optional inventory attached to the entity at construction time.
    */
-  protected constructor(id: number, inventory?: Inventory) {
+  protected constructor(id: number) {
     this.id = id;
     this.typeId = (this.constructor as typeof Entity).typeId;
-    if (inventory) {
-      this.inventory = inventory;
-    }
   }
 
   /**
