@@ -35,7 +35,6 @@ gameClient.bindInput(window);
 
 const selectors = createGameSelectors(gameClient);
 const hudController = createHudController({
-  elements,
   gameClient,
   selectors,
 });

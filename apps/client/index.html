@@ -78,46 +78,6 @@
       </footer>
     </main>
     <div id="game-root" hidden></div>
-    <div id="hud-root" class="hud-shell" hidden>
-      <div class="hud-row">
-        <section class="hud-card">
-          <div class="hud-kicker">Sector Feed</div>
-          <div class="hud-primary" id="world-stat">
-            Deploy to sync with the sector.
-          </div>
-          <div class="hud-secondary" id="world-detail">
-            WASD to move. B for building. C for crafting.
-          </div>
-        </section>
-        <section class="hud-card">
-          <div class="hud-kicker">Resources</div>
-          <div class="resource-strip" id="resource-strip"></div>
-        </section>
-        <section class="hud-card">
-          <div class="hud-kicker">Effects</div>
-          <div class="effect-strip" id="effect-strip"></div>
-        </section>
-      </div>
-
-      <div class="hud-bottom">
-        <section class="hud-card">
-          <div class="hud-kicker">Loadout</div>
-          <div class="hotbar-list" id="hotbar-list"></div>
-        </section>
-
-        <section class="hud-card" id="placement-panel" hidden>
-          <div class="hud-kicker">Build Placement</div>
-          <div class="build-list" id="build-list"></div>
-          <div class="hint-row" id="build-hint"></div>
-        </section>
-
-        <section class="hud-card" id="crafting-panel" hidden>
-          <div class="hud-kicker">Crafting</div>
-          <div class="recipe-list" id="crafting-list"></div>
-          <div class="hint-row" id="crafting-hint"></div>
-        </section>
-      </div>
-    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

@@ -1,4 +1,7 @@
 import * as PIXI from "pixijs";
+import type { GameClient } from "@client/client/GameClient.ts";
+import type { GameSelectors } from "@client/app/gameSelectors.ts";
+import { PixiHud } from "@client/render/PixiHud.ts";
 
 type WorldSize = { w: number; h: number };
 
@@ -13,6 +16,7 @@ export class PixiRenderer {
   private grid: PIXI.Graphics | null = null;
   public entityContainer: PIXI.Container | null = null;
   private damageOverlay: PIXI.Graphics | null = null;
+  private hud: PixiHud | null = null;
   private damageOverlayRemainingMs = 0;
   private damageOverlayDurationMs = 200;
   private gridCellSize = 100;
@@ -32,6 +36,22 @@ export class PixiRenderer {
 
   public constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
+  }
+
+  public createHud(options: {
+    gameClient: GameClient;
+    selectors: GameSelectors;
+  }): PixiHud {
+    if (!this.hud) {
+      this.hud = new PixiHud(options);
+    }
+
+    if (this.app) {
+      this.hud.attach(this.app);
+      this.ensureDamageOverlay();
+    }
+
+    return this.hud;
   }
 
   public setPlayerEntityId(entityId: number | undefined): void {
@@ -61,6 +81,10 @@ export class PixiRenderer {
       this.entityContainer = new PIXI.Container();
     }
     this.world.addChild(this.entityContainer);
+
+    if (this.hud) {
+      this.hud.attach(this.app);
+    }
 
     this.ensureDamageOverlay();
     this.renderScene();
@@ -150,6 +174,7 @@ export class PixiRenderer {
     if (!this.app) {
       return;
     }
+    this.hud?.render(this.app);
     this.app.renderer.render(this.app.stage);
   }
 
