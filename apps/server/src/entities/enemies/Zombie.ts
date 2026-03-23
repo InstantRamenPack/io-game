@@ -4,9 +4,6 @@ import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
-/**
- * Default melee chaser enemy used for the initial hostile population.
- */
 export class Zombie extends Enemy {
   public static override readonly resourceName = "zombie";
 
@@ -15,8 +12,6 @@ export class Zombie extends Enemy {
    * @param id Stable runtime entity id.
    */
   public constructor(id: number) {
-    const arrivalRadius = 20;
-
     super(id, {
       radius: 12,
       hp: 100,
@@ -24,12 +19,10 @@ export class Zombie extends Enemy {
       vx: 0,
       vy: 0,
       moveSpeed: 8,
-      aggroRange: 480,
-      arrivalRadius,
       weapons: [new ZombieSword()],
       goals: [
-        new TargetEntityGoal<Enemy>(0),
-        new GoToTargetGoal<Enemy>(1, arrivalRadius),
+        new TargetEntityGoal<Enemy>(0, 480),
+        new GoToTargetGoal<Enemy>(1, 20),
         new AttackAtGoal<Enemy>(2, 0),
       ],
     });

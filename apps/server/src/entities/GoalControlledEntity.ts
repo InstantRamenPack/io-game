@@ -12,23 +12,17 @@ export abstract class GoalControlledEntity extends Entity {
   public goalSelector: GoalSelector<this>;
   public weapons: Weapon[] = [];
   public targetId?: number;
-  public aggroRange: number;
-  public arrivalRadius: number;
   public moveSpeed: number;
 
   protected constructor(
     id: number,
     config: {
       moveSpeed?: number;
-      aggroRange?: number;
-      arrivalRadius?: number;
     } = {},
   ) {
     super(id);
     this.goalSelector = new GoalSelector<this>();
     this.moveSpeed = config.moveSpeed ?? 0;
-    this.aggroRange = config.aggroRange ?? 0;
-    this.arrivalRadius = config.arrivalRadius ?? 0;
   }
 
   public override tick(world: World): void {

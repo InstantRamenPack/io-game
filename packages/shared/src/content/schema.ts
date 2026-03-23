@@ -34,7 +34,12 @@ export const EntityContentSchema = z.object({
   label: z.string().min(1),
 });
 
+export const EffectContentSchema = z.object({
+  label: z.string().min(1),
+});
+
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
+export type EffectContent = z.infer<typeof EffectContentSchema>;

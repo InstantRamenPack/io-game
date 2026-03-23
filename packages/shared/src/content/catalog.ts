@@ -1,10 +1,15 @@
 import { buildingContentEntries } from "@shared/content/building/index.ts";
 import { enemyContentEntries } from "@shared/content/enemy/index.ts";
+import { effectContentEntries } from "@shared/content/effect/index.ts";
 import { itemContentEntries } from "@shared/content/item/index.ts";
 import { pickupContentEntries } from "@shared/content/pickup/index.ts";
 import { playerContentEntries } from "@shared/content/player/index.ts";
 import { projectileContentEntries } from "@shared/content/projectile/index.ts";
-import type { EntityContent, ItemContent } from "@shared/content/schema.ts";
+import type {
+  EffectContent,
+  EntityContent,
+  ItemContent,
+} from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const itemContents = new Map<ResourceId, ItemContent>(itemContentEntries);
@@ -16,6 +21,8 @@ const entityContents = new Map<ResourceId, EntityContent>([
   ...projectileContentEntries,
   ...pickupContentEntries,
 ]);
+
+const effectContents = new Map<ResourceId, EffectContent>(effectContentEntries);
 
 export const CRAFTABLE_ITEM_TYPE_IDS = Object.freeze(
   [...itemContents.entries()]
@@ -47,6 +54,18 @@ export function requireEntityContent(typeId: ResourceId): EntityContent {
   return entityContent;
 }
 
+export function getEffectContent(typeId: ResourceId): EffectContent | undefined {
+  return effectContents.get(typeId);
+}
+
+export function requireEffectContent(typeId: ResourceId): EffectContent {
+  const effectContent = getEffectContent(typeId);
+  if (!effectContent) {
+    throw new Error(`Unknown effect content: ${typeId}`);
+  }
+  return effectContent;
+}
+
 export function getCraftableItemTypeIds(): readonly ResourceId[] {
   return CRAFTABLE_ITEM_TYPE_IDS;
 }
@@ -61,6 +80,11 @@ export function getResourceDisplayLabel(typeId: string): string {
   const entityContent = getEntityContent(resourceId);
   if (entityContent) {
     return entityContent.label;
+  }
+
+  const effectContent = getEffectContent(resourceId);
+  if (effectContent) {
+    return effectContent.label;
   }
 
   const [, path = typeId] = typeId.split(":");

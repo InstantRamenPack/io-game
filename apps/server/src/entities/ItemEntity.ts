@@ -5,9 +5,11 @@ import type { PickupSnapshot } from "@shared/net/snapshots.ts";
 export class ItemEntity extends Entity {
   public static readonly kind = "pickup" as const;
   public static override readonly resourceName = "item_entity";
+  public contents: Inventory;
 
   public constructor(id: number, inventory = new Inventory()) {
-    super(id, inventory);
+    super(id);
+    this.contents = inventory;
     this.radius = 14;
   }
 
@@ -16,11 +18,7 @@ export class ItemEntity extends Entity {
     return {
       ...snapshot,
       kind: "pickup",
-      inventory: this.inventory?.toSnapshot() ?? {
-        stackables: [],
-        weapons: [],
-        activeWeaponIndex: null,
-      },
+      inventory: this.contents.toSnapshot(),
     };
   }
 }
