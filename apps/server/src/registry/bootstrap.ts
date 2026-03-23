@@ -1,4 +1,5 @@
 import {
+  requireEffectContent,
   requireEntityContent,
   requireItemContent,
 } from "@shared/content/catalog.ts";
@@ -6,20 +7,25 @@ import { coreEntityTypes } from "@server/entities/index.ts";
 import { buildingEntityTypes } from "@server/entities/buildings/index.ts";
 import { enemyEntityTypes } from "@server/entities/enemies/index.ts";
 import { projectileEntityTypes } from "@server/entities/projectiles/index.ts";
+import { effectTypes } from "@server/effects/index.ts";
 import { materialItemTypes } from "@server/items/resources/Materials.ts";
 import { structureItemTypes } from "@server/items/resources/StructureItems.ts";
 import { weaponItemTypes } from "@server/items/weapons/index.ts";
 import {
+  effectTypeRegistry,
   entityTypeRegistry,
   itemTypeRegistry,
   projectileTypeRegistry,
+  type EffectTypeEntry,
   type EntityTypeEntry,
   type ItemTypeEntry,
+  type RegistrableEffectCtor,
   type RegistrableEntityCtor,
   type RegistrableItemCtor,
   type RegistrableProjectileCtor,
 } from "@server/registry/registries.ts";
 import {
+  requireEffectClassMetadata,
   requireEntityClassMetadata,
   requireItemClassMetadata,
 } from "@server/registry/typeMetadata.ts";
@@ -51,6 +57,10 @@ export function bootstrapTypeRegistries(): void {
     registerItemType(ctor);
   }
 
+  for (const ctor of effectTypes) {
+    registerEffectType(ctor);
+  }
+
   for (const ctor of projectileEntityTypes) {
     registerProjectileType(ctor);
   }
@@ -59,6 +69,7 @@ export function bootstrapTypeRegistries(): void {
 
   entityTypeRegistry.freeze();
   itemTypeRegistry.freeze();
+  effectTypeRegistry.freeze();
   projectileTypeRegistry.freeze();
   registriesBootstrapped = true;
 }
@@ -86,6 +97,17 @@ function registerItemType(ctor: RegistrableItemCtor): void {
     ctor,
   };
   itemTypeRegistry.register(entry.typeId, entry);
+}
+
+function registerEffectType(ctor: RegistrableEffectCtor): void {
+  requireEffectClassMetadata(ctor);
+  const content = requireEffectContent(ctor.typeId);
+  const entry: EffectTypeEntry = {
+    typeId: ctor.typeId,
+    content,
+    ctor,
+  };
+  effectTypeRegistry.register(entry.typeId, entry);
 }
 
 function registerProjectileType(ctor: RegistrableProjectileCtor): void {

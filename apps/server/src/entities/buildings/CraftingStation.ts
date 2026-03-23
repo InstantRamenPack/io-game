@@ -1,12 +1,11 @@
 import { Building } from "@server/entities/Building.ts";
-import { requireEntityContent } from "@shared/content/catalog.ts";
 
 export class CraftingStation extends Building {
   public static override readonly resourceName = "crafting_station";
 
   public constructor(
     id: number,
-    label = requireEntityContent(CraftingStation.typeId).label,
+    label: string,
     tier = 1,
     ownerId?: number,
   ) {

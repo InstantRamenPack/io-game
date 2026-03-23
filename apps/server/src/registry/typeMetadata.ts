@@ -1,7 +1,7 @@
 import type { EntityKind } from "@shared/content/schema.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 
-export type RuntimeTypeKind = EntityKind | "item";
+export type RuntimeTypeKind = EntityKind | "item" | "effect";
 
 export type DerivableTypeStatic<K extends RuntimeTypeKind = RuntimeTypeKind> = {
   readonly kind: K;
@@ -15,6 +15,8 @@ export type ItemClassMetadata = DerivableTypeStatic<"item"> & {
   readonly stackMax: number;
   readonly buildingTypeId?: ResourceId;
 };
+
+export type EffectClassMetadata = DerivableTypeStatic<"effect">;
 
 function assertResourceName(resourceName: string): string {
   if (!resourceName.trim()) {
@@ -57,5 +59,19 @@ export function requireItemClassMetadata(
     resourceName: assertResourceName(metadata.resourceName ?? ""),
     stackMax: metadata.stackMax,
     buildingTypeId: metadata.buildingTypeId,
+  };
+}
+
+export function requireEffectClassMetadata(
+  metadata: Partial<EffectClassMetadata>,
+): EffectClassMetadata {
+  if (metadata.kind !== "effect") {
+    throw new Error(
+      "Expected registrable effect class to declare static kind 'effect'.",
+    );
+  }
+  return {
+    kind: "effect",
+    resourceName: assertResourceName(metadata.resourceName ?? ""),
   };
 }
