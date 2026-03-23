@@ -1,11 +1,9 @@
-export type AuthMode = "none" | "guest" | "google";
+import {
+  ClientRuntimeConfigSchema,
+  type ClientRuntimeConfig,
+} from "@shared/config/ClientRuntimeConfig.ts";
 
-export type RuntimeConfig = {
-  googleClientId: string | null;
-  protocolVersion?: number;
-  tickRate?: number;
-  worldSize?: { w: number; h: number };
-};
+export type AuthMode = "none" | "guest" | "google";
 
 type GoogleCredentialResponse = { credential?: string };
 
@@ -98,7 +96,7 @@ export class AuthController {
   }
 
   async initialize(
-    onRuntimeConfig: (runtimeConfig: RuntimeConfig) => void,
+    onRuntimeConfig: (runtimeConfig: ClientRuntimeConfig) => void,
   ): Promise<void> {
     let response: Response;
     try {
@@ -115,9 +113,15 @@ export class AuthController {
       return;
     }
 
-    let runtimeConfig: RuntimeConfig;
+    let runtimeConfig: ClientRuntimeConfig;
     try {
-      runtimeConfig = (await response.json()) as RuntimeConfig;
+      const parsedRuntimeConfig = ClientRuntimeConfigSchema.safeParse(
+        await response.json(),
+      );
+      if (!parsedRuntimeConfig.success) {
+        throw new Error("invalid_runtime_config");
+      }
+      runtimeConfig = parsedRuntimeConfig.data;
     } catch {
       this.state.errorMessage = "Unable to load auth config.";
       this.emit();

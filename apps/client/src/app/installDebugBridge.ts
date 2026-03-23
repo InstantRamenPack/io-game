@@ -11,12 +11,6 @@ type DebugBridgeOptions = {
   hudController: HudController;
 };
 
-/**
- * Installs the small browser globals used by automated tests and ad hoc
- * debugging. The bridge intentionally exposes a concise, structured view of
- * the current game state while keeping the actual UI/controller modules free
- * of direct `window` mutation.
- */
 export function installDebugBridge({
   elements,
   gameClient,
@@ -26,20 +20,22 @@ export function installDebugBridge({
   function renderGameToText(): string {
     const playerEntity = selectors.getPlayerEntity();
     const worldEntities = selectors.getWorldEntities();
+    const inventory = selectors.getInventory();
+    const activeWeaponIndex = inventory?.activeWeaponIndex ?? null;
     const hudState = hudController.getState();
     const performanceRates = gameClient.getMeasuredRates();
 
     return JSON.stringify({
       mode: elements.menuRoot?.style.display === "none" ? "game" : "menu",
-      connected:
-        gameClient.networkClient.socket?.readyState === WebSocket.OPEN &&
-        elements.menuRoot?.style.display === "none",
+      connected: gameClient.isTransportConnected(),
+      sessionReady: gameClient.isSessionReady(),
       coordinateSystem: "origin top-left; +x right; +y down",
       tick: gameClient.worldState?.latestTick ?? null,
       performance: {
         tickRate: performanceRates.tickRate,
         frameRate: performanceRates.frameRate,
       },
+      playerEntityId: gameClient.playerEntityId ?? null,
       player: playerEntity
         ? {
             id: playerEntity.id,
@@ -50,16 +46,14 @@ export function installDebugBridge({
             maxHp: playerEntity.maxHp,
           }
         : null,
-      resources: {
-        wood: selectors.countInventoryType("item:wood"),
-        stone: selectors.countInventoryType("item:stone"),
-        food: selectors.countInventoryType("item:food"),
-        wallItems: selectors.countInventoryType("item:wall"),
-        towerItems: selectors.countInventoryType("item:tower"),
-        windmillItems: selectors.countInventoryType("item:windmill"),
-        craftingStationItems: selectors.countInventoryType(
-          "item:crafting_station",
-        ),
+      inventory: {
+        stackables: inventory?.stackables ?? [],
+        weapons: (inventory?.weapons ?? []).map((weapon, weaponIndex) => ({
+          ...weapon,
+          label: selectors.formatTypeLabel(weapon.typeId),
+          active: weaponIndex === activeWeaponIndex,
+        })),
+        activeWeaponIndex,
       },
       ui: {
         buildingMenuOpen: hudState.buildMenuOpen,
@@ -97,6 +91,7 @@ export function installDebugBridge({
           x: Math.round(entity.x),
           y: Math.round(entity.y),
         })),
+      events: gameClient.worldState?.clientWorld?.events ?? [],
     });
   }
 

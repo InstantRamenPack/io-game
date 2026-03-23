@@ -1,83 +1,105 @@
-import type { EntityKind } from "@shared/content/schema.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { NetEvent } from "@shared/net/events.ts";
+import { ENTITY_KINDS } from "@shared/content/schema.ts";
+import { RESOURCE_ID_PATTERN, type ResourceId } from "@shared/ids/ResourceId.ts";
+import { NetEventSchema } from "@shared/net/events.ts";
+import { z } from "zod";
 
-export interface ItemStackSnapshotBase {
-  id: number;
-  typeId: ResourceId;
-  stackSize: number;
-  ownerId?: number;
-}
+const ResourceIdSchema = z
+  .string()
+  .regex(RESOURCE_ID_PATTERN)
+  .transform((typeId) => typeId as ResourceId);
 
-export interface RangedWeaponStackSnapshot extends ItemStackSnapshotBase {
-  ammoInMag: number;
-  magSize: number;
-  reloadTicksRemaining: number;
-}
+export const StackableCountSnapshotSchema = z.object({
+  typeId: ResourceIdSchema,
+  amount: z.number().int().positive(),
+});
 
-export type ItemStackSnapshot =
-  | ItemStackSnapshotBase
-  | RangedWeaponStackSnapshot;
+export const WeaponSnapshotSchema = z.object({
+  typeId: ResourceIdSchema,
+  ownerId: z.number().int().nonnegative().optional(),
+  cooldownTicksRemaining: z.number().int().nonnegative().optional(),
+  ammoInMag: z.number().int().nonnegative().optional(),
+  magSize: z.number().int().positive().optional(),
+  reloadTicksRemaining: z.number().int().nonnegative().optional(),
+});
 
-export interface EntitySnapshotBase {
-  id: number;
-  kind: EntityKind;
-  typeId: ResourceId;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  rotation: number;
-  radius: number;
-  hp?: number;
-  maxHp?: number;
-  ownerId?: number;
-}
+export const InventorySnapshotSchema = z.object({
+  stackables: z.array(StackableCountSnapshotSchema),
+  weapons: z.array(WeaponSnapshotSchema),
+  activeWeaponIndex: z.number().int().nonnegative().nullable(),
+});
 
-export interface PlayerSnapshot extends EntitySnapshotBase {
-  kind: "player";
-  name: string;
-  hp: number;
-  maxHp: number;
-  inventory: Array<ItemStackSnapshot | null>;
-  activeSlot: number;
-  activeEffects: string[];
-  moveSpeed: number;
-}
+export const EntitySnapshotBaseSchema = z.object({
+  id: z.number().int().nonnegative(),
+  kind: z.enum(ENTITY_KINDS),
+  typeId: ResourceIdSchema,
+  x: z.number(),
+  y: z.number(),
+  vx: z.number(),
+  vy: z.number(),
+  rotation: z.number(),
+  radius: z.number(),
+  hp: z.number().optional(),
+  maxHp: z.number().optional(),
+  ownerId: z.number().int().nonnegative().optional(),
+});
 
-export interface EnemySnapshot extends EntitySnapshotBase {
-  kind: "enemy";
-  hp: number;
-  maxHp: number;
-  targetId?: number;
-}
+export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("player"),
+  name: z.string(),
+  hp: z.number(),
+  maxHp: z.number(),
+  inventory: InventorySnapshotSchema,
+  activeEffects: z.array(z.string()),
+  moveSpeed: z.number(),
+});
 
-export interface BuildingSnapshot extends EntitySnapshotBase {
-  kind: "building";
-  label: string;
-  hp: number;
-  maxHp: number;
-  tier: number;
-}
+export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("enemy"),
+  hp: z.number(),
+  maxHp: z.number(),
+  targetId: z.number().int().nonnegative().optional(),
+});
 
-export interface ProjectileSnapshot extends EntitySnapshotBase {
-  kind: "projectile";
-}
+export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("building"),
+  label: z.string(),
+  hp: z.number(),
+  maxHp: z.number(),
+  tier: z.number(),
+});
 
-export interface PickupSnapshot extends EntitySnapshotBase {
-  kind: "pickup";
-  inventory: Array<ItemStackSnapshot | null>;
-}
+export const ProjectileSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("projectile"),
+});
 
-export type EntitySnapshot =
-  | PlayerSnapshot
-  | EnemySnapshot
-  | BuildingSnapshot
-  | ProjectileSnapshot
-  | PickupSnapshot;
+export const PickupSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("pickup"),
+  inventory: InventorySnapshotSchema,
+});
 
-export interface WorldSnapshot {
-  tick: number;
-  entities: EntitySnapshot[];
-  events: NetEvent[];
-}
+export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
+  PlayerSnapshotSchema,
+  EnemySnapshotSchema,
+  BuildingSnapshotSchema,
+  ProjectileSnapshotSchema,
+  PickupSnapshotSchema,
+]);
+
+export const WorldSnapshotSchema = z.object({
+  tick: z.number().int().nonnegative(),
+  entities: z.array(EntitySnapshotSchema),
+  events: z.array(NetEventSchema),
+});
+
+export type StackableCountSnapshot = z.infer<typeof StackableCountSnapshotSchema>;
+export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
+export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
+export type PlayerInventorySnapshot = InventorySnapshot;
+export type EntitySnapshotBase = z.infer<typeof EntitySnapshotBaseSchema>;
+export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
+export type EnemySnapshot = z.infer<typeof EnemySnapshotSchema>;
+export type BuildingSnapshot = z.infer<typeof BuildingSnapshotSchema>;
+export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
+export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;
+export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
+export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

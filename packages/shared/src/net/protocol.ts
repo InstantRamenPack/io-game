@@ -1,7 +1,9 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import {
+  WorldSnapshotSchema,
+} from "@shared/net/snapshots.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export const PROTOCOL_VERSION = GameConfig.DEFAULT_PROTOCOL_VERSION;
@@ -27,7 +29,7 @@ export const InputCommandSchema = z
     tick: z.number().int().nonnegative(),
     moveX: z.number(),
     moveY: z.number(),
-    selectSlot: z.number().int().nonnegative().optional(),
+    selectWeaponIndex: z.number().int().nonnegative().optional(),
     attack: AttackInputSchema.optional(),
     craft: CraftInputSchema.optional(),
     build: BuildInputSchema.optional(),
@@ -72,149 +74,6 @@ export const WelcomeMessageSchema = z.object({
   entityId: z.number().int().nonnegative(),
 });
 
-const WorldSnapshotSchema = z.object({
-  tick: z.number(),
-  entities: z.array(
-    z.discriminatedUnion("kind", [
-      z.object({
-        kind: z.literal("player"),
-        id: z.number(),
-        typeId: z.string().regex(RESOURCE_ID_PATTERN),
-        x: z.number(),
-        y: z.number(),
-        vx: z.number(),
-        vy: z.number(),
-        rotation: z.number(),
-        radius: z.number(),
-        hp: z.number(),
-        maxHp: z.number(),
-        ownerId: z.number().optional(),
-        name: z.string(),
-        inventory: z.array(
-          z
-            .discriminatedUnion("typeId", [
-              z.object({
-                id: z.number(),
-                typeId: z.literal("item:basic_gun"),
-                stackSize: z.number(),
-                ownerId: z.number().optional(),
-                ammoInMag: z.number(),
-                magSize: z.number(),
-                reloadTicksRemaining: z.number(),
-              }),
-            ])
-            .or(
-              z.object({
-                id: z.number(),
-                typeId: z.string().regex(RESOURCE_ID_PATTERN),
-                stackSize: z.number(),
-                ownerId: z.number().optional(),
-              }),
-            )
-            .nullable(),
-        ),
-        activeSlot: z.number(),
-        activeEffects: z.array(z.string()),
-        moveSpeed: z.number(),
-      }),
-      z.object({
-        kind: z.literal("enemy"),
-        id: z.number(),
-        typeId: z.string().regex(RESOURCE_ID_PATTERN),
-        x: z.number(),
-        y: z.number(),
-        vx: z.number(),
-        vy: z.number(),
-        rotation: z.number(),
-        radius: z.number(),
-        hp: z.number(),
-        maxHp: z.number(),
-        ownerId: z.number().optional(),
-        targetId: z.number().optional(),
-      }),
-      z.object({
-        kind: z.literal("building"),
-        id: z.number(),
-        typeId: z.string().regex(RESOURCE_ID_PATTERN),
-        x: z.number(),
-        y: z.number(),
-        vx: z.number(),
-        vy: z.number(),
-        rotation: z.number(),
-        radius: z.number(),
-        hp: z.number(),
-        maxHp: z.number(),
-        ownerId: z.number().optional(),
-        label: z.string(),
-        tier: z.number(),
-      }),
-      z.object({
-        kind: z.literal("projectile"),
-        id: z.number(),
-        typeId: z.string().regex(RESOURCE_ID_PATTERN),
-        x: z.number(),
-        y: z.number(),
-        vx: z.number(),
-        vy: z.number(),
-        rotation: z.number(),
-        radius: z.number(),
-        ownerId: z.number().optional(),
-      }),
-      z.object({
-        kind: z.literal("pickup"),
-        id: z.number(),
-        typeId: z.string().regex(RESOURCE_ID_PATTERN),
-        x: z.number(),
-        y: z.number(),
-        vx: z.number(),
-        vy: z.number(),
-        rotation: z.number(),
-        radius: z.number(),
-        ownerId: z.number().optional(),
-        inventory: z.array(
-          z
-            .discriminatedUnion("typeId", [
-              z.object({
-                id: z.number(),
-                typeId: z.literal("item:basic_gun"),
-                stackSize: z.number(),
-                ownerId: z.number().optional(),
-                ammoInMag: z.number(),
-                magSize: z.number(),
-                reloadTicksRemaining: z.number(),
-              }),
-            ])
-            .or(
-              z.object({
-                id: z.number(),
-                typeId: z.string().regex(RESOURCE_ID_PATTERN),
-                stackSize: z.number(),
-                ownerId: z.number().optional(),
-              }),
-            )
-            .nullable(),
-        ),
-      }),
-    ]),
-  ),
-  events: z.array(
-    z.object({
-      type: z.literal("damage"),
-      tick: z.number(),
-      payload: z.object({
-        sourceId: z.number(),
-        targetId: z.number(),
-        amount: z.number(),
-        remainingHp: z.number(),
-        maxHp: z.number(),
-        x: z.number(),
-        y: z.number(),
-        isFatal: z.boolean(),
-      }),
-    }),
-  ),
-});
-
 export const SnapshotMessageSchema = z.object({
   t: z.literal("snapshot"),
   snapshot: WorldSnapshotSchema,
@@ -241,17 +100,11 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 export type InputCommand = z.infer<typeof InputCommandSchema>;
 export type CraftInput = { itemTypeId: ResourceId };
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
-export type InputMessage = {
-  t: "input";
-  cmd: InputCommand;
-};
+export type InputMessage = z.infer<typeof InputMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
 export type PongMessage = z.infer<typeof PongMessageSchema>;
 export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
-export type SnapshotMessage = {
-  t: "snapshot";
-  snapshot: WorldSnapshot;
-};
+export type SnapshotMessage = z.infer<typeof SnapshotMessageSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 export type ClientToServerMessage = HelloMessage | InputMessage | PingMessage;
 export type ServerToClientMessage =

@@ -4,7 +4,6 @@ import {
   type InputCommand,
   type InputMessage,
   type PingMessage,
-  PROTOCOL_VERSION,
   type ServerToClientMessage,
   parseClientToServerMessage,
 } from "@shared/net/protocol.ts";
@@ -21,12 +20,10 @@ import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
-import { ItemStack } from "@server/items/ItemStack.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
-import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -179,17 +176,11 @@ export class GameServer {
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
     if (playerEntity.inventory) {
-      playerEntity.inventory.slots[0] = new ItemStack(
-        new BasicSword(this.world.allocItemId()),
-        1,
-      );
-      playerEntity.inventory.slots[1] = new ItemStack(
-        new BasicGun(this.world.allocItemId()),
-        1,
-      );
-      playerEntity.inventory.activeIndex = 1;
+      playerEntity.inventory.addWeapon(new BasicSword());
+      playerEntity.inventory.addWeapon(new BasicGun());
+      playerEntity.inventory.setActiveWeaponIndex(1);
     }
-    playerEntity.seedStarterInventory(() => this.world.allocItemId());
+    playerEntity.seedStarterInventory();
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
@@ -240,7 +231,6 @@ export class GameServer {
 
     for (const zombiePosition of zombiePositions) {
       const zombie = new Zombie(this.world.allocEntityId());
-      zombie.weapons[0] = new ZombieSword(this.world.allocItemId());
       zombie.x = zombiePosition.x;
       zombie.y = zombiePosition.y;
       this.world.spawn(zombie);
@@ -259,7 +249,6 @@ export class GameServer {
 
     for (const skeletonPosition of skeletonPositions) {
       const skeleton = new Skeleton(this.world.allocEntityId());
-      skeleton.weapons[0] = new BasicGun(this.world.allocItemId());
       skeleton.x = skeletonPosition.x;
       skeleton.y = skeletonPosition.y;
       this.world.spawn(skeleton);
@@ -375,7 +364,7 @@ export class GameServer {
     if (this.clientsWithPendingHello.has(clientId)) {
       return;
     }
-    if (helloMessage.protocolVersion !== PROTOCOL_VERSION) {
+    if (helloMessage.protocolVersion !== this.gameConfig.protocolVersion) {
       this.networkServer.send(
         clientId,
         JSON.stringify({ t: "error", message: "protocol_mismatch" }),

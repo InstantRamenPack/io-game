@@ -1,10 +1,9 @@
-import { ClientItemStack } from "@client/net/ClientItemStack.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { EntityKind } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   EntitySnapshot,
-  ItemStackSnapshot,
+  InventorySnapshot,
 } from "@shared/net/snapshots.ts";
 import * as PIXI from "pixijs";
 
@@ -36,8 +35,7 @@ export class ClientEntity {
   public name?: string;
   public label?: string;
   public tier?: number;
-  public inventory?: Array<ClientItemStack | null>;
-  public activeSlot?: number;
+  public inventory?: InventorySnapshot;
   public activeEffects?: string[];
   public moveSpeed?: number;
   public targetId?: number;
@@ -287,7 +285,6 @@ export class ClientEntity {
     this.label = undefined;
     this.tier = undefined;
     this.inventory = undefined;
-    this.activeSlot = undefined;
     this.activeEffects = undefined;
     this.moveSpeed = undefined;
     this.targetId = undefined;
@@ -295,8 +292,7 @@ export class ClientEntity {
     switch (snapshot.kind) {
       case "player":
         this.name = snapshot.name;
-        this.inventory = this.mapInventory(snapshot.inventory);
-        this.activeSlot = snapshot.activeSlot;
+        this.inventory = this.cloneInventory(snapshot.inventory);
         this.activeEffects = [...snapshot.activeEffects];
         this.moveSpeed = snapshot.moveSpeed;
         break;
@@ -308,21 +304,25 @@ export class ClientEntity {
         this.tier = snapshot.tier;
         break;
       case "pickup":
-        this.inventory = this.mapInventory(snapshot.inventory);
+        this.inventory = this.cloneInventory(snapshot.inventory);
         break;
       case "projectile":
         break;
     }
   }
 
-  private mapInventory(
-    inventory: Array<ItemStackSnapshot | null> | undefined,
-  ): Array<ClientItemStack | null> | undefined {
+  private cloneInventory(
+    inventory: InventorySnapshot | undefined,
+  ): InventorySnapshot | undefined {
     if (!inventory) {
       return undefined;
     }
 
-    return inventory.map((item) => (item ? new ClientItemStack(item) : null));
+    return {
+      stackables: inventory.stackables.map((stackable) => ({ ...stackable })),
+      weapons: inventory.weapons.map((weapon) => ({ ...weapon })),
+      activeWeaponIndex: inventory.activeWeaponIndex,
+    };
   }
 
   private redrawPresentation(): void {

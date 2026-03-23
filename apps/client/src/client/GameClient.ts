@@ -4,8 +4,8 @@ import { Interpolator } from "@client/net/Interpolator.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
-import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
@@ -13,7 +13,7 @@ export type GameplayHudState = {
   activeWeaponLabel: string;
   ammoLabel: string | null;
   reloadTicksRemaining: number | null;
-  activeSlot: number | null;
+  activeWeaponIndex: number | null;
   slotLabels: string[];
 };
 
@@ -43,11 +43,13 @@ export class GameClient {
   private inputBound = false;
   private rendererPointerBound = false;
   private started = false;
+  private sessionReady = false;
   private frameSamples: number[] = [];
   private tickSamples: Array<{ tick: number; timeMs: number }> = [];
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (worldPoint: { x: number; y: number }) => void;
+  private sessionReadyHandlers: Array<() => void> = [];
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -93,6 +95,18 @@ export class GameClient {
     this.inputBound = true;
   }
 
+  public onSessionReady(handler: () => void): void {
+    this.sessionReadyHandlers.push(handler);
+  }
+
+  public isSessionReady(): boolean {
+    return this.sessionReady;
+  }
+
+  public isTransportConnected(): boolean {
+    return this.networkClient.socket?.readyState === WebSocket.OPEN;
+  }
+
   public async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
 
@@ -123,11 +137,7 @@ export class GameClient {
     this.inputManager.queueCraft(itemTypeId);
   }
 
-  public queueBuildPlacement(
-    itemTypeId: ResourceId,
-    x: number,
-    y: number,
-  ): void {
+  public queueBuildPlacement(itemTypeId: ResourceId, x: number, y: number): void {
     this.inputManager.queueBuild(itemTypeId, x, y);
   }
 
@@ -139,6 +149,7 @@ export class GameClient {
       return;
     }
     this.started = true;
+    this.sessionReady = false;
     this.resetPerformanceRateSamples();
     this.worldState = new ClientWorldState(
       this.renderer,
@@ -152,13 +163,6 @@ export class GameClient {
       playerName: connectOptions.playerName,
       protocolVersion: this.gameConfig.protocolVersion,
     });
-
-    const periodMs = Math.floor(1000 / this.gameConfig.tickRate);
-    this.inputTimer = setInterval(() => {
-      const latestTick = this.worldState?.latestTick ?? 0;
-      this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-      this.inputManager.clearOneShots();
-    }, periodMs);
   }
 
   public update(deltaMs: number, frameTimeMs = performance.now()): void {
@@ -176,96 +180,50 @@ export class GameClient {
 
   public onWelcome(entityId: number): void {
     this.playerEntityId = entityId;
+    this.sessionReady = true;
     this.renderer.setPlayerEntityId(entityId);
+    this.startInputLoop();
+    for (const sessionReadyHandler of this.sessionReadyHandlers) {
+      sessionReadyHandler();
+    }
   }
 
   public stop(): void {
     this.started = false;
+    this.sessionReady = false;
     this.stopFrameLoop();
+    this.stopInputLoop();
     this.resetPerformanceRateSamples();
-    if (this.inputTimer) {
-      clearInterval(this.inputTimer);
-      this.inputTimer = undefined;
-    }
     this.networkClient.disconnect();
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
   }
 
-  public renderGameToText(): string {
-    const entities = [
-      ...(this.worldState?.clientWorld?.entities.values() ?? []),
-    ];
-    const player = entities.find((entity) => entity.id === this.playerEntityId);
-    const hudState = this.getGameplayHudState();
-    const performanceRates = this.getMeasuredRates();
-
-    return JSON.stringify({
-      connected:
-        this.networkClient.socket?.readyState === WebSocket.OPEN &&
-        this.started,
-      coordinateSystem: "origin top-left; +x right; +y down",
-      tick: this.worldState?.latestTick ?? null,
-      tickRate: performanceRates.tickRate,
-      frameRate: performanceRates.frameRate,
-      playerEntityId: this.playerEntityId ?? null,
-      player: player
-        ? {
-            id: player.id,
-            x: Math.round(player.x),
-            y: Math.round(player.y),
-            hp: player.hp,
-            maxHp: player.maxHp,
-          }
-        : null,
-      activeWeapon: hudState?.activeWeaponLabel ?? null,
-      ammo: hudState?.ammoLabel ?? null,
-      reloadTicksRemaining: hudState?.reloadTicksRemaining ?? null,
-      enemies: entities
-        .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
-        .map((entity) => ({
-          id: entity.id,
-          x: Math.round(entity.x),
-          y: Math.round(entity.y),
-          hp: entity.hp,
-          maxHp: entity.maxHp,
-        })),
-      projectiles: entities
-        .filter(
-          (entity) => getResourceNamespace(entity.typeId) === "projectile",
-        )
-        .map((entity) => ({
-          id: entity.id,
-          x: Math.round(entity.x),
-          y: Math.round(entity.y),
-        })),
-      events: this.worldState?.clientWorld?.events ?? [],
-    });
-  }
-
   public getGameplayHudState(): GameplayHudState | null {
     const player = this.getLocalPlayerEntity();
-    if (!player) {
+    const inventory = player?.inventory;
+    if (!player || !inventory) {
       return null;
     }
 
-    const activeSlot =
-      typeof player.activeSlot === "number" ? player.activeSlot : null;
-    const activeItem =
-      activeSlot !== null ? (player.inventory?.[activeSlot] ?? null) : null;
+    const activeWeaponIndex = inventory.activeWeaponIndex;
+    const activeWeapon =
+      activeWeaponIndex !== null
+        ? (inventory.weapons[activeWeaponIndex] ?? null)
+        : null;
     const ammoInMag =
-      typeof activeItem?.ammoInMag === "number" ? activeItem.ammoInMag : null;
+      typeof activeWeapon?.ammoInMag === "number" ? activeWeapon.ammoInMag : null;
     const magSize =
-      typeof activeItem?.magSize === "number" ? activeItem.magSize : null;
+      typeof activeWeapon?.magSize === "number" ? activeWeapon.magSize : null;
     const reloadTicksRemaining =
-      typeof activeItem?.reloadTicksRemaining === "number"
-        ? activeItem.reloadTicksRemaining
+      typeof activeWeapon?.reloadTicksRemaining === "number"
+        ? activeWeapon.reloadTicksRemaining
         : null;
 
     return {
-      activeWeaponLabel: activeItem
-        ? this.formatResourceLabel(activeItem.typeId)
+      activeWeaponLabel: activeWeapon
+        ? getResourceDisplayLabel(activeWeapon.typeId)
         : "Unarmed",
       ammoLabel:
         ammoInMag !== null && magSize !== null
@@ -275,16 +233,11 @@ export class GameClient {
         reloadTicksRemaining !== null && reloadTicksRemaining > 0
           ? reloadTicksRemaining
           : null,
-      activeSlot,
-      slotLabels: Array.from(
-        { length: player.inventory?.length ?? 0 },
-        (_, slotIndex) => {
-          const item = player.inventory?.[slotIndex] ?? null;
-          const label = item ? this.formatResourceLabel(item.typeId) : "Empty";
-          const prefix = activeSlot === slotIndex ? ">" : "";
-          return `${prefix}${slotIndex + 1} ${label}`;
-        },
-      ),
+      activeWeaponIndex,
+      slotLabels: inventory.weapons.map((weapon, weaponIndex) => {
+        const prefix = activeWeaponIndex === weaponIndex ? ">" : "";
+        return `${prefix}${weaponIndex + 1} ${getResourceDisplayLabel(weapon.typeId)}`;
+      }),
     };
   }
 
@@ -304,6 +257,26 @@ export class GameClient {
     const steps = Math.max(1, Math.round(ms / frameMs));
     for (let index = 0; index < steps; index += 1) {
       this.update(frameMs, performance.now() + index * frameMs);
+    }
+  }
+
+  private startInputLoop(): void {
+    if (this.inputTimer) {
+      return;
+    }
+
+    const periodMs = Math.max(1, Math.floor(1000 / this.gameConfig.tickRate));
+    this.inputTimer = setInterval(() => {
+      const latestTick = this.worldState?.latestTick ?? 0;
+      this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
+      this.inputManager.clearOneShots();
+    }, periodMs);
+  }
+
+  private stopInputLoop(): void {
+    if (this.inputTimer) {
+      clearInterval(this.inputTimer);
+      this.inputTimer = undefined;
     }
   }
 
@@ -342,12 +315,10 @@ export class GameClient {
 
   private onDisconnected(): void {
     this.started = false;
+    this.sessionReady = false;
     this.stopFrameLoop();
+    this.stopInputLoop();
     this.resetPerformanceRateSamples();
-    if (this.inputTimer) {
-      clearInterval(this.inputTimer);
-      this.inputTimer = undefined;
-    }
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
@@ -359,16 +330,6 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
-  }
-
-  private formatResourceLabel(typeId: string): string {
-    const [, path = typeId] = typeId.split(":");
-    const baseLabel = path.split("/").pop() ?? path;
-    return baseLabel
-      .split(/[_-]+/g)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
   }
 
   private recordFrameSample(timestamp: number): void {

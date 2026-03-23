@@ -1,27 +1,15 @@
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
+import type { Building } from "@server/entities/Building.ts";
 import { Entity } from "@server/entities/Entity.ts";
-import { Weapon } from "@server/items/Weapon.ts";
-import type { World } from "@server/world/World.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { ItemStack } from "@server/items/ItemStack.ts";
-import {
-  FoodItem,
-  StoneItem,
-  WoodItem,
-} from "@server/items/resources/Materials.ts";
-import {
-  CraftingStationItem,
-  TowerItem,
-  WallItem,
-  WindmillItem,
-} from "@server/items/resources/StructureItems.ts";
+import { Weapon } from "@server/items/Weapon.ts";
 import {
   entityTypeRegistry,
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
-import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
-import type { Building } from "@server/entities/Building.ts";
+import type { World } from "@server/world/World.ts";
 
 /**
  * Authoritative player entity driven by buffered client input.
@@ -32,20 +20,12 @@ export class Player extends Entity {
   public static override readonly resourceName = "base";
 
   public name: string;
-  // The buffer currently feeds latest-input movement, but it is retained so
-  // future actions can preserve tick/sequence ordering for reconciliation.
   public inputBuffer: InputCommand[] = [];
-  // Distance moved per simulation tick at full input.
   public moveSpeed = 15;
   public activeEffects = ["Fortified", "Well Fed"];
-  /**
-   * Creates a player entity with default movement tuning.
-   * @param id Stable runtime entity id.
-   * @param name Display/player name.
-   */
+
   public constructor(id: number, name = "player") {
-    // allocate inventory in base class
-    super(id, new Inventory(20));
+    super(id, new Inventory());
     this.name = name;
     this.radius = 16;
     this.collisionMode = "dynamic";
@@ -53,10 +33,6 @@ export class Player extends Entity {
     this.maxHp = 100;
   }
 
-  /**
-   * Buffers a client input command for later processing on the server tick.
-   * @param inputCommand Input command received from the client.
-   */
   public enqueueInput(inputCommand: InputCommand): void {
     this.inputBuffer.push(inputCommand);
     if (this.inputBuffer.length > 10) {
@@ -66,13 +42,12 @@ export class Player extends Entity {
 
   public override tick(world: World): void {
     super.tick(world);
-    for (const slot of this.inventory?.slots ?? []) {
-      slot?.item.tick(world);
+    for (const weapon of this.inventory?.weapons ?? []) {
+      weapon.tick(world);
     }
     this.applyBufferedInputs(world);
   }
 
-  /** Converts player state into a snapshot, including name and inherited inventory. */
   public override toSnapshot(): PlayerSnapshot {
     const snapshot = super.toSnapshot();
     return {
@@ -81,17 +56,16 @@ export class Player extends Entity {
       name: this.name,
       hp: this.hp ?? 0,
       maxHp: this.maxHp ?? 0,
-      inventory: this.inventory?.toSnapshot() ?? [],
-      activeSlot: this.inventory?.activeIndex ?? 0,
+      inventory: this.inventory?.toSnapshot() ?? {
+        stackables: [],
+        weapons: [],
+        activeWeaponIndex: null,
+      },
       activeEffects: [...this.activeEffects],
       moveSpeed: this.moveSpeed,
     };
   }
 
-  /**
-   * Applies the most recent buffered input to movement velocity.
-   * @param world World being simulated.
-   */
   public applyBufferedInputs(world: World): void {
     let nextMoveX = 0;
     let nextMoveY = 0;
@@ -107,8 +81,8 @@ export class Player extends Entity {
       nextMoveY = inputCommand.moveY;
       sawMovement = true;
 
-      if (inputCommand.selectSlot !== undefined) {
-        this.inventory?.setActive(inputCommand.selectSlot);
+      if (inputCommand.selectWeaponIndex !== undefined) {
+        this.inventory?.setActiveWeaponIndex(inputCommand.selectWeaponIndex);
       }
 
       if (inputCommand.attack) {
@@ -141,13 +115,8 @@ export class Player extends Entity {
     );
   }
 
-  /**
-   * Returns the currently equipped weapon when the active slot contains one.
-   * @returns Equipped weapon instance or undefined.
-   */
   public getActiveWeapon(): Weapon | undefined {
-    const activeStack = this.inventory?.getActive();
-    return activeStack?.item instanceof Weapon ? activeStack.item : undefined;
+    return this.inventory?.getActiveWeapon();
   }
 
   public craft(world: World, itemTypeId: ResourceId): void {
@@ -156,7 +125,7 @@ export class Player extends Entity {
     }
 
     const outputEntry = itemTypeRegistry.get(itemTypeId);
-    const recipe = outputEntry?.recipe;
+    const recipe = outputEntry?.content.recipe;
     if (!outputEntry || !recipe) {
       return;
     }
@@ -165,16 +134,15 @@ export class Player extends Entity {
       return;
     }
 
-    const outputStack = new ItemStack(
-      new outputEntry.ctor(world.allocItemId()),
-      recipe.outputAmount,
-    );
-    if (!this.inventory.canAdd(outputStack)) {
+    this.inventory.consumeTypes(recipe.costs);
+    if (outputEntry.ctor.prototype instanceof Weapon) {
+      for (let count = 0; count < recipe.outputAmount; count += 1) {
+        this.inventory.addWeapon(new outputEntry.ctor() as Weapon);
+      }
       return;
     }
 
-    this.inventory.consumeTypes(recipe.costs);
-    this.inventory.add(outputStack);
+    this.inventory.addStackable(itemTypeId, recipe.outputAmount);
   }
 
   public placeStructure(
@@ -196,7 +164,8 @@ export class Player extends Entity {
       return;
     }
 
-    const BuildingCtor = entityTypeRegistry.get(itemEntry.buildingTypeId)?.ctor as
+    const buildingEntry = entityTypeRegistry.get(itemEntry.buildingTypeId);
+    const BuildingCtor = buildingEntry?.ctor as
       | (new (id: number) => Building)
       | undefined;
     if (!BuildingCtor) {
@@ -236,23 +205,17 @@ export class Player extends Entity {
     world.spawn(building);
   }
 
-  public seedStarterInventory(allocateItemId: () => number): void {
+  public seedStarterInventory(): void {
     if (!this.inventory) {
       return;
     }
 
-    const starterStacks = [
-      new ItemStack(new WoodItem(allocateItemId()), 120),
-      new ItemStack(new StoneItem(allocateItemId()), 80),
-      new ItemStack(new FoodItem(allocateItemId()), 6),
-      new ItemStack(new WallItem(allocateItemId()), 8),
-      new ItemStack(new TowerItem(allocateItemId()), 2),
-      new ItemStack(new WindmillItem(allocateItemId()), 1),
-      new ItemStack(new CraftingStationItem(allocateItemId()), 1),
-    ];
-
-    for (const stack of starterStacks) {
-      this.inventory.add(stack);
-    }
+    this.inventory.addStackable("item:wood", 120);
+    this.inventory.addStackable("item:stone", 80);
+    this.inventory.addStackable("item:food", 6);
+    this.inventory.addStackable("item:wall", 8);
+    this.inventory.addStackable("item:tower", 2);
+    this.inventory.addStackable("item:windmill", 1);
+    this.inventory.addStackable("item:crafting_station", 1);
   }
 }

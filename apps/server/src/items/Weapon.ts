@@ -2,6 +2,7 @@ import { Item } from "@server/items/Item.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
 
 /**
  * Abstract weapon item that can perform attacks.
@@ -16,12 +17,11 @@ export abstract class Weapon extends Item {
   protected cooldownTicks = 0;
 
   public constructor(
-    id: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
   ) {
-    super(id);
+    super();
     this.fireRate = fireRate;
     this.range = range;
     this.hitEffects = hitEffects;
@@ -60,5 +60,13 @@ export abstract class Weapon extends Item {
   /** Resets cooldown after a successful hit attempt. */
   protected resetCooldown(tickRate: number): void {
     this.cooldownTicks = Math.max(1, Math.round(tickRate / this.fireRate));
+  }
+
+  public toSnapshot(): WeaponSnapshot {
+    return {
+      typeId: this.typeId,
+      ownerId: this.ownerId,
+      cooldownTicksRemaining: this.cooldownTicks,
+    };
   }
 }

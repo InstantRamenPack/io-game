@@ -10,13 +10,12 @@ export class MeleeWeapon extends Weapon {
   public meleeRange: number;
 
   public constructor(
-    id: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
     meleeRange: number,
   ) {
-    super(id, fireRate, range, hitEffects);
+    super(fireRate, range, hitEffects);
     this.meleeRange = meleeRange;
   }
 

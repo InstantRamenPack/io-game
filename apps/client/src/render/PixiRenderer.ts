@@ -28,7 +28,6 @@ export class PixiRenderer {
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.drawDamageOverlay();
     this.renderScene();
-    this.app.renderer.render(this.app.stage);
   };
 
   public constructor(worldSize: WorldSize) {

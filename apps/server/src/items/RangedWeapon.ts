@@ -8,6 +8,7 @@ import {
   type RegistrableProjectileCtor,
 } from "@server/registry/registries.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
+import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
 
 /**
  * Ranged weapon that fires projectiles.
@@ -25,7 +26,6 @@ export class RangedWeapon extends Weapon {
   protected reloadTicksRemaining = 0;
 
   public constructor(
-    id: number,
     fireRate: number,
     range: number,
     hitEffects: Effect[],
@@ -36,7 +36,7 @@ export class RangedWeapon extends Weapon {
     reloadTicks: number,
     spread: number = 0,
   ) {
-    super(id, fireRate, range, hitEffects);
+    super(fireRate, range, hitEffects);
     this.projectileTypeId = projectileTypeId;
     this.projectileSpeed = projectileSpeed;
     this.projectileRadius = projectileRadius;
@@ -128,21 +128,13 @@ export class RangedWeapon extends Weapon {
     return true;
   }
 
-  public getAmmoSnapshot(): {
-    ammoInMag: number;
-    magSize: number;
-    reloadTicksRemaining: number;
-  } {
+  public override toSnapshot(): WeaponSnapshot {
     return {
+      ...super.toSnapshot(),
       ammoInMag: this.ammoInMag,
       magSize: this.magSize,
       reloadTicksRemaining: this.reloadTicksRemaining,
     };
-  }
-
-  protected copyRuntimeStateTo(target: RangedWeapon): void {
-    target.ammoInMag = this.ammoInMag;
-    target.reloadTicksRemaining = this.reloadTicksRemaining;
   }
 
   private isTargetInRange(owner: Entity, target: Entity): boolean {

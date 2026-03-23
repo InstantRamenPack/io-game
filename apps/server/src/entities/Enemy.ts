@@ -1,5 +1,6 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { Goal } from "@server/goals/Goal.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 
 export type EnemyConfig = {
@@ -12,6 +13,7 @@ export type EnemyConfig = {
   // Initial per-tick movement deltas.
   vx: number;
   vy: number;
+  weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
 
@@ -28,6 +30,7 @@ export class Enemy extends GoalControlledEntity {
    */
   public constructor(id: number, config: EnemyConfig) {
     super(id, config);
+    this.weapons = [...(config.weapons ?? [])];
     this.registerGoals(config.goals ?? []);
     this.collisionMode = "dynamic";
     this.radius = config.radius;

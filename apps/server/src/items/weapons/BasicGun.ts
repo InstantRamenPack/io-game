@@ -7,9 +7,8 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 export class BasicGun extends RangedWeapon {
   public static override readonly resourceName = "basic_gun";
 
-  public constructor(id: number) {
+  public constructor() {
     super(
-      id,
       4,
       700,
       [new DamageEffect(12)],
@@ -20,12 +19,5 @@ export class BasicGun extends RangedWeapon {
       20,
       0,
     );
-  }
-
-  public override clone(): BasicGun {
-    const cloned = new BasicGun(this.id);
-    cloned.ownerId = this.ownerId;
-    this.copyRuntimeStateTo(cloned);
-    return cloned;
   }
 }
