@@ -21,18 +21,6 @@ export type AppElements = {
   googleSignInTarget: HTMLElement | null;
   menuRoot: HTMLElement | null;
   gameRoot: HTMLElement | null;
-  hudRoot: HTMLElement | null;
-  worldStat: HTMLElement | null;
-  worldDetail: HTMLElement | null;
-  resourceStrip: HTMLElement | null;
-  effectStrip: HTMLElement | null;
-  hotbarList: HTMLElement | null;
-  placementPanel: HTMLElement | null;
-  buildList: HTMLElement | null;
-  buildHint: HTMLElement | null;
-  craftingPanel: HTMLElement | null;
-  craftingList: HTMLElement | null;
-  craftingHint: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
 };
 
@@ -54,18 +42,6 @@ export function getAppElements(): AppElements {
     googleSignInTarget: document.getElementById("google-signin-target"),
     menuRoot: document.querySelector<HTMLElement>('[data-screen="menu"]'),
     gameRoot: document.getElementById("game-root"),
-    hudRoot: document.getElementById("hud-root"),
-    worldStat: document.getElementById("world-stat"),
-    worldDetail: document.getElementById("world-detail"),
-    resourceStrip: document.getElementById("resource-strip"),
-    effectStrip: document.getElementById("effect-strip"),
-    hotbarList: document.getElementById("hotbar-list"),
-    placementPanel: document.getElementById("placement-panel"),
-    buildList: document.getElementById("build-list"),
-    buildHint: document.getElementById("build-hint"),
-    craftingPanel: document.getElementById("crafting-panel"),
-    craftingList: document.getElementById("crafting-list"),
-    craftingHint: document.getElementById("crafting-hint"),
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,
