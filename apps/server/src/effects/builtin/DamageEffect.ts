@@ -58,10 +58,7 @@ export class DamageEffect extends Effect {
     }
 
     if (target instanceof Player) {
-      target.hp = target.maxHp;
-      target.x = world.gameConfig.worldSize.w / 2;
-      target.y = world.gameConfig.worldSize.h / 2;
-      target.resetVelocity();
+      target.handleDeath(world);
       return;
     }
 
