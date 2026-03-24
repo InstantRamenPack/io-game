@@ -1,4 +1,5 @@
 import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { JumpAttackGoal } from "@server/goals/builtin/JumpAttackGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
@@ -17,7 +18,7 @@ export class Megaknight extends Enemy {
       vy: 0,
       moveSpeed: 5,
       goals: [
-        new TargetEntityGoal<Enemy>(0, 600),
+        new TargetEntityGoal<Enemy>(0, Player, 600),
         // Jump when within 280px; shrinks to radius 6, bursts to 40 on land, 30 aoe damage, 60px splash
         new JumpAttackGoal<Enemy>(1, BASE_RADIUS, 6, 40, 280, 30, 60),
         // Chase normally when out of jump range or on cooldown

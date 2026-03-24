@@ -1,5 +1,6 @@
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
@@ -21,7 +22,7 @@ export class Zombie extends Enemy {
       moveSpeed: 8,
       weapons: [new ZombieSword()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, 480),
+        new TargetEntityGoal<Enemy>(0, Player, 480),
         new GoToTargetGoal<Enemy>(1, 20),
         new AttackAtGoal<Enemy>(2, 0),
       ],

@@ -385,7 +385,7 @@ export class ClientEntity {
         this.radius * 1.2,
         4,
       );
-    } else if (typePath === "tower") {
+    } else if (typePath === "cannon") {
       graphics.drawRect(
         -this.radius * 0.75,
         -this.radius * 0.85,
@@ -468,7 +468,7 @@ export class ClientEntity {
     if (typePath === "wall") {
       return 0x8b6f57;
     }
-    if (typePath === "tower") {
+    if (typePath === "cannon") {
       return 0xc78d2d;
     }
     if (typePath === "windmill") {

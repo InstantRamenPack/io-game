@@ -1,4 +1,5 @@
 import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
@@ -23,7 +24,7 @@ export class Skeleton extends Enemy {
       moveSpeed: 8,
       weapons: [new BasicGun()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, 480),
+        new TargetEntityGoal<Enemy>(0, Player, 480),
         new RangedAttackGoal<Enemy>(1, 0, 220, 32, 45),
       ],
     });
