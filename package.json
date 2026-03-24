@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "denque": "^2.1.0",
+    "io-game": ".",
     "lodash-es": "^4.17.23",
     "pixijs": "^7.1.4",
     "seedrandom": "^3.0.5",
