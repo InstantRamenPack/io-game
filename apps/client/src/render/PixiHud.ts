@@ -228,7 +228,7 @@ export class PixiHud {
       return;
     }
 
-    this.gameClient.queueAttack(worldPoint.x, worldPoint.y);
+    this.gameClient.startHoldFire(worldPoint.x, worldPoint.y);
   }
 
   public reset(): void {

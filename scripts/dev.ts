@@ -19,7 +19,7 @@ function parseIntegerEnv(name: string, fallback: number): number {
 
 const serverPort = parseIntegerEnv("PORT", 3000);
 const clientPort = parseIntegerEnv("VITE_PORT", 5173);
-const clientHost = process.env.VITE_HOST ?? "127.0.0.1";
+const clientHost = process.env.VITE_HOST ?? "0.0.0.0";
 const backendTarget =
   process.env.VITE_BACKEND_TARGET ?? `http://127.0.0.1:${serverPort}`;
 const bunExecutable = process.execPath;

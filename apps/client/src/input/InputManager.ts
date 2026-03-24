@@ -24,6 +24,7 @@ export class InputManager {
   public pendingCraft?: { itemTypeId: ResourceId };
   public pendingBuild?: BuildPlacement;
   public pendingSelectWeaponIndex?: number;
+  private holdFireTarget?: AttackTarget;
   private readonly pressedKeys = new Set<string>();
 
   /**
@@ -51,6 +52,7 @@ export class InputManager {
 
     targetElement.addEventListener("blur", () => {
       this.pressedKeys.clear();
+      this.holdFireTarget = undefined;
       this.recomputeMovementVector();
     });
   }
@@ -61,13 +63,18 @@ export class InputManager {
    * @returns Serialized input command for transmission.
    */
   public toCommand(serverTick: number): InputCommand {
+    const attack = this.holdFireTarget
+      ? { ...this.holdFireTarget }
+      : this.pendingAttack
+        ? { ...this.pendingAttack }
+        : undefined;
     return {
       seq: this.commandSequence++,
       tick: serverTick,
       moveX: this.moveX,
       moveY: this.moveY,
       selectWeaponIndex: this.pendingSelectWeaponIndex,
-      attack: this.pendingAttack ? { ...this.pendingAttack } : undefined,
+      attack,
       craft: this.pendingCraft ? { ...this.pendingCraft } : undefined,
       build: this.pendingBuild ? { ...this.pendingBuild } : undefined,
     };
@@ -81,6 +88,21 @@ export class InputManager {
     this.pendingCraft = undefined;
     this.pendingBuild = undefined;
     this.pendingSelectWeaponIndex = undefined;
+  }
+
+  public startHoldFire(x: number, y: number): void {
+    this.clearPendingAction();
+    this.holdFireTarget = { x, y };
+  }
+
+  public updateHoldFireTarget(x: number, y: number): void {
+    if (this.holdFireTarget) {
+      this.holdFireTarget = { x, y };
+    }
+  }
+
+  public stopHoldFire(): void {
+    this.holdFireTarget = undefined;
   }
 
   public queueAttack(x: number, y: number): void {

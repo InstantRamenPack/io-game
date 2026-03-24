@@ -63,9 +63,27 @@ export class GameClient {
     if (this.pointerActionHandler) {
       this.pointerActionHandler(worldPoint);
     } else {
-      this.inputManager.queueAttack(worldPoint.x, worldPoint.y);
+      this.inputManager.startHoldFire(worldPoint.x, worldPoint.y);
     }
     event.preventDefault();
+  };
+
+  private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (!this.started || !event.isPrimary) {
+      return;
+    }
+    const worldPoint = this.renderer.screenToWorld(
+      event.clientX,
+      event.clientY,
+    );
+    this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
+  };
+
+  private readonly handlePointerUp = (event: PointerEvent): void => {
+    if (event.button !== 0 || !event.isPrimary) {
+      return;
+    }
+    this.inputManager.stopHoldFire();
   };
 
   public constructor(
@@ -114,9 +132,11 @@ export class GameClient {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
 
     if (!this.rendererPointerBound) {
-      this.renderer
-        .getView()
-        ?.addEventListener("pointerdown", this.handlePointerDown);
+      const view = this.renderer.getView();
+      view?.addEventListener("pointerdown", this.handlePointerDown);
+      view?.addEventListener("pointermove", this.handlePointerMove);
+      window.addEventListener("pointerup", this.handlePointerUp);
+      window.addEventListener("pointercancel", this.handlePointerUp);
       this.rendererPointerBound = true;
     }
   }
@@ -139,6 +159,10 @@ export class GameClient {
     handler: ((worldPoint: { x: number; y: number }) => void) | undefined,
   ): void {
     this.pointerActionHandler = handler;
+  }
+
+  public startHoldFire(x: number, y: number): void {
+    this.inputManager.startHoldFire(x, y);
   }
 
   public queueAttack(x: number, y: number): void {

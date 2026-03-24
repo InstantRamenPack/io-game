@@ -9,6 +9,7 @@ import wallItemJson from "@shared/content/item/wall.json";
 import windmillItemJson from "@shared/content/item/windmill.json";
 import woodItemJson from "@shared/content/item/wood.json";
 import zombieSwordItemJson from "@shared/content/item/zombie_sword.json";
+import saboteurSwordItemJson from "@shared/content/item/saboteur_sword.json";
 import { makeParsedItemContentEntry } from "@shared/content/parseContent.ts";
 
 export const itemContentEntries = [
@@ -16,6 +17,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("basic_spear", basicSpearItemJson),
   makeParsedItemContentEntry("basic_sword", basicSwordItemJson),
   makeParsedItemContentEntry("zombie_sword", zombieSwordItemJson),
+  makeParsedItemContentEntry("saboteur_sword", saboteurSwordItemJson),
   makeParsedItemContentEntry("wood", woodItemJson),
   makeParsedItemContentEntry("stone", stoneItemJson),
   makeParsedItemContentEntry("food", foodItemJson),
