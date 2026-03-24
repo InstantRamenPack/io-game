@@ -219,7 +219,7 @@ export class Player extends Entity {
     this.inventory.addStackable("item:stone", 80);
     this.inventory.addStackable("item:food", 6);
     this.inventory.addStackable("item:wall", 8);
-    this.inventory.addStackable("item:tower", 2);
+    this.inventory.addStackable("item:cannon", 2);
     this.inventory.addStackable("item:windmill", 1);
     this.inventory.addStackable("item:crafting_station", 1);
   }

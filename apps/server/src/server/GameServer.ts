@@ -12,7 +12,6 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { WsServer } from "@server/net/WsServer.ts";
 import type { Building } from "@server/entities/Building.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { Tower } from "@server/entities/buildings/Tower.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -20,6 +19,7 @@ import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
@@ -179,6 +179,7 @@ export class GameServer {
     if (playerEntity.inventory) {
       playerEntity.inventory.addWeapon(new BasicSword());
       playerEntity.inventory.addWeapon(new BasicGun());
+      playerEntity.inventory.addWeapon(new BasicSpear());
       playerEntity.inventory.setActiveWeaponIndex(1);
     }
     playerEntity.seedStarterInventory();
@@ -282,11 +283,6 @@ export class GameServer {
         x: centerX + 180,
         y: centerY - 120,
         create: (id) => new Wall(id, "East Wall"),
-      },
-      {
-        x: centerX,
-        y: centerY - 180,
-        create: (id) => new Tower(id, "Arrow Tower"),
       },
       {
         x: centerX - 120,

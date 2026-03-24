@@ -1,23 +1,32 @@
+import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
-import { Player } from "@server/entities/Player.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 
+type TargetEntityCtor = abstract new (...args: never[]) => Entity;
+
 /**
- * Maintains the nearest valid player target for the acting goal-controlled entity.
+ * Maintains the nearest valid target instance for the acting goal-controlled entity.
  */
 export class TargetEntityGoal<
   TSelf extends GoalControlledEntity = GoalControlledEntity,
 > extends Goal<TSelf> {
+  private readonly targetCtor: TargetEntityCtor;
   private readonly aggroRange: number;
 
   /**
-   * Creates a target-acquisition goal for live player entities.
+   * Creates a target-acquisition goal for live entities of the requested class.
    * @param priority Lower values run first.
+   * @param targetCtor Runtime class to target.
    * @param aggroRange Maximum chase/target acquisition distance.
    */
-  constructor(priority: number, aggroRange: number) {
+  constructor(
+    priority: number,
+    targetCtor: TargetEntityCtor,
+    aggroRange: number,
+  ) {
     super(priority, ["target"]);
+    this.targetCtor = targetCtor;
     this.aggroRange = aggroRange;
   }
 
@@ -37,19 +46,19 @@ export class TargetEntityGoal<
     }
 
     const aggroRangeSquared = this.aggroRange * this.aggroRange;
-    let bestTarget: Player | null = null;
+    let bestTarget: Entity | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
 
-    for (const player of ctx.world.entities.queryInstances(Player)) {
-      if (!player.alive) {
+    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
+      if (!target.alive) {
         continue;
       }
 
       const distanceSquared = this.distanceSquared(
         ctx.self.x,
         ctx.self.y,
-        player.x,
-        player.y,
+        target.x,
+        target.y,
       );
       if (
         distanceSquared > aggroRangeSquared ||
@@ -58,7 +67,7 @@ export class TargetEntityGoal<
         continue;
       }
 
-      bestTarget = player;
+      bestTarget = target;
       bestDistanceSquared = distanceSquared;
     }
 
@@ -76,13 +85,13 @@ export class TargetEntityGoal<
   private resolveValidTarget(
     ctx: GoalContext<TSelf>,
     targetId: number | undefined,
-  ): Player | null {
+  ): Entity | null {
     if (targetId === undefined) {
       return null;
     }
 
     const target = ctx.world.get(targetId);
-    if (!(target instanceof Player) || !target.alive) {
+    if (!(target instanceof this.targetCtor) || !target.alive) {
       return null;
     }
 

@@ -1,11 +1,11 @@
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
-import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
+import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 
 /**
  * Sword melee weapon used by zombies.
  */
-export class ZombieSword extends MeleeWeapon {
+export class ZombieSword extends SweepMeleeWeapon {
   public static override readonly resourceName = "zombie_sword";
 
   public constructor() {
@@ -14,6 +14,7 @@ export class ZombieSword extends MeleeWeapon {
       10, // range
       [new DamageEffect(5), new KnockbackEffect()], // hitEffects
       10, // meleeRange
+      110, // sweepArcDegrees
     );
   }
 }

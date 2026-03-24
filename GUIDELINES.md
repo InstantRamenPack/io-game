@@ -128,6 +128,7 @@ Example:
 ```ts
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
@@ -145,7 +146,7 @@ export class Goblin extends Enemy {
       moveSpeed: 10,
       weapons: [new ZombieSword()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, 420),
+        new TargetEntityGoal<Enemy>(0, Player, 420),
         new GoToTargetGoal<Enemy>(1, 18),
         new AttackAtGoal<Enemy>(2, 0),
       ],
@@ -356,7 +357,7 @@ Example:
 
 ```ts
 goals: [
-  new TargetEntityGoal<Enemy>(0, 480),
+  new TargetEntityGoal<Enemy>(0, Player, 480),
   new GoToTargetGoal<Enemy>(1, 20),
   new AttackAtGoal<Enemy>(2, 0),
 ]

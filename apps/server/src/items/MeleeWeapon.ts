@@ -3,10 +3,23 @@ import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 
+type MeleeAim = {
+  directionX: number;
+  directionY: number;
+  angle: number;
+};
+
+type QueryBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
 /**
- * Melee weapon that hits nearby targets.
+ * Directional melee weapon that can hit multiple nearby targets.
  */
-export class MeleeWeapon extends Weapon {
+export abstract class MeleeWeapon extends Weapon {
   public meleeRange: number;
 
   public constructor(
@@ -24,23 +37,19 @@ export class MeleeWeapon extends Weapon {
     owner: Entity,
     target: Entity,
   ): boolean {
-    return (
-      this.canHit() &&
-      world.combat.canAttackTarget(world, owner, target) &&
-      this.isTargetInRange(owner, target)
-    );
+    if (!this.canHit() || !world.combat.canAttackTarget(world, owner, target)) {
+      return false;
+    }
+
+    const aim = this.resolveAim(owner, target.x, target.y);
+    if (!aim) {
+      return false;
+    }
+
+    return this.isTargetInAttackShape(owner, target, aim);
   }
 
   public override hit(
-    world: World,
-    owner: Entity,
-    aimX: number,
-    aimY: number,
-  ): boolean {
-    return this.tryAttackAtPoint(world, owner, aimX, aimY);
-  }
-
-  public tryAttackAtPoint(
     world: World,
     owner: Entity,
     aimX: number,
@@ -50,20 +59,22 @@ export class MeleeWeapon extends Weapon {
       return false;
     }
 
-    const target = this.resolveTargetAtPoint(world, owner, aimX, aimY);
-    if (!target) {
+    const aim = this.resolveAim(owner, aimX, aimY);
+    if (!aim) {
       return false;
     }
 
-    return this.tryAttackEntity(world, owner, target);
-  }
+    owner.rotation = aim.angle;
 
-  public tryAttackEntity(world: World, owner: Entity, target: Entity): boolean {
-    if (!this.canHitTarget(world, owner, target)) {
+    const targets = this.resolveTargetsInAttackShape(world, owner, aim);
+    if (targets.length === 0) {
       return false;
     }
 
-    this.applyHitEffects(world, owner, target);
+    for (const target of targets) {
+      this.applyHitEffects(world, owner, target);
+    }
+
     this.resetCooldown(world.gameConfig.tickRate);
     return true;
   }
@@ -74,42 +85,95 @@ export class MeleeWeapon extends Weapon {
     }
   }
 
-  public isTargetInRange(owner: Entity, target: Entity): boolean {
-    const distance = Math.hypot(target.x - owner.x, target.y - owner.y);
-    return distance <= owner.radius + target.radius + this.meleeRange;
+  protected abstract isTargetInAttackShape(
+    owner: Entity,
+    target: Entity,
+    aim: MeleeAim,
+  ): boolean;
+
+  protected getAttackQueryBounds(owner: Entity, _aim: MeleeAim): QueryBounds {
+    const queryRadius = owner.radius + this.meleeRange;
+    return {
+      minX: owner.x - queryRadius,
+      minY: owner.y - queryRadius,
+      maxX: owner.x + queryRadius,
+      maxY: owner.y + queryRadius,
+    };
   }
 
-  private resolveTargetAtPoint(
-    world: World,
+  protected getDistanceAlongAim(
+    owner: Entity,
+    target: Entity,
+    aim: MeleeAim,
+  ): number {
+    return (
+      (target.x - owner.x) * aim.directionX +
+      (target.y - owner.y) * aim.directionY
+    );
+  }
+
+  protected resolveAim(
     owner: Entity,
     aimX: number,
     aimY: number,
-  ): Entity | null {
-    let bestTarget: Entity | null = null;
-    let bestDistanceSquared = Number.POSITIVE_INFINITY;
-
-    for (const entity of world.entities.all()) {
-      if (!entity.containsPoint(aimX, aimY)) {
-        continue;
-      }
-      if (
-        !world.combat.canAttackTarget(world, owner, entity) ||
-        !this.isTargetInRange(owner, entity)
-      ) {
-        continue;
-      }
-
-      const deltaX = entity.x - aimX;
-      const deltaY = entity.y - aimY;
-      const distanceSquared = deltaX * deltaX + deltaY * deltaY;
-      if (distanceSquared >= bestDistanceSquared) {
-        continue;
-      }
-
-      bestTarget = entity;
-      bestDistanceSquared = distanceSquared;
+  ): MeleeAim | null {
+    const deltaX = aimX - owner.x;
+    const deltaY = aimY - owner.y;
+    const aimDistance = Math.hypot(deltaX, deltaY);
+    if (aimDistance <= Number.EPSILON) {
+      return null;
     }
 
-    return bestTarget;
+    return {
+      directionX: deltaX / aimDistance,
+      directionY: deltaY / aimDistance,
+      angle: Math.atan2(deltaY, deltaX),
+    };
+  }
+
+  private resolveTargetsInAttackShape(
+    world: World,
+    owner: Entity,
+    aim: MeleeAim,
+  ): Entity[] {
+    const bounds = this.getAttackQueryBounds(owner, aim);
+    const targets: Entity[] = [];
+
+    for (const entity of world.spatial.queryBox(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    )) {
+      if (!world.combat.canAttackTarget(world, owner, entity)) {
+        continue;
+      }
+      if (!this.isTargetInAttackShape(owner, entity, aim)) {
+        continue;
+      }
+      targets.push(entity);
+    }
+
+    targets.sort((left, right) => {
+      const leftDistance = this.getDistanceAlongAim(owner, left, aim);
+      const rightDistance = this.getDistanceAlongAim(owner, right, aim);
+      if (leftDistance !== rightDistance) {
+        return leftDistance - rightDistance;
+      }
+
+      const leftDistanceSquared =
+        (left.x - owner.x) * (left.x - owner.x) +
+        (left.y - owner.y) * (left.y - owner.y);
+      const rightDistanceSquared =
+        (right.x - owner.x) * (right.x - owner.x) +
+        (right.y - owner.y) * (right.y - owner.y);
+      if (leftDistanceSquared !== rightDistanceSquared) {
+        return leftDistanceSquared - rightDistanceSquared;
+      }
+
+      return left.id - right.id;
+    });
+
+    return targets;
   }
 }
