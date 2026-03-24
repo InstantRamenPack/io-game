@@ -7,10 +7,10 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 type JumpPhase = "windup" | "airborne" | "land";
 
-const WINDUP_TICKS = 25;
-const AIRBORNE_TICKS = 15;
+const WINDUP_TICKS = 8;
+const AIRBORNE_TICKS = 3;
 const LAND_TICKS = 12;
-const COOLDOWN_TICKS = 80;
+const COOLDOWN_TICKS = 50;
 
 /**
  * Jump attack goal: winds up, leaps to target, lands with AoE damage.
