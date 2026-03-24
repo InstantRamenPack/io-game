@@ -7,11 +7,11 @@ import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 /**
  * Default ranged enemy that keeps distance and fires basic bullets.
  */
-export class Skeleton extends Enemy {
-  public static override readonly resourceName = "skeleton";
+export class Shoota extends Enemy {
+  public static override readonly resourceName = "shoota";
 
   /**
-   * Creates a skeleton with zombie-like stats and a ranged strafing goal stack.
+   * Creates a shoota with its default stats and a ranged strafing goal stack.
    * @param id Stable runtime entity id.
    */
   public constructor(id: number) {

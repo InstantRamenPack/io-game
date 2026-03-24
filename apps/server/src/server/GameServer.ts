@@ -17,8 +17,8 @@ import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
-import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
-import { Zombie } from "@server/entities/enemies/Zombie.ts";
+import { Shoota } from "@server/entities/enemies/Shoota.ts";
+import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
@@ -213,7 +213,7 @@ export class GameServer {
    * Spawns the initial set of enemies at deterministic map locations.
    */
   private spawnInitialEnemies(): void {
-    const zombiePositions = [
+    const drifterPositions = [
       {
         x: this.gameConfig.worldSize.w * 0.25,
         y: this.gameConfig.worldSize.h * 0.25,
@@ -232,14 +232,14 @@ export class GameServer {
       },
     ];
 
-    for (const zombiePosition of zombiePositions) {
-      const zombie = new Zombie(this.world.allocEntityId());
-      zombie.x = zombiePosition.x;
-      zombie.y = zombiePosition.y;
-      this.world.spawn(zombie);
+    for (const drifterPosition of drifterPositions) {
+      const drifter = new Drifter(this.world.allocEntityId());
+      drifter.x = drifterPosition.x;
+      drifter.y = drifterPosition.y;
+      this.world.spawn(drifter);
     }
 
-    const skeletonPositions = [
+    const shootaPositions = [
       {
         x: this.gameConfig.worldSize.w * 0.5,
         y: this.gameConfig.worldSize.h * 0.2,
@@ -250,11 +250,11 @@ export class GameServer {
       },
     ];
 
-    for (const skeletonPosition of skeletonPositions) {
-      const skeleton = new Skeleton(this.world.allocEntityId());
-      skeleton.x = skeletonPosition.x;
-      skeleton.y = skeletonPosition.y;
-      this.world.spawn(skeleton);
+    for (const shootaPosition of shootaPositions) {
+      const shoota = new Shoota(this.world.allocEntityId());
+      shoota.x = shootaPosition.x;
+      shoota.y = shootaPosition.y;
+      this.world.spawn(shoota);
     }
 
     const megaknight = new Megaknight(this.world.allocEntityId());

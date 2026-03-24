@@ -5,11 +5,11 @@ import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
-export class Zombie extends Enemy {
-  public static override readonly resourceName = "zombie";
+export class Drifter extends Enemy {
+  public static override readonly resourceName = "drifter";
 
   /**
-   * Creates a zombie with its default stats and chase goal stack.
+   * Creates a drifter with its default stats and chase goal stack.
    * @param id Stable runtime entity id.
    */
   public constructor(id: number) {
