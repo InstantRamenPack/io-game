@@ -12,8 +12,7 @@ export class Saboteur extends Enemy {
   public constructor(id: number) {
     super(id, {
       radius: 11,
-      hp: 120,
-      maxHp: 80,
+      maxHp: 120,
       vx: 0,
       vy: 0,
       moveSpeed: 11,

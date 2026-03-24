@@ -4,7 +4,6 @@ import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { CombatSystem } from "@server/systems/CombatSystem.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
@@ -20,7 +19,6 @@ export class World {
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
-  public combat: CombatSystem;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
 
@@ -34,7 +32,6 @@ export class World {
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
-    this.combat = new CombatSystem();
   }
 
   /**

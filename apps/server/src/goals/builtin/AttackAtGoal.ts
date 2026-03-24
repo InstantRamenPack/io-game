@@ -1,3 +1,4 @@
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
@@ -55,10 +56,7 @@ export class AttackAtGoal<
     }
 
     const target = ctx.world.get(targetId);
-    if (
-      !target ||
-      !ctx.world.combat.canAttackTarget(ctx.world, ctx.self, target)
-    ) {
+    if (!target || !canAttackTarget(ctx.world, ctx.self, target)) {
       return null;
     }
 

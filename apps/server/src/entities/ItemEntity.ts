@@ -8,7 +8,7 @@ export class ItemEntity extends Entity {
   public contents: Inventory;
 
   public constructor(id: number, inventory = new Inventory()) {
-    super(id);
+    super(id, { maxHp: 0 });
     this.contents = inventory;
     this.radius = 14;
   }
@@ -20,5 +20,9 @@ export class ItemEntity extends Entity {
       kind: "pickup",
       inventory: this.contents.toSnapshot(),
     };
+  }
+
+  public override handleDeath(): void {
+    // pickups are not damageable, but satisfy the shared contract
   }
 }

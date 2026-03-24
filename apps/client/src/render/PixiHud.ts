@@ -27,6 +27,8 @@ type PanelLayout = {
   maxWidth?: number;
 };
 
+type TextStyleOptions = Partial<PIXI.ITextStyle>;
+
 class HudPanel {
   public readonly container: PIXI.Container;
   private readonly background: PIXI.Graphics;
@@ -37,7 +39,7 @@ class HudPanel {
   private widthValue = 0;
   private heightValue = 0;
 
-  public constructor(titleStyle: PIXI.ITextStyle, bodyStyle: PIXI.ITextStyle) {
+  public constructor(titleStyle: TextStyleOptions, bodyStyle: TextStyleOptions) {
     this.container = new PIXI.Container();
     this.background = new PIXI.Graphics();
     this.titleText = new PIXI.Text("", new PIXI.TextStyle(titleStyle));
@@ -120,19 +122,19 @@ export class PixiHud {
   private dirty = true;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
-  private readonly titleStyle: PIXI.ITextStyle = {
+  private readonly titleStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 11,
     fill: 0x9fb39c,
     letterSpacing: 1.2,
   };
-  private readonly bodyStyle: PIXI.ITextStyle = {
+  private readonly bodyStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 13,
     fill: 0xe8f5e7,
     lineHeight: 18,
   };
-  private readonly bodyStrongStyle: PIXI.ITextStyle = {
+  private readonly bodyStrongStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 18,
     fill: 0xe8f5e7,

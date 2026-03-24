@@ -38,16 +38,14 @@ export const EntitySnapshotBaseSchema = z.object({
   vy: z.number(),
   rotation: z.number(),
   radius: z.number(),
-  hp: z.number().optional(),
-  maxHp: z.number().optional(),
+  hp: z.number(),
+  maxHp: z.number(),
   ownerId: z.number().int().nonnegative().optional(),
 });
 
 export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("player"),
   name: z.string(),
-  hp: z.number(),
-  maxHp: z.number(),
   inventory: InventorySnapshotSchema,
   activeEffects: z.array(z.string()),
   moveSpeed: z.number(),
@@ -55,16 +53,12 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
-  hp: z.number(),
-  maxHp: z.number(),
   targetId: z.number().int().nonnegative().optional(),
 });
 
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("building"),
   label: z.string(),
-  hp: z.number(),
-  maxHp: z.number(),
   tier: z.number(),
 });
 

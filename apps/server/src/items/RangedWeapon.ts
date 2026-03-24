@@ -1,3 +1,4 @@
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
@@ -71,7 +72,7 @@ export class RangedWeapon extends Weapon {
   ): boolean {
     return (
       this.canHit() &&
-      world.combat.canAttackTarget(world, owner, target) &&
+      canAttackTarget(world, owner, target) &&
       this.isTargetInRange(owner, target)
     );
   }

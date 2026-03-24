@@ -7,6 +7,10 @@ import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts
 
 export type CollisionMode = "none" | "dynamic" | "static";
 
+type EntityConfig = {
+  maxHp?: number;
+};
+
 /**
  * Base authoritative entity class for world simulation.
  * All server-side runtime entities inherit transform and snapshot behavior from here.
@@ -38,18 +42,20 @@ export abstract class Entity {
   protected moveVy = 0;
   protected impulseVx = 0;
   protected impulseVy = 0;
-  public hp?: number;
-  public maxHp?: number;
-  public teamId?: number;
+  public hp: number;
+  public maxHp: number;
   public ownerId?: number;
 
   /**
    * Initializes common identity fields for entity subclasses.
    * @param id Stable runtime entity id.
+   * @param config Entity configuration.
    */
-  protected constructor(id: number) {
+  protected constructor(id: number, config: EntityConfig = {}) {
     this.id = id;
     this.typeId = (this.constructor as typeof Entity).typeId;
+    this.maxHp = Math.max(0, config.maxHp ?? 0);
+    this.hp = this.maxHp;
   }
 
   /**
@@ -83,6 +89,8 @@ export abstract class Entity {
       vy: this.vy,
       rotation: this.rotation,
       radius: this.radius,
+      hp: this.hp,
+      maxHp: this.maxHp,
       ownerId: this.ownerId,
     };
   }
@@ -126,21 +134,6 @@ export abstract class Entity {
   }
 
   /**
-   * Returns whether a world point falls inside the entity's square hitbox.
-   * @param pointX World-space X coordinate.
-   * @param pointY World-space Y coordinate.
-   * @returns True when the point is inside the current hitbox bounds.
-   */
-  public containsPoint(pointX: number, pointY: number): boolean {
-    return (
-      pointX >= this.x - this.radius &&
-      pointX <= this.x + this.radius &&
-      pointY >= this.y - this.radius &&
-      pointY <= this.y + this.radius
-    );
-  }
-
-  /**
    * Resolves the combat instigator for attacks sourced from this entity.
    * Plain entities are their own instigator; proxy entities like projectiles can override.
    * @param _world World used to resolve related runtime state.
@@ -148,6 +141,10 @@ export abstract class Entity {
    */
   public getCombatInstigator(_world: World): Entity | null {
     return this;
+  }
+
+  public handleDeath(_world: World): void {
+    // default no-op for inert entities
   }
 
   public afterMovement(_world: World): void {

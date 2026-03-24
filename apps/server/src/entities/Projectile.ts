@@ -1,4 +1,5 @@
 import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -34,7 +35,7 @@ export abstract class Projectile extends GoalControlledEntity {
     id: number,
     config: ProjectileSpawnConfig,
   ) {
-    super(id);
+    super(id, { maxHp: 0 });
 
     const directionLength =
       Math.hypot(config.directionX, config.directionY) || 1;
@@ -140,7 +141,7 @@ export abstract class Projectile extends GoalControlledEntity {
       if (candidate.id === this.id) {
         continue;
       }
-      if (!world.combat.canAttackTarget(world, this, candidate)) {
+      if (!canAttackTarget(world, this, candidate)) {
         continue;
       }
 

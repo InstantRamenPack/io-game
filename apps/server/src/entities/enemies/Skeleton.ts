@@ -17,7 +17,6 @@ export class Skeleton extends Enemy {
   public constructor(id: number) {
     super(id, {
       radius: 12,
-      hp: 100,
       maxHp: 100,
       vx: 0,
       vy: 0,

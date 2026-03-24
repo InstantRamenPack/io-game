@@ -1,5 +1,6 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { BuildingSnapshot } from "@shared/net/snapshots.ts";
+import type { World } from "@server/world/World.ts";
 
 type BuildingStats = {
   baseHp: number;
@@ -21,14 +22,13 @@ export class Building extends GoalControlledEntity {
     ownerId: number | undefined,
     stats: BuildingStats,
   ) {
-    super(id);
+    const resolvedTier = Math.max(1, tier);
+    super(id, { maxHp: stats.baseHp * resolvedTier });
     this.label = label;
-    this.tier = Math.max(1, tier);
+    this.tier = resolvedTier;
     this.ownerId = ownerId;
     this.collisionMode = "static";
     this.radius = stats.radius;
-    this.maxHp = stats.baseHp * this.tier;
-    this.hp = this.maxHp;
   }
 
   public override toSnapshot(): BuildingSnapshot {
@@ -36,10 +36,13 @@ export class Building extends GoalControlledEntity {
     return {
       ...snapshot,
       kind: "building",
-      hp: this.hp ?? this.maxHp ?? 0,
-      maxHp: this.maxHp ?? 0,
       label: this.label,
       tier: this.tier,
     };
+  }
+
+  public override handleDeath(world: World): void {
+    this.alive = false;
+    world.despawn(this.id);
   }
 }

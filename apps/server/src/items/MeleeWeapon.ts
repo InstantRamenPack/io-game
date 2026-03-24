@@ -1,3 +1,4 @@
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
@@ -37,7 +38,7 @@ export abstract class MeleeWeapon extends Weapon {
     owner: Entity,
     target: Entity,
   ): boolean {
-    if (!this.canHit() || !world.combat.canAttackTarget(world, owner, target)) {
+    if (!this.canHit() || !canAttackTarget(world, owner, target)) {
       return false;
     }
 
@@ -145,7 +146,7 @@ export abstract class MeleeWeapon extends Weapon {
       bounds.maxX,
       bounds.maxY,
     )) {
-      if (!world.combat.canAttackTarget(world, owner, entity)) {
+      if (!canAttackTarget(world, owner, entity)) {
         continue;
       }
       if (!this.isTargetInAttackShape(owner, entity, aim)) {

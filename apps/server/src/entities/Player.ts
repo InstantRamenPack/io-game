@@ -26,13 +26,11 @@ export class Player extends Entity {
   public activeEffects = ["Fortified", "Well Fed"];
 
   public constructor(id: number, name = "player") {
-    super(id);
+    super(id, { maxHp: 100 });
     this.name = name;
     this.inventory = new Inventory();
     this.radius = 16;
     this.collisionMode = "dynamic";
-    this.hp = 100;
-    this.maxHp = 100;
   }
 
   public enqueueInput(inputCommand: InputCommand): void {
@@ -56,8 +54,6 @@ export class Player extends Entity {
       ...snapshot,
       kind: "player",
       name: this.name,
-      hp: this.hp ?? 0,
-      maxHp: this.maxHp ?? 0,
       inventory: this.inventory.toSnapshot(),
       activeEffects: [...this.activeEffects],
       moveSpeed: this.moveSpeed,
@@ -117,11 +113,7 @@ export class Player extends Entity {
     return this.inventory.getActiveWeapon();
   }
 
-  public handleDeath(world: World): void {
-    if (this.maxHp === undefined) {
-      return;
-    }
-
+  public override handleDeath(world: World): void {
     this.hp = this.maxHp;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;

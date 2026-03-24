@@ -2,11 +2,11 @@ import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
+import type { World } from "@server/world/World.ts";
 
 export type EnemyConfig = {
   moveSpeed?: number;
   radius: number;
-  hp: number;
   maxHp: number;
   // Initial per-tick movement deltas.
   vx: number;
@@ -32,8 +32,6 @@ export class Enemy extends GoalControlledEntity {
     this.registerGoals(config.goals ?? []);
     this.collisionMode = "dynamic";
     this.radius = config.radius;
-    this.hp = config.hp;
-    this.maxHp = config.maxHp;
     this.setMovementVelocity(config.vx, config.vy);
   }
 
@@ -42,9 +40,12 @@ export class Enemy extends GoalControlledEntity {
     return {
       ...snapshot,
       kind: "enemy",
-      hp: this.hp ?? 0,
-      maxHp: this.maxHp ?? 0,
       targetId: this.targetId,
     };
+  }
+
+  public override handleDeath(world: World): void {
+    this.alive = false;
+    world.despawn(this.id);
   }
 }

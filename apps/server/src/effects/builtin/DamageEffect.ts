@@ -1,7 +1,5 @@
-import { Building } from "@server/entities/Building.ts";
-import { Enemy } from "@server/entities/Enemy.ts";
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
 import { Effect } from "@server/effects/Effect.ts";
 import type { DamageEventPayload, NetEvent } from "@shared/net/events.ts";
 import type { World } from "@server/world/World.ts";
@@ -22,9 +20,7 @@ export class DamageEffect extends Effect {
     const instigator = source.getCombatInstigator(world);
     if (
       !instigator ||
-      !world.combat.canAttackTarget(world, source, target) ||
-      target.hp === undefined ||
-      target.maxHp === undefined ||
+      !canAttackTarget(world, source, target) ||
       !Number.isFinite(this.amount) ||
       this.amount <= 0
     ) {
@@ -58,15 +54,6 @@ export class DamageEffect extends Effect {
       return;
     }
 
-    if (target instanceof Player) {
-      target.handleDeath(world);
-      return;
-    }
-
-    if (target instanceof Enemy || target instanceof Building) {
-      target.alive = false;
-      world.despawn(target.id);
-      return;
-    }
+    target.handleDeath(world);
   }
 }

@@ -1,3 +1,4 @@
+import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
@@ -121,7 +122,7 @@ export class RangedAttackGoal<
     if (!target || !target.alive) {
       return null;
     }
-    if (!ctx.world.combat.canAttackTarget(ctx.world, ctx.self, target)) {
+    if (!canAttackTarget(ctx.world, ctx.self, target)) {
       return null;
     }
 

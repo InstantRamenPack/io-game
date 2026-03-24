@@ -29,8 +29,8 @@ export class ClientEntity {
   public vy: number;
   public rotation: number;
   public radius: number;
-  public hp?: number;
-  public maxHp?: number;
+  public hp: number;
+  public maxHp: number;
   public ownerId?: number;
   public name?: string;
   public label?: string;

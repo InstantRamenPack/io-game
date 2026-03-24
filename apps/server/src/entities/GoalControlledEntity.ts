@@ -17,10 +17,11 @@ export abstract class GoalControlledEntity extends Entity {
   protected constructor(
     id: number,
     config: {
+      maxHp?: number;
       moveSpeed?: number;
     } = {},
   ) {
-    super(id);
+    super(id, { maxHp: config.maxHp });
     this.goalSelector = new GoalSelector<this>();
     this.moveSpeed = config.moveSpeed ?? 0;
   }
@@ -31,10 +32,6 @@ export abstract class GoalControlledEntity extends Entity {
       weapon.tick(world);
     }
     super.tick(world);
-  }
-
-  public clearGoals(world: World): void {
-    this.goalSelector.clear(new GoalContext(world, this));
   }
 
   protected registerGoals(goals: readonly Goal<this>[]): void {
