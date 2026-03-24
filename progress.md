@@ -1,0 +1,25 @@
+Original prompt: PLEASE IMPLEMENT THIS PLAN: JSON-Backed Item/Entity Content and Enriched Registries
+
+- 2026-03-20: Replaced the shared TS item/entity/recipe manifest layer with JSON-backed content under `packages/shared/src/content/<kind>/<name>.json`.
+- Added `packages/shared/src/content/schema.ts` and `packages/shared/src/content/catalog.ts` for JSON validation, lookup, and craftable-item enumeration.
+- Runtime classes now derive `typeId` from static `kind` + `resourceName`; simulation metadata stays on classes (`stackMax`, `buildingTypeId`).
+- Enriched `entityTypeRegistry` and `itemTypeRegistry` to store constructors plus runtime metadata and parsed JSON content.
+- Crafting now targets output item `typeId` instead of `recipeId`; embedded recipes live inside craftable item JSON files.
+- Removed the old shared content TS modules: `entities.ts`, `items.ts`, `recipes.ts`, `types.ts`, and `index.ts`.
+- Validation run: `bun run typecheck` passes.
+- Per user instruction, no new tests were written and Playwright was not used.
+- 2026-03-23: Replaced the authoritative server `setInterval` tick loop with an absolute-deadline `setTimeout` scheduler in `apps/server/src/server/TickClock.ts`.
+- Added scheduler telemetry for wake delay, wake tick count, catch-up ticks, and dropped tick debt, exposed via `/telemetry/tick`.
+- Validation run: direct 2.5s in-process server sample now reports `actualTickRate ~= 20.00`, `averageIntervalMs ~= 49.99`, `averageWakeDelayMs ~= 1.31`, `catchUpTickCount = 0`, `droppedTickDebtMs = 0`.
+- 2026-03-23: Reworked client snapshot cadence tracking in `apps/client/src/net/ClientWorldState.ts` to estimate observed snapshot interval from a rolling tick-to-time slope instead of the configured tick rate.
+- Updated `apps/client/src/net/Interpolator.ts` to use observed snapshot cadence plus a small jitter buffer, with config tick rate only as startup fallback.
+- Exposed client snapshot cadence and interpolation telemetry through `window.render_game_to_text` in `apps/client/src/app/installDebugBridge.ts`.
+- Validation run: synthetic headless cadence sample with ~76ms snapshot gaps reports `observedIntervalMs ~= 76.17`, `smoothedIntervalMs ~= 74.54`, and interpolator `effectiveSnapshotMs ~= 74.54`.
+- Validation run: live browser session against `bun run dev` (`PORT=3100`, `VITE_PORT=4173`) reports server `/telemetry/tick actualTickRate ~= 20.00` and client `render_game_to_text` shows `snapshotCadence.observedIntervalMs ~= 49.93`, `smoothedIntervalMs ~= 49.97`, `interpolation.renderDelayMs ~= 52.11`.
+- 2026-03-23: Replaced point-to-click melee hit detection with directional piercing melee shapes in `apps/server/src/items/MeleeWeapon.ts`.
+- Added `apps/server/src/items/SweepMeleeWeapon.ts` with configurable `sweepArcDegrees`, centered on the current aim direction, and `apps/server/src/items/StabMeleeWeapon.ts` with configurable `stabWidth`.
+- Converted `BasicSword` and `ZombieSword` to sweep weapons (`110` degree arcs) and added `BasicSpear` as a stab weapon with longer reach and slower fire rate.
+- Registered `BasicSpear` in `apps/server/src/items/weapons/index.ts` and `packages/shared/src/content/item/index.ts`, and added `packages/shared/src/content/item/basic_spear.json`.
+- Updated the player starter loadout in `apps/server/src/server/GameServer.ts` to include sword, gun, and spear while keeping the gun selected by default.
+- Validation status: user manually tested the change and reported it seems fine; per user instruction, no further testing was performed.
+- Validation note: `bun run typecheck` is currently blocked by pre-existing `ITextStyle` typing errors in `apps/client/src/render/PixiHud.ts` and not by this melee/spear change set.
