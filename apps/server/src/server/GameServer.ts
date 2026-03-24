@@ -16,6 +16,7 @@ import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
+import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
@@ -260,6 +261,11 @@ export class GameServer {
     megaknight.x = this.gameConfig.worldSize.w * 0.5;
     megaknight.y = this.gameConfig.worldSize.h * 0.5;
     this.world.spawn(megaknight);
+
+    const saboteur = new Saboteur(this.world.allocEntityId());
+    saboteur.x = this.gameConfig.worldSize.w * 0.15;
+    saboteur.y = this.gameConfig.worldSize.h * 0.15;
+    this.world.spawn(saboteur);
   }
 
   /**

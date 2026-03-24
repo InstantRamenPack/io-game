@@ -452,6 +452,9 @@ export class ClientEntity {
       return 0x67d944;
     }
     if (this.kind === "enemy") {
+      if (this.getTypePath() === "saboteur") {
+        return 0x555555;
+      }
       return 0xbf2a2a;
     }
     if (this.kind === "projectile") {
