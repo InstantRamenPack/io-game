@@ -20,6 +20,7 @@ import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Skeleton } from "@server/entities/enemies/Skeleton.ts";
 import { Zombie } from "@server/entities/enemies/Zombie.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
@@ -179,6 +180,7 @@ export class GameServer {
     if (playerEntity.inventory) {
       playerEntity.inventory.addWeapon(new BasicSword());
       playerEntity.inventory.addWeapon(new BasicGun());
+      playerEntity.inventory.addWeapon(new BasicSpear());
       playerEntity.inventory.setActiveWeaponIndex(1);
     }
     playerEntity.seedStarterInventory();
