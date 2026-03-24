@@ -12,7 +12,6 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { WsServer } from "@server/net/WsServer.ts";
 import type { Building } from "@server/entities/Building.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { Tower } from "@server/entities/buildings/Tower.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -284,11 +283,6 @@ export class GameServer {
         x: centerX + 180,
         y: centerY - 120,
         create: (id) => new Wall(id, "East Wall"),
-      },
-      {
-        x: centerX,
-        y: centerY - 180,
-        create: (id) => new Tower(id, "Arrow Tower"),
       },
       {
         x: centerX - 120,

@@ -1,7 +1,7 @@
 {
-  "label": "Tower Item",
+  "label": "Cannon Item",
   "recipe": {
-    "hint": "High ground pressure for outer lanes.",
+    "hint": "Heavy defensive fire for outer lanes.",
     "outputAmount": 1,
     "costs": [
       { "typeId": "item:wood", "amount": 35 },

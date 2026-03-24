@@ -1,10 +1,10 @@
 import basicGunItemJson from "@shared/content/item/basic_gun.json";
 import basicSpearItemJson from "@shared/content/item/basic_spear.json";
 import basicSwordItemJson from "@shared/content/item/basic_sword.json";
+import cannonItemJson from "@shared/content/item/cannon.json";
 import craftingStationItemJson from "@shared/content/item/crafting_station.json";
 import foodItemJson from "@shared/content/item/food.json";
 import stoneItemJson from "@shared/content/item/stone.json";
-import towerItemJson from "@shared/content/item/tower.json";
 import wallItemJson from "@shared/content/item/wall.json";
 import windmillItemJson from "@shared/content/item/windmill.json";
 import woodItemJson from "@shared/content/item/wood.json";
@@ -20,7 +20,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("stone", stoneItemJson),
   makeParsedItemContentEntry("food", foodItemJson),
   makeParsedItemContentEntry("wall", wallItemJson),
-  makeParsedItemContentEntry("tower", towerItemJson),
+  makeParsedItemContentEntry("cannon", cannonItemJson),
   makeParsedItemContentEntry("windmill", windmillItemJson),
   makeParsedItemContentEntry("crafting_station", craftingStationItemJson),
 ] as const;

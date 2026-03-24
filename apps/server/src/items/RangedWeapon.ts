@@ -93,6 +93,11 @@ export class RangedWeapon extends Weapon {
       return false;
     }
 
+    const projectileOwnerId = this.resolveProjectileOwnerId(world, owner);
+    if (projectileOwnerId === null) {
+      return false;
+    }
+
     const baseAngle = Math.atan2(deltaY, deltaX);
     const spreadOffset =
       this.spread === 0
@@ -103,7 +108,7 @@ export class RangedWeapon extends Weapon {
     const directionY = Math.sin(angle);
     const spawnDistance = owner.radius + this.projectileRadius + 2;
     const projectileConfig: ProjectileSpawnConfig = {
-      ownerId: owner.id,
+      ownerId: projectileOwnerId,
       x: owner.x + directionX * spawnDistance,
       y: owner.y + directionY * spawnDistance,
       directionX,
@@ -126,6 +131,13 @@ export class RangedWeapon extends Weapon {
     }
 
     return true;
+  }
+
+  protected resolveProjectileOwnerId(
+    _world: World,
+    owner: Entity,
+  ): number | null {
+    return owner.id;
   }
 
   public override toSnapshot(): WeaponSnapshot {
