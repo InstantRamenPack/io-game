@@ -71,9 +71,11 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.phase = "windup";
     this.phaseTick = 0;
     ctx.self.setMovementVelocity(0, 0);
-    // jumpTarget will be set at the start of airborne via tracking
-    this.jumpTargetX = ctx.self.x;
-    this.jumpTargetY = ctx.self.y;
+    // Lock the jump target at windup start — the entity commits to this position.
+    // Players who stay put get hit; players who move can dodge.
+    const target = this.resolveTargetInRange(ctx);
+    this.jumpTargetX = target?.x ?? ctx.self.x;
+    this.jumpTargetY = target?.y ?? ctx.self.y;
   }
 
   override tick(ctx: GoalContext<TSelf>): void {
@@ -115,13 +117,6 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
 
   private tickAirborne(ctx: GoalContext<TSelf>): void {
     ctx.self.radius = this.minRadius;
-
-    // Track the player each tick during flight so the entity always lands on them
-    const currentTarget = this.resolveTarget(ctx);
-    if (currentTarget) {
-      this.jumpTargetX = currentTarget.x;
-      this.jumpTargetY = currentTarget.y;
-    }
 
     const remaining = AIRBORNE_TICKS - this.phaseTick;
     const dx = this.jumpTargetX - ctx.self.x;

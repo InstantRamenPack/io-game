@@ -18,8 +18,9 @@ export class Megaknight extends Enemy {
       moveSpeed: 5,
       goals: [
         new TargetEntityGoal<Enemy>(0, 600),
-        // Jump when within 280px; shrinks to radius 6, bursts to 40 on land, 30 aoe damage, 60px splash
-        new JumpAttackGoal<Enemy>(1, BASE_RADIUS, 6, 40, 280, 30, 60),
+        // Jump when within 280px; shrinks to radius 6, bursts to 40 on land, 30 aoe damage, 100px splash
+        // Target is locked at windup start — kiting avoids the hit, camping gets punished.
+        new JumpAttackGoal<Enemy>(1, BASE_RADIUS, 6, 40, 280, 30, 100),
         // Chase normally when out of jump range or on cooldown
         new GoToTargetGoal<Enemy>(2, 24),
       ],
