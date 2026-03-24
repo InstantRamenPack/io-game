@@ -1,4 +1,5 @@
 import basicGunItemJson from "@shared/content/item/basic_gun.json";
+import basicSpearItemJson from "@shared/content/item/basic_spear.json";
 import basicSwordItemJson from "@shared/content/item/basic_sword.json";
 import craftingStationItemJson from "@shared/content/item/crafting_station.json";
 import foodItemJson from "@shared/content/item/food.json";
@@ -12,6 +13,7 @@ import { makeParsedItemContentEntry } from "@shared/content/parseContent.ts";
 
 export const itemContentEntries = [
   makeParsedItemContentEntry("basic_gun", basicGunItemJson),
+  makeParsedItemContentEntry("basic_spear", basicSpearItemJson),
   makeParsedItemContentEntry("basic_sword", basicSwordItemJson),
   makeParsedItemContentEntry("zombie_sword", zombieSwordItemJson),
   makeParsedItemContentEntry("wood", woodItemJson),
