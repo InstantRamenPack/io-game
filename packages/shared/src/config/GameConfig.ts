@@ -9,8 +9,8 @@ export class GameConfig {
 
   tickRate = GameConfig.DEFAULT_TICK_RATE;
   worldSize = {
-    w: 2000,
-    h: 2000,
+    w: 3000,
+    h: 3000,
   };
   collision = {
     spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE,
@@ -20,7 +20,7 @@ export class GameConfig {
     maxPacketBytes: 16 * 1024,
   };
   interpolation = {
-    snapDistance: 96,
+    snapDistance: 192,
   };
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 

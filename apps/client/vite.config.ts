@@ -20,7 +20,7 @@ function parseIntegerEnv(name: string, fallback: number): number {
 
 const clientRoot = dirname(fileURLToPath(import.meta.url));
 const sharedRoot = resolve(clientRoot, "../../packages/shared/src");
-const serverHost = process.env.VITE_HOST ?? "127.0.0.1";
+const serverHost = process.env.VITE_HOST ?? "0.0.0.0";
 const serverPort = parseIntegerEnv("VITE_PORT", 5173);
 const backendTarget =
   process.env.VITE_BACKEND_TARGET ?? "http://127.0.0.1:3000";
