@@ -1,7 +1,9 @@
 import { Enemy } from "@server/entities/Enemy.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
-import { TargetBuildingOrPlayerGoal } from "@server/goals/builtin/TargetBuildingOrPlayerGoal.ts";
+import { Building } from "@server/entities/Building.ts";
+import { Player } from "@server/entities/Player.ts";
+import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 
 export class Saboteur extends Enemy {
@@ -17,10 +19,10 @@ export class Saboteur extends Enemy {
       moveSpeed: 11,
       weapons: [new ZombieSword()],
       goals: [
-        // Buildings first, players only when no buildings remain
-        new TargetBuildingOrPlayerGoal<Enemy>(0, 560),
-        new GoToTargetGoal<Enemy>(1, 22),
-        new AttackAtGoal<Enemy>(2, 0),
+        new TargetEntityGoal<Enemy>(0, Building, 600),
+        new TargetEntityGoal<Enemy>(1, Player, 600),
+        new GoToTargetGoal<Enemy>(2, 22),
+        new AttackAtGoal<Enemy>(3, 0),
       ],
     });
   }

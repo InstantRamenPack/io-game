@@ -1,3 +1,4 @@
+import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -62,9 +63,10 @@ export class DamageEffect extends Effect {
       return;
     }
 
-    if (target instanceof Enemy) {
+    if (target instanceof Enemy || target instanceof Building) {
       target.alive = false;
       world.despawn(target.id);
+      return;
     }
   }
 }

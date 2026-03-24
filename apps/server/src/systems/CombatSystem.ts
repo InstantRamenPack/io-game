@@ -1,6 +1,7 @@
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Building } from "@server/entities/Building.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -27,7 +28,7 @@ export class CombatSystem {
       return target instanceof Enemy || target instanceof Player;
     }
     if (instigator instanceof Enemy) {
-      return target instanceof Player;
+      return target instanceof Player || target instanceof Building;
     }
     return false;
   }

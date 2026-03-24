@@ -9,12 +9,12 @@ type BuildingStats = {
 /**
  * Shared static-structure base for all concrete building entities.
  */
-export abstract class Building extends GoalControlledEntity {
+export class Building extends GoalControlledEntity {
   public static readonly kind = "building" as const;
   public readonly label: string;
   public tier: number;
 
-  protected constructor(
+  public constructor(
     id: number,
     label: string,
     tier: number,

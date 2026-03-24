@@ -31,7 +31,7 @@ export class TargetEntityGoal<
   }
 
   override canStart(_ctx: GoalContext<TSelf>): boolean {
-    return true;
+    return this.resolveTargetCandidate(_ctx) !== null;
   }
 
   override start(_ctx: GoalContext<TSelf>): void {
@@ -39,43 +39,11 @@ export class TargetEntityGoal<
   }
 
   override tick(ctx: GoalContext<TSelf>): void {
-    const currentTarget = this.resolveValidTarget(ctx, ctx.self.targetId);
-    if (currentTarget) {
-      ctx.self.targetId = currentTarget.id;
-      return;
-    }
-
-    const aggroRangeSquared = this.aggroRange * this.aggroRange;
-    let bestTarget: Entity | null = null;
-    let bestDistanceSquared = Number.POSITIVE_INFINITY;
-
-    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
-      if (!target.alive) {
-        continue;
-      }
-
-      const distanceSquared = this.distanceSquared(
-        ctx.self.x,
-        ctx.self.y,
-        target.x,
-        target.y,
-      );
-      if (
-        distanceSquared > aggroRangeSquared ||
-        distanceSquared >= bestDistanceSquared
-      ) {
-        continue;
-      }
-
-      bestTarget = target;
-      bestDistanceSquared = distanceSquared;
-    }
-
-    ctx.self.targetId = bestTarget?.id;
+    ctx.self.targetId = this.resolveTargetCandidate(ctx)?.id;
   }
 
-  override shouldContinue(_ctx: GoalContext<TSelf>): boolean {
-    return true;
+  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+    return this.resolveTargetCandidate(ctx) !== null;
   }
 
   override stop(_ctx: GoalContext<TSelf>): void {
@@ -103,6 +71,43 @@ export class TargetEntityGoal<
     );
     const aggroRangeSquared = this.aggroRange * this.aggroRange;
     return distanceSquared <= aggroRangeSquared ? target : null;
+  }
+
+  private resolveTargetCandidate(ctx: GoalContext<TSelf>): Entity | null {
+    return (
+      this.resolveValidTarget(ctx, ctx.self.targetId) ??
+      this.findNearestTargetInRange(ctx)
+    );
+  }
+
+  private findNearestTargetInRange(ctx: GoalContext<TSelf>): Entity | null {
+    const aggroRangeSquared = this.aggroRange * this.aggroRange;
+    let bestTarget: Entity | null = null;
+    let bestDistanceSquared = Number.POSITIVE_INFINITY;
+
+    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
+      if (!target.alive) {
+        continue;
+      }
+
+      const distanceSquared = this.distanceSquared(
+        ctx.self.x,
+        ctx.self.y,
+        target.x,
+        target.y,
+      );
+      if (
+        distanceSquared > aggroRangeSquared ||
+        distanceSquared >= bestDistanceSquared
+      ) {
+        continue;
+      }
+
+      bestTarget = target;
+      bestDistanceSquared = distanceSquared;
+    }
+
+    return bestTarget;
   }
 
   private distanceSquared(
