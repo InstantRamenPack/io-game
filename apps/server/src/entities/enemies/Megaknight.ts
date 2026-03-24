@@ -12,7 +12,7 @@ export class Megaknight extends Enemy {
   public constructor(id: number) {
     super(id, {
       radius: BASE_RADIUS,
-      maxHp: 500,
+      maxHp: 150,
       vx: 0,
       vy: 0,
       moveSpeed: 7,
