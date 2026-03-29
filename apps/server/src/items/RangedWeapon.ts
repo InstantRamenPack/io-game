@@ -1,11 +1,6 @@
-import {
-  cloneHitboxRects,
-  getHitboxDirectionalExtent,
-  type HitboxRect,
-} from "@shared/geometry/hitbox.ts";
+import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
-import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -21,9 +16,6 @@ import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
  */
 export class RangedWeapon extends Weapon {
   public projectileTypeId: ResourceId;
-  public projectileSpeed: number;
-  public projectileHitboxes: HitboxRect[];
-  public projectileMaxHits: number | null;
   public ammoInMag: number;
   public magSize: number;
   public reloadTicks: number;
@@ -34,21 +26,13 @@ export class RangedWeapon extends Weapon {
 
   public constructor(
     fireRate: number,
-    range: number,
-    hitEffects: Effect[],
     projectileTypeId: ResourceId,
-    projectileSpeed: number,
-    projectileHitboxes: readonly HitboxRect[],
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
-    projectileMaxHits: number | null = 1,
   ) {
-    super(fireRate, range, hitEffects);
+    super(fireRate);
     this.projectileTypeId = projectileTypeId;
-    this.projectileSpeed = projectileSpeed;
-    this.projectileHitboxes = cloneHitboxRects(projectileHitboxes);
-    this.projectileMaxHits = normalizeProjectileMaxHits(projectileMaxHits);
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
     this.spread = spread;
@@ -81,7 +65,11 @@ export class RangedWeapon extends Weapon {
     return (
       this.canHit() &&
       canAttackTarget(world, owner, target) &&
-      this.isTargetInRange(owner, target)
+      this.isTargetInRange(
+        owner,
+        target,
+        this.resolveProjectileType().definition.range,
+      )
     );
   }
 
@@ -115,10 +103,12 @@ export class RangedWeapon extends Weapon {
     const angle = baseAngle + spreadOffset;
     const directionX = Math.cos(angle);
     const directionY = Math.sin(angle);
+    const ProjectileCtor = this.resolveProjectileType();
+    const projectileDefinition = ProjectileCtor.definition;
     const spawnDistance =
       owner.getHitboxDirectionalExtent(directionX, directionY) +
       getHitboxDirectionalExtent(
-        this.projectileHitboxes,
+        projectileDefinition.hitboxes,
         directionX,
         directionY,
       ) +
@@ -129,15 +119,8 @@ export class RangedWeapon extends Weapon {
       y: owner.y + directionY * spawnDistance,
       directionX,
       directionY,
-      speed: this.projectileSpeed,
-      range: this.range,
       rotation: angle,
-      hitboxes: cloneHitboxRects(this.projectileHitboxes),
-      maxHits: this.projectileMaxHits,
-      hitEffects: this.hitEffects,
     };
-    const ProjectileCtor: RegistrableProjectileCtor =
-      projectileTypeRegistry.require(this.projectileTypeId);
     world.spawn(new ProjectileCtor(world.allocEntityId(), projectileConfig));
 
     this.ammoInMag--;
@@ -166,16 +149,15 @@ export class RangedWeapon extends Weapon {
     };
   }
 
-  private isTargetInRange(owner: Entity, target: Entity): boolean {
-    return Math.hypot(target.x - owner.x, target.y - owner.y) <= this.range;
+  private resolveProjectileType(): RegistrableProjectileCtor {
+    return projectileTypeRegistry.require(this.projectileTypeId);
   }
-}
 
-function normalizeProjectileMaxHits(
-  projectileMaxHits: number | null,
-): number | null {
-  if (projectileMaxHits === null || !Number.isFinite(projectileMaxHits)) {
-    return null;
+  private isTargetInRange(
+    owner: Entity,
+    target: Entity,
+    range: number,
+  ): boolean {
+    return Math.hypot(target.x - owner.x, target.y - owner.y) <= range;
   }
-  return Math.max(1, Math.floor(projectileMaxHits));
 }

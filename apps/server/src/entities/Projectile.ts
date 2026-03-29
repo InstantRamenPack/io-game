@@ -3,7 +3,7 @@ import {
   getSweptResolvedRectSetIntersectionTime,
 } from "@shared/geometry/collision.ts";
 import {
-  makeHitboxRect,
+  cloneHitboxRects,
   offsetHitboxBounds,
   resolveHitboxRects,
   type HitboxRect,
@@ -11,10 +11,17 @@ import {
 import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
-import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { ProjectileSnapshot } from "@shared/net/snapshots.ts";
+
+export type ProjectileDefinition = {
+  speed: number;
+  range: number;
+  hitboxes: readonly HitboxRect[];
+  maxHits?: number | null;
+  hitEffects?: readonly Effect[];
+};
 
 export type ProjectileSpawnConfig = {
   ownerId: number;
@@ -22,14 +29,11 @@ export type ProjectileSpawnConfig = {
   y: number;
   directionX: number;
   directionY: number;
-  speed: number;
-  range: number;
   rotation?: number;
-  hitboxes?: readonly HitboxRect[];
-  hitboxProfiles?: HitboxProfiles;
-  activeHitboxProfile?: string;
-  maxHits?: number | null;
-  hitEffects?: readonly Effect[];
+};
+
+type ProjectileCtorWithDefinition = typeof Projectile & {
+  readonly definition: ProjectileDefinition;
 };
 
 /**
@@ -44,11 +48,15 @@ export abstract class Projectile extends GoalControlledEntity {
   public remainingRange: number;
   protected readonly directionX: number;
   protected readonly directionY: number;
+  protected readonly hitEffects: readonly Effect[];
   protected remainingHits: number | null;
   private readonly hitTargetIds = new Set<number>();
 
   protected constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, { maxHp: 0 });
+    const definition = requireProjectileDefinition(
+      this.constructor as Partial<ProjectileCtorWithDefinition>,
+    );
 
     const directionLength =
       Math.hypot(config.directionX, config.directionY) || 1;
@@ -59,18 +67,19 @@ export abstract class Projectile extends GoalControlledEntity {
     this.y = config.y;
     this.previousX = config.x;
     this.previousY = config.y;
-    this.speed = config.speed;
-    this.remainingRange = config.range;
+    this.speed = definition.speed;
+    this.remainingRange = definition.range;
     this.rotation =
       config.rotation ?? Math.atan2(this.directionY, this.directionX);
     this.collisionMode = "none";
+    this.hitEffects = [...(definition.hitEffects ?? [])];
     this.setHitboxProfiles(
-      config.hitboxProfiles ?? {
-        default: config.hitboxes ? config.hitboxes : [makeHitboxRect(8, 8)],
+      {
+        default: cloneHitboxRects(definition.hitboxes),
       },
-      config.activeHitboxProfile ?? "default",
+      "default",
     );
-    this.remainingHits = normalizeMaxHits(config.maxHits);
+    this.remainingHits = normalizeMaxHits(definition.maxHits);
     this.setMovementVelocity(
       this.directionX * this.speed,
       this.directionY * this.speed,
@@ -140,7 +149,11 @@ export abstract class Projectile extends GoalControlledEntity {
     return this.remainingHits !== null && this.remainingHits <= 0;
   }
 
-  protected abstract applyImpact(world: World, target: CombatEntity): void;
+  protected applyImpact(world: World, target: CombatEntity): void {
+    for (const effect of this.hitEffects) {
+      effect.apply(world, this, target);
+    }
+  }
 
   public override afterMovement(world: World): void {
     if (this.resolvePostStep(world)) {
@@ -262,4 +275,28 @@ function normalizeMaxHits(maxHits: number | null | undefined): number | null {
     return null;
   }
   return Math.max(1, Math.floor(maxHits));
+}
+
+function requireProjectileDefinition(
+  projectileCtor: Partial<ProjectileCtorWithDefinition>,
+): ProjectileDefinition {
+  const definition = projectileCtor.definition;
+  if (!definition) {
+    throw new Error(
+      "Expected projectile class to declare a static projectile definition.",
+    );
+  }
+  if (!Number.isFinite(definition.speed) || definition.speed <= 0) {
+    throw new Error("Projectile definition speed must be a positive number.");
+  }
+  if (!Number.isFinite(definition.range) || definition.range <= 0) {
+    throw new Error("Projectile definition range must be a positive number.");
+  }
+  if (!Array.isArray(definition.hitboxes) || definition.hitboxes.length === 0) {
+    throw new Error(
+      "Projectile definition must declare at least one hitbox rectangle.",
+    );
+  }
+
+  return definition;
 }

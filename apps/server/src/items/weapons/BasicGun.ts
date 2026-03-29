@@ -1,5 +1,3 @@
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
-import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
@@ -9,16 +7,6 @@ export class BasicGun extends RangedWeapon {
   public static override readonly resourceName = "basic_gun";
 
   public constructor() {
-    super(
-      4,
-      700,
-      [new DamageEffect(12)],
-      "projectile:basic_bullet",
-      40,
-      [makeHitboxRect(8, 8)],
-      12,
-      20,
-      0,
-    );
+    super(4, "projectile:basic_bullet", 12, 20, 0);
   }
 }

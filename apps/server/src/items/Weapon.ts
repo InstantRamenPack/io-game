@@ -1,5 +1,4 @@
 import { Item } from "@server/items/Item.ts";
-import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
@@ -10,21 +9,13 @@ import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
  */
 export abstract class Weapon extends Item {
   public fireRate: number;
-  public range: number;
-  public hitEffects: Effect[];
 
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
 
-  public constructor(
-    fireRate: number,
-    range: number,
-    hitEffects: Effect[],
-  ) {
+  public constructor(fireRate: number) {
     super();
     this.fireRate = fireRate;
-    this.range = range;
-    this.hitEffects = hitEffects;
   }
 
   /** Advances cooldown state by one fixed tick. */

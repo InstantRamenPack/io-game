@@ -9,6 +9,7 @@ import { TypeRegistry } from "@shared/registry/TypeRegistry.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type {
   Projectile,
+  ProjectileDefinition,
   ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -43,6 +44,7 @@ export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
   ProjectileCtor<T> & {
     readonly kind: "projectile";
     readonly resourceName: string;
+    readonly definition: ProjectileDefinition;
     readonly typeId: ResourceId;
   };
 

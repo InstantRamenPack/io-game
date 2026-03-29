@@ -22,6 +22,8 @@ type QueryBounds = {
  * Directional melee weapon that can hit multiple nearby targets.
  */
 export abstract class MeleeWeapon extends Weapon {
+  public range: number;
+  public hitEffects: Effect[];
   public meleeRange: number;
 
   public constructor(
@@ -30,7 +32,9 @@ export abstract class MeleeWeapon extends Weapon {
     hitEffects: Effect[],
     meleeRange: number,
   ) {
-    super(fireRate, range, hitEffects);
+    super(fireRate);
+    this.range = range;
+    this.hitEffects = hitEffects;
     this.meleeRange = meleeRange;
   }
 

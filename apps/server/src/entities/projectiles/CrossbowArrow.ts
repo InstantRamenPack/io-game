@@ -7,16 +7,16 @@ import {
 } from "@server/entities/Projectile.ts";
 
 /**
- * Heavy projectile fired by the cannon building.
+ * Pierce-capable projectile fired by the crossbow.
  */
-export class CannonBullet extends Projectile {
-  public static override readonly resourceName = "cannon_bullet";
+export class CrossbowArrow extends Projectile {
+  public static override readonly resourceName = "crossbowarrow";
   public static readonly definition: ProjectileDefinition = {
-    speed: 24,
-    range: 650,
-    hitboxes: [makeHitboxRect(12, 12)],
-    maxHits: 1,
-    hitEffects: [new DamageEffect(30)],
+    speed: 36,
+    range: 720,
+    hitboxes: [makeHitboxRect(8, 8)],
+    maxHits: 5,
+    hitEffects: [new DamageEffect(16)],
   };
 
   public constructor(id: number, config: ProjectileSpawnConfig) {
