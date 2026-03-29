@@ -17,7 +17,6 @@ export class BasicBullet extends Projectile {
   public constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, config);
     this.hitEffects = [...(config.hitEffects ?? [])];
-    this.radius = config.radius ?? 4;
   }
 
   protected override applyImpact(world: World, target: Entity): void {

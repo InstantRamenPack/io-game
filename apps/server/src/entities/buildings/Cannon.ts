@@ -6,19 +6,17 @@ import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { CannonGun } from "@server/items/weapons/CannonGun.ts";
 import type { World } from "@server/world/World.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 
 export class Cannon extends Building {
   public static override readonly resourceName = "cannon";
 
-  public constructor(
-    id: number,
-    label: string,
-    tier = 1,
-    ownerId?: number,
-  ) {
+  public constructor(id: number, label: string, tier = 1, ownerId?: number) {
     super(id, label, tier, ownerId, {
       baseHp: 240,
-      radius: 24,
+      hitboxProfiles: {
+        default: [makeHitboxRect(36, 40)],
+      },
     });
     this.weapons = [new CannonGun()];
     this.registerGoals([

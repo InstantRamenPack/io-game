@@ -3,22 +3,23 @@ import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
- * Starter firearm that fires single-hit bullets.
+ * Craftable pierce weapon with a small magazine and long reload.
  */
-export class BasicGun extends RangedWeapon {
-  public static override readonly resourceName = "basic_gun";
+export class Crossbow extends RangedWeapon {
+  public static override readonly resourceName = "crossbow";
 
   public constructor() {
     super(
-      4,
-      700,
-      [new DamageEffect(12)],
+      3,
+      720,
+      [new DamageEffect(16)],
       "projectile:basic_bullet",
-      40,
+      36,
       [makeHitboxRect(8, 8)],
-      12,
-      20,
+      6,
+      48,
       0,
+      5,
     );
   }
 }

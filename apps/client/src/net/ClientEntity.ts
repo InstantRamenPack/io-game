@@ -1,5 +1,10 @@
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { EntityKind } from "@shared/content/schema.ts";
+import {
+  getHitboxBounds,
+  type HitboxBounds,
+  type HitboxRect,
+} from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   EntitySnapshot,
@@ -28,7 +33,8 @@ export class ClientEntity {
   public vx: number;
   public vy: number;
   public rotation: number;
-  public radius: number;
+  public hitboxes: HitboxRect[];
+  public hitboxBounds: HitboxBounds;
   public hp: number;
   public maxHp: number;
   public ownerId?: number;
@@ -70,7 +76,8 @@ export class ClientEntity {
     this.vx = snapshot.vx;
     this.vy = snapshot.vy;
     this.rotation = snapshot.rotation;
-    this.radius = snapshot.radius;
+    this.hitboxes = this.cloneHitboxes(snapshot.hitboxes);
+    this.hitboxBounds = getHitboxBounds(this.hitboxes);
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
@@ -134,7 +141,8 @@ export class ClientEntity {
     this.vx = snapshot.vx;
     this.vy = snapshot.vy;
     this.rotation = snapshot.rotation;
-    this.radius = snapshot.radius;
+    this.hitboxes = this.cloneHitboxes(snapshot.hitboxes);
+    this.hitboxBounds = getHitboxBounds(this.hitboxes);
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
     this.ownerId = snapshot.ownerId;
@@ -325,6 +333,10 @@ export class ClientEntity {
     };
   }
 
+  private cloneHitboxes(hitboxes: readonly HitboxRect[]): HitboxRect[] {
+    return hitboxes.map((hitbox) => ({ ...hitbox }));
+  }
+
   private redrawPresentation(): void {
     if (!this.entityGraphic || !this.damageFlashGraphic) {
       return;
@@ -336,16 +348,23 @@ export class ClientEntity {
     if (this.hitboxGraphic) {
       this.hitboxGraphic.clear();
       this.hitboxGraphic.lineStyle(2, 0x2d68ff, 0.8);
-      this.hitboxGraphic.drawRect(
-        -this.radius,
-        -this.radius,
-        this.radius * 2,
-        this.radius * 2,
-      );
+      for (const hitbox of this.hitboxes) {
+        this.hitboxGraphic.drawRect(
+          hitbox.offsetX - hitbox.width / 2,
+          hitbox.offsetY - hitbox.height / 2,
+          hitbox.width,
+          hitbox.height,
+        );
+      }
     }
 
     if (this.debugGraphic) {
-      this.drawEntityShape(this.debugGraphic, this.fillColorForType(), 0.2, 0.35);
+      this.drawEntityShape(
+        this.debugGraphic,
+        this.fillColorForType(),
+        0.2,
+        0.35,
+      );
     }
   }
 
@@ -364,7 +383,7 @@ export class ClientEntity {
     }
 
     graphics.beginFill(fillColor, alpha);
-    graphics.drawCircle(0, 0, this.radius);
+    graphics.drawCircle(0, 0, this.getVisualRadius());
     graphics.endFill();
   }
 
@@ -375,31 +394,28 @@ export class ClientEntity {
     lineAlpha: number,
   ): void {
     const typePath = this.getTypePath();
+    const bounds = this.hitboxBounds;
+    const visualRadius = this.getVisualRadius();
 
     graphics.beginFill(fillColor, alpha);
     if (typePath === "wall") {
       graphics.drawRoundedRect(
-        -this.radius,
-        -this.radius * 0.6,
-        this.radius * 2,
-        this.radius * 1.2,
+        bounds.minX,
+        bounds.minY,
+        bounds.width,
+        bounds.height,
         4,
       );
     } else if (typePath === "cannon") {
-      graphics.drawRect(
-        -this.radius * 0.75,
-        -this.radius * 0.85,
-        this.radius * 1.5,
-        this.radius * 1.7,
-      );
+      graphics.drawRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
     } else if (typePath === "windmill") {
-      graphics.drawCircle(0, 0, this.radius * 0.72);
+      graphics.drawCircle(0, 0, visualRadius * 0.6);
     } else {
       graphics.drawRoundedRect(
-        -this.radius,
-        -this.radius * 0.8,
-        this.radius * 2,
-        this.radius * 1.6,
+        bounds.minX,
+        bounds.minY,
+        bounds.width,
+        bounds.height,
         6,
       );
     }
@@ -407,10 +423,10 @@ export class ClientEntity {
 
     if (typePath === "windmill") {
       graphics.lineStyle(2, 0xffffff, lineAlpha);
-      graphics.moveTo(-this.radius * 1.05, 0);
-      graphics.lineTo(this.radius * 1.05, 0);
-      graphics.moveTo(0, -this.radius * 1.05);
-      graphics.lineTo(0, this.radius * 1.05);
+      graphics.moveTo(bounds.minX, 0);
+      graphics.lineTo(bounds.maxX, 0);
+      graphics.moveTo(0, bounds.minY);
+      graphics.lineTo(0, bounds.maxY);
     }
   }
 
@@ -430,11 +446,11 @@ export class ClientEntity {
       return;
     }
 
-    const width = Math.max(20, this.radius * 2);
+    const width = Math.max(20, this.hitboxBounds.width);
     const height = 5;
     const ratio = Math.max(0, Math.min(1, (this.hp ?? 0) / (this.maxHp ?? 1)));
-    const left = -width / 2;
-    const top = -this.radius - 12;
+    const left = this.hitboxBounds.centerX - width / 2;
+    const top = this.hitboxBounds.minY - 12;
 
     this.healthBarTrackGraphic.clear();
     this.healthBarTrackGraphic.beginFill(0x1b1b1b, 0.85);
@@ -443,7 +459,13 @@ export class ClientEntity {
 
     this.healthBarFillGraphic.clear();
     this.healthBarFillGraphic.beginFill(0x57d34d, 0.95);
-    this.healthBarFillGraphic.drawRoundedRect(left, top, width * ratio, height, 3);
+    this.healthBarFillGraphic.drawRoundedRect(
+      left,
+      top,
+      width * ratio,
+      height,
+      3,
+    );
     this.healthBarFillGraphic.endFill();
   }
 
@@ -486,5 +508,9 @@ export class ClientEntity {
   private getTypePath(): string {
     const [, path = this.typeId] = this.typeId.split(":");
     return path;
+  }
+
+  private getVisualRadius(): number {
+    return Math.max(this.hitboxBounds.width, this.hitboxBounds.height) / 2;
   }
 }

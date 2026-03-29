@@ -167,10 +167,11 @@ export class RangedAttackGoal<
   ): boolean {
     const nextX = ctx.self.x + directionX * ctx.self.moveSpeed;
     const nextY = ctx.self.y + directionY * ctx.self.moveSpeed;
-    const minX = ctx.self.radius;
-    const minY = ctx.self.radius;
-    const maxX = ctx.world.gameConfig.worldSize.w - ctx.self.radius;
-    const maxY = ctx.world.gameConfig.worldSize.h - ctx.self.radius;
+    const bounds = ctx.self.getHitboxBounds();
+    const minX = -bounds.minX;
+    const minY = -bounds.minY;
+    const maxX = ctx.world.gameConfig.worldSize.w - bounds.maxX;
+    const maxY = ctx.world.gameConfig.worldSize.h - bounds.maxY;
 
     return nextX >= minX && nextX <= maxX && nextY >= minY && nextY <= maxY;
   }

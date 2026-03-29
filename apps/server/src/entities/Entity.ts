@@ -1,9 +1,18 @@
 import type { EntityKind } from "@shared/content/schema.ts";
+import type {
+  HitboxBounds,
+  HitboxRect,
+  ResolvedHitboxRect,
+} from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
+import {
+  CompositeHitbox,
+  type HitboxProfiles,
+} from "@server/entities/CompositeHitbox.ts";
 
 export type CollisionMode = "none" | "dynamic" | "static";
 
@@ -33,9 +42,8 @@ export abstract class Entity {
   public y = 0;
   public vx = 0;
   public vy = 0;
+  /** Aim/facing rotation used for visuals and attack direction only. */
   public rotation = 0;
-  /** Half-size of the square hitbox; radius 12 means a 24x24 box. */
-  public radius = 12;
   public collisionMode: CollisionMode = "none";
   public alive = true;
   protected moveVx = 0;
@@ -45,6 +53,7 @@ export abstract class Entity {
   public hp: number;
   public maxHp: number;
   public ownerId?: number;
+  private readonly compositeHitbox = new CompositeHitbox();
 
   /**
    * Initializes common identity fields for entity subclasses.
@@ -88,11 +97,52 @@ export abstract class Entity {
       vx: this.vx,
       vy: this.vy,
       rotation: this.rotation,
-      radius: this.radius,
+      hitboxes: this.hitboxes.map((rect) => ({ ...rect })),
       hp: this.hp,
       maxHp: this.maxHp,
       ownerId: this.ownerId,
     };
+  }
+
+  public get hitboxes(): readonly HitboxRect[] {
+    return this.compositeHitbox.getLocalHitboxes();
+  }
+
+  public getHitboxBounds(): HitboxBounds {
+    return this.compositeHitbox.getLocalBounds();
+  }
+
+  public getWorldBounds(): HitboxBounds {
+    return this.compositeHitbox.getWorldBounds(this.x, this.y);
+  }
+
+  public getWorldHitboxes(): ResolvedHitboxRect[] {
+    return this.compositeHitbox.getWorldHitboxes(this.x, this.y);
+  }
+
+  public getHitboxDirectionalExtent(
+    directionX: number,
+    directionY: number,
+  ): number {
+    return this.compositeHitbox.getDirectionalExtent(directionX, directionY);
+  }
+
+  public setHitboxProfile(profileName: string): void {
+    this.compositeHitbox.setActiveProfile(profileName);
+  }
+
+  public setHitboxProfileRects(
+    profileName: string,
+    rects: readonly HitboxRect[],
+  ): void {
+    this.compositeHitbox.setProfileRects(profileName, rects);
+  }
+
+  protected setHitboxProfiles(
+    profiles: HitboxProfiles,
+    activeProfileName = "default",
+  ): void {
+    this.compositeHitbox.replaceProfiles(profiles, activeProfileName);
   }
 
   /**

@@ -1,10 +1,12 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
 import type { BuildingSnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 
 type BuildingStats = {
   baseHp: number;
-  radius: number;
+  hitboxProfiles: HitboxProfiles;
+  activeHitboxProfile?: string;
 };
 
 /**
@@ -28,7 +30,10 @@ export class Building extends GoalControlledEntity {
     this.tier = resolvedTier;
     this.ownerId = ownerId;
     this.collisionMode = "static";
-    this.radius = stats.radius;
+    this.setHitboxProfiles(
+      stats.hitboxProfiles,
+      stats.activeHitboxProfile ?? "default",
+    );
   }
 
   public override toSnapshot(): BuildingSnapshot {

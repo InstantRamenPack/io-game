@@ -13,13 +13,13 @@ import type { WsServer } from "@server/net/WsServer.ts";
 import type { Building } from "@server/entities/Building.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
-import { Windmill } from "@server/entities/buildings/Windmill.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { TickClock } from "@server/server/TickClock.ts";
@@ -181,6 +181,7 @@ export class GameServer {
       playerEntity.inventory.addWeapon(new BasicSword());
       playerEntity.inventory.addWeapon(new BasicGun());
       playerEntity.inventory.addWeapon(new BasicSpear());
+      playerEntity.inventory.addWeapon(new Crossbow());
       playerEntity.inventory.setActiveWeaponIndex(1);
     }
     playerEntity.seedStarterInventory();
@@ -289,11 +290,6 @@ export class GameServer {
         x: centerX + 180,
         y: centerY - 120,
         create: (id) => new Wall(id, "East Wall"),
-      },
-      {
-        x: centerX - 120,
-        y: centerY + 130,
-        create: (id) => new Windmill(id, "Windmill"),
       },
       {
         x: centerX + 120,

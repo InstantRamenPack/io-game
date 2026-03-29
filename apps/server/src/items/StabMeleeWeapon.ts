@@ -1,3 +1,4 @@
+import { doesResolvedRectIntersectOrientedBox } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 
@@ -26,18 +27,30 @@ export class StabMeleeWeapon extends MeleeWeapon {
       directionY: number;
     },
   ): boolean {
-    const deltaX = target.x - owner.x;
-    const deltaY = target.y - owner.y;
-    const forwardDistance = deltaX * aim.directionX + deltaY * aim.directionY;
-    const maxForwardDistance = owner.radius + this.meleeRange + target.radius;
-    if (forwardDistance < 0 || forwardDistance > maxForwardDistance) {
-      return false;
+    const attackLength = this.getAttackReach(owner, {
+      ...aim,
+      angle: Math.atan2(aim.directionY, aim.directionX),
+    });
+    const attackCenterX = owner.x + aim.directionX * (attackLength / 2);
+    const attackCenterY = owner.y + aim.directionY * (attackLength / 2);
+
+    for (const rect of target.getWorldHitboxes()) {
+      if (
+        doesResolvedRectIntersectOrientedBox(
+          rect,
+          attackCenterX,
+          attackCenterY,
+          aim.directionX,
+          aim.directionY,
+          attackLength / 2,
+          this.stabWidth / 2,
+        )
+      ) {
+        return true;
+      }
     }
 
-    const lateralDistance = Math.abs(
-      deltaX * -aim.directionY + deltaY * aim.directionX,
-    );
-    return lateralDistance <= this.stabWidth / 2 + target.radius;
+    return false;
   }
 
   protected override getAttackQueryBounds(
@@ -52,7 +65,10 @@ export class StabMeleeWeapon extends MeleeWeapon {
     maxX: number;
     maxY: number;
   } {
-    const attackLength = owner.radius + this.meleeRange;
+    const attackLength = this.getAttackReach(owner, {
+      ...aim,
+      angle: Math.atan2(aim.directionY, aim.directionX),
+    });
     const halfWidth = this.stabWidth / 2;
     const perpendicularX = -aim.directionY;
     const perpendicularY = aim.directionX;

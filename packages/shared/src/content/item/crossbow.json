@@ -1,0 +1,11 @@
+{
+  "label": "Crossbow",
+  "recipe": {
+    "hint": "Six bolts before a long reload. Each shot pierces through five targets.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 45 },
+      { "typeId": "item:stone", "amount": 18 }
+    ]
+  }
+}

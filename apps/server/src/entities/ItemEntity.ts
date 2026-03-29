@@ -1,4 +1,5 @@
 import { Entity } from "@server/entities/Entity.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { PickupSnapshot } from "@shared/net/snapshots.ts";
 
@@ -10,7 +11,7 @@ export class ItemEntity extends Entity {
   public constructor(id: number, inventory = new Inventory()) {
     super(id, { maxHp: 0 });
     this.contents = inventory;
-    this.radius = 14;
+    this.setHitboxProfiles({ default: [makeHitboxRect(28, 28)] });
   }
 
   public override toSnapshot(): PickupSnapshot {

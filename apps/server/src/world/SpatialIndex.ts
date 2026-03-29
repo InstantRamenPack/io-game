@@ -2,7 +2,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 
 /**
  * Uniform-grid spatial index for broad-phase proximity queries.
- * Entities are inserted into every cell touched by their square hitbox.
+ * Entities are inserted into every cell touched by their composite hitbox bounds.
  */
 export class SpatialIndex {
   private readonly cellSize: number;
@@ -62,10 +62,11 @@ export class SpatialIndex {
   }
 
   private insert(entity: Entity): void {
-    const minX = entity.x - entity.radius;
-    const maxX = entity.x + entity.radius;
-    const minY = entity.y - entity.radius;
-    const maxY = entity.y + entity.radius;
+    const bounds = entity.getWorldBounds();
+    const minX = bounds.minX;
+    const maxX = bounds.maxX;
+    const minY = bounds.minY;
+    const maxY = bounds.maxY;
 
     for (
       let gridX = this.toCell(minX);

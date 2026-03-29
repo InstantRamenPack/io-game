@@ -3,6 +3,7 @@ import { Player } from "@server/entities/Player.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 
 /**
  * Default ranged enemy that keeps distance and fires basic bullets.
@@ -16,7 +17,9 @@ export class Shoota extends Enemy {
    */
   public constructor(id: number) {
     super(id, {
-      radius: 12,
+      hitboxProfiles: {
+        default: [makeHitboxRect(24, 24)],
+      },
       maxHp: 100,
       vx: 0,
       vy: 0,

@@ -1,6 +1,17 @@
+import {
+  getDistanceSquaredToResolvedRectSet,
+  getSweptResolvedRectSetIntersectionTime,
+} from "@shared/geometry/collision.ts";
+import {
+  makeHitboxRect,
+  offsetHitboxBounds,
+  resolveHitboxRects,
+  type HitboxRect,
+} from "@shared/geometry/hitbox.ts";
 import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { ProjectileSnapshot } from "@shared/net/snapshots.ts";
@@ -14,7 +25,10 @@ export type ProjectileSpawnConfig = {
   speed: number;
   range: number;
   rotation?: number;
-  radius?: number;
+  hitboxes?: readonly HitboxRect[];
+  hitboxProfiles?: HitboxProfiles;
+  activeHitboxProfile?: string;
+  maxHits?: number | null;
   hitEffects?: readonly Effect[];
 };
 
@@ -30,11 +44,10 @@ export abstract class Projectile extends GoalControlledEntity {
   public remainingRange: number;
   protected readonly directionX: number;
   protected readonly directionY: number;
+  protected remainingHits: number | null;
+  private readonly hitTargetIds = new Set<number>();
 
-  protected constructor(
-    id: number,
-    config: ProjectileSpawnConfig,
-  ) {
+  protected constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, { maxHp: 0 });
 
     const directionLength =
@@ -48,10 +61,16 @@ export abstract class Projectile extends GoalControlledEntity {
     this.previousY = config.y;
     this.speed = config.speed;
     this.remainingRange = config.range;
-    this.radius = config.radius ?? 4;
     this.rotation =
       config.rotation ?? Math.atan2(this.directionY, this.directionX);
     this.collisionMode = "none";
+    this.setHitboxProfiles(
+      config.hitboxProfiles ?? {
+        default: config.hitboxes ? config.hitboxes : [makeHitboxRect(8, 8)],
+      },
+      config.activeHitboxProfile ?? "default",
+    );
+    this.remainingHits = normalizeMaxHits(config.maxHits);
     this.setMovementVelocity(
       this.directionX * this.speed,
       this.directionY * this.speed,
@@ -98,17 +117,27 @@ export abstract class Projectile extends GoalControlledEntity {
       return true;
     }
 
-    const target = this.resolveImpactTarget(world);
-    if (!target) {
+    const targets = this.resolveImpactTargets(world);
+    const targetsToHit = this.limitImpactTargets(targets);
+    if (targetsToHit.length === 0) {
       return false;
     }
 
-    this.applyImpact(world, target);
-    return this.shouldDespawnAfterHit();
+    for (const target of targetsToHit) {
+      this.hitTargetIds.add(target.id);
+      this.applyImpact(world, target);
+    }
+    if (this.remainingHits !== null) {
+      this.remainingHits -= targetsToHit.length;
+    }
+
+    return this.shouldDespawnAfterHit(targetsToHit);
   }
 
-  protected shouldDespawnAfterHit(): boolean {
-    return true;
+  protected shouldDespawnAfterHit(
+    _targetsHitThisStep: readonly CombatEntity[],
+  ): boolean {
+    return this.remainingHits !== null && this.remainingHits <= 0;
   }
 
   protected abstract applyImpact(world: World, target: CombatEntity): void;
@@ -128,121 +157,109 @@ export abstract class Projectile extends GoalControlledEntity {
     };
   }
 
-  private resolveImpactTarget(world: World): CombatEntity | null {
-    const minX = Math.min(this.previousX, this.x) - this.radius;
-    const minY = Math.min(this.previousY, this.y) - this.radius;
-    const maxX = Math.max(this.previousX, this.x) + this.radius;
-    const maxY = Math.max(this.previousY, this.y) + this.radius;
-
-    let bestTarget: CombatEntity | null = null;
-    let bestHitTime = Number.POSITIVE_INFINITY;
+  protected resolveImpactTargets(world: World): CombatEntity[] {
+    const previousBounds = offsetHitboxBounds(
+      this.getHitboxBounds(),
+      this.previousX,
+      this.previousY,
+    );
+    const currentBounds = this.getWorldBounds();
+    const minX = Math.min(previousBounds.minX, currentBounds.minX);
+    const minY = Math.min(previousBounds.minY, currentBounds.minY);
+    const maxX = Math.max(previousBounds.maxX, currentBounds.maxX);
+    const maxY = Math.max(previousBounds.maxY, currentBounds.maxY);
+    const deltaX = this.x - this.previousX;
+    const deltaY = this.y - this.previousY;
+    const movingHitboxes = resolveHitboxRects(
+      this.previousX,
+      this.previousY,
+      this.hitboxes,
+    );
+    const impactTargets: Array<{
+      target: CombatEntity;
+      distanceSquaredFromPrevious: number;
+      tieBreakerDistanceSquared: number;
+    }> = [];
 
     for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
       if (candidate.id === this.id) {
+        continue;
+      }
+      if (this.hitTargetIds.has(candidate.id)) {
         continue;
       }
       if (!canAttackTarget(world, this, candidate)) {
         continue;
       }
 
-      const hitTime = this.getSegmentHitTime(candidate);
-      if (hitTime === null || hitTime >= bestHitTime) {
+      const targetHitboxes = candidate.getWorldHitboxes();
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        targetHitboxes,
+      );
+      if (hitTime === null) {
         continue;
       }
 
-      bestTarget = candidate;
-      bestHitTime = hitTime;
+      impactTargets.push({
+        target: candidate,
+        distanceSquaredFromPrevious:
+          (deltaX * deltaX + deltaY * deltaY) * hitTime * hitTime,
+        tieBreakerDistanceSquared: getDistanceSquaredToResolvedRectSet(
+          targetHitboxes,
+          this.previousX,
+          this.previousY,
+        ),
+      });
     }
 
-    return bestTarget;
-  }
-
-  private getSegmentHitTime(target: CombatEntity): number | null {
-    const deltaX = this.x - this.previousX;
-    const deltaY = this.y - this.previousY;
-    const padding = target.radius + this.radius;
-
-    const targetMinX = target.x - padding;
-    const targetMaxX = target.x + padding;
-    const targetMinY = target.y - padding;
-    const targetMaxY = target.y + padding;
-
-    let entryTime = 0;
-    let exitTime = 1;
-
-    const xResult = this.updateAxisIntersection(
-      this.previousX,
-      deltaX,
-      targetMinX,
-      targetMaxX,
-      entryTime,
-      exitTime,
-    );
-    if (!xResult) {
-      return null;
-    }
-    entryTime = xResult.entryTime;
-    exitTime = xResult.exitTime;
-
-    const yResult = this.updateAxisIntersection(
-      this.previousY,
-      deltaY,
-      targetMinY,
-      targetMaxY,
-      entryTime,
-      exitTime,
-    );
-    if (!yResult) {
-      return null;
-    }
-
-    return yResult.entryTime;
-  }
-
-  private updateAxisIntersection(
-    origin: number,
-    delta: number,
-    min: number,
-    max: number,
-    currentEntryTime: number,
-    currentExitTime: number,
-  ): { entryTime: number; exitTime: number } | null {
-    if (Math.abs(delta) < Number.EPSILON) {
-      if (origin < min || origin > max) {
-        return null;
+    impactTargets.sort((left, right) => {
+      if (
+        left.distanceSquaredFromPrevious !== right.distanceSquaredFromPrevious
+      ) {
+        return (
+          left.distanceSquaredFromPrevious - right.distanceSquaredFromPrevious
+        );
       }
-      return {
-        entryTime: currentEntryTime,
-        exitTime: currentExitTime,
-      };
+      if (left.tieBreakerDistanceSquared !== right.tieBreakerDistanceSquared) {
+        return left.tieBreakerDistanceSquared - right.tieBreakerDistanceSquared;
+      }
+      return left.target.id - right.target.id;
+    });
+
+    return impactTargets.map(({ target }) => target);
+  }
+
+  private limitImpactTargets(targets: readonly CombatEntity[]): CombatEntity[] {
+    if (this.remainingHits === null) {
+      return [...targets];
+    }
+    if (this.remainingHits <= 0) {
+      return [];
     }
 
-    const inverseDelta = 1 / delta;
-    let axisEntryTime = (min - origin) * inverseDelta;
-    let axisExitTime = (max - origin) * inverseDelta;
-
-    if (axisEntryTime > axisExitTime) {
-      [axisEntryTime, axisExitTime] = [axisExitTime, axisEntryTime];
-    }
-
-    const entryTime = Math.max(currentEntryTime, axisEntryTime);
-    const exitTime = Math.min(currentExitTime, axisExitTime);
-    if (entryTime > exitTime || exitTime < 0 || entryTime > 1) {
-      return null;
-    }
-
-    return {
-      entryTime,
-      exitTime,
-    };
+    return targets.slice(0, this.remainingHits);
   }
 
   private isWithinWorldBounds(world: World): boolean {
+    const bounds = this.getWorldBounds();
     return !(
-      this.x < -this.radius ||
-      this.y < -this.radius ||
-      this.x > world.gameConfig.worldSize.w + this.radius ||
-      this.y > world.gameConfig.worldSize.h + this.radius
+      bounds.maxX < 0 ||
+      bounds.maxY < 0 ||
+      bounds.minX > world.gameConfig.worldSize.w ||
+      bounds.minY > world.gameConfig.worldSize.h
     );
   }
+}
+
+function normalizeMaxHits(maxHits: number | null | undefined): number | null {
+  if (maxHits === undefined) {
+    return 1;
+  }
+  if (maxHits === null || !Number.isFinite(maxHits)) {
+    return null;
+  }
+  return Math.max(1, Math.floor(maxHits));
 }

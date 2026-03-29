@@ -1,3 +1,4 @@
+import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -93,13 +94,24 @@ export abstract class MeleeWeapon extends Weapon {
   ): boolean;
 
   protected getAttackQueryBounds(owner: Entity, _aim: MeleeAim): QueryBounds {
-    const queryRadius = owner.radius + this.meleeRange;
+    const bounds = expandHitboxBounds(
+      owner.getWorldBounds(),
+      this.meleeRange,
+      this.meleeRange,
+    );
     return {
-      minX: owner.x - queryRadius,
-      minY: owner.y - queryRadius,
-      maxX: owner.x + queryRadius,
-      maxY: owner.y + queryRadius,
+      minX: bounds.minX,
+      minY: bounds.minY,
+      maxX: bounds.maxX,
+      maxY: bounds.maxY,
     };
+  }
+
+  protected getAttackReach(owner: Entity, aim: MeleeAim): number {
+    return (
+      owner.getHitboxDirectionalExtent(aim.directionX, aim.directionY) +
+      this.meleeRange
+    );
   }
 
   protected getDistanceAlongAim(

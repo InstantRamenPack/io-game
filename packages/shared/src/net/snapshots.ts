@@ -1,5 +1,9 @@
+import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
 import { ENTITY_KINDS } from "@shared/content/schema.ts";
-import { RESOURCE_ID_PATTERN, type ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  RESOURCE_ID_PATTERN,
+  type ResourceId,
+} from "@shared/ids/ResourceId.ts";
 import { NetEventSchema } from "@shared/net/events.ts";
 import { z } from "zod";
 
@@ -37,7 +41,7 @@ export const EntitySnapshotBaseSchema = z.object({
   vx: z.number(),
   vy: z.number(),
   rotation: z.number(),
-  radius: z.number(),
+  hitboxes: z.array(HitboxRectSchema).min(1),
   hp: z.number(),
   maxHp: z.number(),
   ownerId: z.number().int().nonnegative().optional(),
@@ -85,7 +89,9 @@ export const WorldSnapshotSchema = z.object({
   events: z.array(NetEventSchema),
 });
 
-export type StackableCountSnapshot = z.infer<typeof StackableCountSnapshotSchema>;
+export type StackableCountSnapshot = z.infer<
+  typeof StackableCountSnapshotSchema
+>;
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
 export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
 export type PlayerInventorySnapshot = InventorySnapshot;

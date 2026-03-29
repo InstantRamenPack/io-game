@@ -1,3 +1,4 @@
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
@@ -11,10 +12,11 @@ const WINDUP_TICKS = 8;
 const AIRBORNE_TICKS = 3;
 const LAND_TICKS = 12;
 const COOLDOWN_TICKS = 50;
+const ANIMATION_PROFILE_NAME = "jump_attack_animation";
 
 /**
  * Jump attack goal: winds up, leaps to target, lands with AoE damage.
- * Animates entity radius — shrinks while airborne, bursts large on impact.
+ * Body hitboxes compress while airborne and burst larger on impact.
  */
 export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   private phase: JumpPhase | null = null;
@@ -23,35 +25,39 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   private jumpTargetY = 0;
   private cooldownEndTick = 0;
 
-  private readonly baseRadius: number;
-  private readonly minRadius: number;
-  private readonly landRadius: number;
+  private readonly baseProfileName: string;
+  private readonly baseSize: number;
+  private readonly minSize: number;
+  private readonly landSize: number;
   private readonly jumpRange: number;
   private readonly aoeDamage: number;
   private readonly aoeRadius: number;
 
   /**
    * @param priority Lower values run first.
-   * @param baseRadius Normal entity radius.
-   * @param minRadius Radius while airborne (compressed).
-   * @param landRadius Peak radius on impact (burst).
+   * @param baseProfileName Profile to restore after the jump sequence ends.
+   * @param baseSize Normal hitbox size used for windup interpolation.
+   * @param minSize Hitbox size while airborne.
+   * @param landSize Peak hitbox size on impact.
    * @param jumpRange Distance to target that triggers the jump.
    * @param aoeDamage Damage dealt on landing.
    * @param aoeRadius Splash radius for landing damage.
    */
   constructor(
     priority: number,
-    baseRadius: number,
-    minRadius: number,
-    landRadius: number,
+    baseProfileName: string,
+    baseSize: number,
+    minSize: number,
+    landSize: number,
     jumpRange: number,
     aoeDamage: number,
     aoeRadius: number,
   ) {
     super(priority, ["move", "attack"]);
-    this.baseRadius = baseRadius;
-    this.minRadius = minRadius;
-    this.landRadius = landRadius;
+    this.baseProfileName = baseProfileName;
+    this.baseSize = baseSize;
+    this.minSize = minSize;
+    this.landSize = landSize;
     this.jumpRange = jumpRange;
     this.aoeDamage = aoeDamage;
     this.aoeRadius = aoeRadius;
@@ -71,8 +77,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.phase = "windup";
     this.phaseTick = 0;
     ctx.self.setMovementVelocity(0, 0);
-    // Lock the jump target at windup start — the entity commits to this position.
-    // Players who stay put get hit; players who move can dodge.
+    ctx.self.setHitboxProfile(this.baseProfileName);
     const target = this.resolveTargetInRange(ctx);
     this.jumpTargetX = target?.x ?? ctx.self.x;
     this.jumpTargetY = target?.y ?? ctx.self.y;
@@ -100,23 +105,23 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   override stop(ctx: GoalContext<TSelf>): void {
     this.phase = null;
     this.phaseTick = 0;
-    ctx.self.radius = this.baseRadius;
+    ctx.self.setHitboxProfile(this.baseProfileName);
     ctx.self.setMovementVelocity(0, 0);
   }
 
   private tickWindup(ctx: GoalContext<TSelf>): void {
-    // Shrink radius from base to min as the megaknight crouches for the jump
     const t = Math.min(1, this.phaseTick / Math.max(1, WINDUP_TICKS - 1));
-    ctx.self.radius = Math.round(this.lerp(this.baseRadius, this.minRadius, t));
+    const size = Math.round(this.lerp(this.baseSize, this.minSize, t));
+    this.setAnimatedSquareHitbox(ctx, size);
 
     if (this.phaseTick >= WINDUP_TICKS - 1) {
       this.phase = "airborne";
-      this.phaseTick = -1; // becomes 0 after tick() increments
+      this.phaseTick = -1;
     }
   }
 
   private tickAirborne(ctx: GoalContext<TSelf>): void {
-    ctx.self.radius = this.minRadius;
+    this.setAnimatedSquareHitbox(ctx, this.minSize);
 
     const remaining = AIRBORNE_TICKS - this.phaseTick;
     const dx = this.jumpTargetX - ctx.self.x;
@@ -142,22 +147,19 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
       this.applyAoeDamage(ctx);
     }
 
-    // Radius expands to landRadius then settles back to baseRadius
     const half = LAND_TICKS / 2;
-    let radius: number;
-    if (this.phaseTick < half) {
-      radius = this.lerp(this.minRadius, this.landRadius, this.phaseTick / half);
-    } else {
-      radius = this.lerp(
-        this.landRadius,
-        this.baseRadius,
-        (this.phaseTick - half) / half,
-      );
-    }
-    ctx.self.radius = Math.round(radius);
+    const size =
+      this.phaseTick < half
+        ? this.lerp(this.minSize, this.landSize, this.phaseTick / half)
+        : this.lerp(
+            this.landSize,
+            this.baseSize,
+            (this.phaseTick - half) / half,
+          );
+    this.setAnimatedSquareHitbox(ctx, Math.round(size));
 
     if (this.phaseTick >= LAND_TICKS - 1) {
-      ctx.self.radius = this.baseRadius;
+      ctx.self.setHitboxProfile(this.baseProfileName);
       this.cooldownEndTick = ctx.world.tick + COOLDOWN_TICKS;
       this.phase = null;
       this.phaseTick = -1;
@@ -168,8 +170,17 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     const aoeRadiusSq = this.aoeRadius * this.aoeRadius;
     const damageEffect = new DamageEffect(this.aoeDamage);
     const knockbackEffect = new KnockbackEffect(25);
+    const candidatePlayers = ctx.world.spatial.queryBox(
+      ctx.self.x - this.aoeRadius,
+      ctx.self.y - this.aoeRadius,
+      ctx.self.x + this.aoeRadius,
+      ctx.self.y + this.aoeRadius,
+    );
 
-    for (const player of ctx.world.entities.queryInstances(Player)) {
+    for (const player of candidatePlayers) {
+      if (!(player instanceof Player)) {
+        continue;
+      }
       if (!player.alive) {
         continue;
       }
@@ -180,6 +191,13 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
         knockbackEffect.apply(ctx.world, ctx.self, player);
       }
     }
+  }
+
+  private setAnimatedSquareHitbox(ctx: GoalContext<TSelf>, size: number): void {
+    ctx.self.setHitboxProfileRects(ANIMATION_PROFILE_NAME, [
+      makeHitboxRect(size, size),
+    ]);
+    ctx.self.setHitboxProfile(ANIMATION_PROFILE_NAME);
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Player | null {

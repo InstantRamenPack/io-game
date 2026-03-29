@@ -1,3 +1,5 @@
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
@@ -29,7 +31,7 @@ export class Player extends Entity {
     super(id, { maxHp: 100 });
     this.name = name;
     this.inventory = new Inventory();
-    this.radius = 16;
+    this.setHitboxProfiles({ default: [makeHitboxRect(32, 32)] });
     this.collisionMode = "dynamic";
   }
 
@@ -177,24 +179,27 @@ export class Player extends Entity {
     building.x = targetX;
     building.y = targetY;
     building.ownerId = this.id;
+    const buildingBounds = building.getWorldBounds();
 
     if (
-      targetX - building.radius < 0 ||
-      targetY - building.radius < 0 ||
-      targetX + building.radius > world.gameConfig.worldSize.w ||
-      targetY + building.radius > world.gameConfig.worldSize.h
+      buildingBounds.minX < 0 ||
+      buildingBounds.minY < 0 ||
+      buildingBounds.maxX > world.gameConfig.worldSize.w ||
+      buildingBounds.maxY > world.gameConfig.worldSize.h
     ) {
       return;
     }
 
-    for (const entity of world.entities.all()) {
+    for (const entity of world.spatial.queryBox(
+      buildingBounds.minX,
+      buildingBounds.minY,
+      buildingBounds.maxX,
+      buildingBounds.maxY,
+    )) {
       if (entity.id === this.id || entity.collisionMode === "none") {
         continue;
       }
-      if (
-        Math.abs(entity.x - targetX) < entity.radius + building.radius &&
-        Math.abs(entity.y - targetY) < entity.radius + building.radius
-      ) {
+      if (this.doHitboxesOverlap(building, entity)) {
         return;
       }
     }
@@ -212,7 +217,13 @@ export class Player extends Entity {
     this.inventory.addStackable("item:food", 6);
     this.inventory.addStackable("item:wall", 8);
     this.inventory.addStackable("item:cannon", 2);
-    this.inventory.addStackable("item:windmill", 1);
     this.inventory.addStackable("item:crafting_station", 1);
+  }
+
+  private doHitboxesOverlap(leftEntity: Entity, rightEntity: Entity): boolean {
+    return doResolvedRectSetsOverlap(
+      leftEntity.getWorldHitboxes(),
+      rightEntity.getWorldHitboxes(),
+    );
   }
 }

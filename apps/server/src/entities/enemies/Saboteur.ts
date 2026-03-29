@@ -5,13 +5,16 @@ import { Building } from "@server/entities/Building.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 
 export class Saboteur extends Enemy {
   public static override readonly resourceName = "saboteur";
 
   public constructor(id: number) {
     super(id, {
-      radius: 11,
+      hitboxProfiles: {
+        default: [makeHitboxRect(18, 12, 0, -6), makeHitboxRect(22, 14, 0, 8)],
+      },
       maxHp: 120,
       vx: 0,
       vy: 0,

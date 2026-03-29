@@ -1,3 +1,7 @@
+import {
+  type AxisSeparation,
+  getResolvedRectSetSeparation,
+} from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
@@ -5,8 +9,8 @@ import type { World } from "@server/world/World.ts";
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
 
 /**
- * Resolves square entity overlap and world-boundary clamping.
- * Collision is kept intentionally simple and authoritative on the server.
+ * Resolves composite entity overlap and world-boundary clamping.
+ * Collision is kept authoritative and axis-aligned on the server.
  */
 export class CollisionSystem implements System {
   /**
@@ -23,11 +27,12 @@ export class CollisionSystem implements System {
         continue;
       }
 
+      const bounds = entity.getWorldBounds();
       const candidates = world.spatial.queryBox(
-        entity.x - entity.radius,
-        entity.y - entity.radius,
-        entity.x + entity.radius,
-        entity.y + entity.radius,
+        bounds.minX,
+        bounds.minY,
+        bounds.maxX,
+        bounds.maxY,
       );
 
       for (const candidate of candidates) {
@@ -52,10 +57,11 @@ export class CollisionSystem implements System {
    * @param world World providing the authoritative bounds.
    */
   private resolveWorldBounds(entity: Entity, world: World): void {
-    const minX = entity.radius;
-    const maxX = Math.max(minX, world.gameConfig.worldSize.w - entity.radius);
-    const minY = entity.radius;
-    const maxY = Math.max(minY, world.gameConfig.worldSize.h - entity.radius);
+    const bounds = entity.getHitboxBounds();
+    const minX = -bounds.minX;
+    const maxX = Math.max(minX, world.gameConfig.worldSize.w - bounds.maxX);
+    const minY = -bounds.minY;
+    const maxY = Math.max(minY, world.gameConfig.worldSize.h - bounds.maxY);
 
     if (entity.x < minX) {
       entity.x = minX;
@@ -83,7 +89,7 @@ export class CollisionSystem implements System {
   }
 
   /**
-   * Resolves one pair of potentially colliding square bodies.
+   * Resolves one pair of potentially colliding composite bodies.
    * @param leftEntity First body.
    * @param rightEntity Second body.
    */
@@ -95,12 +101,8 @@ export class CollisionSystem implements System {
       return;
     }
 
-    if (!this.overlaps(leftEntity, rightEntity)) {
-      return;
-    }
-
-    const resolution = this.getResolutionAxis(leftEntity, rightEntity);
-    if (!resolution) {
+    const separation = this.getSeparation(leftEntity, rightEntity);
+    if (!separation) {
       return;
     }
 
@@ -108,68 +110,44 @@ export class CollisionSystem implements System {
       leftEntity.collisionMode === "dynamic" &&
       rightEntity.collisionMode === "dynamic"
     ) {
-      this.separateDynamicDynamic(
-        leftEntity,
-        rightEntity,
-        resolution.normal,
-        resolution.penetration,
-      );
+      this.separateDynamicDynamic(leftEntity, rightEntity, separation);
       return;
     }
 
     if (leftEntity.collisionMode === "dynamic") {
-      this.separateDynamicStatic(
-        leftEntity,
-        rightEntity,
-        resolution.normal,
-        resolution.penetration,
-      );
+      this.separateDynamicStatic(leftEntity, separation);
       return;
     }
 
     if (rightEntity.collisionMode === "dynamic") {
       this.separateDynamicStatic(
         rightEntity,
-        leftEntity,
-        this.invertNormal(resolution.normal),
-        resolution.penetration,
+        this.invertSeparation(separation),
       );
     }
-  }
-
-  /**
-   * Returns whether two square hitboxes overlap.
-   * @param leftEntity First body.
-   * @param rightEntity Second body.
-   * @returns True when the bodies overlap by a positive penetration amount.
-   */
-  private overlaps(leftEntity: Entity, rightEntity: Entity): boolean {
-    const dx = Math.abs(rightEntity.x - leftEntity.x);
-    const dy = Math.abs(rightEntity.y - leftEntity.y);
-    const widthSum = leftEntity.radius + rightEntity.radius;
-    const heightSum = leftEntity.radius + rightEntity.radius;
-    return dx < widthSum && dy < heightSum;
   }
 
   /**
    * Separates two dynamic bodies evenly and removes inward velocity.
    * @param leftEntity First dynamic body.
    * @param rightEntity Second dynamic body.
-   * @param normal Axis-aligned unit vector from left to right.
-   * @param penetration Positive overlap depth.
+   * @param separation Translation that would resolve the pair by moving the left body alone.
    */
   private separateDynamicDynamic(
     leftEntity: Entity,
     rightEntity: Entity,
-    normal: AxisNormal,
-    penetration: number,
+    separation: AxisSeparation,
   ): void {
-    const correction = penetration / 2;
-    leftEntity.x -= normal.x * correction;
-    leftEntity.y -= normal.y * correction;
-    rightEntity.x += normal.x * correction;
-    rightEntity.y += normal.y * correction;
+    const correction = separation.translation / 2;
+    if (separation.axis === "x") {
+      leftEntity.x += correction;
+      rightEntity.x -= correction;
+    } else {
+      leftEntity.y += correction;
+      rightEntity.y -= correction;
+    }
 
+    const normal = this.getNormalFromTranslation(separation);
     this.removeInwardVelocity(leftEntity, normal);
     this.removeInwardVelocity(rightEntity, this.invertNormal(normal));
   }
@@ -177,19 +155,22 @@ export class CollisionSystem implements System {
   /**
    * Separates a dynamic body away from a static body and removes inward velocity.
    * @param dynamicEntity Dynamic body that should move.
-   * @param _staticEntity Static body that should remain fixed.
-   * @param normal Axis-aligned unit vector from the dynamic body toward the static body.
-   * @param penetration Positive overlap depth.
+   * @param separation Translation required to resolve the overlap.
    */
   private separateDynamicStatic(
     dynamicEntity: Entity,
-    _staticEntity: Entity,
-    normal: AxisNormal,
-    penetration: number,
+    separation: AxisSeparation,
   ): void {
-    dynamicEntity.x -= normal.x * penetration;
-    dynamicEntity.y -= normal.y * penetration;
-    this.removeInwardVelocity(dynamicEntity, normal);
+    if (separation.axis === "x") {
+      dynamicEntity.x += separation.translation;
+    } else {
+      dynamicEntity.y += separation.translation;
+    }
+
+    this.removeInwardVelocity(
+      dynamicEntity,
+      this.getNormalFromTranslation(separation),
+    );
   }
 
   /**
@@ -207,34 +188,39 @@ export class CollisionSystem implements System {
   }
 
   /**
-   * Chooses the minimum-penetration axis for square hitbox resolution.
+   * Chooses the smallest axis-aligned translation that clears all overlapping rect pairs.
    * @param leftEntity First body.
    * @param rightEntity Second body.
-   * @returns Axis-aligned normal and penetration, or null when the boxes do not overlap.
+   * @returns Translation for the left body, or null when the bodies do not overlap.
    */
-  private getResolutionAxis(
+  private getSeparation(
     leftEntity: Entity,
     rightEntity: Entity,
-  ): { normal: AxisNormal; penetration: number } | null {
-    const dx = rightEntity.x - leftEntity.x;
-    const dy = rightEntity.y - leftEntity.y;
-    const overlapX = leftEntity.radius + rightEntity.radius - Math.abs(dx);
-    const overlapY = leftEntity.radius + rightEntity.radius - Math.abs(dy);
+  ): AxisSeparation | null {
+    return getResolvedRectSetSeparation(
+      leftEntity.getWorldHitboxes(),
+      rightEntity.getWorldHitboxes(),
+    );
+  }
 
-    if (overlapX <= 0 || overlapY <= 0) {
-      return null;
-    }
+  private invertSeparation(separation: AxisSeparation): AxisSeparation {
+    return {
+      axis: separation.axis,
+      translation: -separation.translation,
+    };
+  }
 
-    if (overlapX <= overlapY) {
+  private getNormalFromTranslation(separation: AxisSeparation): AxisNormal {
+    if (separation.axis === "x") {
       return {
-        normal: { x: dx >= 0 ? 1 : -1, y: 0 },
-        penetration: overlapX,
+        x: separation.translation < 0 ? 1 : -1,
+        y: 0,
       };
     }
 
     return {
-      normal: { x: 0, y: dy >= 0 ? 1 : -1 },
-      penetration: overlapY,
+      x: 0,
+      y: separation.translation < 0 ? 1 : -1,
     };
   }
 

@@ -1,4 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import type { World } from "@server/world/World.ts";
@@ -16,7 +17,7 @@ export class CannonGun extends RangedWeapon {
       [new DamageEffect(30)],
       "projectile:cannon_bullet",
       24,
-      6,
+      [makeHitboxRect(12, 12)],
       1,
       36,
       0,

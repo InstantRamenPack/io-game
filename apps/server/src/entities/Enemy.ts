@@ -1,4 +1,5 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
@@ -6,7 +7,8 @@ import type { World } from "@server/world/World.ts";
 
 export type EnemyConfig = {
   moveSpeed?: number;
-  radius: number;
+  hitboxProfiles: HitboxProfiles;
+  activeHitboxProfile?: string;
   maxHp: number;
   // Initial per-tick movement deltas.
   vx: number;
@@ -31,7 +33,10 @@ export class Enemy extends GoalControlledEntity {
     this.weapons = [...(config.weapons ?? [])];
     this.registerGoals(config.goals ?? []);
     this.collisionMode = "dynamic";
-    this.radius = config.radius;
+    this.setHitboxProfiles(
+      config.hitboxProfiles,
+      config.activeHitboxProfile ?? "default",
+    );
     this.setMovementVelocity(config.vx, config.vy);
   }
 

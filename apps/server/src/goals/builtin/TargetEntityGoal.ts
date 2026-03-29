@@ -84,8 +84,19 @@ export class TargetEntityGoal<
     const aggroRangeSquared = this.aggroRange * this.aggroRange;
     let bestTarget: Entity | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
+    const candidateTargets = Number.isFinite(this.aggroRange)
+      ? ctx.world.spatial.queryBox(
+          ctx.self.x - this.aggroRange,
+          ctx.self.y - this.aggroRange,
+          ctx.self.x + this.aggroRange,
+          ctx.self.y + this.aggroRange,
+        )
+      : ctx.world.entities.queryInstances(this.targetCtor);
 
-    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
+    for (const target of candidateTargets) {
+      if (!(target instanceof this.targetCtor)) {
+        continue;
+      }
       if (!target.alive) {
         continue;
       }

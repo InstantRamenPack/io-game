@@ -1,3 +1,4 @@
+import { doesResolvedRectIntersectSweepArc } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 
@@ -26,21 +27,30 @@ export class SweepMeleeWeapon extends MeleeWeapon {
       directionY: number;
     },
   ): boolean {
-    const deltaX = target.x - owner.x;
-    const deltaY = target.y - owner.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    const maxDistance = owner.radius + this.meleeRange + target.radius;
-    if (distance > maxDistance) {
-      return false;
-    }
-    if (distance <= Number.EPSILON) {
-      return true;
-    }
-
-    const dot = (deltaX * aim.directionX + deltaY * aim.directionY) / distance;
+    const resolvedAim = {
+      ...aim,
+      angle: Math.atan2(aim.directionY, aim.directionX),
+    };
+    const maxDistance = this.getAttackReach(owner, resolvedAim);
     const halfArcRadians = (this.sweepArcDegrees * Math.PI) / 360;
-    const minDot = Math.cos(halfArcRadians);
 
-    return dot >= minDot;
+    for (const rect of target.getWorldHitboxes()) {
+      if (
+        doesResolvedRectIntersectSweepArc(
+          rect,
+          owner.x,
+          owner.y,
+          resolvedAim.angle,
+          resolvedAim.directionX,
+          resolvedAim.directionY,
+          maxDistance,
+          halfArcRadians,
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

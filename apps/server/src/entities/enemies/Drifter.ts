@@ -4,6 +4,7 @@ import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 
 export class Drifter extends Enemy {
   public static override readonly resourceName = "drifter";
@@ -14,7 +15,9 @@ export class Drifter extends Enemy {
    */
   public constructor(id: number) {
     super(id, {
-      radius: 12,
+      hitboxProfiles: {
+        default: [makeHitboxRect(24, 24)],
+      },
       maxHp: 100,
       vx: 0,
       vy: 0,

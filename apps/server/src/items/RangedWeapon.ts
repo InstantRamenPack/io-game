@@ -1,3 +1,8 @@
+import {
+  cloneHitboxRects,
+  getHitboxDirectionalExtent,
+  type HitboxRect,
+} from "@shared/geometry/hitbox.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -17,7 +22,8 @@ import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
 export class RangedWeapon extends Weapon {
   public projectileTypeId: ResourceId;
   public projectileSpeed: number;
-  public projectileRadius: number;
+  public projectileHitboxes: HitboxRect[];
+  public projectileMaxHits: number | null;
   public ammoInMag: number;
   public magSize: number;
   public reloadTicks: number;
@@ -32,15 +38,17 @@ export class RangedWeapon extends Weapon {
     hitEffects: Effect[],
     projectileTypeId: ResourceId,
     projectileSpeed: number,
-    projectileRadius: number,
+    projectileHitboxes: readonly HitboxRect[],
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
+    projectileMaxHits: number | null = 1,
   ) {
     super(fireRate, range, hitEffects);
     this.projectileTypeId = projectileTypeId;
     this.projectileSpeed = projectileSpeed;
-    this.projectileRadius = projectileRadius;
+    this.projectileHitboxes = cloneHitboxRects(projectileHitboxes);
+    this.projectileMaxHits = normalizeProjectileMaxHits(projectileMaxHits);
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
     this.spread = spread;
@@ -107,7 +115,14 @@ export class RangedWeapon extends Weapon {
     const angle = baseAngle + spreadOffset;
     const directionX = Math.cos(angle);
     const directionY = Math.sin(angle);
-    const spawnDistance = owner.radius + this.projectileRadius + 2;
+    const spawnDistance =
+      owner.getHitboxDirectionalExtent(directionX, directionY) +
+      getHitboxDirectionalExtent(
+        this.projectileHitboxes,
+        directionX,
+        directionY,
+      ) +
+      2;
     const projectileConfig: ProjectileSpawnConfig = {
       ownerId: projectileOwnerId,
       x: owner.x + directionX * spawnDistance,
@@ -117,7 +132,8 @@ export class RangedWeapon extends Weapon {
       speed: this.projectileSpeed,
       range: this.range,
       rotation: angle,
-      radius: this.projectileRadius,
+      hitboxes: cloneHitboxRects(this.projectileHitboxes),
+      maxHits: this.projectileMaxHits,
       hitEffects: this.hitEffects,
     };
     const ProjectileCtor: RegistrableProjectileCtor =
@@ -153,4 +169,13 @@ export class RangedWeapon extends Weapon {
   private isTargetInRange(owner: Entity, target: Entity): boolean {
     return Math.hypot(target.x - owner.x, target.y - owner.y) <= this.range;
   }
+}
+
+function normalizeProjectileMaxHits(
+  projectileMaxHits: number | null,
+): number | null {
+  if (projectileMaxHits === null || !Number.isFinite(projectileMaxHits)) {
+    return null;
+  }
+  return Math.max(1, Math.floor(projectileMaxHits));
 }
