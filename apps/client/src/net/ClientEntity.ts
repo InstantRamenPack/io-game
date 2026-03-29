@@ -152,6 +152,9 @@ export class ClientEntity {
     if (this.entityContainer) {
       this.entityContainer.rotation = this.rotation;
     }
+    if (this.healthBarContainer) {
+      this.healthBarContainer.rotation = -this.rotation;
+    }
     if (this.debugContainer) {
       this.debugContainer.position.set(this.serverX, this.serverY);
       this.debugContainer.rotation = this.rotation;
@@ -263,6 +266,7 @@ export class ClientEntity {
     this.healthBarFillGraphic = new PIXI.Graphics();
     this.healthBarContainer.addChild(this.healthBarTrackGraphic);
     this.healthBarContainer.addChild(this.healthBarFillGraphic);
+    this.healthBarContainer.rotation = -this.rotation;
     this.entityContainer.addChild(this.healthBarContainer);
 
     if (debugHitbox) {

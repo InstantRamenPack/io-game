@@ -118,6 +118,9 @@ export class PixiHud {
   private hotbarPanel?: HudPanel;
   private buildPanel?: HudPanel;
   private craftingPanel?: HudPanel;
+  private dayNightContainer?: PIXI.Container;
+  private dayNightGraphic?: PIXI.Graphics;
+  private dayNightLabel?: PIXI.Text;
   private visible = false;
   private dirty = true;
   private lastLayoutWidth = 0;
@@ -140,6 +143,18 @@ export class PixiHud {
     fill: 0xe8f5e7,
     lineHeight: 22,
   };
+  private readonly dayNightLabelStyle: TextStyleOptions = {
+    fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+    fontSize: 12,
+    fill: 0xdbe6d7,
+    letterSpacing: 0.6,
+  };
+  private readonly dayNightBarWidth = 220;
+  private readonly dayNightBarHeight = 14;
+  private readonly dayNightBarGap = 6;
+  private readonly dayNightTextDayColor = 0x2d4f37;
+  private readonly dayNightTextNightColor = 0xcfe7d1;
+  private readonly dayNightContrastLag = 0.12;
 
   public constructor({ gameClient, selectors }: PixiHudOptions) {
     this.gameClient = gameClient;
@@ -165,6 +180,14 @@ export class PixiHud {
       this.hotbarPanel = new HudPanel(this.titleStyle, this.bodyStyle);
       this.buildPanel = new HudPanel(this.titleStyle, this.bodyStyle);
       this.craftingPanel = new HudPanel(this.titleStyle, this.bodyStyle);
+      this.dayNightContainer = new PIXI.Container();
+      this.dayNightGraphic = new PIXI.Graphics();
+      this.dayNightLabel = new PIXI.Text(
+        "",
+        new PIXI.TextStyle(this.dayNightLabelStyle),
+      );
+      this.dayNightContainer.addChild(this.dayNightGraphic);
+      this.dayNightContainer.addChild(this.dayNightLabel);
 
       this.root.addChild(
         this.statusPanel.container,
@@ -173,6 +196,7 @@ export class PixiHud {
         this.hotbarPanel.container,
         this.buildPanel.container,
         this.craftingPanel.container,
+        this.dayNightContainer,
       );
     }
 
@@ -277,6 +301,7 @@ export class PixiHud {
     this.dirty = false;
 
     this.syncPanels();
+    this.syncDayNight();
     this.layoutPanels(app.screen.width, app.screen.height);
   }
 
@@ -291,7 +316,9 @@ export class PixiHud {
       !this.effectPanel ||
       !this.hotbarPanel ||
       !this.buildPanel ||
-      !this.craftingPanel
+      !this.craftingPanel ||
+      !this.dayNightContainer ||
+      !this.dayNightLabel
     ) {
       return;
     }
@@ -323,6 +350,15 @@ export class PixiHud {
     this.craftingPanel.setPosition(
       screenWidth - padding - this.craftingPanel.width,
       screenHeight - padding - this.craftingPanel.height,
+    );
+
+    const dayNightWidth = Math.max(
+      this.dayNightBarWidth,
+      this.dayNightLabel.width,
+    );
+    this.dayNightContainer.position.set(
+      Math.floor((screenWidth - dayNightWidth) / 2),
+      padding,
     );
   }
 
@@ -461,6 +497,142 @@ export class PixiHud {
       { minWidth: 300, maxWidth: 360 },
     );
     this.craftingPanel.container.visible = this.state.craftingMenuOpen;
+  }
+
+  private syncDayNight(): void {
+    if (!this.dayNightContainer || !this.dayNightGraphic || !this.dayNightLabel) {
+      return;
+    }
+
+    const dayNight = this.selectors.getDayNight();
+    if (!dayNight) {
+      this.dayNightContainer.visible = false;
+      return;
+    }
+
+    this.dayNightContainer.visible = true;
+
+    const totalDuration = dayNight.nightDurationMs + dayNight.dayDurationMs;
+    const baseCycleElapsed =
+      dayNight.phase === "night"
+        ? dayNight.phaseElapsedMs
+        : dayNight.nightDurationMs + dayNight.phaseElapsedMs;
+    const receivedAt = this.gameClient.worldState?.latestSnapshotReceivedAt;
+    const driftMs =
+      receivedAt !== undefined ? Math.max(0, performance.now() - receivedAt) : 0;
+    const nightBlend = this.computeNightBlend(dayNight, driftMs);
+    const contrastBlend = this.applyContrastLag(nightBlend);
+    const labelColor = this.lerpColor(
+      this.dayNightTextDayColor,
+      this.dayNightTextNightColor,
+      contrastBlend,
+    );
+    const cycleElapsed =
+      totalDuration > 0
+        ? (baseCycleElapsed + driftMs) % totalDuration
+        : 0;
+    const progress =
+      totalDuration > 0 ? Math.min(1, Math.max(0, cycleElapsed / totalDuration)) : 0;
+
+    const barWidth = this.dayNightBarWidth;
+    const barHeight = this.dayNightBarHeight;
+    const barY = this.dayNightLabel.height + this.dayNightBarGap;
+    const nightWidth =
+      totalDuration > 0
+        ? Math.max(
+            1,
+            Math.round((dayNight.nightDurationMs / totalDuration) * barWidth),
+          )
+        : Math.floor(barWidth / 2);
+    const dayWidth = barWidth - nightWidth;
+    const centerX = Math.round(barWidth / 2);
+    const markerX = centerX;
+
+    this.dayNightLabel.text = `Day ${dayNight.dayCount + 1} · ${dayNight.phase}`;
+    this.dayNightLabel.style.fill = labelColor;
+    const contentWidth = Math.max(barWidth, this.dayNightLabel.width);
+    const labelX = Math.max(0, Math.round((contentWidth - this.dayNightLabel.width) / 2));
+    const barX = Math.max(0, Math.round((contentWidth - barWidth) / 2));
+    this.dayNightLabel.position.set(labelX, 0);
+
+    this.dayNightGraphic.clear();
+    this.dayNightGraphic.beginFill(0x0b140b, 0.85);
+    this.dayNightGraphic.drawRoundedRect(barX, barY, barWidth, barHeight, 6);
+    this.dayNightGraphic.endFill();
+
+    const cycleOffset = progress * barWidth;
+    const cycleStart = centerX - cycleOffset;
+
+    const drawClipped = (x: number, width: number, color: number): void => {
+      const start = Math.max(0, Math.round(x));
+      const end = Math.min(barWidth, Math.round(x + width));
+      if (end <= start) {
+        return;
+      }
+      this.dayNightGraphic.beginFill(color, 0.95);
+      this.dayNightGraphic.drawRect(barX + start, barY, end - start, barHeight);
+      this.dayNightGraphic.endFill();
+    };
+
+    for (let index = -1; index <= 1; index += 1) {
+      const segmentStart = cycleStart + index * barWidth;
+      drawClipped(segmentStart, nightWidth, 0x6a5de3);
+      drawClipped(segmentStart + nightWidth, dayWidth, 0xf2c84b);
+    }
+
+    this.dayNightGraphic.lineStyle(2, labelColor, 0.9);
+    this.dayNightGraphic.moveTo(barX + markerX, barY - 2);
+    this.dayNightGraphic.lineTo(barX + markerX, barY + barHeight + 2);
+  }
+
+  private computeNightBlend(
+    dayNight: { phase: "day" | "night"; phaseElapsedMs: number; dayDurationMs: number; nightDurationMs: number; dayCount: number },
+    driftMs: number,
+  ): number {
+    const phaseDuration =
+      dayNight.phase === "night"
+        ? dayNight.nightDurationMs
+        : dayNight.dayDurationMs;
+    if (phaseDuration <= 0) {
+      return dayNight.phase === "night" ? 1 : 0;
+    }
+
+    const elapsed = Math.max(
+      0,
+      Math.min(dayNight.phaseElapsedMs + driftMs, phaseDuration),
+    );
+    const transitionMs = Math.max(
+      1000,
+      Math.min(15000, Math.floor(phaseDuration * 0.2)),
+    );
+
+    if (elapsed >= phaseDuration - transitionMs) {
+      const t = (elapsed - (phaseDuration - transitionMs)) / transitionMs;
+      return dayNight.phase === "night" ? 1 - t : t;
+    }
+
+    return dayNight.phase === "night" ? 1 : 0;
+  }
+
+  private applyContrastLag(blend: number): number {
+    if (blend >= 0.5) {
+      return Math.min(1, blend + this.dayNightContrastLag);
+    }
+    return Math.max(0, blend - this.dayNightContrastLag);
+  }
+
+  private lerpColor(start: number, end: number, t: number): number {
+    const clamped = Math.max(0, Math.min(1, t));
+    const startR = (start >> 16) & 0xff;
+    const startG = (start >> 8) & 0xff;
+    const startB = start & 0xff;
+    const endR = (end >> 16) & 0xff;
+    const endG = (end >> 8) & 0xff;
+    const endB = end & 0xff;
+    const r = Math.round(startR + (endR - startR) * clamped);
+    const g = Math.round(startG + (endG - startG) * clamped);
+    const b = Math.round(startB + (endB - startB) * clamped);
+    return (r << 16) | (g << 8) | b;
   }
 
   private getSelectedRecipeForItem(itemTypeId: ResourceId): ItemRecipeContent {

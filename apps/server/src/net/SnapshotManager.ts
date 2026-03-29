@@ -17,6 +17,7 @@ export class SnapshotManager {
 
     return {
       tick: world.tick,
+      dayNight: world.dayNightCycle.toSnapshot(),
       entities: world.entities
         .all()
         .map((entity) => entity.toSnapshot() as EntitySnapshot),

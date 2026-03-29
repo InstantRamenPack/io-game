@@ -6,6 +6,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
+import { DayNightCycle } from "@server/world/DayNightCycle.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
 /**
@@ -19,6 +20,7 @@ export class World {
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
+  public dayNightCycle: DayNightCycle;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
 
@@ -32,6 +34,10 @@ export class World {
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
+    this.dayNightCycle = new DayNightCycle({
+      dayDurationMs: gameConfig.dayNight.dayDurationMs,
+      nightDurationMs: gameConfig.dayNight.nightDurationMs,
+    });
   }
 
   /**
@@ -39,6 +45,7 @@ export class World {
    */
   public step(): void {
     this.tick += 1;
+    this.dayNightCycle.tick(1000 / this.gameConfig.tickRate);
 
     const entities = this.entities.all();
     for (const entity of entities) {

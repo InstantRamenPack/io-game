@@ -22,6 +22,10 @@ export class GameConfig {
   interpolation = {
     snapDistance: 192,
   };
+  dayNight = {
+    dayDurationMs: 120000,
+    nightDurationMs: 60000,
+  };
   protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
   /**

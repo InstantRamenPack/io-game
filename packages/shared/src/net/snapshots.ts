@@ -83,8 +83,17 @@ export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
   PickupSnapshotSchema,
 ]);
 
+export const DayNightSnapshotSchema = z.object({
+  dayCount: z.number().int().nonnegative(),
+  phase: z.enum(["day", "night"]),
+  phaseElapsedMs: z.number().int().nonnegative(),
+  dayDurationMs: z.number().int().positive(),
+  nightDurationMs: z.number().int().positive(),
+});
+
 export const WorldSnapshotSchema = z.object({
   tick: z.number().int().nonnegative(),
+  dayNight: DayNightSnapshotSchema,
   entities: z.array(EntitySnapshotSchema),
   events: z.array(NetEventSchema),
 });
@@ -102,4 +111,5 @@ export type BuildingSnapshot = z.infer<typeof BuildingSnapshotSchema>;
 export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
 export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;
 export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
+export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

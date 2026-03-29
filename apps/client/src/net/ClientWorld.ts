@@ -1,7 +1,7 @@
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { NetEvent } from "@shared/net/events.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 /**
  * Client-side world representation that owns entity instances and, when a
@@ -13,6 +13,7 @@ export class ClientWorld {
   public tick: number;
   public entities: Map<number, ClientEntity>;
   public events: NetEvent[];
+  public dayNight: DayNightSnapshot;
 
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
@@ -28,6 +29,7 @@ export class ClientWorld {
     this.debugHitbox = debugHitbox;
     this.debugInterpolationMode = debugInterpolationMode;
     this.tick = snapshot.tick;
+    this.dayNight = snapshot.dayNight;
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
@@ -61,6 +63,7 @@ export class ClientWorld {
   public updateFromSnapshot(snapshot: WorldSnapshot): void {
     this.tick = snapshot.tick;
     this.events = [...snapshot.events];
+    this.dayNight = snapshot.dayNight;
 
     const updatedEntityIds = new Set<number>();
 

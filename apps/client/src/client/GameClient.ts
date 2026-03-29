@@ -7,7 +7,7 @@ import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export type GameplayHudState = {
   activeWeaponLabel: string;
@@ -211,6 +211,9 @@ export class GameClient {
 
   public onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState?.pushSnapshot(snapshot);
+    this.renderer.setGridNightBlend(
+      this.computeNightBlend(snapshot.dayNight),
+    );
     this.recordTickSample(snapshot.tick, performance.now());
   }
 
@@ -446,6 +449,29 @@ export class GameClient {
   private resetPerformanceRateSamples(): void {
     this.frameSamples = [];
     this.tickSamples = [];
+  }
+
+  private computeNightBlend(dayNight: DayNightSnapshot): number {
+    const phaseDuration =
+      dayNight.phase === "night"
+        ? dayNight.nightDurationMs
+        : dayNight.dayDurationMs;
+    if (phaseDuration <= 0) {
+      return dayNight.phase === "night" ? 1 : 0;
+    }
+
+    const elapsed = Math.max(0, Math.min(dayNight.phaseElapsedMs, phaseDuration));
+    const transitionMs = Math.max(
+      1000,
+      Math.min(15000, Math.floor(phaseDuration * 0.2)),
+    );
+
+    if (elapsed >= phaseDuration - transitionMs) {
+      const t = (elapsed - (phaseDuration - transitionMs)) / transitionMs;
+      return dayNight.phase === "night" ? 1 - t : t;
+    }
+
+    return dayNight.phase === "night" ? 1 : 0;
   }
 }
 
