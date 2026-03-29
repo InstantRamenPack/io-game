@@ -50,6 +50,7 @@ export class GameClient {
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (worldPoint: { x: number; y: number }) => void;
   private sessionReadyHandlers: Array<() => void> = [];
+  private worldUpdatedHandlers: Array<() => void> = [];
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -118,6 +119,10 @@ export class GameClient {
 
   public onSessionReady(handler: () => void): void {
     this.sessionReadyHandlers.push(handler);
+  }
+
+  public onWorldUpdated(handler: () => void): void {
+    this.worldUpdatedHandlers.push(handler);
   }
 
   public isSessionReady(): boolean {
@@ -212,6 +217,9 @@ export class GameClient {
   public onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState?.pushSnapshot(snapshot);
     this.recordTickSample(snapshot.tick, performance.now());
+    for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
+      worldUpdatedHandler();
+    }
   }
 
   public onWelcome(entityId: number): void {

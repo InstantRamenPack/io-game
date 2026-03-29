@@ -1,5 +1,6 @@
 {
   "label": "Wall Item",
+  "buildsEntityTypeId": "building:wall",
   "recipe": {
     "hint": "Fast perimeter coverage. Cheap and disposable.",
     "outputAmount": 1,

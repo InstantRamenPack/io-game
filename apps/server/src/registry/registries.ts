@@ -57,8 +57,6 @@ export type EntityTypeEntry = {
 
 export type ItemTypeEntry = {
   typeId: ResourceId;
-  stackMax: number;
-  buildingTypeId?: ResourceId;
   content: ItemContent;
   ctor: RegistrableItemCtor;
 };
@@ -72,5 +70,3 @@ export type EffectTypeEntry = {
 export const entityTypeRegistry = new TypeRegistry<EntityTypeEntry>();
 export const itemTypeRegistry = new TypeRegistry<ItemTypeEntry>();
 export const effectTypeRegistry = new TypeRegistry<EffectTypeEntry>();
-export const projectileTypeRegistry =
-  new TypeRegistry<RegistrableProjectileCtor>();

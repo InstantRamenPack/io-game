@@ -10,6 +10,10 @@ type EntityInstanceCtor<T extends Entity> = abstract new (
  */
 export class EntityStore {
   byId = new Map<number, Entity>();
+  private allCache?: readonly Entity[];
+  private dynamicCache?: readonly Entity[];
+  private collidableCache?: readonly Entity[];
+  private nonCollidableCache?: readonly Entity[];
 
   /**
    * Inserts an entity into the primary id index.
@@ -17,6 +21,7 @@ export class EntityStore {
    */
   add(entity: Entity): void {
     this.byId.set(entity.id, entity);
+    this.invalidateViews();
   }
 
   /**
@@ -24,7 +29,9 @@ export class EntityStore {
    * @param id Entity id to remove.
    */
   remove(id: number): void {
-    this.byId.delete(id);
+    if (this.byId.delete(id)) {
+      this.invalidateViews();
+    }
   }
 
   /**
@@ -34,6 +41,10 @@ export class EntityStore {
    */
   get<T extends Entity = Entity>(id: number): T | undefined {
     return this.byId.get(id) as T | undefined;
+  }
+
+  has(id: number): boolean {
+    return this.byId.has(id);
   }
 
   /**
@@ -56,6 +67,43 @@ export class EntityStore {
    * @returns Snapshot of the current entity collection.
    */
   all(): Entity[] {
-    return [...this.byId.values()];
+    if (!this.allCache) {
+      this.allCache = [...this.byId.values()];
+    }
+    return this.allCache as Entity[];
+  }
+
+  dynamic(): Entity[] {
+    if (!this.dynamicCache) {
+      this.dynamicCache = this.all().filter(
+        (entity) => entity.collisionMode === "dynamic",
+      );
+    }
+    return this.dynamicCache as Entity[];
+  }
+
+  collidable(): Entity[] {
+    if (!this.collidableCache) {
+      this.collidableCache = this.all().filter(
+        (entity) => entity.collisionMode !== "none",
+      );
+    }
+    return this.collidableCache as Entity[];
+  }
+
+  nonCollidable(): Entity[] {
+    if (!this.nonCollidableCache) {
+      this.nonCollidableCache = this.all().filter(
+        (entity) => entity.collisionMode === "none",
+      );
+    }
+    return this.nonCollidableCache as Entity[];
+  }
+
+  private invalidateViews(): void {
+    this.allCache = undefined;
+    this.dynamicCache = undefined;
+    this.collidableCache = undefined;
+    this.nonCollidableCache = undefined;
   }
 }

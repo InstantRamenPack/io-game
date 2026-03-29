@@ -22,7 +22,7 @@ export type GameSelectors = {
   countInventoryType(typeId: string): number;
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
-  getActiveEffects(): string[];
+  getActiveEffectLabels(): string[];
 };
 
 export function createGameSelectors(gameClient: GameClient): GameSelectors {
@@ -104,8 +104,11 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
       .join(" / ");
   }
 
-  function getActiveEffects(): string[] {
-    return [...(getPlayerEntity()?.activeEffects ?? [])];
+  function getActiveEffectLabels(): string[] {
+    return (getPlayerEntity()?.activeEffects ?? []).map((effect) => {
+      const secondsRemaining = effect.ticksRemaining / gameClient.gameConfig.tickRate;
+      return `${formatTypeLabel(effect.typeId)} (${secondsRemaining.toFixed(1)}s)`;
+    });
   }
 
   return {
@@ -120,6 +123,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     countInventoryType,
     hasRecipeResources,
     formatCosts,
-    getActiveEffects,
+    getActiveEffectLabels,
   };
 }

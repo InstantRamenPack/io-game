@@ -7,12 +7,17 @@ type WsData = { clientId: string };
  * Wraps Bun sockets with client ids and a small subscription surface.
  */
 export class WsServer {
+  private readonly maxPacketBytes: number;
   private readonly sockets = new Map<string, ServerWebSocket<WsData>>();
   private readonly messageHandlers: Array<
     (clientId: string, rawMessage: string) => void
   > = [];
   private readonly openHandlers: Array<(clientId: string) => void> = [];
   private readonly closeHandlers: Array<(clientId: string) => void> = [];
+
+  public constructor(maxPacketBytes = Number.POSITIVE_INFINITY) {
+    this.maxPacketBytes = maxPacketBytes;
+  }
 
   /**
    * Registers a handler for socket-open events.
@@ -59,6 +64,16 @@ export class WsServer {
     webSocket: ServerWebSocket<WsData>,
     rawMessageData: string | Buffer,
   ): void {
+    const messageByteLength =
+      typeof rawMessageData === "string"
+        ? Buffer.byteLength(rawMessageData)
+        : rawMessageData.byteLength;
+    if (messageByteLength > this.maxPacketBytes) {
+      webSocket.send(JSON.stringify({ t: "error", message: "packet_too_large" }));
+      webSocket.close(1009, "packet_too_large");
+      return;
+    }
+
     const clientId = webSocket.data.clientId;
     const rawMessage =
       typeof rawMessageData === "string"

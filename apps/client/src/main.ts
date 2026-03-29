@@ -59,6 +59,9 @@ const launchController = createLaunchController({
 gameClient.setPointerActionHandler((worldPoint) => {
   hudController.handlePrimaryWorldAction(worldPoint);
 });
+gameClient.onWorldUpdated(() => {
+  hudController.refreshUi();
+});
 
 installGameHotkeys(elements, hudController);
 installDebugBridge({

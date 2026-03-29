@@ -5,7 +5,6 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 export class Item {
   public static readonly kind = "item" as const;
   public static readonly resourceName: string = "";
-  public static readonly stackMax: number = 1;
 
   public static get typeId(): ResourceId {
     return deriveTypeIdFromStaticMetadata(this);

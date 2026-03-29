@@ -39,7 +39,7 @@ export function installGameHotkeys(
       (hudController.isBuildMenuOpen() || hudController.isCraftingMenuOpen()) &&
       ["1", "2", "3", "4"].includes(key)
     ) {
-      hudController.selectBuildByOrdinal(Number(key));
+      hudController.selectMenuItemByOrdinal(Number(key));
       return;
     }
 

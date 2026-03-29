@@ -1,5 +1,6 @@
 {
   "label": "Cannon Item",
+  "buildsEntityTypeId": "building:cannon",
   "recipe": {
     "hint": "Heavy defensive fire for outer lanes.",
     "outputAmount": 1,

@@ -6,7 +6,9 @@ import type { Entity } from "@server/entities/Entity.ts";
  */
 export class SpatialIndex {
   private readonly cellSize: number;
-  private readonly buckets = new Map<string, Set<Entity>>();
+  private readonly buckets = new Map<string, Entity[]>();
+  private readonly visitedEntityIds = new Map<number, number>();
+  private queryMarker = 0;
 
   /**
    * Creates a grid with the provided cell size in world units.
@@ -35,8 +37,19 @@ export class SpatialIndex {
    * @param maxY Bottom query edge.
    * @returns Unique candidate entities from the covered cells.
    */
-  queryBox(minX: number, minY: number, maxX: number, maxY: number): Entity[] {
-    const candidates = new Set<Entity>();
+  queryBox(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+    result: Entity[] = [],
+  ): Entity[] {
+    result.length = 0;
+    this.queryMarker += 1;
+    if (this.queryMarker >= Number.MAX_SAFE_INTEGER) {
+      this.queryMarker = 1;
+      this.visitedEntityIds.clear();
+    }
 
     for (
       let gridX = this.toCell(minX);
@@ -53,12 +66,16 @@ export class SpatialIndex {
           continue;
         }
         for (const entity of bucket) {
-          candidates.add(entity);
+          if (this.visitedEntityIds.get(entity.id) === this.queryMarker) {
+            continue;
+          }
+          this.visitedEntityIds.set(entity.id, this.queryMarker);
+          result.push(entity);
         }
       }
     }
 
-    return [...candidates];
+    return result;
   }
 
   private insert(entity: Entity): void {
@@ -81,10 +98,10 @@ export class SpatialIndex {
         const key = this.makeKey(gridX, gridY);
         let bucket = this.buckets.get(key);
         if (!bucket) {
-          bucket = new Set<Entity>();
+          bucket = [];
           this.buckets.set(key, bucket);
         }
-        bucket.add(entity);
+        bucket.push(entity);
       }
     }
   }

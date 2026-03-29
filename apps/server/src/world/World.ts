@@ -40,24 +40,31 @@ export class World {
   public step(): void {
     this.tick += 1;
 
-    const entities = this.entities.all();
-    for (const entity of entities) {
-      entity.tick(this);
-      if (entity.collisionMode !== "static") {
-        entity.x += entity.vx;
-        entity.y += entity.vy;
+    this.syncSpatialIndex();
+    const tickPhaseEntities = this.entities.all();
+    for (const entity of tickPhaseEntities) {
+      if (!this.entities.has(entity.id)) {
+        continue;
       }
+      entity.tick(this);
     }
 
-    this.spatial.rebuild(
-      this.entities.all().filter((entity) => entity.collisionMode !== "none"),
-    );
+    for (const entity of tickPhaseEntities) {
+      if (!this.entities.has(entity.id) || entity.collisionMode === "static") {
+        continue;
+      }
+      entity.x += entity.vx;
+      entity.y += entity.vy;
+    }
+
+    this.syncSpatialIndex();
     this.collisionSystem.update(this);
-    this.spatial.rebuild(
-      this.entities.all().filter((entity) => entity.collisionMode !== "none"),
-    );
+    this.syncSpatialIndex();
 
     for (const entity of this.entities.all()) {
+      if (!this.entities.has(entity.id)) {
+        continue;
+      }
       entity.afterMovement(this);
     }
   }
@@ -94,5 +101,9 @@ export class World {
    */
   public allocEntityId(): number {
     return this.entityIdGenerator.alloc();
+  }
+
+  private syncSpatialIndex(): void {
+    this.spatial.rebuild(this.entities.collidable());
   }
 }

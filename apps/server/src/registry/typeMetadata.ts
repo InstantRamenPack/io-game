@@ -11,10 +11,7 @@ export type DerivableTypeStatic<K extends RuntimeTypeKind = RuntimeTypeKind> = {
 export type EntityClassMetadata<K extends EntityKind = EntityKind> =
   DerivableTypeStatic<K>;
 
-export type ItemClassMetadata = DerivableTypeStatic<"item"> & {
-  readonly stackMax: number;
-  readonly buildingTypeId?: ResourceId;
-};
+export type ItemClassMetadata = DerivableTypeStatic<"item">;
 
 export type EffectClassMetadata = DerivableTypeStatic<"effect">;
 
@@ -49,16 +46,9 @@ export function requireItemClassMetadata(
   if (metadata.kind !== "item") {
     throw new Error("Expected registrable item class to declare static kind 'item'.");
   }
-  if (typeof metadata.stackMax !== "number" || metadata.stackMax < 1) {
-    throw new Error(
-      "Expected registrable item class to declare a positive static stackMax.",
-    );
-  }
   return {
     kind: "item",
     resourceName: assertResourceName(metadata.resourceName ?? ""),
-    stackMax: metadata.stackMax,
-    buildingTypeId: metadata.buildingTypeId,
   };
 }
 

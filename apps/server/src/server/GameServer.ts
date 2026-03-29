@@ -41,8 +41,10 @@ export class GameServer {
   private readonly clock: TickClock;
   private readonly authService: AuthService;
   private readonly playerIdByClientId = new Map<string, number>();
-  private readonly clientsWithCompletedHello = new Set<string>();
-  private readonly clientsWithPendingHello = new Set<string>();
+  private readonly clientStateById = new Map<
+    string,
+    "connected" | "hello_pending" | "ready"
+  >();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
   private readonly lastInputTickByClientId = new Map<string, number>();
   private initialEnemiesSpawned = false;
@@ -67,6 +69,10 @@ export class GameServer {
     this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
     this.clock = new TickClock(gameConfig.tickRate);
+
+    this.networkServer.onOpen((clientId) => {
+      this.clientStateById.set(clientId, "connected");
+    });
 
     this.networkServer.onClose((clientId) => {
       this.onDisconnect(clientId);
@@ -104,13 +110,29 @@ export class GameServer {
    */
   tick(): void {
     this.world.step();
+    const drainedEvents = this.world.events.toArray();
+    this.world.events.clear();
+    this.snapshotManager.prepareTick(this.world, drainedEvents);
 
-    const snapshot = this.snapshotManager.makeSnapshot(this.world);
-    const snapshotMessage: ServerToClientMessage = {
-      t: "snapshot",
-      snapshot,
-    };
-    this.networkServer.broadcast(JSON.stringify(snapshotMessage));
+    for (const [clientId, state] of this.clientStateById) {
+      if (state !== "ready") {
+        continue;
+      }
+      const playerId = this.playerIdByClientId.get(clientId);
+      if (!playerId) {
+        continue;
+      }
+      const snapshot = this.snapshotManager.makeSnapshotForPlayer(
+        this.world,
+        playerId,
+        this.gameConfig.replication.interestRadius,
+      );
+      const snapshotMessage: ServerToClientMessage = {
+        t: "snapshot",
+        snapshot,
+      };
+      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+    }
   }
 
   /**
@@ -199,8 +221,7 @@ export class GameServer {
    * @param clientId Disconnected client id.
    */
   onDisconnect(clientId: string): void {
-    this.clientsWithCompletedHello.delete(clientId);
-    this.clientsWithPendingHello.delete(clientId);
+    this.clientStateById.delete(clientId);
     this.lastInputSequenceByClientId.delete(clientId);
     this.lastInputTickByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
@@ -234,10 +255,12 @@ export class GameServer {
     ];
 
     for (const drifterPosition of drifterPositions) {
-      const drifter = new Drifter(this.world.allocEntityId());
-      drifter.x = drifterPosition.x;
-      drifter.y = drifterPosition.y;
-      this.world.spawn(drifter);
+      this.spawnInitialCopies(() => {
+        const drifter = new Drifter(this.world.allocEntityId());
+        drifter.x = drifterPosition.x;
+        drifter.y = drifterPosition.y;
+        this.world.spawn(drifter);
+      });
     }
 
     const shootaPositions = [
@@ -252,21 +275,27 @@ export class GameServer {
     ];
 
     for (const shootaPosition of shootaPositions) {
-      const shoota = new Shoota(this.world.allocEntityId());
-      shoota.x = shootaPosition.x;
-      shoota.y = shootaPosition.y;
-      this.world.spawn(shoota);
+      this.spawnInitialCopies(() => {
+        const shoota = new Shoota(this.world.allocEntityId());
+        shoota.x = shootaPosition.x;
+        shoota.y = shootaPosition.y;
+        this.world.spawn(shoota);
+      });
     }
 
-    const megaknight = new Megaknight(this.world.allocEntityId());
-    megaknight.x = this.gameConfig.worldSize.w * 0.5;
-    megaknight.y = this.gameConfig.worldSize.h * 0.5;
-    this.world.spawn(megaknight);
+    this.spawnInitialCopies(() => {
+      const megaknight = new Megaknight(this.world.allocEntityId());
+      megaknight.x = this.gameConfig.worldSize.w * 0.5;
+      megaknight.y = this.gameConfig.worldSize.h * 0.5;
+      this.world.spawn(megaknight);
+    });
 
-    const saboteur = new Saboteur(this.world.allocEntityId());
-    saboteur.x = this.gameConfig.worldSize.w * 0.15;
-    saboteur.y = this.gameConfig.worldSize.h * 0.15;
-    this.world.spawn(saboteur);
+    this.spawnInitialCopies(() => {
+      const saboteur = new Saboteur(this.world.allocEntityId());
+      saboteur.x = this.gameConfig.worldSize.w * 0.15;
+      saboteur.y = this.gameConfig.worldSize.h * 0.15;
+      this.world.spawn(saboteur);
+    });
   }
 
   /**
@@ -299,10 +328,22 @@ export class GameServer {
     ];
 
     for (const starterBuilding of starterBuildings) {
-      const building = starterBuilding.create(this.world.allocEntityId());
-      building.x = starterBuilding.x;
-      building.y = starterBuilding.y;
-      this.world.spawn(building);
+      this.spawnInitialCopies(() => {
+        const building = starterBuilding.create(this.world.allocEntityId());
+        building.x = starterBuilding.x;
+        building.y = starterBuilding.y;
+        this.world.spawn(building);
+      });
+    }
+  }
+
+  private spawnInitialCopies(spawn: () => void): void {
+    for (
+      let copyIndex = 0;
+      copyIndex < this.gameConfig.debug.spawnMultiplier;
+      copyIndex += 1
+    ) {
+      spawn();
     }
   }
 
@@ -326,7 +367,7 @@ export class GameServer {
         void this.handleHello(clientId, clientMessage);
         return;
       case "input":
-        if (!this.clientsWithCompletedHello.has(clientId)) {
+        if (this.clientStateById.get(clientId) !== "ready") {
           this.networkServer.send(
             clientId,
             JSON.stringify({ t: "error", message: "hello_required" }),
@@ -361,11 +402,12 @@ export class GameServer {
     clientId: string,
     helloMessage: HelloMessage,
   ): Promise<void> {
-    if (this.clientsWithCompletedHello.has(clientId)) {
+    const clientState = this.clientStateById.get(clientId) ?? "connected";
+    if (clientState === "ready") {
       return;
     }
 
-    if (this.clientsWithPendingHello.has(clientId)) {
+    if (clientState === "hello_pending") {
       return;
     }
     if (helloMessage.protocolVersion !== this.gameConfig.protocolVersion) {
@@ -387,14 +429,14 @@ export class GameServer {
         return;
       }
 
-      this.clientsWithPendingHello.add(clientId);
+      this.clientStateById.set(clientId, "hello_pending");
       const authenticatedUser = await this.authService.verifyGoogleIdToken(
         helloMessage.googleIdToken,
       );
-      if (!this.clientsWithPendingHello.has(clientId)) {
+      if (this.clientStateById.get(clientId) !== "hello_pending") {
         return;
       }
-      this.clientsWithPendingHello.delete(clientId);
+      this.clientStateById.set(clientId, "connected");
       if (!authenticatedUser) {
         this.networkServer.send(
           clientId,
@@ -405,8 +447,17 @@ export class GameServer {
       }
     }
 
+    if (this.playerIdByClientId.size >= this.gameConfig.network.maxPlayers) {
+      this.networkServer.send(
+        clientId,
+        JSON.stringify({ t: "error", message: "server_full" }),
+      );
+      this.networkServer.disconnect(clientId, "server_full");
+      return;
+    }
+
     const playerId = this.onConnect(clientId, helloMessage.playerName);
-    this.clientsWithCompletedHello.add(clientId);
+    this.clientStateById.set(clientId, "ready");
     this.networkServer.send(
       clientId,
       JSON.stringify({ t: "pong", timeMs: Date.now() }),

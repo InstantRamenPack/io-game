@@ -13,14 +13,14 @@ type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
  * Collision is kept authoritative and axis-aligned on the server.
  */
 export class CollisionSystem implements System {
+  private readonly queryBuffer: Entity[] = [];
+
   /**
-   * Rebuilds the broad-phase index, resolves nearby overlaps, then clamps bodies to world bounds.
+   * Resolves nearby overlaps using the prebuilt broad-phase index, then clamps bodies to world bounds.
    * @param world Authoritative world being simulated.
    */
   update(world: World): void {
-    const collidableEntities = world.entities
-      .all()
-      .filter((entity) => entity.collisionMode !== "none");
+    const collidableEntities = world.entities.collidable();
 
     for (const entity of collidableEntities) {
       if (entity.collisionMode !== "dynamic") {
@@ -33,6 +33,7 @@ export class CollisionSystem implements System {
         bounds.minY,
         bounds.maxX,
         bounds.maxY,
+        this.queryBuffer,
       );
 
       for (const candidate of candidates) {

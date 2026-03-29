@@ -55,7 +55,7 @@ export function main(): void {
   const tlsCertPath = process.env.TLS_CERT_PATH;
   const tlsKeyPath = process.env.TLS_KEY_PATH;
   const authService = new AuthService(googleClientId);
-  const networkServer = new WsServer();
+  const networkServer = new WsServer(gameConfig.network.maxPacketBytes);
   const gameServer = new GameServer(gameConfig, networkServer, authService);
   gameServer.start();
 

@@ -1,13 +1,12 @@
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 /**
- * Client-side world representation that owns entity instances and, when a
- * renderer is provided, lets those entities manage their own Pixi objects.
- * This restores the older net-layer orchestration while still allowing
- * renderer-free construction in tests.
+ * Client-side world representation that owns replica entities and, when a
+ * renderer is provided, delegates presentation lifecycle to the render manager.
  */
 export class ClientWorld {
   public tick: number;
@@ -17,6 +16,7 @@ export class ClientWorld {
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugInterpolationMode: number;
+  private readonly renderManager?: EntityRenderManager;
 
   public constructor(
     snapshot: WorldSnapshot,
@@ -27,37 +27,32 @@ export class ClientWorld {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
     this.debugInterpolationMode = debugInterpolationMode;
+    if (this.pixiRenderer?.entityContainer) {
+      this.renderManager = new EntityRenderManager(this.pixiRenderer, {
+        debugHitbox: this.debugHitbox,
+        debugInterpolationMode: this.debugInterpolationMode,
+      });
+    }
     this.tick = snapshot.tick;
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
-        new ClientEntity(entitySnapshot, {
-          pixiRenderer: this.pixiRenderer,
-          debugHitbox: this.debugHitbox,
-          debugInterpolationMode: this.debugInterpolationMode,
-        }),
+        new ClientEntity(entitySnapshot),
       ]),
     );
     this.events = [...snapshot.events];
+    for (const entity of this.entities.values()) {
+      this.renderManager?.syncEntity(entity);
+    }
     this.applyEvents(snapshot.events);
   }
 
-  /**
-   * Cleans up entity-owned presentation objects and clears the entity map.
-   */
   public destroy(): void {
-    for (const entity of this.entities.values()) {
-      entity.destroy();
-    }
+    this.renderManager?.destroy();
     this.entities.clear();
     this.events = [];
   }
 
-  /**
-   * Applies a new authoritative snapshot, updating existing entities or
-   * creating new ones as needed. Damage and overlay events are processed here,
-   * matching the older client-world responsibility split.
-   */
   public updateFromSnapshot(snapshot: WorldSnapshot): void {
     this.tick = snapshot.tick;
     this.events = [...snapshot.events];
@@ -70,15 +65,14 @@ export class ClientWorld {
       const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
         existingEntity.updateFromSnapshot(entitySnapshot);
+        this.renderManager?.syncEntity(existingEntity);
       } else {
+        const entity = new ClientEntity(entitySnapshot);
         this.entities.set(
           entitySnapshot.id,
-          new ClientEntity(entitySnapshot, {
-            pixiRenderer: this.pixiRenderer,
-            debugHitbox: this.debugHitbox,
-            debugInterpolationMode: this.debugInterpolationMode,
-          }),
+          entity,
         );
+        this.renderManager?.syncEntity(entity);
       }
     }
 
@@ -86,19 +80,14 @@ export class ClientWorld {
 
     for (const [entityId, entity] of this.entities) {
       if (!updatedEntityIds.has(entityId)) {
-        entity.destroy();
+        this.renderManager?.removeEntity(entityId);
         this.entities.delete(entityId);
       }
     }
   }
 
-  /**
-   * Advances presentation-only effects on the tracked entities.
-   */
   public update(deltaMs: number): void {
-    for (const entity of this.entities.values()) {
-      entity.update(deltaMs);
-    }
+    this.renderManager?.update(deltaMs, this.entities.values());
   }
 
   private applyEvents(events: NetEvent[]): void {
@@ -107,7 +96,7 @@ export class ClientWorld {
         continue;
       }
 
-      this.entities.get(event.payload.targetId)?.triggerDamageFlash();
+      this.renderManager?.triggerDamageFlash(event.payload.targetId);
       if (event.payload.targetId === this.pixiRenderer?.playerEntityId) {
         this.pixiRenderer.triggerDamageOverlay();
       }

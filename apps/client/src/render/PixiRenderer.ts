@@ -7,8 +7,8 @@ type WorldSize = { w: number; h: number };
 
 /**
  * Rendering adapter for visible entity state.
- * Owns the Pixi scene lifecycle while client entities manage their own Pixi
- * objects through the shared `entityContainer`.
+ * Owns the Pixi scene lifecycle and exposes the shared entity layer consumed
+ * by dedicated entity renderer classes.
  */
 export class PixiRenderer {
   private app: PIXI.Application<HTMLCanvasElement> | null = null;

@@ -1,5 +1,6 @@
 import * as PIXI from "pixijs";
 import {
+  BUILDABLE_ITEM_TYPE_IDS,
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
 } from "@shared/content/catalog.ts";
@@ -15,6 +16,7 @@ export type HudState = {
   buildMenuOpen: boolean;
   craftingMenuOpen: boolean;
   selectedBuild: ResourceId;
+  selectedCraft: ResourceId;
 };
 
 type PixiHudOptions = {
@@ -144,8 +146,12 @@ export class PixiHud {
   public constructor({ gameClient, selectors }: PixiHudOptions) {
     this.gameClient = gameClient;
     this.selectors = selectors;
-    const defaultBuildItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[0];
+    const defaultBuildItemTypeId = BUILDABLE_ITEM_TYPE_IDS[0];
+    const defaultCraftItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[0];
     if (!defaultBuildItemTypeId) {
+      throw new Error("Expected at least one buildable item in shared content.");
+    }
+    if (!defaultCraftItemTypeId) {
       throw new Error("Expected at least one craftable item in shared content.");
     }
 
@@ -153,6 +159,7 @@ export class PixiHud {
       buildMenuOpen: false,
       craftingMenuOpen: false,
       selectedBuild: defaultBuildItemTypeId,
+      selectedCraft: defaultCraftItemTypeId,
     };
   }
 
@@ -193,28 +200,51 @@ export class PixiHud {
   }
 
   public toggleBuildMenu(): void {
-    this.state.buildMenuOpen = !this.state.buildMenuOpen;
+    const nextOpen = !this.state.buildMenuOpen;
+    this.state.buildMenuOpen = nextOpen;
+    if (nextOpen) {
+      this.state.craftingMenuOpen = false;
+    }
     this.markDirty();
   }
 
   public toggleCraftingMenu(): void {
-    this.state.craftingMenuOpen = !this.state.craftingMenuOpen;
+    const nextOpen = !this.state.craftingMenuOpen;
+    this.state.craftingMenuOpen = nextOpen;
+    if (nextOpen) {
+      this.state.buildMenuOpen = false;
+    }
     this.markDirty();
   }
 
-  public selectBuildByOrdinal(ordinal: number): boolean {
-    const nextItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[ordinal - 1];
-    if (!nextItemTypeId) {
+  public selectMenuItemByOrdinal(ordinal: number): boolean {
+    if (this.state.buildMenuOpen) {
+      const nextBuildItemTypeId = BUILDABLE_ITEM_TYPE_IDS[ordinal - 1];
+      if (!nextBuildItemTypeId) {
+        return false;
+      }
+
+      this.state.selectedBuild = nextBuildItemTypeId;
+      this.markDirty();
+      return true;
+    }
+
+    if (!this.state.craftingMenuOpen) {
       return false;
     }
 
-    this.state.selectedBuild = nextItemTypeId;
+    const nextCraftItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[ordinal - 1];
+    if (!nextCraftItemTypeId) {
+      return false;
+    }
+
+    this.state.selectedCraft = nextCraftItemTypeId;
     this.markDirty();
     return true;
   }
 
   public queueSelectedCraft(): void {
-    this.gameClient.queueCraftItem(this.state.selectedBuild);
+    this.gameClient.queueCraftItem(this.state.selectedCraft);
     this.markDirty();
   }
 
@@ -341,7 +371,7 @@ export class PixiHud {
     const playerEntity = this.selectors.getPlayerEntity();
     const worldEntities = this.selectors.getWorldEntities();
     const buildings = this.selectors.getTrackedBuildings();
-    const activeEffects = this.selectors.getActiveEffects();
+    const activeEffectLabels = this.selectors.getActiveEffectLabels();
     const performanceRates = this.gameClient.getMeasuredRates();
 
     const tickRateLabel =
@@ -378,9 +408,9 @@ export class PixiHud {
       maxWidth: 240,
     });
 
-    const effects =
-      activeEffects.length > 0 ? activeEffects : ["No active buffs"];
-    this.effectPanel.setContent("Effects", effects.join("\n"), {
+    const effectLines =
+      activeEffectLabels.length > 0 ? activeEffectLabels : ["No active effects"];
+    this.effectPanel.setContent("Effects", effectLines.join("\n"), {
       minWidth: 200,
       maxWidth: 240,
     });
@@ -412,7 +442,7 @@ export class PixiHud {
       maxWidth: 420,
     });
 
-    const buildLines = CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
+    const buildLines = BUILDABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
       const recipe = this.getSelectedRecipeForItem(itemTypeId);
       const availableCount = this.selectors.countInventoryType(itemTypeId);
       const selectedMark = this.state.selectedBuild === itemTypeId ? "> " : "  ";
@@ -434,26 +464,17 @@ export class PixiHud {
     );
     this.buildPanel.container.visible = this.state.buildMenuOpen;
 
-    const craftingLines = CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId) => {
+    const craftingLines = CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
       const recipe = this.getSelectedRecipeForItem(itemTypeId);
       const available = this.selectors.hasRecipeResources(recipe);
-      const selectedMark = this.state.selectedBuild === itemTypeId ? "> " : "  ";
+      const selectedMark = this.state.selectedCraft === itemTypeId ? "> " : "  ";
       const availability = available ? "Craftable" : "Missing materials";
-      return `${selectedMark}${this.selectors.formatTypeLabel(itemTypeId)}  (${availability})  ${this.selectors.formatCosts(recipe.costs)}`;
+      return `${selectedMark}${index + 1}. ${this.selectors.formatTypeLabel(itemTypeId)}  (${availability})  ${this.selectors.formatCosts(recipe.costs)}`;
     }).join("\n");
 
-    const nearbyLabels = buildings
-      .map(
-        (entity) =>
-          entity.label ?? entity.name ?? this.selectors.formatTypeLabel(entity.typeId),
-      )
-      .slice(0, 3)
-      .join(", ");
-
     const craftingHint =
-      nearbyLabels.length > 0
-        ? `Nearby structures: ${nearbyLabels}  Press Enter to craft ${this.selectors.formatTypeLabel(this.state.selectedBuild)}.`
-        : `Press Enter to craft ${this.selectors.formatTypeLabel(this.state.selectedBuild)}.`;
+      `Press 1-${CRAFTABLE_ITEM_TYPE_IDS.length} to switch selection. ` +
+      `Press Enter to craft ${this.selectors.formatTypeLabel(this.state.selectedCraft)}.`;
 
     this.craftingPanel.setContent(
       "Crafting",

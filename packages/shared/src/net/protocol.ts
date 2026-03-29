@@ -113,6 +113,10 @@ export type ServerToClientMessage =
   | WelcomeMessage
   | ErrorMessage;
 
+type ParseServerMessageOptions = {
+  validateSnapshots?: boolean;
+};
+
 /**
  * Parses raw JSON text and returns null instead of throwing on malformed input.
  * @param rawMessage Raw text received from a transport boundary.
@@ -151,10 +155,21 @@ export function parseClientToServerMessage(
  */
 export function parseServerToClientMessage(
   rawMessage: string,
+  { validateSnapshots = true }: ParseServerMessageOptions = {},
 ): ServerToClientMessage | null {
   const parsedJson = parseJson(rawMessage);
   if (!parsedJson) {
     return null;
+  }
+  if (
+    !validateSnapshots &&
+    typeof parsedJson === "object" &&
+    parsedJson !== null &&
+    "t" in parsedJson &&
+    parsedJson.t === "snapshot" &&
+    "snapshot" in parsedJson
+  ) {
+    return parsedJson as ServerToClientMessage;
   }
   const parsedMessage = ServerToClientMessageSchema.safeParse(parsedJson);
   return parsedMessage.success

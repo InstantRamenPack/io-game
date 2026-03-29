@@ -19,6 +19,12 @@ export class GameConfig {
     maxPlayers: 64,
     maxPacketBytes: 16 * 1024,
   };
+  replication = {
+    interestRadius: 640,
+  };
+  debug = {
+    spawnMultiplier: 1,
+  };
   interpolation = {
     snapDistance: 192,
   };
@@ -34,12 +40,28 @@ export class GameConfig {
     const spatialCellSize = Number(
       process.env.SPATIAL_CELL_SIZE ?? gameConfig.collision.spatialCellSize,
     );
+    const interestRadius = Number(
+      process.env.INTEREST_RADIUS ?? gameConfig.replication.interestRadius,
+    );
+    const debugSpawnMultiplier = Number(
+      process.env.DEBUG_SPAWN_MULTIPLIER ?? gameConfig.debug.spawnMultiplier,
+    );
 
     if (Number.isFinite(tickRate) && tickRate > 0) {
       gameConfig.tickRate = Math.floor(tickRate);
     }
     if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
       gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);
+    }
+    if (Number.isFinite(interestRadius) && interestRadius > 0) {
+      gameConfig.replication.interestRadius = Math.floor(interestRadius);
+    }
+    if (
+      Number.isFinite(debugSpawnMultiplier) &&
+      Number.isInteger(debugSpawnMultiplier) &&
+      debugSpawnMultiplier >= 0
+    ) {
+      gameConfig.debug.spawnMultiplier = debugSpawnMultiplier;
     }
 
     return gameConfig;

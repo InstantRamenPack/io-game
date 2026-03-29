@@ -32,6 +32,11 @@ export const InventorySnapshotSchema = z.object({
   activeWeaponIndex: z.number().int().nonnegative().nullable(),
 });
 
+export const ActiveEffectSnapshotSchema = z.object({
+  typeId: ResourceIdSchema,
+  ticksRemaining: z.number().int().positive(),
+});
+
 export const EntitySnapshotBaseSchema = z.object({
   id: z.number().int().nonnegative(),
   kind: z.enum(ENTITY_KINDS),
@@ -51,7 +56,7 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("player"),
   name: z.string(),
   inventory: InventorySnapshotSchema,
-  activeEffects: z.array(z.string()),
+  activeEffects: z.array(ActiveEffectSnapshotSchema),
   moveSpeed: z.number(),
 });
 
@@ -94,6 +99,7 @@ export type StackableCountSnapshot = z.infer<
 >;
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
 export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
+export type ActiveEffectSnapshot = z.infer<typeof ActiveEffectSnapshotSchema>;
 export type PlayerInventorySnapshot = InventorySnapshot;
 export type EntitySnapshotBase = z.infer<typeof EntitySnapshotBaseSchema>;
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;

@@ -23,6 +23,8 @@ export class WsClient {
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
+  private readonly validateSnapshotMessages =
+    (import.meta as { env?: { DEV?: boolean } }).env?.DEV ?? false;
 
   /**
    * Opens a WebSocket connection and registers protocol message handlers.
@@ -74,6 +76,7 @@ export class WsClient {
     socket.addEventListener("message", (messageEvent) => {
       const serverMessage = parseServerToClientMessage(
         String(messageEvent.data),
+        { validateSnapshots: this.validateSnapshotMessages },
       );
       if (!serverMessage) {
         return;

@@ -4,8 +4,11 @@
  */
 export class TickClock {
   private readonly intervalMs: number;
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private running = false;
+  private accumulatorMs = 0;
+  private lastFrameAtMs = 0;
+  private overloadCounter = 0;
 
   /**
    * Creates a timer that targets the configured tick rate.
@@ -25,7 +28,41 @@ export class TickClock {
     }
 
     this.running = true;
-    this.timer = setInterval(cb, this.intervalMs);
+    this.accumulatorMs = 0;
+    this.lastFrameAtMs = performance.now();
+
+    const pump = (): void => {
+      if (!this.running) {
+        return;
+      }
+
+      const now = performance.now();
+      this.accumulatorMs += now - this.lastFrameAtMs;
+      this.lastFrameAtMs = now;
+
+      let steps = 0;
+      while (this.accumulatorMs >= this.intervalMs && steps < 3) {
+        cb();
+        this.accumulatorMs -= this.intervalMs;
+        steps += 1;
+      }
+
+      if (this.accumulatorMs >= this.intervalMs) {
+        this.accumulatorMs %= this.intervalMs;
+        this.overloadCounter += 1;
+        if (this.overloadCounter % 30 === 0) {
+          // eslint-disable-next-line no-console
+          console.warn("tick_clock_overloaded");
+        }
+      }
+
+      this.timer = setTimeout(
+        pump,
+        Math.max(1, Math.floor(this.intervalMs / 2)),
+      );
+    };
+
+    this.timer = setTimeout(pump, this.intervalMs);
   }
 
   /**
@@ -34,7 +71,7 @@ export class TickClock {
   stop(): void {
     this.running = false;
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = undefined;
     }
   }

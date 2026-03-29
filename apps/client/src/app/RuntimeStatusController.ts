@@ -10,12 +10,11 @@ export type RuntimeStatusController = {
    */
   refresh(): void;
   /**
-   * Starts the periodic HUD refresh interval used while a game session is
-   * active.
+   * Performs any start-of-session HUD invalidation work.
    */
   start(): void;
   /**
-   * Stops the polling interval.
+   * Performs any shutdown cleanup.
    */
   stop(): void;
 };
@@ -25,33 +24,22 @@ type RuntimeStatusControllerOptions = {
 };
 
 /**
- * Creates the controller responsible for the short gameplay polling loop that
- * keeps the HUD current between snapshot-driven updates.
+ * Creates the compatibility wrapper for launch lifecycle hooks. HUD updates
+ * are event-driven elsewhere, so start/stop are now lightweight.
  */
 export function createRuntimeStatusController({
   hudController,
 }: RuntimeStatusControllerOptions): RuntimeStatusController {
-  let runtimeStatusTimer: number | undefined;
-
   function refresh(): void {
     hudController.refreshUi();
   }
 
   function start(): void {
     refresh();
-
-    if (runtimeStatusTimer !== undefined) {
-      window.clearInterval(runtimeStatusTimer);
-    }
-
-    runtimeStatusTimer = window.setInterval(refresh, 50);
   }
 
   function stop(): void {
-    if (runtimeStatusTimer !== undefined) {
-      window.clearInterval(runtimeStatusTimer);
-      runtimeStatusTimer = undefined;
-    }
+    // no-op: HUD invalidation is event-driven
   }
 
   return {

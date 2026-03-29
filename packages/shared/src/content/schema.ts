@@ -11,11 +11,13 @@ export const ENTITY_KINDS = [
 
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
+const ResourceIdSchema = z
+  .string()
+  .regex(RESOURCE_ID_PATTERN)
+  .transform((typeId) => typeId as ResourceId);
+
 export const ItemRequirementSchema = z.object({
-  typeId: z
-    .string()
-    .regex(RESOURCE_ID_PATTERN)
-    .transform((typeId) => typeId as ResourceId),
+  typeId: ResourceIdSchema,
   amount: z.number().int().positive(),
 });
 
@@ -28,6 +30,7 @@ export const ItemRecipeContentSchema = z.object({
 export const ItemContentSchema = z.object({
   label: z.string().min(1),
   recipe: ItemRecipeContentSchema.optional(),
+  buildsEntityTypeId: ResourceIdSchema.optional(),
 });
 
 export const EntityContentSchema = z.object({

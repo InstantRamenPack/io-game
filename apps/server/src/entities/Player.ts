@@ -25,7 +25,7 @@ export class Player extends Entity {
   public inventory: Inventory;
   public inputBuffer: InputCommand[] = [];
   public moveSpeed = 15;
-  public activeEffects = ["Fortified", "Well Fed"];
+  public activeEffects: Array<{ typeId: ResourceId; ticksRemaining: number }> = [];
 
   public constructor(id: number, name = "player") {
     super(id, { maxHp: 100 });
@@ -44,6 +44,7 @@ export class Player extends Entity {
 
   public override tick(world: World): void {
     super.tick(world);
+    this.tickActiveEffects();
     for (const weapon of this.inventory.weapons) {
       weapon.tick(world);
     }
@@ -57,7 +58,7 @@ export class Player extends Entity {
       kind: "player",
       name: this.name,
       inventory: this.inventory.toSnapshot(),
-      activeEffects: [...this.activeEffects],
+      activeEffects: this.activeEffects.map((effect) => ({ ...effect })),
       moveSpeed: this.moveSpeed,
     };
   }
@@ -115,6 +116,25 @@ export class Player extends Entity {
     return this.inventory.getActiveWeapon();
   }
 
+  private tickActiveEffects(): void {
+    if (this.activeEffects.length === 0) {
+      return;
+    }
+
+    this.activeEffects = this.activeEffects.flatMap((effect) => {
+      if (effect.ticksRemaining <= 1) {
+        return [];
+      }
+
+      return [
+        {
+          typeId: effect.typeId,
+          ticksRemaining: effect.ticksRemaining - 1,
+        },
+      ];
+    });
+  }
+
   public override handleDeath(world: World): void {
     this.hp = this.maxHp;
     this.x = world.gameConfig.worldSize.w / 2;
@@ -151,7 +171,8 @@ export class Player extends Entity {
     targetY: number,
   ): void {
     const itemEntry = itemTypeRegistry.get(itemTypeId);
-    if (!itemEntry?.buildingTypeId) {
+    const buildingTypeId = itemEntry?.content.buildsEntityTypeId;
+    if (!buildingTypeId) {
       return;
     }
 
@@ -159,7 +180,7 @@ export class Player extends Entity {
       return;
     }
 
-    const buildingEntry = entityTypeRegistry.get(itemEntry.buildingTypeId);
+    const buildingEntry = entityTypeRegistry.get(buildingTypeId);
     if (!buildingEntry) {
       return;
     }

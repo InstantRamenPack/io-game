@@ -1,7 +1,8 @@
 {
   "label": "Crafting Station Item",
+  "buildsEntityTypeId": "building:crafting_station",
   "recipe": {
-    "hint": "Unlocks deeper crafting near base center.",
+    "hint": "Adds a core utility structure to your base.",
     "outputAmount": 1,
     "costs": [
       { "typeId": "item:wood", "amount": 30 },

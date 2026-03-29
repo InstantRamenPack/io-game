@@ -7,6 +7,8 @@ export class Inventory {
   public stackables = new Map<ResourceId, number>();
   public weapons: Weapon[] = [];
   public activeWeaponIndex: number | null = null;
+  private cachedStackableSnapshot?: InventorySnapshot["stackables"];
+  private stackablesDirty = true;
 
   public addStackable(typeId: ResourceId, amount: number): void {
     if (amount <= 0) {
@@ -14,6 +16,7 @@ export class Inventory {
     }
 
     this.stackables.set(typeId, this.getStackableCount(typeId) + amount);
+    this.stackablesDirty = true;
   }
 
   public getStackableCount(typeId: ResourceId): number {
@@ -81,6 +84,7 @@ export class Inventory {
         } else {
           this.stackables.delete(requirement.typeId);
         }
+        this.stackablesDirty = true;
         remaining -= consumedStackableCount;
       }
 
@@ -100,11 +104,7 @@ export class Inventory {
 
   public toSnapshot(): InventorySnapshot {
     return {
-      stackables: [...this.stackables.entries()]
-        .sort(([leftTypeId], [rightTypeId]) =>
-          leftTypeId.localeCompare(rightTypeId),
-        )
-        .map(([typeId, amount]) => ({ typeId, amount })),
+      stackables: this.getStackableSnapshot(),
       weapons: this.weapons.map((weapon) => weapon.toSnapshot()),
       activeWeaponIndex: this.activeWeaponIndex,
     };
@@ -136,5 +136,18 @@ export class Inventory {
         this.weapons.length - 1,
       );
     }
+  }
+
+  private getStackableSnapshot(): InventorySnapshot["stackables"] {
+    if (!this.cachedStackableSnapshot || this.stackablesDirty) {
+      this.cachedStackableSnapshot = [...this.stackables.entries()]
+        .sort(([leftTypeId], [rightTypeId]) =>
+          leftTypeId.localeCompare(rightTypeId),
+        )
+        .map(([typeId, amount]) => ({ typeId, amount }));
+      this.stackablesDirty = false;
+    }
+
+    return this.cachedStackableSnapshot;
   }
 }

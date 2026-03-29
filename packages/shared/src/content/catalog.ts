@@ -30,6 +30,12 @@ export const CRAFTABLE_ITEM_TYPE_IDS = Object.freeze(
     .map(([typeId]) => typeId),
 );
 
+export const BUILDABLE_ITEM_TYPE_IDS = Object.freeze(
+  [...itemContents.entries()]
+    .filter(([, itemContent]) => itemContent.buildsEntityTypeId !== undefined)
+    .map(([typeId]) => typeId),
+);
+
 export function getItemContent(typeId: ResourceId): ItemContent | undefined {
   return itemContents.get(typeId);
 }
@@ -68,6 +74,10 @@ export function requireEffectContent(typeId: ResourceId): EffectContent {
 
 export function getCraftableItemTypeIds(): readonly ResourceId[] {
   return CRAFTABLE_ITEM_TYPE_IDS;
+}
+
+export function getBuildableItemTypeIds(): readonly ResourceId[] {
+  return BUILDABLE_ITEM_TYPE_IDS;
 }
 
 export function getResourceDisplayLabel(typeId: string): string {

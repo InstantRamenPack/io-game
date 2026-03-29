@@ -54,6 +54,7 @@ export abstract class Entity {
   public maxHp: number;
   public ownerId?: number;
   private readonly compositeHitbox = new CompositeHitbox();
+  private snapshotHitboxesCache?: HitboxRect[];
 
   /**
    * Initializes common identity fields for entity subclasses.
@@ -97,7 +98,7 @@ export abstract class Entity {
       vx: this.vx,
       vy: this.vy,
       rotation: this.rotation,
-      hitboxes: this.hitboxes.map((rect) => ({ ...rect })),
+      hitboxes: this.getSnapshotHitboxes(),
       hp: this.hp,
       maxHp: this.maxHp,
       ownerId: this.ownerId,
@@ -129,6 +130,7 @@ export abstract class Entity {
 
   public setHitboxProfile(profileName: string): void {
     this.compositeHitbox.setActiveProfile(profileName);
+    this.snapshotHitboxesCache = undefined;
   }
 
   public setHitboxProfileRects(
@@ -136,6 +138,7 @@ export abstract class Entity {
     rects: readonly HitboxRect[],
   ): void {
     this.compositeHitbox.setProfileRects(profileName, rects);
+    this.snapshotHitboxesCache = undefined;
   }
 
   protected setHitboxProfiles(
@@ -143,6 +146,7 @@ export abstract class Entity {
     activeProfileName = "default",
   ): void {
     this.compositeHitbox.replaceProfiles(profiles, activeProfileName);
+    this.snapshotHitboxesCache = undefined;
   }
 
   /**
@@ -199,5 +203,12 @@ export abstract class Entity {
 
   public afterMovement(_world: World): void {
     // default no-op for entities without post-move behavior
+  }
+
+  private getSnapshotHitboxes(): HitboxRect[] {
+    if (!this.snapshotHitboxesCache) {
+      this.snapshotHitboxesCache = this.hitboxes.map((rect) => ({ ...rect }));
+    }
+    return this.snapshotHitboxesCache;
   }
 }

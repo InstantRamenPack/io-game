@@ -29,10 +29,10 @@ export type HudController = {
    */
   toggleCraftingMenu(): void;
   /**
-   * Updates the selected build item from a one-based hotkey ordinal.
-   * Returns `true` when a matching craftable item existed and was selected.
+   * Updates the active menu selection from a one-based hotkey ordinal.
+   * Returns `true` when a matching item existed and was selected.
    */
-  selectBuildByOrdinal(ordinal: number): boolean;
+  selectMenuItemByOrdinal(ordinal: number): boolean;
   /**
    * Queues a craft request for the currently selected item.
    */

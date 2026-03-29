@@ -59,6 +59,7 @@ export function installDebugBridge({
         buildingMenuOpen: hudState.buildMenuOpen,
         craftingMenuOpen: hudState.craftingMenuOpen,
         selectedBuild: hudState.selectedBuild,
+        selectedCraft: hudState.selectedCraft,
       },
       buildings: worldEntities
         .filter((entity) => getResourceNamespace(entity.typeId) === "building")
