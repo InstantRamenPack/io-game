@@ -73,6 +73,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   public sync(entity: ClientEntity): void {
     this.entityContainer.position.set(entity.x, entity.y);
     this.entityContainer.rotation = entity.rotation;
+    this.healthBarContainer.rotation = -entity.rotation;
 
     if (this.hitboxContainer) {
       this.hitboxContainer.position.set(entity.x, entity.y);

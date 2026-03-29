@@ -20,6 +20,11 @@ export class PixiRenderer {
   private damageOverlayRemainingMs = 0;
   private damageOverlayDurationMs = 200;
   private gridCellSize = 100;
+  private gridNightBlend = 0;
+  private readonly gridDayFillColor = 0xd7f3d2;
+  private readonly gridNightFillColor = 0x3f5f46;
+  private readonly gridDayLineColor = 0x2d4f37;
+  private readonly gridNightLineColor = 0x9fd69a;
   private worldSize: WorldSize;
   private hostElement: HTMLElement | null = null;
 
@@ -128,6 +133,15 @@ export class PixiRenderer {
     this.renderScene();
   }
 
+  public setGridNightBlend(blend: number): void {
+    const nextBlend = Math.max(0, Math.min(1, blend));
+    if (this.gridNightBlend === nextBlend) {
+      return;
+    }
+    this.gridNightBlend = nextBlend;
+    this.drawGrid();
+  }
+
   public setCameraToPlayer(x: number, y: number): void {
     if (!this.world) {
       throw new Error("World container not initialized.");
@@ -198,9 +212,26 @@ export class PixiRenderer {
 
     const { w, h } = this.worldSize;
     const cell = Math.max(10, Math.floor(this.gridCellSize));
+    const fillColor = this.lerpColor(
+      this.gridDayFillColor,
+      this.gridNightFillColor,
+      this.gridNightBlend,
+    );
+    const lineColor = this.lerpColor(
+      this.gridDayLineColor,
+      this.gridNightLineColor,
+      this.applyContrastLag(this.gridNightBlend),
+    );
 
     this.grid.clear();
-    this.grid.lineStyle(1, 0x9fd69a, 0.4);
+    this.grid.beginFill(fillColor, 1);
+    this.grid.drawRect(0, 0, w, h);
+    this.grid.endFill();
+    const lineVisibility = Math.min(
+      1,
+      Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
+    );
+    this.grid.lineStyle(1, lineColor, 0.4 * lineVisibility);
     this.grid.position.set(0, 0);
 
     for (let x = 0; x <= w; x += cell) {
@@ -261,6 +292,28 @@ export class PixiRenderer {
         : (this.damageOverlayRemainingMs / this.damageOverlayDurationMs) * 0.28;
     this.damageOverlay.alpha = alpha;
     this.damageOverlay.visible = alpha > 0.001;
+  }
+
+  private lerpColor(start: number, end: number, t: number): number {
+    const clamped = Math.max(0, Math.min(1, t));
+    const startR = (start >> 16) & 0xff;
+    const startG = (start >> 8) & 0xff;
+    const startB = start & 0xff;
+    const endR = (end >> 16) & 0xff;
+    const endG = (end >> 8) & 0xff;
+    const endB = end & 0xff;
+    const r = Math.round(startR + (endR - startR) * clamped);
+    const g = Math.round(startG + (endG - startG) * clamped);
+    const b = Math.round(startB + (endB - startB) * clamped);
+    return (r << 16) | (g << 8) | b;
+  }
+
+  private applyContrastLag(blend: number): number {
+    const lag = 0.12;
+    if (blend >= 0.5) {
+      return Math.min(1, blend + lag);
+    }
+    return Math.max(0, blend - lag);
   }
 }
 

@@ -8,7 +8,11 @@ import {
   getResourceNamespace,
   type ResourceId,
 } from "@shared/ids/ResourceId.ts";
-import type { InventorySnapshot, WeaponSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  DayNightSnapshot,
+  InventorySnapshot,
+  WeaponSnapshot,
+} from "@shared/net/snapshots.ts";
 
 export type GameSelectors = {
   getTypePath(typeId: string): string;
@@ -23,6 +27,7 @@ export type GameSelectors = {
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
   getActiveEffectLabels(): string[];
+  getDayNight(): DayNightSnapshot | undefined;
 };
 
 export function createGameSelectors(gameClient: GameClient): GameSelectors {
@@ -124,5 +129,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     hasRecipeResources,
     formatCosts,
     getActiveEffectLabels,
+    getDayNight: () => gameClient.worldState?.clientWorld?.dayNight,
   };
 }

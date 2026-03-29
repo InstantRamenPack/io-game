@@ -1,8 +1,16 @@
 import {
   type AxisSeparation,
   getResolvedRectSetSeparation,
+  getSweptResolvedRectSetIntersectionTime,
 } from "@shared/geometry/collision.ts";
+import {
+  offsetHitboxBounds,
+  resolveHitboxRects,
+} from "@shared/geometry/hitbox.ts";
+import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { Building } from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { Projectile } from "@server/entities/Projectile.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -50,6 +58,8 @@ export class CollisionSystem implements System {
     for (const entity of collidableEntities) {
       this.resolveWorldBounds(entity, world);
     }
+
+    this.resolveProjectileBuildingCollisions(world);
   }
 
   /**
@@ -230,5 +240,91 @@ export class CollisionSystem implements System {
       x: (normal.x * -1) as -1 | 0 | 1,
       y: (normal.y * -1) as -1 | 0 | 1,
     };
+  }
+
+  /**
+   * Despawns projectiles that collide with buildings before hitting an attackable target.
+   * This keeps bullets from damaging buildings while still blocking their path.
+   * @param world Authoritative world being simulated.
+   */
+  private resolveProjectileBuildingCollisions(world: World): void {
+    const projectiles = world.entities
+      .all()
+      .filter((entity): entity is Projectile => entity instanceof Projectile);
+
+    for (const projectile of projectiles) {
+      if (!projectile.alive) {
+        continue;
+      }
+
+      const deltaX = projectile.x - projectile.previousX;
+      const deltaY = projectile.y - projectile.previousY;
+      const previousBounds = offsetHitboxBounds(
+        projectile.getHitboxBounds(),
+        projectile.previousX,
+        projectile.previousY,
+      );
+      const currentBounds = projectile.getWorldBounds();
+      const minX = Math.min(previousBounds.minX, currentBounds.minX);
+      const minY = Math.min(previousBounds.minY, currentBounds.minY);
+      const maxX = Math.max(previousBounds.maxX, currentBounds.maxX);
+      const maxY = Math.max(previousBounds.maxY, currentBounds.maxY);
+      const candidates = world.spatial.queryBox(minX, minY, maxX, maxY);
+      const movingHitboxes = resolveHitboxRects(
+        projectile.previousX,
+        projectile.previousY,
+        projectile.hitboxes,
+      );
+
+      let nearestAttackableHitTime: number | null = null;
+      let nearestBuildingHitTime: number | null = null;
+
+      for (const candidate of candidates) {
+        if (candidate.id === projectile.id || !candidate.alive) {
+          continue;
+        }
+
+        const targetHitboxes = candidate.getWorldHitboxes();
+        const hitTime = getSweptResolvedRectSetIntersectionTime(
+          movingHitboxes,
+          deltaX,
+          deltaY,
+          targetHitboxes,
+        );
+        if (hitTime === null) {
+          continue;
+        }
+
+        if (candidate instanceof Building) {
+          if (
+            nearestBuildingHitTime === null ||
+            hitTime < nearestBuildingHitTime
+          ) {
+            nearestBuildingHitTime = hitTime;
+          }
+          continue;
+        }
+
+        if (!canAttackTarget(world, projectile, candidate)) {
+          continue;
+        }
+
+        if (
+          nearestAttackableHitTime === null ||
+          hitTime < nearestAttackableHitTime
+        ) {
+          nearestAttackableHitTime = hitTime;
+        }
+      }
+
+      if (
+        nearestBuildingHitTime !== null &&
+        (nearestAttackableHitTime === null ||
+          nearestBuildingHitTime <= nearestAttackableHitTime)
+      ) {
+        projectile.alive = false;
+        world.despawn(projectile.id);
+      }
+    }
   }
 }
