@@ -200,12 +200,7 @@ import { Building } from "@server/entities/Building.ts";
 export class Forge extends Building {
   public static override readonly resourceName = "forge";
 
-  public constructor(
-    id: number,
-    label: string,
-    tier = 1,
-    ownerId?: number,
-  ) {
+  public constructor(id: number, label: string, tier = 1, ownerId?: number) {
     super(id, label, tier, ownerId, {
       baseHp: 240,
       radius: 24,
@@ -360,7 +355,7 @@ goals: [
   new TargetEntityGoal<Enemy>(0, Player, 480),
   new GoToTargetGoal<Enemy>(1, 20),
   new AttackAtGoal<Enemy>(2, 0),
-]
+];
 ```
 
 ## Common Mistakes

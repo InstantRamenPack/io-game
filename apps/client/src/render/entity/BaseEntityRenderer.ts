@@ -23,7 +23,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   private lastVisualVersion = -1;
   private lastHealthVersion = -1;
 
-  public constructor(
+  constructor(
     protected readonly pixiRenderer: PixiRenderer,
     {
       debugHitbox = false,
@@ -182,7 +182,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     const width = Math.max(20, entity.hitboxBounds.width);
     const height = 5;
-    const ratio = Math.max(0, Math.min(1, entity.hp / Math.max(1, entity.maxHp)));
+    const ratio = Math.max(
+      0,
+      Math.min(1, entity.hp / Math.max(1, entity.maxHp)),
+    );
     const left = entity.hitboxBounds.centerX - width / 2;
     const top = entity.hitboxBounds.minY - 12;
 
@@ -193,7 +196,13 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     this.healthBarFillGraphic.clear();
     this.healthBarFillGraphic.beginFill(0x57d34d, 0.95);
-    this.healthBarFillGraphic.drawRoundedRect(left, top, width * ratio, height, 3);
+    this.healthBarFillGraphic.drawRoundedRect(
+      left,
+      top,
+      width * ratio,
+      height,
+      3,
+    );
     this.healthBarFillGraphic.endFill();
   }
 

@@ -3,10 +3,7 @@ import type { EntityRendererOptions } from "@client/render/entity/EntityRenderer
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
 export class PickupRenderer extends CircleEntityRenderer {
-  public constructor(
-    pixiRenderer: PixiRenderer,
-    options: EntityRendererOptions = {},
-  ) {
+  constructor(pixiRenderer: PixiRenderer, options: EntityRendererOptions = {}) {
     super(pixiRenderer, 0xd6e5d2, options);
   }
 }

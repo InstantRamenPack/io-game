@@ -86,7 +86,7 @@ export class GameServer {
   /**
    * Starts the fixed-tick server clock.
    */
-  start(): void {
+  public start(): void {
     if (!this.initialEnemiesSpawned) {
       this.spawnInitialEnemies();
       this.initialEnemiesSpawned = true;
@@ -101,14 +101,14 @@ export class GameServer {
   /**
    * Stops the fixed-tick server clock.
    */
-  stop(): void {
+  public stop(): void {
     this.clock.stop();
   }
 
   /**
    * Processes one fixed server tick and broadcasts a snapshot after it completes.
    */
-  tick(): void {
+  public tick(): void {
     this.world.step();
     const drainedEvents = this.world.events.toArray();
     this.world.events.clear();
@@ -140,7 +140,7 @@ export class GameServer {
    * @param clientId Connected client id.
    * @param inputCommand Parsed input command from that client.
    */
-  handleInput(clientId: string, inputCommand: InputCommand): void {
+  public handleInput(clientId: string, inputCommand: InputCommand): void {
     const playerId = this.playerIdByClientId.get(clientId);
     if (!playerId) {
       return;
@@ -184,7 +184,7 @@ export class GameServer {
    * @param requestedPlayerName Optional requested display name from the hello handshake.
    * @returns Allocated player entity id.
    */
-  onConnect(clientId: string, requestedPlayerName?: string): number {
+  public onConnect(clientId: string, requestedPlayerName?: string): number {
     const existingPlayerId = this.playerIdByClientId.get(clientId);
     if (existingPlayerId) {
       return existingPlayerId;
@@ -220,7 +220,7 @@ export class GameServer {
    * Cleans up runtime state for a disconnected client.
    * @param clientId Disconnected client id.
    */
-  onDisconnect(clientId: string): void {
+  public onDisconnect(clientId: string): void {
     this.clientStateById.delete(clientId);
     this.lastInputSequenceByClientId.delete(clientId);
     this.lastInputTickByClientId.delete(clientId);

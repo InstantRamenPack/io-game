@@ -73,19 +73,19 @@ export class AuthController {
   private googleButtonRendered = false;
   private metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
 
-  onChange(listener: AuthListener): void {
+  public onChange(listener: AuthListener): void {
     this.listeners.push(listener);
   }
 
-  getState(): Readonly<AuthState> {
+  public getState(): Readonly<AuthState> {
     return this.state;
   }
 
-  hasVerifiedAccount(): boolean {
+  public hasVerifiedAccount(): boolean {
     return this.state.authMode === "google";
   }
 
-  canRenderGoogleButton(): boolean {
+  public canRenderGoogleButton(): boolean {
     return (
       this.state.authMode !== "google" &&
       this.state.initialized &&
@@ -95,7 +95,7 @@ export class AuthController {
     );
   }
 
-  async initialize(
+  public async initialize(
     onRuntimeConfig: (runtimeConfig: ClientRuntimeConfig) => void,
   ): Promise<void> {
     let response: Response;
@@ -176,7 +176,7 @@ export class AuthController {
     this.emit();
   }
 
-  activateGuest(): void {
+  public activateGuest(): void {
     this.state.authMode = "guest";
     this.state.googleIdToken = null;
     this.state.googleEmail = null;
@@ -186,11 +186,11 @@ export class AuthController {
     this.emit();
   }
 
-  promptGoogleSignIn(): void {
+  public promptGoogleSignIn(): void {
     this.getGoogleIdApi()?.prompt();
   }
 
-  renderGoogleButton(parent: HTMLElement): void {
+  public renderGoogleButton(parent: HTMLElement): void {
     if (this.googleButtonRendered || this.hasVerifiedAccount()) {
       return;
     }
@@ -212,7 +212,7 @@ export class AuthController {
     this.googleButtonRendered = true;
   }
 
-  handleNetworkError(message: string): boolean {
+  public handleNetworkError(message: string): boolean {
     if (message !== "auth_invalid" && message !== "auth_not_configured") {
       return false;
     }
@@ -233,7 +233,7 @@ export class AuthController {
     return true;
   }
 
-  getLaunchToken(): string | undefined {
+  public getLaunchToken(): string | undefined {
     if (this.state.authMode !== "google") {
       return undefined;
     }

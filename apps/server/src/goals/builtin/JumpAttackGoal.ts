@@ -63,7 +63,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.aoeRadius = aoeRadius;
   }
 
-  override canStart(ctx: GoalContext<TSelf>): boolean {
+  public override canStart(ctx: GoalContext<TSelf>): boolean {
     if (this.phase !== null) {
       return false;
     }
@@ -73,7 +73,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     return this.resolveTargetInRange(ctx) !== null;
   }
 
-  override start(ctx: GoalContext<TSelf>): void {
+  public override start(ctx: GoalContext<TSelf>): void {
     this.phase = "windup";
     this.phaseTick = 0;
     ctx.self.setMovementVelocity(0, 0);
@@ -83,7 +83,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.jumpTargetY = target?.y ?? ctx.self.y;
   }
 
-  override tick(ctx: GoalContext<TSelf>): void {
+  public override tick(ctx: GoalContext<TSelf>): void {
     switch (this.phase) {
       case "windup":
         this.tickWindup(ctx);
@@ -98,11 +98,11 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.phaseTick++;
   }
 
-  override shouldContinue(_ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(_ctx: GoalContext<TSelf>): boolean {
     return this.phase !== null;
   }
 
-  override stop(ctx: GoalContext<TSelf>): void {
+  public override stop(ctx: GoalContext<TSelf>): void {
     this.phase = null;
     this.phaseTick = 0;
     ctx.self.setHitboxProfile(this.baseProfileName);

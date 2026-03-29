@@ -8,7 +8,7 @@ import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 export class StabMeleeWeapon extends MeleeWeapon {
   public stabWidth: number;
 
-  public constructor(
+  constructor(
     fireRate: number,
     range: number,
     hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],

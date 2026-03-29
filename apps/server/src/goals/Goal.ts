@@ -10,8 +10,8 @@ export type GoalControl = "move" | "look" | "attack" | "target";
 export abstract class Goal<
   TSelf extends GoalControlledEntity = GoalControlledEntity,
 > {
-  readonly priority: number;
-  readonly controls: readonly GoalControl[];
+  public readonly priority: number;
+  public readonly controls: readonly GoalControl[];
 
   /**
    * Creates a new goal with a deterministic priority and control claim set.
@@ -27,29 +27,29 @@ export abstract class Goal<
    * Returns whether the goal can begin from an inactive state.
    * @param ctx Runtime goal context for the acting goal-controlled entity.
    */
-  abstract canStart(ctx: GoalContext<TSelf>): boolean;
+  public abstract canStart(ctx: GoalContext<TSelf>): boolean;
 
   /**
    * Performs one-time initialization when the goal becomes active.
    * @param ctx Runtime goal context for the acting goal-controlled entity.
    */
-  abstract start(ctx: GoalContext<TSelf>): void;
+  public abstract start(ctx: GoalContext<TSelf>): void;
 
   /**
    * Runs the active goal for one server tick.
    * @param ctx Runtime goal context for the acting goal-controlled entity.
    */
-  abstract tick(ctx: GoalContext<TSelf>): void;
+  public abstract tick(ctx: GoalContext<TSelf>): void;
 
   /**
    * Returns whether the goal should remain active on this tick.
    * @param ctx Runtime goal context for the acting goal-controlled entity.
    */
-  abstract shouldContinue(ctx: GoalContext<TSelf>): boolean;
+  public abstract shouldContinue(ctx: GoalContext<TSelf>): boolean;
 
   /**
    * Performs cleanup when the goal is deactivated.
    * @param ctx Runtime goal context for the acting goal-controlled entity.
    */
-  abstract stop(ctx: GoalContext<TSelf>): void;
+  public abstract stop(ctx: GoalContext<TSelf>): void;
 }

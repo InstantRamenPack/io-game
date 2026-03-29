@@ -21,11 +21,11 @@ export class GoToTargetGoal<
     super(priority, (ctx) => this.resolveDestination(ctx), arrivalRadius);
   }
 
-  override canStart(ctx: GoalContext<TSelf>): boolean {
+  public override canStart(ctx: GoalContext<TSelf>): boolean {
     return this.resolveTarget(ctx) !== null && super.canStart(ctx);
   }
 
-  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     return this.resolveTarget(ctx) !== null && super.shouldContinue(ctx);
   }
 

@@ -3,42 +3,42 @@
  * Keeps cadence, world, networking, and protocol settings together.
  */
 export class GameConfig {
-  static readonly DEFAULT_TICK_RATE = 20;
-  static readonly DEFAULT_PROTOCOL_VERSION = 1;
-  static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
+  public static readonly DEFAULT_TICK_RATE = 20;
+  public static readonly DEFAULT_PROTOCOL_VERSION = 1;
+  public static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
-  tickRate = GameConfig.DEFAULT_TICK_RATE;
-  worldSize = {
+  public tickRate = GameConfig.DEFAULT_TICK_RATE;
+  public worldSize = {
     w: 3000,
     h: 3000,
   };
-  collision = {
+  public collision = {
     spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE,
   };
-  network = {
+  public network = {
     maxPlayers: 64,
     maxPacketBytes: 16 * 1024,
   };
-  replication = {
+  public replication = {
     interestRadius: 640,
   };
-  debug = {
+  public debug = {
     spawnMultiplier: 1,
   };
-  interpolation = {
+  public interpolation = {
     snapDistance: 192,
   };
-  dayNight = {
+  public dayNight = {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
   };
-  protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
+  public protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
 
   /**
    * Creates a config instance and applies environment overrides for the core numeric settings.
    * @returns Loaded runtime configuration.
    */
-  static load(): GameConfig {
+  public static load(): GameConfig {
     const gameConfig = new GameConfig();
     const tickRate = Number(process.env.TICK_RATE ?? gameConfig.tickRate);
     const spatialCellSize = Number(

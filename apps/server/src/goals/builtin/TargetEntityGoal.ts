@@ -30,23 +30,23 @@ export class TargetEntityGoal<
     this.aggroRange = aggroRange;
   }
 
-  override canStart(_ctx: GoalContext<TSelf>): boolean {
+  public override canStart(_ctx: GoalContext<TSelf>): boolean {
     return this.resolveTargetCandidate(_ctx) !== null;
   }
 
-  override start(_ctx: GoalContext<TSelf>): void {
+  public override start(_ctx: GoalContext<TSelf>): void {
     // no-op for continuous targeting
   }
 
-  override tick(ctx: GoalContext<TSelf>): void {
+  public override tick(ctx: GoalContext<TSelf>): void {
     ctx.self.targetId = this.resolveTargetCandidate(ctx)?.id;
   }
 
-  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     return this.resolveTargetCandidate(ctx) !== null;
   }
 
-  override stop(_ctx: GoalContext<TSelf>): void {
+  public override stop(_ctx: GoalContext<TSelf>): void {
     // no-op for continuous targeting
   }
 

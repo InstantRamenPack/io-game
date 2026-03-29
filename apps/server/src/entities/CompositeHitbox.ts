@@ -20,7 +20,7 @@ export class CompositeHitbox {
   private readonly profiles = new Map<string, CachedHitboxProfile>();
   private activeProfileName = "default";
 
-  public constructor(profiles?: HitboxProfiles, activeProfileName = "default") {
+  constructor(profiles?: HitboxProfiles, activeProfileName = "default") {
     if (profiles) {
       this.replaceProfiles(profiles, activeProfileName);
     }

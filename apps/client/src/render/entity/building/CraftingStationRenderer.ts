@@ -1,6 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
-import * as PIXI from "pixijs";
+import type * as PIXI from "pixijs";
 
 export class CraftingStationRenderer extends BaseEntityRenderer {
   protected drawEntityShape(

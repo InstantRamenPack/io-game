@@ -2,10 +2,10 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
 import type { EntityRendererOptions } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import * as PIXI from "pixijs";
+import type * as PIXI from "pixijs";
 
 export class CircleEntityRenderer extends BaseEntityRenderer {
-  public constructor(
+  constructor(
     pixiRenderer: PixiRenderer,
     private readonly fillColor: number,
     options: EntityRendererOptions = {},

@@ -87,7 +87,7 @@ export class GameClient {
     this.inputManager.stopHoldFire();
   };
 
-  public constructor(
+  constructor(
     gameConfig: GameConfig,
     options: { debugHitbox?: boolean; debugInterpolationMode?: number } = {},
   ) {
@@ -178,7 +178,11 @@ export class GameClient {
     this.inputManager.queueCraft(itemTypeId);
   }
 
-  public queueBuildPlacement(itemTypeId: ResourceId, x: number, y: number): void {
+  public queueBuildPlacement(
+    itemTypeId: ResourceId,
+    x: number,
+    y: number,
+  ): void {
     this.inputManager.queueBuild(itemTypeId, x, y);
   }
 
@@ -216,9 +220,7 @@ export class GameClient {
 
   public onSnapshot(snapshot: WorldSnapshot): void {
     this.worldState?.pushSnapshot(snapshot);
-    this.renderer.setGridNightBlend(
-      this.computeNightBlend(snapshot.dayNight),
-    );
+    this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.recordTickSample(snapshot.tick, performance.now());
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
       worldUpdatedHandler();
@@ -260,7 +262,9 @@ export class GameClient {
         ? (inventory.weapons[activeWeaponIndex] ?? null)
         : null;
     const ammoInMag =
-      typeof activeWeapon?.ammoInMag === "number" ? activeWeapon.ammoInMag : null;
+      typeof activeWeapon?.ammoInMag === "number"
+        ? activeWeapon.ammoInMag
+        : null;
     const magSize =
       typeof activeWeapon?.magSize === "number" ? activeWeapon.magSize : null;
     const reloadTicksRemaining =
@@ -468,7 +472,10 @@ export class GameClient {
       return dayNight.phase === "night" ? 1 : 0;
     }
 
-    const elapsed = Math.max(0, Math.min(dayNight.phaseElapsedMs, phaseDuration));
+    const elapsed = Math.max(
+      0,
+      Math.min(dayNight.phaseElapsedMs, phaseDuration),
+    );
     const transitionMs = Math.max(
       1000,
       Math.min(15000, Math.floor(phaseDuration * 0.2)),

@@ -17,7 +17,7 @@ export class Building extends GoalControlledEntity {
   public readonly label: string;
   public tier: number;
 
-  public constructor(
+  constructor(
     id: number,
     label: string,
     tier: number,

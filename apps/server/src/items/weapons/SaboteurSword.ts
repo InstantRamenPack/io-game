@@ -18,11 +18,15 @@ export class SaboteurSword extends SweepMeleeWeapon {
   private readonly playerDamageEffect = new DamageEffect(PLAYER_DAMAGE);
   private readonly knockbackEffect = new KnockbackEffect();
 
-  public constructor() {
+  constructor() {
     super(1, 10, [], 10, 110);
   }
 
-  protected override applyHitEffects(world: World, owner: Entity, target: Entity): void {
+  protected override applyHitEffects(
+    world: World,
+    owner: Entity,
+    target: Entity,
+  ): void {
     const damageEffect =
       target instanceof Building
         ? this.buildingDamageEffect

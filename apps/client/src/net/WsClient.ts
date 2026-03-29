@@ -16,7 +16,7 @@ export type ConnectOptions = {
  * Wraps a browser socket with the shared message parsing helpers.
  */
 export class WsClient {
-  socket?: WebSocket;
+  public socket?: WebSocket;
 
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
   private welcomeHandlers: Array<(entityId: number) => void> = [];
@@ -31,7 +31,7 @@ export class WsClient {
    * @param url WebSocket endpoint to connect to.
    * @param options Optional hello-handshake fields sent once the socket opens.
    */
-  connect(
+  public connect(
     url: string,
     {
       googleIdToken,
@@ -108,7 +108,7 @@ export class WsClient {
    * Sends a validated input command to the server.
    * @param inputCommand Serialized input payload for the current tick.
    */
-  sendInput(inputCommand: InputCommand): void {
+  public sendInput(inputCommand: InputCommand): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -119,7 +119,7 @@ export class WsClient {
    * Registers a callback for incoming snapshot messages.
    * @param snapshotHandler Callback invoked for each snapshot payload.
    */
-  onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
+  public onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
     this.snapshotHandlers.push(snapshotHandler);
   }
 
@@ -127,7 +127,7 @@ export class WsClient {
    * Registers a callback for welcome messages that carry the player entity id.
    * @param welcomeHandler Callback invoked with the assigned entity id.
    */
-  onWelcome(welcomeHandler: (entityId: number) => void): void {
+  public onWelcome(welcomeHandler: (entityId: number) => void): void {
     this.welcomeHandlers.push(welcomeHandler);
   }
 
@@ -135,7 +135,7 @@ export class WsClient {
    * Registers a callback for socket open events.
    * @param openHandler Callback invoked once the socket opens.
    */
-  onOpen(openHandler: () => void): void {
+  public onOpen(openHandler: () => void): void {
     this.openHandlers.push(openHandler);
   }
 
@@ -143,12 +143,12 @@ export class WsClient {
    * Registers a callback for socket close events.
    * @param closeHandler Callback invoked when the socket closes.
    */
-  onClose(closeHandler: () => void): void {
+  public onClose(closeHandler: () => void): void {
     this.closeHandlers.push(closeHandler);
   }
 
   /** Registers a callback for server error protocol messages. */
-  onError(errorHandler: (message: string) => void): void {
+  public onError(errorHandler: (message: string) => void): void {
     this.errorHandlers.push(errorHandler);
   }
 
@@ -156,7 +156,7 @@ export class WsClient {
    * Closes the current socket connection, if any.
    * @param reason Optional close reason passed through to the socket.
    */
-  disconnect(reason?: string): void {
+  public disconnect(reason?: string): void {
     if (!this.socket) {
       return;
     }

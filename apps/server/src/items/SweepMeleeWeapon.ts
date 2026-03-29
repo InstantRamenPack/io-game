@@ -8,7 +8,7 @@ import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 export class SweepMeleeWeapon extends MeleeWeapon {
   public sweepArcDegrees: number;
 
-  public constructor(
+  constructor(
     fireRate: number,
     range: number,
     hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],

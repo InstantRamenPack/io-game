@@ -1,5 +1,6 @@
 import type { NetEvent } from "@shared/net/events.ts";
 import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -11,12 +12,12 @@ export class SnapshotManager {
   private preparedTick = -1;
   private preparedEvents: readonly NetEvent[] = [];
   private readonly snapshotByEntityId = new Map<number, EntitySnapshot>();
-  private readonly collidableQueryBuffer: Array<ReturnType<World["get"]>> = [];
+  private readonly collidableQueryBuffer: Entity[] = [];
 
   /**
    * Caches entity snapshots once per tick so per-client replication can reuse them.
    */
-  prepareTick(world: World, events: readonly NetEvent[]): void {
+  public prepareTick(world: World, events: readonly NetEvent[]): void {
     this.preparedTick = world.tick;
     this.preparedEvents = events;
     this.snapshotByEntityId.clear();
@@ -29,7 +30,7 @@ export class SnapshotManager {
     }
   }
 
-  makeSnapshotForPlayer(
+  public makeSnapshotForPlayer(
     world: World,
     playerId: number,
     interestRadius: number,
@@ -60,7 +61,7 @@ export class SnapshotManager {
       minY,
       maxX,
       maxY,
-      this.collidableQueryBuffer as never[],
+      this.collidableQueryBuffer,
     )) {
       includedIds.add(entity.id);
     }

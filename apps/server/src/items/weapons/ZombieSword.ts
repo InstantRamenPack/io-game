@@ -8,7 +8,7 @@ import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 export class ZombieSword extends SweepMeleeWeapon {
   public static override readonly resourceName = "zombie_sword";
 
-  public constructor() {
+  constructor() {
     super(
       1, // fireRate (attacks per second)
       10, // range

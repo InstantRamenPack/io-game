@@ -1,4 +1,7 @@
-import { RESOURCE_ID_PATTERN, type ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  RESOURCE_ID_PATTERN,
+  type ResourceId,
+} from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
 
 export const ENTITY_KINDS = [

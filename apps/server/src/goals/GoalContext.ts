@@ -7,8 +7,8 @@ import type { World } from "@server/world/World.ts";
 export class GoalContext<
   TSelf extends GoalControlledEntity = GoalControlledEntity,
 > {
-  readonly world: World;
-  readonly self: TSelf;
+  public readonly world: World;
+  public readonly self: TSelf;
 
   /**
    * Creates the context for one acting entity on the current tick.

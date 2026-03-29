@@ -22,11 +22,11 @@ export class AuthService {
     this.googleClientId = googleClientId;
   }
 
-  isConfigured(): boolean {
+  public isConfigured(): boolean {
     return Boolean(this.googleClientId);
   }
 
-  async verifyGoogleIdToken(
+  public async verifyGoogleIdToken(
     googleIdToken: string,
   ): Promise<AuthenticatedUser | null> {
     if (!this.googleClientId) {

@@ -1,9 +1,7 @@
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
-import {
-  WorldSnapshotSchema,
-} from "@shared/net/snapshots.ts";
+import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export const PROTOCOL_VERSION = GameConfig.DEFAULT_PROTOCOL_VERSION;
@@ -164,7 +162,6 @@ export function parseServerToClientMessage(
   if (
     !validateSnapshots &&
     typeof parsedJson === "object" &&
-    parsedJson !== null &&
     "t" in parsedJson &&
     parsedJson.t === "snapshot" &&
     "snapshot" in parsedJson

@@ -6,7 +6,7 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 export class BasicGun extends RangedWeapon {
   public static override readonly resourceName = "basic_gun";
 
-  public constructor() {
+  constructor() {
     super(4, "projectile:basic_bullet", 12, 20, 0);
   }
 }

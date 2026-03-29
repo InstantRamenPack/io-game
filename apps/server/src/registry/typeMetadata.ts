@@ -25,14 +25,19 @@ function assertResourceName(resourceName: string): string {
 export function deriveTypeIdFromStaticMetadata(
   metadata: DerivableTypeStatic,
 ): ResourceId {
-  return makeResourceId(metadata.kind, assertResourceName(metadata.resourceName));
+  return makeResourceId(
+    metadata.kind,
+    assertResourceName(metadata.resourceName),
+  );
 }
 
 export function requireEntityClassMetadata(
   metadata: Partial<EntityClassMetadata>,
 ): EntityClassMetadata {
   if (!metadata.kind) {
-    throw new Error("Expected registrable entity class to declare static kind.");
+    throw new Error(
+      "Expected registrable entity class to declare static kind.",
+    );
   }
   return {
     kind: metadata.kind,
@@ -44,7 +49,9 @@ export function requireItemClassMetadata(
   metadata: Partial<ItemClassMetadata>,
 ): ItemClassMetadata {
   if (metadata.kind !== "item") {
-    throw new Error("Expected registrable item class to declare static kind 'item'.");
+    throw new Error(
+      "Expected registrable item class to declare static kind 'item'.",
+    );
   }
   return {
     kind: "item",

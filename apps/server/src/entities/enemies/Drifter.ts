@@ -13,7 +13,7 @@ export class Drifter extends Enemy {
    * Creates a drifter with its default stats and chase goal stack.
    * @param id Stable runtime entity id.
    */
-  public constructor(id: number) {
+  constructor(id: number) {
     super(id, {
       hitboxProfiles: {
         default: [makeHitboxRect(24, 24)],

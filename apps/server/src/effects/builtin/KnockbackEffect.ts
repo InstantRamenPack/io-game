@@ -9,7 +9,7 @@ export class KnockbackEffect extends Effect {
   public static override readonly resourceName = "knockback";
   public readonly impulseStrength: number;
 
-  public constructor(impulseStrength = 15) {
+  constructor(impulseStrength = 15) {
     super();
     this.impulseStrength = impulseStrength;
   }

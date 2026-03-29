@@ -39,7 +39,7 @@ export class PixiRenderer {
     this.renderScene();
   };
 
-  public constructor(worldSize: WorldSize) {
+  constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
   }
 

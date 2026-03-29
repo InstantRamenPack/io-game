@@ -22,7 +22,7 @@ export class TickClock {
    * Starts periodic callbacks at the configured fixed interval.
    * @param cb Tick callback invoked on each interval.
    */
-  start(cb: () => void): void {
+  public start(cb: () => void): void {
     if (this.running) {
       return;
     }
@@ -51,7 +51,6 @@ export class TickClock {
         this.accumulatorMs %= this.intervalMs;
         this.overloadCounter += 1;
         if (this.overloadCounter % 30 === 0) {
-          // eslint-disable-next-line no-console
           console.warn("tick_clock_overloaded");
         }
       }
@@ -68,7 +67,7 @@ export class TickClock {
   /**
    * Stops the periodic callback loop if it is running.
    */
-  stop(): void {
+  public stop(): void {
     this.running = false;
     if (this.timer) {
       clearTimeout(this.timer);

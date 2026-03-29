@@ -23,7 +23,7 @@ export class DayNightSystem implements System {
   private phaseElapsedTicks = 0;
   private dayCount = 0;
 
-  public constructor(config: DayNightSystemConfig) {
+  constructor(config: DayNightSystemConfig) {
     this.tickRate = Math.max(1, Math.floor(config.tickRate));
     this.dayDurationTicks = this.durationMsToTicks(config.dayDurationMs);
     this.nightDurationTicks = this.durationMsToTicks(config.nightDurationMs);

@@ -1,8 +1,6 @@
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import {
-  getResourceDisplayLabel,
-} from "@shared/content/catalog.ts";
+import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import {
   getResourceNamespace,
@@ -111,7 +109,8 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
 
   function getActiveEffectLabels(): string[] {
     return (getPlayerEntity()?.activeEffects ?? []).map((effect) => {
-      const secondsRemaining = effect.ticksRemaining / gameClient.gameConfig.tickRate;
+      const secondsRemaining =
+        effect.ticksRemaining / gameClient.gameConfig.tickRate;
       return `${formatTypeLabel(effect.typeId)} (${secondsRemaining.toFixed(1)}s)`;
     });
   }

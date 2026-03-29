@@ -19,7 +19,7 @@ export class CannonBullet extends Projectile {
     hitEffects: [new DamageEffect(30)],
   };
 
-  public constructor(id: number, config: ProjectileSpawnConfig) {
+  constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, config);
   }
 }

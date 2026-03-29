@@ -7,10 +7,7 @@ import {
   type EffectContent,
   type ItemContent,
 } from "@shared/content/schema.ts";
-import {
-  makeResourceId,
-  type ResourceId,
-} from "@shared/ids/ResourceId.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type ItemContentEntry = readonly [ResourceId, ItemContent];
 export type EntityContentEntry = readonly [ResourceId, EntityContent];

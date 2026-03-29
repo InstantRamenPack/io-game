@@ -11,7 +11,7 @@ export class DamageEffect extends Effect {
   public static override readonly resourceName = "damage";
   public readonly amount: number;
 
-  public constructor(amount: number) {
+  constructor(amount: number) {
     super();
     this.amount = amount;
   }

@@ -48,7 +48,9 @@ export function requireItemContent(typeId: ResourceId): ItemContent {
   return itemContent;
 }
 
-export function getEntityContent(typeId: ResourceId): EntityContent | undefined {
+export function getEntityContent(
+  typeId: ResourceId,
+): EntityContent | undefined {
   return entityContents.get(typeId);
 }
 
@@ -60,7 +62,9 @@ export function requireEntityContent(typeId: ResourceId): EntityContent {
   return entityContent;
 }
 
-export function getEffectContent(typeId: ResourceId): EffectContent | undefined {
+export function getEffectContent(
+  typeId: ResourceId,
+): EffectContent | undefined {
   return effectContents.get(typeId);
 }
 

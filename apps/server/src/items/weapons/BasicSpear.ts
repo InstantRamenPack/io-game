@@ -8,7 +8,7 @@ import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 export class BasicSpear extends StabMeleeWeapon {
   public static override readonly resourceName = "basic_spear";
 
-  public constructor() {
+  constructor() {
     super(
       1.5, // fireRate (attacks per second)
       96, // range

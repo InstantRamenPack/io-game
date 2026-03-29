@@ -24,7 +24,7 @@ export class RangedWeapon extends Weapon {
   /** Reload timer in fixed ticks. */
   protected reloadTicksRemaining = 0;
 
-  public constructor(
+  constructor(
     fireRate: number,
     projectileTypeId: ResourceId,
     magSize: number,

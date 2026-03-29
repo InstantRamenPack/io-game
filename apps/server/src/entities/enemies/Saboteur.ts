@@ -10,7 +10,7 @@ import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 export class Saboteur extends Enemy {
   public static override readonly resourceName = "saboteur";
 
-  public constructor(id: number) {
+  constructor(id: number) {
     super(id, {
       hitboxProfiles: {
         default: [makeHitboxRect(18, 12, 0, -6), makeHitboxRect(22, 14, 0, 8)],

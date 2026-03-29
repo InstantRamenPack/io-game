@@ -43,11 +43,12 @@ const rendererByResourcePath = new Map<string, EntityRendererCtor>(
   rendererManifests,
 );
 
-const fallbackRendererByKind: Partial<Record<EntityKind, EntityRendererCtor>> = {
-  building: CraftingStationRenderer,
-  projectile: BasicBulletRenderer,
-  pickup: PickupRenderer,
-};
+const fallbackRendererByKind: Partial<Record<EntityKind, EntityRendererCtor>> =
+  {
+    building: CraftingStationRenderer,
+    projectile: BasicBulletRenderer,
+    pickup: PickupRenderer,
+  };
 
 export function createEntityRenderer(
   entity: ClientEntity,

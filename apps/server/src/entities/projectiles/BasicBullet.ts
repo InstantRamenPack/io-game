@@ -19,7 +19,7 @@ export class BasicBullet extends Projectile {
     hitEffects: [new DamageEffect(12)],
   };
 
-  public constructor(id: number, config: ProjectileSpawnConfig) {
+  constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, config);
   }
 }

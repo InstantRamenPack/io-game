@@ -9,7 +9,7 @@ type EntityInstanceCtor<T extends Entity> = abstract new (
  * World owns one EntityStore for its authoritative entities.
  */
 export class EntityStore {
-  byId = new Map<number, Entity>();
+  public byId = new Map<number, Entity>();
   private allCache?: readonly Entity[];
   private dynamicCache?: readonly Entity[];
   private collidableCache?: readonly Entity[];
@@ -19,7 +19,7 @@ export class EntityStore {
    * Inserts an entity into the primary id index.
    * @param entity Entity to add.
    */
-  add(entity: Entity): void {
+  public add(entity: Entity): void {
     this.byId.set(entity.id, entity);
     this.invalidateViews();
   }
@@ -28,7 +28,7 @@ export class EntityStore {
    * Removes an entity from the primary id index.
    * @param id Entity id to remove.
    */
-  remove(id: number): void {
+  public remove(id: number): void {
     if (this.byId.delete(id)) {
       this.invalidateViews();
     }
@@ -39,11 +39,11 @@ export class EntityStore {
    * @param id Entity id to resolve.
    * @returns Matching entity when present.
    */
-  get<T extends Entity = Entity>(id: number): T | undefined {
+  public get<T extends Entity = Entity>(id: number): T | undefined {
     return this.byId.get(id) as T | undefined;
   }
 
-  has(id: number): boolean {
+  public has(id: number): boolean {
     return this.byId.has(id);
   }
 
@@ -52,7 +52,7 @@ export class EntityStore {
    * @param ctor Entity constructor to filter by.
    * @returns Entities that are instances of the requested constructor.
    */
-  queryInstances<T extends Entity>(ctor: EntityInstanceCtor<T>): T[] {
+  public queryInstances<T extends Entity>(ctor: EntityInstanceCtor<T>): T[] {
     const matchingEntities: T[] = [];
     for (const entity of this.byId.values()) {
       if (entity instanceof ctor) {
@@ -66,14 +66,14 @@ export class EntityStore {
    * Returns all stored entities.
    * @returns Snapshot of the current entity collection.
    */
-  all(): Entity[] {
+  public all(): Entity[] {
     if (!this.allCache) {
       this.allCache = [...this.byId.values()];
     }
     return this.allCache as Entity[];
   }
 
-  dynamic(): Entity[] {
+  public dynamic(): Entity[] {
     if (!this.dynamicCache) {
       this.dynamicCache = this.all().filter(
         (entity) => entity.collisionMode === "dynamic",
@@ -82,7 +82,7 @@ export class EntityStore {
     return this.dynamicCache as Entity[];
   }
 
-  collidable(): Entity[] {
+  public collidable(): Entity[] {
     if (!this.collidableCache) {
       this.collidableCache = this.all().filter(
         (entity) => entity.collisionMode !== "none",
@@ -91,7 +91,7 @@ export class EntityStore {
     return this.collidableCache as Entity[];
   }
 
-  nonCollidable(): Entity[] {
+  public nonCollidable(): Entity[] {
     if (!this.nonCollidableCache) {
       this.nonCollidableCache = this.all().filter(
         (entity) => entity.collisionMode === "none",

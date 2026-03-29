@@ -43,7 +43,7 @@ export class ClientEntity {
   public visualVersion = 1;
   public healthVersion = 1;
 
-  public constructor(snapshot: EntitySnapshot) {
+  constructor(snapshot: EntitySnapshot) {
     this.id = snapshot.id;
     this.kind = snapshot.kind;
     this.typeId = snapshot.typeId;

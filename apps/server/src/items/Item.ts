@@ -13,7 +13,7 @@ export class Item {
   public readonly typeId: ResourceId;
   public ownerId?: number;
 
-  public constructor() {
+  constructor() {
     this.typeId = (this.constructor as typeof Item).typeId;
   }
 

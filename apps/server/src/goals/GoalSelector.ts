@@ -15,7 +15,7 @@ export class GoalSelector<
    * Registers a new goal and keeps the selector sorted by priority.
    * @param goal Goal to add.
    */
-  add(goal: Goal<TSelf>): void {
+  public add(goal: Goal<TSelf>): void {
     this.goals.push(goal);
     this.goals.sort(
       (leftGoal, rightGoal) => leftGoal.priority - rightGoal.priority,
@@ -26,7 +26,7 @@ export class GoalSelector<
    * Stops and removes all active goals.
    * @param ctx Runtime goal context for the acting entity.
    */
-  clear(ctx: GoalContext<TSelf>): void {
+  public clear(ctx: GoalContext<TSelf>): void {
     for (const goal of this.goals) {
       if (this.active.has(goal)) {
         goal.stop(ctx);
@@ -39,7 +39,7 @@ export class GoalSelector<
    * Chooses the desired active goal set, starts/stops deltas, then ticks actives.
    * @param ctx Runtime goal context for the acting entity.
    */
-  tick(ctx: GoalContext<TSelf>): void {
+  public tick(ctx: GoalContext<TSelf>): void {
     const desired = new Set<Goal<TSelf>>();
     const claimedControls = new Set<GoalControl>();
 
@@ -84,13 +84,13 @@ export class GoalSelector<
   /**
    * Returns the class names of the currently active goals.
    */
-  debugActive(): string[] {
+  public debugActive(): string[] {
     return this.goals
       .filter((goal) => this.active.has(goal))
       .map((goal) => goal.constructor.name);
   }
 
-  hasActiveControl(control: GoalControl): boolean {
+  public hasActiveControl(control: GoalControl): boolean {
     for (const goal of this.active) {
       if (goal.controls.includes(control)) {
         return true;

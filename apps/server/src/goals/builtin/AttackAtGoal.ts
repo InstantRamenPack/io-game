@@ -18,16 +18,16 @@ export class AttackAtGoal<
     this.weaponSlot = weaponSlot;
   }
 
-  override canStart(ctx: GoalContext<TSelf>): boolean {
+  public override canStart(ctx: GoalContext<TSelf>): boolean {
     const weapon = this.resolveWeapon(ctx);
     return this.resolveTargetInRange(ctx, weapon) !== null;
   }
 
-  override start(_ctx: GoalContext<TSelf>): void {
+  public override start(_ctx: GoalContext<TSelf>): void {
     // no-op
   }
 
-  override tick(ctx: GoalContext<TSelf>): void {
+  public override tick(ctx: GoalContext<TSelf>): void {
     const weapon = this.resolveWeapon(ctx);
     const target = this.resolveTargetInRange(ctx, weapon);
     if (!target) {
@@ -37,12 +37,12 @@ export class AttackAtGoal<
     weapon.hit(ctx.world, ctx.self, target.x, target.y);
   }
 
-  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     const weapon = this.resolveWeapon(ctx);
     return this.resolveTargetInRange(ctx, weapon) !== null;
   }
 
-  override stop(_ctx: GoalContext<TSelf>): void {
+  public override stop(_ctx: GoalContext<TSelf>): void {
     // no-op
   }
 

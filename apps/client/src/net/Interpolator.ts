@@ -12,7 +12,10 @@ export class Interpolator {
 
   constructor(interpolationConfig: InterpolationConfig) {
     this.snapDistance = interpolationConfig.snapDistance;
-    this.expectedSnapshotMs = Math.max(1, interpolationConfig.expectedSnapshotMs);
+    this.expectedSnapshotMs = Math.max(
+      1,
+      interpolationConfig.expectedSnapshotMs,
+    );
     this.renderDelayMs = this.expectedSnapshotMs;
   }
 
@@ -21,7 +24,10 @@ export class Interpolator {
     this.renderDelayMs = this.expectedSnapshotMs;
   }
 
-  updateInterpolation(worldState: ClientWorldState, frameTimeMs: number): void {
+  public updateInterpolation(
+    worldState: ClientWorldState,
+    frameTimeMs: number,
+  ): void {
     if (!worldState.clientWorld) {
       return;
     }
@@ -41,7 +47,11 @@ export class Interpolator {
       const minDelay = this.expectedSnapshotMs * 0.5;
       const maxDelay = this.expectedSnapshotMs * 2.0;
       const clampedSpan = clamp(spanMs, minDelay, maxDelay);
-      this.renderDelayMs = lerp(this.renderDelayMs, clampedSpan, this.smoothing);
+      this.renderDelayMs = lerp(
+        this.renderDelayMs,
+        clampedSpan,
+        this.smoothing,
+      );
       this.lastSnapshotTime = latestAt;
     }
 

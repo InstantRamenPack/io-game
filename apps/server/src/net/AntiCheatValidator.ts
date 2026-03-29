@@ -14,7 +14,7 @@ export class AntiCheatValidator {
    * @param world
    * @returns True when the command is acceptable.
    */
-  validate(
+  public validate(
     inputCommand: InputCommand,
     playerEntity: Player,
     world: World,
@@ -33,7 +33,7 @@ export class AntiCheatValidator {
    * Clamps movement input to a unit-length vector and removes invalid numbers.
    * @param inputCommand Input payload being normalized.
    */
-  clampMove(inputCommand: InputCommand): void {
+  public clampMove(inputCommand: InputCommand): void {
     if (!Number.isFinite(inputCommand.moveX)) inputCommand.moveX = 0;
     if (!Number.isFinite(inputCommand.moveY)) inputCommand.moveY = 0;
 

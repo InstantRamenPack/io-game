@@ -9,7 +9,7 @@ import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 export class EntityRenderManager {
   private readonly renderers = new Map<number, EntityRenderer>();
 
-  public constructor(
+  constructor(
     private readonly pixiRenderer: PixiRenderer,
     private readonly options: EntityRendererOptions = {},
   ) {}

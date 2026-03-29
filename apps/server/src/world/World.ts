@@ -28,7 +28,7 @@ export class World {
    * Creates a new world with deterministic RNG and empty state indexes.
    * @param gameConfig Runtime configuration shared with the server.
    */
-  public constructor(gameConfig: GameConfig) {
+  constructor(gameConfig: GameConfig) {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
@@ -67,7 +67,7 @@ export class World {
     }
 
     this.syncSpatialIndex();
-    this.collisionSystem.update(this, deltaMs);
+    this.collisionSystem.update(this);
     this.syncSpatialIndex();
 
     for (const entity of this.entities.all()) {

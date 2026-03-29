@@ -19,7 +19,7 @@ export class ClientWorld {
   private readonly debugInterpolationMode: number;
   private readonly renderManager?: EntityRenderManager;
 
-  public constructor(
+  constructor(
     snapshot: WorldSnapshot,
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
@@ -71,10 +71,7 @@ export class ClientWorld {
         this.renderManager?.syncEntity(existingEntity);
       } else {
         const entity = new ClientEntity(entitySnapshot);
-        this.entities.set(
-          entitySnapshot.id,
-          entity,
-        );
+        this.entities.set(entitySnapshot.id, entity);
         this.renderManager?.syncEntity(entity);
       }
     }

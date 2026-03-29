@@ -8,7 +8,7 @@ export class ItemEntity extends Entity {
   public static override readonly resourceName = "item_entity";
   public contents: Inventory;
 
-  public constructor(id: number, inventory = new Inventory()) {
+  constructor(id: number, inventory = new Inventory()) {
     super(id, { maxHp: 0 });
     this.contents = inventory;
     this.setHitboxProfiles({ default: [makeHitboxRect(28, 28)] });

@@ -3,4 +3,9 @@ import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 
-export const enemyEntityTypes = [Drifter, Shoota, Megaknight, Saboteur] as const;
+export const enemyEntityTypes = [
+  Drifter,
+  Shoota,
+  Megaknight,
+  Saboteur,
+] as const;

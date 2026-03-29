@@ -88,7 +88,11 @@ export class Inventory {
         remaining -= consumedStackableCount;
       }
 
-      for (let index = this.weapons.length - 1; index >= 0 && remaining > 0; index -= 1) {
+      for (
+        let index = this.weapons.length - 1;
+        index >= 0 && remaining > 0;
+        index -= 1
+      ) {
         const weapon = this.weapons[index];
         if (!weapon || weapon.typeId !== requirement.typeId) {
           continue;

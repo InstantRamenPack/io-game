@@ -12,7 +12,7 @@ const LAND_SIZE = 80;
 export class Megaknight extends Enemy {
   public static override readonly resourceName = "megaknight";
 
-  public constructor(id: number) {
+  constructor(id: number) {
     super(id, {
       hitboxProfiles: {
         base: [makeHitboxRect(28, 20, 0, -10), makeHitboxRect(40, 20, 0, 10)],

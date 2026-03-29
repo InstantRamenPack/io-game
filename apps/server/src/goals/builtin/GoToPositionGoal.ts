@@ -32,15 +32,15 @@ export class GoToPositionGoal<
     this.arrivalRadius = arrivalRadius;
   }
 
-  override canStart(ctx: GoalContext<TSelf>): boolean {
+  public override canStart(ctx: GoalContext<TSelf>): boolean {
     return !this.hasArrived(ctx);
   }
 
-  override start(_ctx: GoalContext<TSelf>): void {
+  public override start(_ctx: GoalContext<TSelf>): void {
     // no-op for direct steering
   }
 
-  override tick(ctx: GoalContext<TSelf>): void {
+  public override tick(ctx: GoalContext<TSelf>): void {
     const destination = this.destinationProvider(ctx);
     if (!destination) {
       this.stop(ctx);
@@ -68,11 +68,11 @@ export class GoToPositionGoal<
     );
   }
 
-  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     return !this.hasArrived(ctx);
   }
 
-  override stop(ctx: GoalContext<TSelf>): void {
+  public override stop(ctx: GoalContext<TSelf>): void {
     ctx.self.setMovementVelocity(0, 0);
   }
 

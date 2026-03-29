@@ -8,7 +8,7 @@ import type { World } from "@server/world/World.ts";
 export class CannonGun extends RangedWeapon {
   public static override readonly resourceName = "cannon_gun";
 
-  public constructor() {
+  constructor() {
     super(1, "projectile:cannon_bullet", 1, 36, 0);
   }
 

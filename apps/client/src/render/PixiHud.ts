@@ -41,7 +41,7 @@ class HudPanel {
   private widthValue = 0;
   private heightValue = 0;
 
-  public constructor(titleStyle: TextStyleOptions, bodyStyle: TextStyleOptions) {
+  constructor(titleStyle: TextStyleOptions, bodyStyle: TextStyleOptions) {
     this.container = new PIXI.Container();
     this.background = new PIXI.Graphics();
     this.titleText = new PIXI.Text("", new PIXI.TextStyle(titleStyle));
@@ -74,7 +74,10 @@ class HudPanel {
 
     this.widthValue = Math.ceil(contentWidth + this.padding * 2);
     this.heightValue = Math.ceil(
-      this.padding * 2 + this.titleText.height + this.gap + this.bodyText.height,
+      this.padding * 2 +
+        this.titleText.height +
+        this.gap +
+        this.bodyText.height,
     );
 
     this.background.clear();
@@ -158,16 +161,20 @@ export class PixiHud {
   private readonly dayNightTextNightColor = 0xcfe7d1;
   private readonly dayNightContrastLag = 0.12;
 
-  public constructor({ gameClient, selectors }: PixiHudOptions) {
+  constructor({ gameClient, selectors }: PixiHudOptions) {
     this.gameClient = gameClient;
     this.selectors = selectors;
     const defaultBuildItemTypeId = BUILDABLE_ITEM_TYPE_IDS[0];
     const defaultCraftItemTypeId = CRAFTABLE_ITEM_TYPE_IDS[0];
     if (!defaultBuildItemTypeId) {
-      throw new Error("Expected at least one buildable item in shared content.");
+      throw new Error(
+        "Expected at least one buildable item in shared content.",
+      );
     }
     if (!defaultCraftItemTypeId) {
-      throw new Error("Expected at least one craftable item in shared content.");
+      throw new Error(
+        "Expected at least one craftable item in shared content.",
+      );
     }
 
     this.state = {
@@ -371,10 +378,7 @@ export class PixiHud {
       screenHeight - padding - this.hotbarPanel.height,
     );
     this.buildPanel.setPosition(
-      Math.max(
-        padding,
-        Math.floor((screenWidth - this.buildPanel.width) / 2),
-      ),
+      Math.max(padding, Math.floor((screenWidth - this.buildPanel.width) / 2)),
       screenHeight - padding - this.buildPanel.height,
     );
     this.craftingPanel.setPosition(
@@ -445,7 +449,9 @@ export class PixiHud {
     });
 
     const effectLines =
-      activeEffectLabels.length > 0 ? activeEffectLabels : ["No active effects"];
+      activeEffectLabels.length > 0
+        ? activeEffectLabels
+        : ["No active effects"];
     this.effectPanel.setContent("Effects", effectLines.join("\n"), {
       minWidth: 200,
       maxWidth: 240,
@@ -481,13 +487,16 @@ export class PixiHud {
     const buildLines = BUILDABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
       const recipe = this.getSelectedRecipeForItem(itemTypeId);
       const availableCount = this.selectors.countInventoryType(itemTypeId);
-      const selectedMark = this.state.selectedBuild === itemTypeId ? "> " : "  ";
+      const selectedMark =
+        this.state.selectedBuild === itemTypeId ? "> " : "  ";
       const availability =
         availableCount > 0 ? `${availableCount} ready` : "Out of stock";
       return `${selectedMark}${index + 1}. ${this.selectors.formatTypeLabel(itemTypeId)}  (${availability})  ${this.selectors.formatCosts(recipe.costs)}`;
     }).join("\n");
 
-    const selectedRecipe = this.getSelectedRecipeForItem(this.state.selectedBuild);
+    const selectedRecipe = this.getSelectedRecipeForItem(
+      this.state.selectedBuild,
+    );
     const availableCount = this.selectors.countInventoryType(
       this.state.selectedBuild,
     );
@@ -503,7 +512,8 @@ export class PixiHud {
     const craftingLines = CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
       const recipe = this.getSelectedRecipeForItem(itemTypeId);
       const available = this.selectors.hasRecipeResources(recipe);
-      const selectedMark = this.state.selectedCraft === itemTypeId ? "> " : "  ";
+      const selectedMark =
+        this.state.selectedCraft === itemTypeId ? "> " : "  ";
       const availability = available ? "Craftable" : "Missing materials";
       return `${selectedMark}${index + 1}. ${this.selectors.formatTypeLabel(itemTypeId)}  (${availability})  ${this.selectors.formatCosts(recipe.costs)}`;
     }).join("\n");
@@ -521,7 +531,11 @@ export class PixiHud {
   }
 
   private syncDayNight(): void {
-    if (!this.dayNightContainer || !this.dayNightGraphic || !this.dayNightLabel) {
+    if (
+      !this.dayNightContainer ||
+      !this.dayNightGraphic ||
+      !this.dayNightLabel
+    ) {
       return;
     }
     const dayNightContainer = this.dayNightContainer;
@@ -543,7 +557,9 @@ export class PixiHud {
         : dayNight.nightDurationMs + dayNight.phaseElapsedMs;
     const receivedAt = this.gameClient.worldState?.latestSnapshotReceivedAt;
     const driftMs =
-      receivedAt !== undefined ? Math.max(0, performance.now() - receivedAt) : 0;
+      receivedAt !== undefined
+        ? Math.max(0, performance.now() - receivedAt)
+        : 0;
     const nightBlend = this.computeNightBlend(dayNight, driftMs);
     const contrastBlend = this.applyContrastLag(nightBlend);
     const labelColor = this.lerpColor(
@@ -552,11 +568,11 @@ export class PixiHud {
       contrastBlend,
     );
     const cycleElapsed =
-      totalDuration > 0
-        ? (baseCycleElapsed + driftMs) % totalDuration
-        : 0;
+      totalDuration > 0 ? (baseCycleElapsed + driftMs) % totalDuration : 0;
     const progress =
-      totalDuration > 0 ? Math.min(1, Math.max(0, cycleElapsed / totalDuration)) : 0;
+      totalDuration > 0
+        ? Math.min(1, Math.max(0, cycleElapsed / totalDuration))
+        : 0;
 
     const barWidth = this.dayNightBarWidth;
     const barHeight = this.dayNightBarHeight;
@@ -575,7 +591,10 @@ export class PixiHud {
     dayNightLabel.text = `Day ${dayNight.dayCount + 1} · ${dayNight.phase}`;
     dayNightLabel.style.fill = labelColor;
     const contentWidth = Math.max(barWidth, dayNightLabel.width);
-    const labelX = Math.max(0, Math.round((contentWidth - dayNightLabel.width) / 2));
+    const labelX = Math.max(
+      0,
+      Math.round((contentWidth - dayNightLabel.width) / 2),
+    );
     const barX = Math.max(0, Math.round((contentWidth - barWidth) / 2));
     dayNightLabel.position.set(labelX, 0);
 
@@ -610,7 +629,13 @@ export class PixiHud {
   }
 
   private computeNightBlend(
-    dayNight: { phase: "day" | "night"; phaseElapsedMs: number; dayDurationMs: number; nightDurationMs: number; dayCount: number },
+    dayNight: {
+      phase: "day" | "night";
+      phaseElapsedMs: number;
+      dayDurationMs: number;
+      nightDurationMs: number;
+      dayCount: number;
+    },
     driftMs: number,
   ): number {
     const phaseDuration =

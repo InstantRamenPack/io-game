@@ -28,7 +28,7 @@ export class Enemy extends GoalControlledEntity {
    * @param id Stable runtime entity id.
    * @param config Enemy tuning and goal stack.
    */
-  public constructor(id: number, config: EnemyConfig) {
+  constructor(id: number, config: EnemyConfig) {
     super(id, config);
     this.weapons = [...(config.weapons ?? [])];
     this.registerGoals(config.goals ?? []);

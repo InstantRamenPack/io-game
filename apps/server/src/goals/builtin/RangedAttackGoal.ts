@@ -33,16 +33,16 @@ export class RangedAttackGoal<
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
-  override canStart(ctx: GoalContext<TSelf>): boolean {
+  public override canStart(ctx: GoalContext<TSelf>): boolean {
     this.resolveWeapon(ctx);
     return this.resolveTarget(ctx) !== null;
   }
 
-  override start(_ctx: GoalContext<TSelf>): void {
+  public override start(_ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
-  override tick(ctx: GoalContext<TSelf>): void {
+  public override tick(ctx: GoalContext<TSelf>): void {
     const weapon = this.resolveWeapon(ctx);
     const target = this.resolveTarget(ctx);
     if (!target) {
@@ -102,12 +102,12 @@ export class RangedAttackGoal<
     }
   }
 
-  override shouldContinue(ctx: GoalContext<TSelf>): boolean {
+  public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
     this.resolveWeapon(ctx);
     return this.resolveTarget(ctx) !== null;
   }
 
-  override stop(ctx: GoalContext<TSelf>): void {
+  public override stop(ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
     ctx.self.setMovementVelocity(0, 0);
   }

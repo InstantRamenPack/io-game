@@ -25,9 +25,10 @@ export class Player extends Entity {
   public inventory: Inventory;
   public inputBuffer: InputCommand[] = [];
   public moveSpeed = 15;
-  public activeEffects: Array<{ typeId: ResourceId; ticksRemaining: number }> = [];
+  public activeEffects: Array<{ typeId: ResourceId; ticksRemaining: number }> =
+    [];
 
-  public constructor(id: number, name = "player") {
+  constructor(id: number, name = "player") {
     super(id, { maxHp: 100 });
     this.name = name;
     this.inventory = new Inventory();

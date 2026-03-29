@@ -131,7 +131,6 @@ export function main(): void {
     },
   });
 
-  // eslint-disable-next-line no-console
   console.log(`server listening on ${protocol}://localhost:${port}`);
 }
 

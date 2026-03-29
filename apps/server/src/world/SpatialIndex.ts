@@ -22,7 +22,7 @@ export class SpatialIndex {
    * Rebuilds the index from the current authoritative entity list.
    * @param entities Entities to index.
    */
-  rebuild(entities: Entity[]): void {
+  public rebuild(entities: Entity[]): void {
     this.buckets.clear();
     for (const entity of entities) {
       this.insert(entity);
@@ -37,7 +37,7 @@ export class SpatialIndex {
    * @param maxY Bottom query edge.
    * @returns Unique candidate entities from the covered cells.
    */
-  queryBox(
+  public queryBox(
     minX: number,
     minY: number,
     maxX: number,

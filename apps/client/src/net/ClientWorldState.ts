@@ -18,7 +18,7 @@ export class ClientWorldState {
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
 
-  public constructor(
+  constructor(
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
     debugInterpolationMode = 0,

@@ -15,7 +15,7 @@ export class Shoota extends Enemy {
    * Creates a shoota with its default stats and a ranged strafing goal stack.
    * @param id Stable runtime entity id.
    */
-  public constructor(id: number) {
+  constructor(id: number) {
     super(id, {
       hitboxProfiles: {
         default: [makeHitboxRect(24, 24)],
