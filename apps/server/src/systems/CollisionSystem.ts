@@ -27,7 +27,7 @@ export class CollisionSystem implements System {
    * Resolves nearby overlaps using the prebuilt broad-phase index, then clamps bodies to world bounds.
    * @param world Authoritative world being simulated.
    */
-  update(world: World): void {
+  public update(world: World): void {
     const collidableEntities = world.entities.collidable();
 
     for (const entity of collidableEntities) {

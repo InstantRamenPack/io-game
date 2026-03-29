@@ -5,8 +5,8 @@ import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
+import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
-import { DayNightCycle } from "@server/world/DayNightCycle.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
 /**
@@ -20,7 +20,7 @@ export class World {
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
-  public dayNightCycle: DayNightCycle;
+  public dayNightSystem: DayNightSystem;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
 
@@ -34,7 +34,8 @@ export class World {
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
-    this.dayNightCycle = new DayNightCycle({
+    this.dayNightSystem = new DayNightSystem({
+      tickRate: gameConfig.tickRate,
       dayDurationMs: gameConfig.dayNight.dayDurationMs,
       nightDurationMs: gameConfig.dayNight.nightDurationMs,
     });
@@ -45,7 +46,8 @@ export class World {
    */
   public step(): void {
     this.tick += 1;
-    this.dayNightCycle.tick(1000 / this.gameConfig.tickRate);
+    const deltaMs = 1000 / this.gameConfig.tickRate;
+    this.dayNightSystem.update(this, deltaMs);
 
     this.syncSpatialIndex();
     const tickPhaseEntities = this.entities.all();
@@ -65,7 +67,7 @@ export class World {
     }
 
     this.syncSpatialIndex();
-    this.collisionSystem.update(this);
+    this.collisionSystem.update(this, deltaMs);
     this.syncSpatialIndex();
 
     for (const entity of this.entities.all()) {

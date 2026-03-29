@@ -42,7 +42,7 @@ export class SnapshotManager {
     if (!player) {
       return {
         tick: world.tick,
-        dayNight: world.dayNightCycle.toSnapshot(),
+        dayNight: world.dayNightSystem.toSnapshot(),
         entities: [],
         events: [...this.preparedEvents],
       };
@@ -89,7 +89,7 @@ export class SnapshotManager {
 
     return {
       tick: world.tick,
-      dayNight: world.dayNightCycle.toSnapshot(),
+      dayNight: world.dayNightSystem.toSnapshot(),
       entities,
       events: [...this.preparedEvents],
     };
