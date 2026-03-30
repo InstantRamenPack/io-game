@@ -21,6 +21,9 @@ export type AppElements = {
   googleSignInTarget: HTMLElement | null;
   menuRoot: HTMLElement | null;
   gameRoot: HTMLElement | null;
+  chatRoot: HTMLElement | null;
+  chatLines: HTMLElement | null;
+  chatInput: HTMLInputElement | null;
   playerNameInput: HTMLInputElement | null;
 };
 
@@ -42,6 +45,9 @@ export function getAppElements(): AppElements {
     googleSignInTarget: document.getElementById("google-signin-target"),
     menuRoot: document.querySelector<HTMLElement>('[data-screen="menu"]'),
     gameRoot: document.getElementById("game-root"),
+    chatRoot: document.getElementById("chat-root"),
+    chatLines: document.getElementById("chat-lines"),
+    chatInput: document.getElementById("chat-input") as HTMLInputElement | null,
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,

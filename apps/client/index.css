@@ -197,6 +197,102 @@ body {
   background: rgba(86, 170, 45, 0.14);
 }
 
+.chat-shell {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(38vw, 420px);
+  pointer-events: none;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.chat-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-line {
+  background: rgba(0, 0, 0, 0.45);
+  border-left: 3px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #f4f4f4;
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+  transition: opacity 320ms ease;
+}
+
+.chat-line.is-faded {
+  opacity: 0;
+}
+
+.chat-shell.is-open .chat-line {
+  opacity: 1;
+}
+
+.chat-system {
+  color: #ffd6a0;
+}
+
+.chat-emote {
+  color: #b9f2c2;
+  font-style: italic;
+}
+
+.chat-whisper {
+  color: #d9c8ff;
+}
+
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 6px 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.chat-shell.is-open .chat-input-row {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.chat-prompt {
+  color: #f2f2f2;
+  font-size: 14px;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+}
+
+#chat-input {
+  flex: 1;
+  min-width: 180px;
+  background: transparent;
+  border: 0;
+  color: #f4f4f4;
+  font-size: 14px;
+  outline: none;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+}
+
+#chat-input::placeholder {
+  color: rgba(244, 244, 244, 0.6);
+}
+
 .hint-row {
   margin-top: 10px;
   color: var(--text-dim);
@@ -506,6 +602,10 @@ body {
     right: 24px;
     left: auto;
   }
+
+  .chat-shell {
+    max-width: min(78vw, 440px);
+  }
 }
 
 @media (max-width: 640px) {
@@ -552,5 +652,11 @@ body {
   .bottom-stats {
     position: static;
     margin-top: 14px;
+  }
+
+  .chat-shell {
+    left: 12px;
+    bottom: 12px;
+    max-width: 90vw;
   }
 }

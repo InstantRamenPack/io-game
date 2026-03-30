@@ -34,6 +34,9 @@ export class InputManager {
   public bind(targetElement: HTMLElement | Window): void {
     targetElement.addEventListener("keydown", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
+      if (this.isTextInputTarget(keyboardEvent.target)) {
+        return;
+      }
       const slotIndex = this.parseSlotDigit(keyboardEvent.code);
       if (slotIndex !== null) {
         this.pendingSelectWeaponIndex = slotIndex;
@@ -46,6 +49,9 @@ export class InputManager {
 
     targetElement.addEventListener("keyup", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
+      if (this.isTextInputTarget(keyboardEvent.target)) {
+        return;
+      }
       this.pressedKeys.delete(keyboardEvent.key.toLowerCase());
       this.recomputeMovementVector();
     });
@@ -146,5 +152,18 @@ export class InputManager {
     }
 
     return Number(match[1]) - 1;
+  }
+
+  private isTextInputTarget(target: EventTarget | null): boolean {
+    if (!target || !(target instanceof HTMLElement)) {
+      return false;
+    }
+    const tag = target.tagName;
+    return (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      target.isContentEditable
+    );
   }
 }

@@ -3,6 +3,7 @@ import { getAppElements } from "@client/app/AppElements.ts";
 import { installGameHotkeys } from "@client/app/GameHotkeys.ts";
 import { createGameSelectors } from "@client/app/gameSelectors.ts";
 import { createHudController } from "@client/app/HudController.ts";
+import { createChatController } from "@client/app/ChatController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
 import { createMenuController } from "@client/app/MenuController.ts";
 import {
@@ -38,6 +39,11 @@ const hudController = createHudController({
   gameClient,
   selectors,
 });
+const chatController = createChatController({
+  elements,
+  gameClient,
+  hudController,
+});
 const menuController = createMenuController({
   elements,
   authController,
@@ -52,6 +58,7 @@ const launchController = createLaunchController({
   authController,
   menuController,
   hudController,
+  chatController,
   runtimeStatusController,
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
 });
