@@ -15,6 +15,7 @@ import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
+import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
 import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
@@ -84,6 +85,7 @@ export const entityTypeManifests = [
   makeEntityTypeEntry(Shoota),
   makeEntityTypeEntry(Police),
   makeEntityTypeEntry(Wallbreaker),
+  makeEntityTypeEntry(Bomber),
   makeEntityTypeEntry(Wall),
   makeEntityTypeEntry(Cannon),
   makeEntityTypeEntry(CraftingStation),

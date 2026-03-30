@@ -20,6 +20,7 @@ import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
+import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
@@ -323,6 +324,11 @@ export class GameServer {
     wallbreaker.x = this.gameConfig.worldSize.w * 0.5 - 600;
     wallbreaker.y = this.gameConfig.worldSize.h * 0.5 + 200;
     this.world.spawn(wallbreaker);
+
+    const bomber = new Bomber(this.world.allocEntityId());
+    bomber.x = this.gameConfig.worldSize.w * 0.5 + 600;
+    bomber.y = this.gameConfig.worldSize.h * 0.5 - 200;
+    this.world.spawn(bomber);
   }
 
   /**

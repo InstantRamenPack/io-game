@@ -1,0 +1,61 @@
+import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
+import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
+import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
+import { triggerBomberExplosion } from "@server/combat/bomberExplosion.ts";
+import type { World } from "@server/world/World.ts";
+
+const TRIGGER_RADIUS = 42;
+
+export class Bomber extends Enemy {
+  public static override readonly resourceName = "bomber";
+
+  constructor(id: number) {
+    super(id, {
+      hitboxProfiles: {
+        default: [makeHitboxRect(46, 46)],
+      },
+      maxHp: 75,
+      vx: 0,
+      vy: 0,
+      moveSpeed: 11,
+      weapons: [],
+      goals: [
+        new TargetEntityGoal<Enemy>(0, Player, Infinity),
+        new GoToTargetGoal<Enemy>(1, 20),
+      ],
+    });
+  }
+
+  public override tick(world: World): void {
+    super.tick(world);
+    if (!this.alive || !world.entities.has(this.id)) {
+      return;
+    }
+
+    const { targetId } = this;
+    if (targetId === undefined) {
+      return;
+    }
+
+    const target = world.get(targetId);
+    if (!target?.alive) {
+      return;
+    }
+
+    const distanceSquared = getDistanceSquaredToResolvedRectSet(
+      target.getWorldHitboxes(),
+      this.x,
+      this.y,
+    );
+    if (distanceSquared > TRIGGER_RADIUS * TRIGGER_RADIUS) {
+      return;
+    }
+
+    triggerBomberExplosion(world, this);
+    this.alive = false;
+    world.despawn(this.id);
+  }
+}

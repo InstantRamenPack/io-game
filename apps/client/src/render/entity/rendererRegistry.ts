@@ -9,6 +9,7 @@ import { PoliceRenderer } from "@client/render/entity/enemy/PoliceRenderer.ts";
 import { SaboteurRenderer } from "@client/render/entity/enemy/SaboteurRenderer.ts";
 import { ShootaRenderer } from "@client/render/entity/enemy/ShootaRenderer.ts";
 import { WallbreakerRenderer } from "@client/render/entity/enemy/WallbreakerRenderer.ts";
+import { BomberRenderer } from "@client/render/entity/enemy/BomberRenderer.ts";
 import type {
   EntityRenderer,
   EntityRendererOptions,
@@ -36,6 +37,7 @@ const rendererManifests = [
   ["shoota", ShootaRenderer],
   ["police", PoliceRenderer],
   ["wallbreaker", WallbreakerRenderer],
+  ["bomber", BomberRenderer],
   ["wall", WallRenderer],
   ["cannon", CannonRenderer],
   ["crafting_station", CraftingStationRenderer],
