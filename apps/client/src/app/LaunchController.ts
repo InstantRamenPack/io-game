@@ -1,5 +1,6 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
+import type { ChatController } from "@client/app/ChatController.ts";
 import type { MenuController } from "@client/app/MenuController.ts";
 import type { RuntimeStatusController } from "@client/app/RuntimeStatusController.ts";
 import type { AuthController } from "@client/auth/Auth.ts";
@@ -29,6 +30,7 @@ type LaunchControllerOptions = {
   authController: AuthController;
   menuController: MenuController;
   hudController: HudController;
+  chatController: ChatController;
   runtimeStatusController: RuntimeStatusController;
   resolvePlayerName: () => string;
 };
@@ -46,6 +48,7 @@ export function createLaunchController({
   authController,
   menuController,
   hudController,
+  chatController,
   runtimeStatusController,
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
@@ -120,7 +123,11 @@ export function createLaunchController({
     if (elements.gameRoot) {
       elements.gameRoot.hidden = false;
     }
+    if (elements.chatRoot) {
+      elements.chatRoot.hidden = false;
+    }
     hudController.setVisible(true);
+    chatController.setVisible(true);
 
     runtimeStatusController.start();
     menuController.showGameScreen();
@@ -137,6 +144,7 @@ export function createLaunchController({
   gameClient.networkClient.onClose(() => {
     runtimeStatusController.stop();
     hudController.reset();
+    chatController.setVisible(false);
 
     if (elements.launchBtn) {
       const button = elements.launchBtn as HTMLButtonElement;
@@ -145,6 +153,9 @@ export function createLaunchController({
     }
     if (elements.gameRoot) {
       elements.gameRoot.hidden = true;
+    }
+    if (elements.chatRoot) {
+      elements.chatRoot.hidden = true;
     }
     hudController.setVisible(false);
 
@@ -159,6 +170,7 @@ export function createLaunchController({
     }
 
     hudController.reset();
+    chatController.setVisible(false);
 
     if (message === "socket_error" && elements.accountGateText) {
       elements.accountGateText.textContent =
@@ -171,6 +183,9 @@ export function createLaunchController({
       button.disabled = false;
     }
     hudController.setVisible(false);
+    if (elements.chatRoot) {
+      elements.chatRoot.hidden = true;
+    }
 
     menuController.refreshGateUi();
     hudController.refreshUi();

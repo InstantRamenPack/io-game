@@ -78,6 +78,21 @@
       </footer>
     </main>
     <div id="game-root" hidden></div>
+    <div id="chat-root" class="chat-shell" hidden>
+      <div id="chat-lines" class="chat-lines" aria-live="polite"></div>
+      <div class="chat-input-row">
+        <span class="chat-prompt">&gt;</span>
+        <input
+          id="chat-input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Type a message..."
+          maxlength="240"
+          aria-label="Chat input"
+        />
+      </div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

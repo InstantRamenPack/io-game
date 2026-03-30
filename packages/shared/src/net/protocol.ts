@@ -62,6 +62,11 @@ export const PingMessageSchema = z.object({
   timeMs: z.number().optional(),
 });
 
+export const ChatInputMessageSchema = z.object({
+  t: z.literal("chat"),
+  text: z.string().min(1).max(240),
+});
+
 export const PongMessageSchema = z.object({
   t: z.literal("pong"),
   timeMs: z.number().optional(),
@@ -82,10 +87,18 @@ export const ErrorMessageSchema = z.object({
   message: z.string(),
 });
 
+export const ChatMessageSchema = z.object({
+  t: z.literal("chat"),
+  text: z.string(),
+  kind: z.enum(["global", "system", "emote", "whisper"]).optional(),
+  from: z.string().optional(),
+});
+
 export const ClientToServerMessageSchema = z.discriminatedUnion("t", [
   HelloMessageSchema,
   InputMessageSchema,
   PingMessageSchema,
+  ChatInputMessageSchema,
 ]);
 
 export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
@@ -93,6 +106,7 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
   PongMessageSchema,
   WelcomeMessageSchema,
   ErrorMessageSchema,
+  ChatMessageSchema,
 ]);
 
 export type InputCommand = z.infer<typeof InputCommandSchema>;
@@ -104,12 +118,19 @@ export type PongMessage = z.infer<typeof PongMessageSchema>;
 export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
 export type SnapshotMessage = z.infer<typeof SnapshotMessageSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
-export type ClientToServerMessage = HelloMessage | InputMessage | PingMessage;
+export type ChatInputMessage = z.infer<typeof ChatInputMessageSchema>;
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type ClientToServerMessage =
+  | HelloMessage
+  | InputMessage
+  | PingMessage
+  | ChatInputMessage;
 export type ServerToClientMessage =
   | SnapshotMessage
   | PongMessage
   | WelcomeMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ChatMessage;
 
 type ParseServerMessageOptions = {
   validateSnapshots?: boolean;

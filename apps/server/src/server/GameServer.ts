@@ -29,6 +29,7 @@ import { TickClock } from "@server/server/TickClock.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
+import { ChatService } from "@server/chat/ChatService.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -39,6 +40,7 @@ export class GameServer {
   public networkServer: WsServer;
   public snapshotManager: SnapshotManager;
   public antiCheatValidator: AntiCheatValidator;
+  public chatService: ChatService;
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
@@ -71,6 +73,11 @@ export class GameServer {
     this.world = new World(gameConfig);
     this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
+    this.chatService = new ChatService({
+      networkServer: this.networkServer,
+      world: this.world,
+      playerIdByClientId: this.playerIdByClientId,
+    });
     this.clock = new TickClock(gameConfig.tickRate);
 
     this.networkServer.onOpen((clientId) => {
@@ -413,6 +420,18 @@ export class GameServer {
           return;
         }
         this.handleInput(clientId, (clientMessage as InputMessage).cmd);
+        return;
+      case "chat":
+        if (this.clientStateById.get(clientId) !== "ready") {
+          this.networkServer.send(
+            clientId,
+            JSON.stringify({ t: "error", message: "hello_required" }),
+          );
+          return;
+        }
+        if ("text" in clientMessage) {
+          this.chatService.handleChat(clientId, clientMessage.text);
+        }
         return;
       case "ping": {
         const pingMessage = clientMessage as PingMessage;

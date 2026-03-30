@@ -1,5 +1,6 @@
 import {
   type InputCommand,
+  type ChatMessage,
   parseServerToClientMessage,
 } from "@shared/net/protocol.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
@@ -20,6 +21,7 @@ export class WsClient {
 
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
   private welcomeHandlers: Array<(entityId: number) => void> = [];
+  private chatHandlers: Array<(message: ChatMessage) => void> = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
@@ -96,6 +98,13 @@ export class WsClient {
         return;
       }
 
+      if (serverMessage.t === "chat") {
+        for (const chatHandler of this.chatHandlers) {
+          chatHandler(serverMessage);
+        }
+        return;
+      }
+
       if (serverMessage.t === "error") {
         for (const errorHandler of this.errorHandlers) {
           errorHandler(serverMessage.message);
@@ -115,6 +124,13 @@ export class WsClient {
     this.socket.send(JSON.stringify({ t: "input", cmd: inputCommand }));
   }
 
+  public sendChat(text: string): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify({ t: "chat", text }));
+  }
+
   /**
    * Registers a callback for incoming snapshot messages.
    * @param snapshotHandler Callback invoked for each snapshot payload.
@@ -129,6 +145,11 @@ export class WsClient {
    */
   public onWelcome(welcomeHandler: (entityId: number) => void): void {
     this.welcomeHandlers.push(welcomeHandler);
+  }
+
+  /** Registers a callback for incoming chat messages. */
+  public onChat(chatHandler: (message: ChatMessage) => void): void {
+    this.chatHandlers.push(chatHandler);
   }
 
   /**

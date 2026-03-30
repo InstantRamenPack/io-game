@@ -380,7 +380,7 @@ export class PixiHud {
     );
 
     this.hotbarPanel.setPosition(
-      padding,
+      screenWidth - padding - this.hotbarPanel.width,
       screenHeight - padding - this.hotbarPanel.height,
     );
     this.buildPanel.setPosition(
@@ -388,7 +388,7 @@ export class PixiHud {
       screenHeight - padding - this.buildPanel.height,
     );
     this.craftingPanel.setPosition(
-      screenWidth - padding - this.craftingPanel.width,
+      padding,
       screenHeight - padding - this.craftingPanel.height,
     );
 
