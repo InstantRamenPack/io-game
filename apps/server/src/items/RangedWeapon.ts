@@ -166,6 +166,10 @@ export class RangedWeapon extends Weapon {
     };
   }
 
+  public getProjectileSpeed(): number {
+    return this.resolveProjectileType().definition.speed;
+  }
+
   private resolveProjectileType(): RegistrableProjectileCtor {
     const projectileEntry = entityTypeRegistry.require(this.projectileTypeId);
     if (projectileEntry.kind !== "projectile") {

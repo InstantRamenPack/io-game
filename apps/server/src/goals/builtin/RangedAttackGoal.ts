@@ -5,6 +5,8 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
+const LEAD_BLEND_FACTOR = 0.5;
+
 /**
  * Strafing ranged attack goal that maintains distance while firing one weapon slot.
  */
@@ -53,15 +55,16 @@ export class RangedAttackGoal<
     const deltaX = target.x - ctx.self.x;
     const deltaY = target.y - ctx.self.y;
     const distance = Math.hypot(deltaX, deltaY);
+    const aimPoint = this.resolveAimPoint(ctx, weapon, target);
     if (distance <= Number.EPSILON) {
       ctx.self.setMovementVelocity(0, 0);
       if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
-        weapon.hit(ctx.world, ctx.self, target.x, target.y);
+        weapon.hit(ctx.world, ctx.self, aimPoint.x, aimPoint.y);
       }
       return;
     }
 
-    ctx.self.rotation = Math.atan2(deltaY, deltaX);
+    ctx.self.rotation = Math.atan2(aimPoint.y - ctx.self.y, aimPoint.x - ctx.self.x);
     this.ticksUntilSwap -= 1;
     if (this.ticksUntilSwap <= 0) {
       this.flipStrafeDirection();
@@ -98,7 +101,7 @@ export class RangedAttackGoal<
     }
 
     if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
-      weapon.hit(ctx.world, ctx.self, target.x, target.y);
+      weapon.hit(ctx.world, ctx.self, aimPoint.x, aimPoint.y);
     }
   }
 
@@ -138,6 +141,78 @@ export class RangedAttackGoal<
     throw new Error(
       `RangedAttackGoal expected ranged weapon in slot ${this.weaponSlot} for ${ctx.self.typeId}.`,
     );
+  }
+
+  private resolveAimPoint(
+    ctx: GoalContext<TSelf>,
+    weapon: RangedWeapon,
+    target: Entity,
+  ): { x: number; y: number } {
+    const projectileSpeed = weapon.getProjectileSpeed();
+    const interceptTime = this.resolveInterceptTime(
+      ctx.self.x,
+      ctx.self.y,
+      target.x,
+      target.y,
+      target.vx,
+      target.vy,
+      projectileSpeed,
+    );
+    if (interceptTime === null) {
+      return { x: target.x, y: target.y };
+    }
+
+    return {
+      x: target.x + target.vx * interceptTime * LEAD_BLEND_FACTOR,
+      y: target.y + target.vy * interceptTime * LEAD_BLEND_FACTOR,
+    };
+  }
+
+  private resolveInterceptTime(
+    originX: number,
+    originY: number,
+    targetX: number,
+    targetY: number,
+    targetVx: number,
+    targetVy: number,
+    projectileSpeed: number,
+  ): number | null {
+    if (!Number.isFinite(projectileSpeed) || projectileSpeed <= 0) {
+      return null;
+    }
+
+    const relativeX = targetX - originX;
+    const relativeY = targetY - originY;
+    const targetSpeedSquared = targetVx * targetVx + targetVy * targetVy;
+    const projectileSpeedSquared = projectileSpeed * projectileSpeed;
+    const quadraticA = targetSpeedSquared - projectileSpeedSquared;
+    const quadraticB = 2 * (relativeX * targetVx + relativeY * targetVy);
+    const quadraticC = relativeX * relativeX + relativeY * relativeY;
+
+    if (Math.abs(quadraticA) <= 1e-6) {
+      if (Math.abs(quadraticB) <= 1e-6) {
+        return null;
+      }
+
+      const linearTime = -quadraticC / quadraticB;
+      return linearTime > 0 ? linearTime : null;
+    }
+
+    const discriminant = quadraticB * quadraticB - 4 * quadraticA * quadraticC;
+    if (discriminant < 0) {
+      return null;
+    }
+
+    const discriminantRoot = Math.sqrt(discriminant);
+    const firstTime = (-quadraticB - discriminantRoot) / (2 * quadraticA);
+    const secondTime = (-quadraticB + discriminantRoot) / (2 * quadraticA);
+    const positiveTimes = [firstTime, secondTime].filter((time) => time > 0);
+
+    if (positiveTimes.length === 0) {
+      return null;
+    }
+
+    return Math.min(...positiveTimes);
   }
 
   private resolveStrafeVector(
