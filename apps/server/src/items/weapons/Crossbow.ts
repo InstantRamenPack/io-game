@@ -7,6 +7,6 @@ export class Crossbow extends RangedWeapon {
   public static override readonly resourceName = "crossbow";
 
   constructor() {
-    super(3, "projectile:crossbow_arrow", 6, 48, 0);
+    super(3, "projectile:crossbow_arrow", 6, 48, 0, "item:crossbow_mag");
   }
 }

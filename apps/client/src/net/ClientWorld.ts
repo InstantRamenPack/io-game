@@ -78,7 +78,7 @@ export class ClientWorld {
 
     this.applyEvents(snapshot.events);
 
-    for (const [entityId, entity] of this.entities) {
+    for (const [entityId] of this.entities) {
       if (!updatedEntityIds.has(entityId)) {
         this.renderManager?.removeEntity(entityId);
         this.entities.delete(entityId);
@@ -92,6 +92,16 @@ export class ClientWorld {
 
   private applyEvents(events: NetEvent[]): void {
     for (const event of events) {
+      if (event.type === "explosion") {
+        this.pixiRenderer?.triggerExplosionEffect(
+          event.payload.x,
+          event.payload.y,
+          event.payload.radius,
+          event.payload.style,
+        );
+        continue;
+      }
+
       if (event.type !== "damage") {
         continue;
       }

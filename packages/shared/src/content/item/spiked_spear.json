@@ -1,0 +1,11 @@
+{
+  "label": "Spiked Spear",
+  "recipe": {
+    "hint": "Piercing spear that causes bleeding.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 26 },
+      { "typeId": "item:stone", "amount": 18 }
+    ]
+  }
+}

@@ -49,6 +49,10 @@ export class Enemy extends GoalControlledEntity {
     };
   }
 
+  public override hasInfiniteReloadMags(): boolean {
+    return true;
+  }
+
   public override handleDeath(world: World): void {
     this.alive = false;
     world.despawn(this.id);

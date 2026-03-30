@@ -27,11 +27,21 @@ export abstract class GoalControlledEntity extends Entity {
   }
 
   public override tick(world: World): void {
-    this.goalSelector.tick(new GoalContext(world, this));
+    super.tick(world);
+    if (!this.alive || !world.entities.has(this.id)) {
+      return;
+    }
+
     for (const weapon of this.weapons) {
+      weapon.ownerId = this.id;
       weapon.tick(world);
     }
-    super.tick(world);
+    if (this.isStunned()) {
+      this.setMovementVelocity(0, 0);
+      return;
+    }
+
+    this.goalSelector.tick(new GoalContext(world, this));
   }
 
   protected registerGoals(goals: readonly Goal<this>[]): void {

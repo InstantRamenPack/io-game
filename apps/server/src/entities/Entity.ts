@@ -5,7 +5,9 @@ import type {
   ResolvedHitboxRect,
 } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { NetEvent } from "@shared/net/events.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
+import type { Inventory } from "@server/items/Inventory.ts";
 import type { World } from "@server/world/World.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
@@ -18,6 +20,16 @@ export type CollisionMode = "none" | "dynamic" | "static";
 
 type EntityConfig = {
   maxHp?: number;
+};
+
+export type ActiveEffectRuntime = {
+  typeId: ResourceId;
+  ticksRemaining: number;
+  sourceId?: number;
+  pulseIntervalTicks?: number;
+  pulseTicksRemaining?: number;
+  pulseDamage?: number;
+  preventsAction?: boolean;
 };
 
 /**
@@ -46,6 +58,7 @@ export abstract class Entity {
   public rotation = 0;
   public collisionMode: CollisionMode = "none";
   public alive = true;
+  public activeEffects: ActiveEffectRuntime[] = [];
   protected moveVx = 0;
   protected moveVy = 0;
   protected impulseVx = 0;
@@ -70,9 +83,14 @@ export abstract class Entity {
 
   /**
    * Per-tick extension point for subclass-specific behavior.
-   * @param _world World being simulated.
+   * @param world World being simulated.
    */
-  public tick(_world: World): void {
+  public tick(world: World): void {
+    this.tickActiveEffects(world);
+    if (!this.alive || !world.entities.has(this.id)) {
+      return;
+    }
+
     this.impulseVx *= 0.85;
     this.impulseVy *= 0.85;
     if (Math.abs(this.impulseVx) < 1) {
@@ -197,6 +215,37 @@ export abstract class Entity {
     return this;
   }
 
+  public getReloadInventory(): Inventory | null {
+    return null;
+  }
+
+  public hasInfiniteReloadMags(): boolean {
+    return false;
+  }
+
+  public isStunned(): boolean {
+    return this.activeEffects.some(
+      (effect) => effect.preventsAction && effect.ticksRemaining > 0,
+    );
+  }
+
+  public applyOrRefreshActiveEffect(effect: ActiveEffectRuntime): void {
+    this.activeEffects = this.activeEffects.filter(
+      (activeEffect) => activeEffect.typeId !== effect.typeId,
+    );
+    this.activeEffects.push({ ...effect });
+  }
+
+  public getActiveEffectSnapshots(): Array<{
+    typeId: ResourceId;
+    ticksRemaining: number;
+  }> {
+    return this.activeEffects.map((effect) => ({
+      typeId: effect.typeId,
+      ticksRemaining: effect.ticksRemaining,
+    }));
+  }
+
   public handleDeath(_world: World): void {
     // default no-op for inert entities
   }
@@ -205,10 +254,87 @@ export abstract class Entity {
     // default no-op for entities without post-move behavior
   }
 
+  private tickActiveEffects(world: World): void {
+    if (this.activeEffects.length === 0) {
+      return;
+    }
+
+    const nextActiveEffects: ActiveEffectRuntime[] = [];
+    for (const effect of this.activeEffects) {
+      const nextEffect: ActiveEffectRuntime = { ...effect };
+
+      if (
+        typeof nextEffect.pulseDamage === "number" &&
+        typeof nextEffect.pulseIntervalTicks === "number" &&
+        typeof nextEffect.pulseTicksRemaining === "number"
+      ) {
+        nextEffect.pulseTicksRemaining -= 1;
+        if (nextEffect.pulseTicksRemaining <= 0) {
+          if (nextEffect.sourceId !== undefined) {
+            this.applyDamagePulse(
+              world,
+              nextEffect.sourceId,
+              nextEffect.pulseDamage,
+            );
+          }
+          nextEffect.pulseTicksRemaining = nextEffect.pulseIntervalTicks;
+        }
+      }
+
+      if (!this.alive || !world.entities.has(this.id)) {
+        return;
+      }
+
+      nextEffect.ticksRemaining -= 1;
+      if (nextEffect.ticksRemaining > 0) {
+        nextActiveEffects.push(nextEffect);
+      }
+    }
+
+    this.activeEffects = nextActiveEffects;
+  }
+
   private getSnapshotHitboxes(): HitboxRect[] {
     if (!this.snapshotHitboxesCache) {
       this.snapshotHitboxesCache = this.hitboxes.map((rect) => ({ ...rect }));
     }
     return this.snapshotHitboxesCache;
+  }
+
+  private applyDamagePulse(
+    world: World,
+    sourceId: number,
+    amount: number,
+  ): void {
+    if (!Number.isFinite(amount) || amount <= 0 || !this.alive) {
+      return;
+    }
+
+    const nextHp = Math.max(0, Math.min(this.maxHp, this.hp - amount));
+    if (nextHp === this.hp) {
+      return;
+    }
+
+    this.hp = nextHp;
+    const isFatal = nextHp <= 0;
+    const damageEvent: NetEvent = {
+      type: "damage",
+      tick: world.tick + 1,
+      payload: {
+        sourceId,
+        targetId: this.id,
+        amount,
+        remainingHp: nextHp,
+        maxHp: this.maxHp,
+        x: this.x,
+        y: this.y,
+        isFatal,
+      },
+    };
+    world.events.push(damageEvent);
+
+    if (isFatal) {
+      this.handleDeath(world);
+    }
   }
 }

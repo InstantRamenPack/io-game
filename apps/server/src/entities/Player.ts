@@ -25,8 +25,6 @@ export class Player extends Entity {
   public inventory: Inventory;
   public inputBuffer: InputCommand[] = [];
   public moveSpeed = 15;
-  public activeEffects: Array<{ typeId: ResourceId; ticksRemaining: number }> =
-    [];
 
   constructor(id: number, name = "player") {
     super(id, { maxHp: 100 });
@@ -45,8 +43,12 @@ export class Player extends Entity {
 
   public override tick(world: World): void {
     super.tick(world);
-    this.tickActiveEffects();
+    if (!this.alive || !world.entities.has(this.id)) {
+      return;
+    }
+
     for (const weapon of this.inventory.weapons) {
+      weapon.ownerId = this.id;
       weapon.tick(world);
     }
     this.applyBufferedInputs(world);
@@ -59,12 +61,18 @@ export class Player extends Entity {
       kind: "player",
       name: this.name,
       inventory: this.inventory.toSnapshot(),
-      activeEffects: this.activeEffects.map((effect) => ({ ...effect })),
+      activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
     };
   }
 
   public applyBufferedInputs(world: World): void {
+    if (this.isStunned()) {
+      this.inputBuffer.length = 0;
+      this.setMovementVelocity(0, 0);
+      return;
+    }
+
     let nextMoveX = 0;
     let nextMoveY = 0;
     let sawMovement = false;
@@ -117,23 +125,8 @@ export class Player extends Entity {
     return this.inventory.getActiveWeapon();
   }
 
-  private tickActiveEffects(): void {
-    if (this.activeEffects.length === 0) {
-      return;
-    }
-
-    this.activeEffects = this.activeEffects.flatMap((effect) => {
-      if (effect.ticksRemaining <= 1) {
-        return [];
-      }
-
-      return [
-        {
-          typeId: effect.typeId,
-          ticksRemaining: effect.ticksRemaining - 1,
-        },
-      ];
-    });
+  public override getReloadInventory(): Inventory {
+    return this.inventory;
   }
 
   public override handleDeath(world: World): void {
@@ -237,6 +230,9 @@ export class Player extends Entity {
     this.inventory.addStackable("item:wood", 120);
     this.inventory.addStackable("item:stone", 80);
     this.inventory.addStackable("item:food", 6);
+    this.inventory.addStackable("item:gun_mag", 2);
+    this.inventory.addStackable("item:crossbow_mag", 2);
+    this.inventory.addStackable("item:landmine", 5);
     this.inventory.addStackable("item:wall", 8);
     this.inventory.addStackable("item:cannon", 2);
     this.inventory.addStackable("item:crafting_station", 1);

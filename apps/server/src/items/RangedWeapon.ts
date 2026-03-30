@@ -20,6 +20,7 @@ export class RangedWeapon extends Weapon {
   public magSize: number;
   public reloadTicks: number;
   public spread: number;
+  public magItemTypeId?: ResourceId;
 
   /** Reload timer in fixed ticks. */
   protected reloadTicksRemaining = 0;
@@ -30,21 +31,37 @@ export class RangedWeapon extends Weapon {
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
+    magItemTypeId?: ResourceId,
   ) {
     super(fireRate);
     this.projectileTypeId = projectileTypeId;
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
     this.spread = spread;
+    this.magItemTypeId = magItemTypeId;
     this.ammoInMag = magSize;
   }
 
   /** Advances cooldown and reload timers by one fixed tick. */
-  public override tick(_world: World): void {
-    super.tick(_world);
+  public override tick(world: World): void {
+    super.tick(world);
+    const owner = this.resolveOwner(world);
+    if (
+      this.ammoInMag <= 0 &&
+      this.reloadTicksRemaining <= 0 &&
+      this.canReload(owner)
+    ) {
+      this.reloadTicksRemaining = this.reloadTicks;
+    }
+
     if (this.reloadTicksRemaining > 0) {
       this.reloadTicksRemaining -= 1;
       if (this.reloadTicksRemaining <= 0) {
+        if (!this.completeReload(owner)) {
+          this.reloadTicksRemaining = 0;
+          this.ammoInMag = 0;
+          return;
+        }
         this.ammoInMag = this.magSize;
       }
     }
@@ -126,7 +143,7 @@ export class RangedWeapon extends Weapon {
     this.ammoInMag--;
     this.resetCooldown(world.gameConfig.tickRate);
 
-    if (this.ammoInMag <= 0) {
+    if (this.ammoInMag <= 0 && this.canReload(owner)) {
       this.reloadTicksRemaining = this.reloadTicks;
     }
 
@@ -165,5 +182,37 @@ export class RangedWeapon extends Weapon {
     range: number,
   ): boolean {
     return Math.hypot(target.x - owner.x, target.y - owner.y) <= range;
+  }
+
+  private resolveOwner(world: World): Entity | undefined {
+    return this.ownerId !== undefined ? world.get(this.ownerId) : undefined;
+  }
+
+  private canReload(owner: Entity | undefined): boolean {
+    if (owner?.hasInfiniteReloadMags()) {
+      return true;
+    }
+
+    if (!this.magItemTypeId) {
+      return true;
+    }
+
+    return (owner?.getReloadInventory()?.getStackableCount(this.magItemTypeId) ?? 0) > 0;
+  }
+
+  private completeReload(owner: Entity | undefined): boolean {
+    if (owner?.hasInfiniteReloadMags()) {
+      return true;
+    }
+
+    if (!this.magItemTypeId) {
+      return true;
+    }
+
+    return (
+      owner?.getReloadInventory()?.consumeTypes([
+      { typeId: this.magItemTypeId, amount: 1 },
+      ]) ?? false
+    );
   }
 }

@@ -1,0 +1,12 @@
+{
+  "label": "Landmine Item",
+  "buildsEntityTypeId": "building:landmine",
+  "recipe": {
+    "hint": "Hidden trap that explodes when enemies step near it.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 16 },
+      { "typeId": "item:stone", "amount": 20 }
+    ]
+  }
+}

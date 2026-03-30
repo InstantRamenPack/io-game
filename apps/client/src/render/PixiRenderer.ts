@@ -2,8 +2,19 @@ import * as PIXI from "pixijs";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
+import type { ExplosionStyle } from "@shared/net/events.ts";
 
 type WorldSize = { w: number; h: number };
+
+type ExplosionEffect = {
+  graphic: PIXI.Graphics;
+  remainingMs: number;
+  durationMs: number;
+  radius: number;
+  x: number;
+  y: number;
+  style: ExplosionStyle;
+};
 
 /**
  * Rendering adapter for visible entity state.
@@ -14,11 +25,13 @@ export class PixiRenderer {
   private app: PIXI.Application<HTMLCanvasElement> | null = null;
   private world: PIXI.Container | null = null;
   private grid: PIXI.Graphics | null = null;
+  private effectContainer: PIXI.Container | null = null;
   public entityContainer: PIXI.Container | null = null;
   private damageOverlay: PIXI.Graphics | null = null;
   private hud: PixiHud | null = null;
   private damageOverlayRemainingMs = 0;
   private damageOverlayDurationMs = 200;
+  private explosionEffects: ExplosionEffect[] = [];
   private gridCellSize = 100;
   private gridNightBlend = 0;
   private readonly gridDayFillColor = 0xd7f3d2;
@@ -85,6 +98,10 @@ export class PixiRenderer {
     if (!this.entityContainer) {
       this.entityContainer = new PIXI.Container();
     }
+    if (!this.effectContainer) {
+      this.effectContainer = new PIXI.Container();
+    }
+    this.world.addChild(this.effectContainer);
     this.world.addChild(this.entityContainer);
 
     if (this.hud) {
@@ -130,6 +147,7 @@ export class PixiRenderer {
 
   public update(deltaMs: number): void {
     this.updateDamageOverlay(deltaMs);
+    this.updateExplosionEffects(deltaMs);
     this.renderScene();
   }
 
@@ -182,6 +200,32 @@ export class PixiRenderer {
     this.damageOverlayDurationMs = Math.max(1, durationMs);
     this.damageOverlayRemainingMs = this.damageOverlayDurationMs;
     this.updateDamageOverlay(0);
+  }
+
+  public triggerExplosionEffect(
+    x: number,
+    y: number,
+    radius: number,
+    style: ExplosionStyle,
+  ): void {
+    if (!this.effectContainer) {
+      return;
+    }
+
+    const graphic = new PIXI.Graphics();
+    this.effectContainer.addChild(graphic);
+    const durationMs = style === "landmine" ? 320 : 240;
+    const effect: ExplosionEffect = {
+      graphic,
+      remainingMs: durationMs,
+      durationMs,
+      radius,
+      x,
+      y,
+      style,
+    };
+    this.explosionEffects.push(effect);
+    this.drawExplosionEffect(effect);
   }
 
   private renderScene(): void {
@@ -292,6 +336,45 @@ export class PixiRenderer {
         : (this.damageOverlayRemainingMs / this.damageOverlayDurationMs) * 0.28;
     this.damageOverlay.alpha = alpha;
     this.damageOverlay.visible = alpha > 0.001;
+  }
+
+  private updateExplosionEffects(deltaMs: number): void {
+    if (this.explosionEffects.length === 0) {
+      return;
+    }
+
+    const nextEffects: ExplosionEffect[] = [];
+    for (const effect of this.explosionEffects) {
+      effect.remainingMs = Math.max(0, effect.remainingMs - deltaMs);
+      if (effect.remainingMs <= 0) {
+        effect.graphic.destroy();
+        continue;
+      }
+
+      this.drawExplosionEffect(effect);
+      nextEffects.push(effect);
+    }
+
+    this.explosionEffects = nextEffects;
+  }
+
+  private drawExplosionEffect(effect: ExplosionEffect): void {
+    const progress = 1 - effect.remainingMs / Math.max(1, effect.durationMs);
+    const primaryColor = effect.style === "landmine" ? 0xff7b21 : 0xffc857;
+    const secondaryColor = effect.style === "landmine" ? 0xffd6a0 : 0xfff0bf;
+    const ringRadius = effect.radius * (0.25 + progress * 0.75);
+    const fillRadius = effect.radius * (0.08 + progress * 0.32);
+    const alpha = (1 - progress) * 0.85;
+
+    effect.graphic.clear();
+    effect.graphic.position.set(effect.x, effect.y);
+    effect.graphic.beginFill(primaryColor, alpha * 0.2);
+    effect.graphic.drawCircle(0, 0, fillRadius);
+    effect.graphic.endFill();
+    effect.graphic.lineStyle(4, primaryColor, alpha);
+    effect.graphic.drawCircle(0, 0, ringRadius);
+    effect.graphic.lineStyle(2, secondaryColor, alpha * 0.7);
+    effect.graphic.drawCircle(0, 0, ringRadius * 0.72);
   }
 
   private lerpColor(start: number, end: number, t: number): number {

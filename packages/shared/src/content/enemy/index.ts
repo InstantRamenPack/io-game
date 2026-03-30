@@ -1,4 +1,5 @@
 import megaknightEntityJson from "@shared/content/enemy/megaknight.json";
+import policeEntityJson from "@shared/content/enemy/police.json";
 import saboteurEntityJson from "@shared/content/enemy/saboteur.json";
 import shootaEntityJson from "@shared/content/enemy/shoota.json";
 import drifterEntityJson from "@shared/content/enemy/drifter.json";
@@ -8,5 +9,6 @@ export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "drifter", drifterEntityJson),
   makeParsedEntityContentEntry("enemy", "shoota", shootaEntityJson),
   makeParsedEntityContentEntry("enemy", "megaknight", megaknightEntityJson),
+  makeParsedEntityContentEntry("enemy", "police", policeEntityJson),
   makeParsedEntityContentEntry("enemy", "saboteur", saboteurEntityJson),
 ] as const;

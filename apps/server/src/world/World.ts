@@ -6,6 +6,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
+import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
@@ -23,6 +24,7 @@ export class World {
   public dayNightSystem: DayNightSystem;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
+  private readonly pickupSystem = new PickupSystem();
 
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
@@ -76,6 +78,8 @@ export class World {
       }
       entity.afterMovement(this);
     }
+
+    this.pickupSystem.update(this, deltaMs);
   }
 
   /**

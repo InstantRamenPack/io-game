@@ -15,6 +15,7 @@ import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
+import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
@@ -280,6 +281,26 @@ export class GameServer {
         shoota.x = shootaPosition.x;
         shoota.y = shootaPosition.y;
         this.world.spawn(shoota);
+      });
+    }
+
+    const policePositions = [
+      {
+        x: this.gameConfig.worldSize.w * 0.2,
+        y: this.gameConfig.worldSize.h * 0.5,
+      },
+      {
+        x: this.gameConfig.worldSize.w * 0.8,
+        y: this.gameConfig.worldSize.h * 0.5,
+      },
+    ];
+
+    for (const policePosition of policePositions) {
+      this.spawnInitialCopies(() => {
+        const police = new Police(this.world.allocEntityId());
+        police.x = policePosition.x;
+        police.y = policePosition.y;
+        this.world.spawn(police);
       });
     }
 

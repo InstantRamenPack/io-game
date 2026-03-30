@@ -1,0 +1,11 @@
+{
+  "label": "Crossbow Mag",
+  "recipe": {
+    "hint": "Restocks the crossbow with a fresh bundle.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 8 },
+      { "typeId": "item:stone", "amount": 4 }
+    ]
+  }
+}

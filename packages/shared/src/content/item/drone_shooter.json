@@ -1,0 +1,11 @@
+{
+  "label": "Drone Shooter",
+  "recipe": {
+    "hint": "Launches a slow homing explosive drone.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 40 },
+      { "typeId": "item:stone", "amount": 28 }
+    ]
+  }
+}

@@ -9,7 +9,13 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 
-const RESOURCE_TYPE_IDS = ["item:wood", "item:stone", "item:food"] as const;
+const RESOURCE_TYPE_IDS = [
+  "item:wood",
+  "item:stone",
+  "item:food",
+  "item:gun_mag",
+  "item:crossbow_mag",
+] as const;
 const HOTBAR_SLOT_COUNT = 9;
 
 export type HudState = {

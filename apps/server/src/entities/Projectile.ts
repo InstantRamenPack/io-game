@@ -46,8 +46,8 @@ export abstract class Projectile extends GoalControlledEntity {
   public previousY: number;
   public readonly speed: number;
   public remainingRange: number;
-  protected readonly directionX: number;
-  protected readonly directionY: number;
+  protected directionX: number;
+  protected directionY: number;
   protected readonly hitEffects: readonly Effect[];
   protected remainingHits: number | null;
   private readonly hitTargetIds = new Set<number>();
@@ -80,10 +80,7 @@ export abstract class Projectile extends GoalControlledEntity {
       "default",
     );
     this.remainingHits = normalizeMaxHits(definition.maxHits);
-    this.setMovementVelocity(
-      this.directionX * this.speed,
-      this.directionY * this.speed,
-    );
+    this.setHeading(this.directionX, this.directionY, config.rotation);
   }
 
   public override tick(world: World): void {
@@ -153,6 +150,21 @@ export abstract class Projectile extends GoalControlledEntity {
     for (const effect of this.hitEffects) {
       effect.apply(world, this, target);
     }
+  }
+
+  protected setHeading(
+    directionX: number,
+    directionY: number,
+    rotation = Math.atan2(directionY, directionX),
+  ): void {
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    this.directionX = directionX / directionLength;
+    this.directionY = directionY / directionLength;
+    this.rotation = rotation;
+    this.setMovementVelocity(
+      this.directionX * this.speed,
+      this.directionY * this.speed,
+    );
   }
 
   public override afterMovement(world: World): void {

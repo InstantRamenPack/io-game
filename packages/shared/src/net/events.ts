@@ -11,15 +11,34 @@ export const DamageEventPayloadSchema = z.object({
   isFatal: z.boolean(),
 });
 
+export const ExplosionStyleSchema = z.enum(["landmine", "drone"]);
+
+export const ExplosionEventPayloadSchema = z.object({
+  sourceId: z.number().int().nonnegative(),
+  x: z.number(),
+  y: z.number(),
+  radius: z.number().positive(),
+  style: ExplosionStyleSchema,
+});
+
 /**
  * Serialized gameplay event emitted alongside snapshots.
  * Discrete events ride next to snapshot state instead of being modeled as entities.
  */
-export const NetEventSchema = z.object({
-  type: z.literal("damage"),
-  tick: z.number().int().nonnegative(),
-  payload: DamageEventPayloadSchema,
-});
+export const NetEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("damage"),
+    tick: z.number().int().nonnegative(),
+    payload: DamageEventPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("explosion"),
+    tick: z.number().int().nonnegative(),
+    payload: ExplosionEventPayloadSchema,
+  }),
+]);
 
 export type DamageEventPayload = z.infer<typeof DamageEventPayloadSchema>;
+export type ExplosionEventPayload = z.infer<typeof ExplosionEventPayloadSchema>;
+export type ExplosionStyle = z.infer<typeof ExplosionStyleSchema>;
 export type NetEvent = z.infer<typeof NetEventSchema>;
