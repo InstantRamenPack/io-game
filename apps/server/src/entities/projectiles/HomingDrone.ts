@@ -7,6 +7,7 @@ import {
   type ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
 import { HomingTargetGoal } from "@server/goals/builtin/HomingTargetGoal.ts";
+import type {World} from "@server/world/World.ts";
 
 const SEEK_RADIUS = 260;
 const TURN_BLEND = 0.18;

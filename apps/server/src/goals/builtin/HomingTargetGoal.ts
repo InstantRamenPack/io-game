@@ -1,5 +1,5 @@
 import { canAttackTarget } from "@server/combat/combatRules.ts";
-import { Projectile } from "@server/entities/Projectile.ts";
+import type { Projectile } from "@server/entities/Projectile.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
