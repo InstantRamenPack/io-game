@@ -3,6 +3,7 @@ import policeEntityJson from "@shared/content/enemy/police.json";
 import saboteurEntityJson from "@shared/content/enemy/saboteur.json";
 import shootaEntityJson from "@shared/content/enemy/shoota.json";
 import drifterEntityJson from "@shared/content/enemy/drifter.json";
+import wallbreakerEntityJson from "@shared/content/enemy/wallbreaker.json";
 import { makeParsedEntityContentEntry } from "@shared/content/parseContent.ts";
 
 export const enemyContentEntries = [
@@ -11,4 +12,5 @@ export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "megaknight", megaknightEntityJson),
   makeParsedEntityContentEntry("enemy", "police", policeEntityJson),
   makeParsedEntityContentEntry("enemy", "saboteur", saboteurEntityJson),
+  makeParsedEntityContentEntry("enemy", "wallbreaker", wallbreakerEntityJson),
 ] as const;

@@ -19,6 +19,7 @@ import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
+import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
@@ -317,6 +318,11 @@ export class GameServer {
       saboteur.y = this.gameConfig.worldSize.h * 0.15;
       this.world.spawn(saboteur);
     });
+
+    const wallbreaker = new Wallbreaker(this.world.allocEntityId());
+    wallbreaker.x = this.gameConfig.worldSize.w * 0.5 - 600;
+    wallbreaker.y = this.gameConfig.worldSize.h * 0.5 + 200;
+    this.world.spawn(wallbreaker);
   }
 
   /**
@@ -345,6 +351,11 @@ export class GameServer {
         x: centerX + 120,
         y: centerY + 130,
         create: (id) => new CraftingStation(id, "Craft Bench"),
+      },
+      {
+        x: centerX + 300,
+        y: centerY,
+        create: (id) => new Wall(id, "Test Wall"),
       },
     ];
 
