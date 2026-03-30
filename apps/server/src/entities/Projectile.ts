@@ -167,6 +167,27 @@ export abstract class Projectile extends GoalControlledEntity {
     );
   }
 
+  public blendHeadingTowardPoint(
+    targetX: number,
+    targetY: number,
+    turnBlend = 1,
+  ): void {
+    const deltaX = targetX - this.x;
+    const deltaY = targetY - this.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= Number.EPSILON) {
+      return;
+    }
+
+    const desiredX = deltaX / distance;
+    const desiredY = deltaY / distance;
+    const clampedBlend = Math.max(0, Math.min(1, turnBlend));
+    this.setHeading(
+      this.directionX * (1 - clampedBlend) + desiredX * clampedBlend,
+      this.directionY * (1 - clampedBlend) + desiredY * clampedBlend,
+    );
+  }
+
   public override afterMovement(world: World): void {
     if (this.resolvePostStep(world)) {
       this.alive = false;
