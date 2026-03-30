@@ -11,7 +11,7 @@ export const DamageEventPayloadSchema = z.object({
   isFatal: z.boolean(),
 });
 
-export const ExplosionStyleSchema = z.enum(["landmine", "drone"]);
+export const ExplosionStyleSchema = z.enum(["landmine", "drone", "wallbreaker"]);
 
 export const ExplosionEventPayloadSchema = z.object({
   sourceId: z.number().int().nonnegative(),

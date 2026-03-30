@@ -3,6 +3,7 @@ import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
+import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 
 export const enemyEntityTypes = [
   Drifter,
@@ -10,4 +11,5 @@ export const enemyEntityTypes = [
   Megaknight,
   Police,
   Saboteur,
+  Wallbreaker,
 ] as const;
