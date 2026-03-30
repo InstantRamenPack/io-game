@@ -112,7 +112,9 @@ export class PickupSystem implements System {
   }
 
   private pickRandomMagType(world: World): ResourceId {
-    const index = Math.floor(world.randomNumberGenerator() * MAG_PICKUP_TYPE_IDS.length);
+    const index = Math.floor(
+      world.randomNumberGenerator() * MAG_PICKUP_TYPE_IDS.length,
+    );
     return MAG_PICKUP_TYPE_IDS[index] ?? MAG_PICKUP_TYPE_IDS[0];
   }
 }

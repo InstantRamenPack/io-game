@@ -201,7 +201,10 @@ export class RangedWeapon extends Weapon {
       return true;
     }
 
-    return (owner?.getReloadInventory()?.getStackableCount(this.magItemTypeId) ?? 0) > 0;
+    return (
+      (owner?.getReloadInventory()?.getStackableCount(this.magItemTypeId) ??
+        0) > 0
+    );
   }
 
   private completeReload(owner: Entity | undefined): boolean {
@@ -214,9 +217,9 @@ export class RangedWeapon extends Weapon {
     }
 
     return (
-      owner?.getReloadInventory()?.consumeTypes([
-      { typeId: this.magItemTypeId, amount: 1 },
-      ]) ?? false
+      owner
+        ?.getReloadInventory()
+        ?.consumeTypes([{ typeId: this.magItemTypeId, amount: 1 }]) ?? false
     );
   }
 }

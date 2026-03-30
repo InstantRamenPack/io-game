@@ -62,7 +62,11 @@ export class HomingTargetGoal<
     }
 
     const target = ctx.world.get(targetId);
-    if (!target || !target.alive || !canAttackTarget(ctx.world, ctx.self, target)) {
+    if (
+      !target ||
+      !target.alive ||
+      !canAttackTarget(ctx.world, ctx.self, target)
+    ) {
       return null;
     }
 
@@ -79,7 +83,10 @@ export class HomingTargetGoal<
       ctx.self.x + this.seekRadius,
       ctx.self.y + this.seekRadius,
     )) {
-      if (!candidate.alive || !canAttackTarget(ctx.world, ctx.self, candidate)) {
+      if (
+        !candidate.alive ||
+        !canAttackTarget(ctx.world, ctx.self, candidate)
+      ) {
         continue;
       }
 

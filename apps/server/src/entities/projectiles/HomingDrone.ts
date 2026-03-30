@@ -7,7 +7,7 @@ import {
   type ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
 import { HomingTargetGoal } from "@server/goals/builtin/HomingTargetGoal.ts";
-import type {World} from "@server/world/World.ts";
+import type { World } from "@server/world/World.ts";
 
 const SEEK_RADIUS = 260;
 const TURN_BLEND = 0.18;
@@ -24,7 +24,9 @@ export class HomingDrone extends Projectile {
 
   constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, config);
-    this.registerGoals([new HomingTargetGoal<HomingDrone>(0, SEEK_RADIUS, TURN_BLEND)]);
+    this.registerGoals([
+      new HomingTargetGoal<HomingDrone>(0, SEEK_RADIUS, TURN_BLEND),
+    ]);
   }
 
   protected override applyImpact(world: World, _target: Entity): void {

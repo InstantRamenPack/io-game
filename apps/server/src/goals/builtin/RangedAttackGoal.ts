@@ -64,7 +64,10 @@ export class RangedAttackGoal<
       return;
     }
 
-    ctx.self.rotation = Math.atan2(aimPoint.y - ctx.self.y, aimPoint.x - ctx.self.x);
+    ctx.self.rotation = Math.atan2(
+      aimPoint.y - ctx.self.y,
+      aimPoint.x - ctx.self.x,
+    );
     this.ticksUntilSwap -= 1;
     if (this.ticksUntilSwap <= 0) {
       this.flipStrafeDirection();

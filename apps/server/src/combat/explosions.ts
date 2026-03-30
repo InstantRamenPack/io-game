@@ -81,7 +81,12 @@ export function triggerExplosion(
       continue;
     }
 
-    applyExplosionKnockback(candidate, spec.x, spec.y, spec.maxKnockback * scale);
+    applyExplosionKnockback(
+      candidate,
+      spec.x,
+      spec.y,
+      spec.maxKnockback * scale,
+    );
     for (const effect of spec.extraEffects ?? []) {
       effect.apply(world, source, candidate);
     }
@@ -101,5 +106,8 @@ function applyExplosionKnockback(
   const deltaX = target.x - originX;
   const deltaY = target.y - originY;
   const distance = Math.hypot(deltaX, deltaY) || 1;
-  target.applyImpulse((deltaX / distance) * strength, (deltaY / distance) * strength);
+  target.applyImpulse(
+    (deltaX / distance) * strength,
+    (deltaY / distance) * strength,
+  );
 }
