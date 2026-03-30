@@ -24,18 +24,15 @@ type QueryBounds = {
 export abstract class MeleeWeapon extends Weapon {
   public range: number;
   public hitEffects: Effect[];
-  public meleeRange: number;
 
   constructor(
     fireRate: number,
     range: number,
     hitEffects: Effect[],
-    meleeRange: number,
   ) {
     super(fireRate);
     this.range = range;
     this.hitEffects = hitEffects;
-    this.meleeRange = meleeRange;
   }
 
   public override canHitTarget(
@@ -100,8 +97,8 @@ export abstract class MeleeWeapon extends Weapon {
   protected getAttackQueryBounds(owner: Entity, _aim: MeleeAim): QueryBounds {
     const bounds = expandHitboxBounds(
       owner.getWorldBounds(),
-      this.meleeRange,
-      this.meleeRange,
+      this.range,
+      this.range,
     );
     return {
       minX: bounds.minX,
@@ -114,7 +111,7 @@ export abstract class MeleeWeapon extends Weapon {
   protected getAttackReach(owner: Entity, aim: MeleeAim): number {
     return (
       owner.getHitboxDirectionalExtent(aim.directionX, aim.directionY) +
-      this.meleeRange
+      this.range
     );
   }
 

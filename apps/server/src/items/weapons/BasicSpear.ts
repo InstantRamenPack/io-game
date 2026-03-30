@@ -13,7 +13,6 @@ export class BasicSpear extends StabMeleeWeapon {
       1.5, // fireRate (attacks per second)
       96, // range
       [new DamageEffect(25), new KnockbackEffect()], // hitEffects
-      96, // meleeRange
       24, // stabWidth
     );
   }

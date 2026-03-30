@@ -19,7 +19,7 @@ export class SaboteurSword extends SweepMeleeWeapon {
   private readonly knockbackEffect = new KnockbackEffect();
 
   constructor() {
-    super(1, 10, [], 10, 110);
+    super(1, 10, [], 110);
   }
 
   protected override applyHitEffects(

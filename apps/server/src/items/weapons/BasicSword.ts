@@ -13,7 +13,6 @@ export class BasicSword extends SweepMeleeWeapon {
       2, // fireRate (attacks per second)
       60, // range
       [new DamageEffect(25), new KnockbackEffect()], // hitEffects
-      60, // meleeRange
       110, // sweepArcDegrees
     );
   }

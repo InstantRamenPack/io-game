@@ -12,10 +12,9 @@ export class StabMeleeWeapon extends MeleeWeapon {
     fireRate: number,
     range: number,
     hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],
-    meleeRange: number,
     stabWidth: number,
   ) {
-    super(fireRate, range, hitEffects, meleeRange);
+    super(fireRate, range, hitEffects);
     this.stabWidth = stabWidth;
   }
 

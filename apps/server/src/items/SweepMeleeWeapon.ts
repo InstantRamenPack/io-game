@@ -12,10 +12,9 @@ export class SweepMeleeWeapon extends MeleeWeapon {
     fireRate: number,
     range: number,
     hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],
-    meleeRange: number,
     sweepArcDegrees: number,
   ) {
-    super(fireRate, range, hitEffects, meleeRange);
+    super(fireRate, range, hitEffects);
     this.sweepArcDegrees = sweepArcDegrees;
   }
 

@@ -13,7 +13,6 @@ export class ZombieSword extends SweepMeleeWeapon {
       1, // fireRate (attacks per second)
       10, // range
       [new DamageEffect(5), new KnockbackEffect()], // hitEffects
-      10, // meleeRange
       110, // sweepArcDegrees
     );
   }

@@ -12,7 +12,6 @@ export class Taser extends SweepMeleeWeapon {
       1.25, // fireRate
       58, // range
       [new StunnedEffect()],
-      58, // meleeRange
       95, // sweepArcDegrees
     );
   }
