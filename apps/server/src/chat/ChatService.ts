@@ -1,12 +1,12 @@
-import type { WsServer } from "@server/net/WsServer.ts";
-import type { World } from "@server/world/World.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { ServerToClientMessage } from "@shared/net/protocol.ts";
-import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
-import { Building } from "@server/entities/Building.ts";
-import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import type {WsServer} from "@server/net/WsServer.ts";
+import type {World} from "@server/world/World.ts";
+import type {ResourceId} from "@shared/ids/ResourceId.ts";
+import type {ServerToClientMessage} from "@shared/net/protocol.ts";
+import type {Entity} from "@server/entities/Entity.ts";
+import {Player} from "@server/entities/Player.ts";
+import {Building} from "@server/entities/Building.ts";
+import type {ProjectileSpawnConfig} from "@server/entities/Projectile.ts";
+import {entityTypeRegistry} from "@server/registry/registries.ts";
 
 type ChatServiceOptions = {
   networkServer: WsServer;
@@ -34,7 +34,7 @@ export class ChatService {
   private readonly maxMessageLength = 240;
   private readonly placeholderNsfwList = ["badword1", "badword2"];
   private readonly lastWhisperByClientId = new Map<string, string>();
-  private readonly maxSpawnAmount = 50;
+  private readonly maxSpawnAmount = 1000;
 
   constructor({ networkServer, world, playerIdByClientId }: ChatServiceOptions) {
     this.networkServer = networkServer;
@@ -620,11 +620,10 @@ export class ChatService {
           directionY: 0,
           rotation: 0,
         };
-        const projectile = new (ctor as unknown as new (
-          id: number,
-          config: ProjectileSpawnConfig,
+        return new (ctor as unknown as new (
+            id: number,
+            config: ProjectileSpawnConfig,
         ) => Entity)(entityId, config);
-        return projectile;
       }
 
       if (entry.kind === "building" && ctor.prototype instanceof Building) {
@@ -721,7 +720,7 @@ export class ChatService {
       return undefined;
     }
     const player = this.world.get<Player>(playerId);
-    if (!player || !(player instanceof Player)) {
+    if (!player) {
       return undefined;
     }
     return player;
