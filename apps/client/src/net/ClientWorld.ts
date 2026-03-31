@@ -21,6 +21,7 @@ export class ClientWorld {
 
   constructor(
     snapshot: WorldSnapshot,
+    tick: number,
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
     debugInterpolationMode = 0,
@@ -34,12 +35,12 @@ export class ClientWorld {
         debugInterpolationMode: this.debugInterpolationMode,
       });
     }
-    this.tick = snapshot.tick;
+    this.tick = tick;
     this.dayNight = snapshot.dayNight;
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
-        new ClientEntity(entitySnapshot),
+        new ClientEntity(entitySnapshot, tick),
       ]),
     );
     this.events = [...snapshot.events];
@@ -55,8 +56,8 @@ export class ClientWorld {
     this.events = [];
   }
 
-  public updateFromSnapshot(snapshot: WorldSnapshot): void {
-    this.tick = snapshot.tick;
+  public updateFromSnapshot(snapshot: WorldSnapshot, tick: number): void {
+    this.tick = tick;
     this.events = [...snapshot.events];
     this.dayNight = snapshot.dayNight;
 
@@ -67,10 +68,10 @@ export class ClientWorld {
 
       const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
-        existingEntity.updateFromSnapshot(entitySnapshot);
+        existingEntity.updateFromSnapshot(entitySnapshot, tick);
         this.renderManager?.syncEntity(existingEntity);
       } else {
-        const entity = new ClientEntity(entitySnapshot);
+        const entity = new ClientEntity(entitySnapshot, tick);
         this.entities.set(entitySnapshot.id, entity);
         this.renderManager?.syncEntity(entity);
       }
