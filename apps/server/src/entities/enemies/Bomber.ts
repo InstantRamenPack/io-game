@@ -20,7 +20,7 @@ export class Bomber extends Enemy {
       maxHp: 75,
       vx: 0,
       vy: 0,
-      moveSpeed: 11,
+      moveSpeed: 10,
       weapons: [],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, Infinity),

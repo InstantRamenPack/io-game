@@ -21,6 +21,7 @@ import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
 import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
+import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
@@ -119,6 +120,7 @@ export const itemTypeManifests = [
 
 export const effectTypeManifests = [
   makeEffectTypeEntry(BleedingEffect),
+  makeEffectTypeEntry(ConfusionEffect),
   makeEffectTypeEntry(DamageEffect),
   makeEffectTypeEntry(KnockbackEffect),
   makeEffectTypeEntry(StunnedEffect),

@@ -88,6 +88,34 @@ export class ClientWorld {
 
   public update(deltaMs: number): void {
     this.renderManager?.update(deltaMs, this.entities.values());
+    this.updateConfusionVisuals();
+  }
+
+  private updateConfusionVisuals(): void {
+    if (!this.pixiRenderer) {
+      return;
+    }
+
+    const playerEntityId = this.pixiRenderer.playerEntityId;
+    if (playerEntityId === undefined) {
+      this.pixiRenderer.setConfusionState(false, 0);
+      return;
+    }
+
+    const player = this.entities.get(playerEntityId);
+    const confusionEffect = player?.activeEffects?.find(
+      (e) => e.typeId === "effect:confusion",
+    );
+
+    if (!confusionEffect) {
+      this.pixiRenderer.setConfusionState(false, 0);
+      return;
+    }
+
+    // Full intensity for first ~2s (40 ticks), then 4s gradual fade like Ela
+    const fadeOutTicks = 80;
+    const intensity = Math.min(1, confusionEffect.ticksRemaining / fadeOutTicks);
+    this.pixiRenderer.setConfusionState(true, intensity);
   }
 
   private applyEvents(events: NetEvent[]): void {

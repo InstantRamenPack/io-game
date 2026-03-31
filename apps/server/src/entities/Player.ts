@@ -115,9 +115,13 @@ export class Player extends Entity {
       return;
     }
 
+    const speedMult = this.activeEffects.reduce(
+      (acc, e) => (e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc),
+      1,
+    );
     this.setMovementVelocity(
-      nextMoveX * this.moveSpeed,
-      nextMoveY * this.moveSpeed,
+      nextMoveX * this.moveSpeed * speedMult,
+      nextMoveY * this.moveSpeed * speedMult,
     );
   }
 

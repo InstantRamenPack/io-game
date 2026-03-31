@@ -1,4 +1,5 @@
 import * as PIXI from "pixijs";
+import { ColorMatrixFilter } from "pixijs";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
@@ -31,6 +32,15 @@ export class PixiRenderer {
   private hud: PixiHud | null = null;
   private damageOverlayRemainingMs = 0;
   private damageOverlayDurationMs = 200;
+  private confusionActive = false;
+  private confusionIntensity = 0;
+  private confusionTimeMs = 0;
+  private confusionSwimX = 0;
+  private confusionSwimY = 0;
+  private confusionColorFilter: ColorMatrixFilter | null = null;
+  private confusionFlash: PIXI.Graphics | null = null;
+  private confusionEdge: PIXI.Graphics | null = null;
+  private confusionBloom: PIXI.Graphics | null = null;
   private explosionEffects: ExplosionEffect[] = [];
   private gridCellSize = 100;
   private gridNightBlend = 0;
@@ -148,6 +158,7 @@ export class PixiRenderer {
   public update(deltaMs: number): void {
     this.updateDamageOverlay(deltaMs);
     this.updateExplosionEffects(deltaMs);
+    this.updateConfusionEffect(deltaMs);
     this.renderScene();
   }
 
@@ -186,9 +197,11 @@ export class PixiRenderer {
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
 
+    // Subtract the confusion swim offset so attack targeting stays accurate
+    // even while the world container is visually displaced.
     return {
-      x: localX - this.world.position.x + this.world.pivot.x,
-      y: localY - this.world.position.y + this.world.pivot.y,
+      x: localX - this.world.position.x + this.confusionSwimX + this.world.pivot.x,
+      y: localY - this.world.position.y + this.confusionSwimY + this.world.pivot.y,
     };
   }
 
@@ -226,6 +239,158 @@ export class PixiRenderer {
     };
     this.explosionEffects.push(effect);
     this.drawExplosionEffect(effect);
+  }
+
+  public setConfusionState(active: boolean, intensityRatio: number): void {
+    const wasActive = this.confusionActive;
+    this.confusionActive = active;
+    this.confusionIntensity = Math.max(0, Math.min(1, intensityRatio));
+
+    if (!active) {
+      if (wasActive) {
+        this.confusionTimeMs = 0;
+        this.confusionSwimX = 0;
+        this.confusionSwimY = 0;
+        this.removeConfusionColorFilter();
+        if (this.confusionFlash) this.confusionFlash.visible = false;
+        if (this.confusionEdge) this.confusionEdge.visible = false;
+        if (this.confusionBloom) this.confusionBloom.visible = false;
+      }
+      return;
+    }
+
+    if (!this.world || !this.app) {
+      return;
+    }
+
+    // Color filter applied to world — brightness animated per-frame in updateConfusionEffect
+    if (!this.confusionColorFilter) {
+      this.confusionColorFilter = new ColorMatrixFilter();
+    }
+    if (!this.world.filters) {
+      this.world.filters = [this.confusionColorFilter];
+    } else if (!this.world.filters.includes(this.confusionColorFilter)) {
+      this.world.filters = [...this.world.filters, this.confusionColorFilter];
+    }
+
+    // Create screen-space layers once — all use BlurFilter for smooth gradients
+    if (!this.confusionEdge) {
+      const sw = this.app.screen.width;
+      const sh = this.app.screen.height;
+      const cx = sw / 2;
+      const cy = sh / 2;
+      const minDim = Math.min(sw, sh);
+
+      // Edge vignette: dark olive rect with a large blurred hole.
+      // BlurFilter softens the hole boundary into a smooth radial gradient —
+      // dark at screen edges, transparent toward center.
+      const edge = new PIXI.Graphics();
+      const holeR = minDim * 0.32;
+      edge.beginFill(0x0d1208, 1);
+      edge.drawRect(-512, -512, sw + 1024, sh + 1024);
+      edge.beginHole();
+      edge.drawEllipse(cx, cy, holeR, holeR * 0.88);
+      edge.endHole();
+      edge.endFill();
+      const edgeBlur = new PIXI.BlurFilter(120, 1);
+      edgeBlur.padding = 140;
+      edge.filters = [edgeBlur];
+      this.confusionEdge = edge;
+      this.app.stage.addChild(edge);
+
+      // Center bloom: soft white glow. Heavy blur turns the ellipse into
+      // a smooth light bloom with no visible hard boundary.
+      const bloom = new PIXI.Graphics();
+      const bloomR = minDim * 0.44;
+      bloom.beginFill(0xffffff, 1);
+      bloom.drawEllipse(cx, cy, bloomR, bloomR * 0.88);
+      bloom.endFill();
+      const bloomBlur = new PIXI.BlurFilter(Math.round(bloomR * 0.7), 1);
+      bloomBlur.padding = Math.round(bloomR);
+      bloom.filters = [bloomBlur];
+      this.confusionBloom = bloom;
+      this.app.stage.addChild(bloom);
+
+      // Full-screen flash: no blur needed, just alpha
+      const flash = new PIXI.Graphics();
+      flash.beginFill(0xffffff, 1);
+      flash.drawRect(-512, -512, sw + 1024, sh + 1024);
+      flash.endFill();
+      this.confusionFlash = flash;
+      this.app.stage.addChild(flash);
+    }
+
+    if (this.confusionEdge) this.confusionEdge.visible = true;
+    if (this.confusionBloom) this.confusionBloom.visible = true;
+    if (this.confusionFlash) this.confusionFlash.visible = true;
+  }
+
+  private removeConfusionColorFilter(): void {
+    if (!this.world || !this.confusionColorFilter) {
+      return;
+    }
+    if (this.world.filters) {
+      this.world.filters = this.world.filters.filter(
+        (f) => f !== this.confusionColorFilter,
+      );
+      if (this.world.filters.length === 0) {
+        this.world.filters = null;
+      }
+    }
+  }
+
+  private updateConfusionEffect(deltaMs: number): void {
+    if (!this.confusionActive || !this.world || !this.app) {
+      return;
+    }
+
+    this.confusionTimeMs += deltaMs;
+    const t = this.confusionTimeMs / 1000;
+    const intensity = this.confusionIntensity;
+
+    // --- Color filter ---
+    // Lerp brightness from 1.0 (normal) toward the effect value so fade-out
+    // always returns to normal colors, never goes through black.
+    if (this.confusionColorFilter) {
+      const flashPhase = Math.max(0, 1 - t / 0.65);
+      const targetBrightness = 0.78 + flashPhase * 1.35; // spikes bright at impact
+      const brightness = 1.0 + (targetBrightness - 1.0) * intensity;
+      const saturation = -0.92 * intensity; // lerps back to 0 (normal) as intensity fades
+      this.confusionColorFilter.saturate(saturation, false);
+      this.confusionColorFilter.brightness(brightness, true);
+    }
+
+    // --- Swimming: ramps in after the flash settles ---
+    const swimRamp = Math.min(1, Math.max(0, (t - 0.3) / 0.4));
+    const amplitude = intensity * swimRamp * 22;
+    const offsetX =
+      Math.sin(t * 1.3) * amplitude +
+      Math.sin(t * 2.9 + 1.1) * amplitude * 0.35;
+    const offsetY =
+      Math.cos(t * 1.05 + 0.5) * amplitude * 0.85 +
+      Math.cos(t * 2.4 + 2.2) * amplitude * 0.28;
+    this.confusionSwimX = offsetX;
+    this.confusionSwimY = offsetY;
+    this.world.position.x += offsetX;
+    this.world.position.y += offsetY;
+
+    // --- Flash: slams full white on impact, gone in 0.6s ---
+    if (this.confusionFlash) {
+      const flashPhase = Math.max(0, 1 - t / 0.6);
+      this.confusionFlash.alpha = flashPhase * 0.93 * intensity;
+    }
+
+    // --- Edge vignette: heavy at impact, holds until intensity fades ---
+    if (this.confusionEdge) {
+      this.confusionEdge.alpha = intensity * (0.90 + Math.sin(t * 1.6) * 0.04);
+    }
+
+    // --- Center bloom: appears instantly, fades over ~3s ---
+    if (this.confusionBloom) {
+      const bloomRamp = Math.min(1, t / 0.12);
+      const bloomFade = Math.max(0, 1 - Math.max(0, t - 0.12) / 3.2);
+      this.confusionBloom.alpha = bloomRamp * bloomFade * 0.78 * intensity;
+    }
   }
 
   private renderScene(): void {

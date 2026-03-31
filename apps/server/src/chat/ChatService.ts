@@ -6,7 +6,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Building } from "@server/entities/Building.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { effectTypeRegistry, entityTypeRegistry } from "@server/registry/registries.ts";
 
 type ChatServiceOptions = {
   networkServer: WsServer;
@@ -116,6 +116,9 @@ export class ChatService {
       case "killall":
         this.handleKillAllCommand(clientId);
         return;
+      case "effect":
+        this.handleEffectCommand(clientId, player, parsed.args);
+        return;
       default:
         this.sendSystem(
           clientId,
@@ -136,6 +139,7 @@ export class ChatService {
       "/spawn <entity> [amount] [@a|player|x y z] - spawn entities",
       "/kill @e <entity> | @a | <player> - kill entities or players",
       "/killall - kill every entity",
+      "/effect <effect> [@a|player] - apply an effect to a player",
     ];
     this.sendSystem(clientId, lines.join("\n"));
   }
@@ -408,6 +412,68 @@ export class ChatService {
     }
     this.killEntity(targetPlayer);
     this.sendSystem(clientId, `Killed ${targetPlayer.name}.`);
+  }
+
+  private handleEffectCommand(
+    clientId: string,
+    player: Player,
+    args: string[],
+  ): void {
+    if (args.length === 0) {
+      this.sendSystem(clientId, "Usage: /effect <effect> [@a|player]");
+      return;
+    }
+
+    const effectToken = args[0] ?? "";
+    const effectEntry = this.resolveEffectEntry(effectToken);
+    if (!effectEntry) {
+      this.sendSystem(clientId, `Unknown effect "${effectToken}".`);
+      return;
+    }
+
+    const targetToken = args[1]?.toLowerCase() ?? "@a";
+    let targets: Player[];
+    if (targetToken === "@a") {
+      targets = this.world.entities
+        .all()
+        .filter((e): e is Player => e instanceof Player);
+    } else {
+      const targetPlayer = this.findPlayerByName(args[1] ?? "");
+      if (!targetPlayer) {
+        this.sendSystem(clientId, `No player named "${args[1] ?? ""}" found.`);
+        return;
+      }
+      targets = [targetPlayer];
+    }
+
+    const effect = new effectEntry.ctor();
+    for (const target of targets) {
+      effect.apply(this.world, player, target);
+    }
+
+    this.sendSystem(
+      clientId,
+      `Applied ${effectEntry.typeId} to ${targets.length} player(s).`,
+    );
+  }
+
+  private resolveEffectEntry(effectToken: string): {
+    typeId: ResourceId;
+    ctor: new () => import("@server/effects/Effect.ts").Effect;
+  } | null {
+    const normalized = this.normalizeEntityKey(effectToken);
+    for (const [typeId, entry] of effectTypeRegistry.entries()) {
+      const candidateKeys = new Set<string>();
+      candidateKeys.add(this.normalizeEntityKey(typeId));
+      candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));
+      candidateKeys.add(this.normalizeEntityKey(entry.content.label));
+      const resourceName = (entry.ctor as { resourceName?: string }).resourceName ?? "";
+      candidateKeys.add(this.normalizeEntityKey(resourceName));
+      if (candidateKeys.has(normalized)) {
+        return entry as { typeId: ResourceId; ctor: new () => import("@server/effects/Effect.ts").Effect };
+      }
+    }
+    return null;
   }
 
   private handleKillAllCommand(clientId: string): void {

@@ -22,7 +22,7 @@ export class Wallbreaker extends Enemy {
       maxHp: 1,
       vx: 0,
       vy: 0,
-      moveSpeed: 9,
+      moveSpeed: 12,
       weapons: [],
       goals: [
         new TargetEntityGoal<Enemy>(0, Wall, Infinity),

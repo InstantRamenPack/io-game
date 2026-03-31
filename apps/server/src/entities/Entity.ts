@@ -30,6 +30,7 @@ export type ActiveEffectRuntime = {
   pulseTicksRemaining?: number;
   pulseDamage?: number;
   preventsAction?: boolean;
+  speedMultiplier?: number;
 };
 
 /**
