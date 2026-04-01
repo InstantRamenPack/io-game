@@ -286,7 +286,7 @@ export class PixiRenderer {
       // dark at screen edges, transparent toward center.
       const edge = new PIXI.Graphics();
       const holeR = minDim * 0.32;
-      edge.beginFill(0x0d1208, 1);
+      edge.beginFill(0x000000, 1);
       edge.drawRect(-512, -512, sw + 1024, sh + 1024);
       edge.beginHole();
       edge.drawEllipse(cx, cy, holeR, holeR * 0.88);
@@ -382,7 +382,7 @@ export class PixiRenderer {
 
     // --- Edge vignette: heavy at impact, holds until intensity fades ---
     if (this.confusionEdge) {
-      this.confusionEdge.alpha = intensity * (0.90 + Math.sin(t * 1.6) * 0.04);
+      this.confusionEdge.alpha = intensity * (0.97 + Math.sin(t * 1.6) * 0.02);
     }
 
     // --- Center bloom: appears instantly, fades over ~3s ---
