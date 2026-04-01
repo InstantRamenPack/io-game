@@ -17,10 +17,13 @@ export class ClientWorld {
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugInterpolationMode: number;
+  private readonly serverFrameHistoryLimit: number;
   private readonly renderManager?: EntityRenderManager;
 
   constructor(
     snapshot: WorldSnapshot,
+    tick: number,
+    serverFrameHistoryLimit: number,
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
     debugInterpolationMode = 0,
@@ -28,18 +31,26 @@ export class ClientWorld {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
     this.debugInterpolationMode = debugInterpolationMode;
+    this.serverFrameHistoryLimit = Math.max(
+      2,
+      Math.floor(serverFrameHistoryLimit),
+    );
     if (this.pixiRenderer?.entityContainer) {
       this.renderManager = new EntityRenderManager(this.pixiRenderer, {
         debugHitbox: this.debugHitbox,
         debugInterpolationMode: this.debugInterpolationMode,
       });
     }
-    this.tick = snapshot.tick;
+    this.tick = tick;
     this.dayNight = snapshot.dayNight;
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
-        new ClientEntity(entitySnapshot),
+        new ClientEntity(
+          entitySnapshot,
+          tick,
+          this.serverFrameHistoryLimit,
+        ),
       ]),
     );
     this.events = [...snapshot.events];
@@ -55,8 +66,8 @@ export class ClientWorld {
     this.events = [];
   }
 
-  public updateFromSnapshot(snapshot: WorldSnapshot): void {
-    this.tick = snapshot.tick;
+  public updateFromSnapshot(snapshot: WorldSnapshot, tick: number): void {
+    this.tick = tick;
     this.events = [...snapshot.events];
     this.dayNight = snapshot.dayNight;
 
@@ -67,10 +78,14 @@ export class ClientWorld {
 
       const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
-        existingEntity.updateFromSnapshot(entitySnapshot);
+        existingEntity.updateFromSnapshot(entitySnapshot, tick);
         this.renderManager?.syncEntity(existingEntity);
       } else {
-        const entity = new ClientEntity(entitySnapshot);
+        const entity = new ClientEntity(
+          entitySnapshot,
+          tick,
+          this.serverFrameHistoryLimit,
+        );
         this.entities.set(entitySnapshot.id, entity);
         this.renderManager?.syncEntity(entity);
       }

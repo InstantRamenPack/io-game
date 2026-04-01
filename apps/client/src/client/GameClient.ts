@@ -1,6 +1,9 @@
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import { Interpolator } from "@client/net/Interpolator.ts";
+import {
+  Interpolator,
+  type InterpolationDebugFrame,
+} from "@client/net/Interpolator.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
@@ -37,7 +40,6 @@ export class GameClient {
   public playerEntityId?: number;
   public interpolator: Interpolator;
 
-  private inputTimer: ReturnType<typeof setInterval> | undefined;
   private animationFrameId: number | undefined;
   private lastAnimationFrameTime: number | undefined;
   private inputBound = false;
@@ -200,6 +202,7 @@ export class GameClient {
       this.renderer,
       this.debugHitbox,
       this.debugInterpolationMode,
+      this.gameConfig.interpolation.historySize,
     );
     this.startFrameLoop();
 
@@ -212,14 +215,23 @@ export class GameClient {
 
   public update(deltaMs: number, frameTimeMs = performance.now()): void {
     if (this.worldState) {
-      this.interpolator.updateInterpolation(this.worldState, frameTimeMs);
+      this.interpolator.updateInterpolation(
+        this.worldState,
+        frameTimeMs,
+        deltaMs,
+        this.playerEntityId,
+      );
       this.worldState.clientWorld?.update(deltaMs);
     }
     this.renderer.update(deltaMs);
   }
 
   public onSnapshot(snapshot: WorldSnapshot): void {
-    this.worldState?.pushSnapshot(snapshot);
+    const applied = this.worldState?.pushSnapshot(snapshot) ?? false;
+    if (!applied) {
+      return;
+    }
+
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.recordTickSample(snapshot.tick, performance.now());
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
@@ -231,7 +243,6 @@ export class GameClient {
     this.playerEntityId = entityId;
     this.sessionReady = true;
     this.renderer.setPlayerEntityId(entityId);
-    this.startInputLoop();
     for (const sessionReadyHandler of this.sessionReadyHandlers) {
       sessionReadyHandler();
     }
@@ -241,7 +252,6 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.stopFrameLoop();
-    this.stopInputLoop();
     this.resetPerformanceRateSamples();
     this.networkClient.disconnect();
     this.worldState?.clear();
@@ -311,24 +321,12 @@ export class GameClient {
     }
   }
 
-  private startInputLoop(): void {
-    if (this.inputTimer) {
-      return;
-    }
-
-    const periodMs = Math.max(1, Math.floor(1000 / this.gameConfig.tickRate));
-    this.inputTimer = setInterval(() => {
-      const latestTick = this.worldState?.latestTick ?? 0;
-      this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-      this.inputManager.clearOneShots();
-    }, periodMs);
+  public getInterpolationDebugLog(): readonly InterpolationDebugFrame[] {
+    return this.interpolator.getDebugLog();
   }
 
-  private stopInputLoop(): void {
-    if (this.inputTimer) {
-      clearInterval(this.inputTimer);
-      this.inputTimer = undefined;
-    }
+  public clearInterpolationDebugLog(): void {
+    this.interpolator.clearDebugLog();
   }
 
   private startFrameLoop(): void {
@@ -348,6 +346,7 @@ export class GameClient {
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
       this.recordFrameSample(timestamp);
+      this.sendFrameInput();
       this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
     };
@@ -368,11 +367,20 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.stopFrameLoop();
-    this.stopInputLoop();
     this.resetPerformanceRateSamples();
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
+  }
+
+  private sendFrameInput(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+
+    const latestTick = this.worldState?.latestTick ?? 0;
+    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
+    this.inputManager.clearOneShots();
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
