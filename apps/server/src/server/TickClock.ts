@@ -6,8 +6,7 @@ export class TickClock {
   private readonly intervalMs: number;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running = false;
-  private accumulatorMs = 0;
-  private lastFrameAtMs = 0;
+  private nextTickAtMs = 0;
   private overloadCounter = 0;
 
   /**
@@ -28,40 +27,38 @@ export class TickClock {
     }
 
     this.running = true;
-    this.accumulatorMs = 0;
-    this.lastFrameAtMs = performance.now();
+    this.overloadCounter = 0;
+    this.nextTickAtMs = performance.now() + this.intervalMs;
 
     const pump = (): void => {
       if (!this.running) {
         return;
       }
 
-      const now = performance.now();
-      this.accumulatorMs += now - this.lastFrameAtMs;
-      this.lastFrameAtMs = now;
-
+      let now = performance.now();
       let steps = 0;
-      while (this.accumulatorMs >= this.intervalMs && steps < 3) {
+      while (now >= this.nextTickAtMs && steps < 3) {
         cb();
-        this.accumulatorMs -= this.intervalMs;
+        this.nextTickAtMs += this.intervalMs;
         steps += 1;
+        now = performance.now();
       }
 
-      if (this.accumulatorMs >= this.intervalMs) {
-        this.accumulatorMs %= this.intervalMs;
+      if (now >= this.nextTickAtMs) {
+        const skippedTicks =
+          Math.floor((now - this.nextTickAtMs) / this.intervalMs) + 1;
+        this.nextTickAtMs += skippedTicks * this.intervalMs;
         this.overloadCounter += 1;
         if (this.overloadCounter % 30 === 0) {
           console.warn("tick_clock_overloaded");
         }
       }
 
-      this.timer = setTimeout(
-        pump,
-        Math.max(1, Math.floor(this.intervalMs / 2)),
-      );
+      const delayMs = Math.max(1, Math.round(this.nextTickAtMs - now));
+      this.timer = setTimeout(pump, delayMs);
     };
 
-    this.timer = setTimeout(pump, this.intervalMs);
+    this.timer = setTimeout(pump, Math.max(1, Math.round(this.intervalMs)));
   }
 
   /**

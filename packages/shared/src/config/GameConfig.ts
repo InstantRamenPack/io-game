@@ -27,6 +27,7 @@ export class GameConfig {
   };
   public interpolation = {
     snapDistance: 192,
+    historySize: 5,
   };
   public dayNight = {
     dayDurationMs: 120000,
@@ -47,6 +48,10 @@ export class GameConfig {
     const interestRadius = Number(
       process.env.INTEREST_RADIUS ?? gameConfig.replication.interestRadius,
     );
+    const interpolationHistorySize = Number(
+      process.env.INTERPOLATION_HISTORY_SIZE ??
+        gameConfig.interpolation.historySize,
+    );
     const debugSpawnMultiplier = Number(
       process.env.DEBUG_SPAWN_MULTIPLIER ?? gameConfig.debug.spawnMultiplier,
     );
@@ -59,6 +64,13 @@ export class GameConfig {
     }
     if (Number.isFinite(interestRadius) && interestRadius > 0) {
       gameConfig.replication.interestRadius = Math.floor(interestRadius);
+    }
+    if (
+      Number.isFinite(interpolationHistorySize) &&
+      Number.isInteger(interpolationHistorySize) &&
+      interpolationHistorySize >= 2
+    ) {
+      gameConfig.interpolation.historySize = interpolationHistorySize;
     }
     if (
       Number.isFinite(debugSpawnMultiplier) &&

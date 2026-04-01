@@ -101,11 +101,33 @@ export function installDebugBridge({
     gameClient.advanceTime(ms);
     hudController.refreshUi();
   };
+  window.get_interpolation_debug_log = () => {
+    return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
+  };
+  window.clear_interpolation_debug_log = () => {
+    gameClient.clearInterpolationDebugLog();
+  };
+  window.download_interpolation_debug_log = () => {
+    const blob = new Blob([window.get_interpolation_debug_log()], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `interpolation-debug-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
 }
 
 declare global {
   interface Window {
     render_game_to_text: () => string;
     advanceTime: (ms: number) => void;
+    get_interpolation_debug_log: () => string;
+    clear_interpolation_debug_log: () => void;
+    download_interpolation_debug_log: () => void;
   }
 }

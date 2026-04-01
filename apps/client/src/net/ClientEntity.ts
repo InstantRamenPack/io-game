@@ -11,8 +11,6 @@ import type {
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
 
-const SERVER_FRAME_HISTORY_LIMIT = 5;
-
 export type EntityServerFrame = {
   tick: number;
   x: number;
@@ -67,9 +65,14 @@ export class ClientEntity {
   public serverY: number;
   public visualVersion = 1;
   public healthVersion = 1;
+  private readonly serverFrameHistoryLimit: number;
   private readonly serverFrameHistory: EntityServerFrame[] = [];
 
-  constructor(snapshot: EntitySnapshot, tick: number) {
+  constructor(
+    snapshot: EntitySnapshot,
+    tick: number,
+    serverFrameHistoryLimit: number,
+  ) {
     this.id = snapshot.id;
     this.kind = snapshot.kind;
     this.typeId = snapshot.typeId;
@@ -85,6 +88,10 @@ export class ClientEntity {
     this.ownerId = snapshot.ownerId;
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
+    this.serverFrameHistoryLimit = Math.max(
+      2,
+      Math.floor(serverFrameHistoryLimit),
+    );
 
     this.applyKindSpecificFields(snapshot);
     this.pushServerFrame(snapshot, tick);
@@ -257,10 +264,10 @@ export class ClientEntity {
       vx: snapshot.vx,
       vy: snapshot.vy,
     });
-    if (this.serverFrameHistory.length > SERVER_FRAME_HISTORY_LIMIT) {
+    if (this.serverFrameHistory.length > this.serverFrameHistoryLimit) {
       this.serverFrameHistory.splice(
         0,
-        this.serverFrameHistory.length - SERVER_FRAME_HISTORY_LIMIT,
+        this.serverFrameHistory.length - this.serverFrameHistoryLimit,
       );
     }
   }

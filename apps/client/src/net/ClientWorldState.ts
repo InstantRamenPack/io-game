@@ -2,8 +2,6 @@ import { ClientWorld } from "@client/net/ClientWorld.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
-const SNAPSHOT_HISTORY_LIMIT = 5;
-
 export type SnapshotFrame = {
   tick: number;
   receivedAtMs: number;
@@ -23,16 +21,19 @@ export class ClientWorldState {
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
+  private readonly snapshotHistoryLimit: number;
   private readonly snapshotHistory: SnapshotFrame[] = [];
 
   constructor(
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
     debugInterpolationMode = 0,
+    snapshotHistoryLimit = 2,
   ) {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
     this.debugInterpolationMode = debugInterpolationMode;
+    this.snapshotHistoryLimit = Math.max(2, Math.floor(snapshotHistoryLimit));
   }
 
   /**
@@ -55,10 +56,10 @@ export class ClientWorldState {
       tick: snapshot.tick,
       receivedAtMs: receivedAt,
     });
-    if (this.snapshotHistory.length > SNAPSHOT_HISTORY_LIMIT) {
+    if (this.snapshotHistory.length > this.snapshotHistoryLimit) {
       this.snapshotHistory.splice(
         0,
-        this.snapshotHistory.length - SNAPSHOT_HISTORY_LIMIT,
+        this.snapshotHistory.length - this.snapshotHistoryLimit,
       );
     }
 
@@ -66,6 +67,7 @@ export class ClientWorldState {
       this.clientWorld = new ClientWorld(
         snapshot,
         snapshot.tick,
+        this.snapshotHistoryLimit,
         this.pixiRenderer,
         this.debugHitbox,
         this.debugInterpolationMode,

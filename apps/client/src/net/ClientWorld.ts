@@ -17,11 +17,13 @@ export class ClientWorld {
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugInterpolationMode: number;
+  private readonly serverFrameHistoryLimit: number;
   private readonly renderManager?: EntityRenderManager;
 
   constructor(
     snapshot: WorldSnapshot,
     tick: number,
+    serverFrameHistoryLimit: number,
     pixiRenderer?: PixiRenderer,
     debugHitbox = false,
     debugInterpolationMode = 0,
@@ -29,6 +31,10 @@ export class ClientWorld {
     this.pixiRenderer = pixiRenderer;
     this.debugHitbox = debugHitbox;
     this.debugInterpolationMode = debugInterpolationMode;
+    this.serverFrameHistoryLimit = Math.max(
+      2,
+      Math.floor(serverFrameHistoryLimit),
+    );
     if (this.pixiRenderer?.entityContainer) {
       this.renderManager = new EntityRenderManager(this.pixiRenderer, {
         debugHitbox: this.debugHitbox,
@@ -40,7 +46,11 @@ export class ClientWorld {
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
-        new ClientEntity(entitySnapshot, tick),
+        new ClientEntity(
+          entitySnapshot,
+          tick,
+          this.serverFrameHistoryLimit,
+        ),
       ]),
     );
     this.events = [...snapshot.events];
@@ -71,7 +81,11 @@ export class ClientWorld {
         existingEntity.updateFromSnapshot(entitySnapshot, tick);
         this.renderManager?.syncEntity(existingEntity);
       } else {
-        const entity = new ClientEntity(entitySnapshot, tick);
+        const entity = new ClientEntity(
+          entitySnapshot,
+          tick,
+          this.serverFrameHistoryLimit,
+        );
         this.entities.set(entitySnapshot.id, entity);
         this.renderManager?.syncEntity(entity);
       }
