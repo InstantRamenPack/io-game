@@ -1,12 +1,12 @@
-import type {WsServer} from "@server/net/WsServer.ts";
-import type {World} from "@server/world/World.ts";
-import type {ResourceId} from "@shared/ids/ResourceId.ts";
-import type {ServerToClientMessage} from "@shared/net/protocol.ts";
-import type {Entity} from "@server/entities/Entity.ts";
-import {Player} from "@server/entities/Player.ts";
-import {Building} from "@server/entities/Building.ts";
-import type {ProjectileSpawnConfig} from "@server/entities/Projectile.ts";
-import {entityTypeRegistry} from "@server/registry/registries.ts";
+import type { WsServer } from "@server/net/WsServer.ts";
+import type { World } from "@server/world/World.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ServerToClientMessage } from "@shared/net/protocol.ts";
+import type { Entity } from "@server/entities/Entity.ts";
+import { Player } from "@server/entities/Player.ts";
+import { Building } from "@server/entities/Building.ts";
+import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
 
 type ChatServiceOptions = {
   networkServer: WsServer;
@@ -36,7 +36,11 @@ export class ChatService {
   private readonly lastWhisperByClientId = new Map<string, string>();
   private readonly maxSpawnAmount = 1000;
 
-  constructor({ networkServer, world, playerIdByClientId }: ChatServiceOptions) {
+  constructor({
+    networkServer,
+    world,
+    playerIdByClientId,
+  }: ChatServiceOptions) {
     this.networkServer = networkServer;
     this.world = world;
     this.playerIdByClientId = playerIdByClientId;
@@ -321,10 +325,7 @@ export class ChatService {
         y: spawnY,
       });
       if (!entity) {
-        this.sendSystem(
-          clientId,
-          `Failed to spawn ${resolvedEntry.typeId}.`,
-        );
+        this.sendSystem(clientId, `Failed to spawn ${resolvedEntry.typeId}.`);
         break;
       }
       this.world.spawn(entity);
@@ -332,10 +333,7 @@ export class ChatService {
     }
 
     if (spawned > 0) {
-      this.sendSystem(
-        clientId,
-        `Spawned ${spawned} ${resolvedEntry.typeId}.`,
-      );
+      this.sendSystem(clientId, `Spawned ${spawned} ${resolvedEntry.typeId}.`);
     }
   }
 
@@ -345,10 +343,7 @@ export class ChatService {
     args: string[],
   ): void {
     if (args.length === 0) {
-      this.sendSystem(
-        clientId,
-        "Usage: /kill @e <entity> | @a | <player>",
-      );
+      this.sendSystem(clientId, "Usage: /kill @e <entity> | @a | <player>");
       return;
     }
 
@@ -393,10 +388,7 @@ export class ChatService {
         return;
       }
 
-      this.sendSystem(
-        clientId,
-        `Killed ${killed} ${resolvedEntry.typeId}.`,
-      );
+      this.sendSystem(clientId, `Killed ${killed} ${resolvedEntry.typeId}.`);
       return;
     }
 
@@ -592,8 +584,14 @@ export class ChatService {
   }
 
   private clampToWorldBounds(x: number, y: number): { x: number; y: number } {
-    const clampedX = Math.max(0, Math.min(this.world.gameConfig.worldSize.w, x));
-    const clampedY = Math.max(0, Math.min(this.world.gameConfig.worldSize.h, y));
+    const clampedX = Math.max(
+      0,
+      Math.min(this.world.gameConfig.worldSize.w, x),
+    );
+    const clampedY = Math.max(
+      0,
+      Math.min(this.world.gameConfig.worldSize.h, y),
+    );
     return { x: clampedX, y: clampedY };
   }
 
@@ -621,8 +619,8 @@ export class ChatService {
           rotation: 0,
         };
         return new (ctor as unknown as new (
-            id: number,
-            config: ProjectileSpawnConfig,
+          id: number,
+          config: ProjectileSpawnConfig,
         ) => Entity)(entityId, config);
       }
 

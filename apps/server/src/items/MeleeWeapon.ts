@@ -25,11 +25,7 @@ export abstract class MeleeWeapon extends Weapon {
   public range: number;
   public hitEffects: Effect[];
 
-  constructor(
-    fireRate: number,
-    range: number,
-    hitEffects: Effect[],
-  ) {
+  constructor(fireRate: number, range: number, hitEffects: Effect[]) {
     super(fireRate);
     this.range = range;
     this.hitEffects = hitEffects;

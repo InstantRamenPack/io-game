@@ -157,13 +157,14 @@ export function createChatController({
   };
 
   const shouldBlockEnterForMenus = (): boolean => {
-    return hudController.isBuildMenuOpen() || hudController.isCraftingMenuOpen();
+    return (
+      hudController.isBuildMenuOpen() || hudController.isCraftingMenuOpen()
+    );
   };
 
   const isGameActive = (): boolean => {
     return (
-      gameClient.isSessionReady() &&
-      elements.menuRoot?.style.display === "none"
+      gameClient.isSessionReady() && elements.menuRoot?.style.display === "none"
     );
   };
 
