@@ -160,6 +160,10 @@ export class GameServer {
     if (!player) {
       return;
     }
+    const shouldTraceInput = this.world.focusedTrace.matchesEntity(player);
+    const rawInputCommand = shouldTraceInput
+      ? structuredClone(inputCommand)
+      : null;
 
     const lastInputSequence =
       this.lastInputSequenceByClientId.get(clientId) ?? -1;
@@ -172,6 +176,20 @@ export class GameServer {
         clientId,
         JSON.stringify({ t: "error", message: "stale_input" }),
       );
+      if (shouldTraceInput) {
+        this.world.focusedTrace.recordEntityEvent(
+          this.world,
+          "input_rejected",
+          player,
+          {
+            reason: "stale_input",
+            clientId,
+            rawInput: rawInputCommand,
+            lastAcceptedSequence: lastInputSequence,
+            lastAcceptedTick: lastInputTick,
+          },
+        );
+      }
       return;
     }
 
@@ -180,12 +198,38 @@ export class GameServer {
         clientId,
         JSON.stringify({ t: "error", message: "invalid_input" }),
       );
+      if (shouldTraceInput) {
+        this.world.focusedTrace.recordEntityEvent(
+          this.world,
+          "input_rejected",
+          player,
+          {
+            reason: "invalid_input",
+            clientId,
+            rawInput: rawInputCommand,
+            normalizedInput: structuredClone(inputCommand),
+          },
+        );
+      }
       return;
     }
 
     player.enqueueInput(inputCommand);
     this.lastInputSequenceByClientId.set(clientId, inputCommand.seq);
     this.lastInputTickByClientId.set(clientId, inputCommand.tick);
+    if (shouldTraceInput) {
+      this.world.focusedTrace.recordEntityEvent(
+        this.world,
+        "input_enqueued",
+        player,
+        {
+          clientId,
+          rawInput: rawInputCommand,
+          normalizedInput: structuredClone(inputCommand),
+          bufferLength: player.inputBuffer.length,
+        },
+      );
+    }
   }
 
   /**

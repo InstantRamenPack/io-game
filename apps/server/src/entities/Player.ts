@@ -67,9 +67,21 @@ export class Player extends Entity {
   }
 
   public applyBufferedInputs(world: World): void {
+    const shouldTrace = world.focusedTrace.matchesEntity(this);
     if (this.isStunned()) {
+      const clearedBufferedInputs = this.inputBuffer.length;
       this.inputBuffer.length = 0;
       this.setMovementVelocity(0, 0);
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(
+          world,
+          "movement_blocked_stunned",
+          this,
+          {
+            clearedBufferedInputs,
+          },
+        );
+      }
       return;
     }
 
@@ -79,12 +91,29 @@ export class Player extends Entity {
     let sawNonZeroMovement = false;
     let lastNonZeroMoveX = 0;
     let lastNonZeroMoveY = 0;
+    let consumedInputCount = 0;
+    let firstSeq: number | null = null;
+    let lastSeq: number | null = null;
+    let firstInputTick: number | null = null;
+    let lastInputTick: number | null = null;
+    let attackCount = 0;
+    let craftCount = 0;
+    let buildCount = 0;
 
     while (this.inputBuffer.length > 0) {
       const inputCommand = this.inputBuffer.shift();
       if (!inputCommand) {
         continue;
       }
+      consumedInputCount += 1;
+      if (firstSeq === null) {
+        firstSeq = inputCommand.seq;
+      }
+      if (firstInputTick === null) {
+        firstInputTick = inputCommand.tick;
+      }
+      lastSeq = inputCommand.seq;
+      lastInputTick = inputCommand.tick;
 
       nextMoveX = inputCommand.moveX;
       nextMoveY = inputCommand.moveY;
@@ -100,6 +129,7 @@ export class Player extends Entity {
       }
 
       if (inputCommand.attack) {
+        attackCount += 1;
         this.getActiveWeapon()?.hit(
           world,
           this,
@@ -107,8 +137,10 @@ export class Player extends Entity {
           inputCommand.attack.y,
         );
       } else if (inputCommand.craft) {
+        craftCount += 1;
         this.craft(world, inputCommand.craft.itemTypeId as ResourceId);
       } else if (inputCommand.build) {
+        buildCount += 1;
         this.placeStructure(
           world,
           inputCommand.build.itemTypeId as ResourceId,
@@ -120,6 +152,23 @@ export class Player extends Entity {
 
     if (!sawMovement) {
       this.setMovementVelocity(0, 0);
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
+          consumedInputCount,
+          sawMovement,
+          sawNonZeroMovement,
+          firstSeq,
+          lastSeq,
+          firstInputTick,
+          lastInputTick,
+          attackCount,
+          craftCount,
+          buildCount,
+          speedMultiplier: 1,
+          resolvedMoveX: 0,
+          resolvedMoveY: 0,
+        });
+      }
       return;
     }
 
@@ -141,6 +190,26 @@ export class Player extends Entity {
       resolvedMoveX * this.moveSpeed * speedMult,
       resolvedMoveY * this.moveSpeed * speedMult,
     );
+    if (shouldTrace) {
+      const velocityComponents = this.getDebugVelocityComponents();
+      world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
+        consumedInputCount,
+        sawMovement,
+        sawNonZeroMovement,
+        firstSeq,
+        lastSeq,
+        firstInputTick,
+        lastInputTick,
+        attackCount,
+        craftCount,
+        buildCount,
+        speedMultiplier: speedMult,
+        resolvedMoveX,
+        resolvedMoveY,
+        moveVx: velocityComponents.moveVx,
+        moveVy: velocityComponents.moveVy,
+      });
+    }
   }
 
   public getActiveWeapon(): Weapon | undefined {
@@ -152,10 +221,27 @@ export class Player extends Entity {
   }
 
   public override handleDeath(world: World): void {
+    const before = {
+      x: this.x,
+      y: this.y,
+      vx: this.vx,
+      vy: this.vy,
+      hp: this.hp,
+    };
     this.hp = this.maxHp;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.resetVelocity();
+    world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
+      before,
+      after: {
+        x: this.x,
+        y: this.y,
+        vx: this.vx,
+        vy: this.vy,
+        hp: this.hp,
+      },
+    });
   }
 
   public craft(world: World, itemTypeId: ResourceId): void {

@@ -3,8 +3,9 @@ import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
+import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { CollisionSystem } from "@server/systems/CollisionSystem.ts";
+import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
@@ -22,6 +23,7 @@ export class World {
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
+  public readonly focusedTrace: FocusedServerTrace;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
   private readonly pickupSystem = new PickupSystem();
@@ -41,6 +43,7 @@ export class World {
       dayDurationMs: gameConfig.dayNight.dayDurationMs,
       nightDurationMs: gameConfig.dayNight.nightDurationMs,
     });
+    this.focusedTrace = new FocusedServerTrace(gameConfig);
   }
 
   /**
@@ -49,6 +52,7 @@ export class World {
   public step(): void {
     this.tick += 1;
     const deltaMs = 1000 / this.gameConfig.tickRate;
+    this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
 
     this.syncSpatialIndex();
@@ -59,6 +63,7 @@ export class World {
       }
       entity.tick(this);
     }
+    this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
     for (const entity of tickPhaseEntities) {
       if (!this.entities.has(entity.id) || entity.collisionMode === "static") {
@@ -67,10 +72,12 @@ export class World {
       entity.x += entity.vx;
       entity.y += entity.vy;
     }
+    this.focusedTrace.recordWorldPhase(this, "after_integrate");
 
     this.syncSpatialIndex();
     this.collisionSystem.update(this);
     this.syncSpatialIndex();
+    this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     for (const entity of this.entities.all()) {
       if (!this.entities.has(entity.id)) {
@@ -78,8 +85,10 @@ export class World {
       }
       entity.afterMovement(this);
     }
+    this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     this.pickupSystem.update(this, deltaMs);
+    this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
 
   /**

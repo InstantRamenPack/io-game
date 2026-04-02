@@ -201,6 +201,20 @@ export abstract class Entity {
     this.syncVelocity();
   }
 
+  public getDebugVelocityComponents(): {
+    moveVx: number;
+    moveVy: number;
+    impulseVx: number;
+    impulseVy: number;
+  } {
+    return {
+      moveVx: this.moveVx,
+      moveVy: this.moveVy,
+      impulseVx: this.impulseVx,
+      impulseVy: this.impulseVy,
+    };
+  }
+
   private syncVelocity(): void {
     this.vx = this.moveVx + this.impulseVx;
     this.vy = this.moveVy + this.impulseVy;
