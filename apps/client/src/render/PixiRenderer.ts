@@ -169,11 +169,8 @@ export class PixiRenderer {
   public update(deltaMs: number): void {
     this.updateDamageOverlay(deltaMs);
     this.updateExplosionEffects(deltaMs);
-<<<<<<< HEAD
     this.updateConfusionEffect(deltaMs);
-=======
     this.updateCamera(deltaMs);
->>>>>>> 47ec9855e5532e28ae0a845b0c887d884a51f503
     this.renderScene();
   }
 

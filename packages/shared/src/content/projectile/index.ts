@@ -1,4 +1,5 @@
 import projectileEntityJson from "@shared/content/projectile/basic_bullet.json";
+import rifleBulletProjectileEntityJson from "@shared/content/projectile/rifle_bullet.json";
 import cannonProjectileEntityJson from "@shared/content/projectile/cannon_bullet.json";
 import crossbowArrowProjectileEntityJson from "@shared/content/projectile/crossbow_arrow.json";
 import homingDroneProjectileEntityJson from "@shared/content/projectile/homing_drone.json";
@@ -24,5 +25,10 @@ export const projectileContentEntries = [
     "projectile",
     "homing_drone",
     homingDroneProjectileEntityJson,
+  ),
+  makeParsedEntityContentEntry(
+    "projectile",
+    "rifle_bullet",
+    rifleBulletProjectileEntityJson,
   ),
 ] as const;

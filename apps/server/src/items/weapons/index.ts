@@ -1,4 +1,5 @@
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { CannonGun } from "@server/items/weapons/CannonGun.ts";
@@ -10,6 +11,7 @@ import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
 
 export { BasicGun } from "@server/items/weapons/BasicGun.ts";
+export { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 export { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 export { BasicSword } from "@server/items/weapons/BasicSword.ts";
 export { CannonGun } from "@server/items/weapons/CannonGun.ts";
@@ -22,6 +24,7 @@ export { Taser } from "@server/items/weapons/Taser.ts";
 
 export const weaponItemTypes = [
   BasicGun,
+  BasicRifle,
   BasicSpear,
   BasicSword,
   Crossbow,

@@ -1,4 +1,5 @@
 import basicGunItemJson from "@shared/content/item/basic_gun.json";
+import basicRifleItemJson from "@shared/content/item/basic_rifle.json";
 import basicSpearItemJson from "@shared/content/item/basic_spear.json";
 import basicSwordItemJson from "@shared/content/item/basic_sword.json";
 import cannonItemJson from "@shared/content/item/cannon.json";
@@ -20,6 +21,7 @@ import { makeParsedItemContentEntry } from "@shared/content/parseContent.ts";
 
 export const itemContentEntries = [
   makeParsedItemContentEntry("basic_gun", basicGunItemJson),
+  makeParsedItemContentEntry("basic_rifle", basicRifleItemJson),
   makeParsedItemContentEntry("basic_spear", basicSpearItemJson),
   makeParsedItemContentEntry("basic_sword", basicSwordItemJson),
   makeParsedItemContentEntry("crossbow", crossbowItemJson),
