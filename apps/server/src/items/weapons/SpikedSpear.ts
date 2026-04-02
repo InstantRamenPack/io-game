@@ -1,7 +1,7 @@
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
+import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
-import { KnockbackEffect } from "@server/effects";
 
 /**
  * Spear variant that trades knockback for bleed.
