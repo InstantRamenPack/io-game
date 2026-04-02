@@ -33,8 +33,6 @@ export class Megaknight extends Enemy {
           MIN_SIZE,
           LAND_SIZE,
           4000,
-          40,
-          120,
         ),
         // Chase normally when out of jump range or on cooldown
         new GoToTargetGoal<Enemy>(2, 30),

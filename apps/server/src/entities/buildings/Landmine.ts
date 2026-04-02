@@ -1,18 +1,13 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
-import { triggerExplosion } from "@server/combat/explosions.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { LandmineExplosionAreaEffect } from "@server/effects/area/LandmineExplosionAreaEffect.ts";
 import { Player } from "@server/entities/Player.ts";
-import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import type { World } from "@server/world/World.ts";
 
 const TRIGGER_RADIUS = 28;
-const EXPLOSION_RADIUS = 140;
-const EXPLOSION_DAMAGE = 80;
-const EXPLOSION_KNOCKBACK = 32;
-
 export class Landmine extends Building {
   public static override readonly resourceName = "landmine";
 
@@ -55,14 +50,9 @@ export class Landmine extends Building {
         continue;
       }
 
-      triggerExplosion(world, this, {
+      new LandmineExplosionAreaEffect().apply(world, this, {
         x: this.x,
         y: this.y,
-        radius: EXPLOSION_RADIUS,
-        maxDamage: EXPLOSION_DAMAGE,
-        maxKnockback: EXPLOSION_KNOCKBACK,
-        style: "landmine",
-        extraEffects: [new StunnedEffect()],
       });
       this.alive = false;
       world.despawn(this.id);
