@@ -15,6 +15,7 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
+const MAX_COLLISION_PASSES = 3;
 
 /**
  * Resolves composite entity overlap and world-boundary clamping.
@@ -28,37 +29,52 @@ class CollisionSystem implements System {
    * @param world Authoritative world being simulated.
    */
   public update(world: World): void {
-    const collidableEntities = world.entities.collidable();
+    for (let pass = 0; pass < MAX_COLLISION_PASSES; pass += 1) {
+      const collidableEntities = world.entities.collidable();
+      world.spatial.rebuild(collidableEntities);
+      let resolvedCollision = false;
 
-    for (const entity of collidableEntities) {
-      if (entity.collisionMode !== "dynamic") {
-        continue;
+      for (const entity of collidableEntities) {
+        if (entity.collisionMode !== "dynamic") {
+          continue;
+        }
+
+        const bounds = entity.getWorldBounds();
+        const candidates = world.spatial.queryBox(
+          bounds.minX,
+          bounds.minY,
+          bounds.maxX,
+          bounds.maxY,
+          this.queryBuffer,
+        );
+
+        for (const candidate of candidates) {
+          if (candidate.id === entity.id) {
+            continue;
+          }
+          if (
+            candidate.collisionMode === "dynamic" &&
+            candidate.id < entity.id
+          ) {
+            continue;
+          }
+          resolvedCollision =
+            this.resolveEntityPair(world, entity, candidate) || resolvedCollision;
+        }
       }
 
-      const bounds = entity.getWorldBounds();
-      const candidates = world.spatial.queryBox(
-        bounds.minX,
-        bounds.minY,
-        bounds.maxX,
-        bounds.maxY,
-        this.queryBuffer,
-      );
-
-      for (const candidate of candidates) {
-        if (candidate.id === entity.id) {
-          continue;
-        }
-        if (candidate.collisionMode === "dynamic" && candidate.id < entity.id) {
-          continue;
-        }
-        this.resolveEntityPair(world, entity, candidate);
+      if (!resolvedCollision) {
+        break;
       }
     }
 
+    const collidableEntities = world.entities.collidable();
+    world.spatial.rebuild(collidableEntities);
     for (const entity of collidableEntities) {
       this.resolveWorldBounds(entity, world);
     }
 
+    world.spatial.rebuild(world.entities.collidable());
     this.resolveProjectileBuildingCollisions(world);
   }
 
@@ -80,29 +96,21 @@ class CollisionSystem implements System {
     if (entity.x < minX) {
       entity.x = minX;
       clampedX = true;
-      if (entity.vx < 0) {
-        entity.vx = 0;
-      }
+      entity.clipVelocityAgainstNormal({ x: -1, y: 0 });
     } else if (entity.x > maxX) {
       entity.x = maxX;
       clampedX = true;
-      if (entity.vx > 0) {
-        entity.vx = 0;
-      }
+      entity.clipVelocityAgainstNormal({ x: 1, y: 0 });
     }
 
     if (entity.y < minY) {
       entity.y = minY;
       clampedY = true;
-      if (entity.vy < 0) {
-        entity.vy = 0;
-      }
+      entity.clipVelocityAgainstNormal({ x: 0, y: -1 });
     } else if (entity.y > maxY) {
       entity.y = maxY;
       clampedY = true;
-      if (entity.vy > 0) {
-        entity.vy = 0;
-      }
+      entity.clipVelocityAgainstNormal({ x: 0, y: 1 });
     }
 
     if (clampedX || clampedY) {
@@ -129,17 +137,17 @@ class CollisionSystem implements System {
     world: World,
     leftEntity: Entity,
     rightEntity: Entity,
-  ): void {
+  ): boolean {
     if (
       leftEntity.collisionMode === "static" &&
       rightEntity.collisionMode === "static"
     ) {
-      return;
+      return false;
     }
 
     const separation = this.getSeparation(leftEntity, rightEntity);
     if (!separation) {
-      return;
+      return false;
     }
 
     if (
@@ -147,12 +155,12 @@ class CollisionSystem implements System {
       rightEntity.collisionMode === "dynamic"
     ) {
       this.separateDynamicDynamic(world, leftEntity, rightEntity, separation);
-      return;
+      return true;
     }
 
     if (leftEntity.collisionMode === "dynamic") {
       this.separateDynamicStatic(world, leftEntity, rightEntity, separation);
-      return;
+      return true;
     }
 
     if (rightEntity.collisionMode === "dynamic") {
@@ -162,7 +170,10 @@ class CollisionSystem implements System {
         leftEntity,
         this.invertSeparation(separation),
       );
+      return true;
     }
+
+    return false;
   }
 
   /**
@@ -190,8 +201,8 @@ class CollisionSystem implements System {
     }
 
     const normal = this.getNormalFromTranslation(separation);
-    this.removeInwardVelocity(leftEntity, normal);
-    this.removeInwardVelocity(rightEntity, this.invertNormal(normal));
+    leftEntity.clipVelocityAgainstNormal(normal);
+    rightEntity.clipVelocityAgainstNormal(this.invertNormal(normal));
     world.focusedTrace.recordEntityEvent(
       world,
       "entity_collision_resolved",
@@ -242,8 +253,7 @@ class CollisionSystem implements System {
       dynamicEntity.y += separation.translation;
     }
 
-    this.removeInwardVelocity(
-      dynamicEntity,
+    dynamicEntity.clipVelocityAgainstNormal(
       this.getNormalFromTranslation(separation),
     );
     world.focusedTrace.recordEntityEvent(
@@ -258,20 +268,6 @@ class CollisionSystem implements System {
         counterpart: this.describeEntityRef(staticEntity),
       },
     );
-  }
-
-  /**
-   * Removes the portion of velocity that would keep pushing into a surface.
-   * @param entity Body whose velocity should be projected away from the surface normal.
-   * @param normal Axis-aligned unit vector pointing from the entity toward the obstacle.
-   */
-  private removeInwardVelocity(entity: Entity, normal: AxisNormal): void {
-    const inwardSpeed = entity.vx * normal.x + entity.vy * normal.y;
-    if (inwardSpeed <= 0) {
-      return;
-    }
-    entity.vx -= normal.x * inwardSpeed;
-    entity.vy -= normal.y * inwardSpeed;
   }
 
   /**

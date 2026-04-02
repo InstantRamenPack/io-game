@@ -29,6 +29,6 @@ export class StunnedEffect extends Effect {
       sourceId: instigator.id,
       preventsAction: true,
     });
-    target.setMovementVelocity(0, 0);
+    target.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
   }
 }

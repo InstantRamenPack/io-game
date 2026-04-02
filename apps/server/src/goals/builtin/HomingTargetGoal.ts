@@ -35,7 +35,19 @@ export class HomingTargetGoal<
     }
 
     ctx.self.targetId = target.id;
-    ctx.self.blendHeadingTowardPoint(target.x, target.y, this.turnBlend);
+    const aimPoint = this.resolveAimPoint(ctx, target);
+    const deltaX = aimPoint.x - ctx.self.x;
+    const deltaY = aimPoint.y - ctx.self.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= Number.EPSILON) {
+      return;
+    }
+
+    ctx.self.steerTowardVelocity(
+      (deltaX / distance) * ctx.self.speed,
+      (deltaY / distance) * ctx.self.speed,
+      ctx.self.speed * this.turnBlend,
+    );
   }
 
   public override shouldContinue(ctx: GoalContext<TSelf>): boolean {
@@ -108,6 +120,76 @@ export class HomingTargetGoal<
     }
 
     return bestTarget;
+  }
+
+  private resolveAimPoint(
+    ctx: GoalContext<TSelf>,
+    target: Entity,
+  ): { x: number; y: number } {
+    const interceptTime = this.resolveInterceptTime(
+      ctx.self.x,
+      ctx.self.y,
+      target.x,
+      target.y,
+      target.vx,
+      target.vy,
+      Math.max(ctx.self.speed, Math.hypot(ctx.self.vx, ctx.self.vy)),
+    );
+    if (interceptTime === null) {
+      return { x: target.x, y: target.y };
+    }
+
+    return {
+      x: target.x + target.vx * interceptTime,
+      y: target.y + target.vy * interceptTime,
+    };
+  }
+
+  private resolveInterceptTime(
+    originX: number,
+    originY: number,
+    targetX: number,
+    targetY: number,
+    targetVx: number,
+    targetVy: number,
+    projectileSpeed: number,
+  ): number | null {
+    if (!Number.isFinite(projectileSpeed) || projectileSpeed <= 0) {
+      return null;
+    }
+
+    const relativeX = targetX - originX;
+    const relativeY = targetY - originY;
+    const targetSpeedSquared = targetVx * targetVx + targetVy * targetVy;
+    const projectileSpeedSquared = projectileSpeed * projectileSpeed;
+    const quadraticA = targetSpeedSquared - projectileSpeedSquared;
+    const quadraticB = 2 * (relativeX * targetVx + relativeY * targetVy);
+    const quadraticC = relativeX * relativeX + relativeY * relativeY;
+
+    if (Math.abs(quadraticA) <= 1e-6) {
+      if (Math.abs(quadraticB) <= 1e-6) {
+        return null;
+      }
+
+      const linearTime = -quadraticC / quadraticB;
+      return linearTime > 0 ? linearTime : null;
+    }
+
+    const discriminant = quadraticB * quadraticB - 4 * quadraticA * quadraticC;
+    if (discriminant < 0) {
+      return null;
+    }
+
+    const discriminantRoot = Math.sqrt(discriminant);
+    const firstTime = (-quadraticB - discriminantRoot) / (2 * quadraticA);
+    const secondTime = (-quadraticB + discriminantRoot) / (2 * quadraticA);
+    const positiveTimes = [firstTime, secondTime].filter((time) => time > 0);
+
+    if (positiveTimes.length === 0) {
+      return null;
+    }
+
+    return Math.min(...positiveTimes);
   }
 
   private isWithinSeekRadius(ctx: GoalContext<TSelf>, target: Entity): boolean {

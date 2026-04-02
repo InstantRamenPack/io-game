@@ -62,7 +62,7 @@ export class GoToPositionGoal<
       return;
     }
 
-    ctx.self.setMovementVelocity(
+    ctx.self.setDesiredVelocity(
       (deltaX / distance) * ctx.self.moveSpeed,
       (deltaY / distance) * ctx.self.moveSpeed,
     );
@@ -73,7 +73,7 @@ export class GoToPositionGoal<
   }
 
   public override stop(ctx: GoalContext<TSelf>): void {
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
   }
 
   private hasArrived(ctx: GoalContext<TSelf>): boolean {

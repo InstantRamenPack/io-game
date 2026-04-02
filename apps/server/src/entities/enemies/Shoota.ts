@@ -21,8 +21,6 @@ export class Shoota extends Enemy {
         default: [makeHitboxRect(24, 24)],
       },
       maxHp: 100,
-      vx: 0,
-      vy: 0,
       moveSpeed: 8,
       weapons: [new BasicGun()],
       goals: [

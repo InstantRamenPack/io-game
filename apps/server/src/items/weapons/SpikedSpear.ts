@@ -4,7 +4,7 @@ import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 
 /**
- * Spear variant that trades knockback for bleed.
+ * Spear variant that bleeds.
  */
 export class SpikedSpear extends StabMeleeWeapon {
   public static override readonly resourceName = "spiked_spear";

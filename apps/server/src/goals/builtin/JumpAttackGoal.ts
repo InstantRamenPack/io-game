@@ -66,7 +66,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   public override start(ctx: GoalContext<TSelf>): void {
     this.phase = "windup";
     this.phaseTick = 0;
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
     ctx.self.setHitboxProfile(this.baseProfileName);
     const target = this.resolveTargetInRange(ctx);
     this.jumpTargetX = target?.x ?? ctx.self.x;
@@ -96,7 +96,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.phase = null;
     this.phaseTick = 0;
     ctx.self.setHitboxProfile(this.baseProfileName);
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
   }
 
   private tickWindup(ctx: GoalContext<TSelf>): void {
@@ -116,13 +116,24 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     const remaining = AIRBORNE_TICKS - this.phaseTick;
     const dx = this.jumpTargetX - ctx.self.x;
     const dy = this.jumpTargetY - ctx.self.y;
+    const launchVx = dx / Math.max(1, AIRBORNE_TICKS);
+    const launchVy = dy / Math.max(1, AIRBORNE_TICKS);
+
+    if (this.phaseTick === 0) {
+      ctx.self.applyImpulse(launchVx, launchVy);
+    }
 
     if (remaining <= 1 || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) {
       ctx.self.x = this.jumpTargetX;
       ctx.self.y = this.jumpTargetY;
-      ctx.self.setMovementVelocity(0, 0);
+      ctx.self.resetMovement();
     } else {
-      ctx.self.setMovementVelocity(dx / remaining, dy / remaining);
+      const { momentumVx, momentumVy } = ctx.self.getDebugVelocityComponents();
+      ctx.self.steerTowardVelocity(
+        dx / remaining - momentumVx,
+        dy / remaining - momentumVy,
+        Math.hypot(dx / remaining, dy / remaining),
+      );
     }
 
     if (this.phaseTick >= AIRBORNE_TICKS - 1) {
@@ -133,7 +144,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
 
   private tickLand(ctx: GoalContext<TSelf>): void {
     if (this.phaseTick === 0) {
-      ctx.self.setMovementVelocity(0, 0);
+      ctx.self.resetMovement();
       this.applyAoeDamage(ctx);
     }
 

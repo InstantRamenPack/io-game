@@ -20,8 +20,6 @@ export class Wallbreaker extends Enemy {
         default: [makeHitboxRect(22, 22)],
       },
       maxHp: 1,
-      vx: 0,
-      vy: 0,
       moveSpeed: 12,
       weapons: [],
       goals: [

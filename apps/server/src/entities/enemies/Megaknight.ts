@@ -19,8 +19,6 @@ export class Megaknight extends Enemy {
       },
       activeHitboxProfile: "base",
       maxHp: 150,
-      vx: 0,
-      vy: 0,
       moveSpeed: 7,
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 600),

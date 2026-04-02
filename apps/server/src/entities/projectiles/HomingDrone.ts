@@ -15,7 +15,7 @@ const TURN_BLEND = 0.18;
 export class HomingDrone extends Projectile {
   public static override readonly resourceName = "homing_drone";
   public static readonly definition: ProjectileDefinition = {
-    speed: 9,
+    speed: 13.5,
     range: 5000,
     hitboxes: [makeHitboxRect(12, 12)],
     maxHits: 1,

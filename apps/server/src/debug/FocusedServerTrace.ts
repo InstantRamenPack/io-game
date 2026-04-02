@@ -27,10 +27,12 @@ type FocusedTraceEntityState = {
   maxHp: number;
   alive: boolean;
   collisionMode: Entity["collisionMode"];
-  moveVx: number;
-  moveVy: number;
-  impulseVx: number;
-  impulseVy: number;
+  desiredVx: number;
+  desiredVy: number;
+  driveVx: number;
+  driveVy: number;
+  momentumVx: number;
+  momentumVy: number;
   inputBufferLength?: number;
   activeEffects: Array<{
     typeId: string;
@@ -230,10 +232,12 @@ export class FocusedServerTrace {
       maxHp: entity.maxHp,
       alive: entity.alive,
       collisionMode: entity.collisionMode,
-      moveVx: velocityComponents.moveVx,
-      moveVy: velocityComponents.moveVy,
-      impulseVx: velocityComponents.impulseVx,
-      impulseVy: velocityComponents.impulseVy,
+      desiredVx: velocityComponents.desiredVx,
+      desiredVy: velocityComponents.desiredVy,
+      driveVx: velocityComponents.driveVx,
+      driveVy: velocityComponents.driveVy,
+      momentumVx: velocityComponents.momentumVx,
+      momentumVy: velocityComponents.momentumVy,
       activeEffects: entity.activeEffects.map((effect) => ({
         typeId: effect.typeId,
         ticksRemaining: effect.ticksRemaining,

@@ -24,6 +24,11 @@ export abstract class GoalControlledEntity extends Entity {
     super(id, { maxHp: config.maxHp });
     this.goalSelector = new GoalSelector<this>();
     this.moveSpeed = config.moveSpeed ?? 0;
+    if (this.moveSpeed > 0) {
+      this.setMovementTuning({
+        driveAccelerationPerTick: Math.max(3, this.moveSpeed * 0.45),
+      });
+    }
   }
 
   public override tick(world: World): void {
@@ -37,7 +42,7 @@ export abstract class GoalControlledEntity extends Entity {
       weapon.tick(world);
     }
     if (this.isStunned()) {
-      this.setMovementVelocity(0, 0);
+      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
       return;
     }
 

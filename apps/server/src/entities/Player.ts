@@ -32,6 +32,9 @@ export class Player extends Entity {
     this.inventory = new Inventory();
     this.setHitboxProfiles({ default: [makeHitboxRect(32, 32)] });
     this.collisionMode = "dynamic";
+    this.setMovementTuning({
+      driveAccelerationPerTick: Math.max(4, this.moveSpeed * 0.45),
+    });
   }
 
   public enqueueInput(inputCommand: InputCommand): void {
@@ -71,7 +74,7 @@ export class Player extends Entity {
     if (this.isStunned()) {
       const clearedBufferedInputs = this.inputBuffer.length;
       this.inputBuffer.length = 0;
-      this.setMovementVelocity(0, 0);
+      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(
           world,
@@ -151,7 +154,7 @@ export class Player extends Entity {
     }
 
     if (!sawMovement) {
-      this.setMovementVelocity(0, 0);
+      this.setDesiredVelocity(0, 0);
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
           consumedInputCount,
@@ -167,6 +170,8 @@ export class Player extends Entity {
           speedMultiplier: 1,
           resolvedMoveX: 0,
           resolvedMoveY: 0,
+          desiredVx: 0,
+          desiredVy: 0,
         });
       }
       return;
@@ -186,7 +191,7 @@ export class Player extends Entity {
       resolvedMoveY = lastNonZeroMoveY;
     }
 
-    this.setMovementVelocity(
+    this.setDesiredVelocity(
       resolvedMoveX * this.moveSpeed * speedMult,
       resolvedMoveY * this.moveSpeed * speedMult,
     );
@@ -206,8 +211,12 @@ export class Player extends Entity {
         speedMultiplier: speedMult,
         resolvedMoveX,
         resolvedMoveY,
-        moveVx: velocityComponents.moveVx,
-        moveVy: velocityComponents.moveVy,
+        desiredVx: velocityComponents.desiredVx,
+        desiredVy: velocityComponents.desiredVy,
+        driveVx: velocityComponents.driveVx,
+        driveVy: velocityComponents.driveVy,
+        momentumVx: velocityComponents.momentumVx,
+        momentumVy: velocityComponents.momentumVy,
       });
     }
   }
@@ -231,7 +240,7 @@ export class Player extends Entity {
     this.hp = this.maxHp;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
-    this.resetVelocity();
+    this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,
       after: {

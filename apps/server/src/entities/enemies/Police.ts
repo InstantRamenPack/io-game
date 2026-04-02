@@ -18,8 +18,6 @@ export class Police extends Enemy {
         default: [makeHitboxRect(24, 24)],
       },
       maxHp: 110,
-      vx: 0,
-      vy: 0,
       moveSpeed: 9,
       weapons: [new Taser()],
       goals: [

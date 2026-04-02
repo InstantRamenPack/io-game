@@ -57,7 +57,7 @@ export class RangedAttackGoal<
     const distance = Math.hypot(deltaX, deltaY);
     const aimPoint = this.resolveAimPoint(ctx, weapon, target);
     if (distance <= Number.EPSILON) {
-      ctx.self.setMovementVelocity(0, 0);
+      ctx.self.setDesiredVelocity(0, 0);
       if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
         weapon.hit(ctx.world, ctx.self, aimPoint.x, aimPoint.y);
       }
@@ -82,12 +82,12 @@ export class RangedAttackGoal<
     const maxDistance = this.preferredDistance + this.distanceTolerance;
 
     if (distance > maxDistance) {
-      ctx.self.setMovementVelocity(
+      ctx.self.setDesiredVelocity(
         directionX * ctx.self.moveSpeed,
         directionY * ctx.self.moveSpeed,
       );
     } else if (distance < minDistance) {
-      ctx.self.setMovementVelocity(
+      ctx.self.setDesiredVelocity(
         -directionX * ctx.self.moveSpeed,
         -directionY * ctx.self.moveSpeed,
       );
@@ -97,7 +97,7 @@ export class RangedAttackGoal<
         directionX,
         directionY,
       );
-      ctx.self.setMovementVelocity(
+      ctx.self.setDesiredVelocity(
         strafeVector.x * ctx.self.moveSpeed,
         strafeVector.y * ctx.self.moveSpeed,
       );
@@ -115,7 +115,7 @@ export class RangedAttackGoal<
 
   public override stop(ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
