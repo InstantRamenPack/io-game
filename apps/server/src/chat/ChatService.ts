@@ -34,9 +34,13 @@ export class ChatService {
   private readonly maxMessageLength = 240;
   private readonly placeholderNsfwList = ["badword1", "badword2"];
   private readonly lastWhisperByClientId = new Map<string, string>();
-  private readonly maxSpawnAmount = 50;
+  private readonly maxSpawnAmount = 1000;
 
-  constructor({ networkServer, world, playerIdByClientId }: ChatServiceOptions) {
+  constructor({
+    networkServer,
+    world,
+    playerIdByClientId,
+  }: ChatServiceOptions) {
     this.networkServer = networkServer;
     this.world = world;
     this.playerIdByClientId = playerIdByClientId;
@@ -325,10 +329,7 @@ export class ChatService {
         y: spawnY,
       });
       if (!entity) {
-        this.sendSystem(
-          clientId,
-          `Failed to spawn ${resolvedEntry.typeId}.`,
-        );
+        this.sendSystem(clientId, `Failed to spawn ${resolvedEntry.typeId}.`);
         break;
       }
       this.world.spawn(entity);
@@ -336,10 +337,7 @@ export class ChatService {
     }
 
     if (spawned > 0) {
-      this.sendSystem(
-        clientId,
-        `Spawned ${spawned} ${resolvedEntry.typeId}.`,
-      );
+      this.sendSystem(clientId, `Spawned ${spawned} ${resolvedEntry.typeId}.`);
     }
   }
 
@@ -349,10 +347,7 @@ export class ChatService {
     args: string[],
   ): void {
     if (args.length === 0) {
-      this.sendSystem(
-        clientId,
-        "Usage: /kill @e <entity> | @a | <player>",
-      );
+      this.sendSystem(clientId, "Usage: /kill @e <entity> | @a | <player>");
       return;
     }
 
@@ -397,10 +392,7 @@ export class ChatService {
         return;
       }
 
-      this.sendSystem(
-        clientId,
-        `Killed ${killed} ${resolvedEntry.typeId}.`,
-      );
+      this.sendSystem(clientId, `Killed ${killed} ${resolvedEntry.typeId}.`);
       return;
     }
 
@@ -658,8 +650,14 @@ export class ChatService {
   }
 
   private clampToWorldBounds(x: number, y: number): { x: number; y: number } {
-    const clampedX = Math.max(0, Math.min(this.world.gameConfig.worldSize.w, x));
-    const clampedY = Math.max(0, Math.min(this.world.gameConfig.worldSize.h, y));
+    const clampedX = Math.max(
+      0,
+      Math.min(this.world.gameConfig.worldSize.w, x),
+    );
+    const clampedY = Math.max(
+      0,
+      Math.min(this.world.gameConfig.worldSize.h, y),
+    );
     return { x: clampedX, y: clampedY };
   }
 
@@ -686,11 +684,10 @@ export class ChatService {
           directionY: 0,
           rotation: 0,
         };
-        const projectile = new (ctor as unknown as new (
+        return new (ctor as unknown as new (
           id: number,
           config: ProjectileSpawnConfig,
         ) => Entity)(entityId, config);
-        return projectile;
       }
 
       if (entry.kind === "building" && ctor.prototype instanceof Building) {
@@ -787,7 +784,7 @@ export class ChatService {
       return undefined;
     }
     const player = this.world.get<Player>(playerId);
-    if (!player || !(player instanceof Player)) {
+    if (!player) {
       return undefined;
     }
     return player;

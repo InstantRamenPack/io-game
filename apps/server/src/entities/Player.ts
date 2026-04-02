@@ -36,7 +36,7 @@ export class Player extends Entity {
 
   public enqueueInput(inputCommand: InputCommand): void {
     this.inputBuffer.push(inputCommand);
-    if (this.inputBuffer.length > 10) {
+    if (this.inputBuffer.length > 64) {
       this.inputBuffer.shift();
     }
   }
@@ -76,6 +76,9 @@ export class Player extends Entity {
     let nextMoveX = 0;
     let nextMoveY = 0;
     let sawMovement = false;
+    let sawNonZeroMovement = false;
+    let lastNonZeroMoveX = 0;
+    let lastNonZeroMoveY = 0;
 
     while (this.inputBuffer.length > 0) {
       const inputCommand = this.inputBuffer.shift();
@@ -86,6 +89,11 @@ export class Player extends Entity {
       nextMoveX = inputCommand.moveX;
       nextMoveY = inputCommand.moveY;
       sawMovement = true;
+      if (nextMoveX !== 0 || nextMoveY !== 0) {
+        sawNonZeroMovement = true;
+        lastNonZeroMoveX = nextMoveX;
+        lastNonZeroMoveY = nextMoveY;
+      }
 
       if (inputCommand.selectWeaponIndex !== undefined) {
         this.inventory.setActiveWeaponIndex(inputCommand.selectWeaponIndex);
@@ -115,6 +123,7 @@ export class Player extends Entity {
       return;
     }
 
+<<<<<<< HEAD
     const speedMult = this.activeEffects.reduce(
       (acc, e) => (e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc),
       1,
@@ -122,6 +131,24 @@ export class Player extends Entity {
     this.setMovementVelocity(
       nextMoveX * this.moveSpeed * speedMult,
       nextMoveY * this.moveSpeed * speedMult,
+=======
+    let resolvedMoveX = nextMoveX;
+    let resolvedMoveY = nextMoveY;
+    // Preserve a brief tap that begins and ends between server ticks by
+    // resolving one tick of the last non-zero movement in the buffer.
+    if (
+      resolvedMoveX === 0 &&
+      resolvedMoveY === 0 &&
+      sawNonZeroMovement
+    ) {
+      resolvedMoveX = lastNonZeroMoveX;
+      resolvedMoveY = lastNonZeroMoveY;
+    }
+
+    this.setMovementVelocity(
+      resolvedMoveX * this.moveSpeed,
+      resolvedMoveY * this.moveSpeed,
+>>>>>>> 47ec9855e5532e28ae0a845b0c887d884a51f503
     );
   }
 

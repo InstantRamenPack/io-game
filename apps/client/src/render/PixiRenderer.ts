@@ -23,6 +23,8 @@ type ExplosionEffect = {
  * by dedicated entity renderer classes.
  */
 export class PixiRenderer {
+  private static readonly CAMERA_FOLLOW_SMOOTHING_MS = 120;
+
   private app: PIXI.Application<HTMLCanvasElement> | null = null;
   private world: PIXI.Container | null = null;
   private grid: PIXI.Graphics | null = null;
@@ -50,6 +52,11 @@ export class PixiRenderer {
   private readonly gridNightLineColor = 0x9fd69a;
   private worldSize: WorldSize;
   private hostElement: HTMLElement | null = null;
+  private cameraPivotX = 0;
+  private cameraPivotY = 0;
+  private cameraTargetX = 0;
+  private cameraTargetY = 0;
+  private cameraInitialized = false;
 
   public playerEntityId?: number;
 
@@ -59,6 +66,7 @@ export class PixiRenderer {
     }
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.drawDamageOverlay();
+    this.syncCameraTransform();
     this.renderScene();
   };
 
@@ -84,6 +92,9 @@ export class PixiRenderer {
 
   public setPlayerEntityId(entityId: number | undefined): void {
     this.playerEntityId = entityId;
+    if (entityId === undefined) {
+      this.cameraInitialized = false;
+    }
   }
 
   public async init(
@@ -158,7 +169,11 @@ export class PixiRenderer {
   public update(deltaMs: number): void {
     this.updateDamageOverlay(deltaMs);
     this.updateExplosionEffects(deltaMs);
+<<<<<<< HEAD
     this.updateConfusionEffect(deltaMs);
+=======
+    this.updateCamera(deltaMs);
+>>>>>>> 47ec9855e5532e28ae0a845b0c887d884a51f503
     this.renderScene();
   }
 
@@ -172,17 +187,15 @@ export class PixiRenderer {
   }
 
   public setCameraToPlayer(x: number, y: number): void {
-    if (!this.world) {
-      throw new Error("World container not initialized.");
+    this.cameraTargetX = x;
+    this.cameraTargetY = y;
+
+    if (!this.cameraInitialized) {
+      this.cameraPivotX = x;
+      this.cameraPivotY = y;
+      this.cameraInitialized = true;
+      this.syncCameraTransform();
     }
-    if (!this.app) {
-      throw new Error("Pixi App not initialized.");
-    }
-    this.world.pivot.set(x, y);
-    this.world.position.set(
-      this.app.screen.width / 2,
-      this.app.screen.height / 2,
-    );
   }
 
   public screenToWorld(
@@ -401,6 +414,47 @@ export class PixiRenderer {
     this.app.renderer.render(this.app.stage);
   }
 
+  private updateCamera(deltaMs: number): void {
+    if (!this.cameraInitialized) {
+      return;
+    }
+
+    const effectiveDeltaMs = Math.min(Math.max(deltaMs, 0), 50);
+    const smoothingFactor =
+      effectiveDeltaMs <= 0
+        ? 1
+        : 1 -
+          Math.exp(
+            -effectiveDeltaMs / PixiRenderer.CAMERA_FOLLOW_SMOOTHING_MS,
+          );
+    this.cameraPivotX = lerp(
+      this.cameraPivotX,
+      this.cameraTargetX,
+      smoothingFactor,
+    );
+    this.cameraPivotY = lerp(
+      this.cameraPivotY,
+      this.cameraTargetY,
+      smoothingFactor,
+    );
+    this.syncCameraTransform();
+  }
+
+  private syncCameraTransform(): void {
+    if (!this.world) {
+      return;
+    }
+    if (!this.app) {
+      return;
+    }
+
+    this.world.pivot.set(this.cameraPivotX, this.cameraPivotY);
+    this.world.position.set(
+      this.app.screen.width / 2,
+      this.app.screen.height / 2,
+    );
+  }
+
   private ensureGrid(): void {
     if (!this.app) {
       throw new Error("Pixi App not initialized.");
@@ -563,6 +617,10 @@ export class PixiRenderer {
     }
     return Math.max(0, blend - lag);
   }
+}
+
+function lerp(start: number, end: number, t: number): number {
+  return start + (end - start) * t;
 }
 
 declare global {
