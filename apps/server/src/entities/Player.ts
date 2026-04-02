@@ -123,32 +123,23 @@ export class Player extends Entity {
       return;
     }
 
-<<<<<<< HEAD
     const speedMult = this.activeEffects.reduce(
       (acc, e) => (e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc),
       1,
     );
-    this.setMovementVelocity(
-      nextMoveX * this.moveSpeed * speedMult,
-      nextMoveY * this.moveSpeed * speedMult,
-=======
+
     let resolvedMoveX = nextMoveX;
     let resolvedMoveY = nextMoveY;
     // Preserve a brief tap that begins and ends between server ticks by
     // resolving one tick of the last non-zero movement in the buffer.
-    if (
-      resolvedMoveX === 0 &&
-      resolvedMoveY === 0 &&
-      sawNonZeroMovement
-    ) {
+    if (resolvedMoveX === 0 && resolvedMoveY === 0 && sawNonZeroMovement) {
       resolvedMoveX = lastNonZeroMoveX;
       resolvedMoveY = lastNonZeroMoveY;
     }
 
     this.setMovementVelocity(
-      resolvedMoveX * this.moveSpeed,
-      resolvedMoveY * this.moveSpeed,
->>>>>>> 47ec9855e5532e28ae0a845b0c887d884a51f503
+      resolvedMoveX * this.moveSpeed * speedMult,
+      resolvedMoveY * this.moveSpeed * speedMult,
     );
   }
 
