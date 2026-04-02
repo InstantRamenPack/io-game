@@ -118,6 +118,214 @@ class HudPanel {
   }
 }
 
+type HotbarSlotItem = {
+  typeId: ResourceId | null;
+  count: number | null;
+  showCountWhenOne?: boolean;
+};
+
+class HotbarSlotView {
+  public readonly container: PIXI.Container;
+  private readonly base: PIXI.Graphics;
+  private readonly activeOutline: PIXI.Graphics;
+  private readonly icon: PIXI.Sprite;
+  private readonly countText: PIXI.Text;
+  private readonly slotSize: number;
+  private readonly iconPadding: number;
+  private readonly iconProvider: (typeId: ResourceId) => PIXI.Texture;
+
+  constructor(options: {
+    slotSize: number;
+    iconPadding: number;
+    iconProvider: (typeId: ResourceId) => PIXI.Texture;
+    countStyle: PIXI.TextStyle;
+  }) {
+    this.slotSize = options.slotSize;
+    this.iconPadding = options.iconPadding;
+    this.iconProvider = options.iconProvider;
+
+    this.container = new PIXI.Container();
+    this.base = new PIXI.Graphics();
+    this.activeOutline = new PIXI.Graphics();
+    this.icon = new PIXI.Sprite();
+    this.icon.anchor.set(0.5);
+    this.countText = new PIXI.Text("", options.countStyle);
+    this.countText.anchor.set(1, 1);
+
+    this.container.addChild(this.base);
+    this.container.addChild(this.activeOutline);
+    this.container.addChild(this.icon);
+    this.container.addChild(this.countText);
+
+    this.drawBase(false);
+    this.setActive(false);
+    this.clearItem();
+  }
+
+  public setActive(active: boolean): void {
+    this.activeOutline.visible = active;
+    if (active) {
+      const inflate = 4;
+      const size = this.slotSize + inflate * 2;
+      this.activeOutline.clear();
+      this.activeOutline.lineStyle(2.5, 0xf7f7f7, 0.95);
+      this.activeOutline.beginFill(0x4a4a4a, 0.25);
+      this.activeOutline.drawRoundedRect(
+        -inflate,
+        -inflate,
+        size,
+        size,
+        5,
+      );
+      this.activeOutline.endFill();
+    } else {
+      this.activeOutline.clear();
+    }
+
+    this.drawBase(active);
+  }
+
+  public setItem(
+    typeId: ResourceId,
+    count: number | null,
+    showCountWhenOne = false,
+  ): void {
+    this.icon.texture = this.iconProvider(typeId);
+    const iconSize = this.slotSize - this.iconPadding * 2;
+    this.icon.width = iconSize;
+    this.icon.height = iconSize;
+    this.icon.position.set(this.slotSize / 2, this.slotSize / 2);
+    this.icon.visible = true;
+
+    if (count !== null && (count > 1 || showCountWhenOne)) {
+      this.countText.text = String(count);
+      this.countText.position.set(
+        this.slotSize - 4,
+        this.slotSize - 2,
+      );
+      this.countText.visible = true;
+    } else {
+      this.countText.text = "";
+      this.countText.visible = false;
+    }
+  }
+
+  public clearItem(): void {
+    this.icon.visible = false;
+    this.countText.text = "";
+    this.countText.visible = false;
+  }
+
+  private drawBase(active: boolean): void {
+    this.base.clear();
+    const fill = active ? 0x3a3a3a : 0x262626;
+    const edge = active ? 0xf0f0f0 : 0x8e8e8e;
+    const inner = active ? 0x5b5b5b : 0x3a3a3a;
+
+    this.base.lineStyle(2, edge, 0.9);
+    this.base.beginFill(fill, 0.92);
+    this.base.drawRoundedRect(0, 0, this.slotSize, this.slotSize, 4);
+    this.base.endFill();
+
+    this.base.lineStyle(1, inner, 0.85);
+    this.base.drawRoundedRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3);
+  }
+}
+
+class HotbarView {
+  public readonly container: PIXI.Container;
+  private readonly background: PIXI.Graphics;
+  private readonly slots: HotbarSlotView[] = [];
+  private readonly slotSize = 40;
+  private readonly slotGap = 6;
+  private readonly padding = 8;
+  private readonly iconPadding = 5;
+  private widthValue = 0;
+  private heightValue = 0;
+
+  constructor(options: {
+    slotCount: number;
+    iconProvider: (typeId: ResourceId) => PIXI.Texture;
+  }) {
+    this.container = new PIXI.Container();
+    this.background = new PIXI.Graphics();
+    this.container.addChild(this.background);
+
+    const countStyle = new PIXI.TextStyle({
+      fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+      fontSize: 13,
+      fill: 0xf3f6ee,
+      dropShadow: true,
+      dropShadowColor: 0x0a0f09,
+      dropShadowBlur: 2,
+      dropShadowDistance: 1,
+      stroke: 0x0c120b,
+      strokeThickness: 3,
+    });
+
+    for (let index = 0; index < options.slotCount; index += 1) {
+      const slot = new HotbarSlotView({
+        slotSize: this.slotSize,
+        iconPadding: this.iconPadding,
+        iconProvider: options.iconProvider,
+        countStyle,
+      });
+      slot.container.position.set(
+        this.padding + index * (this.slotSize + this.slotGap),
+        this.padding,
+      );
+      this.slots.push(slot);
+      this.container.addChild(slot.container);
+    }
+
+    this.layoutBackground(options.slotCount);
+  }
+
+  public setSlots(items: HotbarSlotItem[], activeIndex: number | null): void {
+    for (let index = 0; index < this.slots.length; index += 1) {
+      const slot = this.slots[index];
+      const item = items[index];
+      slot.setActive(activeIndex === index);
+      if (item && item.typeId) {
+        slot.setItem(item.typeId, item.count, item.showCountWhenOne ?? false);
+      } else {
+        slot.clearItem();
+      }
+    }
+  }
+
+  public setPosition(x: number, y: number): void {
+    this.container.position.set(x, y);
+  }
+
+  public get width(): number {
+    return this.widthValue;
+  }
+
+  public get height(): number {
+    return this.heightValue;
+  }
+
+  private layoutBackground(slotCount: number): void {
+    const width =
+      this.padding * 2 +
+      slotCount * this.slotSize +
+      (slotCount - 1) * this.slotGap;
+    const height = this.padding * 2 + this.slotSize;
+    this.widthValue = Math.ceil(width);
+    this.heightValue = Math.ceil(height);
+
+    this.background.clear();
+    this.background.lineStyle(2, 0x4b4b4b, 0.7);
+    this.background.beginFill(0x151515, 0.78);
+    this.background.drawRoundedRect(0, 0, width, height, 6);
+    this.background.endFill();
+
+    this.background.lineStyle(1, 0x2a2a2a, 0.85);
+    this.background.drawRoundedRect(2, 2, width - 4, height - 4, 5);
+  }
+}
+
 export class PixiHud {
   private readonly gameClient: GameClient;
   private readonly selectors: GameSelectors;
@@ -126,7 +334,7 @@ export class PixiHud {
   private statusPanel?: HudPanel;
   private resourcePanel?: HudPanel;
   private effectPanel?: HudPanel;
-  private hotbarPanel?: HudPanel;
+  private hotbarView?: HotbarView;
   private buildPanel?: HudPanel;
   private craftingPanel?: HudPanel;
   private dayNightContainer?: PIXI.Container;
@@ -136,6 +344,7 @@ export class PixiHud {
   private dirty = true;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
+  private lastHotbarActiveIndex: number | null = null;
   private readonly titleStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 11,
@@ -197,7 +406,10 @@ export class PixiHud {
       this.statusPanel = new HudPanel(this.titleStyle, this.bodyStrongStyle);
       this.resourcePanel = new HudPanel(this.titleStyle, this.bodyStyle);
       this.effectPanel = new HudPanel(this.titleStyle, this.bodyStyle);
-      this.hotbarPanel = new HudPanel(this.titleStyle, this.bodyStyle);
+      this.hotbarView = new HotbarView({
+        slotCount: HOTBAR_SLOT_COUNT,
+        iconProvider: (typeId) => this.gameClient.renderer.getItemTexture(typeId),
+      });
       this.buildPanel = new HudPanel(this.titleStyle, this.bodyStyle);
       this.craftingPanel = new HudPanel(this.titleStyle, this.bodyStyle);
       this.dayNightContainer = new PIXI.Container();
@@ -213,7 +425,7 @@ export class PixiHud {
         this.statusPanel.container,
         this.resourcePanel.container,
         this.effectPanel.container,
-        this.hotbarPanel.container,
+        this.hotbarView.container,
         this.buildPanel.container,
         this.craftingPanel.container,
         this.dayNightContainer,
@@ -334,6 +546,10 @@ export class PixiHud {
     const sizeChanged =
       app.screen.width !== this.lastLayoutWidth ||
       app.screen.height !== this.lastLayoutHeight;
+    const hotbarActiveIndex = this.computeHotbarActiveIndex();
+    if (hotbarActiveIndex !== this.lastHotbarActiveIndex) {
+      this.dirty = true;
+    }
 
     if (!this.dirty && !force && !sizeChanged) {
       return;
@@ -357,7 +573,7 @@ export class PixiHud {
       !this.statusPanel ||
       !this.resourcePanel ||
       !this.effectPanel ||
-      !this.hotbarPanel ||
+      !this.hotbarView ||
       !this.buildPanel ||
       !this.craftingPanel ||
       !this.dayNightContainer ||
@@ -379,9 +595,9 @@ export class PixiHud {
       padding + this.resourcePanel.height + gap,
     );
 
-    this.hotbarPanel.setPosition(
-      screenWidth - padding - this.hotbarPanel.width,
-      screenHeight - padding - this.hotbarPanel.height,
+    this.hotbarView.setPosition(
+      Math.floor((screenWidth - this.hotbarView.width) / 2),
+      screenHeight - padding - this.hotbarView.height,
     );
     this.buildPanel.setPosition(
       Math.max(padding, Math.floor((screenWidth - this.buildPanel.width) / 2)),
@@ -407,7 +623,7 @@ export class PixiHud {
       !this.statusPanel ||
       !this.resourcePanel ||
       !this.effectPanel ||
-      !this.hotbarPanel ||
+      !this.hotbarView ||
       !this.buildPanel ||
       !this.craftingPanel
     ) {
@@ -465,30 +681,34 @@ export class PixiHud {
 
     const inventory = this.selectors.getInventory();
     const hotbarWeapons = this.selectors.getHotbarWeapons();
-    const activeWeaponIndex = inventory?.activeWeaponIndex ?? null;
-    const hotbarLines = Array.from(
+    const activeWeaponIndex = this.resolveHotbarActiveIndex(
+      inventory?.activeWeaponIndex ?? null,
+    );
+
+    const hotbarItems = Array.from(
       { length: HOTBAR_SLOT_COUNT },
       (_, slotIndex) => {
         const weapon = hotbarWeapons[slotIndex] ?? null;
-        if (!weapon) {
-          return `${slotIndex + 1}. Empty`;
+        if (weapon) {
+          const ammoCount =
+            typeof weapon.ammoInMag === "number" ? weapon.ammoInMag : null;
+          return {
+            typeId: weapon.typeId,
+            count: ammoCount,
+            showCountWhenOne: ammoCount !== null,
+          } satisfies HotbarSlotItem;
         }
 
-        const isActive = activeWeaponIndex === slotIndex;
-        const ammoLabel =
-          typeof weapon.ammoInMag === "number" &&
-          typeof weapon.magSize === "number"
-            ? `${weapon.ammoInMag}/${weapon.magSize}`
-            : "Ready";
-        const prefix = isActive ? "> " : "  ";
-        return `${prefix}${slotIndex + 1}. ${this.selectors.formatTypeLabel(weapon.typeId)}  ${ammoLabel}`;
+        return {
+          typeId: null,
+          count: null,
+          showCountWhenOne: false,
+        } satisfies HotbarSlotItem;
       },
-    ).join("\n");
+    );
 
-    this.hotbarPanel.setContent("Loadout", hotbarLines, {
-      minWidth: 320,
-      maxWidth: 420,
-    });
+    this.hotbarView.setSlots(hotbarItems, activeWeaponIndex);
+    this.lastHotbarActiveIndex = activeWeaponIndex;
 
     const buildLines = BUILDABLE_ITEM_TYPE_IDS.map((itemTypeId, index) => {
       const recipe = this.getSelectedRecipeForItem(itemTypeId);
@@ -632,6 +852,21 @@ export class PixiHud {
     dayNightGraphic.lineStyle(2, labelColor, 0.9);
     dayNightGraphic.moveTo(barX + markerX, barY - 2);
     dayNightGraphic.lineTo(barX + markerX, barY + barHeight + 2);
+  }
+
+  private computeHotbarActiveIndex(): number | null {
+    const inventory = this.selectors.getInventory();
+    return this.resolveHotbarActiveIndex(inventory?.activeWeaponIndex ?? null);
+  }
+
+  private resolveHotbarActiveIndex(
+    inventoryActiveIndex: number | null,
+  ): number | null {
+    const pendingSelect = this.gameClient.inputManager.pendingSelectWeaponIndex;
+    if (typeof pendingSelect === "number") {
+      return pendingSelect;
+    }
+    return inventoryActiveIndex ?? null;
   }
 
   private computeNightBlend(
