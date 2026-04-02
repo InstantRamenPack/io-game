@@ -80,16 +80,6 @@ export class GoalSelector<
       }
     }
   }
-
-  /**
-   * Returns the class names of the currently active goals.
-   */
-  public debugActive(): string[] {
-    return this.goals
-      .filter((goal) => this.active.has(goal))
-      .map((goal) => goal.constructor.name);
-  }
-
   public hasActiveControl(control: GoalControl): boolean {
     for (const goal of this.active) {
       if (goal.controls.includes(control)) {

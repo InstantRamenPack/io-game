@@ -5,6 +5,40 @@ import type {
 } from "@client/net/ClientEntity.ts";
 import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
 
+export type InterpolationDebugFrame = {
+  frameTimeMs: number;
+  deltaMs: number;
+  previousSnapshotTick: number | null;
+  latestSnapshotTick: number;
+  estimatedServerTickNow: number;
+  renderTick: number;
+  expectedSnapshotMs: number;
+  observedTickMs: number;
+  renderDelayTicks: number;
+  jitterTicks: number;
+  focusEntity: {
+    entityId: number;
+    entityKind: ClientEntity["kind"];
+    sampleMode: EntityPositionSample["mode"] | "snap";
+    correctionMode: InterpolationCorrectionMode;
+    targetX: number;
+    targetY: number;
+    renderedX: number;
+    renderedY: number;
+    serverX: number;
+    serverY: number;
+    preCorrectionErrorDistance: number;
+    remainingErrorDistance: number;
+    referenceTick: number | null;
+    previousTick: number | null;
+    nextTick: number | null;
+    alpha: number | null;
+    overrunTicks: number | null;
+  };
+};
+
+type InterpolationCorrectionMode = "follow" | "clamp" | "hard_snap";
+
 /**
  * Interpolates entity motion in authoritative tick space while staying roughly
  * one server tick behind the latest accepted snapshot.
@@ -20,6 +54,8 @@ export class Interpolator {
   private readonly minRenderDelayTicks = 0.9;
   private readonly maxRenderDelayTicks = 1.2;
   private readonly maxExtrapolationTicks = 0.25;
+  private readonly maxDebugLogEntries = 600;
+  private readonly debugLog: InterpolationDebugFrame[] = [];
 
   constructor(interpolationConfig: InterpolationConfig) {
     this.snapDistance = interpolationConfig.snapDistance;
@@ -41,6 +77,7 @@ export class Interpolator {
     worldState: ClientWorldState,
     frameTimeMs: number,
     deltaMs: number,
+    playerEntityId?: number,
   ): void {
     if (!worldState.clientWorld) {
       return;
@@ -53,6 +90,31 @@ export class Interpolator {
     if (!latestSnapshot || !previousSnapshot) {
       for (const entity of worldState.clientWorld.entities.values()) {
         entity.updatePosition(entity.serverX, entity.serverY);
+        if (playerEntityId !== undefined && entity.id === playerEntityId) {
+          this.recordFocusedEntityDebugFrame({
+            frameTimeMs,
+            deltaMs,
+            previousSnapshotTick: worldState.latestTick ?? null,
+            latestSnapshotTick: worldState.latestTick ?? 0,
+            estimatedServerTickNow: worldState.latestTick ?? 0,
+            renderTick: worldState.latestTick ?? 0,
+            expectedSnapshotMs: this.expectedSnapshotMs,
+            observedTickMs: this.observedTickMs,
+            renderDelayTicks: this.renderDelayTicks,
+            jitterTicks: Math.max(0, this.renderDelayTicks - 1),
+            entity,
+            sampleMode: "snap",
+            correctionMode: "hard_snap",
+            targetX: entity.serverX,
+            targetY: entity.serverY,
+            preCorrectionErrorDistance: 0,
+            referenceTick: worldState.latestTick ?? null,
+            previousTick: null,
+            nextTick: null,
+            alpha: null,
+            overrunTicks: null,
+          });
+        }
       }
       return;
     }
@@ -84,6 +146,7 @@ export class Interpolator {
       latestSnapshot.tick +
       (frameTimeMs - latestSnapshot.receivedAtMs) / this.observedTickMs;
     const renderTick = estimatedServerTickNow - this.renderDelayTicks;
+    const jitterTicks = Math.max(0, this.renderDelayTicks - 1);
 
     for (const entity of worldState.clientWorld.entities.values()) {
       const sample = entity.samplePosition(
@@ -92,13 +155,83 @@ export class Interpolator {
       );
       if (!sample) {
         entity.updatePosition(entity.serverX, entity.serverY);
+        if (playerEntityId !== undefined && entity.id === playerEntityId) {
+          this.recordFocusedEntityDebugFrame({
+            frameTimeMs,
+            deltaMs,
+            previousSnapshotTick: previousSnapshot.tick,
+            latestSnapshotTick: latestSnapshot.tick,
+            estimatedServerTickNow,
+            renderTick,
+            expectedSnapshotMs: this.expectedSnapshotMs,
+            observedTickMs: this.observedTickMs,
+            renderDelayTicks: this.renderDelayTicks,
+            jitterTicks,
+            entity,
+            sampleMode: "snap",
+            correctionMode: "hard_snap",
+            targetX: entity.serverX,
+            targetY: entity.serverY,
+            preCorrectionErrorDistance: 0,
+            referenceTick: latestSnapshot.tick,
+            previousTick: null,
+            nextTick: null,
+            alpha: null,
+            overrunTicks: null,
+          });
+        }
         continue;
       }
 
       const referenceFrame = getReferenceFrame(sample);
       const target = this.computeTargetPosition(entity, sample);
-      this.applyCorrection(entity, target.x, target.y, deltaMs, referenceFrame);
+      const preCorrectionErrorDistance = Math.hypot(
+        target.x - entity.x,
+        target.y - entity.y,
+      );
+      const correctionMode = this.applyCorrection(
+        entity,
+        target.x,
+        target.y,
+        deltaMs,
+        referenceFrame,
+      );
+      if (playerEntityId !== undefined && entity.id === playerEntityId) {
+        this.recordFocusedEntityDebugFrame({
+          frameTimeMs,
+          deltaMs,
+          previousSnapshotTick: previousSnapshot.tick,
+          latestSnapshotTick: latestSnapshot.tick,
+          estimatedServerTickNow,
+          renderTick,
+          expectedSnapshotMs: this.expectedSnapshotMs,
+          observedTickMs: this.observedTickMs,
+          renderDelayTicks: this.renderDelayTicks,
+          jitterTicks,
+          entity,
+          sampleMode: sample.mode,
+          correctionMode,
+          targetX: target.x,
+          targetY: target.y,
+          preCorrectionErrorDistance,
+          referenceTick: referenceFrame.tick,
+          previousTick:
+            sample.mode === "interpolate" ? sample.previous.tick : null,
+          nextTick: sample.mode === "interpolate" ? sample.next.tick : null,
+          alpha: sample.mode === "interpolate" ? sample.alpha : null,
+          overrunTicks:
+            sample.mode === "extrapolate" ? sample.overrunTicks : null,
+        });
+      }
     }
+  }
+
+  public getDebugLog(): readonly InterpolationDebugFrame[] {
+    return this.debugLog;
+  }
+
+  public clearDebugLog(): void {
+    this.debugLog.length = 0;
   }
 
   private computeTargetPosition(
@@ -205,19 +338,19 @@ export class Interpolator {
     targetY: number,
     deltaMs: number,
     referenceFrame: EntityServerFrame,
-  ): void {
+  ): InterpolationCorrectionMode {
     const errorX = targetX - entity.x;
     const errorY = targetY - entity.y;
     const errorDistance = Math.hypot(errorX, errorY);
     if (errorDistance <= Number.EPSILON) {
       entity.updatePosition(targetX, targetY);
-      return;
+      return "follow";
     }
 
     const hardSnapDistance = this.getHardSnapDistance(entity, referenceFrame);
     if (errorDistance > hardSnapDistance) {
       entity.updatePosition(targetX, targetY);
-      return;
+      return "hard_snap";
     }
 
     const maxCorrectionDistance = this.getMaxCorrectionDistance(
@@ -227,7 +360,7 @@ export class Interpolator {
     );
     if (errorDistance <= maxCorrectionDistance) {
       entity.updatePosition(targetX, targetY);
-      return;
+      return "follow";
     }
 
     const correctionScale = maxCorrectionDistance / errorDistance;
@@ -235,6 +368,7 @@ export class Interpolator {
       entity.x + errorX * correctionScale,
       entity.y + errorY * correctionScale,
     );
+    return "clamp";
   }
 
   private getMaxCorrectionDistance(
@@ -288,6 +422,91 @@ export class Interpolator {
       this.expectedSnapshotMs * 0.85,
       this.expectedSnapshotMs * 1.25,
     );
+  }
+
+  private recordDebugFrame(frame: InterpolationDebugFrame): void {
+    this.debugLog.push(frame);
+    if (this.debugLog.length > this.maxDebugLogEntries) {
+      this.debugLog.splice(0, this.debugLog.length - this.maxDebugLogEntries);
+    }
+  }
+
+  private recordFocusedEntityDebugFrame({
+    frameTimeMs,
+    deltaMs,
+    previousSnapshotTick,
+    latestSnapshotTick,
+    estimatedServerTickNow,
+    renderTick,
+    expectedSnapshotMs,
+    observedTickMs,
+    renderDelayTicks,
+    jitterTicks,
+    entity,
+    sampleMode,
+    correctionMode,
+    targetX,
+    targetY,
+    preCorrectionErrorDistance,
+    referenceTick,
+    previousTick,
+    nextTick,
+    alpha,
+    overrunTicks,
+  }: {
+    frameTimeMs: number;
+    deltaMs: number;
+    previousSnapshotTick: number | null;
+    latestSnapshotTick: number;
+    estimatedServerTickNow: number;
+    renderTick: number;
+    expectedSnapshotMs: number;
+    observedTickMs: number;
+    renderDelayTicks: number;
+    jitterTicks: number;
+    entity: ClientEntity;
+    sampleMode: EntityPositionSample["mode"] | "snap";
+    correctionMode: InterpolationCorrectionMode;
+    targetX: number;
+    targetY: number;
+    preCorrectionErrorDistance: number;
+    referenceTick: number | null;
+    previousTick: number | null;
+    nextTick: number | null;
+    alpha: number | null;
+    overrunTicks: number | null;
+  }): void {
+    this.recordDebugFrame({
+      frameTimeMs,
+      deltaMs,
+      previousSnapshotTick,
+      latestSnapshotTick,
+      estimatedServerTickNow,
+      renderTick,
+      expectedSnapshotMs,
+      observedTickMs,
+      renderDelayTicks,
+      jitterTicks,
+      focusEntity: {
+        entityId: entity.id,
+        entityKind: entity.kind,
+        sampleMode,
+        correctionMode,
+        targetX,
+        targetY,
+        renderedX: entity.x,
+        renderedY: entity.y,
+        serverX: entity.serverX,
+        serverY: entity.serverY,
+        preCorrectionErrorDistance,
+        remainingErrorDistance: Math.hypot(targetX - entity.x, targetY - entity.y),
+        referenceTick,
+        previousTick,
+        nextTick,
+        alpha,
+        overrunTicks,
+      },
+    });
   }
 }
 

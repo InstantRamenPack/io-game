@@ -17,6 +17,28 @@ export function installDebugBridge({
   selectors,
   hudController,
 }: DebugBridgeOptions): void {
+  function getLog(): string {
+    return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
+  }
+
+  function clearLog(): void {
+    gameClient.clearInterpolationDebugLog();
+  }
+
+  function downloadLog(): void {
+    const blob = new Blob([getLog()], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `debug-log-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function renderGameToText(): string {
     const playerEntity = selectors.getPlayerEntity();
     const worldEntities = selectors.getWorldEntities();
@@ -101,31 +123,21 @@ export function installDebugBridge({
     gameClient.advanceTime(ms);
     hudController.refreshUi();
   };
-  window.get_interpolation_debug_log = () => {
-    return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
-  };
-  window.clear_interpolation_debug_log = () => {
-    gameClient.clearInterpolationDebugLog();
-  };
-  window.download_interpolation_debug_log = () => {
-    const blob = new Blob([window.get_interpolation_debug_log()], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `interpolation-debug-${Date.now()}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  };
+  window.get_log = getLog;
+  window.clear_log = clearLog;
+  window.download_log = downloadLog;
+  window.get_interpolation_debug_log = getLog;
+  window.clear_interpolation_debug_log = clearLog;
+  window.download_interpolation_debug_log = downloadLog;
 }
 
 declare global {
   interface Window {
     render_game_to_text: () => string;
     advanceTime: (ms: number) => void;
+    get_log: () => string;
+    clear_log: () => void;
+    download_log: () => void;
     get_interpolation_debug_log: () => string;
     clear_interpolation_debug_log: () => void;
     download_interpolation_debug_log: () => void;
