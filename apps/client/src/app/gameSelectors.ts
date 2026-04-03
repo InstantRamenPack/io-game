@@ -19,6 +19,7 @@ export type GameSelectors = {
   getWorldEntities(): ClientEntity[];
   getPlayerEntity(): ClientEntity | undefined;
   getTrackedBuildings(): ClientEntity[];
+  getCraftingStations(): ClientEntity[];
   getInventory(): InventorySnapshot | undefined;
   getHotbarWeapons(): WeaponSnapshot[];
   countInventoryType(typeId: string): number;
@@ -64,6 +65,12 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
   function getTrackedBuildings(): ClientEntity[] {
     return getWorldEntities().filter(
       (entity) => getResourceNamespace(entity.typeId) === "building",
+    );
+  }
+
+  function getCraftingStations(): ClientEntity[] {
+    return getTrackedBuildings().filter(
+      (entity) => entity.typeId === "building:crafting_station",
     );
   }
 
@@ -122,6 +129,7 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     getWorldEntities,
     getPlayerEntity,
     getTrackedBuildings,
+    getCraftingStations,
     getInventory,
     getHotbarWeapons,
     countInventoryType,

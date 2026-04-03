@@ -1,5 +1,9 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
+import {
+  CRAFTING_STATION_INTERACT_PADDING,
+  CRAFTING_STATION_QUERY_RADIUS,
+} from "@shared/gameplay/crafting.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import type { InputCommand } from "@shared/net/protocol.ts";
@@ -254,13 +258,47 @@ export class Player extends Entity {
   }
 
   public craft(world: World, itemTypeId: ResourceId): void {
+    const shouldTrace = world.focusedTrace.matchesEntity(this);
+    const nearbyCraftingStations = this.getNearbyCraftingStations(world);
+    const nearCraftingStation = nearbyCraftingStations.some((station) => {
+      const bounds = station.getWorldBounds();
+      return (
+        this.x >= bounds.minX - CRAFTING_STATION_INTERACT_PADDING &&
+        this.x <= bounds.maxX + CRAFTING_STATION_INTERACT_PADDING &&
+        this.y >= bounds.minY - CRAFTING_STATION_INTERACT_PADDING &&
+        this.y <= bounds.maxY + CRAFTING_STATION_INTERACT_PADDING
+      );
+    });
+    if (!nearCraftingStation) {
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "not_near_station",
+        });
+      }
+      return;
+    }
+
     const outputEntry = itemTypeRegistry.get(itemTypeId);
     const recipe = outputEntry?.content.recipe;
     if (!outputEntry || !recipe) {
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "missing_recipe",
+        });
+      }
       return;
     }
 
     if (!this.inventory.hasTypes(recipe.costs)) {
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "missing_resources",
+          costs: recipe.costs,
+        });
+      }
       return;
     }
 
@@ -269,10 +307,26 @@ export class Player extends Entity {
       for (let count = 0; count < recipe.outputAmount; count += 1) {
         this.inventory.addWeapon(new outputEntry.ctor() as Weapon);
       }
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "crafted_weapon",
+          outputAmount: recipe.outputAmount,
+          totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
+        });
+      }
       return;
     }
 
     this.inventory.addStackable(itemTypeId, recipe.outputAmount);
+    if (shouldTrace) {
+      world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+        itemTypeId,
+        result: "crafted_stackable",
+        outputAmount: recipe.outputAmount,
+        totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
+      });
+    }
   }
 
   public placeStructure(
@@ -360,5 +414,14 @@ export class Player extends Entity {
       leftEntity.getWorldHitboxes(),
       rightEntity.getWorldHitboxes(),
     );
+  }
+
+  private getNearbyCraftingStations(world: World): Entity[] {
+    return world.spatial.queryBox(
+      this.x - CRAFTING_STATION_QUERY_RADIUS,
+      this.y - CRAFTING_STATION_QUERY_RADIUS,
+      this.x + CRAFTING_STATION_QUERY_RADIUS,
+      this.y + CRAFTING_STATION_QUERY_RADIUS,
+    ).filter((entity) => entity.typeId === "building:crafting_station");
   }
 }

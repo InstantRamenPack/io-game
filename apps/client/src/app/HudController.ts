@@ -1,5 +1,8 @@
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type { GameClient } from "@client/client/GameClient.ts";
+import type {
+  GameClient,
+  PointerInput,
+} from "@client/client/GameClient.ts";
 import type { HudState } from "@client/render/PixiHud.ts";
 
 export type { HudState };
@@ -7,7 +10,7 @@ export type { HudState };
 /**
  * Defines the small API exposed by the HUD controller. The goal is to let the
  * rest of the client trigger HUD behavior in semantic terms, such as "toggle
- * the build menu" or "queue the selected craft recipe", without needing to
+ * the active hotbar slot" or "queue the selected craft recipe", without needing to
  * know how the DOM is rendered.
  */
 export type HudController = {
@@ -21,36 +24,30 @@ export type HudController = {
    */
   refreshUi(): void;
   /**
-   * Toggles the build-placement panel visibility.
-   */
-  toggleBuildMenu(): void;
-  /**
    * Toggles the crafting panel visibility.
    */
   toggleCraftingMenu(): void;
   /**
-   * Updates the active menu selection from a one-based hotkey ordinal.
+   * Updates the active hotbar slot from a one-based hotkey ordinal.
    * Returns `true` when a matching item existed and was selected.
    */
-  selectMenuItemByOrdinal(ordinal: number): boolean;
+  selectHotbarItemByOrdinal(ordinal: number): boolean;
+  /**
+   * Moves the keyboard craft selection by the provided delta.
+   */
+  moveCraftSelection(delta: number): boolean;
   /**
    * Queues a craft request for the currently selected item.
    */
   queueSelectedCraft(): void;
   /**
-   * Handles the primary pointer action in world space. When build mode is
-   * active, this places the selected structure. Otherwise it forwards a normal
-   * attack input to the client runtime.
+   * Handles a gameplay pointer event and returns true when the HUD consumed it.
    */
-  handlePrimaryWorldAction(worldPoint: { x: number; y: number }): void;
+  handlePointerInput(pointer: PointerInput): boolean;
   /**
    * Resets transient HUD presentation state when a session closes.
    */
   reset(): void;
-  /**
-   * Reports whether the build panel is currently open.
-   */
-  isBuildMenuOpen(): boolean;
   /**
    * Reports whether the crafting panel is currently open.
    */

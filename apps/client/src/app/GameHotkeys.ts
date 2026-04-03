@@ -25,29 +25,45 @@ export function installGameHotkeys(
     }
 
     const key = event.key.toLowerCase();
-    if (key === "b") {
-      hudController.toggleBuildMenu();
-      return;
-    }
-
     if (key === "c") {
+      event.preventDefault();
       hudController.toggleCraftingMenu();
       return;
     }
 
-    if (
-      (hudController.isBuildMenuOpen() || hudController.isCraftingMenuOpen()) &&
-      ["1", "2", "3", "4"].includes(key)
-    ) {
-      hudController.selectMenuItemByOrdinal(Number(key));
+    if (hudController.isCraftingMenuOpen()) {
+      if (key === "escape") {
+        event.preventDefault();
+        hudController.toggleCraftingMenu();
+        return;
+      }
+
+      if (key === "arrowup") {
+        event.preventDefault();
+        hudController.moveCraftSelection(-1);
+        return;
+      }
+
+      if (key === "arrowdown") {
+        event.preventDefault();
+        hudController.moveCraftSelection(1);
+        return;
+      }
+
+      if (key === "enter" || key === " ") {
+        event.preventDefault();
+        hudController.queueSelectedCraft();
+      }
       return;
     }
 
-    if (
-      hudController.isCraftingMenuOpen() &&
-      (key === "enter" || key === " ")
-    ) {
-      hudController.queueSelectedCraft();
+    const digitMatch = /^Digit([0-9])$/.exec(event.code);
+    if (digitMatch) {
+      const rawDigit = Number(digitMatch[1]);
+      const ordinal = rawDigit === 0 ? 10 : rawDigit;
+      event.preventDefault();
+      hudController.selectHotbarItemByOrdinal(ordinal);
+      return;
     }
   });
 }

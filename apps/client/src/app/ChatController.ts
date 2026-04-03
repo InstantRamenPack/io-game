@@ -161,9 +161,7 @@ export function createChatController({
   };
 
   const shouldBlockEnterForMenus = (): boolean => {
-    return (
-      hudController.isBuildMenuOpen() || hudController.isCraftingMenuOpen()
-    );
+    return hudController.isCraftingMenuOpen();
   };
 
   const isGameActive = (): boolean => {

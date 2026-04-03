@@ -137,10 +137,11 @@ export function installDebugBridge({
         activeWeaponIndex,
       },
       ui: {
-        buildingMenuOpen: hudState.buildMenuOpen,
         craftingMenuOpen: hudState.craftingMenuOpen,
-        selectedBuild: hudState.selectedBuild,
         selectedCraft: hudState.selectedCraft,
+        previewedCraft: hudState.previewedCraft,
+        selectedHotbarSlot: hudState.selectedHotbarSlot,
+        activeBuildItemTypeId: hudState.activeBuildItemTypeId,
       },
       buildings: worldEntities
         .filter((entity) => getResourceNamespace(entity.typeId) === "building")

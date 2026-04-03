@@ -25,6 +25,14 @@ export type PerformanceRateState = {
   tickRate: number | null;
 };
 
+export type PointerInput = {
+  kind: "down" | "move";
+  screenX: number;
+  screenY: number;
+  worldX: number;
+  worldY: number;
+};
+
 const RATE_SAMPLE_WINDOW_MS = 1000;
 const MIN_RATE_SAMPLE_WINDOW_MS = 250;
 
@@ -50,7 +58,7 @@ export class GameClient {
   private tickSamples: Array<{ tick: number; timeMs: number }> = [];
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
-  private pointerActionHandler?: (worldPoint: { x: number; y: number }) => void;
+  private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
 
@@ -59,13 +67,22 @@ export class GameClient {
       return;
     }
 
+    const screenPoint = this.renderer.clientToScreen(
+      event.clientX,
+      event.clientY,
+    );
     const worldPoint = this.renderer.screenToWorld(
       event.clientX,
       event.clientY,
     );
-    if (this.pointerActionHandler) {
-      this.pointerActionHandler(worldPoint);
-    } else {
+    const handled = this.pointerActionHandler?.({
+      kind: "down",
+      screenX: screenPoint.x,
+      screenY: screenPoint.y,
+      worldX: worldPoint.x,
+      worldY: worldPoint.y,
+    });
+    if (!handled) {
       this.inputManager.startHoldFire(worldPoint.x, worldPoint.y);
     }
     event.preventDefault();
@@ -75,11 +92,24 @@ export class GameClient {
     if (!this.started || !event.isPrimary) {
       return;
     }
+    const screenPoint = this.renderer.clientToScreen(
+      event.clientX,
+      event.clientY,
+    );
     const worldPoint = this.renderer.screenToWorld(
       event.clientX,
       event.clientY,
     );
-    this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
+    const handled = this.pointerActionHandler?.({
+      kind: "move",
+      screenX: screenPoint.x,
+      screenY: screenPoint.y,
+      worldX: worldPoint.x,
+      worldY: worldPoint.y,
+    });
+    if (!handled) {
+      this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
+    }
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
@@ -163,7 +193,7 @@ export class GameClient {
   }
 
   public setPointerActionHandler(
-    handler: ((worldPoint: { x: number; y: number }) => void) | undefined,
+    handler: ((pointer: PointerInput) => boolean) | undefined,
   ): void {
     this.pointerActionHandler = handler;
   }
@@ -172,12 +202,17 @@ export class GameClient {
     this.inputManager.startHoldFire(x, y);
   }
 
+  public stopHoldFire(): void {
+    this.inputManager.stopHoldFire();
+  }
+
   public queueAttack(x: number, y: number): void {
     this.inputManager.queueAttack(x, y);
   }
 
   public queueCraftItem(itemTypeId: ResourceId): void {
     this.inputManager.queueCraft(itemTypeId);
+    this.flushImmediateInput();
   }
 
   public queueBuildPlacement(
@@ -186,6 +221,18 @@ export class GameClient {
     y: number,
   ): void {
     this.inputManager.queueBuild(itemTypeId, x, y);
+  }
+
+  public queueSelectWeaponIndex(index: number): void {
+    this.inputManager.queueSelectWeaponIndex(index);
+  }
+
+  public clearPendingWeaponSelection(): void {
+    this.inputManager.clearPendingWeaponSelection();
+  }
+
+  public setMovementSuppressed(suppressed: boolean): void {
+    this.inputManager.setMovementSuppressed(suppressed);
   }
 
   public start(
@@ -374,6 +421,16 @@ export class GameClient {
   }
 
   private sendFrameInput(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+
+    const latestTick = this.worldState?.latestTick ?? 0;
+    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
+    this.inputManager.clearOneShots();
+  }
+
+  private flushImmediateInput(): void {
     if (!this.sessionReady || !this.isTransportConnected()) {
       return;
     }

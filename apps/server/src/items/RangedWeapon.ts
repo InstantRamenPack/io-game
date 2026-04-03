@@ -162,6 +162,7 @@ export class RangedWeapon extends Weapon {
       ...super.toSnapshot(),
       ammoInMag: this.ammoInMag,
       magSize: this.magSize,
+      reloadTicks: this.reloadTicks,
       reloadTicksRemaining: this.reloadTicksRemaining,
     };
   }

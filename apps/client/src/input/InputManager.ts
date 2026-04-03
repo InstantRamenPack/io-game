@@ -26,6 +26,7 @@ export class InputManager {
   public pendingSelectWeaponIndex?: number;
   private holdFireTarget?: AttackTarget;
   private readonly pressedKeys = new Set<string>();
+  private movementSuppressed = false;
 
   /**
    * Binds WASD key handlers on the provided event target.
@@ -37,13 +38,12 @@ export class InputManager {
       if (this.isTextInputTarget(keyboardEvent.target)) {
         return;
       }
-      const slotIndex = this.parseSlotDigit(keyboardEvent.code);
-      if (slotIndex !== null) {
-        this.pendingSelectWeaponIndex = slotIndex;
+      const key = keyboardEvent.key.toLowerCase();
+      if (this.movementSuppressed && this.isMovementKey(key)) {
         return;
       }
 
-      this.pressedKeys.add(keyboardEvent.key.toLowerCase());
+      this.pressedKeys.add(key);
       this.recomputeMovementVector();
     });
 
@@ -52,7 +52,8 @@ export class InputManager {
       if (this.isTextInputTarget(keyboardEvent.target)) {
         return;
       }
-      this.pressedKeys.delete(keyboardEvent.key.toLowerCase());
+      const key = keyboardEvent.key.toLowerCase();
+      this.pressedKeys.delete(key);
       this.recomputeMovementVector();
     });
 
@@ -126,6 +127,26 @@ export class InputManager {
     this.pendingBuild = { itemTypeId, x, y };
   }
 
+  public queueSelectWeaponIndex(index: number): void {
+    this.pendingSelectWeaponIndex = index;
+  }
+
+  public clearPendingWeaponSelection(): void {
+    this.pendingSelectWeaponIndex = undefined;
+  }
+
+  public setMovementSuppressed(suppressed: boolean): void {
+    if (this.movementSuppressed === suppressed) {
+      return;
+    }
+
+    this.movementSuppressed = suppressed;
+    if (suppressed) {
+      this.pressedKeys.clear();
+      this.recomputeMovementVector();
+    }
+  }
+
   private clearPendingAction(): void {
     this.pendingAttack = undefined;
     this.pendingCraft = undefined;
@@ -136,22 +157,36 @@ export class InputManager {
    * Recomputes the movement vector from the currently pressed keys.
    */
   private recomputeMovementVector(): void {
-    const moveLeft = this.pressedKeys.has("a") ? -1 : 0;
-    const moveRight = this.pressedKeys.has("d") ? 1 : 0;
-    const moveUp = this.pressedKeys.has("w") ? -1 : 0;
-    const moveDown = this.pressedKeys.has("s") ? 1 : 0;
+    if (this.movementSuppressed) {
+      this.moveX = 0;
+      this.moveY = 0;
+      return;
+    }
+
+    const moveLeft =
+      this.pressedKeys.has("a") || this.pressedKeys.has("arrowleft") ? -1 : 0;
+    const moveRight =
+      this.pressedKeys.has("d") || this.pressedKeys.has("arrowright") ? 1 : 0;
+    const moveUp =
+      this.pressedKeys.has("w") || this.pressedKeys.has("arrowup") ? -1 : 0;
+    const moveDown =
+      this.pressedKeys.has("s") || this.pressedKeys.has("arrowdown") ? 1 : 0;
 
     this.moveX = moveLeft + moveRight;
     this.moveY = moveUp + moveDown;
   }
 
-  private parseSlotDigit(code: string): number | null {
-    const match = /^Digit([1-9])$/.exec(code);
-    if (!match) {
-      return null;
-    }
-
-    return Number(match[1]) - 1;
+  private isMovementKey(key: string): boolean {
+    return (
+      key === "w" ||
+      key === "a" ||
+      key === "s" ||
+      key === "d" ||
+      key === "arrowup" ||
+      key === "arrowdown" ||
+      key === "arrowleft" ||
+      key === "arrowright"
+    );
   }
 
   private isTextInputTarget(target: EventTarget | null): boolean {

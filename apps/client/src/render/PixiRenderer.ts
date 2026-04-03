@@ -60,6 +60,8 @@ export class PixiRenderer {
   private cameraTargetX = 0;
   private cameraTargetY = 0;
   private cameraInitialized = false;
+  private gameplayViewportWidth = 0;
+  private gameplayViewportHeight = 0;
 
   public playerEntityId?: number;
 
@@ -67,6 +69,7 @@ export class PixiRenderer {
     if (!this.app) {
       return;
     }
+    this.app.renderer.resolution = this.getRendererResolution();
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.drawDamageOverlay();
     this.syncCameraTransform();
@@ -148,13 +151,16 @@ export class PixiRenderer {
         resizeTo: window,
         backgroundColor: 0xd7f3d2,
         antialias: true,
+        autoDensity: true,
         autoStart: false,
+        resolution: this.getRendererResolution(),
       });
       window.addEventListener("resize", this.handleResize);
     }
 
     this.hostElement.innerHTML = "";
     this.hostElement.appendChild(this.app.view as HTMLCanvasElement);
+    this.captureGameplayViewportSize();
   }
 
   public async loadPixiTextures(): Promise<void> {
@@ -262,15 +268,38 @@ export class PixiRenderer {
       return { x: clientX, y: clientY };
     }
 
-    const rect = this.app.view.getBoundingClientRect();
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
+    const screenPoint = this.clientToScreen(clientX, clientY);
 
     // Subtract the confusion swim offset so attack targeting stays accurate
     // even while the world container is visually displaced.
     return {
-      x: localX - this.world.position.x + this.confusionSwimX + this.world.pivot.x,
-      y: localY - this.world.position.y + this.confusionSwimY + this.world.pivot.y,
+      x:
+        (screenPoint.x - this.world.position.x + this.confusionSwimX) /
+          this.world.scale.x +
+        this.world.pivot.x,
+      y:
+        (screenPoint.y - this.world.position.y + this.confusionSwimY) /
+          this.world.scale.y +
+        this.world.pivot.y,
+    };
+  }
+
+  public clientToScreen(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
+    if (!this.app) {
+      return { x: clientX, y: clientY };
+    }
+
+    const rect = this.app.view.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    return {
+      x: ((clientX - rect.left) / rect.width) * this.app.screen.width,
+      y: ((clientY - rect.top) / rect.height) * this.app.screen.height,
     };
   }
 
@@ -504,7 +533,10 @@ export class PixiRenderer {
       return;
     }
 
+    this.captureGameplayViewportSize();
+    const scale = this.getGameplayScale();
     this.world.pivot.set(this.cameraPivotX, this.cameraPivotY);
+    this.world.scale.set(scale, scale);
     this.world.position.set(
       this.app.screen.width / 2,
       this.app.screen.height / 2,
@@ -562,6 +594,35 @@ export class PixiRenderer {
       this.grid.moveTo(0, y);
       this.grid.lineTo(w, y);
     }
+  }
+
+  private getRendererResolution(): number {
+    return Math.max(1, window.devicePixelRatio || 1);
+  }
+
+  private captureGameplayViewportSize(): void {
+    if (!this.app) {
+      return;
+    }
+    if (this.gameplayViewportWidth > 0 && this.gameplayViewportHeight > 0) {
+      return;
+    }
+
+    this.gameplayViewportWidth = Math.max(1, this.app.screen.width);
+    this.gameplayViewportHeight = Math.max(1, this.app.screen.height);
+  }
+
+  private getGameplayScale(): number {
+    if (!this.app) {
+      return 1;
+    }
+
+    const baseWidth = Math.max(1, this.gameplayViewportWidth);
+    const baseHeight = Math.max(1, this.gameplayViewportHeight);
+    return Math.min(
+      this.app.screen.width / baseWidth,
+      this.app.screen.height / baseHeight,
+    );
   }
 
   private ensureDamageOverlay(): void {

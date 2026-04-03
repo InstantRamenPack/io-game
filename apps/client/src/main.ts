@@ -63,8 +63,8 @@ const launchController = createLaunchController({
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
 });
 
-gameClient.setPointerActionHandler((worldPoint) => {
-  hudController.handlePrimaryWorldAction(worldPoint);
+gameClient.setPointerActionHandler((pointer) => {
+  return hudController.handlePointerInput(pointer);
 });
 gameClient.onWorldUpdated(() => {
   hudController.refreshUi();

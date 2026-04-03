@@ -23,6 +23,7 @@ export const WeaponSnapshotSchema = z.object({
   cooldownTicksRemaining: z.number().int().nonnegative().optional(),
   ammoInMag: z.number().int().nonnegative().optional(),
   magSize: z.number().int().positive().optional(),
+  reloadTicks: z.number().int().positive().optional(),
   reloadTicksRemaining: z.number().int().nonnegative().optional(),
 });
 
