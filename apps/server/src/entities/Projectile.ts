@@ -73,6 +73,10 @@ export abstract class Projectile extends GoalControlledEntity {
       config.rotation ?? Math.atan2(this.directionY, this.directionX);
     this.collisionMode = "none";
     this.hitEffects = [...(definition.hitEffects ?? [])];
+    this.setMovementTuning({
+      driveAccelerationPerTick: this.speed,
+      momentumCutoff: 0.25,
+    });
     this.setHitboxProfiles(
       {
         default: cloneHitboxRects(definition.hitboxes),
@@ -80,7 +84,7 @@ export abstract class Projectile extends GoalControlledEntity {
       "default",
     );
     this.remainingHits = normalizeMaxHits(definition.maxHits);
-    this.setHeading(this.directionX, this.directionY, config.rotation);
+    this.setTravelDirection(this.directionX, this.directionY, config.rotation);
   }
 
   public override tick(world: World): void {
@@ -88,11 +92,12 @@ export abstract class Projectile extends GoalControlledEntity {
     this.previousY = this.y;
     super.tick(world);
     if (!this.goalSelector.hasActiveControl("move")) {
-      this.setMovementVelocity(
+      this.setDesiredVelocity(
         this.directionX * this.speed,
         this.directionY * this.speed,
       );
     }
+    this.updateHeadingFromVelocity();
   }
 
   public override getCombatInstigator(world: World): CombatEntity | null {
@@ -152,7 +157,7 @@ export abstract class Projectile extends GoalControlledEntity {
     }
   }
 
-  protected setHeading(
+  protected setTravelDirection(
     directionX: number,
     directionY: number,
     rotation = Math.atan2(directionY, directionX),
@@ -161,30 +166,9 @@ export abstract class Projectile extends GoalControlledEntity {
     this.directionX = directionX / directionLength;
     this.directionY = directionY / directionLength;
     this.rotation = rotation;
-    this.setMovementVelocity(
+    this.setDesiredVelocity(
       this.directionX * this.speed,
       this.directionY * this.speed,
-    );
-  }
-
-  public blendHeadingTowardPoint(
-    targetX: number,
-    targetY: number,
-    turnBlend = 1,
-  ): void {
-    const deltaX = targetX - this.x;
-    const deltaY = targetY - this.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    if (distance <= Number.EPSILON) {
-      return;
-    }
-
-    const desiredX = deltaX / distance;
-    const desiredY = deltaY / distance;
-    const clampedBlend = Math.max(0, Math.min(1, turnBlend));
-    this.setHeading(
-      this.directionX * (1 - clampedBlend) + desiredX * clampedBlend,
-      this.directionY * (1 - clampedBlend) + desiredY * clampedBlend,
     );
   }
 
@@ -297,6 +281,17 @@ export abstract class Projectile extends GoalControlledEntity {
       bounds.minX > world.gameConfig.worldSize.w ||
       bounds.minY > world.gameConfig.worldSize.h
     );
+  }
+
+  private updateHeadingFromVelocity(): void {
+    const currentSpeed = Math.hypot(this.vx, this.vy);
+    if (currentSpeed <= Number.EPSILON) {
+      return;
+    }
+
+    this.directionX = this.vx / currentSpeed;
+    this.directionY = this.vy / currentSpeed;
+    this.rotation = Math.atan2(this.directionY, this.directionX);
   }
 }
 

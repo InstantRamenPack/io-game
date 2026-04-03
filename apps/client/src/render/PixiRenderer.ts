@@ -44,6 +44,9 @@ export class PixiRenderer {
   private confusionEdge: PIXI.Graphics | null = null;
   private confusionBloom: PIXI.Graphics | null = null;
   private explosionEffects: ExplosionEffect[] = [];
+  private itemTextures = new Map<string, PIXI.Texture>();
+  private placeholderItemTexture: PIXI.Texture | null = null;
+  private itemIconMap: Record<string, string> = {};
   private gridCellSize = 100;
   private gridNightBlend = 0;
   private readonly gridDayFillColor = 0xd7f3d2;
@@ -155,7 +158,63 @@ export class PixiRenderer {
   }
 
   public async loadPixiTextures(): Promise<void> {
-    // placeholder for future sprite loading
+    const mappingUrl = "/hud/item-icons.json";
+    let iconMap: Record<string, string> = {};
+
+    try {
+      const response = await fetch(mappingUrl);
+      if (response.ok) {
+        const payload = (await response.json()) as Record<string, string>;
+        if (payload && typeof payload === "object") {
+          iconMap = payload;
+        }
+      }
+    } catch {
+      iconMap = {};
+    }
+
+    const defaultPath =
+      typeof iconMap.__default__ === "string" && iconMap.__default__.length > 0
+        ? iconMap.__default__
+        : "/hud/icons/placeholder.png";
+
+    this.itemIconMap = { ...iconMap };
+    const iconEntries = Object.entries(iconMap).filter(
+      ([key, value]) => key !== "__default__" && typeof value === "string",
+    );
+
+    const urlsToLoad = new Set<string>([defaultPath]);
+    for (const [, url] of iconEntries) {
+      if (url) {
+        urlsToLoad.add(url);
+      }
+    }
+
+    await Promise.all(
+      Array.from(urlsToLoad, async (url) => {
+        try {
+          await PIXI.Assets.load(url);
+        } catch {
+          // ignore individual failures and fall back to placeholder
+        }
+      }),
+    );
+
+    this.placeholderItemTexture = PIXI.Texture.from(defaultPath);
+    this.itemTextures.clear();
+    for (const [typeId, url] of iconEntries) {
+      if (url) {
+        this.itemTextures.set(typeId, PIXI.Texture.from(url));
+      }
+    }
+  }
+
+  public getItemTexture(typeId: string): PIXI.Texture {
+    return (
+      this.itemTextures.get(typeId) ??
+      this.placeholderItemTexture ??
+      PIXI.Texture.WHITE
+    );
   }
 
   public setWorldSize(worldSize: WorldSize): void {
@@ -169,8 +228,13 @@ export class PixiRenderer {
   public update(deltaMs: number): void {
     this.updateDamageOverlay(deltaMs);
     this.updateExplosionEffects(deltaMs);
+<<<<<<< HEAD
     this.updateConfusionEffect(deltaMs);
     this.updateCamera(deltaMs);
+=======
+    this.updateCamera(deltaMs);
+    this.updateConfusionEffect(deltaMs);
+>>>>>>> 5e513981661498b827d521749e97e2b534653d01
     this.renderScene();
   }
 

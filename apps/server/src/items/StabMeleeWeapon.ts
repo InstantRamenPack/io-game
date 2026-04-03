@@ -1,5 +1,6 @@
 import { doesResolvedRectIntersectOrientedBox } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 
 /**
@@ -11,7 +12,7 @@ export class StabMeleeWeapon extends MeleeWeapon {
   constructor(
     fireRate: number,
     range: number,
-    hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],
+    hitEffects: Effect[],
     stabWidth: number,
   ) {
     super(fireRate, range, hitEffects);

@@ -13,7 +13,7 @@ export abstract class Weapon extends Item {
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
 
-  constructor(fireRate: number) {
+  protected constructor(fireRate: number) {
     super();
     this.fireRate = fireRate;
   }

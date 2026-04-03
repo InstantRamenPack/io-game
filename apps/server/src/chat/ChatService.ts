@@ -6,7 +6,11 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Building } from "@server/entities/Building.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
-import { effectTypeRegistry, entityTypeRegistry } from "@server/registry/registries.ts";
+import {
+  effectTypeRegistry,
+  entityTypeRegistry,
+  type EntityTypeEntry,
+} from "@server/registry/registries.ts";
 
 type ChatServiceOptions = {
   networkServer: WsServer;
@@ -485,7 +489,11 @@ export class ChatService {
       return null;
     }
 
-    const [command, ...args] = tokens;
+    const command = tokens[0];
+    if (!command) {
+      return null;
+    }
+    const args = tokens.slice(1);
     return {
       command: command.toLowerCase(),
       args,
@@ -542,12 +550,7 @@ export class ChatService {
     return tokens;
   }
 
-  private resolveEntityEntry(entityToken: string): {
-    typeId: ResourceId;
-    kind: string;
-    content: { label: string };
-    ctor: new (...args: never[]) => Entity;
-  } | null {
+  private resolveEntityEntry(entityToken: string): EntityTypeEntry | null {
     const normalized = this.normalizeEntityKey(entityToken);
     for (const [typeId, entry] of entityTypeRegistry.entries()) {
       const candidateKeys = new Set<string>();
@@ -559,12 +562,7 @@ export class ChatService {
       candidateKeys.add(this.normalizeEntityKey(resourceName));
 
       if (candidateKeys.has(normalized)) {
-        return entry as {
-          typeId: ResourceId;
-          kind: string;
-          content: { label: string };
-          ctor: new (...args: never[]) => Entity;
-        };
+        return entry;
       }
     }
     return null;
@@ -662,12 +660,7 @@ export class ChatService {
   }
 
   private instantiateEntity(
-    entry: {
-      typeId: ResourceId;
-      kind: string;
-      content: { label: string };
-      ctor: new (...args: never[]) => Entity;
-    },
+    entry: EntityTypeEntry,
     player: Player,
     position: { x: number; y: number },
   ): Entity | null {
@@ -712,7 +705,8 @@ export class ChatService {
         return spawnedPlayer;
       }
 
-      const entity = new ctor(entityId);
+      const GenericEntityCtor = ctor as unknown as new (id: number) => Entity;
+      const entity = new GenericEntityCtor(entityId);
       entity.x = position.x;
       entity.y = position.y;
       return entity;

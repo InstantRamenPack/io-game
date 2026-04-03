@@ -24,6 +24,10 @@ export class GameConfig {
   };
   public debug = {
     spawnMultiplier: 1,
+    focusedTrace: {
+      entityId: null as number | null,
+      playerName: "debug",
+    },
   };
   public interpolation = {
     snapDistance: 192,
@@ -55,6 +59,10 @@ export class GameConfig {
     const debugSpawnMultiplier = Number(
       process.env.DEBUG_SPAWN_MULTIPLIER ?? gameConfig.debug.spawnMultiplier,
     );
+    const debugFocusedEntityIdRaw = process.env.DEBUG_FOCUSED_ENTITY_ID;
+    const debugFocusedPlayerName =
+      process.env.DEBUG_FOCUSED_PLAYER_NAME ??
+      gameConfig.debug.focusedTrace.playerName;
 
     if (Number.isFinite(tickRate) && tickRate > 0) {
       gameConfig.tickRate = Math.floor(tickRate);
@@ -79,6 +87,17 @@ export class GameConfig {
     ) {
       gameConfig.debug.spawnMultiplier = debugSpawnMultiplier;
     }
+    if (debugFocusedEntityIdRaw !== undefined) {
+      const debugFocusedEntityId = Number(debugFocusedEntityIdRaw);
+      if (
+        Number.isFinite(debugFocusedEntityId) &&
+        Number.isInteger(debugFocusedEntityId) &&
+        debugFocusedEntityId >= 0
+      ) {
+        gameConfig.debug.focusedTrace.entityId = debugFocusedEntityId;
+      }
+    }
+    gameConfig.debug.focusedTrace.playerName = debugFocusedPlayerName.trim();
 
     return gameConfig;
   }

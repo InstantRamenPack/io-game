@@ -16,8 +16,6 @@ export class Saboteur extends Enemy {
         default: [makeHitboxRect(18, 12, 0, -6), makeHitboxRect(22, 14, 0, 8)],
       },
       maxHp: 80,
-      vx: 0,
-      vy: 0,
       moveSpeed: 11,
       weapons: [new SaboteurSword()],
       goals: [

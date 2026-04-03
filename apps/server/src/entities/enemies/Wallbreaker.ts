@@ -1,10 +1,10 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
-import { triggerWallbreakerExplosion } from "@server/combat/wallbreakerExplosion.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
+import { WallbreakerExplosionAreaEffect } from "@server/effects/area/WallbreakerExplosionAreaEffect.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { World } from "@server/world/World.ts";
@@ -20,8 +20,6 @@ export class Wallbreaker extends Enemy {
         default: [makeHitboxRect(22, 22)],
       },
       maxHp: 1,
-      vx: 0,
-      vy: 0,
       moveSpeed: 12,
       weapons: [],
       goals: [
@@ -58,7 +56,10 @@ export class Wallbreaker extends Enemy {
       return;
     }
 
-    triggerWallbreakerExplosion(world, this);
+    new WallbreakerExplosionAreaEffect().apply(world, this, {
+      x: this.x,
+      y: this.y,
+    });
     this.alive = false;
     world.despawn(this.id);
   }

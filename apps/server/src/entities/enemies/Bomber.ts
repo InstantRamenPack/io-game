@@ -1,10 +1,10 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
+import { BomberExplosionAreaEffect } from "@server/effects/area/BomberExplosionAreaEffect.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
-import { triggerBomberExplosion } from "@server/combat/bomberExplosion.ts";
 import type { World } from "@server/world/World.ts";
 
 const TRIGGER_RADIUS = 42;
@@ -18,8 +18,6 @@ export class Bomber extends Enemy {
         default: [makeHitboxRect(46, 46)],
       },
       maxHp: 75,
-      vx: 0,
-      vy: 0,
       moveSpeed: 10,
       weapons: [],
       goals: [
@@ -54,7 +52,10 @@ export class Bomber extends Enemy {
       return;
     }
 
-    triggerBomberExplosion(world, this);
+    new BomberExplosionAreaEffect().apply(world, this, {
+      x: this.x,
+      y: this.y,
+    });
     this.alive = false;
     world.despawn(this.id);
   }

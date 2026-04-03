@@ -17,6 +17,87 @@ export function installDebugBridge({
   selectors,
   hudController,
 }: DebugBridgeOptions): void {
+  function getInterpolationLog(): string {
+    return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
+  }
+
+  function clearInterpolationLog(): void {
+    gameClient.clearInterpolationDebugLog();
+  }
+
+  function downloadInterpolationLog(): void {
+    const blob = new Blob([getInterpolationLog()], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `interpolation-debug-log-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function fetchServerLog(): Promise<unknown> {
+    try {
+      const response = await fetch("/debug-log", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        return {
+          error: `server_debug_log_http_${response.status}`,
+        };
+      }
+      return (await response.json()) as unknown;
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? error.message : "server_debug_log_fetch_failed",
+      };
+    }
+  }
+
+  async function getLog(): Promise<string> {
+    return JSON.stringify(
+      {
+        generatedAtMs: Date.now(),
+        client: {
+          interpolation: gameClient.getInterpolationDebugLog(),
+        },
+        server: await fetchServerLog(),
+      },
+      null,
+      2,
+    );
+  }
+
+  async function clearLog(): Promise<void> {
+    clearInterpolationLog();
+    try {
+      await fetch("/debug-log", {
+        method: "DELETE",
+        cache: "no-store",
+      });
+    } catch {
+      // Ignore failed server log clears so client-side clearing still works.
+    }
+  }
+
+  async function downloadLog(): Promise<void> {
+    const blob = new Blob([await getLog()], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `debug-log-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function renderGameToText(): string {
     const playerEntity = selectors.getPlayerEntity();
     const worldEntities = selectors.getWorldEntities();
@@ -101,31 +182,21 @@ export function installDebugBridge({
     gameClient.advanceTime(ms);
     hudController.refreshUi();
   };
-  window.get_interpolation_debug_log = () => {
-    return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
-  };
-  window.clear_interpolation_debug_log = () => {
-    gameClient.clearInterpolationDebugLog();
-  };
-  window.download_interpolation_debug_log = () => {
-    const blob = new Blob([window.get_interpolation_debug_log()], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `interpolation-debug-${Date.now()}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  };
+  window.get_log = getLog;
+  window.clear_log = clearLog;
+  window.download_log = downloadLog;
+  window.get_interpolation_debug_log = getInterpolationLog;
+  window.clear_interpolation_debug_log = clearInterpolationLog;
+  window.download_interpolation_debug_log = downloadInterpolationLog;
 }
 
 declare global {
   interface Window {
     render_game_to_text: () => string;
     advanceTime: (ms: number) => void;
+    get_log: () => Promise<string>;
+    clear_log: () => Promise<void>;
+    download_log: () => Promise<void>;
     get_interpolation_debug_log: () => string;
     clear_interpolation_debug_log: () => void;
     download_interpolation_debug_log: () => void;

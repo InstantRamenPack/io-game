@@ -10,9 +10,6 @@ export type EnemyConfig = {
   hitboxProfiles: HitboxProfiles;
   activeHitboxProfile?: string;
   maxHp: number;
-  // Initial per-tick movement deltas.
-  vx: number;
-  vy: number;
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
@@ -37,7 +34,6 @@ export class Enemy extends GoalControlledEntity {
       config.hitboxProfiles,
       config.activeHitboxProfile ?? "default",
     );
-    this.setMovementVelocity(config.vx, config.vy);
   }
 
   public override toSnapshot(): EnemySnapshot {

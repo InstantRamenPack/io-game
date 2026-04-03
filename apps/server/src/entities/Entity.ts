@@ -17,6 +17,13 @@ import {
 } from "@server/entities/CompositeHitbox.ts";
 
 export type CollisionMode = "none" | "dynamic" | "static";
+export type MovementNormal = { x: number; y: number };
+
+type MovementTuning = {
+  driveAccelerationPerTick?: number;
+  momentumDrag?: number;
+  momentumCutoff?: number;
+};
 
 type EntityConfig = {
   maxHp?: number;
@@ -60,10 +67,15 @@ export abstract class Entity {
   public collisionMode: CollisionMode = "none";
   public alive = true;
   public activeEffects: ActiveEffectRuntime[] = [];
-  protected moveVx = 0;
-  protected moveVy = 0;
-  protected impulseVx = 0;
-  protected impulseVy = 0;
+  public driveAccelerationPerTick = Number.POSITIVE_INFINITY;
+  public momentumDrag = 0.85;
+  public momentumCutoff = 1;
+  protected desiredVx = 0;
+  protected desiredVy = 0;
+  protected driveVx = 0;
+  protected driveVy = 0;
+  protected momentumVx = 0;
+  protected momentumVy = 0;
   public hp: number;
   public maxHp: number;
   public ownerId?: number;
@@ -92,14 +104,7 @@ export abstract class Entity {
       return;
     }
 
-    this.impulseVx *= 0.85;
-    this.impulseVy *= 0.85;
-    if (Math.abs(this.impulseVx) < 1) {
-      this.impulseVx = 0;
-    }
-    if (Math.abs(this.impulseVy) < 1) {
-      this.impulseVy = 0;
-    }
+    this.decayMomentum();
     this.syncVelocity();
   }
 
@@ -169,41 +174,141 @@ export abstract class Entity {
   }
 
   /**
-   * Applies an instantaneous per-tick movement impulse. Used for knockback effects.
+   * Applies an instantaneous additive momentum impulse. Used for knockback and launches.
    * @param impulseX X-axis impulse delta applied each tick until it decays.
    * @param impulseY Y-axis impulse delta applied each tick until it decays.
    */
   public applyImpulse(impulseX: number, impulseY: number): void {
-    this.impulseVx += impulseX;
-    this.impulseVy += impulseY;
+    this.momentumVx += impulseX;
+    this.momentumVy += impulseY;
     this.syncVelocity();
   }
 
   /**
-   * Sets the movement-controlled per-tick delta before impulses are applied.
-   * @param velocityX Movement X delta applied each simulation tick.
-   * @param velocityY Movement Y delta applied each simulation tick.
+   * Sets the desired drive velocity and accelerates the current drive toward it.
+   * @param velocityX Desired X delta for drive motion this tick.
+   * @param velocityY Desired Y delta for drive motion this tick.
    */
-  public setMovementVelocity(velocityX: number, velocityY: number): void {
-    this.moveVx = velocityX;
-    this.moveVy = velocityY;
+  public setDesiredVelocity(velocityX: number, velocityY: number): void {
+    this.desiredVx = velocityX;
+    this.desiredVy = velocityY;
+    this.advanceDriveToward(
+      this.desiredVx,
+      this.desiredVy,
+      this.driveAccelerationPerTick,
+    );
     this.syncVelocity();
   }
 
   /**
-   * Clears both movement and impulse velocity components.
+   * Steers current drive velocity toward a requested velocity with a caller-provided turn cap.
+   * @param velocityX Target X delta for drive motion.
+   * @param velocityY Target Y delta for drive motion.
+   * @param maxDelta Maximum change applied to drive speed this tick.
    */
-  public resetVelocity(): void {
-    this.moveVx = 0;
-    this.moveVy = 0;
-    this.impulseVx = 0;
-    this.impulseVy = 0;
+  public steerTowardVelocity(
+    velocityX: number,
+    velocityY: number,
+    maxDelta: number,
+  ): void {
+    this.desiredVx = velocityX;
+    this.desiredVy = velocityY;
+    this.advanceDriveToward(velocityX, velocityY, maxDelta);
+    this.syncVelocity();
+  }
+
+  public getDebugVelocityComponents(): {
+    desiredVx: number;
+    desiredVy: number;
+    driveVx: number;
+    driveVy: number;
+    momentumVx: number;
+    momentumVy: number;
+  } {
+    return {
+      desiredVx: this.desiredVx,
+      desiredVy: this.desiredVy,
+      driveVx: this.driveVx,
+      driveVy: this.driveVy,
+      momentumVx: this.momentumVx,
+      momentumVy: this.momentumVy,
+    };
+  }
+
+  public clipVelocityAgainstNormal(normal: MovementNormal): void {
+    const totalInwardSpeed = this.vx * normal.x + this.vy * normal.y;
+    if (totalInwardSpeed <= 0) {
+      return;
+    }
+
+    let remainingInwardSpeed = totalInwardSpeed;
+    const driveInwardSpeed = Math.max(
+      0,
+      this.driveVx * normal.x + this.driveVy * normal.y,
+    );
+    if (driveInwardSpeed > 0) {
+      const removedDriveSpeed = Math.min(remainingInwardSpeed, driveInwardSpeed);
+      this.driveVx -= normal.x * removedDriveSpeed;
+      this.driveVy -= normal.y * removedDriveSpeed;
+      remainingInwardSpeed -= removedDriveSpeed;
+    }
+
+    const momentumInwardSpeed = Math.max(
+      0,
+      this.momentumVx * normal.x + this.momentumVy * normal.y,
+    );
+    if (remainingInwardSpeed > 0 && momentumInwardSpeed > 0) {
+      const removedMomentumSpeed = Math.min(
+        remainingInwardSpeed,
+        momentumInwardSpeed,
+      );
+      this.momentumVx -= normal.x * removedMomentumSpeed;
+      this.momentumVy -= normal.y * removedMomentumSpeed;
+    }
+
+    this.syncVelocity();
+  }
+
+  /**
+   * Clears desired, drive, and momentum movement state.
+   */
+  public resetMovement(): void {
+    this.desiredVx = 0;
+    this.desiredVy = 0;
+    this.driveVx = 0;
+    this.driveVy = 0;
+    this.momentumVx = 0;
+    this.momentumVy = 0;
     this.syncVelocity();
   }
 
   private syncVelocity(): void {
-    this.vx = this.moveVx + this.impulseVx;
-    this.vy = this.moveVy + this.impulseVy;
+    this.vx = this.driveVx + this.momentumVx;
+    this.vy = this.driveVy + this.momentumVy;
+  }
+
+  protected setMovementTuning(tuning: MovementTuning): void {
+    if (
+      tuning.driveAccelerationPerTick !== undefined &&
+      ((Number.isFinite(tuning.driveAccelerationPerTick) &&
+        tuning.driveAccelerationPerTick >= 0) ||
+        tuning.driveAccelerationPerTick === Number.POSITIVE_INFINITY)
+    ) {
+      this.driveAccelerationPerTick = tuning.driveAccelerationPerTick;
+    }
+    if (
+      tuning.momentumDrag !== undefined &&
+      Number.isFinite(tuning.momentumDrag)
+    ) {
+      this.momentumDrag = Math.max(0, Math.min(1, tuning.momentumDrag));
+    }
+    if (
+      tuning.momentumCutoff !== undefined &&
+      Number.isFinite(tuning.momentumCutoff) &&
+      tuning.momentumCutoff >= 0
+    ) {
+      this.momentumCutoff = tuning.momentumCutoff;
+    }
   }
 
   /**
@@ -253,6 +358,47 @@ export abstract class Entity {
 
   public afterMovement(_world: World): void {
     // default no-op for entities without post-move behavior
+  }
+
+  private advanceDriveToward(
+    targetVx: number,
+    targetVy: number,
+    maxDelta: number,
+  ): void {
+    if (maxDelta === Number.POSITIVE_INFINITY) {
+      this.driveVx = targetVx;
+      this.driveVy = targetVy;
+      return;
+    }
+    if (!Number.isFinite(maxDelta) || maxDelta <= 0) {
+      return;
+    }
+
+    const deltaX = targetVx - this.driveVx;
+    const deltaY = targetVy - this.driveVy;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= Number.EPSILON) {
+      return;
+    }
+    if (distance <= maxDelta) {
+      this.driveVx = targetVx;
+      this.driveVy = targetVy;
+      return;
+    }
+
+    this.driveVx += (deltaX / distance) * maxDelta;
+    this.driveVy += (deltaY / distance) * maxDelta;
+  }
+
+  private decayMomentum(): void {
+    this.momentumVx *= this.momentumDrag;
+    this.momentumVy *= this.momentumDrag;
+    if (Math.abs(this.momentumVx) < this.momentumCutoff) {
+      this.momentumVx = 0;
+    }
+    if (Math.abs(this.momentumVy) < this.momentumCutoff) {
+      this.momentumVy = 0;
+    }
   }
 
   private tickActiveEffects(world: World): void {

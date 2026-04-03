@@ -150,7 +150,11 @@ export function createChatController({
     lines.push(line);
 
     while (lines.length > MAX_LINES) {
-      removeLine(lines[0]);
+      const oldestLine = lines[0];
+      if (!oldestLine) {
+        break;
+      }
+      removeLine(oldestLine);
     }
 
     scheduleLine(line);

@@ -1,5 +1,6 @@
 import { doesResolvedRectIntersectSweepArc } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 
 /**
@@ -11,7 +12,7 @@ export class SweepMeleeWeapon extends MeleeWeapon {
   constructor(
     fireRate: number,
     range: number,
-    hitEffects: ConstructorParameters<typeof MeleeWeapon>[2],
+    hitEffects: Effect[],
     sweepArcDegrees: number,
   ) {
     super(fireRate, range, hitEffects);

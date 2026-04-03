@@ -1,9 +1,8 @@
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
-import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
-import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { Goal } from "@server/goals/Goal.ts";
+import { MegaknightSlamAreaEffect } from "@server/effects/area/MegaknightSlamAreaEffect.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 type JumpPhase = "windup" | "airborne" | "land";
@@ -30,9 +29,6 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   private readonly minSize: number;
   private readonly landSize: number;
   private readonly jumpRange: number;
-  private readonly aoeDamage: number;
-  private readonly aoeRadius: number;
-
   /**
    * @param priority Lower values run first.
    * @param baseProfileName Profile to restore after the jump sequence ends.
@@ -40,8 +36,6 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
    * @param minSize Hitbox size while airborne.
    * @param landSize Peak hitbox size on impact.
    * @param jumpRange Distance to target that triggers the jump.
-   * @param aoeDamage Damage dealt on landing.
-   * @param aoeRadius Splash radius for landing damage.
    */
   constructor(
     priority: number,
@@ -50,8 +44,6 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     minSize: number,
     landSize: number,
     jumpRange: number,
-    aoeDamage: number,
-    aoeRadius: number,
   ) {
     super(priority, ["move", "attack"]);
     this.baseProfileName = baseProfileName;
@@ -59,8 +51,6 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.minSize = minSize;
     this.landSize = landSize;
     this.jumpRange = jumpRange;
-    this.aoeDamage = aoeDamage;
-    this.aoeRadius = aoeRadius;
   }
 
   public override canStart(ctx: GoalContext<TSelf>): boolean {
@@ -76,7 +66,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   public override start(ctx: GoalContext<TSelf>): void {
     this.phase = "windup";
     this.phaseTick = 0;
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
     ctx.self.setHitboxProfile(this.baseProfileName);
     const target = this.resolveTargetInRange(ctx);
     this.jumpTargetX = target?.x ?? ctx.self.x;
@@ -106,7 +96,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     this.phase = null;
     this.phaseTick = 0;
     ctx.self.setHitboxProfile(this.baseProfileName);
-    ctx.self.setMovementVelocity(0, 0);
+    ctx.self.setDesiredVelocity(0, 0);
   }
 
   private tickWindup(ctx: GoalContext<TSelf>): void {
@@ -126,13 +116,24 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
     const remaining = AIRBORNE_TICKS - this.phaseTick;
     const dx = this.jumpTargetX - ctx.self.x;
     const dy = this.jumpTargetY - ctx.self.y;
+    const launchVx = dx / Math.max(1, AIRBORNE_TICKS);
+    const launchVy = dy / Math.max(1, AIRBORNE_TICKS);
+
+    if (this.phaseTick === 0) {
+      ctx.self.applyImpulse(launchVx, launchVy);
+    }
 
     if (remaining <= 1 || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) {
       ctx.self.x = this.jumpTargetX;
       ctx.self.y = this.jumpTargetY;
-      ctx.self.setMovementVelocity(0, 0);
+      ctx.self.resetMovement();
     } else {
-      ctx.self.setMovementVelocity(dx / remaining, dy / remaining);
+      const { momentumVx, momentumVy } = ctx.self.getDebugVelocityComponents();
+      ctx.self.steerTowardVelocity(
+        dx / remaining - momentumVx,
+        dy / remaining - momentumVy,
+        Math.hypot(dx / remaining, dy / remaining),
+      );
     }
 
     if (this.phaseTick >= AIRBORNE_TICKS - 1) {
@@ -143,7 +144,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
 
   private tickLand(ctx: GoalContext<TSelf>): void {
     if (this.phaseTick === 0) {
-      ctx.self.setMovementVelocity(0, 0);
+      ctx.self.resetMovement();
       this.applyAoeDamage(ctx);
     }
 
@@ -167,30 +168,10 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   }
 
   private applyAoeDamage(ctx: GoalContext<TSelf>): void {
-    const aoeRadiusSq = this.aoeRadius * this.aoeRadius;
-    const damageEffect = new DamageEffect(this.aoeDamage);
-    const knockbackEffect = new KnockbackEffect(25);
-    const candidatePlayers = ctx.world.spatial.queryBox(
-      ctx.self.x - this.aoeRadius,
-      ctx.self.y - this.aoeRadius,
-      ctx.self.x + this.aoeRadius,
-      ctx.self.y + this.aoeRadius,
-    );
-
-    for (const player of candidatePlayers) {
-      if (!(player instanceof Player)) {
-        continue;
-      }
-      if (!player.alive) {
-        continue;
-      }
-      const dx = player.x - ctx.self.x;
-      const dy = player.y - ctx.self.y;
-      if (dx * dx + dy * dy <= aoeRadiusSq) {
-        damageEffect.apply(ctx.world, ctx.self, player);
-        knockbackEffect.apply(ctx.world, ctx.self, player);
-      }
-    }
+    new MegaknightSlamAreaEffect().apply(ctx.world, ctx.self, {
+      x: ctx.self.x,
+      y: ctx.self.y,
+    });
   }
 
   private setAnimatedSquareHitbox(ctx: GoalContext<TSelf>, size: number): void {

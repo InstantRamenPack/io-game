@@ -1,0 +1,20 @@
+﻿{
+  "item:basic_gun": "/hud/icons/placeholder.png",
+  "item:basic_spear": "/hud/icons/placeholder.png",
+  "item:basic_sword": "/hud/icons/placeholder.png",
+  "item:cannon": "/hud/icons/placeholder.png",
+  "item:crafting_station": "/hud/icons/placeholder.png",
+  "item:crossbow": "/hud/icons/placeholder.png",
+  "item:crossbow_mag": "/hud/icons/placeholder.png",
+  "item:drone_shooter": "/hud/icons/placeholder.png",
+  "item:food": "/hud/icons/placeholder.png",
+  "item:gun_mag": "/hud/icons/placeholder.png",
+  "item:landmine": "/hud/icons/placeholder.png",
+  "item:saboteur_sword": "/hud/icons/placeholder.png",
+  "item:spiked_spear": "/hud/icons/placeholder.png",
+  "item:stone": "/hud/icons/placeholder.png",
+  "item:taser": "/hud/icons/placeholder.png",
+  "item:wall": "/hud/icons/placeholder.png",
+  "item:wood": "/hud/icons/placeholder.png",
+  "item:zombie_sword": "/hud/icons/placeholder.png"
+}

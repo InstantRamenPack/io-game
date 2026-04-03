@@ -19,8 +19,6 @@ export class Megaknight extends Enemy {
       },
       activeHitboxProfile: "base",
       maxHp: 150,
-      vx: 0,
-      vy: 0,
       moveSpeed: 7,
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 600),
@@ -33,8 +31,6 @@ export class Megaknight extends Enemy {
           MIN_SIZE,
           LAND_SIZE,
           4000,
-          40,
-          120,
         ),
         // Chase normally when out of jump range or on cooldown
         new GoToTargetGoal<Enemy>(2, 30),
