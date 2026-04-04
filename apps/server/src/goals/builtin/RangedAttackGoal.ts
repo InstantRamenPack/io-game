@@ -5,8 +5,6 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
-const LEAD_BLEND_FACTOR = 0.5;
-
 /**
  * Strafing ranged attack goal that maintains distance while firing one weapon slot.
  */
@@ -17,6 +15,7 @@ export class RangedAttackGoal<
   private readonly preferredDistance: number;
   private readonly distanceTolerance: number;
   private readonly strafeSwapTicks: number;
+  private readonly leadBlendFactor: number;
   private strafeSign: -1 | 1 = 1;
   private ticksUntilSwap: number;
 
@@ -26,12 +25,14 @@ export class RangedAttackGoal<
     preferredDistance = 220,
     distanceTolerance = 32,
     strafeSwapTicks = 45,
+    leadBlendFactor = 0.5,
   ) {
     super(priority, ["move", "attack"]);
     this.weaponSlot = weaponSlot;
     this.preferredDistance = preferredDistance;
     this.distanceTolerance = distanceTolerance;
     this.strafeSwapTicks = Math.max(1, strafeSwapTicks);
+    this.leadBlendFactor = Math.max(0, leadBlendFactor);
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
@@ -166,8 +167,8 @@ export class RangedAttackGoal<
     }
 
     return {
-      x: target.x + target.vx * interceptTime * LEAD_BLEND_FACTOR,
-      y: target.y + target.vy * interceptTime * LEAD_BLEND_FACTOR,
+      x: target.x + target.vx * interceptTime * this.leadBlendFactor,
+      y: target.y + target.vy * interceptTime * this.leadBlendFactor,
     };
   }
 

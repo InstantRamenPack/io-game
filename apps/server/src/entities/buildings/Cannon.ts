@@ -21,7 +21,7 @@ export class Cannon extends Building {
     this.weapons = [new CannonGun()];
     this.registerGoals([
       new TargetEntityGoal<Cannon>(0, Enemy, 650),
-      new RangedAttackGoal<Cannon>(1, 0, 0, 0),
+      new RangedAttackGoal<Cannon>(1, 0, 0, 0, 45, 1),
     ]);
   }
 
