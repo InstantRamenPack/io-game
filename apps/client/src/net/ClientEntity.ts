@@ -148,7 +148,8 @@ export class ClientEntity {
     renderTick: number,
     maxExtrapolationTicks: number,
   ): EntityPositionSample | null {
-    const latestFrame = this.serverFrameHistory[this.serverFrameHistory.length - 1];
+    const latestFrame =
+      this.serverFrameHistory[this.serverFrameHistory.length - 1];
     if (!latestFrame) {
       return null;
     }
@@ -248,7 +249,8 @@ export class ClientEntity {
   }
 
   private pushServerFrame(snapshot: EntitySnapshot, tick: number): void {
-    const latestFrame = this.serverFrameHistory[this.serverFrameHistory.length - 1];
+    const latestFrame =
+      this.serverFrameHistory[this.serverFrameHistory.length - 1];
     if (latestFrame && latestFrame.tick === tick) {
       latestFrame.x = snapshot.x;
       latestFrame.y = snapshot.y;

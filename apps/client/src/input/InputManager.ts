@@ -7,9 +7,13 @@ type AttackTarget = {
 };
 
 type BuildPlacement = {
-  itemTypeId: ResourceId;
   x: number;
   y: number;
+};
+
+type InventoryMove = {
+  fromSlotIndex: number;
+  toSlotIndex: number;
 };
 
 /**
@@ -23,7 +27,8 @@ export class InputManager {
   public pendingAttack?: AttackTarget;
   public pendingCraft?: { itemTypeId: ResourceId };
   public pendingBuild?: BuildPlacement;
-  public pendingSelectWeaponIndex?: number;
+  public pendingInventoryMove?: InventoryMove;
+  public pendingSelectHotbarIndex?: number;
   private holdFireTarget?: AttackTarget;
   private readonly pressedKeys = new Set<string>();
   private movementSuppressed = false;
@@ -80,10 +85,13 @@ export class InputManager {
       tick: serverTick,
       moveX: this.moveX,
       moveY: this.moveY,
-      selectWeaponIndex: this.pendingSelectWeaponIndex,
+      selectHotbarIndex: this.pendingSelectHotbarIndex,
       attack,
       craft: this.pendingCraft ? { ...this.pendingCraft } : undefined,
       build: this.pendingBuild ? { ...this.pendingBuild } : undefined,
+      inventoryMove: this.pendingInventoryMove
+        ? { ...this.pendingInventoryMove }
+        : undefined,
     };
   }
 
@@ -94,7 +102,8 @@ export class InputManager {
     this.pendingAttack = undefined;
     this.pendingCraft = undefined;
     this.pendingBuild = undefined;
-    this.pendingSelectWeaponIndex = undefined;
+    this.pendingInventoryMove = undefined;
+    this.pendingSelectHotbarIndex = undefined;
   }
 
   public startHoldFire(x: number, y: number): void {
@@ -122,17 +131,25 @@ export class InputManager {
     this.pendingCraft = { itemTypeId };
   }
 
-  public queueBuild(itemTypeId: ResourceId, x: number, y: number): void {
+  public queueBuild(x: number, y: number): void {
     this.clearPendingAction();
-    this.pendingBuild = { itemTypeId, x, y };
+    this.pendingBuild = { x, y };
   }
 
-  public queueSelectWeaponIndex(index: number): void {
-    this.pendingSelectWeaponIndex = index;
+  public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
+    this.clearPendingAction();
+    this.pendingInventoryMove = {
+      fromSlotIndex,
+      toSlotIndex,
+    };
   }
 
-  public clearPendingWeaponSelection(): void {
-    this.pendingSelectWeaponIndex = undefined;
+  public queueSelectHotbarIndex(index: number): void {
+    this.pendingSelectHotbarIndex = index;
+  }
+
+  public clearPendingHotbarSelection(): void {
+    this.pendingSelectHotbarIndex = undefined;
   }
 
   public setMovementSuppressed(suppressed: boolean): void {

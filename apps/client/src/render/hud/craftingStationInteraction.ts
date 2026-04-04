@@ -38,7 +38,9 @@ export function hasNearbyCraftingStation(
   player: ClientEntity | undefined,
   stations: ClientEntity[],
 ): boolean {
-  return stations.some((station) => isPlayerNearCraftingStation(player, station));
+  return stations.some((station) =>
+    isPlayerNearCraftingStation(player, station),
+  );
 }
 
 export function findCraftingStationAtWorldPoint(

@@ -1,70 +1,228 @@
+import { getItemContent } from "@shared/content/catalog.ts";
 import type { ItemRequirement } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { InventorySnapshot } from "@shared/net/snapshots.ts";
+import type {
+  InventorySlotSnapshot,
+  InventorySnapshot,
+} from "@shared/net/snapshots.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 
+export const HOTBAR_SLOT_COUNT = 10;
+
+type BuildableSlot = {
+  kind: "buildable";
+  typeId: ResourceId;
+  count: number;
+};
+
+type WeaponSlot = {
+  kind: "weapon";
+  weapon: Weapon;
+};
+
+export type InventorySlot = BuildableSlot | WeaponSlot | null;
+
 export class Inventory {
-  public stackables = new Map<ResourceId, number>();
-  public weapons: Weapon[] = [];
-  public activeWeaponIndex: number | null = null;
-  private cachedStackableSnapshot?: InventorySnapshot["stackables"];
-  private stackablesDirty = true;
+  public resources = new Map<ResourceId, number>();
+  public hotbarSlots: InventorySlot[] = Array.from(
+    { length: HOTBAR_SLOT_COUNT },
+    () => null,
+  );
+  public selectedHotbarIndex = 0;
+  private cachedResourceSnapshot?: InventorySnapshot["resources"];
+  private resourcesDirty = true;
 
-  public addStackable(typeId: ResourceId, amount: number): void {
+  public addStackable(typeId: ResourceId, amount: number): boolean {
     if (amount <= 0) {
-      return;
+      return true;
     }
 
-    this.stackables.set(typeId, this.getStackableCount(typeId) + amount);
-    this.stackablesDirty = true;
-  }
-
-  public getStackableCount(typeId: ResourceId): number {
-    return this.stackables.get(typeId) ?? 0;
-  }
-
-  public addWeapon(weapon: Weapon): void {
-    this.weapons.push(weapon);
-    if (this.activeWeaponIndex === null) {
-      this.activeWeaponIndex = 0;
+    if (!this.isBuildableType(typeId)) {
+      this.setResourceCount(typeId, this.getResourceCount(typeId) + amount);
+      return true;
     }
+
+    const matchingSlotIndex = this.findMatchingBuildableSlotIndex(typeId);
+    if (matchingSlotIndex !== null) {
+      const slot = this.hotbarSlots[matchingSlotIndex];
+      if (slot?.kind === "buildable") {
+        slot.count += amount;
+        return true;
+      }
+    }
+
+    const emptySlotIndex = this.findFirstEmptyHotbarSlotIndex();
+    if (emptySlotIndex === null) {
+      return false;
+    }
+
+    this.hotbarSlots[emptySlotIndex] = {
+      kind: "buildable",
+      typeId,
+      count: amount,
+    };
+    return true;
+  }
+
+  public addWeapon(weapon: Weapon): boolean {
+    const emptySlotIndex = this.findFirstEmptyHotbarSlotIndex();
+    if (emptySlotIndex === null) {
+      return false;
+    }
+
+    this.hotbarSlots[emptySlotIndex] = {
+      kind: "weapon",
+      weapon,
+    };
+    return true;
+  }
+
+  public canAddWeaponCount(count: number): boolean {
+    if (count <= 0) {
+      return true;
+    }
+
+    return this.countEmptyHotbarSlots() >= count;
+  }
+
+  public canAddStackable(typeId: ResourceId, amount: number): boolean {
+    if (amount <= 0) {
+      return true;
+    }
+
+    if (!this.isBuildableType(typeId)) {
+      return true;
+    }
+
+    return (
+      this.findMatchingBuildableSlotIndex(typeId) !== null ||
+      this.findFirstEmptyHotbarSlotIndex() !== null
+    );
+  }
+
+  public canAbsorbInventory(other: Inventory): boolean {
+    const simulatedSlots = this.hotbarSlots.map((slot) => {
+      if (!slot) {
+        return null;
+      }
+      if (slot.kind === "weapon") {
+        return { kind: "weapon" as const };
+      }
+      return {
+        kind: "buildable" as const,
+        typeId: slot.typeId,
+        count: slot.count,
+      };
+    });
+
+    for (const slot of other.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        const emptySlotIndex = simulatedSlots.findIndex(
+          (simulatedSlot) => simulatedSlot === null,
+        );
+        if (emptySlotIndex < 0) {
+          return false;
+        }
+        simulatedSlots[emptySlotIndex] = { kind: "weapon" };
+        continue;
+      }
+
+      const matchingSlotIndex = simulatedSlots.findIndex(
+        (simulatedSlot) =>
+          simulatedSlot?.kind === "buildable" &&
+          simulatedSlot.typeId === slot.typeId,
+      );
+      if (matchingSlotIndex >= 0) {
+        continue;
+      }
+
+      const emptySlotIndex = simulatedSlots.findIndex(
+        (simulatedSlot) => simulatedSlot === null,
+      );
+      if (emptySlotIndex < 0) {
+        return false;
+      }
+      simulatedSlots[emptySlotIndex] = {
+        kind: "buildable",
+        typeId: slot.typeId,
+        count: slot.count,
+      };
+    }
+
+    return true;
+  }
+
+  public absorbInventory(other: Inventory): boolean {
+    if (!this.canAbsorbInventory(other)) {
+      return false;
+    }
+
+    for (const [typeId, amount] of other.resources.entries()) {
+      this.addStackable(typeId, amount);
+    }
+
+    for (const slot of other.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        this.addWeapon(slot.weapon);
+      } else {
+        this.addStackable(slot.typeId, slot.count);
+      }
+    }
+
+    return true;
   }
 
   public getActiveWeapon(): Weapon | undefined {
-    if (this.activeWeaponIndex === null) {
-      return undefined;
-    }
-
-    return this.weapons[this.activeWeaponIndex];
+    const selectedSlot = this.hotbarSlots[this.selectedHotbarIndex];
+    return selectedSlot?.kind === "weapon" ? selectedSlot.weapon : undefined;
   }
 
-  public setActiveWeaponIndex(index: number | null): void {
-    if (index === null || this.weapons.length === 0) {
-      this.activeWeaponIndex = null;
+  public getSelectedBuildable(): BuildableSlot | undefined {
+    const selectedSlot = this.hotbarSlots[this.selectedHotbarIndex];
+    return selectedSlot?.kind === "buildable" ? selectedSlot : undefined;
+  }
+
+  public setSelectedHotbarIndex(index: number): void {
+    if (!Number.isInteger(index) || index < 0 || index >= HOTBAR_SLOT_COUNT) {
       return;
     }
-    if (index < 0 || index >= this.weapons.length) {
-      return;
-    }
-    this.activeWeaponIndex = index;
+
+    this.selectedHotbarIndex = index;
+  }
+
+  public getResourceCount(typeId: ResourceId): number {
+    return this.resources.get(typeId) ?? 0;
+  }
+
+  public getStackableCount(typeId: ResourceId): number {
+    return this.countType(typeId);
   }
 
   public countType(typeId: ResourceId): number {
-    const stackableCount = this.getStackableCount(typeId);
-    const weaponCount = this.weapons.reduce(
-      (total, weapon) => total + Number(weapon.typeId === typeId),
-      0,
-    );
-    return stackableCount + weaponCount;
+    let total = this.getResourceCount(typeId);
+    for (const slot of this.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        total += Number(slot.weapon.typeId === typeId);
+      } else if (slot.typeId === typeId) {
+        total += slot.count;
+      }
+    }
+    return total;
   }
 
   public hasTypes(requirements: ItemRequirement[]): boolean {
-    for (const requirement of requirements) {
-      if (this.countType(requirement.typeId) < requirement.amount) {
-        return false;
-      }
-    }
-    return true;
+    return requirements.every(
+      (requirement) => this.countType(requirement.typeId) >= requirement.amount,
+    );
   }
 
   public consumeTypes(requirements: ItemRequirement[]): boolean {
@@ -74,84 +232,177 @@ export class Inventory {
 
     for (const requirement of requirements) {
       let remaining = requirement.amount;
-
-      const stackableCount = this.getStackableCount(requirement.typeId);
-      if (stackableCount > 0) {
-        const consumedStackableCount = Math.min(stackableCount, remaining);
-        const nextStackableCount = stackableCount - consumedStackableCount;
-        if (nextStackableCount > 0) {
-          this.stackables.set(requirement.typeId, nextStackableCount);
-        } else {
-          this.stackables.delete(requirement.typeId);
-        }
-        this.stackablesDirty = true;
-        remaining -= consumedStackableCount;
+      const resourceCount = this.getResourceCount(requirement.typeId);
+      if (resourceCount > 0) {
+        const consumedAmount = Math.min(resourceCount, remaining);
+        this.setResourceCount(
+          requirement.typeId,
+          resourceCount - consumedAmount,
+        );
+        remaining -= consumedAmount;
       }
 
       for (
-        let index = this.weapons.length - 1;
-        index >= 0 && remaining > 0;
-        index -= 1
+        let slotIndex = this.hotbarSlots.length - 1;
+        slotIndex >= 0 && remaining > 0;
+        slotIndex -= 1
       ) {
-        const weapon = this.weapons[index];
-        if (!weapon || weapon.typeId !== requirement.typeId) {
+        const slot = this.hotbarSlots[slotIndex];
+        if (!slot) {
           continue;
         }
 
-        this.removeWeaponAt(index);
-        remaining -= 1;
+        if (slot.kind === "buildable" && slot.typeId === requirement.typeId) {
+          const consumedAmount = Math.min(slot.count, remaining);
+          slot.count -= consumedAmount;
+          remaining -= consumedAmount;
+          if (slot.count <= 0) {
+            this.hotbarSlots[slotIndex] = null;
+          }
+          continue;
+        }
+
+        if (
+          slot.kind === "weapon" &&
+          slot.weapon.typeId === requirement.typeId
+        ) {
+          this.hotbarSlots[slotIndex] = null;
+          remaining -= 1;
+        }
       }
     }
 
     return true;
   }
 
+  public consumeSelectedBuildable(amount: number): boolean {
+    if (amount <= 0) {
+      return true;
+    }
+
+    const selectedSlot = this.hotbarSlots[this.selectedHotbarIndex];
+    if (!selectedSlot || selectedSlot.kind !== "buildable") {
+      return false;
+    }
+    if (selectedSlot.count < amount) {
+      return false;
+    }
+
+    selectedSlot.count -= amount;
+    if (selectedSlot.count <= 0) {
+      this.hotbarSlots[this.selectedHotbarIndex] = null;
+    }
+    return true;
+  }
+
+  public moveHotbarSlot(fromSlotIndex: number, toSlotIndex: number): boolean {
+    if (
+      fromSlotIndex < 0 ||
+      fromSlotIndex >= HOTBAR_SLOT_COUNT ||
+      toSlotIndex < 0 ||
+      toSlotIndex >= HOTBAR_SLOT_COUNT ||
+      fromSlotIndex === toSlotIndex
+    ) {
+      return false;
+    }
+
+    const fromSlot = this.hotbarSlots[fromSlotIndex];
+    const toSlot = this.hotbarSlots[toSlotIndex];
+    if (!fromSlot) {
+      return false;
+    }
+
+    if (
+      fromSlot.kind === "buildable" &&
+      toSlot?.kind === "buildable" &&
+      fromSlot.typeId === toSlot.typeId
+    ) {
+      toSlot.count += fromSlot.count;
+      this.hotbarSlots[fromSlotIndex] = null;
+      return true;
+    }
+
+    this.hotbarSlots[fromSlotIndex] = toSlot ?? null;
+    this.hotbarSlots[toSlotIndex] = fromSlot;
+    return true;
+  }
+
+  public iterateWeaponSlots(): Weapon[] {
+    return this.hotbarSlots.flatMap((slot) =>
+      slot?.kind === "weapon" ? [slot.weapon] : [],
+    );
+  }
+
   public toSnapshot(): InventorySnapshot {
     return {
-      stackables: this.getStackableSnapshot(),
-      weapons: this.weapons.map((weapon) => weapon.toSnapshot()),
-      activeWeaponIndex: this.activeWeaponIndex,
+      resources: this.getResourceSnapshot(),
+      hotbarSlots: this.hotbarSlots.map((slot) => this.toSlotSnapshot(slot)),
+      selectedHotbarIndex: this.selectedHotbarIndex,
     };
   }
 
-  private removeWeaponAt(index: number): void {
-    if (index < 0 || index >= this.weapons.length) {
-      return;
-    }
-
-    this.weapons.splice(index, 1);
-    if (this.weapons.length === 0) {
-      this.activeWeaponIndex = null;
-      return;
-    }
-
-    if (this.activeWeaponIndex === null) {
-      return;
-    }
-
-    if (index < this.activeWeaponIndex) {
-      this.activeWeaponIndex -= 1;
-      return;
-    }
-
-    if (index === this.activeWeaponIndex) {
-      this.activeWeaponIndex = Math.min(
-        this.activeWeaponIndex,
-        this.weapons.length - 1,
-      );
-    }
-  }
-
-  private getStackableSnapshot(): InventorySnapshot["stackables"] {
-    if (!this.cachedStackableSnapshot || this.stackablesDirty) {
-      this.cachedStackableSnapshot = [...this.stackables.entries()]
+  private getResourceSnapshot(): InventorySnapshot["resources"] {
+    if (!this.cachedResourceSnapshot || this.resourcesDirty) {
+      this.cachedResourceSnapshot = [...this.resources.entries()]
+        .filter(([, amount]) => amount > 0)
         .sort(([leftTypeId], [rightTypeId]) =>
           leftTypeId.localeCompare(rightTypeId),
         )
         .map(([typeId, amount]) => ({ typeId, amount }));
-      this.stackablesDirty = false;
+      this.resourcesDirty = false;
     }
 
-    return this.cachedStackableSnapshot;
+    return this.cachedResourceSnapshot;
+  }
+
+  private findMatchingBuildableSlotIndex(typeId: ResourceId): number | null {
+    const slotIndex = this.hotbarSlots.findIndex(
+      (slot) => slot?.kind === "buildable" && slot.typeId === typeId,
+    );
+    return slotIndex >= 0 ? slotIndex : null;
+  }
+
+  private findFirstEmptyHotbarSlotIndex(): number | null {
+    const slotIndex = this.hotbarSlots.findIndex((slot) => slot === null);
+    return slotIndex >= 0 ? slotIndex : null;
+  }
+
+  private countEmptyHotbarSlots(): number {
+    return this.hotbarSlots.reduce(
+      (total, slot) => total + Number(slot === null),
+      0,
+    );
+  }
+
+  private setResourceCount(typeId: ResourceId, amount: number): void {
+    if (amount > 0) {
+      this.resources.set(typeId, amount);
+    } else {
+      this.resources.delete(typeId);
+    }
+    this.resourcesDirty = true;
+  }
+
+  private toSlotSnapshot(slot: InventorySlot): InventorySlotSnapshot {
+    if (!slot) {
+      return { kind: "empty" };
+    }
+
+    if (slot.kind === "weapon") {
+      return {
+        kind: "weapon",
+        ...slot.weapon.toSnapshot(),
+      };
+    }
+
+    return {
+      kind: "buildable",
+      typeId: slot.typeId,
+      count: slot.count,
+    };
+  }
+
+  private isBuildableType(typeId: ResourceId): boolean {
+    return Boolean(getItemContent(typeId)?.buildsEntityTypeId);
   }
 }

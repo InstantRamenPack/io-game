@@ -22,7 +22,8 @@ export class AntiCheatValidator {
     this.clampMove(inputCommand);
     this.clampAttack(inputCommand, world);
     this.clampBuild(inputCommand, world);
-    this.clampSelectWeaponIndex(inputCommand, playerEntity);
+    this.clampSelectHotbarIndex(inputCommand);
+    this.clampInventoryMove(inputCommand, playerEntity);
 
     return !(
       !Number.isFinite(inputCommand.seq) || !Number.isFinite(inputCommand.tick)
@@ -66,23 +67,19 @@ export class AntiCheatValidator {
     };
   }
 
-  private clampSelectWeaponIndex(
-    inputCommand: InputCommand,
-    playerEntity: Player,
-  ): void {
-    if (inputCommand.selectWeaponIndex === undefined) {
+  private clampSelectHotbarIndex(inputCommand: InputCommand): void {
+    if (inputCommand.selectHotbarIndex === undefined) {
       return;
     }
 
-    const { selectWeaponIndex } = inputCommand;
+    const { selectHotbarIndex } = inputCommand;
     if (
-      !Number.isFinite(selectWeaponIndex) ||
-      !Number.isInteger(selectWeaponIndex) ||
-      !playerEntity.inventory ||
-      selectWeaponIndex < 0 ||
-      selectWeaponIndex >= playerEntity.inventory.weapons.length
+      !Number.isFinite(selectHotbarIndex) ||
+      !Number.isInteger(selectHotbarIndex) ||
+      selectHotbarIndex < 0 ||
+      selectHotbarIndex >= 10
     ) {
-      inputCommand.selectWeaponIndex = undefined;
+      inputCommand.selectHotbarIndex = undefined;
       return;
     }
   }
@@ -103,5 +100,30 @@ export class AntiCheatValidator {
       x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
       y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
     };
+  }
+
+  private clampInventoryMove(
+    inputCommand: InputCommand,
+    playerEntity: Player,
+  ): void {
+    const inventoryMove = inputCommand.inventoryMove;
+    if (!inventoryMove) {
+      return;
+    }
+
+    const { fromSlotIndex, toSlotIndex } = inventoryMove;
+    if (
+      !Number.isFinite(fromSlotIndex) ||
+      !Number.isInteger(fromSlotIndex) ||
+      !Number.isFinite(toSlotIndex) ||
+      !Number.isInteger(toSlotIndex) ||
+      fromSlotIndex < 0 ||
+      fromSlotIndex >= 10 ||
+      toSlotIndex < 0 ||
+      toSlotIndex >= 10 ||
+      !playerEntity.inventory.hotbarSlots[fromSlotIndex]
+    ) {
+      inputCommand.inventoryMove = undefined;
+    }
   }
 }

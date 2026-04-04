@@ -247,7 +247,10 @@ export abstract class Entity {
       this.driveVx * normal.x + this.driveVy * normal.y,
     );
     if (driveInwardSpeed > 0) {
-      const removedDriveSpeed = Math.min(remainingInwardSpeed, driveInwardSpeed);
+      const removedDriveSpeed = Math.min(
+        remainingInwardSpeed,
+        driveInwardSpeed,
+      );
       this.driveVx -= normal.x * removedDriveSpeed;
       this.driveVy -= normal.y * removedDriveSpeed;
       remainingInwardSpeed -= removedDriveSpeed;

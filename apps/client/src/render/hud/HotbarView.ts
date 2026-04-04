@@ -225,6 +225,9 @@ export class HotbarView {
   public setSlots(items: HotbarSlotItem[], activeIndex: number | null): void {
     for (let index = 0; index < this.slots.length; index += 1) {
       const slot = this.slots[index];
+      if (!slot) {
+        continue;
+      }
       const item = items[index];
       slot.setActive(activeIndex === index);
       if (item && item.typeId) {

@@ -258,7 +258,7 @@ export class GameServer {
       playerEntity.inventory.addWeapon(new BasicGun());
       playerEntity.inventory.addWeapon(new BasicSpear());
       playerEntity.inventory.addWeapon(new Crossbow());
-      playerEntity.inventory.setActiveWeaponIndex(1);
+      playerEntity.inventory.setSelectedHotbarIndex(1);
     }
     playerEntity.seedStarterInventory();
 

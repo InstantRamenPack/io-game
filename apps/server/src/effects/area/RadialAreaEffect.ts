@@ -1,6 +1,9 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { AreaEffect, type AreaEffectOrigin } from "@server/effects/area/AreaEffect.ts";
+import {
+  AreaEffect,
+  type AreaEffectOrigin,
+} from "@server/effects/area/AreaEffect.ts";
 import type { World } from "@server/world/World.ts";
 
 /**

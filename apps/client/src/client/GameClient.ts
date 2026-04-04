@@ -16,7 +16,7 @@ export type GameplayHudState = {
   activeWeaponLabel: string;
   ammoLabel: string | null;
   reloadTicksRemaining: number | null;
-  activeWeaponIndex: number | null;
+  selectedHotbarIndex: number;
   slotLabels: string[];
 };
 
@@ -26,11 +26,12 @@ export type PerformanceRateState = {
 };
 
 export type PointerInput = {
-  kind: "down" | "move";
+  kind: "down" | "move" | "up";
   screenX: number;
   screenY: number;
   worldX: number;
   worldY: number;
+  shiftKey: boolean;
 };
 
 const RATE_SAMPLE_WINDOW_MS = 1000;
@@ -81,6 +82,7 @@ export class GameClient {
       screenY: screenPoint.y,
       worldX: worldPoint.x,
       worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
     });
     if (!handled) {
       this.inputManager.startHoldFire(worldPoint.x, worldPoint.y);
@@ -106,6 +108,7 @@ export class GameClient {
       screenY: screenPoint.y,
       worldX: worldPoint.x,
       worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
     });
     if (!handled) {
       this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
@@ -116,6 +119,22 @@ export class GameClient {
     if (event.button !== 0 || !event.isPrimary) {
       return;
     }
+    const screenPoint = this.renderer.clientToScreen(
+      event.clientX,
+      event.clientY,
+    );
+    const worldPoint = this.renderer.screenToWorld(
+      event.clientX,
+      event.clientY,
+    );
+    this.pointerActionHandler?.({
+      kind: "up",
+      screenX: screenPoint.x,
+      screenY: screenPoint.y,
+      worldX: worldPoint.x,
+      worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
+    });
     this.inputManager.stopHoldFire();
   };
 
@@ -215,20 +234,21 @@ export class GameClient {
     this.flushImmediateInput();
   }
 
-  public queueBuildPlacement(
-    itemTypeId: ResourceId,
-    x: number,
-    y: number,
-  ): void {
-    this.inputManager.queueBuild(itemTypeId, x, y);
+  public queueBuildPlacement(x: number, y: number): void {
+    this.inputManager.queueBuild(x, y);
   }
 
-  public queueSelectWeaponIndex(index: number): void {
-    this.inputManager.queueSelectWeaponIndex(index);
+  public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
+    this.inputManager.queueInventoryMove(fromSlotIndex, toSlotIndex);
+    this.flushImmediateInput();
   }
 
-  public clearPendingWeaponSelection(): void {
-    this.inputManager.clearPendingWeaponSelection();
+  public queueSelectHotbarIndex(index: number): void {
+    this.inputManager.queueSelectHotbarIndex(index);
+  }
+
+  public clearPendingHotbarSelection(): void {
+    this.inputManager.clearPendingHotbarSelection();
   }
 
   public setMovementSuppressed(suppressed: boolean): void {
@@ -313,11 +333,9 @@ export class GameClient {
       return null;
     }
 
-    const activeWeaponIndex = inventory.activeWeaponIndex;
-    const activeWeapon =
-      activeWeaponIndex !== null
-        ? (inventory.weapons[activeWeaponIndex] ?? null)
-        : null;
+    const selectedHotbarIndex = inventory.selectedHotbarIndex;
+    const activeSlot = inventory.hotbarSlots[selectedHotbarIndex];
+    const activeWeapon = activeSlot?.kind === "weapon" ? activeSlot : null;
     const ammoInMag =
       typeof activeWeapon?.ammoInMag === "number"
         ? activeWeapon.ammoInMag
@@ -341,10 +359,14 @@ export class GameClient {
         reloadTicksRemaining !== null && reloadTicksRemaining > 0
           ? reloadTicksRemaining
           : null,
-      activeWeaponIndex,
-      slotLabels: inventory.weapons.map((weapon, weaponIndex) => {
-        const prefix = activeWeaponIndex === weaponIndex ? ">" : "";
-        return `${prefix}${weaponIndex + 1} ${getResourceDisplayLabel(weapon.typeId)}`;
+      selectedHotbarIndex,
+      slotLabels: inventory.hotbarSlots.map((slot, slotIndex) => {
+        const prefix = selectedHotbarIndex === slotIndex ? ">" : "";
+        const label =
+          slot.kind === "weapon" || slot.kind === "buildable"
+            ? getResourceDisplayLabel(slot.typeId)
+            : "Empty";
+        return `${prefix}${slotIndex + 1} ${label}`;
       }),
     };
   }

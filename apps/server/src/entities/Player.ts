@@ -54,7 +54,7 @@ export class Player extends Entity {
       return;
     }
 
-    for (const weapon of this.inventory.weapons) {
+    for (const weapon of this.inventory.iterateWeaponSlots()) {
       weapon.ownerId = this.id;
       weapon.tick(world);
     }
@@ -131,8 +131,8 @@ export class Player extends Entity {
         lastNonZeroMoveY = nextMoveY;
       }
 
-      if (inputCommand.selectWeaponIndex !== undefined) {
-        this.inventory.setActiveWeaponIndex(inputCommand.selectWeaponIndex);
+      if (inputCommand.selectHotbarIndex !== undefined) {
+        this.inventory.setSelectedHotbarIndex(inputCommand.selectHotbarIndex);
       }
 
       if (inputCommand.attack) {
@@ -148,11 +148,11 @@ export class Player extends Entity {
         this.craft(world, inputCommand.craft.itemTypeId as ResourceId);
       } else if (inputCommand.build) {
         buildCount += 1;
-        this.placeStructure(
-          world,
-          inputCommand.build.itemTypeId as ResourceId,
-          inputCommand.build.x,
-          inputCommand.build.y,
+        this.placeStructure(world, inputCommand.build.x, inputCommand.build.y);
+      } else if (inputCommand.inventoryMove) {
+        this.inventory.moveHotbarSlot(
+          inputCommand.inventoryMove.fromSlotIndex,
+          inputCommand.inventoryMove.toSlotIndex,
         );
       }
     }
@@ -182,7 +182,8 @@ export class Player extends Entity {
     }
 
     const speedMult = this.activeEffects.reduce(
-      (acc, e) => (e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc),
+      (acc, e) =>
+        e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc,
       1,
     );
 
@@ -302,8 +303,23 @@ export class Player extends Entity {
       return;
     }
 
+    const isWeaponOutput = outputEntry.ctor.prototype instanceof Weapon;
+    const canStoreCraftOutput = isWeaponOutput
+      ? this.inventory.canAddWeaponCount(recipe.outputAmount)
+      : this.inventory.canAddStackable(itemTypeId, recipe.outputAmount);
+    if (!canStoreCraftOutput) {
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "inventory_full",
+          outputAmount: recipe.outputAmount,
+        });
+      }
+      return;
+    }
+
     this.inventory.consumeTypes(recipe.costs);
-    if (outputEntry.ctor.prototype instanceof Weapon) {
+    if (isWeaponOutput) {
       for (let count = 0; count < recipe.outputAmount; count += 1) {
         this.inventory.addWeapon(new outputEntry.ctor() as Weapon);
       }
@@ -329,12 +345,13 @@ export class Player extends Entity {
     }
   }
 
-  public placeStructure(
-    world: World,
-    itemTypeId: ResourceId,
-    targetX: number,
-    targetY: number,
-  ): void {
+  public placeStructure(world: World, targetX: number, targetY: number): void {
+    const selectedBuildable = this.inventory.getSelectedBuildable();
+    const itemTypeId = selectedBuildable?.typeId;
+    if (!itemTypeId) {
+      return;
+    }
+
     const itemEntry = itemTypeRegistry.get(itemTypeId);
     const buildingTypeId = itemEntry?.content.buildsEntityTypeId;
     if (!buildingTypeId) {
@@ -390,7 +407,7 @@ export class Player extends Entity {
       }
     }
 
-    if (!this.inventory.consumeTypes([{ typeId: itemTypeId, amount: 1 }])) {
+    if (!this.inventory.consumeSelectedBuildable(1)) {
       return;
     }
 
@@ -417,11 +434,13 @@ export class Player extends Entity {
   }
 
   private getNearbyCraftingStations(world: World): Entity[] {
-    return world.spatial.queryBox(
-      this.x - CRAFTING_STATION_QUERY_RADIUS,
-      this.y - CRAFTING_STATION_QUERY_RADIUS,
-      this.x + CRAFTING_STATION_QUERY_RADIUS,
-      this.y + CRAFTING_STATION_QUERY_RADIUS,
-    ).filter((entity) => entity.typeId === "building:crafting_station");
+    return world.spatial
+      .queryBox(
+        this.x - CRAFTING_STATION_QUERY_RADIUS,
+        this.y - CRAFTING_STATION_QUERY_RADIUS,
+        this.x + CRAFTING_STATION_QUERY_RADIUS,
+        this.y + CRAFTING_STATION_QUERY_RADIUS,
+      )
+      .filter((entity) => entity.typeId === "building:crafting_station");
   }
 }

@@ -1,7 +1,10 @@
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
-import { RadialAreaEffect, type RadialAreaEffectHitContext } from "@server/effects/area/RadialAreaEffect.ts";
+import {
+  RadialAreaEffect,
+  type RadialAreaEffectHitContext,
+} from "@server/effects/area/RadialAreaEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import type { World } from "@server/world/World.ts";

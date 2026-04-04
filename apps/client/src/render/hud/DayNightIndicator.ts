@@ -59,7 +59,9 @@ export class DayNightIndicator {
       totalDuration > 0
         ? Math.max(
             1,
-            Math.round((dayNight.nightDurationMs / totalDuration) * this.barWidth),
+            Math.round(
+              (dayNight.nightDurationMs / totalDuration) * this.barWidth,
+            ),
           )
         : Math.floor(this.barWidth / 2);
     const dayWidth = this.barWidth - nightWidth;

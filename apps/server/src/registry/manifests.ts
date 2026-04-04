@@ -20,12 +20,14 @@ import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
 import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
+import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
@@ -95,10 +97,12 @@ export const entityTypeManifests = [
   makeEntityTypeEntry(CannonBullet),
   makeEntityTypeEntry(CrossbowArrow),
   makeEntityTypeEntry(HomingDrone),
+  makeEntityTypeEntry(RifleBullet),
 ] as const;
 
 export const itemTypeManifests = [
   makeItemTypeEntry(BasicGun),
+  makeItemTypeEntry(BasicRifle),
   makeItemTypeEntry(BasicSpear),
   makeItemTypeEntry(BasicSword),
   makeItemTypeEntry(Crossbow),

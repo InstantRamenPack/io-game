@@ -416,7 +416,8 @@ export class Interpolator {
     }
 
     const measuredTickMs =
-      (latestSnapshot.receivedAtMs - oldestSnapshot.receivedAtMs) / elapsedTicks;
+      (latestSnapshot.receivedAtMs - oldestSnapshot.receivedAtMs) /
+      elapsedTicks;
     return clamp(
       measuredTickMs,
       this.expectedSnapshotMs * 0.85,
@@ -499,7 +500,10 @@ export class Interpolator {
         serverX: entity.serverX,
         serverY: entity.serverY,
         preCorrectionErrorDistance,
-        remainingErrorDistance: Math.hypot(targetX - entity.x, targetY - entity.y),
+        remainingErrorDistance: Math.hypot(
+          targetX - entity.x,
+          targetY - entity.y,
+        ),
         referenceTick,
         previousTick,
         nextTick,

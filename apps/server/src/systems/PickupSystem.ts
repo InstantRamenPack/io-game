@@ -51,11 +51,8 @@ export class PickupSystem implements System {
           continue;
         }
 
-        for (const [typeId, amount] of pickup.contents.stackables.entries()) {
-          player.inventory.addStackable(typeId, amount);
-        }
-        for (const weapon of pickup.contents.weapons) {
-          player.inventory.addWeapon(weapon);
+        if (!player.inventory.absorbInventory(pickup.contents)) {
+          continue;
         }
         world.despawn(pickup.id);
       }

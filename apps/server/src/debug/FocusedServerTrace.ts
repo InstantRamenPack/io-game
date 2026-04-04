@@ -119,7 +119,9 @@ export class FocusedServerTrace {
     if (this.configuredEntityId !== null) {
       return entity.id === this.configuredEntityId;
     }
-    return entity instanceof Player && entity.name === this.configuredPlayerName;
+    return (
+      entity instanceof Player && entity.name === this.configuredPlayerName
+    );
   }
 
   public recordWorldPhase(world: World, phase: FocusedTracePhase): void {

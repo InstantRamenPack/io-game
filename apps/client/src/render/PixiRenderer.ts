@@ -179,10 +179,7 @@ export class PixiRenderer {
       iconMap = {};
     }
 
-    const defaultPath =
-      typeof iconMap.__default__ === "string" && iconMap.__default__.length > 0
-        ? iconMap.__default__
-        : "/hud/icons/placeholder.png";
+    const defaultPath = iconMap.__default__ || "/hud/icons/placeholder.png";
 
     this.itemIconMap = { ...iconMap };
     const iconEntries = Object.entries(iconMap).filter(
@@ -509,9 +506,7 @@ export class PixiRenderer {
       effectiveDeltaMs <= 0
         ? 1
         : 1 -
-          Math.exp(
-            -effectiveDeltaMs / PixiRenderer.CAMERA_FOLLOW_SMOOTHING_MS,
-          );
+          Math.exp(-effectiveDeltaMs / PixiRenderer.CAMERA_FOLLOW_SMOOTHING_MS);
     this.cameraPivotX = lerp(
       this.cameraPivotX,
       this.cameraTargetX,

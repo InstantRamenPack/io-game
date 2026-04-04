@@ -350,7 +350,8 @@ export class CraftingModal {
     this.previewDescription.style.wordWrapWidth = detailWidth;
     this.previewDescription.position.set(previewLeft, previewTop + 250);
 
-    const buttonY = this.previewDescription.y + this.previewDescription.height + 18;
+    const buttonY =
+      this.previewDescription.y + this.previewDescription.height + 18;
     const buttonWidth = Math.min(detailWidth, CRAFT_BUTTON_WIDTH);
     this.craftButtonRect = {
       x: modalX + previewLeft,
@@ -387,7 +388,10 @@ export class CraftingModal {
 
     this.previewOutput.text = `Output: ${previewEntry.outputAmount}`;
     this.previewOutput.style.wordWrapWidth = detailWidth;
-    this.previewOutput.position.set(previewLeft, buttonY + CRAFT_BUTTON_HEIGHT + 18);
+    this.previewOutput.position.set(
+      previewLeft,
+      buttonY + CRAFT_BUTTON_HEIGHT + 18,
+    );
 
     this.previewCosts.text = `Costs: ${previewEntry.costsLabel}`;
     this.previewCosts.style.wordWrapWidth = detailWidth;

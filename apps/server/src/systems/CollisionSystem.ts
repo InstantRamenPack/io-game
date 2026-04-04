@@ -59,7 +59,8 @@ class CollisionSystem implements System {
             continue;
           }
           resolvedCollision =
-            this.resolveEntityPair(world, entity, candidate) || resolvedCollision;
+            this.resolveEntityPair(world, entity, candidate) ||
+            resolvedCollision;
         }
       }
 
@@ -114,16 +115,21 @@ class CollisionSystem implements System {
     }
 
     if (clampedX || clampedY) {
-      world.focusedTrace.recordEntityEvent(world, "world_bounds_clamp", entity, {
-        before,
-        after: this.snapshotMotion(entity),
-        clampedX,
-        clampedY,
-        minX,
-        maxX,
-        minY,
-        maxY,
-      });
+      world.focusedTrace.recordEntityEvent(
+        world,
+        "world_bounds_clamp",
+        entity,
+        {
+          before,
+          after: this.snapshotMotion(entity),
+          clampedX,
+          clampedY,
+          minX,
+          maxX,
+          minY,
+          maxY,
+        },
+      );
     }
   }
 
@@ -432,4 +438,4 @@ class CollisionSystem implements System {
   }
 }
 
-export default CollisionSystem
+export default CollisionSystem;

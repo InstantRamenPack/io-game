@@ -16,9 +16,13 @@ const CraftInputSchema = z.object({
 });
 
 const BuildInputSchema = z.object({
-  itemTypeId: z.string().regex(RESOURCE_ID_PATTERN),
   x: z.number(),
   y: z.number(),
+});
+
+const InventoryMoveInputSchema = z.object({
+  fromSlotIndex: z.number().int().min(0).max(9),
+  toSlotIndex: z.number().int().min(0).max(9),
 });
 
 export const InputCommandSchema = z
@@ -27,20 +31,23 @@ export const InputCommandSchema = z
     tick: z.number().int().nonnegative(),
     moveX: z.number(),
     moveY: z.number(),
-    selectWeaponIndex: z.number().int().nonnegative().optional(),
+    selectHotbarIndex: z.number().int().min(0).max(9).optional(),
     attack: AttackInputSchema.optional(),
     craft: CraftInputSchema.optional(),
     build: BuildInputSchema.optional(),
+    inventoryMove: InventoryMoveInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const actionCount =
       Number(Boolean(value.attack)) +
       Number(Boolean(value.craft)) +
-      Number(Boolean(value.build));
+      Number(Boolean(value.build)) +
+      Number(Boolean(value.inventoryMove));
     if (actionCount > 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Only one action of attack, craft, or build is allowed.",
+        message:
+          "Only one action of attack, craft, build, or inventoryMove is allowed.",
       });
     }
   });
@@ -111,6 +118,7 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 
 export type InputCommand = z.infer<typeof InputCommandSchema>;
 export type CraftInput = { itemTypeId: ResourceId };
+export type InventoryMoveInput = z.infer<typeof InventoryMoveInputSchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type InputMessage = z.infer<typeof InputMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
@@ -170,6 +178,7 @@ export function parseClientToServerMessage(
 /**
  * Parses and validates a server-to-client protocol message.
  * @param rawMessage Raw JSON message received from the server.
+ * @param validateSnapshots
  * @returns Typed server message or null when validation fails.
  */
 export function parseServerToClientMessage(
