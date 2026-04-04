@@ -36,15 +36,15 @@ import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
-import { CannonItem } from "@server/items/resources/structures/CannonItem.ts";
-import { CraftingStationItem } from "@server/items/resources/structures/CraftingStationItem.ts";
-import { LandmineItem } from "@server/items/resources/structures/LandmineItem.ts";
-import { WallItem } from "@server/items/resources/structures/WallItem.ts";
-import { CrossbowMagItem } from "@server/items/resources/materials/CrossbowMagItem.ts";
-import { FoodItem } from "@server/items/resources/materials/FoodItem.ts";
-import { GunMagItem } from "@server/items/resources/materials/GunMagItem.ts";
-import { StoneItem } from "@server/items/resources/materials/StoneItem.ts";
-import { WoodItem } from "@server/items/resources/materials/WoodItem.ts";
+import { CannonItem } from "@server/items/structures/CannonItem.ts";
+import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
+import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
+import { WallItem } from "@server/items/structures/WallItem.ts";
+import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
+import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
+import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
+import { StoneItem } from "@server/items/materials/StoneItem.ts";
+import { WoodItem } from "@server/items/materials/WoodItem.ts";
 import type {
   EffectTypeEntry,
   EntityTypeEntry,
@@ -113,9 +113,9 @@ export const itemTypeManifests = [
   makeItemTypeEntry(SaboteurSword),
   makeItemTypeEntry(WoodItem),
   makeItemTypeEntry(StoneItem),
-  makeItemTypeEntry(FoodItem),
-  makeItemTypeEntry(GunMagItem),
-  makeItemTypeEntry(CrossbowMagItem),
+  makeItemTypeEntry(GunMagazineItem),
+  makeItemTypeEntry(CrossbowMagazineItem),
+  makeItemTypeEntry(DroneMagazineItem),
   makeItemTypeEntry(WallItem),
   makeItemTypeEntry(CannonItem),
   makeItemTypeEntry(CraftingStationItem),

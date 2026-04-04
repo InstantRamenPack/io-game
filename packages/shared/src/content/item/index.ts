@@ -6,8 +6,8 @@ import cannonItemJson from "@shared/content/item/cannon.json";
 import crossbowMagItemJson from "@shared/content/item/crossbow_mag.json";
 import crossbowItemJson from "@shared/content/item/crossbow.json";
 import craftingStationItemJson from "@shared/content/item/crafting_station.json";
+import droneMagItemJson from "@shared/content/item/drone_mag.json";
 import droneShooterItemJson from "@shared/content/item/drone_shooter.json";
-import foodItemJson from "@shared/content/item/food.json";
 import gunMagItemJson from "@shared/content/item/gun_mag.json";
 import landmineItemJson from "@shared/content/item/landmine.json";
 import spikedSpearItemJson from "@shared/content/item/spiked_spear.json";
@@ -32,9 +32,9 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("saboteur_sword", saboteurSwordItemJson),
   makeParsedItemContentEntry("wood", woodItemJson),
   makeParsedItemContentEntry("stone", stoneItemJson),
-  makeParsedItemContentEntry("food", foodItemJson),
   makeParsedItemContentEntry("gun_mag", gunMagItemJson),
   makeParsedItemContentEntry("crossbow_mag", crossbowMagItemJson),
+  makeParsedItemContentEntry("drone_mag", droneMagItemJson),
   makeParsedItemContentEntry("wall", wallItemJson),
   makeParsedItemContentEntry("cannon", cannonItemJson),
   makeParsedItemContentEntry("crafting_station", craftingStationItemJson),

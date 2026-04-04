@@ -5,20 +5,28 @@ import {
   CraftingModal,
   type CraftingModalEntry,
 } from "@client/render/hud/CraftingModal.ts";
+import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
+import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
 import { HudPanel } from "@client/render/hud/HudPanel.ts";
+import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
 import { HotbarView } from "@client/render/hud/HotbarView.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
 import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
+import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
   findCraftingStationAtWorldPoint,
   hasNearbyCraftingStation,
   isPlayerNearCraftingStation,
 } from "@client/render/hud/craftingStationInteraction.ts";
+import { buildStatusPanelContent } from "@client/render/hud/hudPanelModels.ts";
 import {
-  buildEffectPanelContent,
-  buildStatusPanelContent,
-} from "@client/render/hud/hudPanelModels.ts";
+  buildActiveEffectEntries,
+  buildCombatHudModel,
+  buildCraftTooltipContent,
+  buildInventoryTooltipContent,
+  buildSelectedItemLabel,
+} from "@client/render/hud/hudPresentationModels.ts";
 import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
@@ -54,6 +62,7 @@ type PixiHudOptions = {
 };
 
 type TextStyleOptions = Partial<PIXI.ITextStyle>;
+type ScreenRect = { x: number; y: number; width: number; height: number };
 
 export class PixiHud {
   private readonly gameClient: GameClient;
@@ -61,21 +70,30 @@ export class PixiHud {
   private readonly state: HudState;
   private root: PIXI.Container | null = null;
   private statusPanel?: HudPanel;
-  private effectPanel?: HudPanel;
+  private effectDetailPanel?: HudPanel;
+  private effectIconView?: EffectIconView;
+  private combatHudView?: CombatHudView;
   private hotbarView?: HotbarView;
   private hotbarEditView?: InventoryView;
   private resourceStackView?: ResourceStackView;
   private craftModalView?: CraftingModal;
+  private tooltipView?: HudTooltipView;
+  private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
   private visible = false;
   private dirty = true;
   private hoveredCraftItemTypeId: ResourceId | null = null;
+  private hoveredCraftPreview = false;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
   private lastHotbarActiveIndex: number | null = null;
   private draggedInventorySlotIndex: number | null = null;
+  private selectedItemToastLabel: string | null = null;
+  private selectedItemToastShownAtMs = 0;
+  private hasSeenInitialHotbarSelection = false;
   private readonly discoveredResourceTypeIds: ResourceId[] = [];
   private readonly resourceCounts = new Map<ResourceId, number>();
+  private readonly selectionToastDurationMs = 1600;
   private readonly titleStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 11,
@@ -126,7 +144,15 @@ export class PixiHud {
     if (!this.root) {
       this.root = new PIXI.Container();
       this.statusPanel = new HudPanel(this.titleStyle, this.bodyStrongStyle);
-      this.effectPanel = new HudPanel(this.titleStyle, this.bodyStyle);
+      this.effectDetailPanel = new HudPanel(this.titleStyle, this.bodyStyle);
+      this.effectIconView = new EffectIconView({
+        iconProvider: (typeId) =>
+          this.gameClient.renderer.getItemTexture(typeId),
+      });
+      this.combatHudView = new CombatHudView({
+        ammoTextureProvider: () =>
+          this.gameClient.renderer.getItemTexture("item:gun_mag"),
+      });
       this.hotbarView = new HotbarView({
         slotCount: HOTBAR_SLOT_COUNT,
         shortcutLabels: HOTBAR_SHORTCUTS,
@@ -155,16 +181,22 @@ export class PixiHud {
           align: "center",
         }),
       });
+      this.tooltipView = new HudTooltipView();
+      this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
 
       this.root.addChild(
         this.statusPanel.container,
-        this.effectPanel.container,
+        this.effectIconView.container,
+        this.effectDetailPanel.container,
+        this.combatHudView.container,
         this.hotbarView.container,
         this.resourceStackView.container,
         this.hotbarEditView.container,
         this.craftModalView.container,
         this.dayNightIndicator.container,
+        this.selectedItemToastView.container,
+        this.tooltipView.container,
       );
     }
 
@@ -303,6 +335,7 @@ export class PixiHud {
     this.state.heldInventorySlotIndex = null;
     this.draggedInventorySlotIndex = null;
     this.hoveredCraftItemTypeId = null;
+    this.hoveredCraftPreview = false;
     this.gameClient.stopHoldFire();
     this.gameClient.setMovementSuppressed(false);
     this.markDirty();
@@ -341,16 +374,19 @@ export class PixiHud {
     this.syncCraftingBenchProximity();
     this.syncResourceStackState();
     this.sanitizeHotbarEditState();
+    const nowMs = performance.now();
     const inventory = this.selectors.getInventory();
     const hotbarActiveIndex = computeHotbarActiveIndex({
       inventory,
       pendingHotbarIndex: this.gameClient.inputManager.pendingSelectHotbarIndex,
     });
     if (hotbarActiveIndex !== this.lastHotbarActiveIndex) {
+      this.handleHotbarSelectionChange(inventory, hotbarActiveIndex, nowMs);
       this.dirty = true;
     }
+    const selectionToastVisible = this.isSelectionToastVisible(nowMs);
 
-    if (!this.dirty && !force && !sizeChanged) {
+    if (!this.dirty && !force && !sizeChanged && !selectionToastVisible) {
       return;
     }
 
@@ -362,7 +398,9 @@ export class PixiHud {
     this.syncHotbarEditView(app.screen.width, app.screen.height);
     this.syncCraftModal(app.screen.width, app.screen.height);
     this.syncDayNight();
+    this.syncSelectedItemToast(nowMs);
     this.layoutPanels(app.screen.width, app.screen.height);
+    this.syncTooltip(app.screen.width, app.screen.height);
   }
 
   public markDirty(): void {
@@ -438,16 +476,31 @@ export class PixiHud {
       return false;
     }
 
-    const hoveredCraft = this.craftModalView.getCraftAtPoint(
+    const hoveredCraftTile = this.craftModalView.getCraftAtPoint(
       pointer.screenX,
       pointer.screenY,
     );
-    if (hoveredCraft === this.hoveredCraftItemTypeId) {
+    const hoveredPreviewCraft =
+      hoveredCraftTile === null
+        ? this.craftModalView.getPreviewedCraftAtPoint(
+            pointer.screenX,
+            pointer.screenY,
+            this.state.previewedCraft,
+          )
+        : null;
+    const nextHoveredCraft = hoveredCraftTile ?? hoveredPreviewCraft;
+    const nextHoveredCraftPreview =
+      hoveredCraftTile === null && hoveredPreviewCraft !== null;
+    if (
+      nextHoveredCraft === this.hoveredCraftItemTypeId &&
+      nextHoveredCraftPreview === this.hoveredCraftPreview
+    ) {
       return true;
     }
 
-    this.hoveredCraftItemTypeId = hoveredCraft;
-    this.state.previewedCraft = hoveredCraft ?? this.state.selectedCraft;
+    this.hoveredCraftItemTypeId = nextHoveredCraft;
+    this.hoveredCraftPreview = nextHoveredCraftPreview;
+    this.state.previewedCraft = nextHoveredCraft ?? this.state.selectedCraft;
     this.markDirty();
     return true;
   }
@@ -502,6 +555,7 @@ export class PixiHud {
     }
 
     this.hoveredCraftItemTypeId = clickedCraft;
+    this.hoveredCraftPreview = false;
     this.state.selectedCraft = clickedCraft;
     this.state.previewedCraft = clickedCraft;
     if (this.canSubmitCraft(clickedCraft)) {
@@ -514,6 +568,7 @@ export class PixiHud {
     this.state.craftingMenuOpen = true;
     this.state.previewedCraft = this.state.selectedCraft;
     this.hoveredCraftItemTypeId = null;
+    this.hoveredCraftPreview = false;
     this.syncOverlaySuppression();
     this.markDirty();
   }
@@ -522,6 +577,7 @@ export class PixiHud {
     this.state.craftingMenuOpen = false;
     this.state.previewedCraft = this.state.selectedCraft;
     this.hoveredCraftItemTypeId = null;
+    this.hoveredCraftPreview = false;
     this.syncOverlaySuppression();
     this.markDirty();
   }
@@ -554,7 +610,9 @@ export class PixiHud {
   private syncPanels(hotbarActiveIndex: number | null): void {
     if (
       !this.statusPanel ||
-      !this.effectPanel ||
+      !this.effectDetailPanel ||
+      !this.effectIconView ||
+      !this.combatHudView ||
       !this.hotbarView ||
       !this.resourceStackView
     ) {
@@ -564,8 +622,11 @@ export class PixiHud {
     const playerEntity = this.selectors.getPlayerEntity();
     const worldEntities = this.selectors.getWorldEntities();
     const buildings = this.selectors.getTrackedBuildings();
-    const activeEffectLabels = this.selectors.getActiveEffectLabels();
     const performanceRates = this.gameClient.getMeasuredRates();
+    const activeEffectEntries = buildActiveEffectEntries({
+      activeEffects: playerEntity?.activeEffects,
+      tickRate: this.gameClient.gameConfig.tickRate,
+    });
 
     const statusContent = buildStatusPanelContent({
       playerEntity,
@@ -580,11 +641,36 @@ export class PixiHud {
       maxWidth: statusContent.maxWidth,
     });
 
-    const effectContent = buildEffectPanelContent(activeEffectLabels);
-    this.effectPanel.setContent(effectContent.title, effectContent.body, {
-      minWidth: effectContent.minWidth,
-      maxWidth: effectContent.maxWidth,
-    });
+    this.effectDetailPanel.setContent(
+      "Effects",
+      activeEffectEntries.length > 0
+        ? activeEffectEntries
+            .map(
+              (entry) =>
+                `${entry.label}: ${entry.secondsRemaining.toFixed(1)}s`,
+            )
+            .join("\n")
+        : "No active effects",
+      {
+        minWidth: 220,
+        maxWidth: 260,
+      },
+    );
+    this.effectDetailPanel.container.visible = this.state.inventoryOpen;
+    this.effectIconView.sync(activeEffectEntries);
+
+    const inventory = this.selectors.getInventory();
+    const activeSlot =
+      hotbarActiveIndex !== null
+        ? (inventory?.hotbarSlots[hotbarActiveIndex] ?? null)
+        : null;
+    this.combatHudView.sync(
+      buildCombatHudModel({
+        playerEntity,
+        activeSlot,
+      }),
+      this.hotbarView.width,
+    );
 
     this.hotbarView.setSlots(this.getHotbarItems(), hotbarActiveIndex);
     this.lastHotbarActiveIndex = hotbarActiveIndex;
@@ -594,6 +680,153 @@ export class PixiHud {
         resourceCounts: this.resourceCounts,
       }),
     );
+  }
+
+  private syncTooltip(screenWidth: number, screenHeight: number): void {
+    if (!this.tooltipView) {
+      return;
+    }
+
+    const tooltipState = this.getTooltipState();
+    this.tooltipView.sync(tooltipState?.content ?? null);
+    if (!tooltipState) {
+      return;
+    }
+
+    const tooltipX =
+      tooltipState.rect.x +
+        tooltipState.rect.width +
+        this.tooltipView.width +
+        12 <=
+      screenWidth - 12
+        ? tooltipState.rect.x + tooltipState.rect.width + 12
+        : Math.max(12, tooltipState.rect.x - this.tooltipView.width - 12);
+    const tooltipY = clamp(
+      tooltipState.rect.y,
+      12,
+      Math.max(12, screenHeight - this.tooltipView.height - 12),
+    );
+    this.tooltipView.setPosition(tooltipX, tooltipY);
+  }
+
+  private syncSelectedItemToast(nowMs: number): void {
+    if (!this.selectedItemToastView) {
+      return;
+    }
+
+    const alpha = this.getSelectionToastAlpha(nowMs);
+    this.selectedItemToastView.sync(this.selectedItemToastLabel, alpha);
+  }
+
+  private getTooltipState():
+    | {
+        content: ReturnType<typeof buildInventoryTooltipContent>;
+        rect: ScreenRect;
+      }
+    | {
+        content: ReturnType<typeof buildCraftTooltipContent>;
+        rect: ScreenRect;
+      }
+    | null {
+    if (
+      this.state.inventoryOpen &&
+      this.hotbarEditView &&
+      this.state.hoveredInventorySlotIndex !== null
+    ) {
+      const slot =
+        this.selectors.getInventory()?.hotbarSlots[
+          this.state.hoveredInventorySlotIndex
+        ];
+      const rect = this.hotbarEditView.getSlotRect(
+        this.state.hoveredInventorySlotIndex,
+      );
+      const content = slot ? buildInventoryTooltipContent(slot) : null;
+      if (rect && content) {
+        return { content, rect };
+      }
+    }
+
+    if (
+      this.state.craftingMenuOpen &&
+      this.craftModalView &&
+      this.hoveredCraftItemTypeId !== null
+    ) {
+      const entry = this.buildCraftEntries().find(
+        (item) => item.typeId === this.hoveredCraftItemTypeId,
+      );
+      if (!entry) {
+        return null;
+      }
+      const rect = this.hoveredCraftPreview
+        ? this.craftModalView.getPreviewRect()
+        : this.craftModalView.getCraftRect(this.hoveredCraftItemTypeId);
+      if (!rect) {
+        return null;
+      }
+      return {
+        content: buildCraftTooltipContent(entry),
+        rect,
+      };
+    }
+
+    return null;
+  }
+
+  private handleHotbarSelectionChange(
+    inventory: InventorySnapshot | undefined,
+    hotbarActiveIndex: number | null,
+    nowMs: number,
+  ): void {
+    if (hotbarActiveIndex === null) {
+      this.hasSeenInitialHotbarSelection = false;
+      return;
+    }
+
+    const slot = inventory?.hotbarSlots[hotbarActiveIndex] ?? null;
+    if (!this.hasSeenInitialHotbarSelection) {
+      this.hasSeenInitialHotbarSelection = true;
+      return;
+    }
+
+    this.selectedItemToastLabel = buildSelectedItemLabel(slot);
+    this.selectedItemToastShownAtMs = nowMs;
+  }
+
+  private isSelectionToastVisible(nowMs: number): boolean {
+    return (
+      this.selectedItemToastLabel !== null &&
+      nowMs - this.selectedItemToastShownAtMs < this.selectionToastDurationMs
+    );
+  }
+
+  private getSelectionToastAlpha(nowMs: number): number {
+    if (!this.isSelectionToastVisible(nowMs)) {
+      return 0;
+    }
+
+    const elapsedMs = nowMs - this.selectedItemToastShownAtMs;
+    const holdDurationMs = 850;
+    const fadeDurationMs = this.selectionToastDurationMs - holdDurationMs;
+    if (elapsedMs <= holdDurationMs) {
+      return 1;
+    }
+
+    return clamp(1 - (elapsedMs - holdDurationMs) / fadeDurationMs, 0, 1);
+  }
+
+  private buildCraftEntries(): CraftingModalEntry[] {
+    return CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId) => {
+      const recipe = this.getRecipeForItem(itemTypeId);
+      return {
+        typeId: itemTypeId,
+        label: this.selectors.formatTypeLabel(itemTypeId),
+        description:
+          recipe.hint ?? "Assemble this item at a nearby crafting station.",
+        costsLabel: this.selectors.formatCosts(recipe.costs),
+        outputAmount: recipe.outputAmount,
+        available: this.selectors.hasRecipeResources(recipe),
+      } satisfies CraftingModalEntry;
+    });
   }
 
   private syncHotbarEditView(screenWidth: number, screenHeight: number): void {
@@ -618,18 +851,7 @@ export class PixiHud {
       return;
     }
 
-    const craftEntries = CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId) => {
-      const recipe = this.getRecipeForItem(itemTypeId);
-      return {
-        typeId: itemTypeId,
-        label: this.selectors.formatTypeLabel(itemTypeId),
-        description:
-          recipe.hint ?? "Assemble this item at a nearby crafting station.",
-        costsLabel: this.selectors.formatCosts(recipe.costs),
-        outputAmount: recipe.outputAmount,
-        available: this.selectors.hasRecipeResources(recipe),
-      } satisfies CraftingModalEntry;
-    });
+    const craftEntries = this.buildCraftEntries();
 
     const craftAvailability = this.describeCraftAvailability(
       this.state.previewedCraft,
@@ -651,8 +873,11 @@ export class PixiHud {
   private layoutPanels(screenWidth: number, screenHeight: number): void {
     if (
       !this.statusPanel ||
-      !this.effectPanel ||
+      !this.effectDetailPanel ||
+      !this.effectIconView ||
+      !this.combatHudView ||
       !this.hotbarView ||
+      !this.selectedItemToastView ||
       !this.dayNightIndicator ||
       !this.resourceStackView
     ) {
@@ -663,19 +888,41 @@ export class PixiHud {
     const gap = 12;
 
     this.statusPanel.setPosition(padding, padding);
-    this.effectPanel.setPosition(
-      screenWidth - padding - this.effectPanel.width,
+    this.effectIconView.setPosition(
+      screenWidth - padding - this.effectIconView.width,
       padding,
     );
     this.resourceStackView.setPosition(
       screenWidth - padding - this.resourceStackView.width,
-      padding + this.effectPanel.height + gap,
+      screenHeight - padding - this.resourceStackView.height,
     );
 
     this.hotbarView.setPosition(
       Math.floor((screenWidth - this.hotbarView.width) / 2),
       screenHeight - padding - this.hotbarView.height,
     );
+    this.combatHudView.setPosition(
+      this.hotbarView.container.x,
+      this.hotbarView.container.y - gap - this.combatHudView.height,
+    );
+    this.selectedItemToastView.setPosition(
+      Math.floor((screenWidth - this.selectedItemToastView.width) / 2),
+      this.combatHudView.container.y - 10 - this.selectedItemToastView.height,
+    );
+
+    const inventoryPanelRect = this.hotbarEditView?.getPanelRect();
+    if (inventoryPanelRect && this.state.inventoryOpen) {
+      this.effectDetailPanel.setPosition(
+        Math.floor((screenWidth - this.effectDetailPanel.width) / 2),
+        Math.max(
+          padding,
+          inventoryPanelRect.y - gap - this.effectDetailPanel.height,
+        ),
+      );
+      this.effectDetailPanel.container.visible = true;
+    } else {
+      this.effectDetailPanel.container.visible = false;
+    }
 
     this.dayNightIndicator.setPosition(
       Math.floor((screenWidth - this.dayNightIndicator.width) / 2),

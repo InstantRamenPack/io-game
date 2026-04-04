@@ -5,7 +5,10 @@ export type HotbarSlotItem = {
   typeId: ResourceId | null;
   count: number | null;
   showCountWhenOne: boolean;
-  ammoFillRatio: number | null;
+  ammoInMag: number | null;
+  magSize: number | null;
+  reserveMagCount: number | null;
+  reloadTicksRemaining: number | null;
 };
 
 class HotbarSlotView {
@@ -13,8 +16,6 @@ class HotbarSlotView {
   private readonly base: PIXI.Graphics;
   private readonly activeOutline: PIXI.Graphics;
   private readonly icon: PIXI.Sprite;
-  private readonly ammoBarTrack: PIXI.Graphics;
-  private readonly ammoBarFill: PIXI.Graphics;
   private readonly countText: PIXI.Text;
   private readonly shortcutText: PIXI.Text;
   private readonly slotSize: number;
@@ -37,8 +38,6 @@ class HotbarSlotView {
     this.activeOutline = new PIXI.Graphics();
     this.icon = new PIXI.Sprite();
     this.icon.anchor.set(0.5);
-    this.ammoBarTrack = new PIXI.Graphics();
-    this.ammoBarFill = new PIXI.Graphics();
     this.countText = new PIXI.Text("", options.countStyle);
     this.countText.anchor.set(1, 1);
     this.shortcutText = new PIXI.Text("", options.shortcutStyle);
@@ -46,8 +45,6 @@ class HotbarSlotView {
     this.container.addChild(this.base);
     this.container.addChild(this.activeOutline);
     this.container.addChild(this.icon);
-    this.container.addChild(this.ammoBarTrack);
-    this.container.addChild(this.ammoBarFill);
     this.container.addChild(this.countText);
     this.container.addChild(this.shortcutText);
 
@@ -99,18 +96,12 @@ class HotbarSlotView {
       this.countText.text = "";
       this.countText.visible = false;
     }
-
-    this.drawAmmoBar(item.ammoFillRatio);
   }
 
   public clearItem(): void {
     this.icon.visible = false;
     this.countText.text = "";
     this.countText.visible = false;
-    this.ammoBarTrack.clear();
-    this.ammoBarTrack.visible = false;
-    this.ammoBarFill.clear();
-    this.ammoBarFill.visible = false;
   }
 
   private drawBase(active: boolean): void {
@@ -126,41 +117,6 @@ class HotbarSlotView {
 
     this.base.lineStyle(1, inner, 0.85);
     this.base.drawRoundedRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3);
-  }
-
-  private drawAmmoBar(fillRatio: number | null): void {
-    this.ammoBarTrack.clear();
-    this.ammoBarFill.clear();
-
-    if (fillRatio === null) {
-      this.ammoBarTrack.visible = false;
-      this.ammoBarFill.visible = false;
-      return;
-    }
-
-    const clampedRatio = Math.max(0, Math.min(1, fillRatio));
-    const barX = 6;
-    const barY = this.slotSize - 9;
-    const barWidth = this.slotSize - 12;
-    const barHeight = 5;
-
-    this.ammoBarTrack.visible = true;
-    this.ammoBarTrack.beginFill(0x1b1b1b, 0.85);
-    this.ammoBarTrack.drawRoundedRect(barX, barY, barWidth, barHeight, 3);
-    this.ammoBarTrack.endFill();
-
-    this.ammoBarFill.visible = true;
-    if (clampedRatio > 0) {
-      this.ammoBarFill.beginFill(0xff9c31, 0.98);
-      this.ammoBarFill.drawRoundedRect(
-        barX,
-        barY,
-        barWidth * clampedRatio,
-        barHeight,
-        3,
-      );
-      this.ammoBarFill.endFill();
-    }
   }
 }
 

@@ -5,6 +5,7 @@ import type {
   InventorySlotSnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 
 export const HOTBAR_SLOT_COUNT = 10;
@@ -333,10 +334,12 @@ export class Inventory {
     );
   }
 
-  public toSnapshot(): InventorySnapshot {
+  public toSnapshot(owner?: Entity): InventorySnapshot {
     return {
       resources: this.getResourceSnapshot(),
-      hotbarSlots: this.hotbarSlots.map((slot) => this.toSlotSnapshot(slot)),
+      hotbarSlots: this.hotbarSlots.map((slot) =>
+        this.toSlotSnapshot(slot, owner),
+      ),
       selectedHotbarIndex: this.selectedHotbarIndex,
     };
   }
@@ -383,7 +386,10 @@ export class Inventory {
     this.resourcesDirty = true;
   }
 
-  private toSlotSnapshot(slot: InventorySlot): InventorySlotSnapshot {
+  private toSlotSnapshot(
+    slot: InventorySlot,
+    owner?: Entity,
+  ): InventorySlotSnapshot {
     if (!slot) {
       return { kind: "empty" };
     }
@@ -392,6 +398,7 @@ export class Inventory {
       return {
         kind: "weapon",
         ...slot.weapon.toSnapshot(),
+        reserveMagCount: slot.weapon.getReserveMagCount(owner),
       };
     }
 

@@ -167,6 +167,22 @@ export class RangedWeapon extends Weapon {
     };
   }
 
+  public override getReserveMagCount(
+    owner: Entity | undefined,
+  ): number | undefined {
+    if (owner?.hasInfiniteReloadMags()) {
+      return undefined;
+    }
+
+    if (!this.magItemTypeId) {
+      return undefined;
+    }
+
+    return (
+      owner?.getReloadInventory()?.getStackableCount(this.magItemTypeId) ?? 0
+    );
+  }
+
   public getProjectileSpeed(): number {
     return this.resolveProjectileType().definition.speed;
   }

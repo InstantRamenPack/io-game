@@ -67,24 +67,12 @@ class ResourceCircleView {
 export class ResourceStackView {
   public readonly container = new PIXI.Container();
   private readonly views: ResourceCircleView[] = [];
-  private readonly title: PIXI.Text;
   private widthValue = 0;
   private heightValue = 0;
   private readonly circleSize = 52;
   private readonly gap = 10;
 
   constructor(options: { iconProvider: (typeId: ResourceId) => PIXI.Texture }) {
-    this.title = new PIXI.Text(
-      "Resources",
-      new PIXI.TextStyle({
-        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 11,
-        fill: 0x9fb39c,
-        letterSpacing: 1.1,
-      }),
-    );
-    this.container.addChild(this.title);
-
     for (let index = 0; index < 24; index += 1) {
       const view = new ResourceCircleView({
         size: this.circleSize,
@@ -108,8 +96,6 @@ export class ResourceStackView {
   }
 
   public sync(entries: ResourceStackEntry[]): void {
-    this.title.position.set(4, 0);
-
     const visibleEntries = entries.slice(0, this.views.length);
     for (let index = 0; index < this.views.length; index += 1) {
       const view = this.views[index];
@@ -121,7 +107,7 @@ export class ResourceStackView {
       if (!entry) {
         continue;
       }
-      const y = 20 + index * (this.circleSize + this.gap);
+      const y = index * (this.circleSize + this.gap);
       view.setLayout(0, y);
       view.render(entry);
     }
@@ -129,10 +115,9 @@ export class ResourceStackView {
     this.widthValue = this.circleSize;
     this.heightValue =
       visibleEntries.length > 0
-        ? 20 +
-          visibleEntries.length * this.circleSize +
+        ? visibleEntries.length * this.circleSize +
           (visibleEntries.length - 1) * this.gap
-        : 20;
+        : 0;
   }
 
   public setPosition(x: number, y: number): void {

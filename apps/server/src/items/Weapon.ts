@@ -60,4 +60,8 @@ export abstract class Weapon extends Item {
       cooldownTicksRemaining: this.cooldownTicks,
     };
   }
+
+  public getReserveMagCount(_owner: Entity | undefined): number | undefined {
+    return undefined;
+  }
 }

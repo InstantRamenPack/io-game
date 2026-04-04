@@ -36,7 +36,10 @@ export function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
       typeId: null,
       count: null,
       showCountWhenOne: false,
-      ammoFillRatio: null,
+      ammoInMag: null,
+      magSize: null,
+      reserveMagCount: null,
+      reloadTicksRemaining: null,
     };
   }
 
@@ -45,7 +48,10 @@ export function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
       typeId: slot.typeId,
       count: slot.count,
       showCountWhenOne: true,
-      ammoFillRatio: null,
+      ammoInMag: null,
+      magSize: null,
+      reserveMagCount: null,
+      reloadTicksRemaining: null,
     };
   }
 
@@ -53,29 +59,13 @@ export function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
     typeId: slot.typeId,
     count: null,
     showCountWhenOne: false,
-    ammoFillRatio: getWeaponAmmoFillRatio(slot),
+    ammoInMag: typeof slot.ammoInMag === "number" ? slot.ammoInMag : null,
+    magSize: typeof slot.magSize === "number" ? slot.magSize : null,
+    reserveMagCount:
+      typeof slot.reserveMagCount === "number" ? slot.reserveMagCount : null,
+    reloadTicksRemaining:
+      typeof slot.reloadTicksRemaining === "number"
+        ? slot.reloadTicksRemaining
+        : null,
   };
-}
-
-function getWeaponAmmoFillRatio(
-  slot: Extract<InventorySlotSnapshot, { kind: "weapon" }>,
-): number | null {
-  if (typeof slot.magSize !== "number" || slot.magSize <= 0) {
-    return null;
-  }
-
-  if (
-    typeof slot.reloadTicksRemaining === "number" &&
-    slot.reloadTicksRemaining > 0 &&
-    typeof slot.reloadTicks === "number" &&
-    slot.reloadTicks > 0
-  ) {
-    return 1 - slot.reloadTicksRemaining / slot.reloadTicks;
-  }
-
-  if (typeof slot.ammoInMag !== "number") {
-    return null;
-  }
-
-  return slot.ammoInMag / slot.magSize;
 }

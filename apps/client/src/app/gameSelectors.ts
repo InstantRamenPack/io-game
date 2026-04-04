@@ -23,7 +23,6 @@ export type GameSelectors = {
   countInventoryType(typeId: string): number;
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
-  getActiveEffectLabels(): string[];
   getDayNight(): DayNightSnapshot | undefined;
 };
 
@@ -114,14 +113,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
       .join(" / ");
   }
 
-  function getActiveEffectLabels(): string[] {
-    return (getPlayerEntity()?.activeEffects ?? []).map((effect) => {
-      const secondsRemaining =
-        effect.ticksRemaining / gameClient.gameConfig.tickRate;
-      return `${formatTypeLabel(effect.typeId)} (${secondsRemaining.toFixed(1)}s)`;
-    });
-  }
-
   return {
     getTypePath,
     formatTypeLabel,
@@ -134,7 +125,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     countInventoryType,
     hasRecipeResources,
     formatCosts,
-    getActiveEffectLabels,
     getDayNight: () => gameClient.worldState?.clientWorld?.dayNight,
   };
 }

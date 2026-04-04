@@ -1,0 +1,235 @@
+import * as PIXI from "pixijs";
+import type { CombatHudModel } from "@client/render/hud/hudPresentationModels.ts";
+
+const HEALTH_ROW_HEIGHT = 28;
+const AMMO_ICON_SIZE = 14;
+const AMMO_ICON_GAP = 4;
+const AMMO_ROW_GAP = 6;
+
+export class CombatHudView {
+  public readonly container = new PIXI.Container();
+  private readonly healthFrame = new PIXI.Graphics();
+  private readonly healthTrack = new PIXI.Graphics();
+  private readonly healthFill = new PIXI.Graphics();
+  private readonly healthText: PIXI.Text;
+  private readonly ammoFrame = new PIXI.Graphics();
+  private readonly reserveText: PIXI.Text;
+  private readonly reloadText: PIXI.Text;
+  private readonly ammoSprites: PIXI.Sprite[] = [];
+  private readonly ammoTextureProvider: () => PIXI.Texture;
+  private widthValue = 0;
+  private heightValue = 0;
+
+  constructor(options: { ammoTextureProvider: () => PIXI.Texture }) {
+    this.ammoTextureProvider = options.ammoTextureProvider;
+    this.healthText = new PIXI.Text(
+      "",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 13,
+        fill: 0xf3f6ee,
+        stroke: 0x0c120b,
+        strokeThickness: 3,
+      }),
+    );
+    this.healthText.anchor.set(0.5);
+
+    this.reserveText = new PIXI.Text(
+      "",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 12,
+        fill: 0xd9e3d0,
+      }),
+    );
+    this.reserveText.anchor.set(1, 0.5);
+
+    this.reloadText = new PIXI.Text(
+      "",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 12,
+        fill: 0xf0c173,
+      }),
+    );
+    this.reloadText.anchor.set(0, 0.5);
+
+    this.container.addChild(
+      this.healthFrame,
+      this.healthTrack,
+      this.healthFill,
+      this.ammoFrame,
+      this.healthText,
+      this.reserveText,
+      this.reloadText,
+    );
+  }
+
+  public sync(model: CombatHudModel | null, width: number): void {
+    this.widthValue = Math.max(0, Math.floor(width));
+    this.heightValue = 0;
+    this.container.visible = Boolean(model) && this.widthValue > 0;
+    if (!model || this.widthValue <= 0) {
+      this.hideAmmoSprites();
+      return;
+    }
+
+    const padding = 8;
+    this.heightValue = HEALTH_ROW_HEIGHT;
+
+    if (!model.ammo) {
+      this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
+      this.ammoFrame.clear();
+      this.reserveText.text = "";
+      this.reloadText.text = "";
+      this.hideAmmoSprites();
+      return;
+    }
+
+    const reserveBlockWidth = 72;
+    const ammoInnerWidth = Math.max(
+      1,
+      this.widthValue - padding * 2 - reserveBlockWidth - 12,
+    );
+    const iconsPerRow = Math.max(
+      1,
+      Math.floor(
+        (ammoInnerWidth + AMMO_ICON_GAP) / (AMMO_ICON_SIZE + AMMO_ICON_GAP),
+      ),
+    );
+    const rows = Math.max(1, Math.ceil(model.ammo.magSize / iconsPerRow));
+    const ammoHeight =
+      padding * 2 + rows * AMMO_ICON_SIZE + (rows - 1) * AMMO_ROW_GAP;
+    const ammoY = 0;
+    const healthY = ammoHeight + 6;
+    this.heightValue = healthY + HEALTH_ROW_HEIGHT;
+
+    this.ammoFrame.clear();
+    this.ammoFrame.lineStyle(1, 0x4f5d51, 0.55);
+    this.ammoFrame.beginFill(0x101512, 0.86);
+    this.ammoFrame.drawRoundedRect(0, ammoY, this.widthValue, ammoHeight, 10);
+    this.ammoFrame.endFill();
+
+    this.reserveText.text =
+      model.ammo.reserveMagCount !== null
+        ? `Mags ${model.ammo.reserveMagCount}`
+        : "";
+    this.reserveText.position.set(
+      this.widthValue - padding,
+      ammoY + ammoHeight / 2,
+    );
+
+    this.reloadText.text =
+      model.ammo.reloadTicksRemaining !== null ? "Reloading" : "";
+    this.reloadText.position.set(padding, ammoY + ammoHeight / 2);
+
+    const iconStartX =
+      padding +
+      (this.reloadText.text.length > 0 ? this.reloadText.width + 10 : 0);
+    const iconTopY = ammoY + padding;
+    const texture = this.ammoTextureProvider();
+    this.ensureAmmoSpriteCount(model.ammo.magSize);
+
+    for (let index = 0; index < this.ammoSprites.length; index += 1) {
+      const sprite = this.ammoSprites[index];
+      if (!sprite) {
+        continue;
+      }
+      sprite.visible = index < model.ammo.magSize;
+      if (!sprite.visible) {
+        continue;
+      }
+      sprite.texture = texture;
+      sprite.width = AMMO_ICON_SIZE;
+      sprite.height = AMMO_ICON_SIZE;
+      const row = Math.floor(index / iconsPerRow);
+      const column = index % iconsPerRow;
+      sprite.position.set(
+        iconStartX + column * (AMMO_ICON_SIZE + AMMO_ICON_GAP),
+        iconTopY + row * (AMMO_ICON_SIZE + AMMO_ROW_GAP),
+      );
+      sprite.tint = index < model.ammo.ammoInMag ? 0xffe087 : 0x5f6461;
+      sprite.alpha = index < model.ammo.ammoInMag ? 0.98 : 0.5;
+    }
+
+    this.drawHealthRow(
+      model.hp,
+      model.maxHp,
+      healthY,
+      this.widthValue,
+      padding,
+    );
+  }
+
+  public setPosition(x: number, y: number): void {
+    this.container.position.set(x, y);
+  }
+
+  public get width(): number {
+    return this.widthValue;
+  }
+
+  public get height(): number {
+    return this.heightValue;
+  }
+
+  private drawHealthRow(
+    hp: number,
+    maxHp: number,
+    y: number,
+    width: number,
+    padding: number,
+  ): void {
+    const clampedMax = Math.max(1, maxHp);
+    const ratio = Math.max(0, Math.min(1, hp / clampedMax));
+    this.healthFrame.clear();
+    this.healthFrame.lineStyle(1, 0x61735b, 0.65);
+    this.healthFrame.beginFill(0x121915, 0.9);
+    this.healthFrame.drawRoundedRect(0, y, width, HEALTH_ROW_HEIGHT, 10);
+    this.healthFrame.endFill();
+
+    const trackX = padding;
+    const trackY = y + 7;
+    const trackWidth = width - padding * 2;
+    const trackHeight = 14;
+
+    this.healthTrack.clear();
+    this.healthTrack.beginFill(0x261d1d, 0.95);
+    this.healthTrack.drawRoundedRect(
+      trackX,
+      trackY,
+      trackWidth,
+      trackHeight,
+      7,
+    );
+    this.healthTrack.endFill();
+
+    this.healthFill.clear();
+    this.healthFill.beginFill(0xb44646, 0.96);
+    this.healthFill.drawRoundedRect(
+      trackX,
+      trackY,
+      Math.max(0, trackWidth * ratio),
+      trackHeight,
+      7,
+    );
+    this.healthFill.endFill();
+
+    this.healthText.text = `${Math.max(0, Math.round(hp))}/${Math.max(0, Math.round(maxHp))}`;
+    this.healthText.position.set(width / 2, y + HEALTH_ROW_HEIGHT / 2);
+  }
+
+  private ensureAmmoSpriteCount(count: number): void {
+    while (this.ammoSprites.length < count) {
+      const sprite = new PIXI.Sprite(this.ammoTextureProvider());
+      this.ammoSprites.push(sprite);
+      this.container.addChild(sprite);
+    }
+  }
+
+  private hideAmmoSprites(): void {
+    for (const sprite of this.ammoSprites) {
+      sprite.visible = false;
+    }
+  }
+}

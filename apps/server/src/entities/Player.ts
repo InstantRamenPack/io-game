@@ -67,7 +67,7 @@ export class Player extends Entity {
       ...snapshot,
       kind: "player",
       name: this.name,
-      inventory: this.inventory.toSnapshot(),
+      inventory: this.inventory.toSnapshot(this),
       activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
     };
@@ -417,9 +417,9 @@ export class Player extends Entity {
   public seedStarterInventory(): void {
     this.inventory.addStackable("item:wood", 120);
     this.inventory.addStackable("item:stone", 80);
-    this.inventory.addStackable("item:food", 6);
     this.inventory.addStackable("item:gun_mag", 2);
     this.inventory.addStackable("item:crossbow_mag", 2);
+    this.inventory.addStackable("item:drone_mag", 2);
     this.inventory.addStackable("item:landmine", 5);
     this.inventory.addStackable("item:wall", 8);
     this.inventory.addStackable("item:cannon", 2);

@@ -15,8 +15,6 @@ class InventorySlotView {
   private readonly icon = new PIXI.Sprite();
   private readonly countText: PIXI.Text;
   private readonly shortcutText: PIXI.Text;
-  private readonly ammoBarTrack = new PIXI.Graphics();
-  private readonly ammoBarFill = new PIXI.Graphics();
   private readonly iconProvider: (typeId: ResourceId) => PIXI.Texture;
   private readonly size: number;
 
@@ -37,8 +35,6 @@ class InventorySlotView {
     this.container.addChild(
       this.background,
       this.icon,
-      this.ammoBarTrack,
-      this.ammoBarFill,
       this.countText,
       this.shortcutText,
     );
@@ -82,10 +78,6 @@ class InventorySlotView {
       this.icon.visible = false;
       this.countText.visible = false;
       this.countText.text = "";
-      this.ammoBarTrack.clear();
-      this.ammoBarTrack.visible = false;
-      this.ammoBarFill.clear();
-      this.ammoBarFill.visible = false;
       return;
     }
 
@@ -104,42 +96,6 @@ class InventorySlotView {
       this.countText.visible = false;
       this.countText.text = "";
     }
-
-    this.drawAmmoBar(item.ammoFillRatio);
-  }
-
-  private drawAmmoBar(fillRatio: number | null): void {
-    this.ammoBarTrack.clear();
-    this.ammoBarFill.clear();
-
-    if (fillRatio === null) {
-      this.ammoBarTrack.visible = false;
-      this.ammoBarFill.visible = false;
-      return;
-    }
-
-    const clampedRatio = Math.max(0, Math.min(1, fillRatio));
-    const barWidth = this.size - 14;
-    const barX = 7;
-    const barY = this.size - 10;
-
-    this.ammoBarTrack.visible = true;
-    this.ammoBarTrack.beginFill(0x090b09, 0.88);
-    this.ammoBarTrack.drawRoundedRect(barX, barY, barWidth, 4, 2);
-    this.ammoBarTrack.endFill();
-
-    this.ammoBarFill.visible = true;
-    if (clampedRatio > 0) {
-      this.ammoBarFill.beginFill(0xff9c31, 0.96);
-      this.ammoBarFill.drawRoundedRect(
-        barX,
-        barY,
-        barWidth * clampedRatio,
-        4,
-        2,
-      );
-      this.ammoBarFill.endFill();
-    }
   }
 }
 
@@ -151,6 +107,7 @@ export class InventoryView {
   private readonly helper: PIXI.Text;
   private readonly slots: InventorySlotView[] = [];
   private readonly slotRects = new Map<number, Rect>();
+  private panelRect: Rect | null = null;
   private readonly slotSize = 64;
   private readonly gap = 10;
   private readonly padding = 20;
@@ -222,6 +179,7 @@ export class InventoryView {
 
     this.container.visible = visible;
     this.slotRects.clear();
+    this.panelRect = null;
     if (!visible) {
       return;
     }
@@ -231,6 +189,12 @@ export class InventoryView {
     const modalHeight = this.slotSize + this.padding * 2 + 72;
     const modalX = Math.floor((screenWidth - modalWidth) / 2);
     const modalY = Math.floor((screenHeight - modalHeight) / 2);
+    this.panelRect = {
+      x: modalX,
+      y: modalY,
+      width: modalWidth,
+      height: modalHeight,
+    };
     this.container.position.set(modalX, modalY);
 
     this.backdrop.clear();
@@ -290,6 +254,14 @@ export class InventoryView {
     }
     return null;
   }
+
+  public getSlotRect(slotIndex: number): Rect | null {
+    return this.slotRects.get(slotIndex) ?? null;
+  }
+
+  public getPanelRect(): Rect | null {
+    return this.panelRect;
+  }
 }
 
 function emptySlotItem(): HotbarSlotItem {
@@ -297,6 +269,9 @@ function emptySlotItem(): HotbarSlotItem {
     typeId: null,
     count: null,
     showCountWhenOne: false,
-    ammoFillRatio: null,
+    ammoInMag: null,
+    magSize: null,
+    reserveMagCount: null,
+    reloadTicksRemaining: null,
   };
 }

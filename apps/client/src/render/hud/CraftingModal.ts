@@ -116,6 +116,7 @@ export class CraftingModal {
   private readonly tileRects = new Map<ResourceId, Rect>();
   private craftButtonRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private previewRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
   constructor(styles: CraftingModalStyles) {
     this.container = new PIXI.Container();
@@ -194,6 +195,7 @@ export class CraftingModal {
     if (!visible) {
       this.craftButtonRect = { x: 0, y: 0, width: 0, height: 0 };
       this.modalRect = { x: 0, y: 0, width: 0, height: 0 };
+      this.previewRect = { x: 0, y: 0, width: 0, height: 0 };
       return;
     }
 
@@ -314,6 +316,12 @@ export class CraftingModal {
     const previewLeft = leftWidth + 26;
     const previewTop = 60;
     const detailWidth = modalWidth - previewLeft - 26;
+    this.previewRect = {
+      x: modalX + previewLeft,
+      y: modalY + previewTop,
+      width: detailWidth,
+      height: CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
+    };
 
     this.previewFrame.clear();
     this.previewFrame.lineStyle(2, 0x8ed061, 0.65);
@@ -416,6 +424,26 @@ export class CraftingModal {
 
   public isCraftButtonAtPoint(screenX: number, screenY: number): boolean {
     return isPointInRect(screenX, screenY, this.craftButtonRect);
+  }
+
+  public getPreviewedCraftAtPoint(
+    screenX: number,
+    screenY: number,
+    previewedCraft: ResourceId,
+  ): ResourceId | null {
+    return isPointInRect(screenX, screenY, this.previewRect)
+      ? previewedCraft
+      : null;
+  }
+
+  public getCraftRect(typeId: ResourceId): Rect | null {
+    return this.tileRects.get(typeId) ?? null;
+  }
+
+  public getPreviewRect(): Rect | null {
+    return this.previewRect.width > 0 && this.previewRect.height > 0
+      ? this.previewRect
+      : null;
   }
 }
 

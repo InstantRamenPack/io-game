@@ -1,6 +1,12 @@
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
+const HIDDEN_RESOURCE_TYPE_IDS = new Set<ResourceId>([
+  "item:gun_mag",
+  "item:crossbow_mag",
+  "item:drone_mag",
+]);
+
 export type ResourceStackEntry = {
   typeId: ResourceId;
   count: number;
@@ -18,6 +24,9 @@ export function syncDiscoveredResources(options: {
   }
 
   for (const resource of inventory?.resources ?? []) {
+    if (HIDDEN_RESOURCE_TYPE_IDS.has(resource.typeId)) {
+      continue;
+    }
     if (!discoveredResourceTypeIds.includes(resource.typeId)) {
       discoveredResourceTypeIds.unshift(resource.typeId);
     }
@@ -34,8 +43,10 @@ export function buildResourceStackEntries(options: {
   resourceCounts: Map<ResourceId, number>;
 }): ResourceStackEntry[] {
   const { discoveredResourceTypeIds, resourceCounts } = options;
-  return discoveredResourceTypeIds.map((typeId) => ({
-    typeId,
-    count: resourceCounts.get(typeId) ?? 0,
-  }));
+  return discoveredResourceTypeIds
+    .filter((typeId) => !HIDDEN_RESOURCE_TYPE_IDS.has(typeId))
+    .map((typeId) => ({
+      typeId,
+      count: resourceCounts.get(typeId) ?? 0,
+    }));
 }
