@@ -62,6 +62,7 @@ export class PixiRenderer {
   private cameraInitialized = false;
   private gameplayViewportWidth = 0;
   private gameplayViewportHeight = 0;
+  private tickRate = 20;
 
   public playerEntityId?: number;
 
@@ -101,6 +102,16 @@ export class PixiRenderer {
     if (entityId === undefined) {
       this.cameraInitialized = false;
     }
+  }
+
+  public setTickRate(tickRate: number): void {
+    if (Number.isFinite(tickRate) && tickRate > 0) {
+      this.tickRate = Math.floor(tickRate);
+    }
+  }
+
+  public getTickRate(): number {
+    return this.tickRate;
   }
 
   public async init(
@@ -466,9 +477,6 @@ export class PixiRenderer {
       Math.cos(t * 2.4 + 2.2) * amplitude * 0.28;
     this.confusionSwimX = offsetX;
     this.confusionSwimY = offsetY;
-    this.world.position.x += offsetX;
-    this.world.position.y += offsetY;
-
     // --- Flash: slams full white on impact, gone in 0.6s ---
     if (this.confusionFlash) {
       const flashPhase = Math.max(0, 1 - t / 0.6);
@@ -533,8 +541,8 @@ export class PixiRenderer {
     this.world.pivot.set(this.cameraPivotX, this.cameraPivotY);
     this.world.scale.set(scale, scale);
     this.world.position.set(
-      this.app.screen.width / 2,
-      this.app.screen.height / 2,
+      this.app.screen.width / 2 + this.confusionSwimX,
+      this.app.screen.height / 2 + this.confusionSwimY,
     );
   }
 

@@ -10,12 +10,12 @@ export class SweepMeleeWeapon extends MeleeWeapon {
   public sweepArcDegrees: number;
 
   constructor(
-    fireRate: number,
+    cooldownTicks: number,
     range: number,
     hitEffects: Effect[],
     sweepArcDegrees: number,
   ) {
-    super(fireRate, range, hitEffects);
+    super(cooldownTicks, range, hitEffects);
     this.sweepArcDegrees = sweepArcDegrees;
   }
 

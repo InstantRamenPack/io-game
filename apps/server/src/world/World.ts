@@ -74,9 +74,7 @@ export class World {
     }
     this.focusedTrace.recordWorldPhase(this, "after_integrate");
 
-    this.syncSpatialIndex();
     this.collisionSystem.update(this);
-    this.syncSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     for (const entity of this.entities.all()) {
@@ -88,6 +86,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     this.pickupSystem.update(this, deltaMs);
+    this.syncSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
 
@@ -126,6 +125,6 @@ export class World {
   }
 
   private syncSpatialIndex(): void {
-    this.spatial.rebuild(this.entities.collidable());
+    this.spatial.rebuild(this.entities.all());
   }
 }

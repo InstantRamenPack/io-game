@@ -125,6 +125,7 @@ export abstract class Entity {
       hitboxes: this.getSnapshotHitboxes(),
       hp: this.hp,
       maxHp: this.maxHp,
+      alive: this.alive,
       ownerId: this.ownerId,
     };
   }
@@ -469,7 +470,6 @@ export abstract class Entity {
     const isFatal = nextHp <= 0;
     const damageEvent: NetEvent = {
       type: "damage",
-      tick: world.tick + 1,
       payload: {
         sourceId,
         targetId: this.id,

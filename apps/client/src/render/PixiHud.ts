@@ -378,7 +378,7 @@ export class PixiHud {
     const inventory = this.selectors.getInventory();
     const hotbarActiveIndex = computeHotbarActiveIndex({
       inventory,
-      pendingHotbarIndex: this.gameClient.inputManager.pendingSelectHotbarIndex,
+      pendingHotbarIndex: undefined,
     });
     if (hotbarActiveIndex !== this.lastHotbarActiveIndex) {
       this.handleHotbarSelectionChange(inventory, hotbarActiveIndex, nowMs);

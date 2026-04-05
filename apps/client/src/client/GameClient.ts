@@ -7,9 +7,13 @@ import {
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
+import {
+  getResourceDisplayLabel,
+  getWeaponContent,
+} from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export type GameplayHudState = {
@@ -32,6 +36,11 @@ export type PointerInput = {
   worldX: number;
   worldY: number;
   shiftKey: boolean;
+};
+
+type AimTarget = {
+  x: number;
+  y: number;
 };
 
 const RATE_SAMPLE_WINDOW_MS = 1000;
@@ -62,6 +71,7 @@ export class GameClient {
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
+  private pointerAimTarget?: AimTarget;
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -76,6 +86,7 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     const handled = this.pointerActionHandler?.({
       kind: "down",
       screenX: screenPoint.x,
@@ -102,6 +113,7 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     const handled = this.pointerActionHandler?.({
       kind: "move",
       screenX: screenPoint.x,
@@ -127,6 +139,7 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     this.pointerActionHandler?.({
       kind: "up",
       screenX: screenPoint.x,
@@ -140,7 +153,10 @@ export class GameClient {
 
   constructor(
     gameConfig: GameConfig,
-    options: { debugHitbox?: boolean; debugInterpolationMode?: number } = {},
+    options: {
+      debugHitbox?: boolean;
+      debugInterpolationMode?: number;
+    } = {},
   ) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
@@ -156,6 +172,16 @@ export class GameClient {
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
+    this.inputManager.onMoveIntent(({ key, pressed }) => {
+      if (!this.sessionReady || !this.isTransportConnected()) {
+        return;
+      }
+      this.networkClient.sendMoveIntent(
+        this.inputManager.nextSequence(),
+        key,
+        pressed,
+      );
+    });
 
     window.gameClient = this;
   }
@@ -209,6 +235,7 @@ export class GameClient {
 
     this.gameConfig.tickRate = Math.floor(tickRate);
     this.interpolator.setExpectedSnapshotMs(1000 / this.gameConfig.tickRate);
+    this.renderer.setTickRate(this.gameConfig.tickRate);
   }
 
   public setPointerActionHandler(
@@ -226,33 +253,78 @@ export class GameClient {
   }
 
   public queueAttack(x: number, y: number): void {
-    this.inputManager.queueAttack(x, y);
+    this.sendAttackAction(x, y, performance.now());
   }
 
   public queueCraftItem(itemTypeId: ResourceId): void {
-    this.inputManager.queueCraft(itemTypeId);
-    this.flushImmediateInput();
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "craft",
+      craft: { itemTypeId },
+    });
   }
 
   public queueBuildPlacement(x: number, y: number): void {
-    this.inputManager.queueBuild(x, y);
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "build",
+      build: { x, y },
+    });
   }
 
   public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
-    this.inputManager.queueInventoryMove(fromSlotIndex, toSlotIndex);
-    this.flushImmediateInput();
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "inventoryMove",
+      inventoryMove: {
+        fromSlotIndex,
+        toSlotIndex,
+      },
+    });
   }
 
   public queueSelectHotbarIndex(index: number): void {
-    this.inputManager.queueSelectHotbarIndex(index);
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "selectHotbar",
+      index,
+    });
   }
 
   public clearPendingHotbarSelection(): void {
-    this.inputManager.clearPendingHotbarSelection();
+    // Hotbar selection now sends immediately and no longer stages local state.
+  }
+
+  public requestRespawn(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.sendRespawn();
   }
 
   public setMovementSuppressed(suppressed: boolean): void {
     this.inputManager.setMovementSuppressed(suppressed);
+  }
+
+  public isLocalPlayerAlive(): boolean | null {
+    const player = this.getLocalPlayerEntity();
+    return player ? player.alive : null;
+  }
+
+  public getOnlinePlayerNames(): string[] {
+    const entities = this.worldState?.clientWorld?.entities.values();
+    if (!entities) {
+      return [];
+    }
+
+    return [...entities]
+      .filter((entity) => entity.kind === "player" && entity.name)
+      .map((entity) => entity.name as string)
+      .sort((left, right) => left.localeCompare(right));
   }
 
   public start(
@@ -276,7 +348,7 @@ export class GameClient {
     this.networkClient.connect(url, {
       googleIdToken: connectOptions.googleIdToken,
       playerName: connectOptions.playerName,
-      protocolVersion: this.gameConfig.protocolVersion,
+      compatHash: this.gameConfig.compatHash,
     });
   }
 
@@ -288,6 +360,7 @@ export class GameClient {
         deltaMs,
         this.playerEntityId,
       );
+      this.syncLocalAimRotation();
       this.worldState.clientWorld?.update(deltaMs);
     }
     this.renderer.update(deltaMs);
@@ -318,6 +391,7 @@ export class GameClient {
   public stop(): void {
     this.started = false;
     this.sessionReady = false;
+    this.pointerAimTarget = undefined;
     this.stopFrameLoop();
     this.resetPerformanceRateSamples();
     this.networkClient.disconnect();
@@ -386,7 +460,9 @@ export class GameClient {
     const frameMs = 1000 / 60;
     const steps = Math.max(1, Math.round(ms / frameMs));
     for (let index = 0; index < steps; index += 1) {
-      this.update(frameMs, performance.now() + index * frameMs);
+      const frameTimeMs = performance.now() + index * frameMs;
+      this.updateHeldAttack(frameTimeMs);
+      this.update(frameMs, frameTimeMs);
     }
   }
 
@@ -415,7 +491,7 @@ export class GameClient {
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
       this.recordFrameSample(timestamp);
-      this.sendFrameInput();
+      this.updateHeldAttack(timestamp);
       this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
     };
@@ -435,31 +511,12 @@ export class GameClient {
   private onDisconnected(): void {
     this.started = false;
     this.sessionReady = false;
+    this.pointerAimTarget = undefined;
     this.stopFrameLoop();
     this.resetPerformanceRateSamples();
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
-  }
-
-  private sendFrameInput(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-
-    const latestTick = this.worldState?.latestTick ?? 0;
-    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-    this.inputManager.clearOneShots();
-  }
-
-  private flushImmediateInput(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-
-    const latestTick = this.worldState?.latestTick ?? 0;
-    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-    this.inputManager.clearOneShots();
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -468,6 +525,25 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private syncLocalAimRotation(): void {
+    if (!this.pointerAimTarget) {
+      return;
+    }
+
+    const player = this.getLocalPlayerEntity();
+    if (!player?.alive) {
+      return;
+    }
+
+    const deltaX = this.pointerAimTarget.x - player.x;
+    const deltaY = this.pointerAimTarget.y - player.y;
+    if (Math.hypot(deltaX, deltaY) <= Number.EPSILON) {
+      return;
+    }
+
+    player.rotation = Math.atan2(deltaY, deltaX);
   }
 
   private recordFrameSample(timestamp: number): void {
@@ -548,6 +624,65 @@ export class GameClient {
   private resetPerformanceRateSamples(): void {
     this.frameSamples = [];
     this.tickSamples = [];
+  }
+
+  private sendAction(actionMessage: ActionMessage): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.sendAction(actionMessage);
+  }
+
+  private sendAttackAction(x: number, y: number, now: number): void {
+    const activeWeapon = this.getLocalActiveWeapon();
+    if (!activeWeapon) {
+      return;
+    }
+
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "attack",
+      aim: { x, y },
+    });
+    this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
+  }
+
+  private updateHeldAttack(now: number): void {
+    const holdFireTarget = this.inputManager.getHoldFireTarget();
+    if (!holdFireTarget || !this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+
+    const localPlayer = this.getLocalPlayerEntity();
+    const activeWeapon = this.getLocalActiveWeapon();
+    if (!localPlayer?.alive || !activeWeapon) {
+      return;
+    }
+
+    this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
+  }
+
+  private getLocalActiveWeapon():
+    | {
+        typeId: ResourceId;
+        ammoInMag?: number;
+        reloadTicks?: number;
+        reloadTicksRemaining?: number;
+      }
+    | undefined {
+    const player = this.getLocalPlayerEntity();
+    const inventory = player?.inventory;
+    if (!inventory) {
+      return undefined;
+    }
+
+    const activeSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+    if (activeSlot?.kind !== "weapon") {
+      return undefined;
+    }
+
+    return activeSlot;
   }
 
   private computeNightBlend(dayNight: DayNightSnapshot): number {

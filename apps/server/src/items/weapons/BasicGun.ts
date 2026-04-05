@@ -1,3 +1,4 @@
+import { requireShootWeaponContent } from "@server/items/weaponContent.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
@@ -7,6 +8,14 @@ export class BasicGun extends RangedWeapon {
   public static override readonly resourceName = "basic_gun";
 
   constructor() {
-    super(4, "projectile:basic_bullet", 12, 20, 0, "item:gun_mag");
+    const weaponContent = requireShootWeaponContent(BasicGun.typeId);
+    super(
+      weaponContent.cooldownTicks,
+      weaponContent.projectileTypeId,
+      weaponContent.magSize,
+      weaponContent.reloadTicks,
+      weaponContent.spreadDeg,
+      weaponContent.magItemTypeId,
+    );
   }
 }

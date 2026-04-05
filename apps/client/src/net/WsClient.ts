@@ -1,13 +1,14 @@
-import {
-  type InputCommand,
-  type ChatMessage,
-  parseServerToClientMessage,
+import type {
+  ActionMessage,
+  ChatMessage,
+  MoveIntentKey,
 } from "@shared/net/protocol.ts";
-import { GameConfig } from "@shared/config/GameConfig.ts";
+import { parseServerToClientMessage } from "@shared/net/protocol.ts";
+import { COMPAT_HASH } from "@shared/config/compat.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export type ConnectOptions = {
-  protocolVersion?: number;
+  compatHash?: string;
   googleIdToken?: string;
   playerName?: string;
 };
@@ -28,17 +29,12 @@ export class WsClient {
   private readonly validateSnapshotMessages =
     (import.meta as { env?: { DEV?: boolean } }).env?.DEV ?? false;
 
-  /**
-   * Opens a WebSocket connection and registers protocol message handlers.
-   * @param url WebSocket endpoint to connect to.
-   * @param options Optional hello-handshake fields sent once the socket opens.
-   */
   public connect(
     url: string,
     {
       googleIdToken,
       playerName,
-      protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION,
+      compatHash = COMPAT_HASH,
     }: ConnectOptions = {},
   ): void {
     this.disconnect();
@@ -50,7 +46,7 @@ export class WsClient {
       socket.send(
         JSON.stringify({
           t: "hello",
-          protocolVersion,
+          compatHash,
           googleIdToken,
           playerName,
         }),
@@ -113,15 +109,29 @@ export class WsClient {
     });
   }
 
-  /**
-   * Sends a validated input command to the server.
-   * @param inputCommand Serialized input payload for the current tick.
-   */
-  public sendInput(inputCommand: InputCommand): void {
+  public sendMoveIntent(
+    seq: number,
+    key: MoveIntentKey,
+    pressed: boolean,
+  ): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    this.socket.send(JSON.stringify({ t: "input", cmd: inputCommand }));
+    this.socket.send(JSON.stringify({ t: "move", seq, key, pressed }));
+  }
+
+  public sendAction(actionMessage: ActionMessage): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify(actionMessage));
+  }
+
+  public sendRespawn(): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify({ t: "respawn" }));
   }
 
   public sendChat(text: string): void {
@@ -131,52 +141,30 @@ export class WsClient {
     this.socket.send(JSON.stringify({ t: "chat", text }));
   }
 
-  /**
-   * Registers a callback for incoming snapshot messages.
-   * @param snapshotHandler Callback invoked for each snapshot payload.
-   */
   public onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
     this.snapshotHandlers.push(snapshotHandler);
   }
 
-  /**
-   * Registers a callback for welcome messages that carry the player entity id.
-   * @param welcomeHandler Callback invoked with the assigned entity id.
-   */
   public onWelcome(welcomeHandler: (entityId: number) => void): void {
     this.welcomeHandlers.push(welcomeHandler);
   }
 
-  /** Registers a callback for incoming chat messages. */
   public onChat(chatHandler: (message: ChatMessage) => void): void {
     this.chatHandlers.push(chatHandler);
   }
 
-  /**
-   * Registers a callback for socket open events.
-   * @param openHandler Callback invoked once the socket opens.
-   */
   public onOpen(openHandler: () => void): void {
     this.openHandlers.push(openHandler);
   }
 
-  /**
-   * Registers a callback for socket close events.
-   * @param closeHandler Callback invoked when the socket closes.
-   */
   public onClose(closeHandler: () => void): void {
     this.closeHandlers.push(closeHandler);
   }
 
-  /** Registers a callback for server error protocol messages. */
   public onError(errorHandler: (message: string) => void): void {
     this.errorHandlers.push(errorHandler);
   }
 
-  /**
-   * Closes the current socket connection, if any.
-   * @param reason Optional close reason passed through to the socket.
-   */
   public disconnect(reason?: string): void {
     if (!this.socket) {
       return;

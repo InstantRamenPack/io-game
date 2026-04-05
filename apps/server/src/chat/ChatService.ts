@@ -154,7 +154,7 @@ export class ChatService {
       "/spawn <entity> [amount] [@a|player|x y z] - spawn entities",
       "/kill @e <entity> | @a | <player> - kill entities or players",
       "/killall - kill every entity",
-      "/effect <effect> [@a|player] - apply an effect to a player",
+      "/effect <effect> [@a|@e|player] - apply an effect",
       "/give <@a|player> <item> [amount] - grant an item",
     ];
     this.sendSystem(clientId, lines.join("\n"));
@@ -365,8 +365,13 @@ export class ChatService {
 
     const targetToken = args[0]?.toLowerCase() ?? "";
     if (targetToken === "@a") {
-      this.killEntity(player);
-      this.sendSystem(clientId, "You died.");
+      const players = this.world.entities
+        .all()
+        .filter((entity): entity is Player => entity instanceof Player);
+      for (const targetPlayer of players) {
+        this.killEntity(targetPlayer);
+      }
+      this.sendSystem(clientId, `Killed ${players.length} player(s).`);
       return;
     }
 
@@ -424,7 +429,7 @@ export class ChatService {
     args: string[],
   ): void {
     if (args.length === 0) {
-      this.sendSystem(clientId, "Usage: /effect <effect> [@a|player]");
+      this.sendSystem(clientId, "Usage: /effect <effect> [@a|@e|player]");
       return;
     }
 
@@ -436,11 +441,13 @@ export class ChatService {
     }
 
     const targetToken = args[1]?.toLowerCase() ?? "@a";
-    let targets: Player[];
+    let targets: Entity[];
     if (targetToken === "@a") {
       targets = this.world.entities
         .all()
         .filter((e): e is Player => e instanceof Player);
+    } else if (targetToken === "@e") {
+      targets = this.world.entities.all();
     } else {
       const targetPlayer = this.findPlayerByName(args[1] ?? "");
       if (!targetPlayer) {
@@ -457,7 +464,7 @@ export class ChatService {
 
     this.sendSystem(
       clientId,
-      `Applied ${effectEntry.typeId} to ${targets.length} player(s).`,
+      `Applied ${effectEntry.typeId} to ${targets.length} target(s).`,
     );
   }
 

@@ -1,5 +1,7 @@
 {
   "label": "Spiked Spear",
+  "hint": "Piercing spear that causes bleeding.",
+  "description": "Long jab with bleed pressure on top of direct damage.",
   "recipe": {
     "hint": "Piercing spear that causes bleeding.",
     "outputAmount": 1,
@@ -7,5 +9,22 @@
       { "typeId": "item:wood", "amount": 26 },
       { "typeId": "item:stone", "amount": 18 }
     ]
+  },
+  "weapon": {
+    "attackStyle": "jab",
+    "cooldownTicks": 13,
+    "range": 96,
+    "damage": 25,
+    "knockback": 15,
+    "jabWidth": 24,
+    "equippedRender": {
+      "holdOffset": { "x": 18, "y": 2 },
+      "holdRotationDeg": -18,
+      "scale": 1.08,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 32
+    }
   }
 }

@@ -36,13 +36,18 @@ export class Landmine extends Building {
       return;
     }
 
-    for (const enemy of world.entities.queryInstances(Enemy)) {
-      if (!enemy.alive) {
+    for (const candidate of world.spatial.queryBox(
+      this.x - TRIGGER_RADIUS,
+      this.y - TRIGGER_RADIUS,
+      this.x + TRIGGER_RADIUS,
+      this.y + TRIGGER_RADIUS,
+    )) {
+      if (!(candidate instanceof Enemy) || !candidate.alive) {
         continue;
       }
 
       const distanceSquared = getDistanceSquaredToResolvedRectSet(
-        enemy.getWorldHitboxes(),
+        candidate.getWorldHitboxes(),
         this.x,
         this.y,
       );

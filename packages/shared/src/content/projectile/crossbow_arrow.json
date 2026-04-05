@@ -1,3 +1,13 @@
 {
-  "label": "Crossbow Arrow"
+  "label": "Crossbow Arrow",
+  "projectile": {
+    "speed": 36,
+    "range": 720,
+    "damage": 16,
+    "maxHits": 5,
+    "hitbox": {
+      "width": 8,
+      "height": 8
+    }
+  }
 }

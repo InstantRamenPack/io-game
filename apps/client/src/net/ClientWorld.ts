@@ -102,6 +102,17 @@ export class ClientWorld {
     this.updateConfusionVisuals();
   }
 
+  public playAttackAnimation(entityId: number | undefined): void {
+    if (entityId === undefined) {
+      return;
+    }
+    const entity = this.entities.get(entityId);
+    if (!entity) {
+      return;
+    }
+    this.renderManager?.triggerAttackAnimation(entity);
+  }
+
   private updateConfusionVisuals(): void {
     if (!this.pixiRenderer) {
       return;

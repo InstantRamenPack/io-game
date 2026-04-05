@@ -1,10 +1,11 @@
+import { COMPAT_HASH } from "@shared/config/compat.ts";
+
 /**
  * Shared runtime configuration used by both server and client.
  * Keeps cadence, world, networking, and protocol settings together.
  */
 export class GameConfig {
   public static readonly DEFAULT_TICK_RATE = 20;
-  public static readonly DEFAULT_PROTOCOL_VERSION = 1;
   public static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
   public tickRate = GameConfig.DEFAULT_TICK_RATE;
@@ -37,7 +38,7 @@ export class GameConfig {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
   };
-  public protocolVersion = GameConfig.DEFAULT_PROTOCOL_VERSION;
+  public compatHash = COMPAT_HASH;
 
   /**
    * Creates a config instance and applies environment overrides for the core numeric settings.

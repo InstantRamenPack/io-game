@@ -9,7 +9,10 @@ import {
   type RegistrableProjectileCtor,
 } from "@server/registry/registries.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
-import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  EquippedItemSnapshot,
+  WeaponSnapshot,
+} from "@shared/net/snapshots.ts";
 
 /**
  * Ranged weapon that fires projectiles.
@@ -26,14 +29,14 @@ export class RangedWeapon extends Weapon {
   protected reloadTicksRemaining = 0;
 
   constructor(
-    fireRate: number,
+    cooldownTicks: number,
     projectileTypeId: ResourceId,
     magSize: number,
     reloadTicks: number,
     spread: number = 0,
     magItemTypeId?: ResourceId,
   ) {
-    super(fireRate);
+    super(cooldownTicks);
     this.projectileTypeId = projectileTypeId;
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
@@ -113,6 +116,7 @@ export class RangedWeapon extends Weapon {
     }
 
     const baseAngle = Math.atan2(deltaY, deltaX);
+    owner.rotation = baseAngle;
     const spreadOffset =
       this.spread === 0
         ? 0
@@ -141,7 +145,7 @@ export class RangedWeapon extends Weapon {
     world.spawn(new ProjectileCtor(world.allocEntityId(), projectileConfig));
 
     this.ammoInMag--;
-    this.resetCooldown(world.gameConfig.tickRate);
+    this.resetCooldown();
 
     if (this.ammoInMag <= 0 && this.canReload(owner)) {
       this.reloadTicksRemaining = this.reloadTicks;
@@ -185,6 +189,19 @@ export class RangedWeapon extends Weapon {
 
   public getProjectileSpeed(): number {
     return this.resolveProjectileType().definition.speed;
+  }
+
+  public override toEquippedItemSnapshot(
+    owner: Entity | undefined,
+  ): EquippedItemSnapshot {
+    return {
+      ...super.toEquippedItemSnapshot(owner),
+      ammoInMag: this.ammoInMag,
+      magSize: this.magSize,
+      reserveMagCount: this.getReserveMagCount(owner),
+      reloadTicks: this.reloadTicks,
+      reloadTicksRemaining: this.reloadTicksRemaining,
+    };
   }
 
   private resolveProjectileType(): RegistrableProjectileCtor {

@@ -33,7 +33,7 @@ type FocusedTraceEntityState = {
   driveVy: number;
   momentumVx: number;
   momentumVy: number;
-  inputBufferLength?: number;
+  queuedActionCount?: number;
   activeEffects: Array<{
     typeId: string;
     ticksRemaining: number;
@@ -251,7 +251,7 @@ export class FocusedServerTrace {
 
     if (entity instanceof Player) {
       baseState.name = entity.name;
-      baseState.inputBufferLength = entity.inputBuffer.length;
+      baseState.queuedActionCount = entity.queuedActions.length;
     }
 
     return baseState;

@@ -1,5 +1,7 @@
 {
   "label": "Crossbow",
+  "hint": "Piercing ranged weapon with a small magazine and long reload.",
+  "description": "Fires heavy arrows that travel through multiple targets.",
   "recipe": {
     "hint": "Six bolts before a long reload. Each shot pierces through five targets.",
     "outputAmount": 1,
@@ -7,5 +9,23 @@
       { "typeId": "item:wood", "amount": 45 },
       { "typeId": "item:stone", "amount": 18 }
     ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 7,
+    "projectileTypeId": "projectile:crossbow_arrow",
+    "magSize": 6,
+    "reloadTicks": 48,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:crossbow_mag",
+    "equippedRender": {
+      "holdOffset": { "x": 18, "y": 1 },
+      "holdRotationDeg": -14,
+      "scale": 0.98,
+      "handedness": "right",
+      "recoilDistance": 7,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
   }
 }

@@ -5,8 +5,8 @@ import {
   CRAFTING_STATION_QUERY_RADIUS,
 } from "@shared/gameplay/crafting.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
-import type { InputCommand } from "@shared/net/protocol.ts";
 import type { Building } from "@server/entities/Building.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -17,9 +17,10 @@ import {
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
 
+type HeldMovementState = Record<MoveIntentKey, boolean>;
+
 /**
- * Authoritative player entity driven by buffered client input.
- * The player owns movement tuning and any per-player runtime state.
+ * Authoritative player entity driven by held movement state and queued actions.
  */
 export class Player extends Entity {
   public static readonly kind = "player" as const;
@@ -27,8 +28,15 @@ export class Player extends Entity {
 
   public name: string;
   public inventory: Inventory;
-  public inputBuffer: InputCommand[] = [];
   public moveSpeed = 15;
+  public readonly queuedActions: ActionMessage[] = [];
+
+  private readonly heldMovement: HeldMovementState = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  };
 
   constructor(id: number, name = "player") {
     super(id, { maxHp: 100 });
@@ -41,11 +49,23 @@ export class Player extends Entity {
     });
   }
 
-  public enqueueInput(inputCommand: InputCommand): void {
-    this.inputBuffer.push(inputCommand);
-    if (this.inputBuffer.length > 64) {
-      this.inputBuffer.shift();
+  public setMoveIntent(key: MoveIntentKey, pressed: boolean): void {
+    this.heldMovement[key] = pressed;
+  }
+
+  public enqueueAction(actionMessage: ActionMessage): void {
+    this.queuedActions.push(actionMessage);
+    if (this.queuedActions.length > 64) {
+      this.queuedActions.shift();
     }
+  }
+
+  public clearQueuedInputState(): void {
+    this.queuedActions.length = 0;
+    this.heldMovement.up = false;
+    this.heldMovement.down = false;
+    this.heldMovement.left = false;
+    this.heldMovement.right = false;
   }
 
   public override tick(world: World): void {
@@ -58,7 +78,9 @@ export class Player extends Entity {
       weapon.ownerId = this.id;
       weapon.tick(world);
     }
-    this.applyBufferedInputs(world);
+
+    this.applyHeldMovement(world);
+    this.applyQueuedActions(world);
   }
 
   public override toSnapshot(): PlayerSnapshot {
@@ -70,160 +92,8 @@ export class Player extends Entity {
       inventory: this.inventory.toSnapshot(this),
       activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
+      equippedItem: this.getActiveWeapon()?.toEquippedItemSnapshot(this),
     };
-  }
-
-  public applyBufferedInputs(world: World): void {
-    const shouldTrace = world.focusedTrace.matchesEntity(this);
-    if (this.isStunned()) {
-      const clearedBufferedInputs = this.inputBuffer.length;
-      this.inputBuffer.length = 0;
-      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(
-          world,
-          "movement_blocked_stunned",
-          this,
-          {
-            clearedBufferedInputs,
-          },
-        );
-      }
-      return;
-    }
-
-    let nextMoveX = 0;
-    let nextMoveY = 0;
-    let sawMovement = false;
-    let sawNonZeroMovement = false;
-    let lastNonZeroMoveX = 0;
-    let lastNonZeroMoveY = 0;
-    let consumedInputCount = 0;
-    let firstSeq: number | null = null;
-    let lastSeq: number | null = null;
-    let firstInputTick: number | null = null;
-    let lastInputTick: number | null = null;
-    let attackCount = 0;
-    let craftCount = 0;
-    let buildCount = 0;
-
-    while (this.inputBuffer.length > 0) {
-      const inputCommand = this.inputBuffer.shift();
-      if (!inputCommand) {
-        continue;
-      }
-      consumedInputCount += 1;
-      if (firstSeq === null) {
-        firstSeq = inputCommand.seq;
-      }
-      if (firstInputTick === null) {
-        firstInputTick = inputCommand.tick;
-      }
-      lastSeq = inputCommand.seq;
-      lastInputTick = inputCommand.tick;
-
-      nextMoveX = inputCommand.moveX;
-      nextMoveY = inputCommand.moveY;
-      sawMovement = true;
-      if (nextMoveX !== 0 || nextMoveY !== 0) {
-        sawNonZeroMovement = true;
-        lastNonZeroMoveX = nextMoveX;
-        lastNonZeroMoveY = nextMoveY;
-      }
-
-      if (inputCommand.selectHotbarIndex !== undefined) {
-        this.inventory.setSelectedHotbarIndex(inputCommand.selectHotbarIndex);
-      }
-
-      if (inputCommand.attack) {
-        attackCount += 1;
-        this.getActiveWeapon()?.hit(
-          world,
-          this,
-          inputCommand.attack.x,
-          inputCommand.attack.y,
-        );
-      } else if (inputCommand.craft) {
-        craftCount += 1;
-        this.craft(world, inputCommand.craft.itemTypeId as ResourceId);
-      } else if (inputCommand.build) {
-        buildCount += 1;
-        this.placeStructure(world, inputCommand.build.x, inputCommand.build.y);
-      } else if (inputCommand.inventoryMove) {
-        this.inventory.moveHotbarSlot(
-          inputCommand.inventoryMove.fromSlotIndex,
-          inputCommand.inventoryMove.toSlotIndex,
-        );
-      }
-    }
-
-    if (!sawMovement) {
-      this.setDesiredVelocity(0, 0);
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
-          consumedInputCount,
-          sawMovement,
-          sawNonZeroMovement,
-          firstSeq,
-          lastSeq,
-          firstInputTick,
-          lastInputTick,
-          attackCount,
-          craftCount,
-          buildCount,
-          speedMultiplier: 1,
-          resolvedMoveX: 0,
-          resolvedMoveY: 0,
-          desiredVx: 0,
-          desiredVy: 0,
-        });
-      }
-      return;
-    }
-
-    const speedMult = this.activeEffects.reduce(
-      (acc, e) =>
-        e.speedMultiplier !== undefined ? acc * e.speedMultiplier : acc,
-      1,
-    );
-
-    let resolvedMoveX = nextMoveX;
-    let resolvedMoveY = nextMoveY;
-    // Preserve a brief tap that begins and ends between server ticks by
-    // resolving one tick of the last non-zero movement in the buffer.
-    if (resolvedMoveX === 0 && resolvedMoveY === 0 && sawNonZeroMovement) {
-      resolvedMoveX = lastNonZeroMoveX;
-      resolvedMoveY = lastNonZeroMoveY;
-    }
-
-    this.setDesiredVelocity(
-      resolvedMoveX * this.moveSpeed * speedMult,
-      resolvedMoveY * this.moveSpeed * speedMult,
-    );
-    if (shouldTrace) {
-      const velocityComponents = this.getDebugVelocityComponents();
-      world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
-        consumedInputCount,
-        sawMovement,
-        sawNonZeroMovement,
-        firstSeq,
-        lastSeq,
-        firstInputTick,
-        lastInputTick,
-        attackCount,
-        craftCount,
-        buildCount,
-        speedMultiplier: speedMult,
-        resolvedMoveX,
-        resolvedMoveY,
-        desiredVx: velocityComponents.desiredVx,
-        desiredVy: velocityComponents.desiredVy,
-        driveVx: velocityComponents.driveVx,
-        driveVy: velocityComponents.driveVy,
-        momentumVx: velocityComponents.momentumVx,
-        momentumVy: velocityComponents.momentumVy,
-      });
-    }
   }
 
   public getActiveWeapon(): Weapon | undefined {
@@ -235,14 +105,30 @@ export class Player extends Entity {
   }
 
   public override handleDeath(world: World): void {
+    this.alive = false;
+    this.hp = 0;
+    this.activeEffects = [];
+    this.clearQueuedInputState();
+    this.resetMovement();
+    world.focusedTrace.recordEntityEvent(world, "player_died", this, {
+      x: this.x,
+      y: this.y,
+    });
+  }
+
+  public respawn(world: World): void {
     const before = {
       x: this.x,
       y: this.y,
       vx: this.vx,
       vy: this.vy,
       hp: this.hp,
+      alive: this.alive,
     };
+    this.alive = true;
     this.hp = this.maxHp;
+    this.activeEffects = [];
+    this.clearQueuedInputState();
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.resetMovement();
@@ -254,6 +140,7 @@ export class Player extends Entity {
         vx: this.vx,
         vy: this.vy,
         hp: this.hp,
+        alive: this.alive,
       },
     });
   }
@@ -424,6 +311,102 @@ export class Player extends Entity {
     this.inventory.addStackable("item:wall", 8);
     this.inventory.addStackable("item:cannon", 2);
     this.inventory.addStackable("item:crafting_station", 1);
+  }
+
+  private applyHeldMovement(world: World): void {
+    const shouldTrace = world.focusedTrace.matchesEntity(this);
+    if (this.isStunned()) {
+      const clearedQueuedActions = this.queuedActions.length;
+      this.queuedActions.length = 0;
+      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(
+          world,
+          "movement_blocked_stunned",
+          this,
+          {
+            clearedQueuedActions,
+          },
+        );
+      }
+      return;
+    }
+
+    let moveX =
+      Number(this.heldMovement.right) - Number(this.heldMovement.left);
+    let moveY = Number(this.heldMovement.down) - Number(this.heldMovement.up);
+    const vectorLength = Math.hypot(moveX, moveY);
+    if (vectorLength > 1) {
+      moveX /= vectorLength;
+      moveY /= vectorLength;
+    }
+
+    const speedMultiplier = this.activeEffects.reduce(
+      (accumulator, effect) =>
+        effect.speedMultiplier !== undefined
+          ? accumulator * effect.speedMultiplier
+          : accumulator,
+      1,
+    );
+
+    this.setDesiredVelocity(
+      moveX * this.moveSpeed * speedMultiplier,
+      moveY * this.moveSpeed * speedMultiplier,
+    );
+    if (shouldTrace) {
+      const velocityComponents = this.getDebugVelocityComponents();
+      world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
+        heldMovement: { ...this.heldMovement },
+        moveX,
+        moveY,
+        speedMultiplier,
+        desiredVx: velocityComponents.desiredVx,
+        desiredVy: velocityComponents.desiredVy,
+        driveVx: velocityComponents.driveVx,
+        driveVy: velocityComponents.driveVy,
+        momentumVx: velocityComponents.momentumVx,
+        momentumVy: velocityComponents.momentumVy,
+      });
+    }
+  }
+
+  private applyQueuedActions(world: World): void {
+    while (this.queuedActions.length > 0) {
+      const actionMessage = this.queuedActions.shift();
+      if (!actionMessage) {
+        continue;
+      }
+
+      switch (actionMessage.action) {
+        case "selectHotbar":
+          this.inventory.setSelectedHotbarIndex(actionMessage.index);
+          break;
+        case "attack":
+          this.getActiveWeapon()?.hit(
+            world,
+            this,
+            actionMessage.aim.x,
+            actionMessage.aim.y,
+          );
+          break;
+        case "craft":
+          this.craft(world, actionMessage.craft.itemTypeId as ResourceId);
+          break;
+        case "build":
+          this.placeStructure(
+            world,
+            actionMessage.build.x,
+            actionMessage.build.y,
+          );
+          break;
+        case "inventoryMove":
+          this.inventory.moveHotbarSlot(
+            actionMessage.inventoryMove.fromSlotIndex,
+            actionMessage.inventoryMove.toSlotIndex,
+          );
+          break;
+      }
+    }
   }
 
   private doHitboxesOverlap(leftEntity: Entity, rightEntity: Entity): boolean {

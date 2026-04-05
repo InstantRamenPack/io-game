@@ -2,7 +2,9 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
 import {
   getItemContent,
+  getProjectileContent,
   getResourceDisplayLabel,
+  getWeaponContent,
 } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
@@ -80,6 +82,7 @@ export function buildInventoryTooltipContent(
   }
 
   if (slot.kind === "weapon") {
+    lines.push(...buildWeaponStatLines(slot.typeId));
     if (
       typeof slot.ammoInMag === "number" &&
       typeof slot.magSize === "number"
@@ -151,6 +154,12 @@ function getItemDetailLine(
   kind: "weapon" | "buildable",
 ): string {
   const itemContent = getItemContent(typeId);
+  if (itemContent?.description) {
+    return itemContent.description;
+  }
+  if (itemContent?.hint) {
+    return itemContent.hint;
+  }
   if (itemContent?.recipe?.hint) {
     return itemContent.recipe.hint;
   }
@@ -164,4 +173,43 @@ function getItemDetailLine(
   }
 
   return "Carryable item.";
+}
+
+function buildWeaponStatLines(typeId: ResourceId): string[] {
+  const weaponContent = getWeaponContent(typeId);
+  if (!weaponContent) {
+    return [];
+  }
+
+  switch (weaponContent.attackStyle) {
+    case "shoot": {
+      const projectileContent = getProjectileContent(
+        weaponContent.projectileTypeId,
+      );
+      return [
+        ...(projectileContent
+          ? [
+              `Damage: ${projectileContent.damage}`,
+              `Range: ${projectileContent.range}`,
+            ]
+          : []),
+        `Cooldown: ${weaponContent.cooldownTicks} ticks`,
+        `Reload: ${weaponContent.reloadTicks} ticks`,
+      ];
+    }
+    case "swing":
+      return [
+        `Damage: ${weaponContent.damage}`,
+        `Range: ${weaponContent.range}`,
+        `Sweep Arc: ${weaponContent.sweepArcDeg}\u00b0`,
+        `Cooldown: ${weaponContent.cooldownTicks} ticks`,
+      ];
+    case "jab":
+      return [
+        `Damage: ${weaponContent.damage}`,
+        `Range: ${weaponContent.range}`,
+        `Jab Width: ${weaponContent.jabWidth}`,
+        `Cooldown: ${weaponContent.cooldownTicks} ticks`,
+      ];
+  }
 }

@@ -36,7 +36,6 @@ export class DamageEffect extends Effect {
     const isFatal = nextHp <= 0;
     const damageEvent: NetEvent = {
       type: "damage",
-      tick: world.tick + 1,
       payload: {
         sourceId: instigator.id,
         targetId: target.id,

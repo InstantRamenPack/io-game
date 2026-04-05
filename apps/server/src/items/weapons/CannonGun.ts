@@ -9,7 +9,7 @@ export class CannonGun extends RangedWeapon {
   public static override readonly resourceName = "cannon_gun";
 
   constructor() {
-    super(1, "projectile:cannon_bullet", 1, 36, 0);
+    super(20, "projectile:cannon_bullet", 1, 36, 0);
   }
 
   protected override resolveProjectileOwnerId(

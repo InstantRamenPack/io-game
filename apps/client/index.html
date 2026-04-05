@@ -80,6 +80,7 @@
     <div id="game-root" hidden></div>
     <div id="chat-root" class="chat-shell" hidden>
       <div id="chat-lines" class="chat-lines" aria-live="polite"></div>
+      <div id="chat-suggestions" class="chat-suggestions" hidden></div>
       <div class="chat-input-row">
         <span class="chat-prompt">&gt;</span>
         <input
@@ -91,6 +92,17 @@
           maxlength="240"
           aria-label="Chat input"
         />
+      </div>
+    </div>
+    <div id="death-overlay" class="death-overlay" hidden>
+      <div class="death-card">
+        <p class="death-kicker">Authoritative Death State</p>
+        <h2>You Died</h2>
+        <p>
+          Respawn when you’re ready. Movement and actions stay locked until
+          then.
+        </p>
+        <button id="respawn-btn" type="button">Respawn</button>
       </div>
     </div>
     <script type="module" src="./src/main.ts"></script>

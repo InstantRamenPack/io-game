@@ -10,12 +10,12 @@ export class StabMeleeWeapon extends MeleeWeapon {
   public stabWidth: number;
 
   constructor(
-    fireRate: number,
+    cooldownTicks: number,
     range: number,
     hitEffects: Effect[],
     stabWidth: number,
   ) {
-    super(fireRate, range, hitEffects);
+    super(cooldownTicks, range, hitEffects);
     this.stabWidth = stabWidth;
   }
 

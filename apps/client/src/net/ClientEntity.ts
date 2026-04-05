@@ -7,6 +7,7 @@ import {
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   ActiveEffectSnapshot,
+  EquippedItemSnapshot,
   EntitySnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
@@ -53,6 +54,7 @@ export class ClientEntity {
   public hitboxBounds: HitboxBounds;
   public hp: number;
   public maxHp: number;
+  public alive: boolean;
   public ownerId?: number;
   public name?: string;
   public label?: string;
@@ -61,6 +63,7 @@ export class ClientEntity {
   public activeEffects?: readonly ActiveEffectSnapshot[];
   public moveSpeed?: number;
   public targetId?: number;
+  public equippedItem?: EquippedItemSnapshot;
   public serverX: number;
   public serverY: number;
   public visualVersion = 1;
@@ -85,6 +88,7 @@ export class ClientEntity {
     this.hitboxBounds = getHitboxBounds(this.hitboxes);
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
+    this.alive = snapshot.alive;
     this.ownerId = snapshot.ownerId;
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
@@ -139,6 +143,7 @@ export class ClientEntity {
 
     this.hp = snapshot.hp;
     this.maxHp = snapshot.maxHp;
+    this.alive = snapshot.alive;
     this.ownerId = snapshot.ownerId;
 
     this.applyKindSpecificFields(snapshot);
@@ -225,6 +230,7 @@ export class ClientEntity {
     this.activeEffects = undefined;
     this.moveSpeed = undefined;
     this.targetId = undefined;
+    this.equippedItem = undefined;
 
     switch (snapshot.kind) {
       case "player":
@@ -232,9 +238,11 @@ export class ClientEntity {
         this.inventory = snapshot.inventory;
         this.activeEffects = snapshot.activeEffects;
         this.moveSpeed = snapshot.moveSpeed;
+        this.equippedItem = snapshot.equippedItem;
         break;
       case "enemy":
         this.targetId = snapshot.targetId;
+        this.equippedItem = snapshot.equippedItem;
         break;
       case "building":
         this.label = snapshot.label;

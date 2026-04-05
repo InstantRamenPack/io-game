@@ -1,3 +1,22 @@
 {
-  "label": "Spear"
+  "label": "Spear",
+  "hint": "Long jab with strong reach and knockback.",
+  "description": "Piercing melee weapon for spacing enemies out.",
+  "weapon": {
+    "attackStyle": "jab",
+    "cooldownTicks": 13,
+    "range": 96,
+    "damage": 25,
+    "knockback": 15,
+    "jabWidth": 24,
+    "equippedRender": {
+      "holdOffset": { "x": 18, "y": 2 },
+      "holdRotationDeg": -18,
+      "scale": 1.08,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 30
+    }
+  }
 }

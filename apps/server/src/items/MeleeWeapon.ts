@@ -25,8 +25,12 @@ export abstract class MeleeWeapon extends Weapon {
   public range: number;
   public hitEffects: Effect[];
 
-  protected constructor(fireRate: number, range: number, hitEffects: Effect[]) {
-    super(fireRate);
+  protected constructor(
+    cooldownTicks: number,
+    range: number,
+    hitEffects: Effect[],
+  ) {
+    super(cooldownTicks);
     this.range = range;
     this.hitEffects = hitEffects;
   }
@@ -74,7 +78,7 @@ export abstract class MeleeWeapon extends Weapon {
       this.applyHitEffects(world, owner, target);
     }
 
-    this.resetCooldown(world.gameConfig.tickRate);
+    this.resetCooldown();
     return true;
   }
 

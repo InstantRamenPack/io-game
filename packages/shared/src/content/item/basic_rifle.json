@@ -1,5 +1,7 @@
 {
   "label": "Rifle",
+  "hint": "Accurate automatic rifle with a large magazine.",
+  "description": "Longer-range firearm for sustained pressure.",
   "recipe": {
     "hint": "pew pew big pew pew",
     "outputAmount": 1,
@@ -7,5 +9,23 @@
       { "typeId": "item:wood", "amount": 60 },
       { "typeId": "item:stone", "amount": 40 }
     ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 10,
+    "projectileTypeId": "projectile:rifle_bullet",
+    "magSize": 30,
+    "reloadTicks": 35,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:gun_mag",
+    "equippedRender": {
+      "holdOffset": { "x": 18, "y": 3 },
+      "holdRotationDeg": -8,
+      "scale": 1.06,
+      "handedness": "right",
+      "recoilDistance": 12,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
   }
 }

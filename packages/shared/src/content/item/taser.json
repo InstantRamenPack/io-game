@@ -1,5 +1,7 @@
 {
   "label": "Taser",
+  "hint": "Short sweep that stuns on hit.",
+  "description": "Control-oriented melee tool with zero direct damage.",
   "recipe": {
     "hint": "Melee sweep that stuns on hit.",
     "outputAmount": 1,
@@ -7,5 +9,22 @@
       { "typeId": "item:wood", "amount": 18 },
       { "typeId": "item:stone", "amount": 24 }
     ]
+  },
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 16,
+    "range": 58,
+    "damage": 0,
+    "knockback": 0,
+    "sweepArcDeg": 95,
+    "equippedRender": {
+      "holdOffset": { "x": 10, "y": 5 },
+      "holdRotationDeg": 28,
+      "scale": 0.88,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 95,
+      "jabDistance": 0
+    }
   }
 }

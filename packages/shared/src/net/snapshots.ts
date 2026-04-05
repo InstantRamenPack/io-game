@@ -1,5 +1,5 @@
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
-import { ENTITY_KINDS } from "@shared/content/schema.ts";
+import { AttackStyleSchema, ENTITY_KINDS } from "@shared/content/schema.ts";
 import {
   RESOURCE_ID_PATTERN,
   type ResourceId,
@@ -21,6 +21,17 @@ export const WeaponSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
   ownerId: z.number().int().nonnegative().optional(),
   cooldownTicksRemaining: z.number().int().nonnegative().optional(),
+  ammoInMag: z.number().int().nonnegative().optional(),
+  magSize: z.number().int().positive().optional(),
+  reserveMagCount: z.number().int().nonnegative().optional(),
+  reloadTicks: z.number().int().positive().optional(),
+  reloadTicksRemaining: z.number().int().nonnegative().optional(),
+});
+
+export const EquippedItemSnapshotSchema = z.object({
+  typeId: ResourceIdSchema,
+  attackStyle: AttackStyleSchema,
+  cooldownTicksRemaining: z.number().int().nonnegative(),
   ammoInMag: z.number().int().nonnegative().optional(),
   magSize: z.number().int().positive().optional(),
   reserveMagCount: z.number().int().nonnegative().optional(),
@@ -71,6 +82,7 @@ export const EntitySnapshotBaseSchema = z.object({
   hitboxes: z.array(HitboxRectSchema).min(1),
   hp: z.number(),
   maxHp: z.number(),
+  alive: z.boolean(),
   ownerId: z.number().int().nonnegative().optional(),
 });
 
@@ -80,11 +92,13 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   inventory: InventorySnapshotSchema,
   activeEffects: z.array(ActiveEffectSnapshotSchema),
   moveSpeed: z.number(),
+  equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
   targetId: z.number().int().nonnegative().optional(),
+  equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
@@ -129,6 +143,7 @@ export type StackableCountSnapshot = z.infer<
   typeof StackableCountSnapshotSchema
 >;
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
+export type EquippedItemSnapshot = z.infer<typeof EquippedItemSnapshotSchema>;
 export type EmptyInventorySlotSnapshot = z.infer<
   typeof EmptyInventorySlotSnapshotSchema
 >;

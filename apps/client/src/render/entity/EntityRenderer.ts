@@ -8,6 +8,7 @@ export type EntityRendererOptions = {
 export type EntityRenderer = {
   sync(entity: ClientEntity): void;
   update(deltaMs: number, entity: ClientEntity): void;
+  playAttackAnimation(entity: ClientEntity): void;
   triggerDamageFlash(durationMs?: number): void;
   destroy(): void;
 };

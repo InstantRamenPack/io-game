@@ -8,7 +8,7 @@ export class Wall extends Building {
     super(id, label, tier, ownerId, {
       baseHp: 180,
       hitboxProfiles: {
-        default: [makeHitboxRect(40, 18)],
+        default: [makeHitboxRect(40, 40)],
       },
     });
   }
