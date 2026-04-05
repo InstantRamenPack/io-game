@@ -1,27 +1,27 @@
-import type { GameConfig } from "@shared/config/GameConfig.ts";
+import type {GameConfig} from "@shared/config/GameConfig.ts";
 import {
   type ActionMessage,
   type HelloMessage,
   type MoveIntentMessage,
+  parseClientToServerMessage,
   type PingMessage,
   type ServerToClientMessage,
-  parseClientToServerMessage,
 } from "@shared/net/protocol.ts";
-import { ChatService } from "@server/chat/ChatService.ts";
-import { Player } from "@server/entities/Player.ts";
-import { SnapshotManager } from "@server/net/SnapshotManager.ts";
-import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
-import type { WsServer } from "@server/net/WsServer.ts";
-import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
-import { TickClock } from "@server/server/TickClock.ts";
-import type { AuthService } from "@server/services/AuthService.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
-import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
-import { BasicSword } from "@server/items/weapons/BasicSword.ts";
-import { Crossbow } from "@server/items/weapons/Crossbow.ts";
-import { World } from "@server/world/World.ts";
-import { DayNightSystemWithWaves } from "@server/systems/DayNightSystemWithWaves.ts";
-import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
+import {ChatService} from "@server/chat/ChatService.ts";
+import {Player} from "@server/entities/Player.ts";
+import {SnapshotManager} from "@server/net/SnapshotManager.ts";
+import {AntiCheatValidator} from "@server/net/AntiCheatValidator.ts";
+import type {WsServer} from "@server/net/WsServer.ts";
+import {bootstrapTypeRegistries} from "@server/registry/bootstrap.ts";
+import {TickClock} from "@server/server/TickClock.ts";
+import type {AuthService} from "@server/services/AuthService.ts";
+import {BasicGun} from "@server/items/weapons/BasicGun.ts";
+import {BasicSpear} from "@server/items/weapons/BasicSpear.ts";
+import {BasicSword} from "@server/items/weapons/BasicSword.ts";
+import {Crossbow} from "@server/items/weapons/Crossbow.ts";
+import {World} from "@server/world/World.ts";
+import {DayNightSystemWithWaves} from "@server/systems/DayNightSystemWithWaves.ts";
+import {WaveSpawner} from "@server/systems/WaveSpawner.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -86,17 +86,18 @@ export class GameServer {
   private initializeWaveSpawning(): void {
     try {
       const configPath = "./apps/server/src/config/waves.json";
-      const waveSpawner = WaveSpawner.loadFromFile(configPath, this.chatService);
+      const waveSpawner = WaveSpawner.loadFromFile(
+        configPath,
+        this.chatService,
+      );
 
       // Replace the standard DayNightSystem with DayNightSystemWithWaves
-      const dnWithWaves = new DayNightSystemWithWaves({
+      this.world.dayNightSystem = new DayNightSystemWithWaves({
         tickRate: this.gameConfig.tickRate,
         dayDurationMs: this.gameConfig.dayNight.dayDurationMs,
         nightDurationMs: this.gameConfig.dayNight.nightDurationMs,
         waveSpawner,
       });
-      
-      this.world.dayNightSystem = dnWithWaves;
       console.log("✓ Wave spawning system initialized");
     } catch (error) {
       console.error("Failed to initialize wave spawning:", error);

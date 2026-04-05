@@ -72,12 +72,17 @@ export class GameClient {
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private pointerAimTarget?: AimTarget;
+  private pointerClientX: number | null = null;
+  private pointerClientY: number | null = null;
+  private holdAttackCooldownUntilMs = 0;
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
       return;
     }
 
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
     const screenPoint = this.renderer.clientToScreen(
       event.clientX,
       event.clientY,
@@ -105,6 +110,8 @@ export class GameClient {
     if (!this.started || !event.isPrimary) {
       return;
     }
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
     const screenPoint = this.renderer.clientToScreen(
       event.clientX,
       event.clientY,
@@ -131,6 +138,8 @@ export class GameClient {
     if (event.button !== 0 || !event.isPrimary) {
       return;
     }
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
     const screenPoint = this.renderer.clientToScreen(
       event.clientX,
       event.clientY,
@@ -392,6 +401,7 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
+    this.holdAttackCooldownUntilMs = 0;
     this.stopFrameLoop();
     this.resetPerformanceRateSamples();
     this.networkClient.disconnect();
@@ -461,6 +471,7 @@ export class GameClient {
     const steps = Math.max(1, Math.round(ms / frameMs));
     for (let index = 0; index < steps; index += 1) {
       const frameTimeMs = performance.now() + index * frameMs;
+      this.refreshPointerTargetFromScreen();
       this.updateHeldAttack(frameTimeMs);
       this.update(frameMs, frameTimeMs);
     }
@@ -491,6 +502,7 @@ export class GameClient {
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
       this.recordFrameSample(timestamp);
+      this.refreshPointerTargetFromScreen();
       this.updateHeldAttack(timestamp);
       this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
@@ -512,6 +524,7 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
+    this.holdAttackCooldownUntilMs = 0;
     this.stopFrameLoop();
     this.resetPerformanceRateSamples();
     this.worldState?.clear();
@@ -544,6 +557,18 @@ export class GameClient {
     }
 
     player.rotation = Math.atan2(deltaY, deltaX);
+  }
+
+  private refreshPointerTargetFromScreen(): void {
+    if (this.pointerClientX === null || this.pointerClientY === null) {
+      return;
+    }
+    const worldPoint = this.renderer.screenToWorld(
+      this.pointerClientX,
+      this.pointerClientY,
+    );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
   }
 
   private recordFrameSample(timestamp: number): void {
@@ -633,10 +658,13 @@ export class GameClient {
     this.networkClient.sendAction(actionMessage);
   }
 
-  private sendAttackAction(x: number, y: number, now: number): void {
+  private sendAttackAction(x: number, y: number, now: number): boolean {
     const activeWeapon = this.getLocalActiveWeapon();
     if (!activeWeapon) {
-      return;
+      return false;
+    }
+    if (!this.canLikelyExecuteAttack(activeWeapon)) {
+      return false;
     }
 
     this.sendAction({
@@ -646,6 +674,14 @@ export class GameClient {
       aim: { x, y },
     });
     this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
+    const weaponContent = getWeaponContent(activeWeapon.typeId);
+    if (weaponContent) {
+      const cooldownDurationMs =
+        (weaponContent.cooldownTicks * 1000) / this.gameConfig.tickRate;
+      this.holdAttackCooldownUntilMs =
+        now + Math.max(1, Math.floor(cooldownDurationMs));
+    }
+    return true;
   }
 
   private updateHeldAttack(now: number): void {
@@ -659,6 +695,15 @@ export class GameClient {
     if (!localPlayer?.alive || !activeWeapon) {
       return;
     }
+    if (now < this.holdAttackCooldownUntilMs) {
+      return;
+    }
+    if (
+      typeof activeWeapon.cooldownTicksRemaining === "number" &&
+      activeWeapon.cooldownTicksRemaining > 0
+    ) {
+      return;
+    }
 
     this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
   }
@@ -666,6 +711,7 @@ export class GameClient {
   private getLocalActiveWeapon():
     | {
         typeId: ResourceId;
+        cooldownTicksRemaining?: number;
         ammoInMag?: number;
         reloadTicks?: number;
         reloadTicksRemaining?: number;
@@ -683,6 +729,32 @@ export class GameClient {
     }
 
     return activeSlot;
+  }
+
+  private canLikelyExecuteAttack(activeWeapon: {
+    cooldownTicksRemaining?: number;
+    ammoInMag?: number;
+    reloadTicksRemaining?: number;
+  }): boolean {
+    if (
+      typeof activeWeapon.cooldownTicksRemaining === "number" &&
+      activeWeapon.cooldownTicksRemaining > 0
+    ) {
+      return false;
+    }
+    if (
+      typeof activeWeapon.reloadTicksRemaining === "number" &&
+      activeWeapon.reloadTicksRemaining > 0
+    ) {
+      return false;
+    }
+    if (
+      typeof activeWeapon.ammoInMag === "number" &&
+      activeWeapon.ammoInMag <= 0
+    ) {
+      return false;
+    }
+    return true;
   }
 
   private computeNightBlend(dayNight: DayNightSnapshot): number {

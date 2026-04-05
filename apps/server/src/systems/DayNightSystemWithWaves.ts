@@ -1,6 +1,7 @@
 import type { World } from "@server/world/World.ts";
-import { DayNightSystem, type DayNightPhase } from "@server/systems/DayNightSystem.ts";
-import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
+import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
+import type { DayNightPhase } from "@server/systems/DayNightSystem.ts";
+import type { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
 type DayNightWithWavesConfig = {
   tickRate: number;

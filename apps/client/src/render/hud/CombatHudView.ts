@@ -14,7 +14,6 @@ export class CombatHudView {
   private readonly healthText: PIXI.Text;
   private readonly ammoFrame = new PIXI.Graphics();
   private readonly reserveText: PIXI.Text;
-  private readonly reloadText: PIXI.Text;
   private readonly ammoSprites: PIXI.Sprite[] = [];
   private readonly ammoTextureProvider: () => PIXI.Texture;
   private widthValue = 0;
@@ -44,16 +43,6 @@ export class CombatHudView {
     );
     this.reserveText.anchor.set(1, 0.5);
 
-    this.reloadText = new PIXI.Text(
-      "",
-      new PIXI.TextStyle({
-        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 12,
-        fill: 0xf0c173,
-      }),
-    );
-    this.reloadText.anchor.set(0, 0.5);
-
     this.container.addChild(
       this.healthFrame,
       this.healthTrack,
@@ -61,7 +50,6 @@ export class CombatHudView {
       this.ammoFrame,
       this.healthText,
       this.reserveText,
-      this.reloadText,
     );
   }
 
@@ -81,7 +69,6 @@ export class CombatHudView {
       this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
       this.ammoFrame.clear();
       this.reserveText.text = "";
-      this.reloadText.text = "";
       this.hideAmmoSprites();
       return;
     }
@@ -119,13 +106,7 @@ export class CombatHudView {
       ammoY + ammoHeight / 2,
     );
 
-    this.reloadText.text =
-      model.ammo.reloadTicksRemaining !== null ? "Reloading" : "";
-    this.reloadText.position.set(padding, ammoY + ammoHeight / 2);
-
-    const iconStartX =
-      padding +
-      (this.reloadText.text.length > 0 ? this.reloadText.width + 10 : 0);
+    const iconStartX = padding;
     const iconTopY = ammoY + padding;
     const texture = this.ammoTextureProvider();
     this.ensureAmmoSpriteCount(model.ammo.magSize);

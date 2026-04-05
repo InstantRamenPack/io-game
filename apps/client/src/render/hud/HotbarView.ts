@@ -1,4 +1,5 @@
 import * as PIXI from "pixijs";
+import { getWeaponContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type HotbarSlotItem = {
@@ -18,6 +19,8 @@ class HotbarSlotView {
   private readonly icon: PIXI.Sprite;
   private readonly countText: PIXI.Text;
   private readonly shortcutText: PIXI.Text;
+  private readonly ammoBarTrack: PIXI.Graphics;
+  private readonly ammoBarFill: PIXI.Graphics;
   private readonly slotSize: number;
   private readonly iconPadding: number;
   private readonly iconProvider: (typeId: ResourceId) => PIXI.Texture;
@@ -41,10 +44,14 @@ class HotbarSlotView {
     this.countText = new PIXI.Text("", options.countStyle);
     this.countText.anchor.set(1, 1);
     this.shortcutText = new PIXI.Text("", options.shortcutStyle);
+    this.ammoBarTrack = new PIXI.Graphics();
+    this.ammoBarFill = new PIXI.Graphics();
 
     this.container.addChild(this.base);
     this.container.addChild(this.activeOutline);
     this.container.addChild(this.icon);
+    this.container.addChild(this.ammoBarTrack);
+    this.container.addChild(this.ammoBarFill);
     this.container.addChild(this.countText);
     this.container.addChild(this.shortcutText);
 
@@ -96,12 +103,16 @@ class HotbarSlotView {
       this.countText.text = "";
       this.countText.visible = false;
     }
+
+    this.updateAmmoBar(item);
   }
 
   public clearItem(): void {
     this.icon.visible = false;
     this.countText.text = "";
     this.countText.visible = false;
+    this.ammoBarTrack.visible = false;
+    this.ammoBarFill.visible = false;
   }
 
   private drawBase(active: boolean): void {
@@ -117,6 +128,57 @@ class HotbarSlotView {
 
     this.base.lineStyle(1, inner, 0.85);
     this.base.drawRoundedRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3);
+  }
+
+  private updateAmmoBar(item: HotbarSlotItem): void {
+    if (typeof item.magSize !== "number" || item.magSize <= 0) {
+      this.ammoBarTrack.visible = false;
+      this.ammoBarFill.visible = false;
+      return;
+    }
+
+    const trackWidth = this.slotSize - 8;
+    const trackHeight = 4;
+    const x = 4;
+    const y = this.slotSize - 7;
+
+    this.ammoBarTrack.clear();
+    this.ammoBarTrack.beginFill(0x1f1f1f, 0.95);
+    this.ammoBarTrack.drawRoundedRect(x, y, trackWidth, trackHeight, 2);
+    this.ammoBarTrack.endFill();
+    this.ammoBarTrack.visible = true;
+
+    const reloadTicksRemaining =
+      typeof item.reloadTicksRemaining === "number" &&
+      item.reloadTicksRemaining > 0
+        ? item.reloadTicksRemaining
+        : null;
+    const weaponContent =
+      item.typeId !== null ? getWeaponContent(item.typeId) : undefined;
+    const reloadTicks =
+      weaponContent?.attackStyle === "shoot" ? weaponContent.reloadTicks : null;
+    let fillRatio = 0;
+    if (
+      reloadTicksRemaining !== null &&
+      typeof reloadTicks === "number" &&
+      reloadTicks > 0
+    ) {
+      fillRatio = 1 - reloadTicksRemaining / reloadTicks;
+    } else if (typeof item.ammoInMag === "number") {
+      fillRatio = item.ammoInMag / item.magSize;
+    }
+
+    const clamped = Math.min(1, Math.max(0, fillRatio));
+    const fillWidth = Math.floor(trackWidth * clamped);
+    this.ammoBarFill.clear();
+    if (fillWidth > 0) {
+      this.ammoBarFill.beginFill(0xff9f1a, 1);
+      this.ammoBarFill.drawRoundedRect(x, y, fillWidth, trackHeight, 2);
+      this.ammoBarFill.endFill();
+      this.ammoBarFill.visible = true;
+    } else {
+      this.ammoBarFill.visible = false;
+    }
   }
 }
 

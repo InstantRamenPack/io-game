@@ -1,0 +1,33 @@
+import { DroneShooterEquippedRenderer } from "@client/render/entity/equipped/DroneShooterEquippedRenderer.ts";
+import type { EquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
+import { RangedEquippedRenderer } from "@client/render/entity/equipped/RangedEquippedRenderer.ts";
+import { StabMeleeEquippedRenderer } from "@client/render/entity/equipped/StabMeleeEquippedRenderer.ts";
+import { SweepMeleeEquippedRenderer } from "@client/render/entity/equipped/SweepMeleeEquippedRenderer.ts";
+import type { AttackStyle } from "@shared/content/schema.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
+const rangedEquippedRenderer = new RangedEquippedRenderer();
+const stabMeleeEquippedRenderer = new StabMeleeEquippedRenderer();
+const sweepMeleeEquippedRenderer = new SweepMeleeEquippedRenderer();
+const droneShooterEquippedRenderer = new DroneShooterEquippedRenderer();
+
+const rendererByAttackStyle: Record<AttackStyle, EquippedItemRenderer> = {
+  shoot: rangedEquippedRenderer,
+  jab: stabMeleeEquippedRenderer,
+  swing: sweepMeleeEquippedRenderer,
+};
+
+const rendererByTypeId = new Map<ResourceId, EquippedItemRenderer>([
+  ["item:drone_shooter" as ResourceId, droneShooterEquippedRenderer],
+]);
+
+export function resolveEquippedItemRenderer(options: {
+  typeId: ResourceId;
+  attackStyle: AttackStyle;
+}): EquippedItemRenderer {
+  const typeRenderer = rendererByTypeId.get(options.typeId);
+  if (typeRenderer) {
+    return typeRenderer;
+  }
+  return rendererByAttackStyle[options.attackStyle] ?? rangedEquippedRenderer;
+}

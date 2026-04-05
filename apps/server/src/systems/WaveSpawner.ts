@@ -1,8 +1,11 @@
 import type { World } from "@server/world/World.ts";
-import type { ChatService } from "@server/chat/ChatService.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { readFileSync } from "node:fs";
+
+type WaveChatBroadcaster = {
+  broadcastSystemMessage?: (text: string) => void;
+};
 
 /**
  * Configuration for a single entity spawn in a wave.
@@ -45,6 +48,8 @@ type PendingSpawn = {
   ticksRemaining: number;
 };
 
+type SpawnableEntityCtor = new (entityId: number) => Entity;
+
 /**
  * Manages wave spawning mechanics tied to the day/night cycle.
  * Loads wave configuration from JSON and spawns entities at the start of each night
@@ -52,11 +57,8 @@ type PendingSpawn = {
  */
 export class WaveSpawner {
   private readonly wavesConfig: WavesConfigFile;
-  private readonly entityCtorByResourceName: Map<
-    string,
-    typeof Entity
-  >;
-  private readonly chatService: ChatService | null;
+  private readonly entityCtorByResourceName: Map<string, SpawnableEntityCtor>;
+  private readonly chatService: WaveChatBroadcaster | null;
   private pendingSpawns: PendingSpawn[] = [];
   private currentNightCycle = 0;
 
@@ -66,7 +68,10 @@ export class WaveSpawner {
    * @param wavesConfig The loaded waves configuration
    * @param chatService Optional chat service for broadcasting wave notifications
    */
-  constructor(wavesConfig: WavesConfigFile, chatService: ChatService | null = null) {
+  constructor(
+    wavesConfig: WavesConfigFile,
+    chatService: WaveChatBroadcaster | null = null,
+  ) {
     this.wavesConfig = wavesConfig;
     this.chatService = chatService;
     this.entityCtorByResourceName = this.buildEntityLookup();
@@ -76,13 +81,14 @@ export class WaveSpawner {
    * Builds a lookup map from resource names to entity constructors.
    * This enables fast entity type resolution during spawning.
    */
-  private buildEntityLookup(): Map<string, typeof Entity> {
-    const lookup = new Map<string, typeof Entity>();
+  private buildEntityLookup(): Map<string, SpawnableEntityCtor> {
+    const lookup = new Map<string, SpawnableEntityCtor>();
 
     for (const [, entry] of entityTypeRegistry.entries()) {
-      const resourceName = (entry.ctor as typeof Entity).resourceName ?? "";
+      const entityTypeCtor = entry.ctor as unknown as typeof Entity;
+      const resourceName = entityTypeCtor.resourceName ?? "";
       if (resourceName) {
-        lookup.set(resourceName, entry.ctor as typeof Entity);
+        lookup.set(resourceName, entry.ctor as unknown as SpawnableEntityCtor);
       }
     }
 
@@ -95,7 +101,10 @@ export class WaveSpawner {
    * @param chatService Optional chat service for notifications
    * @returns Loaded WaveSpawner instance
    */
-  public static loadFromFile(configPath: string, chatService: ChatService | null = null): WaveSpawner {
+  public static loadFromFile(
+    configPath: string,
+    chatService: WaveChatBroadcaster | null = null,
+  ): WaveSpawner {
     const jsonText = readFileSync(configPath, "utf-8");
     const config = JSON.parse(jsonText) as WavesConfigFile;
     return new WaveSpawner(config, chatService);
@@ -128,7 +137,7 @@ export class WaveSpawner {
     }
 
     // Broadcast wave start message
-    if (this.chatService) {
+    if (this.chatService?.broadcastSystemMessage) {
       this.chatService.broadcastSystemMessage(
         `🌙 Wave ${nightCycle} approaching! Enemies incoming!`,
       );
@@ -190,7 +199,7 @@ export class WaveSpawner {
 
     for (let i = 0; i < spawnConfig.count; i++) {
       const entityId = world.allocEntityId();
-      const entity = new (entityCtor as any)(entityId);
+      const entity = new entityCtor(entityId);
 
       // Position the entity with some slight randomization to avoid perfect overlap
       const offsetX = world.randomNumberGenerator() * 40 - 20;

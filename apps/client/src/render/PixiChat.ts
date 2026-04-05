@@ -37,8 +37,6 @@ class ChatLineView {
     this.background = new PIXI.Graphics();
     this.text = new PIXI.Text(message.text, style);
     this.textResolution = Math.max(1, Math.round(window.devicePixelRatio || 1));
-    this.container.roundPixels = true;
-    this.text.roundPixels = true;
     this.text.resolution = this.textResolution;
     this.container.addChild(this.background);
     this.container.addChild(this.text);
@@ -75,13 +73,7 @@ class ChatLineView {
 
     this.background.clear();
     this.background.beginFill(this.backgroundColor, this.backgroundAlpha);
-    this.background.drawRoundedRect(
-      0,
-      0,
-      this.widthValue,
-      this.heightValue,
-      4,
-    );
+    this.background.drawRoundedRect(0, 0, this.widthValue, this.heightValue, 4);
     this.background.endFill();
     this.background.beginFill(this.borderColor, this.borderAlpha);
     this.background.drawRect(0, 0, this.borderWidth, this.heightValue);
@@ -140,9 +132,6 @@ export class PixiChat {
       this.root = new PIXI.Container();
       this.linesContainer = new PIXI.Container();
       this.maskGraphic = new PIXI.Graphics();
-      this.root.roundPixels = true;
-      this.linesContainer.roundPixels = true;
-      this.maskGraphic.roundPixels = true;
       this.root.addChild(this.maskGraphic);
       this.root.addChild(this.linesContainer);
       this.linesContainer.mask = this.maskGraphic;

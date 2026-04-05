@@ -1,10 +1,17 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type {
+  EquippedRenderContext,
+  EquippedItemRenderer,
+} from "@client/render/entity/equipped/EquippedItemRenderer.ts";
+import { resolveEquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRendererRegistry.ts";
+import type {
   EntityRenderer,
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
 import { getItemContent, getWeaponContent } from "@shared/content/catalog.ts";
+import type { WeaponContent } from "@shared/content/schema.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import * as PIXI from "pixijs";
 
 export abstract class BaseEntityRenderer implements EntityRenderer {
@@ -28,6 +35,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   private lastVisualVersion = -1;
   private lastHealthVersion = -1;
   private lastAttackCooldownTicksRemaining = 0;
+  private equippedRenderer: EquippedItemRenderer | null = null;
+  private equippedRendererTypeId: ResourceId | null = null;
 
   constructor(
     protected readonly pixiRenderer: PixiRenderer,
@@ -49,15 +58,15 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     this.equippedItemContainer = new PIXI.Container();
     this.equippedItemSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-    this.equippedItemSprite.anchor.set(0.82, 0.5);
+    this.equippedItemSprite.anchor.set(0.5, 0.5);
     this.equippedItemContainer.visible = false;
     this.equippedItemContainer.addChild(this.equippedItemSprite);
-    this.entityContainer.addChild(this.equippedItemContainer);
 
     this.damageFlashGraphic = new PIXI.Graphics();
     this.damageFlashGraphic.alpha = 0;
     this.damageFlashGraphic.visible = false;
     this.entityContainer.addChild(this.damageFlashGraphic);
+    this.entityContainer.addChild(this.equippedItemContainer);
 
     this.healthBarContainer = new PIXI.Container();
     this.healthBarTrackGraphic = new PIXI.Graphics();
@@ -145,11 +154,28 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     const cooldownDurationMs =
       (weaponContent.cooldownTicks * 1000) / this.pixiRenderer.getTickRate();
-    this.attackAnimationDurationMs =
-      weaponContent.attackStyle === "shoot"
-        ? Math.max(100, cooldownDurationMs)
-        : 200;
+    switch (weaponContent.attackStyle) {
+      case "shoot":
+        this.attackAnimationDurationMs = Math.max(100, cooldownDurationMs);
+        break;
+      case "swing":
+        this.attackAnimationDurationMs = Math.max(100, cooldownDurationMs);
+        break;
+      case "jab":
+        this.attackAnimationDurationMs = 200;
+        break;
+    }
     this.attackAnimationRemainingMs = this.attackAnimationDurationMs;
+    this.getEquippedItemRenderer(
+      entity.equippedItem.typeId,
+      weaponContent.attackStyle,
+    ).onAttackStart?.(
+      this.buildEquippedRenderContext(
+        entity,
+        entity.equippedItem.typeId,
+        weaponContent,
+      ),
+    );
     this.syncEquippedItemAnimation(entity);
   }
 
@@ -268,6 +294,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       this.equippedItemContainer.visible = false;
+      this.equippedRenderer = null;
+      this.equippedRendererTypeId = null;
       return;
     }
 
@@ -275,29 +303,33 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const weaponContent = getWeaponContent(equippedItem.typeId);
     if (!itemContent || !weaponContent) {
       this.equippedItemContainer.visible = false;
+      this.equippedRenderer = null;
+      this.equippedRendererTypeId = null;
       return;
     }
 
     const renderManifest = weaponContent.equippedRender;
-    const facingLeft = Math.cos(entity.rotation) < 0;
-    const mirrorSign = facingLeft ? 1 : -1;
     const textureTypeId =
       renderManifest.textureTypeId ??
       itemContent.iconTextureId ??
       equippedItem.typeId;
+    const renderer = this.getEquippedItemRenderer(
+      equippedItem.typeId,
+      weaponContent.attackStyle,
+    );
 
     this.equippedItemContainer.visible = entity.alive;
-    this.equippedItemSprite.texture =
-      this.pixiRenderer.getItemTexture(textureTypeId);
-    this.equippedItemSprite.width = 42 * renderManifest.scale;
-    this.equippedItemSprite.height = 42 * renderManifest.scale;
-    this.equippedItemContainer.position.set(
-      renderManifest.holdOffset.x * (facingLeft ? -1 : 1),
-      renderManifest.holdOffset.y,
+    const context = this.buildEquippedRenderContext(
+      entity,
+      equippedItem.typeId,
+      weaponContent,
     );
-    this.equippedItemContainer.rotation =
-      entity.rotation + toRadians(renderManifest.holdRotationDeg);
-    this.equippedItemSprite.scale.set(mirrorSign, 1);
+    renderer.syncStatic({
+      ...context,
+      container: this.equippedItemContainer,
+      sprite: this.equippedItemSprite,
+      texture: this.pixiRenderer.getItemTexture(textureTypeId),
+    });
     this.syncEquippedItemAnimation(entity);
   }
 
@@ -310,43 +342,56 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.equippedItemContainer.visible = false;
       return;
     }
+    const renderer = this.getEquippedItemRenderer(
+      equippedItem.typeId,
+      weaponContent.attackStyle,
+    );
+    renderer.syncAnimated({
+      ...this.buildEquippedRenderContext(
+        entity,
+        equippedItem.typeId,
+        weaponContent,
+      ),
+      container: this.equippedItemContainer,
+      sprite: this.equippedItemSprite,
+    });
+  }
 
-    const facingLeft = Math.cos(entity.rotation) < 0;
-    const mirrorSign = facingLeft ? 1 : -1;
-    const renderManifest = weaponContent.equippedRender;
+  private buildEquippedRenderContext(
+    entity: ClientEntity,
+    typeId: ResourceId,
+    weaponContent: WeaponContent,
+  ): EquippedRenderContext {
     const progress =
       this.attackAnimationDurationMs <= 0
         ? 0
         : 1 -
           this.attackAnimationRemainingMs /
             Math.max(1, this.attackAnimationDurationMs);
-    const pulse = Math.sin(progress * Math.PI);
-    let offsetX = 0;
-    let rotationOffset = 0;
-
-    switch (weaponContent.attackStyle) {
-      case "shoot":
-        offsetX = -renderManifest.recoilDistance * pulse;
-        break;
-      case "swing":
-        rotationOffset =
-          toRadians(renderManifest.swingAngleDeg * 0.5) *
-          Math.sin((progress - 0.5) * Math.PI);
-        break;
-      case "jab":
-        offsetX = renderManifest.jabDistance * pulse;
-        break;
-    }
-
-    this.equippedItemContainer.position.set(
-      renderManifest.holdOffset.x * (facingLeft ? -1 : 1) + offsetX,
-      renderManifest.holdOffset.y,
-    );
-    this.equippedItemContainer.rotation =
-      entity.rotation + toRadians(renderManifest.holdRotationDeg) + rotationOffset;
+    const facingLeft = Math.cos(entity.rotation) < 0;
+    return {
+      entity,
+      weaponContent,
+      renderManifest: weaponContent.equippedRender,
+      typeId,
+      attackStyle: weaponContent.attackStyle,
+      facingLeft,
+      mirrorSign: facingLeft ? 1 : -1,
+      progress,
+      attackAnimationDurationMs: this.attackAnimationDurationMs,
+    };
   }
-}
 
-function toRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
+  private getEquippedItemRenderer(
+    typeId: ResourceId,
+    attackStyle: EquippedRenderContext["attackStyle"],
+  ): EquippedItemRenderer {
+    if (this.equippedRenderer && this.equippedRendererTypeId === typeId) {
+      return this.equippedRenderer;
+    }
+    const renderer = resolveEquippedItemRenderer({ typeId, attackStyle });
+    this.equippedRenderer = renderer;
+    this.equippedRendererTypeId = typeId;
+    return renderer;
+  }
 }
