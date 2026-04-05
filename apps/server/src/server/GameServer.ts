@@ -20,6 +20,8 @@ import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { World } from "@server/world/World.ts";
+import { DayNightSystemWithWaves } from "@server/systems/DayNightSystemWithWaves.ts";
+import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -59,6 +61,10 @@ export class GameServer {
       world: this.world,
       playerIdByClientId: this.playerIdByClientId,
     });
+
+    // Initialize wave spawning system
+    this.initializeWaveSpawning();
+
     this.clock = new TickClock(gameConfig.tickRate);
 
     this.networkServer.onOpen((clientId) => {
@@ -72,6 +78,30 @@ export class GameServer {
     this.networkServer.onMessage((clientId, rawMessage) => {
       this.handleRawMessage(clientId, rawMessage);
     });
+  }
+
+  /**
+   * Initializes the wave spawning system.
+   */
+  private initializeWaveSpawning(): void {
+    try {
+      const configPath = "./apps/server/src/config/waves.json";
+      const waveSpawner = WaveSpawner.loadFromFile(configPath, this.chatService);
+
+      // Replace the standard DayNightSystem with DayNightSystemWithWaves
+      const dnWithWaves = new DayNightSystemWithWaves({
+        tickRate: this.gameConfig.tickRate,
+        dayDurationMs: this.gameConfig.dayNight.dayDurationMs,
+        nightDurationMs: this.gameConfig.dayNight.nightDurationMs,
+        waveSpawner,
+      });
+      
+      this.world.dayNightSystem = dnWithWaves;
+      console.log("✓ Wave spawning system initialized");
+    } catch (error) {
+      console.error("Failed to initialize wave spawning:", error);
+      // Game continues without wave spawning
+    }
   }
 
   public start(): void {

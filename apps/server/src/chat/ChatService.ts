@@ -78,6 +78,14 @@ export class ChatService {
     this.broadcast(displayText, "global", player.name);
   }
 
+  /**
+   * Broadcasts a system message to all players.
+   * @param text The message text to broadcast
+   */
+  public broadcastSystemMessage(text: string): void {
+    this.broadcast(text, "system");
+  }
+
   private handleCommand(
     clientId: string,
     player: Player,
