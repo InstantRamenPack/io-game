@@ -1,4 +1,5 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const CRAFT_MODAL_TILE_GAP = 12;
@@ -69,13 +70,21 @@ class CraftTileView {
     const border = selected ? 0xf3f6ee : previewed ? 0x8ed061 : 0x58645a;
 
     this.background.clear();
-    this.background.lineStyle(selected ? 3 : 2, border, isActive ? 1 : 0.75);
-    this.background.beginFill(fill, entry.available ? 0.95 : 0.72);
-    this.background.drawRoundedRect(0, 0, width, height, 12);
-    this.background.endFill();
-
-    this.background.lineStyle(1, entry.available ? 0x2f5135 : 0x38363b, 0.75);
-    this.background.drawRoundedRect(4, 4, width - 8, height - 8, 10);
+    this.background
+      .roundRect(0, 0, width, height, 12)
+      .fill({ color: fill, alpha: entry.available ? 0.95 : 0.72 })
+      .roundRect(0, 0, width, height, 12)
+      .stroke({
+        width: selected ? 3 : 2,
+        color: border,
+        alpha: isActive ? 1 : 0.75,
+      })
+      .roundRect(4, 4, width - 8, height - 8, 10)
+      .stroke({
+        width: 1,
+        color: entry.available ? 0x2f5135 : 0x38363b,
+        alpha: 0.75,
+      });
 
     const iconSize = Math.max(24, Math.min(width - 24, height - 54));
     this.icon.texture = texture;
@@ -223,32 +232,40 @@ export class CraftingModal {
     const rightWidth = modalWidth - leftWidth;
     const paneHeight = modalHeight;
 
-    this.background.clear();
-    this.background.lineStyle(2, 0x90c87a, 0.25);
-    this.background.beginFill(0x08100a, 0.9);
-    this.background.drawRoundedRect(0, 0, modalWidth, modalHeight, 18);
-    this.background.endFill();
-
-    this.leftPane.clear();
-    this.leftPane.beginFill(0x101913, 0.84);
-    this.leftPane.drawRoundedRect(10, 10, leftWidth - 15, paneHeight - 20, 14);
-    this.leftPane.endFill();
-
-    this.rightPane.clear();
-    this.rightPane.beginFill(0x0d1410, 0.9);
-    this.rightPane.drawRoundedRect(
+    drawRoundedRect(
+      this.background,
+      0,
+      0,
+      modalWidth,
+      modalHeight,
+      18,
+      { color: 0x08100a, alpha: 0.9 },
+      { width: 2, color: 0x90c87a, alpha: 0.25 },
+    );
+    drawRoundedRect(
+      this.leftPane,
+      10,
+      10,
+      leftWidth - 15,
+      paneHeight - 20,
+      14,
+      { color: 0x101913, alpha: 0.84 },
+    );
+    drawRoundedRect(
+      this.rightPane,
       leftWidth,
       10,
       rightWidth - 10,
       paneHeight - 20,
       14,
+      { color: 0x0d1410, alpha: 0.9 },
     );
-    this.rightPane.endFill();
 
     this.divider.clear();
-    this.divider.lineStyle(1, 0x26352a, 0.85);
-    this.divider.moveTo(leftWidth, 22);
-    this.divider.lineTo(leftWidth, paneHeight - 22);
+    this.divider
+      .moveTo(leftWidth, 22)
+      .lineTo(leftWidth, paneHeight - 22)
+      .stroke({ width: 1, color: 0x26352a, alpha: 0.85 });
 
     this.leftTitle.position.set(26, 24);
     this.rightTitle.position.set(leftWidth + 22, 24);
@@ -323,17 +340,16 @@ export class CraftingModal {
       height: CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
     };
 
-    this.previewFrame.clear();
-    this.previewFrame.lineStyle(2, 0x8ed061, 0.65);
-    this.previewFrame.beginFill(0x152018, 0.92);
-    this.previewFrame.drawRoundedRect(
+    drawRoundedRect(
+      this.previewFrame,
       previewLeft,
       previewTop,
       detailWidth,
       CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
       14,
+      { color: 0x152018, alpha: 0.92 },
+      { width: 2, color: 0x8ed061, alpha: 0.65 },
     );
-    this.previewFrame.endFill();
 
     this.previewSprite.texture = iconProvider(previewEntry.typeId);
     this.previewSprite.width = CRAFT_MODAL_PREVIEW_ICON_SIZE;
@@ -368,24 +384,23 @@ export class CraftingModal {
       height: CRAFT_BUTTON_HEIGHT,
     };
 
-    this.craftButton.clear();
-    this.craftButton.lineStyle(
-      2,
-      craftButtonEnabled ? 0x8ed061 : 0x5b625a,
-      0.95,
-    );
-    this.craftButton.beginFill(
-      craftButtonEnabled ? 0x234028 : 0x1a201b,
-      craftButtonEnabled ? 0.96 : 0.85,
-    );
-    this.craftButton.drawRoundedRect(
+    drawRoundedRect(
+      this.craftButton,
       previewLeft,
       buttonY,
       buttonWidth,
       CRAFT_BUTTON_HEIGHT,
       12,
+      {
+        color: craftButtonEnabled ? 0x234028 : 0x1a201b,
+        alpha: craftButtonEnabled ? 0.96 : 0.85,
+      },
+      {
+        width: 2,
+        color: craftButtonEnabled ? 0x8ed061 : 0x5b625a,
+        alpha: 0.95,
+      },
     );
-    this.craftButton.endFill();
 
     this.craftButtonLabel.text = craftButtonEnabled ? "Craft" : "Unavailable";
     this.craftButtonLabel.style.fill = craftButtonEnabled ? 0xf1f6ef : 0x8e958c;

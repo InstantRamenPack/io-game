@@ -1,4 +1,5 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 export class SelectedItemToastView {
   public readonly container = new PIXI.Container();
@@ -14,8 +15,7 @@ export class SelectedItemToastView {
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
         fontSize: 16,
         fill: 0xf3f6ee,
-        stroke: 0x0c120b,
-        strokeThickness: 3,
+        stroke: { color: 0x0c120b, width: 3 },
       }),
     );
     this.text.anchor.set(0.5);
@@ -37,16 +37,15 @@ export class SelectedItemToastView {
     this.widthValue = Math.ceil(this.text.width + paddingX * 2);
     this.heightValue = Math.ceil(this.text.height + paddingY * 2);
 
-    this.background.clear();
-    this.background.beginFill(0x0a0f0b, 0.78 * alpha);
-    this.background.drawRoundedRect(
+    drawRoundedRect(
+      this.background,
       0,
       0,
       this.widthValue,
       this.heightValue,
       12,
+      { color: 0x0a0f0b, alpha: 0.78 * alpha },
     );
-    this.background.endFill();
 
     this.text.position.set(this.widthValue / 2, this.heightValue / 2);
     this.container.alpha = alpha;

@@ -5,7 +5,7 @@ import type {
   WeaponContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type * as PIXI from "pixijs";
+import type * as PIXI from "pixi.js";
 
 export type EquippedRenderContext = {
   entity: ClientEntity;

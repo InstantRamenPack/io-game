@@ -1,4 +1,7 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import {
+  drawRoundedRect,
+} from "@client/render/pixi/PixiGraphicUtils.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -70,11 +73,16 @@ class HotbarSlotView {
     if (active) {
       const inflate = 4;
       const size = this.slotSize + inflate * 2;
-      this.activeOutline.clear();
-      this.activeOutline.lineStyle(2.5, 0xf7f7f7, 0.95);
-      this.activeOutline.beginFill(0x4a4a4a, 0.25);
-      this.activeOutline.drawRoundedRect(-inflate, -inflate, size, size, 5);
-      this.activeOutline.endFill();
+      drawRoundedRect(
+        this.activeOutline,
+        -inflate,
+        -inflate,
+        size,
+        size,
+        5,
+        { color: 0x4a4a4a, alpha: 0.25 },
+        { width: 2.5, color: 0xf7f7f7, alpha: 0.95 },
+      );
     } else {
       this.activeOutline.clear();
     }
@@ -116,18 +124,18 @@ class HotbarSlotView {
   }
 
   private drawBase(active: boolean): void {
-    this.base.clear();
     const fill = active ? 0x3a3a3a : 0x262626;
     const edge = active ? 0xf0f0f0 : 0x8e8e8e;
     const inner = active ? 0x5b5b5b : 0x3a3a3a;
 
-    this.base.lineStyle(2, edge, 0.9);
-    this.base.beginFill(fill, 0.92);
-    this.base.drawRoundedRect(0, 0, this.slotSize, this.slotSize, 4);
-    this.base.endFill();
-
-    this.base.lineStyle(1, inner, 0.85);
-    this.base.drawRoundedRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3);
+    this.base.clear();
+    this.base
+      .roundRect(0, 0, this.slotSize, this.slotSize, 4)
+      .fill({ color: fill, alpha: 0.92 })
+      .roundRect(0, 0, this.slotSize, this.slotSize, 4)
+      .stroke({ width: 2, color: edge, alpha: 0.9 })
+      .roundRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3)
+      .stroke({ width: 1, color: inner, alpha: 0.85 });
   }
 
   private updateAmmoBar(item: HotbarSlotItem): void {
@@ -142,10 +150,15 @@ class HotbarSlotView {
     const x = 4;
     const y = this.slotSize - 7;
 
-    this.ammoBarTrack.clear();
-    this.ammoBarTrack.beginFill(0x1f1f1f, 0.95);
-    this.ammoBarTrack.drawRoundedRect(x, y, trackWidth, trackHeight, 2);
-    this.ammoBarTrack.endFill();
+    drawRoundedRect(
+      this.ammoBarTrack,
+      x,
+      y,
+      trackWidth,
+      trackHeight,
+      2,
+      { color: 0x1f1f1f, alpha: 0.95 },
+    );
     this.ammoBarTrack.visible = true;
 
     const reloadTicksRemaining =
@@ -170,13 +183,19 @@ class HotbarSlotView {
 
     const clamped = Math.min(1, Math.max(0, fillRatio));
     const fillWidth = Math.floor(trackWidth * clamped);
-    this.ammoBarFill.clear();
     if (fillWidth > 0) {
-      this.ammoBarFill.beginFill(0xff9f1a, 1);
-      this.ammoBarFill.drawRoundedRect(x, y, fillWidth, trackHeight, 2);
-      this.ammoBarFill.endFill();
+      drawRoundedRect(
+        this.ammoBarFill,
+        x,
+        y,
+        fillWidth,
+        trackHeight,
+        2,
+        { color: 0xff9f1a, alpha: 1 },
+      );
       this.ammoBarFill.visible = true;
     } else {
+      this.ammoBarFill.clear();
       this.ammoBarFill.visible = false;
     }
   }
@@ -206,12 +225,12 @@ export class HotbarView {
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
       fontSize: 13,
       fill: 0xf3f6ee,
-      dropShadow: true,
-      dropShadowColor: 0x0a0f09,
-      dropShadowBlur: 2,
-      dropShadowDistance: 1,
-      stroke: 0x0c120b,
-      strokeThickness: 3,
+      dropShadow: {
+        color: 0x0a0f09,
+        blur: 2,
+        distance: 1,
+      },
+      stroke: { color: 0x0c120b, width: 3 },
     });
     const shortcutStyle = new PIXI.TextStyle({
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
@@ -278,12 +297,12 @@ export class HotbarView {
     this.heightValue = Math.ceil(height);
 
     this.background.clear();
-    this.background.lineStyle(2, 0x4b4b4b, 0.7);
-    this.background.beginFill(0x151515, 0.78);
-    this.background.drawRoundedRect(0, 0, width, height, 6);
-    this.background.endFill();
-
-    this.background.lineStyle(1, 0x2a2a2a, 0.85);
-    this.background.drawRoundedRect(2, 2, width - 4, height - 4, 5);
+    this.background
+      .roundRect(0, 0, width, height, 6)
+      .fill({ color: 0x151515, alpha: 0.78 })
+      .roundRect(0, 0, width, height, 6)
+      .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 })
+      .roundRect(2, 2, width - 4, height - 4, 5)
+      .stroke({ width: 1, color: 0x2a2a2a, alpha: 0.85 });
   }
 }

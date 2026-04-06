@@ -1,7 +1,8 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { DayNightSnapshot } from "@shared/net/snapshots.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
-type TextStyleOptions = Partial<PIXI.ITextStyle>;
+type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
 
 export class DayNightIndicator {
   public readonly container: PIXI.Container;
@@ -79,10 +80,15 @@ export class DayNightIndicator {
     const barY = this.label.height + this.barGap;
     this.label.position.set(labelX, 0);
 
-    this.graphic.clear();
-    this.graphic.beginFill(0x0b140b, 0.85);
-    this.graphic.drawRoundedRect(barX, barY, this.barWidth, this.barHeight, 6);
-    this.graphic.endFill();
+    drawRoundedRect(
+      this.graphic,
+      barX,
+      barY,
+      this.barWidth,
+      this.barHeight,
+      6,
+      { color: 0x0b140b, alpha: 0.85 },
+    );
 
     const cycleOffset = progress * this.barWidth;
     const cycleStart = centerX - cycleOffset;
@@ -93,9 +99,9 @@ export class DayNightIndicator {
       if (end <= start) {
         return;
       }
-      this.graphic.beginFill(color, 0.95);
-      this.graphic.drawRect(barX + start, barY, end - start, this.barHeight);
-      this.graphic.endFill();
+      this.graphic
+        .rect(barX + start, barY, end - start, this.barHeight)
+        .fill({ color, alpha: 0.95 });
     };
 
     for (let index = -1; index <= 1; index += 1) {
@@ -104,9 +110,10 @@ export class DayNightIndicator {
       drawClipped(segmentStart + nightWidth, dayWidth, 0xf2c84b);
     }
 
-    this.graphic.lineStyle(2, labelColor, 0.9);
-    this.graphic.moveTo(barX + centerX, barY - 2);
-    this.graphic.lineTo(barX + centerX, barY + this.barHeight + 2);
+    this.graphic
+      .moveTo(barX + centerX, barY - 2)
+      .lineTo(barX + centerX, barY + this.barHeight + 2)
+      .stroke({ width: 2, color: labelColor, alpha: 0.9 });
   }
 
   public setPosition(x: number, y: number): void {

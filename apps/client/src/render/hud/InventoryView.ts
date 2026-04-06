@@ -1,5 +1,6 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 type Rect = {
@@ -62,13 +63,13 @@ class InventorySlotView {
           : 0x526151;
 
     this.background.clear();
-    this.background.lineStyle(held ? 3 : 2, border, 0.95);
-    this.background.beginFill(fill, 0.95);
-    this.background.drawRoundedRect(0, 0, this.size, this.size, 10);
-    this.background.endFill();
-
-    this.background.lineStyle(1, 0x0f130f, 0.9);
-    this.background.drawRoundedRect(4, 4, this.size - 8, this.size - 8, 8);
+    this.background
+      .roundRect(0, 0, this.size, this.size, 10)
+      .fill({ color: fill, alpha: 0.95 })
+      .roundRect(0, 0, this.size, this.size, 10)
+      .stroke({ width: held ? 3 : 2, color: border, alpha: 0.95 })
+      .roundRect(4, 4, this.size - 8, this.size - 8, 8)
+      .stroke({ width: 1, color: 0x0f130f, alpha: 0.9 });
 
     this.shortcutText.text = shortcutLabel;
     this.shortcutText.position.set(6, 4);
@@ -117,8 +118,7 @@ export class InventoryView {
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
       fontSize: 13,
       fill: 0xf3f6ee,
-      stroke: 0x0c120b,
-      strokeThickness: 3,
+      stroke: { color: 0x0c120b, width: 3 },
     });
     const shortcutStyle = new PIXI.TextStyle({
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
@@ -197,22 +197,25 @@ export class InventoryView {
     };
     this.container.position.set(modalX, modalY);
 
-    this.backdrop.clear();
-    this.backdrop.beginFill(0x020402, 0.55);
-    this.backdrop.drawRoundedRect(
+    drawRoundedRect(
+      this.backdrop,
       -12,
       -12,
       modalWidth + 24,
       modalHeight + 24,
       24,
+      { color: 0x020402, alpha: 0.55 },
     );
-    this.backdrop.endFill();
-
-    this.panel.clear();
-    this.panel.lineStyle(2, 0x7fb56d, 0.35);
-    this.panel.beginFill(0x0a100b, 0.94);
-    this.panel.drawRoundedRect(0, 0, modalWidth, modalHeight, 18);
-    this.panel.endFill();
+    drawRoundedRect(
+      this.panel,
+      0,
+      0,
+      modalWidth,
+      modalHeight,
+      18,
+      { color: 0x0a100b, alpha: 0.94 },
+      { width: 2, color: 0x7fb56d, alpha: 0.35 },
+    );
 
     this.title.position.set(this.padding, this.padding - 2);
     this.helper.position.set(this.padding, this.padding + 30);

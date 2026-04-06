@@ -1,4 +1,5 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { ChatMessage } from "@shared/net/protocol.ts";
 
 type ChatMessageEntry = {
@@ -72,12 +73,11 @@ class ChatLineView {
     this.heightValue = Math.ceil(contentHeight + this.paddingY * 2);
 
     this.background.clear();
-    this.background.beginFill(this.backgroundColor, this.backgroundAlpha);
-    this.background.drawRoundedRect(0, 0, this.widthValue, this.heightValue, 4);
-    this.background.endFill();
-    this.background.beginFill(this.borderColor, this.borderAlpha);
-    this.background.drawRect(0, 0, this.borderWidth, this.heightValue);
-    this.background.endFill();
+    this.background
+      .roundRect(0, 0, this.widthValue, this.heightValue, 4)
+      .fill({ color: this.backgroundColor, alpha: this.backgroundAlpha })
+      .rect(0, 0, this.borderWidth, this.heightValue)
+      .fill({ color: this.borderColor, alpha: this.borderAlpha });
   }
 
   public get width(): number {
@@ -119,15 +119,15 @@ export class PixiChat {
     lineHeight: 19,
     wordWrap: true,
     breakWords: true,
-    dropShadow: true,
-    dropShadowColor: 0x000000,
-    dropShadowDistance: 1,
-    dropShadowBlur: 0,
-    stroke: 0x000000,
-    strokeThickness: 2,
+    dropShadow: {
+      color: 0x000000,
+      distance: 1,
+      blur: 0,
+    },
+    stroke: { color: 0x000000, width: 2 },
   });
 
-  public attach(app: PIXI.Application<HTMLCanvasElement>): void {
+  public attach(app: PIXI.Application): void {
     if (!this.root) {
       this.root = new PIXI.Container();
       this.linesContainer = new PIXI.Container();
@@ -226,7 +226,7 @@ export class PixiChat {
     return true;
   }
 
-  public render(app: PIXI.Application<HTMLCanvasElement>, force = false): void {
+  public render(app: PIXI.Application, force = false): void {
     if (!this.root || !this.linesContainer || !this.maskGraphic) {
       return;
     }
@@ -273,10 +273,14 @@ export class PixiChat {
       this.viewHeight;
     this.root.position.set(Math.round(originX), Math.round(originY));
 
-    this.maskGraphic.clear();
-    this.maskGraphic.beginFill(0xffffff, 1);
-    this.maskGraphic.drawRect(0, 0, this.viewWidth, this.viewHeight);
-    this.maskGraphic.endFill();
+    drawRect(
+      this.maskGraphic,
+      0,
+      0,
+      this.viewWidth,
+      this.viewHeight,
+      { color: 0xffffff, alpha: 1 },
+    );
 
     this.maxScroll = Math.max(0, this.contentHeight - this.viewHeight);
     if (!this.open) {

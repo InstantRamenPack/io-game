@@ -1,6 +1,7 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
-import type * as PIXI from "pixijs";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import type * as PIXI from "pixi.js";
 
 export class CraftingStationRenderer extends BaseEntityRenderer {
   protected drawEntityShape(
@@ -10,17 +11,16 @@ export class CraftingStationRenderer extends BaseEntityRenderer {
     alpha: number,
     lineAlpha = 1,
   ): void {
-    graphics.clear();
-    graphics.lineStyle(2, 0x000000, lineAlpha);
-    graphics.beginFill(fillColor, alpha);
-    graphics.drawRoundedRect(
+    drawRoundedRect(
+      graphics,
       entity.hitboxBounds.minX,
       entity.hitboxBounds.minY,
       entity.hitboxBounds.width,
       entity.hitboxBounds.height,
       6,
+      { color: fillColor, alpha },
+      { width: 2, color: 0x000000, alpha: lineAlpha },
     );
-    graphics.endFill();
   }
 
   protected getFillColor(): number {

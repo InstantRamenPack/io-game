@@ -9,10 +9,11 @@ import type {
   EntityRenderer,
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import { getItemContent, getWeaponContent } from "@shared/content/catalog.ts";
 import type { WeaponContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 
 export abstract class BaseEntityRenderer implements EntityRenderer {
   protected readonly entityContainer: PIXI.Container;
@@ -232,15 +233,15 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     if (this.hitboxGraphic) {
       this.hitboxGraphic.clear();
-      this.hitboxGraphic.lineStyle(2, 0x2d68ff, 0.8);
       for (const hitbox of entity.hitboxes) {
-        this.hitboxGraphic.drawRect(
+        this.hitboxGraphic.rect(
           hitbox.offsetX - hitbox.width / 2,
           hitbox.offsetY - hitbox.height / 2,
           hitbox.width,
           hitbox.height,
         );
       }
+      this.hitboxGraphic.stroke({ width: 2, color: 0x2d68ff, alpha: 0.8 });
     }
 
     if (this.debugGraphic) {
@@ -264,21 +265,24 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const left = entity.hitboxBounds.centerX - width / 2;
     const top = entity.hitboxBounds.minY - 12;
 
-    this.healthBarTrackGraphic.clear();
-    this.healthBarTrackGraphic.beginFill(0x1b1b1b, 0.85);
-    this.healthBarTrackGraphic.drawRoundedRect(left, top, width, height, 3);
-    this.healthBarTrackGraphic.endFill();
-
-    this.healthBarFillGraphic.clear();
-    this.healthBarFillGraphic.beginFill(0x57d34d, 0.95);
-    this.healthBarFillGraphic.drawRoundedRect(
+    drawRoundedRect(
+      this.healthBarTrackGraphic,
+      left,
+      top,
+      width,
+      height,
+      3,
+      { color: 0x1b1b1b, alpha: 0.85 },
+    );
+    drawRoundedRect(
+      this.healthBarFillGraphic,
       left,
       top,
       width * ratio,
       height,
       3,
+      { color: 0x57d34d, alpha: 0.95 },
     );
-    this.healthBarFillGraphic.endFill();
   }
 
   private syncDamageFlashVisual(): void {

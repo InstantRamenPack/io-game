@@ -1,3 +1,4 @@
+import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import {
@@ -43,9 +44,6 @@ type AimTarget = {
   y: number;
 };
 
-const RATE_SAMPLE_WINDOW_MS = 1000;
-const MIN_RATE_SAMPLE_WINDOW_MS = 250;
-
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
  */
@@ -64,8 +62,7 @@ export class GameClient {
   private rendererPointerBound = false;
   private started = false;
   private sessionReady = false;
-  private frameSamples: number[] = [];
-  private tickSamples: Array<{ tick: number; timeMs: number }> = [];
+  private readonly rateMonitor = new ClientRateMonitor();
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
@@ -304,10 +301,6 @@ export class GameClient {
     });
   }
 
-  public clearPendingHotbarSelection(): void {
-    // Hotbar selection now sends immediately and no longer stages local state.
-  }
-
   public requestRespawn(): void {
     if (!this.sessionReady || !this.isTransportConnected()) {
       return;
@@ -345,7 +338,7 @@ export class GameClient {
     }
     this.started = true;
     this.sessionReady = false;
-    this.resetPerformanceRateSamples();
+    this.rateMonitor.reset();
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
@@ -382,7 +375,7 @@ export class GameClient {
     }
 
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
-    this.recordTickSample(snapshot.tick, performance.now());
+    this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
       worldUpdatedHandler();
     }
@@ -398,16 +391,7 @@ export class GameClient {
   }
 
   public stop(): void {
-    this.started = false;
-    this.sessionReady = false;
-    this.pointerAimTarget = undefined;
-    this.holdAttackCooldownUntilMs = 0;
-    this.stopFrameLoop();
-    this.resetPerformanceRateSamples();
-    this.networkClient.disconnect();
-    this.worldState?.clear();
-    this.playerEntityId = undefined;
-    this.renderer.setPlayerEntityId(undefined);
+    this.resetSessionState(true);
   }
 
   public getGameplayHudState(): GameplayHudState | null {
@@ -456,14 +440,7 @@ export class GameClient {
   }
 
   public getMeasuredRates(): PerformanceRateState {
-    const now = performance.now();
-    this.trimFrameSamples(now);
-    this.trimTickSamples(now);
-
-    return {
-      frameRate: this.calculateFrameRate(now),
-      tickRate: this.calculateTickRate(now),
-    };
+    return this.rateMonitor.getMeasuredRates(performance.now());
   }
 
   public advanceTime(ms: number): void {
@@ -501,7 +478,7 @@ export class GameClient {
           ? 0
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
-      this.recordFrameSample(timestamp);
+      this.rateMonitor.recordFrameSample(timestamp);
       this.refreshPointerTargetFromScreen();
       this.updateHeldAttack(timestamp);
       this.update(deltaMs, timestamp);
@@ -521,12 +498,19 @@ export class GameClient {
   }
 
   private onDisconnected(): void {
+    this.resetSessionState(false);
+  }
+
+  private resetSessionState(disconnectTransport: boolean): void {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
     this.holdAttackCooldownUntilMs = 0;
     this.stopFrameLoop();
-    this.resetPerformanceRateSamples();
+    this.rateMonitor.reset();
+    if (disconnectTransport) {
+      this.networkClient.disconnect();
+    }
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
@@ -569,86 +553,6 @@ export class GameClient {
     );
     this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
-  }
-
-  private recordFrameSample(timestamp: number): void {
-    this.frameSamples.push(timestamp);
-    this.trimFrameSamples(timestamp);
-  }
-
-  private recordTickSample(tick: number, timeMs: number): void {
-    this.tickSamples.push({ tick, timeMs });
-    this.trimTickSamples(timeMs);
-  }
-
-  private trimFrameSamples(now: number): void {
-    while (
-      this.frameSamples.length > 1 &&
-      now - (this.frameSamples[0] ?? now) > RATE_SAMPLE_WINDOW_MS
-    ) {
-      this.frameSamples.shift();
-    }
-  }
-
-  private trimTickSamples(now: number): void {
-    while (
-      this.tickSamples.length > 1 &&
-      now - (this.tickSamples[0]?.timeMs ?? now) > RATE_SAMPLE_WINDOW_MS
-    ) {
-      this.tickSamples.shift();
-    }
-  }
-
-  private calculateFrameRate(now: number): number | null {
-    if (this.frameSamples.length >= 2) {
-      const firstSample = this.frameSamples[0] ?? now;
-      const lastSample = this.frameSamples[this.frameSamples.length - 1] ?? now;
-      const elapsedMs = lastSample - firstSample;
-      if (elapsedMs <= 0) {
-        return null;
-      }
-
-      return ((this.frameSamples.length - 1) * 1000) / elapsedMs;
-    }
-
-    if (this.frameSamples.length === 1) {
-      return now - (this.frameSamples[0] ?? now) >= MIN_RATE_SAMPLE_WINDOW_MS
-        ? 0
-        : null;
-    }
-
-    return null;
-  }
-
-  private calculateTickRate(now: number): number | null {
-    if (this.tickSamples.length >= 2) {
-      const firstSample = this.tickSamples[0];
-      const lastSample = this.tickSamples[this.tickSamples.length - 1];
-      if (!firstSample || !lastSample) {
-        return null;
-      }
-
-      const elapsedMs = lastSample.timeMs - firstSample.timeMs;
-      if (elapsedMs <= 0) {
-        return null;
-      }
-
-      return ((lastSample.tick - firstSample.tick) * 1000) / elapsedMs;
-    }
-
-    if (this.tickSamples.length === 1) {
-      return now - (this.tickSamples[0]?.timeMs ?? now) >=
-        MIN_RATE_SAMPLE_WINDOW_MS
-        ? 0
-        : null;
-    }
-
-    return null;
-  }
-
-  private resetPerformanceRateSamples(): void {
-    this.frameSamples = [];
-    this.tickSamples = [];
   }
 
   private sendAction(actionMessage: ActionMessage): void {

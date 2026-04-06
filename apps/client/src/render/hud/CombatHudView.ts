@@ -1,5 +1,6 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { CombatHudModel } from "@client/render/hud/hudPresentationModels.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 const HEALTH_ROW_HEIGHT = 28;
 const AMMO_ICON_SIZE = 14;
@@ -27,8 +28,7 @@ export class CombatHudView {
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
         fontSize: 13,
         fill: 0xf3f6ee,
-        stroke: 0x0c120b,
-        strokeThickness: 3,
+        stroke: { color: 0x0c120b, width: 3 },
       }),
     );
     this.healthText.anchor.set(0.5);
@@ -91,11 +91,16 @@ export class CombatHudView {
     const healthY = ammoHeight + 6;
     this.heightValue = healthY + HEALTH_ROW_HEIGHT;
 
-    this.ammoFrame.clear();
-    this.ammoFrame.lineStyle(1, 0x4f5d51, 0.55);
-    this.ammoFrame.beginFill(0x101512, 0.86);
-    this.ammoFrame.drawRoundedRect(0, ammoY, this.widthValue, ammoHeight, 10);
-    this.ammoFrame.endFill();
+    drawRoundedRect(
+      this.ammoFrame,
+      0,
+      ammoY,
+      this.widthValue,
+      ammoHeight,
+      10,
+      { color: 0x101512, alpha: 0.86 },
+      { width: 1, color: 0x4f5d51, alpha: 0.55 },
+    );
 
     this.reserveText.text =
       model.ammo.reserveMagCount !== null
@@ -163,38 +168,40 @@ export class CombatHudView {
   ): void {
     const clampedMax = Math.max(1, maxHp);
     const ratio = Math.max(0, Math.min(1, hp / clampedMax));
-    this.healthFrame.clear();
-    this.healthFrame.lineStyle(1, 0x61735b, 0.65);
-    this.healthFrame.beginFill(0x121915, 0.9);
-    this.healthFrame.drawRoundedRect(0, y, width, HEALTH_ROW_HEIGHT, 10);
-    this.healthFrame.endFill();
+    drawRoundedRect(
+      this.healthFrame,
+      0,
+      y,
+      width,
+      HEALTH_ROW_HEIGHT,
+      10,
+      { color: 0x121915, alpha: 0.9 },
+      { width: 1, color: 0x61735b, alpha: 0.65 },
+    );
 
     const trackX = padding;
     const trackY = y + 7;
     const trackWidth = width - padding * 2;
     const trackHeight = 14;
 
-    this.healthTrack.clear();
-    this.healthTrack.beginFill(0x261d1d, 0.95);
-    this.healthTrack.drawRoundedRect(
+    drawRoundedRect(
+      this.healthTrack,
       trackX,
       trackY,
       trackWidth,
       trackHeight,
       7,
+      { color: 0x261d1d, alpha: 0.95 },
     );
-    this.healthTrack.endFill();
-
-    this.healthFill.clear();
-    this.healthFill.beginFill(0xb44646, 0.96);
-    this.healthFill.drawRoundedRect(
+    drawRoundedRect(
+      this.healthFill,
       trackX,
       trackY,
       Math.max(0, trackWidth * ratio),
       trackHeight,
       7,
+      { color: 0xb44646, alpha: 0.96 },
     );
-    this.healthFill.endFill();
 
     this.healthText.text = `${Math.max(0, Math.round(hp))}/${Math.max(0, Math.round(maxHp))}`;
     this.healthText.position.set(width / 2, y + HEALTH_ROW_HEIGHT / 2);

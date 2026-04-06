@@ -1,5 +1,6 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { HudTooltipContent } from "@client/render/hud/hudPresentationModels.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 export class HudTooltipView {
   public readonly container = new PIXI.Container();
@@ -76,17 +77,16 @@ export class HudTooltipView {
         (content.lines.length > 0 ? 8 + this.lines.height : 0),
     );
 
-    this.background.clear();
-    this.background.lineStyle(1, 0x9dc18d, 0.45);
-    this.background.beginFill(0x090d0a, 0.94);
-    this.background.drawRoundedRect(
+    drawRoundedRect(
+      this.background,
       0,
       0,
       this.widthValue,
       this.heightValue,
       10,
+      { color: 0x090d0a, alpha: 0.94 },
+      { width: 1, color: 0x9dc18d, alpha: 0.45 },
     );
-    this.background.endFill();
 
     this.title.position.set(padding, padding);
     this.detail.position.set(padding, padding + this.title.height + 6);

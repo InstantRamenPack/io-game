@@ -1,5 +1,6 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { HudEffectEntry } from "@client/render/hud/hudPresentationModels.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 class EffectIconCell {
@@ -17,11 +18,16 @@ class EffectIconCell {
   }
 
   public render(texture: PIXI.Texture): void {
-    this.background.clear();
-    this.background.lineStyle(1, 0xc0d4b7, 0.45);
-    this.background.beginFill(0x101513, 0.85);
-    this.background.drawRoundedRect(0, 0, 28, 28, 7);
-    this.background.endFill();
+    drawRoundedRect(
+      this.background,
+      0,
+      0,
+      28,
+      28,
+      7,
+      { color: 0x101513, alpha: 0.85 },
+      { width: 1, color: 0xc0d4b7, alpha: 0.45 },
+    );
 
     this.icon.texture = texture;
     this.icon.width = 18;

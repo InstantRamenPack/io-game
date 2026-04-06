@@ -1,4 +1,4 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
 import {
@@ -61,7 +61,7 @@ type PixiHudOptions = {
   selectors: GameSelectors;
 };
 
-type TextStyleOptions = Partial<PIXI.ITextStyle>;
+type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
 type ScreenRect = { x: number; y: number; width: number; height: number };
 
 export class PixiHud {
@@ -140,7 +140,7 @@ export class PixiHud {
     };
   }
 
-  public attach(app: PIXI.Application<HTMLCanvasElement>): void {
+  public attach(parent: PIXI.Container): void {
     if (!this.root) {
       this.root = new PIXI.Container();
       this.statusPanel = new HudPanel(this.titleStyle, this.bodyStrongStyle);
@@ -200,8 +200,8 @@ export class PixiHud {
       );
     }
 
-    if (this.root.parent !== app.stage) {
-      app.stage.addChild(this.root);
+    if (this.root.parent !== parent) {
+      parent.addChild(this.root);
     }
 
     this.root.visible = this.visible;
@@ -357,7 +357,7 @@ export class PixiHud {
     this.markDirty();
   }
 
-  public render(app: PIXI.Application<HTMLCanvasElement>, force = false): void {
+  public render(app: PIXI.Application, force = false): void {
     if (!this.root) {
       return;
     }
