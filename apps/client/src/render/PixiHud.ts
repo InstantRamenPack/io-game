@@ -1,26 +1,35 @@
 import * as PIXI from "pixi.js";
-import type {GameSelectors} from "@client/app/gameSelectors.ts";
-import type {GameClient, PointerInput} from "@client/client/GameClient.ts";
-import {CraftingModal, type CraftingModalEntry,} from "@client/render/hud/CraftingModal.ts";
-import {CombatHudView} from "@client/render/hud/CombatHudView.ts";
-import {CraftingHudCoordinator} from "@client/render/hud/CraftingHudCoordinator.ts";
-import {DayNightIndicator} from "@client/render/hud/DayNightIndicator.ts";
-import {EffectIconView} from "@client/render/hud/EffectIconView.ts";
-import {GameplayHudCoordinator} from "@client/render/hud/GameplayHudCoordinator.ts";
-import {HudPanel} from "@client/render/hud/HudPanel.ts";
-import {HudTooltipCoordinator} from "@client/render/hud/HudTooltipCoordinator.ts";
-import {HudTooltipView} from "@client/render/hud/HudTooltipView.ts";
-import {HotbarView} from "@client/render/hud/HotbarView.ts";
-import type {HudInteractionState} from "@client/render/hud/HudInteractionState.ts";
-import {InventoryEditCoordinator} from "@client/render/hud/InventoryEditCoordinator.ts";
-import {InventoryView} from "@client/render/hud/InventoryView.ts";
-import {ResourceStackView} from "@client/render/hud/ResourceStackView.ts";
-import {SelectedItemToastView} from "@client/render/hud/SelectedItemToastView.ts";
-import {computeHotbarActiveIndex, toHotbarSlotItems,} from "@client/render/hud/hotbarModel.ts";
-import {CRAFTABLE_ITEM_TYPE_IDS, getItemContent,} from "@shared/content/catalog.ts";
-import type {ItemRecipeContent} from "@shared/content/schema.ts";
-import type {ResourceId} from "@shared/ids/ResourceId.ts";
-import type {InventorySnapshot} from "@shared/net/snapshots.ts";
+import type { GameSelectors } from "@client/app/gameSelectors.ts";
+import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
+import {
+  CraftingModal,
+  type CraftingModalEntry,
+} from "@client/render/hud/CraftingModal.ts";
+import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
+import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
+import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
+import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
+import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
+import { HudPanel } from "@client/render/hud/HudPanel.ts";
+import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
+import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
+import { HotbarView } from "@client/render/hud/HotbarView.ts";
+import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
+import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
+import { InventoryView } from "@client/render/hud/InventoryView.ts";
+import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
+import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
+import {
+  computeHotbarActiveIndex,
+  toHotbarSlotItems,
+} from "@client/render/hud/hotbarModel.ts";
+import {
+  CRAFTABLE_ITEM_TYPE_IDS,
+  getItemContent,
+} from "@shared/content/catalog.ts";
+import type { ItemRecipeContent } from "@shared/content/schema.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
 const HOTBAR_SLOT_COUNT = 10;
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -284,9 +293,9 @@ export class PixiHud {
         pointer,
         hotbarItems: this.getHotbarItems(),
         getSlotIndexAtPoint: (screenX, screenY) =>
-            this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
+          this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
         queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
-            this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
+          this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
         markDirty: () => this.markDirty(),
       });
     }
