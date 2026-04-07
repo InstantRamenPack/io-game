@@ -1,3 +1,13 @@
 {
-  "label": "Cannon Bullet"
+  "label": "Cannon Bullet",
+  "projectile": {
+    "speed": 24,
+    "range": 650,
+    "damage": 30,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 12,
+      "height": 12
+    }
+  }
 }

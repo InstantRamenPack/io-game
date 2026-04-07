@@ -32,12 +32,10 @@ export const ExplosionEventPayloadSchema = z.object({
 export const NetEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("damage"),
-    tick: z.number().int().nonnegative(),
     payload: DamageEventPayloadSchema,
   }),
   z.object({
     type: z.literal("explosion"),
-    tick: z.number().int().nonnegative(),
     payload: ExplosionEventPayloadSchema,
   }),
 ]);

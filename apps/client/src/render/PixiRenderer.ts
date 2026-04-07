@@ -1,83 +1,79 @@
-import * as PIXI from "pixijs";
-import { ColorMatrixFilter } from "pixijs";
+import type { Application, Container, Texture } from "pixi.js";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
+import { PixiAppHost } from "@client/render/pixi/PixiAppHost.ts";
+import { PixiAssetStore } from "@client/render/pixi/PixiAssetStore.ts";
+import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
+import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import { PixiOverlayLayer } from "@client/render/pixi/PixiOverlayLayer.ts";
+import { PixiParticleLayer } from "@client/render/pixi/PixiParticleLayer.ts";
+import {
+  PixiPlacementPreview,
+  type PlacementPreviewState,
+} from "@client/render/pixi/PixiPlacementPreview.ts";
+import { PixiRenderScheduler } from "@client/render/pixi/PixiRenderScheduler.ts";
+import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
+import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
 
 type WorldSize = { w: number; h: number };
 
-type ExplosionEffect = {
-  graphic: PIXI.Graphics;
-  remainingMs: number;
-  durationMs: number;
-  radius: number;
-  x: number;
-  y: number;
-  style: ExplosionStyle;
-};
-
 /**
- * Rendering adapter for visible entity state.
- * Owns the Pixi scene lifecycle and exposes the shared entity layer consumed
- * by dedicated entity renderer classes.
+ * Rendering facade for visible entity state.
+ * Internal responsibilities are delegated to dedicated Pixi helpers so this
+ * class remains the public integration surface for the rest of the client.
  */
 export class PixiRenderer {
-  private static readonly CAMERA_FOLLOW_SMOOTHING_MS = 120;
+  private readonly appHost = new PixiAppHost();
+  private readonly sceneGraph = new PixiSceneGraph();
+  private readonly assetStore = new PixiAssetStore();
+  private readonly viewportController: PixiViewportController;
+  private readonly cullingController = new PixiCullingController();
+  private readonly particleLayer = new PixiParticleLayer();
+  private readonly overlayLayer = new PixiOverlayLayer();
+  private readonly renderScheduler = new PixiRenderScheduler();
+  private readonly placementPreview = new PixiPlacementPreview();
 
-  private app: PIXI.Application<HTMLCanvasElement> | null = null;
-  private world: PIXI.Container | null = null;
-  private grid: PIXI.Graphics | null = null;
-  private effectContainer: PIXI.Container | null = null;
-  public entityContainer: PIXI.Container | null = null;
-  private damageOverlay: PIXI.Graphics | null = null;
   private hud: PixiHud | null = null;
-  private damageOverlayRemainingMs = 0;
-  private damageOverlayDurationMs = 200;
-  private confusionActive = false;
-  private confusionIntensity = 0;
-  private confusionTimeMs = 0;
-  private confusionSwimX = 0;
-  private confusionSwimY = 0;
-  private confusionColorFilter: ColorMatrixFilter | null = null;
-  private confusionFlash: PIXI.Graphics | null = null;
-  private confusionEdge: PIXI.Graphics | null = null;
-  private confusionBloom: PIXI.Graphics | null = null;
-  private explosionEffects: ExplosionEffect[] = [];
-  private itemTextures = new Map<string, PIXI.Texture>();
-  private placeholderItemTexture: PIXI.Texture | null = null;
-  private itemIconMap: Record<string, string> = {};
-  private gridCellSize = 100;
+  private readonly gridCellSize = 100;
   private gridNightBlend = 0;
   private readonly gridDayFillColor = 0xd7f3d2;
   private readonly gridNightFillColor = 0x3f5f46;
   private readonly gridDayLineColor = 0x2d4f37;
   private readonly gridNightLineColor = 0x9fd69a;
   private worldSize: WorldSize;
-  private hostElement: HTMLElement | null = null;
-  private cameraPivotX = 0;
-  private cameraPivotY = 0;
-  private cameraTargetX = 0;
-  private cameraTargetY = 0;
-  private cameraInitialized = false;
-  private gameplayViewportWidth = 0;
-  private gameplayViewportHeight = 0;
+  private tickRate = 20;
 
   public playerEntityId?: number;
 
   private readonly handleResize = (): void => {
-    if (!this.app) {
+    const app = this.app;
+    if (!app) {
       return;
     }
-    this.app.renderer.resolution = this.getRendererResolution();
-    this.app.renderer.resize(window.innerWidth, window.innerHeight);
-    this.drawDamageOverlay();
-    this.syncCameraTransform();
-    this.renderScene();
+
+    this.appHost.resize(this.getRendererResolution());
+    this.overlayLayer.resize(app);
+    this.viewportController.sync(app, this.sceneGraph.worldRoot);
+    this.renderScene(true);
   };
 
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
+    this.viewportController = new PixiViewportController(worldSize);
+  }
+
+  public get entityContainer(): Container | null {
+    return this.sceneGraph.entityLayer;
+  }
+
+  public get app(): Application | null {
+    try {
+      return this.appHost.getApp();
+    } catch {
+      return null;
+    }
   }
 
   public createHud(options: {
@@ -89,153 +85,110 @@ export class PixiRenderer {
     }
 
     if (this.app) {
-      this.hud.attach(this.app);
-      this.ensureDamageOverlay();
+      this.hud.attach(this.sceneGraph.hudLayer);
     }
 
+    this.renderScheduler.markDirty();
     return this.hud;
   }
 
   public setPlayerEntityId(entityId: number | undefined): void {
     this.playerEntityId = entityId;
     if (entityId === undefined) {
-      this.cameraInitialized = false;
+      this.viewportController.reset();
     }
+  }
+
+  public setTickRate(tickRate: number): void {
+    if (Number.isFinite(tickRate) && tickRate > 0) {
+      this.tickRate = Math.floor(tickRate);
+    }
+  }
+
+  public getTickRate(): number {
+    return this.tickRate;
   }
 
   public async init(
     hostElement: HTMLElement,
     worldSize: WorldSize,
   ): Promise<void> {
-    await this.attach(hostElement, worldSize);
+    this.worldSize = { ...worldSize };
+    this.viewportController.setWorldSize(this.worldSize);
 
-    if (!this.app) {
-      throw new Error("Pixi App not created");
-    }
+    const app = await this.appHost.attach(hostElement, {
+      backgroundColor: 0xd7f3d2,
+      antialias: true,
+      autoDensity: true,
+      autoStart: false,
+      resolution: this.getRendererResolution(),
+    });
 
-    window.app = this.app;
-    await this.loadPixiTextures();
+    window.app = app;
+    window.removeEventListener("resize", this.handleResize);
+    window.addEventListener("resize", this.handleResize);
 
-    if (!this.world) {
-      this.world = new PIXI.Container();
-    }
-    this.ensureGrid();
-    this.app.stage.addChild(this.world);
-
-    if (!this.entityContainer) {
-      this.entityContainer = new PIXI.Container();
-    }
-    if (!this.effectContainer) {
-      this.effectContainer = new PIXI.Container();
-    }
-    this.world.addChild(this.effectContainer);
-    this.world.addChild(this.entityContainer);
+    await this.assetStore.load(app);
+    this.sceneGraph.attach(app);
+    this.particleLayer.attach(this.sceneGraph.effectLayer);
+    this.particleLayer.setTextures({
+      softCircle: this.assetStore.getParticleTexture("soft-circle"),
+      ring: this.assetStore.getParticleTexture("ring"),
+    });
+    this.overlayLayer.attach(this.sceneGraph.overlayLayer);
+    this.overlayLayer.resize(app);
+    this.placementPreview.attach(this.sceneGraph.placementLayer);
 
     if (this.hud) {
-      this.hud.attach(this.app);
+      this.hud.attach(this.sceneGraph.hudLayer);
     }
 
-    this.ensureDamageOverlay();
-    this.renderScene();
+    this.cullingController.configure({
+      worldRoot: this.sceneGraph.worldRoot,
+      entityLayer: this.sceneGraph.entityLayer,
+      effectLayer: this.sceneGraph.effectLayer,
+      placementLayer: this.sceneGraph.placementLayer,
+      hudRoot: this.sceneGraph.hudRoot,
+      worldSize: this.worldSize,
+    });
+    this.drawGrid();
+    this.applyWorldFilters();
+    this.viewportController.sync(app, this.sceneGraph.worldRoot);
+    this.renderScene(true);
   }
 
   public async attach(
     hostElement: HTMLElement,
     worldSize: WorldSize,
   ): Promise<void> {
-    this.hostElement = hostElement;
-    this.worldSize = { ...worldSize };
-
-    if (!this.app) {
-      this.app = new PIXI.Application({
-        resizeTo: window,
-        backgroundColor: 0xd7f3d2,
-        antialias: true,
-        autoDensity: true,
-        autoStart: false,
-        resolution: this.getRendererResolution(),
-      });
-      window.addEventListener("resize", this.handleResize);
-    }
-
-    this.hostElement.innerHTML = "";
-    this.hostElement.appendChild(this.app.view as HTMLCanvasElement);
-    this.captureGameplayViewportSize();
+    await this.init(hostElement, worldSize);
   }
 
-  public async loadPixiTextures(): Promise<void> {
-    const mappingUrl = "/hud/item-icons.json";
-    let iconMap: Record<string, string> = {};
-
-    try {
-      const response = await fetch(mappingUrl);
-      if (response.ok) {
-        const payload = (await response.json()) as Record<string, string>;
-        if (payload && typeof payload === "object") {
-          iconMap = payload;
-        }
-      }
-    } catch {
-      iconMap = {};
-    }
-
-    const defaultPath =
-      typeof iconMap.__default__ === "string" && iconMap.__default__.length > 0
-        ? iconMap.__default__
-        : "/hud/icons/placeholder.png";
-
-    this.itemIconMap = { ...iconMap };
-    const iconEntries = Object.entries(iconMap).filter(
-      ([key, value]) => key !== "__default__" && typeof value === "string",
-    );
-
-    const urlsToLoad = new Set<string>([defaultPath]);
-    for (const [, url] of iconEntries) {
-      if (url) {
-        urlsToLoad.add(url);
-      }
-    }
-
-    await Promise.all(
-      Array.from(urlsToLoad, async (url) => {
-        try {
-          await PIXI.Assets.load(url);
-        } catch {
-          // ignore individual failures and fall back to placeholder
-        }
-      }),
-    );
-
-    this.placeholderItemTexture = PIXI.Texture.from(defaultPath);
-    this.itemTextures.clear();
-    for (const [typeId, url] of iconEntries) {
-      if (url) {
-        this.itemTextures.set(typeId, PIXI.Texture.from(url));
-      }
-    }
-  }
-
-  public getItemTexture(typeId: string): PIXI.Texture {
-    return (
-      this.itemTextures.get(typeId) ??
-      this.placeholderItemTexture ??
-      PIXI.Texture.WHITE
-    );
+  public getItemTexture(typeId: string): Texture {
+    return this.assetStore.getItemTexture(typeId);
   }
 
   public setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
+    this.viewportController.setWorldSize(this.worldSize);
+    this.cullingController.updateWorldSize(this.worldSize);
     this.drawGrid();
-    if (this.app) {
-      this.renderScene();
-    }
+    this.renderScene(true);
   }
 
   public update(deltaMs: number): void {
-    this.updateDamageOverlay(deltaMs);
-    this.updateExplosionEffects(deltaMs);
-    this.updateConfusionEffect(deltaMs);
-    this.updateCamera(deltaMs);
+    const app = this.app;
+    if (!app) {
+      return;
+    }
+
+    this.particleLayer.update(deltaMs);
+    this.overlayLayer.update(app, deltaMs);
+    const swimOffset = this.overlayLayer.getSwimOffset();
+    this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
+    this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
+    this.applyWorldFilters();
+    this.renderScheduler.markDirty();
     this.renderScene();
   }
 
@@ -246,71 +199,56 @@ export class PixiRenderer {
     }
     this.gridNightBlend = nextBlend;
     this.drawGrid();
+    this.renderScheduler.markDirty();
   }
 
   public setCameraToPlayer(x: number, y: number): void {
-    this.cameraTargetX = x;
-    this.cameraTargetY = y;
-
-    if (!this.cameraInitialized) {
-      this.cameraPivotX = x;
-      this.cameraPivotY = y;
-      this.cameraInitialized = true;
-      this.syncCameraTransform();
+    this.viewportController.setCameraTarget(x, y);
+    if (this.app) {
+      this.viewportController.sync(this.app, this.sceneGraph.worldRoot);
     }
+    this.renderScheduler.markDirty();
   }
 
   public screenToWorld(
     clientX: number,
     clientY: number,
   ): { x: number; y: number } {
-    if (!this.app || !this.world) {
+    const app = this.app;
+    if (!app) {
       return { x: clientX, y: clientY };
     }
-
-    const screenPoint = this.clientToScreen(clientX, clientY);
-
-    // Subtract the confusion swim offset so attack targeting stays accurate
-    // even while the world container is visually displaced.
-    return {
-      x:
-        (screenPoint.x - this.world.position.x + this.confusionSwimX) /
-          this.world.scale.x +
-        this.world.pivot.x,
-      y:
-        (screenPoint.y - this.world.position.y + this.confusionSwimY) /
-          this.world.scale.y +
-        this.world.pivot.y,
-    };
+    return this.viewportController.screenToWorld(
+      app,
+      this.sceneGraph.worldRoot,
+      clientX,
+      clientY,
+    );
   }
 
   public clientToScreen(
     clientX: number,
     clientY: number,
   ): { x: number; y: number } {
-    if (!this.app) {
+    const app = this.app;
+    if (!app) {
       return { x: clientX, y: clientY };
     }
-
-    const rect = this.app.view.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-
-    return {
-      x: ((clientX - rect.left) / rect.width) * this.app.screen.width,
-      y: ((clientY - rect.top) / rect.height) * this.app.screen.height,
-    };
+    return this.viewportController.clientToScreen(app, clientX, clientY);
   }
 
   public getView(): HTMLCanvasElement | null {
-    return this.app?.view ?? null;
+    return this.appHost.getCanvas();
   }
 
   public triggerDamageOverlay(durationMs = 200): void {
-    this.damageOverlayDurationMs = Math.max(1, durationMs);
-    this.damageOverlayRemainingMs = this.damageOverlayDurationMs;
-    this.updateDamageOverlay(0);
+    this.overlayLayer.triggerDamageOverlay(durationMs);
+    this.renderScheduler.markDirty();
+  }
+
+  public setPlacementPreview(state: PlacementPreviewState | null): void {
+    this.placementPreview.sync(state);
+    this.renderScheduler.markDirty();
   }
 
   public triggerExplosionEffect(
@@ -319,429 +257,92 @@ export class PixiRenderer {
     radius: number,
     style: ExplosionStyle,
   ): void {
-    if (!this.effectContainer) {
-      return;
-    }
-
-    const graphic = new PIXI.Graphics();
-    this.effectContainer.addChild(graphic);
-    const durationMs = style === "landmine" ? 320 : 240;
-    const effect: ExplosionEffect = {
-      graphic,
-      remainingMs: durationMs,
-      durationMs,
-      radius,
-      x,
-      y,
-      style,
-    };
-    this.explosionEffects.push(effect);
-    this.drawExplosionEffect(effect);
+    this.particleLayer.triggerExplosion(x, y, radius, style);
+    this.renderScheduler.markDirty();
   }
 
   public setConfusionState(active: boolean, intensityRatio: number): void {
-    const wasActive = this.confusionActive;
-    this.confusionActive = active;
-    this.confusionIntensity = Math.max(0, Math.min(1, intensityRatio));
-
-    if (!active) {
-      if (wasActive) {
-        this.confusionTimeMs = 0;
-        this.confusionSwimX = 0;
-        this.confusionSwimY = 0;
-        this.removeConfusionColorFilter();
-        if (this.confusionFlash) this.confusionFlash.visible = false;
-        if (this.confusionEdge) this.confusionEdge.visible = false;
-        if (this.confusionBloom) this.confusionBloom.visible = false;
-      }
-      return;
-    }
-
-    if (!this.world || !this.app) {
-      return;
-    }
-
-    // Color filter applied to world — brightness animated per-frame in updateConfusionEffect
-    if (!this.confusionColorFilter) {
-      this.confusionColorFilter = new ColorMatrixFilter();
-    }
-    if (!this.world.filters) {
-      this.world.filters = [this.confusionColorFilter];
-    } else if (!this.world.filters.includes(this.confusionColorFilter)) {
-      this.world.filters = [...this.world.filters, this.confusionColorFilter];
-    }
-
-    // Create screen-space layers once — all use BlurFilter for smooth gradients
-    if (!this.confusionEdge) {
-      const sw = this.app.screen.width;
-      const sh = this.app.screen.height;
-      const cx = sw / 2;
-      const cy = sh / 2;
-      const minDim = Math.min(sw, sh);
-
-      // Edge vignette: dark olive rect with a large blurred hole.
-      // BlurFilter softens the hole boundary into a smooth radial gradient —
-      // dark at screen edges, transparent toward center.
-      const edge = new PIXI.Graphics();
-      const holeR = minDim * 0.32;
-      edge.beginFill(0x000000, 1);
-      edge.drawRect(-512, -512, sw + 1024, sh + 1024);
-      edge.beginHole();
-      edge.drawEllipse(cx, cy, holeR, holeR * 0.88);
-      edge.endHole();
-      edge.endFill();
-      const edgeBlur = new PIXI.BlurFilter(120, 1);
-      edgeBlur.padding = 140;
-      edge.filters = [edgeBlur];
-      this.confusionEdge = edge;
-      this.app.stage.addChild(edge);
-
-      // Center bloom: soft white glow. Heavy blur turns the ellipse into
-      // a smooth light bloom with no visible hard boundary.
-      const bloom = new PIXI.Graphics();
-      const bloomR = minDim * 0.44;
-      bloom.beginFill(0xffffff, 1);
-      bloom.drawEllipse(cx, cy, bloomR, bloomR * 0.88);
-      bloom.endFill();
-      const bloomBlur = new PIXI.BlurFilter(Math.round(bloomR * 0.7), 1);
-      bloomBlur.padding = Math.round(bloomR);
-      bloom.filters = [bloomBlur];
-      this.confusionBloom = bloom;
-      this.app.stage.addChild(bloom);
-
-      // Full-screen flash: no blur needed, just alpha
-      const flash = new PIXI.Graphics();
-      flash.beginFill(0xffffff, 1);
-      flash.drawRect(-512, -512, sw + 1024, sh + 1024);
-      flash.endFill();
-      this.confusionFlash = flash;
-      this.app.stage.addChild(flash);
-    }
-
-    if (this.confusionEdge) this.confusionEdge.visible = true;
-    if (this.confusionBloom) this.confusionBloom.visible = true;
-    if (this.confusionFlash) this.confusionFlash.visible = true;
+    this.overlayLayer.setConfusionState(active, intensityRatio);
+    this.applyWorldFilters();
+    this.renderScheduler.markDirty();
   }
 
-  private removeConfusionColorFilter(): void {
-    if (!this.world || !this.confusionColorFilter) {
+  private renderScene(force = false): void {
+    const app = this.app;
+    if (!app) {
       return;
     }
-    if (this.world.filters) {
-      this.world.filters = this.world.filters.filter(
-        (f) => f !== this.confusionColorFilter,
-      );
-      if (this.world.filters.length === 0) {
-        this.world.filters = null;
-      }
-    }
-  }
-
-  private updateConfusionEffect(deltaMs: number): void {
-    if (!this.confusionActive || !this.world || !this.app) {
-      return;
-    }
-
-    this.confusionTimeMs += deltaMs;
-    const t = this.confusionTimeMs / 1000;
-    const intensity = this.confusionIntensity;
-
-    // --- Color filter ---
-    // Lerp brightness from 1.0 (normal) toward the effect value so fade-out
-    // always returns to normal colors, never goes through black.
-    if (this.confusionColorFilter) {
-      const flashPhase = Math.max(0, 1 - t / 0.65);
-      const targetBrightness = 0.78 + flashPhase * 1.35; // spikes bright at impact
-      const brightness = 1.0 + (targetBrightness - 1.0) * intensity;
-      const saturation = -0.92 * intensity; // lerps back to 0 (normal) as intensity fades
-      this.confusionColorFilter.saturate(saturation, false);
-      this.confusionColorFilter.brightness(brightness, true);
-    }
-
-    // --- Swimming: ramps in after the flash settles ---
-    const swimRamp = Math.min(1, Math.max(0, (t - 0.3) / 0.4));
-    const amplitude = intensity * swimRamp * 22;
-    const offsetX =
-      Math.sin(t * 1.3) * amplitude +
-      Math.sin(t * 2.9 + 1.1) * amplitude * 0.35;
-    const offsetY =
-      Math.cos(t * 1.05 + 0.5) * amplitude * 0.85 +
-      Math.cos(t * 2.4 + 2.2) * amplitude * 0.28;
-    this.confusionSwimX = offsetX;
-    this.confusionSwimY = offsetY;
-    this.world.position.x += offsetX;
-    this.world.position.y += offsetY;
-
-    // --- Flash: slams full white on impact, gone in 0.6s ---
-    if (this.confusionFlash) {
-      const flashPhase = Math.max(0, 1 - t / 0.6);
-      this.confusionFlash.alpha = flashPhase * 0.93 * intensity;
-    }
-
-    // --- Edge vignette: heavy at impact, holds until intensity fades ---
-    if (this.confusionEdge) {
-      this.confusionEdge.alpha = intensity * (0.97 + Math.sin(t * 1.6) * 0.02);
-    }
-
-    // --- Center bloom: appears instantly, fades over ~3s ---
-    if (this.confusionBloom) {
-      const bloomRamp = Math.min(1, t / 0.12);
-      const bloomFade = Math.max(0, 1 - Math.max(0, t - 0.12) / 3.2);
-      this.confusionBloom.alpha = bloomRamp * bloomFade * 0.78 * intensity;
-    }
-  }
-
-  private renderScene(): void {
-    if (!this.app) {
-      return;
-    }
-    this.hud?.render(this.app);
-    this.app.renderer.render(this.app.stage);
-  }
-
-  private updateCamera(deltaMs: number): void {
-    if (!this.cameraInitialized) {
-      return;
-    }
-
-    const effectiveDeltaMs = Math.min(Math.max(deltaMs, 0), 50);
-    const smoothingFactor =
-      effectiveDeltaMs <= 0
-        ? 1
-        : 1 -
-          Math.exp(
-            -effectiveDeltaMs / PixiRenderer.CAMERA_FOLLOW_SMOOTHING_MS,
-          );
-    this.cameraPivotX = lerp(
-      this.cameraPivotX,
-      this.cameraTargetX,
-      smoothingFactor,
-    );
-    this.cameraPivotY = lerp(
-      this.cameraPivotY,
-      this.cameraTargetY,
-      smoothingFactor,
-    );
-    this.syncCameraTransform();
-  }
-
-  private syncCameraTransform(): void {
-    if (!this.world) {
-      return;
-    }
-    if (!this.app) {
-      return;
-    }
-
-    this.captureGameplayViewportSize();
-    const scale = this.getGameplayScale();
-    this.world.pivot.set(this.cameraPivotX, this.cameraPivotY);
-    this.world.scale.set(scale, scale);
-    this.world.position.set(
-      this.app.screen.width / 2,
-      this.app.screen.height / 2,
-    );
-  }
-
-  private ensureGrid(): void {
-    if (!this.app) {
-      throw new Error("Pixi App not initialized.");
-    }
-    if (!this.grid) {
-      this.grid = new PIXI.Graphics();
-    }
-    if (this.world && this.grid.parent !== this.world) {
-      this.world.addChild(this.grid);
-    }
-    this.drawGrid();
+    this.renderScheduler.render(app, this.hud, force);
   }
 
   private drawGrid(): void {
-    if (!this.grid) {
-      return;
-    }
-
+    const grid = this.sceneGraph.gridGraphic;
     const { w, h } = this.worldSize;
     const cell = Math.max(10, Math.floor(this.gridCellSize));
-    const fillColor = this.lerpColor(
+    const fillColor = lerpColor(
       this.gridDayFillColor,
       this.gridNightFillColor,
       this.gridNightBlend,
     );
-    const lineColor = this.lerpColor(
+    const lineColor = lerpColor(
       this.gridDayLineColor,
       this.gridNightLineColor,
-      this.applyContrastLag(this.gridNightBlend),
+      applyContrastLag(this.gridNightBlend),
     );
 
-    this.grid.clear();
-    this.grid.beginFill(fillColor, 1);
-    this.grid.drawRect(0, 0, w, h);
-    this.grid.endFill();
+    drawRect(grid, 0, 0, w, h, { color: fillColor, alpha: 1 });
     const lineVisibility = Math.min(
       1,
       Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
     );
-    this.grid.lineStyle(1, lineColor, 0.4 * lineVisibility);
-    this.grid.position.set(0, 0);
-
     for (let x = 0; x <= w; x += cell) {
-      this.grid.moveTo(x, 0);
-      this.grid.lineTo(x, h);
+      grid.moveTo(x, 0).lineTo(x, h);
     }
-
     for (let y = 0; y <= h; y += cell) {
-      this.grid.moveTo(0, y);
-      this.grid.lineTo(w, y);
+      grid.moveTo(0, y).lineTo(w, y);
     }
+    grid.stroke({
+      width: 1,
+      color: lineColor,
+      alpha: 0.4 * lineVisibility,
+    });
+    this.sceneGraph.updateGridCache();
+  }
+
+  private applyWorldFilters(): void {
+    const filter = this.overlayLayer.getWorldFilter();
+    this.sceneGraph.worldRoot.filters = filter ? [filter] : null;
   }
 
   private getRendererResolution(): number {
     return Math.max(1, window.devicePixelRatio || 1);
   }
-
-  private captureGameplayViewportSize(): void {
-    if (!this.app) {
-      return;
-    }
-    if (this.gameplayViewportWidth > 0 && this.gameplayViewportHeight > 0) {
-      return;
-    }
-
-    this.gameplayViewportWidth = Math.max(1, this.app.screen.width);
-    this.gameplayViewportHeight = Math.max(1, this.app.screen.height);
-  }
-
-  private getGameplayScale(): number {
-    if (!this.app) {
-      return 1;
-    }
-
-    const baseWidth = Math.max(1, this.gameplayViewportWidth);
-    const baseHeight = Math.max(1, this.gameplayViewportHeight);
-    return Math.min(
-      this.app.screen.width / baseWidth,
-      this.app.screen.height / baseHeight,
-    );
-  }
-
-  private ensureDamageOverlay(): void {
-    if (!this.app) {
-      throw new Error("Pixi App not initialized.");
-    }
-
-    if (!this.damageOverlay) {
-      this.damageOverlay = new PIXI.Graphics();
-    }
-    if (this.damageOverlay.parent !== this.app.stage) {
-      this.app.stage.addChild(this.damageOverlay);
-    }
-
-    this.drawDamageOverlay();
-    this.updateDamageOverlay(0);
-  }
-
-  private drawDamageOverlay(): void {
-    if (!this.app || !this.damageOverlay) {
-      return;
-    }
-
-    this.damageOverlay.clear();
-    this.damageOverlay.beginFill(0x8f0f0f, 1);
-    this.damageOverlay.drawRect(
-      0,
-      0,
-      this.app.screen.width,
-      this.app.screen.height,
-    );
-    this.damageOverlay.endFill();
-  }
-
-  private updateDamageOverlay(deltaMs: number): void {
-    if (!this.damageOverlay) {
-      return;
-    }
-
-    this.damageOverlayRemainingMs = Math.max(
-      0,
-      this.damageOverlayRemainingMs - deltaMs,
-    );
-    const alpha =
-      this.damageOverlayDurationMs <= 0
-        ? 0
-        : (this.damageOverlayRemainingMs / this.damageOverlayDurationMs) * 0.28;
-    this.damageOverlay.alpha = alpha;
-    this.damageOverlay.visible = alpha > 0.001;
-  }
-
-  private updateExplosionEffects(deltaMs: number): void {
-    if (this.explosionEffects.length === 0) {
-      return;
-    }
-
-    const nextEffects: ExplosionEffect[] = [];
-    for (const effect of this.explosionEffects) {
-      effect.remainingMs = Math.max(0, effect.remainingMs - deltaMs);
-      if (effect.remainingMs <= 0) {
-        effect.graphic.destroy();
-        continue;
-      }
-
-      this.drawExplosionEffect(effect);
-      nextEffects.push(effect);
-    }
-
-    this.explosionEffects = nextEffects;
-  }
-
-  private drawExplosionEffect(effect: ExplosionEffect): void {
-    const progress = 1 - effect.remainingMs / Math.max(1, effect.durationMs);
-    const primaryColor = effect.style === "landmine" ? 0xff7b21 : 0xffc857;
-    const secondaryColor = effect.style === "landmine" ? 0xffd6a0 : 0xfff0bf;
-    const ringRadius = effect.radius * (0.25 + progress * 0.75);
-    const fillRadius = effect.radius * (0.08 + progress * 0.32);
-    const alpha = (1 - progress) * 0.85;
-
-    effect.graphic.clear();
-    effect.graphic.position.set(effect.x, effect.y);
-    effect.graphic.beginFill(primaryColor, alpha * 0.2);
-    effect.graphic.drawCircle(0, 0, fillRadius);
-    effect.graphic.endFill();
-    effect.graphic.lineStyle(4, primaryColor, alpha);
-    effect.graphic.drawCircle(0, 0, ringRadius);
-    effect.graphic.lineStyle(2, secondaryColor, alpha * 0.7);
-    effect.graphic.drawCircle(0, 0, ringRadius * 0.72);
-  }
-
-  private lerpColor(start: number, end: number, t: number): number {
-    const clamped = Math.max(0, Math.min(1, t));
-    const startR = (start >> 16) & 0xff;
-    const startG = (start >> 8) & 0xff;
-    const startB = start & 0xff;
-    const endR = (end >> 16) & 0xff;
-    const endG = (end >> 8) & 0xff;
-    const endB = end & 0xff;
-    const r = Math.round(startR + (endR - startR) * clamped);
-    const g = Math.round(startG + (endG - startG) * clamped);
-    const b = Math.round(startB + (endB - startB) * clamped);
-    return (r << 16) | (g << 8) | b;
-  }
-
-  private applyContrastLag(blend: number): number {
-    const lag = 0.12;
-    if (blend >= 0.5) {
-      return Math.min(1, blend + lag);
-    }
-    return Math.max(0, blend - lag);
-  }
 }
 
-function lerp(start: number, end: number, t: number): number {
-  return start + (end - start) * t;
+function lerpColor(start: number, end: number, t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  const startR = (start >> 16) & 0xff;
+  const startG = (start >> 8) & 0xff;
+  const startB = start & 0xff;
+  const endR = (end >> 16) & 0xff;
+  const endG = (end >> 8) & 0xff;
+  const endB = end & 0xff;
+  const r = Math.round(startR + (endR - startR) * clamped);
+  const g = Math.round(startG + (endG - startG) * clamped);
+  const b = Math.round(startB + (endB - startB) * clamped);
+  return (r << 16) | (g << 8) | b;
+}
+
+function applyContrastLag(blend: number): number {
+  const lag = 0.12;
+  if (blend >= 0.5) {
+    return Math.min(1, blend + lag);
+  }
+  return Math.max(0, blend - lag);
 }
 
 declare global {
   interface Window {
-    app: PIXI.Application<HTMLCanvasElement>;
+    app: Application;
   }
 }

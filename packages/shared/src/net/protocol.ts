@@ -1,10 +1,9 @@
-import { GameConfig } from "@shared/config/GameConfig.ts";
 import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
-import { z } from "zod";
 import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { z } from "zod";
 
-export const PROTOCOL_VERSION = GameConfig.DEFAULT_PROTOCOL_VERSION;
+export const MoveIntentKeySchema = z.enum(["up", "down", "left", "right"]);
 
 const AttackInputSchema = z.object({
   x: z.number(),
@@ -16,45 +15,74 @@ const CraftInputSchema = z.object({
 });
 
 const BuildInputSchema = z.object({
-  itemTypeId: z.string().regex(RESOURCE_ID_PATTERN),
   x: z.number(),
   y: z.number(),
 });
 
-export const InputCommandSchema = z
-  .object({
-    seq: z.number().int().nonnegative(),
-    tick: z.number().int().nonnegative(),
-    moveX: z.number(),
-    moveY: z.number(),
-    selectWeaponIndex: z.number().int().nonnegative().optional(),
-    attack: AttackInputSchema.optional(),
-    craft: CraftInputSchema.optional(),
-    build: BuildInputSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    const actionCount =
-      Number(Boolean(value.attack)) +
-      Number(Boolean(value.craft)) +
-      Number(Boolean(value.build));
-    if (actionCount > 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Only one action of attack, craft, or build is allowed.",
-      });
-    }
-  });
+const InventoryMoveInputSchema = z.object({
+  fromSlotIndex: z.number().int().min(0).max(9),
+  toSlotIndex: z.number().int().min(0).max(9),
+});
 
 export const HelloMessageSchema = z.object({
   t: z.literal("hello"),
-  protocolVersion: z.number(),
+  compatHash: z.string().min(1),
   googleIdToken: z.string().min(1).optional(),
   playerName: z.string().optional(),
 });
 
-export const InputMessageSchema = z.object({
-  t: z.literal("input"),
-  cmd: InputCommandSchema,
+export const MoveIntentMessageSchema = z.object({
+  t: z.literal("move"),
+  seq: z.number().int().nonnegative(),
+  key: MoveIntentKeySchema,
+  pressed: z.boolean(),
+});
+
+export const AttackActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: z.number().int().nonnegative(),
+  action: z.literal("attack"),
+  aim: AttackInputSchema,
+});
+
+export const CraftActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: z.number().int().nonnegative(),
+  action: z.literal("craft"),
+  craft: CraftInputSchema,
+});
+
+export const BuildActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: z.number().int().nonnegative(),
+  action: z.literal("build"),
+  build: BuildInputSchema,
+});
+
+export const InventoryMoveActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: z.number().int().nonnegative(),
+  action: z.literal("inventoryMove"),
+  inventoryMove: InventoryMoveInputSchema,
+});
+
+export const SelectHotbarActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: z.number().int().nonnegative(),
+  action: z.literal("selectHotbar"),
+  index: z.number().int().min(0).max(9),
+});
+
+export const ActionMessageSchema = z.discriminatedUnion("action", [
+  AttackActionMessageSchema,
+  CraftActionMessageSchema,
+  BuildActionMessageSchema,
+  InventoryMoveActionMessageSchema,
+  SelectHotbarActionMessageSchema,
+]);
+
+export const RespawnMessageSchema = z.object({
+  t: z.literal("respawn"),
 });
 
 export const PingMessageSchema = z.object({
@@ -96,7 +124,9 @@ export const ChatMessageSchema = z.object({
 
 export const ClientToServerMessageSchema = z.discriminatedUnion("t", [
   HelloMessageSchema,
-  InputMessageSchema,
+  MoveIntentMessageSchema,
+  ActionMessageSchema,
+  RespawnMessageSchema,
   PingMessageSchema,
   ChatInputMessageSchema,
 ]);
@@ -109,10 +139,24 @@ export const ServerToClientMessageSchema = z.discriminatedUnion("t", [
   ChatMessageSchema,
 ]);
 
-export type InputCommand = z.infer<typeof InputCommandSchema>;
+export type AttackInput = z.infer<typeof AttackInputSchema>;
+export type BuildInput = z.infer<typeof BuildInputSchema>;
 export type CraftInput = { itemTypeId: ResourceId };
+export type InventoryMoveInput = z.infer<typeof InventoryMoveInputSchema>;
+export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
-export type InputMessage = z.infer<typeof InputMessageSchema>;
+export type MoveIntentMessage = z.infer<typeof MoveIntentMessageSchema>;
+export type AttackActionMessage = z.infer<typeof AttackActionMessageSchema>;
+export type CraftActionMessage = z.infer<typeof CraftActionMessageSchema>;
+export type BuildActionMessage = z.infer<typeof BuildActionMessageSchema>;
+export type InventoryMoveActionMessage = z.infer<
+  typeof InventoryMoveActionMessageSchema
+>;
+export type SelectHotbarActionMessage = z.infer<
+  typeof SelectHotbarActionMessageSchema
+>;
+export type ActionMessage = z.infer<typeof ActionMessageSchema>;
+export type RespawnMessage = z.infer<typeof RespawnMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
 export type PongMessage = z.infer<typeof PongMessageSchema>;
 export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
@@ -122,7 +166,9 @@ export type ChatInputMessage = z.infer<typeof ChatInputMessageSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ClientToServerMessage =
   | HelloMessage
-  | InputMessage
+  | MoveIntentMessage
+  | ActionMessage
+  | RespawnMessage
   | PingMessage
   | ChatInputMessage;
 export type ServerToClientMessage =
@@ -136,11 +182,6 @@ type ParseServerMessageOptions = {
   validateSnapshots?: boolean;
 };
 
-/**
- * Parses raw JSON text and returns null instead of throwing on malformed input.
- * @param rawMessage Raw text received from a transport boundary.
- * @returns Parsed JSON value or null when decoding fails.
- */
 function parseJson(rawMessage: string): unknown | null {
   try {
     return JSON.parse(rawMessage) as unknown;
@@ -149,11 +190,6 @@ function parseJson(rawMessage: string): unknown | null {
   }
 }
 
-/**
- * Parses and validates a client-to-server protocol message.
- * @param rawMessage Raw JSON message received from a client.
- * @returns Typed client message or null when validation fails.
- */
 export function parseClientToServerMessage(
   rawMessage: string,
 ): ClientToServerMessage | null {
@@ -167,11 +203,6 @@ export function parseClientToServerMessage(
     : null;
 }
 
-/**
- * Parses and validates a server-to-client protocol message.
- * @param rawMessage Raw JSON message received from the server.
- * @returns Typed server message or null when validation fails.
- */
 export function parseServerToClientMessage(
   rawMessage: string,
   { validateSnapshots = true }: ParseServerMessageOptions = {},

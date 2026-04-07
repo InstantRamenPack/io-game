@@ -31,6 +31,29 @@ export function installGameHotkeys(
       return;
     }
 
+    if (key === "e") {
+      event.preventDefault();
+      hudController.toggleInventory();
+      return;
+    }
+
+    if (hudController.isInventoryOpen()) {
+      if (key === "escape") {
+        event.preventDefault();
+        hudController.toggleInventory();
+        return;
+      }
+
+      const digitMatch = /^Digit([0-9])$/.exec(event.code);
+      if (digitMatch) {
+        const rawDigit = Number(digitMatch[1]);
+        const ordinal = rawDigit === 0 ? 10 : rawDigit;
+        event.preventDefault();
+        hudController.selectHotbarItemByOrdinal(ordinal);
+      }
+      return;
+    }
+
     if (hudController.isCraftingMenuOpen()) {
       if (key === "escape") {
         event.preventDefault();

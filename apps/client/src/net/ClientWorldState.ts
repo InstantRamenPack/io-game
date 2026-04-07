@@ -43,10 +43,7 @@ export class ClientWorldState {
     snapshot: WorldSnapshot,
     receivedAt: number = performance.now(),
   ): boolean {
-    if (
-      this.latestTick !== undefined &&
-      snapshot.tick <= this.latestTick
-    ) {
+    if (this.latestTick !== undefined && snapshot.tick <= this.latestTick) {
       return false;
     }
 

@@ -1,35 +1,27 @@
-import type { GameConfig } from "@shared/config/GameConfig.ts";
+import type {GameConfig} from "@shared/config/GameConfig.ts";
 import {
+  type ActionMessage,
   type HelloMessage,
-  type InputCommand,
-  type InputMessage,
+  type MoveIntentMessage,
+  parseClientToServerMessage,
   type PingMessage,
   type ServerToClientMessage,
-  parseClientToServerMessage,
 } from "@shared/net/protocol.ts";
-import { SnapshotManager } from "@server/net/SnapshotManager.ts";
-import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
-import type { WsServer } from "@server/net/WsServer.ts";
-import type { Building } from "@server/entities/Building.ts";
-import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
-import { Player } from "@server/entities/Player.ts";
-import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
-import { Police } from "@server/entities/enemies/Police.ts";
-import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
-import { Shoota } from "@server/entities/enemies/Shoota.ts";
-import { Drifter } from "@server/entities/enemies/Drifter.ts";
-import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
-import { Bomber } from "@server/entities/enemies/Bomber.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
-import { Crossbow } from "@server/items/weapons/Crossbow.ts";
-import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
-import { BasicSword } from "@server/items/weapons/BasicSword.ts";
-import { TickClock } from "@server/server/TickClock.ts";
-import { World } from "@server/world/World.ts";
-import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
-import type { AuthService } from "@server/services/AuthService.ts";
-import { ChatService } from "@server/chat/ChatService.ts";
+import {ChatService} from "@server/chat/ChatService.ts";
+import {Player} from "@server/entities/Player.ts";
+import {SnapshotManager} from "@server/net/SnapshotManager.ts";
+import {AntiCheatValidator} from "@server/net/AntiCheatValidator.ts";
+import type {WsServer} from "@server/net/WsServer.ts";
+import {bootstrapTypeRegistries} from "@server/registry/bootstrap.ts";
+import {TickClock} from "@server/server/TickClock.ts";
+import type {AuthService} from "@server/services/AuthService.ts";
+import {BasicGun} from "@server/items/weapons/BasicGun.ts";
+import {BasicSpear} from "@server/items/weapons/BasicSpear.ts";
+import {BasicSword} from "@server/items/weapons/BasicSword.ts";
+import {Crossbow} from "@server/items/weapons/Crossbow.ts";
+import {World} from "@server/world/World.ts";
+import {DayNightSystemWithWaves} from "@server/systems/DayNightSystemWithWaves.ts";
+import {WaveSpawner} from "@server/systems/WaveSpawner.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -51,16 +43,7 @@ export class GameServer {
     "connected" | "hello_pending" | "ready"
   >();
   private readonly lastInputSequenceByClientId = new Map<string, number>();
-  private readonly lastInputTickByClientId = new Map<string, number>();
-  private initialEnemiesSpawned = false;
-  private initialBuildingsSpawned = false;
 
-  /**
-   * Wires server subsystems and WebSocket event handlers.
-   * @param gameConfig Shared runtime configuration.
-   * @param networkServer Socket registry and transport helper.
-   * @param authService Optional Google token verification service.
-   */
   constructor(
     gameConfig: GameConfig,
     networkServer: WsServer,
@@ -78,6 +61,10 @@ export class GameServer {
       world: this.world,
       playerIdByClientId: this.playerIdByClientId,
     });
+
+    // Initialize wave spawning system
+    this.initializeWaveSpawning();
+
     this.clock = new TickClock(gameConfig.tickRate);
 
     this.networkServer.onOpen((clientId) => {
@@ -94,30 +81,38 @@ export class GameServer {
   }
 
   /**
-   * Starts the fixed-tick server clock.
+   * Initializes the wave spawning system.
    */
+  private initializeWaveSpawning(): void {
+    try {
+      const configPath = "./apps/server/src/config/waves.json";
+      const waveSpawner = WaveSpawner.loadFromFile(
+        configPath,
+        this.chatService,
+      );
+
+      // Replace the standard DayNightSystem with DayNightSystemWithWaves
+      this.world.dayNightSystem = new DayNightSystemWithWaves({
+        tickRate: this.gameConfig.tickRate,
+        dayDurationMs: this.gameConfig.dayNight.dayDurationMs,
+        nightDurationMs: this.gameConfig.dayNight.nightDurationMs,
+        waveSpawner,
+      });
+      console.log("✓ Wave spawning system initialized");
+    } catch (error) {
+      console.error("Failed to initialize wave spawning:", error);
+      // Game continues without wave spawning
+    }
+  }
+
   public start(): void {
-    if (!this.initialEnemiesSpawned) {
-      this.spawnInitialEnemies();
-      this.initialEnemiesSpawned = true;
-    }
-    if (!this.initialBuildingsSpawned) {
-      this.spawnInitialBuildings();
-      this.initialBuildingsSpawned = true;
-    }
     this.clock.start(() => this.tick());
   }
 
-  /**
-   * Stops the fixed-tick server clock.
-   */
   public stop(): void {
     this.clock.stop();
   }
 
-  /**
-   * Processes one fixed server tick and broadcasts a snapshot after it completes.
-   */
   public tick(): void {
     this.world.step();
     const drainedEvents = this.world.events.toArray();
@@ -145,99 +140,90 @@ export class GameServer {
     }
   }
 
-  /**
-   * Validates and buffers client input for the associated player.
-   * @param clientId Connected client id.
-   * @param inputCommand Parsed input command from that client.
-   */
-  public handleInput(clientId: string, inputCommand: InputCommand): void {
-    const playerId = this.playerIdByClientId.get(clientId);
-    if (!playerId) {
-      return;
-    }
-
-    const player = this.world.get<Player>(playerId);
+  public handleMoveIntent(
+    clientId: string,
+    moveIntent: MoveIntentMessage,
+  ): void {
+    const player = this.getReadyPlayer(clientId);
     if (!player) {
       return;
     }
-    const shouldTraceInput = this.world.focusedTrace.matchesEntity(player);
-    const rawInputCommand = shouldTraceInput
-      ? structuredClone(inputCommand)
-      : null;
 
     const lastInputSequence =
       this.lastInputSequenceByClientId.get(clientId) ?? -1;
-    const lastInputTick = this.lastInputTickByClientId.get(clientId) ?? -1;
-    if (
-      inputCommand.seq <= lastInputSequence ||
-      inputCommand.tick < lastInputTick
-    ) {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "stale_input" }),
-      );
-      if (shouldTraceInput) {
-        this.world.focusedTrace.recordEntityEvent(
-          this.world,
-          "input_rejected",
-          player,
-          {
-            reason: "stale_input",
-            clientId,
-            rawInput: rawInputCommand,
-            lastAcceptedSequence: lastInputSequence,
-            lastAcceptedTick: lastInputTick,
-          },
-        );
-      }
+    if (moveIntent.seq <= lastInputSequence) {
+      this.rejectInput(clientId, player, "stale_input", moveIntent);
       return;
     }
 
-    if (!this.antiCheatValidator.validate(inputCommand, player, this.world)) {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "invalid_input" }),
-      );
-      if (shouldTraceInput) {
-        this.world.focusedTrace.recordEntityEvent(
-          this.world,
-          "input_rejected",
-          player,
-          {
-            reason: "invalid_input",
-            clientId,
-            rawInput: rawInputCommand,
-            normalizedInput: structuredClone(inputCommand),
-          },
-        );
-      }
+    if (!this.antiCheatValidator.validateMoveIntent(moveIntent)) {
+      this.rejectInput(clientId, player, "invalid_input", moveIntent);
       return;
     }
 
-    player.enqueueInput(inputCommand);
-    this.lastInputSequenceByClientId.set(clientId, inputCommand.seq);
-    this.lastInputTickByClientId.set(clientId, inputCommand.tick);
-    if (shouldTraceInput) {
+    player.setMoveIntent(moveIntent.key, moveIntent.pressed);
+    this.lastInputSequenceByClientId.set(clientId, moveIntent.seq);
+
+    if (this.world.focusedTrace.matchesEntity(player)) {
       this.world.focusedTrace.recordEntityEvent(
         this.world,
-        "input_enqueued",
+        "move_intent_applied",
         player,
         {
           clientId,
-          rawInput: rawInputCommand,
-          normalizedInput: structuredClone(inputCommand),
-          bufferLength: player.inputBuffer.length,
+          key: moveIntent.key,
+          pressed: moveIntent.pressed,
+          seq: moveIntent.seq,
         },
       );
     }
   }
 
-  /**
-   * Creates a player entity for a newly connected client.
-   * @param clientId Connected client id.
-   * @param requestedPlayerName Optional requested display name from the hello handshake.
-   * @returns Allocated player entity id.
-   */
+  public handleAction(clientId: string, actionMessage: ActionMessage): void {
+    const player = this.getReadyPlayer(clientId);
+    if (!player) {
+      return;
+    }
+
+    const lastInputSequence =
+      this.lastInputSequenceByClientId.get(clientId) ?? -1;
+    if (actionMessage.seq <= lastInputSequence) {
+      this.rejectInput(clientId, player, "stale_input", actionMessage);
+      return;
+    }
+
+    if (
+      !this.antiCheatValidator.validateAction(actionMessage, player, this.world)
+    ) {
+      this.rejectInput(clientId, player, "invalid_input", actionMessage);
+      return;
+    }
+
+    player.enqueueAction(actionMessage);
+    this.lastInputSequenceByClientId.set(clientId, actionMessage.seq);
+
+    if (this.world.focusedTrace.matchesEntity(player)) {
+      this.world.focusedTrace.recordEntityEvent(
+        this.world,
+        "action_enqueued",
+        player,
+        {
+          clientId,
+          normalizedInput: structuredClone(actionMessage),
+          queueLength: player.queuedActions.length,
+        },
+      );
+    }
+  }
+
+  public handleRespawn(clientId: string): void {
+    const player = this.getReadyPlayer(clientId);
+    if (!player || player.alive) {
+      return;
+    }
+    player.respawn(this.world);
+  }
+
   public onConnect(clientId: string, requestedPlayerName?: string): number {
     const existingPlayerId = this.playerIdByClientId.get(clientId);
     if (existingPlayerId) {
@@ -253,31 +239,23 @@ export class GameServer {
 
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
-    if (playerEntity.inventory) {
-      playerEntity.inventory.addWeapon(new BasicSword());
-      playerEntity.inventory.addWeapon(new BasicGun());
-      playerEntity.inventory.addWeapon(new BasicSpear());
-      playerEntity.inventory.addWeapon(new Crossbow());
-      playerEntity.inventory.setActiveWeaponIndex(1);
-    }
+    playerEntity.inventory.addWeapon(new BasicSword());
+    playerEntity.inventory.addWeapon(new BasicGun());
+    playerEntity.inventory.addWeapon(new BasicSpear());
+    playerEntity.inventory.addWeapon(new Crossbow());
+    playerEntity.inventory.setSelectedHotbarIndex(1);
     playerEntity.seedStarterInventory();
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
     this.lastInputSequenceByClientId.set(clientId, -1);
-    this.lastInputTickByClientId.set(clientId, -1);
 
     return playerId;
   }
 
-  /**
-   * Cleans up runtime state for a disconnected client.
-   * @param clientId Disconnected client id.
-   */
   public onDisconnect(clientId: string): void {
     this.clientStateById.delete(clientId);
     this.lastInputSequenceByClientId.delete(clientId);
-    this.lastInputTickByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
     if (playerId) {
       this.world.despawn(playerId);
@@ -285,162 +263,6 @@ export class GameServer {
     }
   }
 
-  /**
-   * Spawns the initial set of enemies at deterministic map locations.
-   */
-  private spawnInitialEnemies(): void {
-    const drifterPositions = [
-      {
-        x: this.gameConfig.worldSize.w * 0.25,
-        y: this.gameConfig.worldSize.h * 0.25,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.75,
-        y: this.gameConfig.worldSize.h * 0.25,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.25,
-        y: this.gameConfig.worldSize.h * 0.75,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.75,
-        y: this.gameConfig.worldSize.h * 0.75,
-      },
-    ];
-
-    for (const drifterPosition of drifterPositions) {
-      this.spawnInitialCopies(() => {
-        const drifter = new Drifter(this.world.allocEntityId());
-        drifter.x = drifterPosition.x;
-        drifter.y = drifterPosition.y;
-        this.world.spawn(drifter);
-      });
-    }
-
-    const shootaPositions = [
-      {
-        x: this.gameConfig.worldSize.w * 0.5,
-        y: this.gameConfig.worldSize.h * 0.2,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.5,
-        y: this.gameConfig.worldSize.h * 0.8,
-      },
-    ];
-
-    for (const shootaPosition of shootaPositions) {
-      this.spawnInitialCopies(() => {
-        const shoota = new Shoota(this.world.allocEntityId());
-        shoota.x = shootaPosition.x;
-        shoota.y = shootaPosition.y;
-        this.world.spawn(shoota);
-      });
-    }
-
-    const policePositions = [
-      {
-        x: this.gameConfig.worldSize.w * 0.2,
-        y: this.gameConfig.worldSize.h * 0.5,
-      },
-      {
-        x: this.gameConfig.worldSize.w * 0.8,
-        y: this.gameConfig.worldSize.h * 0.5,
-      },
-    ];
-
-    for (const policePosition of policePositions) {
-      this.spawnInitialCopies(() => {
-        const police = new Police(this.world.allocEntityId());
-        police.x = policePosition.x;
-        police.y = policePosition.y;
-        this.world.spawn(police);
-      });
-    }
-
-    this.spawnInitialCopies(() => {
-      const megaknight = new Megaknight(this.world.allocEntityId());
-      megaknight.x = this.gameConfig.worldSize.w * 0.5;
-      megaknight.y = this.gameConfig.worldSize.h * 0.5;
-      this.world.spawn(megaknight);
-    });
-
-    this.spawnInitialCopies(() => {
-      const saboteur = new Saboteur(this.world.allocEntityId());
-      saboteur.x = this.gameConfig.worldSize.w * 0.15;
-      saboteur.y = this.gameConfig.worldSize.h * 0.15;
-      this.world.spawn(saboteur);
-    });
-
-    const wallbreaker = new Wallbreaker(this.world.allocEntityId());
-    wallbreaker.x = this.gameConfig.worldSize.w * 0.5 - 600;
-    wallbreaker.y = this.gameConfig.worldSize.h * 0.5 + 200;
-    this.world.spawn(wallbreaker);
-
-    const bomber = new Bomber(this.world.allocEntityId());
-    bomber.x = this.gameConfig.worldSize.w * 0.5 + 600;
-    bomber.y = this.gameConfig.worldSize.h * 0.5 - 200;
-    this.world.spawn(bomber);
-  }
-
-  /**
-   * Spawns a simple starter base cluster so building rendering and HUD state
-   * have authoritative structures to display.
-   */
-  private spawnInitialBuildings(): void {
-    const centerX = this.gameConfig.worldSize.w / 2;
-    const centerY = this.gameConfig.worldSize.h / 2;
-    const starterBuildings: Array<{
-      x: number;
-      y: number;
-      create: (id: number) => Building;
-    }> = [
-      {
-        x: centerX - 180,
-        y: centerY - 120,
-        create: (id) => new Wall(id, "North Wall"),
-      },
-      {
-        x: centerX + 180,
-        y: centerY - 120,
-        create: (id) => new Wall(id, "East Wall"),
-      },
-      {
-        x: centerX + 120,
-        y: centerY + 130,
-        create: (id) => new CraftingStation(id, "Craft Bench"),
-      },
-      {
-        x: centerX + 300,
-        y: centerY,
-        create: (id) => new Wall(id, "Test Wall"),
-      },
-    ];
-
-    for (const starterBuilding of starterBuildings) {
-      this.spawnInitialCopies(() => {
-        const building = starterBuilding.create(this.world.allocEntityId());
-        building.x = starterBuilding.x;
-        building.y = starterBuilding.y;
-        this.world.spawn(building);
-      });
-    }
-  }
-
-  private spawnInitialCopies(spawn: () => void): void {
-    for (
-      let copyIndex = 0;
-      copyIndex < this.gameConfig.debug.spawnMultiplier;
-      copyIndex += 1
-    ) {
-      spawn();
-    }
-  }
-
-  /**
-   * Parses and routes protocol messages from a client.
-   * @param clientId Connected client id.
-   * @param rawMessage Raw JSON protocol payload.
-   */
   private handleRawMessage(clientId: string, rawMessage: string): void {
     const clientMessage = parseClientToServerMessage(rawMessage);
     if (!clientMessage) {
@@ -455,27 +277,29 @@ export class GameServer {
       case "hello":
         void this.handleHello(clientId, clientMessage);
         return;
-      case "input":
-        if (this.clientStateById.get(clientId) !== "ready") {
-          this.networkServer.send(
-            clientId,
-            JSON.stringify({ t: "error", message: "hello_required" }),
-          );
+      case "move":
+        if (!this.requireReady(clientId)) {
           return;
         }
-        this.handleInput(clientId, (clientMessage as InputMessage).cmd);
+        this.handleMoveIntent(clientId, clientMessage);
+        return;
+      case "action":
+        if (!this.requireReady(clientId)) {
+          return;
+        }
+        this.handleAction(clientId, clientMessage);
+        return;
+      case "respawn":
+        if (!this.requireReady(clientId)) {
+          return;
+        }
+        this.handleRespawn(clientId);
         return;
       case "chat":
-        if (this.clientStateById.get(clientId) !== "ready") {
-          this.networkServer.send(
-            clientId,
-            JSON.stringify({ t: "error", message: "hello_required" }),
-          );
+        if (!this.requireReady(clientId)) {
           return;
         }
-        if ("text" in clientMessage) {
-          this.chatService.handleChat(clientId, clientMessage.text);
-        }
+        this.chatService.handleChat(clientId, clientMessage.text);
         return;
       case "ping": {
         const pingMessage = clientMessage as PingMessage;
@@ -494,29 +318,21 @@ export class GameServer {
     }
   }
 
-  /**
-   * Verifies protocol compatibility and marks the client handshake as complete.
-   * @param clientId Connected client id.
-   * @param helloMessage Parsed hello payload.
-   */
   private async handleHello(
     clientId: string,
     helloMessage: HelloMessage,
   ): Promise<void> {
     const clientState = this.clientStateById.get(clientId) ?? "connected";
-    if (clientState === "ready") {
+    if (clientState === "ready" || clientState === "hello_pending") {
       return;
     }
 
-    if (clientState === "hello_pending") {
-      return;
-    }
-    if (helloMessage.protocolVersion !== this.gameConfig.protocolVersion) {
+    if (helloMessage.compatHash !== this.gameConfig.compatHash) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "protocol_mismatch" }),
+        JSON.stringify({ t: "error", message: "compat_mismatch" }),
       );
-      this.networkServer.disconnect(clientId, "protocol_mismatch");
+      this.networkServer.disconnect(clientId, "compat_mismatch");
       return;
     }
 
@@ -566,6 +382,52 @@ export class GameServer {
     this.networkServer.send(
       clientId,
       JSON.stringify({ t: "welcome", entityId: playerId }),
+    );
+  }
+
+  private requireReady(clientId: string): boolean {
+    if (this.clientStateById.get(clientId) === "ready") {
+      return true;
+    }
+    this.networkServer.send(
+      clientId,
+      JSON.stringify({ t: "error", message: "hello_required" }),
+    );
+    return false;
+  }
+
+  private getReadyPlayer(clientId: string): Player | undefined {
+    const playerId = this.playerIdByClientId.get(clientId);
+    if (!playerId) {
+      return undefined;
+    }
+    return this.world.get<Player>(playerId);
+  }
+
+  private rejectInput(
+    clientId: string,
+    player: Player,
+    reason: "stale_input" | "invalid_input",
+    payload: ActionMessage | MoveIntentMessage,
+  ): void {
+    this.networkServer.send(
+      clientId,
+      JSON.stringify({ t: "error", message: reason }),
+    );
+    if (!this.world.focusedTrace.matchesEntity(player)) {
+      return;
+    }
+    this.world.focusedTrace.recordEntityEvent(
+      this.world,
+      "input_rejected",
+      player,
+      {
+        reason,
+        clientId,
+        rawInput: structuredClone(payload),
+        lastAcceptedSequence:
+          this.lastInputSequenceByClientId.get(clientId) ?? -1,
+      },
     );
   }
 

@@ -24,7 +24,10 @@ export type AppElements = {
   chatRoot: HTMLElement | null;
   chatLines: HTMLElement | null;
   chatInput: HTMLInputElement | null;
+  chatSuggestions: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
+  deathOverlay: HTMLElement | null;
+  respawnBtn: HTMLButtonElement | null;
 };
 
 /**
@@ -48,8 +51,13 @@ export function getAppElements(): AppElements {
     chatRoot: document.getElementById("chat-root"),
     chatLines: document.getElementById("chat-lines"),
     chatInput: document.getElementById("chat-input") as HTMLInputElement | null,
+    chatSuggestions: document.getElementById("chat-suggestions"),
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,
+    deathOverlay: document.getElementById("death-overlay"),
+    respawnBtn: document.getElementById(
+      "respawn-btn",
+    ) as HTMLButtonElement | null,
   };
 }

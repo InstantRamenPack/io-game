@@ -41,6 +41,10 @@ export class EntityRenderManager {
     this.renderers.get(entityId)?.triggerDamageFlash(durationMs);
   }
 
+  public triggerAttackAnimation(entity: ClientEntity): void {
+    this.requireRenderer(entity).playAttackAnimation(entity);
+  }
+
   public destroy(): void {
     for (const renderer of this.renderers.values()) {
       renderer.destroy();

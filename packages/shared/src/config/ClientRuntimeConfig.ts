@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const ClientRuntimeConfigSchema = z.object({
   googleClientId: z.string().min(1).nullable(),
-  protocolVersion: z.number().int().positive(),
+  compatHash: z.string().min(1),
   tickRate: z.number().int().positive(),
   worldSize: z.object({
     w: z.number().finite().positive(),
@@ -19,7 +19,7 @@ export function makeClientRuntimeConfig(
 ): ClientRuntimeConfig {
   return {
     googleClientId: googleClientId ?? null,
-    protocolVersion: gameConfig.protocolVersion,
+    compatHash: gameConfig.compatHash,
     tickRate: gameConfig.tickRate,
     worldSize: {
       w: gameConfig.worldSize.w,

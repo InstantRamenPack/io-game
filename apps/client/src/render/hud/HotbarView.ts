@@ -1,11 +1,18 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import {
+  drawRoundedRect,
+} from "@client/render/pixi/PixiGraphicUtils.ts";
+import { getWeaponContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type HotbarSlotItem = {
   typeId: ResourceId | null;
   count: number | null;
   showCountWhenOne: boolean;
-  ammoFillRatio: number | null;
+  ammoInMag: number | null;
+  magSize: number | null;
+  reserveMagCount: number | null;
+  reloadTicksRemaining: number | null;
 };
 
 class HotbarSlotView {
@@ -13,10 +20,10 @@ class HotbarSlotView {
   private readonly base: PIXI.Graphics;
   private readonly activeOutline: PIXI.Graphics;
   private readonly icon: PIXI.Sprite;
-  private readonly ammoBarTrack: PIXI.Graphics;
-  private readonly ammoBarFill: PIXI.Graphics;
   private readonly countText: PIXI.Text;
   private readonly shortcutText: PIXI.Text;
+  private readonly ammoBarTrack: PIXI.Graphics;
+  private readonly ammoBarFill: PIXI.Graphics;
   private readonly slotSize: number;
   private readonly iconPadding: number;
   private readonly iconProvider: (typeId: ResourceId) => PIXI.Texture;
@@ -37,11 +44,11 @@ class HotbarSlotView {
     this.activeOutline = new PIXI.Graphics();
     this.icon = new PIXI.Sprite();
     this.icon.anchor.set(0.5);
-    this.ammoBarTrack = new PIXI.Graphics();
-    this.ammoBarFill = new PIXI.Graphics();
     this.countText = new PIXI.Text("", options.countStyle);
     this.countText.anchor.set(1, 1);
     this.shortcutText = new PIXI.Text("", options.shortcutStyle);
+    this.ammoBarTrack = new PIXI.Graphics();
+    this.ammoBarFill = new PIXI.Graphics();
 
     this.container.addChild(this.base);
     this.container.addChild(this.activeOutline);
@@ -66,11 +73,16 @@ class HotbarSlotView {
     if (active) {
       const inflate = 4;
       const size = this.slotSize + inflate * 2;
-      this.activeOutline.clear();
-      this.activeOutline.lineStyle(2.5, 0xf7f7f7, 0.95);
-      this.activeOutline.beginFill(0x4a4a4a, 0.25);
-      this.activeOutline.drawRoundedRect(-inflate, -inflate, size, size, 5);
-      this.activeOutline.endFill();
+      drawRoundedRect(
+        this.activeOutline,
+        -inflate,
+        -inflate,
+        size,
+        size,
+        5,
+        { color: 0x4a4a4a, alpha: 0.25 },
+        { width: 2.5, color: 0xf7f7f7, alpha: 0.95 },
+      );
     } else {
       this.activeOutline.clear();
     }
@@ -100,66 +112,91 @@ class HotbarSlotView {
       this.countText.visible = false;
     }
 
-    this.drawAmmoBar(item.ammoFillRatio);
+    this.updateAmmoBar(item);
   }
 
   public clearItem(): void {
     this.icon.visible = false;
     this.countText.text = "";
     this.countText.visible = false;
-    this.ammoBarTrack.clear();
     this.ammoBarTrack.visible = false;
-    this.ammoBarFill.clear();
     this.ammoBarFill.visible = false;
   }
 
   private drawBase(active: boolean): void {
-    this.base.clear();
     const fill = active ? 0x3a3a3a : 0x262626;
     const edge = active ? 0xf0f0f0 : 0x8e8e8e;
     const inner = active ? 0x5b5b5b : 0x3a3a3a;
 
-    this.base.lineStyle(2, edge, 0.9);
-    this.base.beginFill(fill, 0.92);
-    this.base.drawRoundedRect(0, 0, this.slotSize, this.slotSize, 4);
-    this.base.endFill();
-
-    this.base.lineStyle(1, inner, 0.85);
-    this.base.drawRoundedRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3);
+    this.base.clear();
+    this.base
+      .roundRect(0, 0, this.slotSize, this.slotSize, 4)
+      .fill({ color: fill, alpha: 0.92 })
+      .roundRect(0, 0, this.slotSize, this.slotSize, 4)
+      .stroke({ width: 2, color: edge, alpha: 0.9 })
+      .roundRect(2, 2, this.slotSize - 4, this.slotSize - 4, 3)
+      .stroke({ width: 1, color: inner, alpha: 0.85 });
   }
 
-  private drawAmmoBar(fillRatio: number | null): void {
-    this.ammoBarTrack.clear();
-    this.ammoBarFill.clear();
-
-    if (fillRatio === null) {
+  private updateAmmoBar(item: HotbarSlotItem): void {
+    if (typeof item.magSize !== "number" || item.magSize <= 0) {
       this.ammoBarTrack.visible = false;
       this.ammoBarFill.visible = false;
       return;
     }
 
-    const clampedRatio = Math.max(0, Math.min(1, fillRatio));
-    const barX = 6;
-    const barY = this.slotSize - 9;
-    const barWidth = this.slotSize - 12;
-    const barHeight = 5;
+    const trackWidth = this.slotSize - 8;
+    const trackHeight = 4;
+    const x = 4;
+    const y = this.slotSize - 7;
 
+    drawRoundedRect(
+      this.ammoBarTrack,
+      x,
+      y,
+      trackWidth,
+      trackHeight,
+      2,
+      { color: 0x1f1f1f, alpha: 0.95 },
+    );
     this.ammoBarTrack.visible = true;
-    this.ammoBarTrack.beginFill(0x1b1b1b, 0.85);
-    this.ammoBarTrack.drawRoundedRect(barX, barY, barWidth, barHeight, 3);
-    this.ammoBarTrack.endFill();
 
-    this.ammoBarFill.visible = true;
-    if (clampedRatio > 0) {
-      this.ammoBarFill.beginFill(0xff9c31, 0.98);
-      this.ammoBarFill.drawRoundedRect(
-        barX,
-        barY,
-        barWidth * clampedRatio,
-        barHeight,
-        3,
+    const reloadTicksRemaining =
+      typeof item.reloadTicksRemaining === "number" &&
+      item.reloadTicksRemaining > 0
+        ? item.reloadTicksRemaining
+        : null;
+    const weaponContent =
+      item.typeId !== null ? getWeaponContent(item.typeId) : undefined;
+    const reloadTicks =
+      weaponContent?.attackStyle === "shoot" ? weaponContent.reloadTicks : null;
+    let fillRatio = 0;
+    if (
+      reloadTicksRemaining !== null &&
+      typeof reloadTicks === "number" &&
+      reloadTicks > 0
+    ) {
+      fillRatio = 1 - reloadTicksRemaining / reloadTicks;
+    } else if (typeof item.ammoInMag === "number") {
+      fillRatio = item.ammoInMag / item.magSize;
+    }
+
+    const clamped = Math.min(1, Math.max(0, fillRatio));
+    const fillWidth = Math.floor(trackWidth * clamped);
+    if (fillWidth > 0) {
+      drawRoundedRect(
+        this.ammoBarFill,
+        x,
+        y,
+        fillWidth,
+        trackHeight,
+        2,
+        { color: 0xff9f1a, alpha: 1 },
       );
-      this.ammoBarFill.endFill();
+      this.ammoBarFill.visible = true;
+    } else {
+      this.ammoBarFill.clear();
+      this.ammoBarFill.visible = false;
     }
   }
 }
@@ -188,12 +225,12 @@ export class HotbarView {
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
       fontSize: 13,
       fill: 0xf3f6ee,
-      dropShadow: true,
-      dropShadowColor: 0x0a0f09,
-      dropShadowBlur: 2,
-      dropShadowDistance: 1,
-      stroke: 0x0c120b,
-      strokeThickness: 3,
+      dropShadow: {
+        color: 0x0a0f09,
+        blur: 2,
+        distance: 1,
+      },
+      stroke: { color: 0x0c120b, width: 3 },
     });
     const shortcutStyle = new PIXI.TextStyle({
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
@@ -225,6 +262,9 @@ export class HotbarView {
   public setSlots(items: HotbarSlotItem[], activeIndex: number | null): void {
     for (let index = 0; index < this.slots.length; index += 1) {
       const slot = this.slots[index];
+      if (!slot) {
+        continue;
+      }
       const item = items[index];
       slot.setActive(activeIndex === index);
       if (item && item.typeId) {
@@ -257,12 +297,12 @@ export class HotbarView {
     this.heightValue = Math.ceil(height);
 
     this.background.clear();
-    this.background.lineStyle(2, 0x4b4b4b, 0.7);
-    this.background.beginFill(0x151515, 0.78);
-    this.background.drawRoundedRect(0, 0, width, height, 6);
-    this.background.endFill();
-
-    this.background.lineStyle(1, 0x2a2a2a, 0.85);
-    this.background.drawRoundedRect(2, 2, width - 4, height - 4, 5);
+    this.background
+      .roundRect(0, 0, width, height, 6)
+      .fill({ color: 0x151515, alpha: 0.78 })
+      .roundRect(0, 0, width, height, 6)
+      .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 })
+      .roundRect(2, 2, width - 4, height - 4, 5)
+      .stroke({ width: 1, color: 0x2a2a2a, alpha: 0.85 });
   }
 }

@@ -32,13 +32,13 @@
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2",
-    "vite": "^8.0.0"
+    "vite": "^8.0.5"
   },
   "dependencies": {
     "denque": "^2.1.0",
     "io-game": ".",
     "lodash-es": "^4.17.23",
-    "pixijs": "^7.1.4",
+    "pixi.js": "8.17.1",
     "seedrandom": "^3.0.5",
     "zod": "^4.3.6"
   }

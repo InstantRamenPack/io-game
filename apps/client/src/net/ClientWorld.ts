@@ -46,11 +46,7 @@ export class ClientWorld {
     this.entities = new Map(
       snapshot.entities.map((entitySnapshot) => [
         entitySnapshot.id,
-        new ClientEntity(
-          entitySnapshot,
-          tick,
-          this.serverFrameHistoryLimit,
-        ),
+        new ClientEntity(entitySnapshot, tick, this.serverFrameHistoryLimit),
       ]),
     );
     this.events = [...snapshot.events];
@@ -106,6 +102,17 @@ export class ClientWorld {
     this.updateConfusionVisuals();
   }
 
+  public playAttackAnimation(entityId: number | undefined): void {
+    if (entityId === undefined) {
+      return;
+    }
+    const entity = this.entities.get(entityId);
+    if (!entity) {
+      return;
+    }
+    this.renderManager?.triggerAttackAnimation(entity);
+  }
+
   private updateConfusionVisuals(): void {
     if (!this.pixiRenderer) {
       return;
@@ -129,7 +136,10 @@ export class ClientWorld {
 
     // Full intensity for first ~2s (40 ticks), then 4s gradual fade like Ela
     const fadeOutTicks = 80;
-    const intensity = Math.min(1, confusionEffect.ticksRemaining / fadeOutTicks);
+    const intensity = Math.min(
+      1,
+      confusionEffect.ticksRemaining / fadeOutTicks,
+    );
     this.pixiRenderer.setConfusionState(true, intensity);
   }
 

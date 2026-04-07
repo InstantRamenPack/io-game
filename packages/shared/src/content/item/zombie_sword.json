@@ -1,3 +1,20 @@
 {
-  "label": "Zombie Sword"
+  "label": "Zombie Sword",
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 20,
+    "range": 10,
+    "damage": 5,
+    "knockback": 15,
+    "sweepArcDeg": 110,
+    "equippedRender": {
+      "holdOffset": { "x": 9, "y": 5 },
+      "holdRotationDeg": 30,
+      "scale": 0.9,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 110,
+      "jabDistance": 0
+    }
+  }
 }

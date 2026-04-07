@@ -29,9 +29,10 @@ class CollisionSystem implements System {
    * @param world Authoritative world being simulated.
    */
   public update(world: World): void {
+    let rebuildBeforeProjectileChecks = false;
+
     for (let pass = 0; pass < MAX_COLLISION_PASSES; pass += 1) {
       const collidableEntities = world.entities.collidable();
-      world.spatial.rebuild(collidableEntities);
       let resolvedCollision = false;
 
       for (const entity of collidableEntities) {
@@ -49,7 +50,10 @@ class CollisionSystem implements System {
         );
 
         for (const candidate of candidates) {
-          if (candidate.id === entity.id) {
+          if (
+            candidate.id === entity.id ||
+            candidate.collisionMode === "none"
+          ) {
             continue;
           }
           if (
@@ -59,22 +63,30 @@ class CollisionSystem implements System {
             continue;
           }
           resolvedCollision =
-            this.resolveEntityPair(world, entity, candidate) || resolvedCollision;
+            this.resolveEntityPair(world, entity, candidate) ||
+            resolvedCollision;
         }
       }
 
       if (!resolvedCollision) {
         break;
       }
+
+      rebuildBeforeProjectileChecks = true;
+      if (pass < MAX_COLLISION_PASSES - 1) {
+        world.spatial.rebuild(world.entities.all());
+      }
     }
 
     const collidableEntities = world.entities.collidable();
-    world.spatial.rebuild(collidableEntities);
     for (const entity of collidableEntities) {
-      this.resolveWorldBounds(entity, world);
+      rebuildBeforeProjectileChecks =
+        this.resolveWorldBounds(entity, world) || rebuildBeforeProjectileChecks;
     }
 
-    world.spatial.rebuild(world.entities.collidable());
+    if (rebuildBeforeProjectileChecks) {
+      world.spatial.rebuild(world.entities.all());
+    }
     this.resolveProjectileBuildingCollisions(world);
   }
 
@@ -83,7 +95,7 @@ class CollisionSystem implements System {
    * @param entity Entity being clamped.
    * @param world World providing the authoritative bounds.
    */
-  private resolveWorldBounds(entity: Entity, world: World): void {
+  private resolveWorldBounds(entity: Entity, world: World): boolean {
     const bounds = entity.getHitboxBounds();
     const minX = -bounds.minX;
     const maxX = Math.max(minX, world.gameConfig.worldSize.w - bounds.maxX);
@@ -114,17 +126,24 @@ class CollisionSystem implements System {
     }
 
     if (clampedX || clampedY) {
-      world.focusedTrace.recordEntityEvent(world, "world_bounds_clamp", entity, {
-        before,
-        after: this.snapshotMotion(entity),
-        clampedX,
-        clampedY,
-        minX,
-        maxX,
-        minY,
-        maxY,
-      });
+      world.focusedTrace.recordEntityEvent(
+        world,
+        "world_bounds_clamp",
+        entity,
+        {
+          before,
+          after: this.snapshotMotion(entity),
+          clampedX,
+          clampedY,
+          minX,
+          maxX,
+          minY,
+          maxY,
+        },
+      );
     }
+
+    return clampedX || clampedY;
   }
 
   /**
@@ -432,4 +451,4 @@ class CollisionSystem implements System {
   }
 }
 
-export default CollisionSystem
+export default CollisionSystem;

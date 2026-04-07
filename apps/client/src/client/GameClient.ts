@@ -1,3 +1,4 @@
+import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import {
@@ -7,16 +8,29 @@ import {
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
+import {
+  getEntityContent,
+  getItemContent,
+  getResourceDisplayLabel,
+  getWeaponContent,
+} from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import {
+  getHitboxBounds,
+  offsetHitboxBounds,
+  resolveHitboxRects,
+} from "@shared/geometry/hitbox.ts";
+import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 export type GameplayHudState = {
   activeWeaponLabel: string;
   ammoLabel: string | null;
   reloadTicksRemaining: number | null;
-  activeWeaponIndex: number | null;
+  selectedHotbarIndex: number;
   slotLabels: string[];
 };
 
@@ -26,15 +40,18 @@ export type PerformanceRateState = {
 };
 
 export type PointerInput = {
-  kind: "down" | "move";
+  kind: "down" | "move" | "up";
   screenX: number;
   screenY: number;
   worldX: number;
   worldY: number;
+  shiftKey: boolean;
 };
 
-const RATE_SAMPLE_WINDOW_MS = 1000;
-const MIN_RATE_SAMPLE_WINDOW_MS = 250;
+type AimTarget = {
+  x: number;
+  y: number;
+};
 
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
@@ -54,19 +71,24 @@ export class GameClient {
   private rendererPointerBound = false;
   private started = false;
   private sessionReady = false;
-  private frameSamples: number[] = [];
-  private tickSamples: Array<{ tick: number; timeMs: number }> = [];
+  private readonly rateMonitor = new ClientRateMonitor();
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
+  private pointerAimTarget?: AimTarget;
+  private pointerClientX: number | null = null;
+  private pointerClientY: number | null = null;
+  private holdAttackCooldownUntilMs = 0;
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
       return;
     }
 
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
     const screenPoint = this.renderer.clientToScreen(
       event.clientX,
       event.clientY,
@@ -75,12 +97,14 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     const handled = this.pointerActionHandler?.({
       kind: "down",
       screenX: screenPoint.x,
       screenY: screenPoint.y,
       worldX: worldPoint.x,
       worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
     });
     if (!handled) {
       this.inputManager.startHoldFire(worldPoint.x, worldPoint.y);
@@ -92,6 +116,8 @@ export class GameClient {
     if (!this.started || !event.isPrimary) {
       return;
     }
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
     const screenPoint = this.renderer.clientToScreen(
       event.clientX,
       event.clientY,
@@ -100,12 +126,14 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
     const handled = this.pointerActionHandler?.({
       kind: "move",
       screenX: screenPoint.x,
       screenY: screenPoint.y,
       worldX: worldPoint.x,
       worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
     });
     if (!handled) {
       this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
@@ -116,12 +144,34 @@ export class GameClient {
     if (event.button !== 0 || !event.isPrimary) {
       return;
     }
+    this.pointerClientX = event.clientX;
+    this.pointerClientY = event.clientY;
+    const screenPoint = this.renderer.clientToScreen(
+      event.clientX,
+      event.clientY,
+    );
+    const worldPoint = this.renderer.screenToWorld(
+      event.clientX,
+      event.clientY,
+    );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.pointerActionHandler?.({
+      kind: "up",
+      screenX: screenPoint.x,
+      screenY: screenPoint.y,
+      worldX: worldPoint.x,
+      worldY: worldPoint.y,
+      shiftKey: event.shiftKey,
+    });
     this.inputManager.stopHoldFire();
   };
 
   constructor(
     gameConfig: GameConfig,
-    options: { debugHitbox?: boolean; debugInterpolationMode?: number } = {},
+    options: {
+      debugHitbox?: boolean;
+      debugInterpolationMode?: number;
+    } = {},
   ) {
     this.gameConfig = gameConfig;
     this.networkClient = new WsClient();
@@ -137,6 +187,16 @@ export class GameClient {
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
+    this.inputManager.onMoveIntent(({ key, pressed }) => {
+      if (!this.sessionReady || !this.isTransportConnected()) {
+        return;
+      }
+      this.networkClient.sendMoveIntent(
+        this.inputManager.nextSequence(),
+        key,
+        pressed,
+      );
+    });
 
     window.gameClient = this;
   }
@@ -190,6 +250,7 @@ export class GameClient {
 
     this.gameConfig.tickRate = Math.floor(tickRate);
     this.interpolator.setExpectedSnapshotMs(1000 / this.gameConfig.tickRate);
+    this.renderer.setTickRate(this.gameConfig.tickRate);
   }
 
   public setPointerActionHandler(
@@ -207,32 +268,74 @@ export class GameClient {
   }
 
   public queueAttack(x: number, y: number): void {
-    this.inputManager.queueAttack(x, y);
+    this.sendAttackAction(x, y, performance.now());
   }
 
   public queueCraftItem(itemTypeId: ResourceId): void {
-    this.inputManager.queueCraft(itemTypeId);
-    this.flushImmediateInput();
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "craft",
+      craft: { itemTypeId },
+    });
   }
 
-  public queueBuildPlacement(
-    itemTypeId: ResourceId,
-    x: number,
-    y: number,
-  ): void {
-    this.inputManager.queueBuild(itemTypeId, x, y);
+  public queueBuildPlacement(x: number, y: number): void {
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "build",
+      build: { x, y },
+    });
   }
 
-  public queueSelectWeaponIndex(index: number): void {
-    this.inputManager.queueSelectWeaponIndex(index);
+  public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "inventoryMove",
+      inventoryMove: {
+        fromSlotIndex,
+        toSlotIndex,
+      },
+    });
   }
 
-  public clearPendingWeaponSelection(): void {
-    this.inputManager.clearPendingWeaponSelection();
+  public queueSelectHotbarIndex(index: number): void {
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "selectHotbar",
+      index,
+    });
+  }
+
+  public requestRespawn(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.sendRespawn();
   }
 
   public setMovementSuppressed(suppressed: boolean): void {
     this.inputManager.setMovementSuppressed(suppressed);
+  }
+
+  public isLocalPlayerAlive(): boolean | null {
+    const player = this.getLocalPlayerEntity();
+    return player ? player.alive : null;
+  }
+
+  public getOnlinePlayerNames(): string[] {
+    const entities = this.worldState?.clientWorld?.entities.values();
+    if (!entities) {
+      return [];
+    }
+
+    return [...entities]
+      .filter((entity) => entity.kind === "player" && entity.name)
+      .map((entity) => entity.name as string)
+      .sort((left, right) => left.localeCompare(right));
   }
 
   public start(
@@ -244,7 +347,7 @@ export class GameClient {
     }
     this.started = true;
     this.sessionReady = false;
-    this.resetPerformanceRateSamples();
+    this.rateMonitor.reset();
     this.worldState = new ClientWorldState(
       this.renderer,
       this.debugHitbox,
@@ -256,7 +359,7 @@ export class GameClient {
     this.networkClient.connect(url, {
       googleIdToken: connectOptions.googleIdToken,
       playerName: connectOptions.playerName,
-      protocolVersion: this.gameConfig.protocolVersion,
+      compatHash: this.gameConfig.compatHash,
     });
   }
 
@@ -268,7 +371,9 @@ export class GameClient {
         deltaMs,
         this.playerEntityId,
       );
+      this.syncLocalAimRotation();
       this.worldState.clientWorld?.update(deltaMs);
+      this.syncPlacementPreview();
     }
     this.renderer.update(deltaMs);
   }
@@ -280,7 +385,7 @@ export class GameClient {
     }
 
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
-    this.recordTickSample(snapshot.tick, performance.now());
+    this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
       worldUpdatedHandler();
     }
@@ -296,14 +401,7 @@ export class GameClient {
   }
 
   public stop(): void {
-    this.started = false;
-    this.sessionReady = false;
-    this.stopFrameLoop();
-    this.resetPerformanceRateSamples();
-    this.networkClient.disconnect();
-    this.worldState?.clear();
-    this.playerEntityId = undefined;
-    this.renderer.setPlayerEntityId(undefined);
+    this.resetSessionState(true);
   }
 
   public getGameplayHudState(): GameplayHudState | null {
@@ -313,11 +411,9 @@ export class GameClient {
       return null;
     }
 
-    const activeWeaponIndex = inventory.activeWeaponIndex;
-    const activeWeapon =
-      activeWeaponIndex !== null
-        ? (inventory.weapons[activeWeaponIndex] ?? null)
-        : null;
+    const selectedHotbarIndex = inventory.selectedHotbarIndex;
+    const activeSlot = inventory.hotbarSlots[selectedHotbarIndex];
+    const activeWeapon = activeSlot?.kind === "weapon" ? activeSlot : null;
     const ammoInMag =
       typeof activeWeapon?.ammoInMag === "number"
         ? activeWeapon.ammoInMag
@@ -341,30 +437,30 @@ export class GameClient {
         reloadTicksRemaining !== null && reloadTicksRemaining > 0
           ? reloadTicksRemaining
           : null,
-      activeWeaponIndex,
-      slotLabels: inventory.weapons.map((weapon, weaponIndex) => {
-        const prefix = activeWeaponIndex === weaponIndex ? ">" : "";
-        return `${prefix}${weaponIndex + 1} ${getResourceDisplayLabel(weapon.typeId)}`;
+      selectedHotbarIndex,
+      slotLabels: inventory.hotbarSlots.map((slot, slotIndex) => {
+        const prefix = selectedHotbarIndex === slotIndex ? ">" : "";
+        const label =
+          slot.kind === "weapon" || slot.kind === "buildable"
+            ? getResourceDisplayLabel(slot.typeId)
+            : "Empty";
+        return `${prefix}${slotIndex + 1} ${label}`;
       }),
     };
   }
 
   public getMeasuredRates(): PerformanceRateState {
-    const now = performance.now();
-    this.trimFrameSamples(now);
-    this.trimTickSamples(now);
-
-    return {
-      frameRate: this.calculateFrameRate(now),
-      tickRate: this.calculateTickRate(now),
-    };
+    return this.rateMonitor.getMeasuredRates(performance.now());
   }
 
   public advanceTime(ms: number): void {
     const frameMs = 1000 / 60;
     const steps = Math.max(1, Math.round(ms / frameMs));
     for (let index = 0; index < steps; index += 1) {
-      this.update(frameMs, performance.now() + index * frameMs);
+      const frameTimeMs = performance.now() + index * frameMs;
+      this.refreshPointerTargetFromScreen();
+      this.updateHeldAttack(frameTimeMs);
+      this.update(frameMs, frameTimeMs);
     }
   }
 
@@ -392,8 +488,9 @@ export class GameClient {
           ? 0
           : timestamp - this.lastAnimationFrameTime;
       this.lastAnimationFrameTime = timestamp;
-      this.recordFrameSample(timestamp);
-      this.sendFrameInput();
+      this.rateMonitor.recordFrameSample(timestamp);
+      this.refreshPointerTargetFromScreen();
+      this.updateHeldAttack(timestamp);
       this.update(deltaMs, timestamp);
       this.animationFrameId = window.requestAnimationFrame(tick);
     };
@@ -411,33 +508,23 @@ export class GameClient {
   }
 
   private onDisconnected(): void {
+    this.resetSessionState(false);
+  }
+
+  private resetSessionState(disconnectTransport: boolean): void {
     this.started = false;
     this.sessionReady = false;
+    this.pointerAimTarget = undefined;
+    this.holdAttackCooldownUntilMs = 0;
     this.stopFrameLoop();
-    this.resetPerformanceRateSamples();
+    this.rateMonitor.reset();
+    if (disconnectTransport) {
+      this.networkClient.disconnect();
+    }
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
-  }
-
-  private sendFrameInput(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-
-    const latestTick = this.worldState?.latestTick ?? 0;
-    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-    this.inputManager.clearOneShots();
-  }
-
-  private flushImmediateInput(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-
-    const latestTick = this.worldState?.latestTick ?? 0;
-    this.networkClient.sendInput(this.inputManager.toCommand(latestTick));
-    this.inputManager.clearOneShots();
+    this.renderer.setPlacementPreview(null);
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -448,84 +535,141 @@ export class GameClient {
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
   }
 
-  private recordFrameSample(timestamp: number): void {
-    this.frameSamples.push(timestamp);
-    this.trimFrameSamples(timestamp);
+  private syncLocalAimRotation(): void {
+    if (!this.pointerAimTarget) {
+      return;
+    }
+
+    const player = this.getLocalPlayerEntity();
+    if (!player?.alive) {
+      return;
+    }
+
+    const deltaX = this.pointerAimTarget.x - player.x;
+    const deltaY = this.pointerAimTarget.y - player.y;
+    if (Math.hypot(deltaX, deltaY) <= Number.EPSILON) {
+      return;
+    }
+
+    player.rotation = Math.atan2(deltaY, deltaX);
   }
 
-  private recordTickSample(tick: number, timeMs: number): void {
-    this.tickSamples.push({ tick, timeMs });
-    this.trimTickSamples(timeMs);
+  private refreshPointerTargetFromScreen(): void {
+    if (this.pointerClientX === null || this.pointerClientY === null) {
+      return;
+    }
+    const worldPoint = this.renderer.screenToWorld(
+      this.pointerClientX,
+      this.pointerClientY,
+    );
+    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
   }
 
-  private trimFrameSamples(now: number): void {
-    while (
-      this.frameSamples.length > 1 &&
-      now - (this.frameSamples[0] ?? now) > RATE_SAMPLE_WINDOW_MS
+  private sendAction(actionMessage: ActionMessage): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.sendAction(actionMessage);
+  }
+
+  private sendAttackAction(x: number, y: number, now: number): boolean {
+    const activeWeapon = this.getLocalActiveWeapon();
+    if (!activeWeapon) {
+      return false;
+    }
+    if (!this.canLikelyExecuteAttack(activeWeapon)) {
+      return false;
+    }
+
+    this.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      action: "attack",
+      aim: { x, y },
+    });
+    this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
+    const weaponContent = getWeaponContent(activeWeapon.typeId);
+    if (weaponContent) {
+      const cooldownDurationMs =
+        (weaponContent.cooldownTicks * 1000) / this.gameConfig.tickRate;
+      this.holdAttackCooldownUntilMs =
+        now + Math.max(1, Math.floor(cooldownDurationMs));
+    }
+    return true;
+  }
+
+  private updateHeldAttack(now: number): void {
+    const holdFireTarget = this.inputManager.getHoldFireTarget();
+    if (!holdFireTarget || !this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+
+    const localPlayer = this.getLocalPlayerEntity();
+    const activeWeapon = this.getLocalActiveWeapon();
+    if (!localPlayer?.alive || !activeWeapon) {
+      return;
+    }
+    if (now < this.holdAttackCooldownUntilMs) {
+      return;
+    }
+    if (
+      typeof activeWeapon.cooldownTicksRemaining === "number" &&
+      activeWeapon.cooldownTicksRemaining > 0
     ) {
-      this.frameSamples.shift();
+      return;
     }
+
+    this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
   }
 
-  private trimTickSamples(now: number): void {
-    while (
-      this.tickSamples.length > 1 &&
-      now - (this.tickSamples[0]?.timeMs ?? now) > RATE_SAMPLE_WINDOW_MS
+  private getLocalActiveWeapon():
+    | {
+        typeId: ResourceId;
+        cooldownTicksRemaining?: number;
+        ammoInMag?: number;
+        reloadTicks?: number;
+        reloadTicksRemaining?: number;
+      }
+    | undefined {
+    const player = this.getLocalPlayerEntity();
+    const inventory = player?.inventory;
+    if (!inventory) {
+      return undefined;
+    }
+
+    const activeSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+    if (activeSlot?.kind !== "weapon") {
+      return undefined;
+    }
+
+    return activeSlot;
+  }
+
+  private canLikelyExecuteAttack(activeWeapon: {
+    cooldownTicksRemaining?: number;
+    ammoInMag?: number;
+    reloadTicksRemaining?: number;
+  }): boolean {
+    if (
+      typeof activeWeapon.cooldownTicksRemaining === "number" &&
+      activeWeapon.cooldownTicksRemaining > 0
     ) {
-      this.tickSamples.shift();
+      return false;
     }
-  }
-
-  private calculateFrameRate(now: number): number | null {
-    if (this.frameSamples.length >= 2) {
-      const firstSample = this.frameSamples[0] ?? now;
-      const lastSample = this.frameSamples[this.frameSamples.length - 1] ?? now;
-      const elapsedMs = lastSample - firstSample;
-      if (elapsedMs <= 0) {
-        return null;
-      }
-
-      return ((this.frameSamples.length - 1) * 1000) / elapsedMs;
+    if (
+      typeof activeWeapon.reloadTicksRemaining === "number" &&
+      activeWeapon.reloadTicksRemaining > 0
+    ) {
+      return false;
     }
-
-    if (this.frameSamples.length === 1) {
-      return now - (this.frameSamples[0] ?? now) >= MIN_RATE_SAMPLE_WINDOW_MS
-        ? 0
-        : null;
+    if (
+      typeof activeWeapon.ammoInMag === "number" &&
+      activeWeapon.ammoInMag <= 0
+    ) {
+      return false;
     }
-
-    return null;
-  }
-
-  private calculateTickRate(now: number): number | null {
-    if (this.tickSamples.length >= 2) {
-      const firstSample = this.tickSamples[0];
-      const lastSample = this.tickSamples[this.tickSamples.length - 1];
-      if (!firstSample || !lastSample) {
-        return null;
-      }
-
-      const elapsedMs = lastSample.timeMs - firstSample.timeMs;
-      if (elapsedMs <= 0) {
-        return null;
-      }
-
-      return ((lastSample.tick - firstSample.tick) * 1000) / elapsedMs;
-    }
-
-    if (this.tickSamples.length === 1) {
-      return now - (this.tickSamples[0]?.timeMs ?? now) >=
-        MIN_RATE_SAMPLE_WINDOW_MS
-        ? 0
-        : null;
-    }
-
-    return null;
-  }
-
-  private resetPerformanceRateSamples(): void {
-    this.frameSamples = [];
-    this.tickSamples = [];
+    return true;
   }
 
   private computeNightBlend(dayNight: DayNightSnapshot): number {
@@ -552,6 +696,113 @@ export class GameClient {
     }
 
     return dayNight.phase === "night" ? 1 : 0;
+  }
+
+  private syncPlacementPreview(): void {
+    const world = this.worldState?.clientWorld;
+    const player = this.getLocalPlayerEntity();
+    if (!world || !player || !player.alive) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const inventory = player.inventory;
+    if (!inventory) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const selectedSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+    if (selectedSlot?.kind !== "buildable") {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const pointer = this.pointerAimTarget;
+    if (!pointer) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const itemContent = getItemContent(selectedSlot.typeId);
+    const buildsEntityTypeId = itemContent?.buildsEntityTypeId;
+    if (!buildsEntityTypeId) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const buildEntityContent = getEntityContent(buildsEntityTypeId);
+    const hitboxProfiles = buildEntityContent?.hitboxProfiles;
+    if (!hitboxProfiles) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const activeProfileName = buildEntityContent?.activeHitboxProfile;
+    const previewProfile =
+      (activeProfileName && hitboxProfiles[activeProfileName]) ??
+      Object.values(hitboxProfiles)[0];
+    if (!previewProfile) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const previewRects = resolveHitboxRects(
+      pointer.x,
+      pointer.y,
+      previewProfile,
+    );
+    const previewBounds = offsetHitboxBounds(
+      getHitboxBounds(previewProfile),
+      pointer.x,
+      pointer.y,
+    );
+
+    let valid = true;
+    const distanceToPointer = Math.hypot(pointer.x - player.x, pointer.y - player.y);
+    if (distanceToPointer > BUILD_PLACEMENT_MAX_DISTANCE) {
+      valid = false;
+    }
+
+    if (
+      previewBounds.minX < 0 ||
+      previewBounds.minY < 0 ||
+      previewBounds.maxX > this.gameConfig.worldSize.w ||
+      previewBounds.maxY > this.gameConfig.worldSize.h
+    ) {
+      valid = false;
+    }
+
+    if (valid) {
+      for (const entity of world.entities.values()) {
+        if (!entity.alive || entity.id === player.id) {
+          continue;
+        }
+        if (entity.kind === "projectile" || entity.kind === "pickup") {
+          continue;
+        }
+        const entityContent = getEntityContent(entity.typeId);
+        if (entityContent?.collisionMode === "none") {
+          continue;
+        }
+
+        const entityRects = resolveHitboxRects(entity.x, entity.y, entity.hitboxes);
+        if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
+          valid = false;
+          break;
+        }
+      }
+    }
+
+    this.renderer.setPlacementPreview({
+      visible: true,
+      worldX: pointer.x,
+      worldY: pointer.y,
+      valid,
+      typeId: buildsEntityTypeId,
+      hitboxProfiles,
+      activeHitboxProfile: activeProfileName,
+    });
   }
 }
 

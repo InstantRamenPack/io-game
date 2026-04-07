@@ -1,0 +1,11 @@
+{
+  "label": "Drone Magazine",
+  "recipe": {
+    "hint": "Three drones packed into a fresh magazine.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 10 },
+      { "typeId": "item:stone", "amount": 10 }
+    ]
+  }
+}

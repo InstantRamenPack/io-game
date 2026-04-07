@@ -1,3 +1,8 @@
 {
-  "label": "Crafting Station"
+  "label": "Crafting Station",
+  "hitboxProfiles": {
+    "default": [
+      { "width": 52, "height": 42, "offsetX": 0, "offsetY": 0 }
+    ]
+  }
 }

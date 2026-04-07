@@ -33,7 +33,7 @@ type FocusedTraceEntityState = {
   driveVy: number;
   momentumVx: number;
   momentumVy: number;
-  inputBufferLength?: number;
+  queuedActionCount?: number;
   activeEffects: Array<{
     typeId: string;
     ticksRemaining: number;
@@ -119,7 +119,9 @@ export class FocusedServerTrace {
     if (this.configuredEntityId !== null) {
       return entity.id === this.configuredEntityId;
     }
-    return entity instanceof Player && entity.name === this.configuredPlayerName;
+    return (
+      entity instanceof Player && entity.name === this.configuredPlayerName
+    );
   }
 
   public recordWorldPhase(world: World, phase: FocusedTracePhase): void {
@@ -249,7 +251,7 @@ export class FocusedServerTrace {
 
     if (entity instanceof Player) {
       baseState.name = entity.name;
-      baseState.inputBufferLength = entity.inputBuffer.length;
+      baseState.queuedActionCount = entity.queuedActions.length;
     }
 
     return baseState;

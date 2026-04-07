@@ -1,13 +1,5 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 
-const RESOURCE_TYPE_IDS = [
-  "item:wood",
-  "item:stone",
-  "item:food",
-  "item:gun_mag",
-  "item:crossbow_mag",
-] as const;
-
 export type PanelContent = {
   title: string;
   body: string;
@@ -46,35 +38,5 @@ export function buildStatusPanelContent(options: {
     body: `${worldStat}\n${worldDetail}`,
     minWidth: 360,
     maxWidth: 520,
-  };
-}
-
-export function buildResourcePanelContent(options: {
-  formatTypeLabel: (typeId: string) => string;
-  countInventoryType: (typeId: string) => number;
-}): PanelContent {
-  const resourceLines = RESOURCE_TYPE_IDS.map((typeId) => {
-    return `${options.formatTypeLabel(typeId)}: ${options.countInventoryType(typeId)}`;
-  }).join("\n");
-
-  return {
-    title: "Resources",
-    body: resourceLines || "None",
-    minWidth: 200,
-    maxWidth: 240,
-  };
-}
-
-export function buildEffectPanelContent(
-  activeEffectLabels: string[],
-): PanelContent {
-  return {
-    title: "Effects",
-    body:
-      activeEffectLabels.length > 0
-        ? activeEffectLabels.join("\n")
-        : "No active effects",
-    minWidth: 200,
-    maxWidth: 240,
   };
 }

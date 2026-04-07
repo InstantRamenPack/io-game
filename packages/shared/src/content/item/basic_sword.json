@@ -1,3 +1,22 @@
 {
-  "label": "Sword"
+  "label": "Sword",
+  "hint": "Fast sweep attack with a wide arc.",
+  "description": "Starter melee weapon that catches clustered targets.",
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 10,
+    "range": 60,
+    "damage": 25,
+    "knockback": 15,
+    "sweepArcDeg": 110,
+    "equippedRender": {
+      "holdOffset": { "x": 11, "y": 5 },
+      "holdRotationDeg": 38,
+      "scale": 0.96,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 110,
+      "jabDistance": 0
+    }
+  }
 }

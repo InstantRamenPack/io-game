@@ -9,7 +9,6 @@ import {
 import type {
   DayNightSnapshot,
   InventorySnapshot,
-  WeaponSnapshot,
 } from "@shared/net/snapshots.ts";
 
 export type GameSelectors = {
@@ -21,11 +20,9 @@ export type GameSelectors = {
   getTrackedBuildings(): ClientEntity[];
   getCraftingStations(): ClientEntity[];
   getInventory(): InventorySnapshot | undefined;
-  getHotbarWeapons(): WeaponSnapshot[];
   countInventoryType(typeId: string): number;
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
-  getActiveEffectLabels(): string[];
   getDayNight(): DayNightSnapshot | undefined;
 };
 
@@ -78,26 +75,28 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     return getPlayerEntity()?.inventory;
   }
 
-  function getHotbarWeapons(): WeaponSnapshot[] {
-    return [...(getInventory()?.weapons ?? [])];
-  }
-
   function countInventoryType(typeId: string): number {
     const inventory = getInventory();
     if (!inventory) {
       return 0;
     }
 
-    const stackableCount = inventory.stackables.reduce((total, stackable) => {
-      if (stackable.typeId !== typeId) {
+    const resourceCount = inventory.resources.reduce((total, resource) => {
+      if (resource.typeId !== typeId) {
         return total;
       }
-      return total + stackable.amount;
+      return total + resource.amount;
     }, 0);
-    const weaponCount = inventory.weapons.reduce((total, weapon) => {
-      return total + Number(weapon.typeId === (typeId as ResourceId));
+    const slottedCount = inventory.hotbarSlots.reduce((total, slot) => {
+      if (slot.kind === "weapon") {
+        return total + Number(slot.typeId === (typeId as ResourceId));
+      }
+      if (slot.kind === "buildable" && slot.typeId === typeId) {
+        return total + slot.count;
+      }
+      return total;
     }, 0);
-    return stackableCount + weaponCount;
+    return resourceCount + slottedCount;
   }
 
   function hasRecipeResources(recipe: ItemRecipeContent): boolean {
@@ -114,14 +113,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
       .join(" / ");
   }
 
-  function getActiveEffectLabels(): string[] {
-    return (getPlayerEntity()?.activeEffects ?? []).map((effect) => {
-      const secondsRemaining =
-        effect.ticksRemaining / gameClient.gameConfig.tickRate;
-      return `${formatTypeLabel(effect.typeId)} (${secondsRemaining.toFixed(1)}s)`;
-    });
-  }
-
   return {
     getTypePath,
     formatTypeLabel,
@@ -131,11 +122,9 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     getTrackedBuildings,
     getCraftingStations,
     getInventory,
-    getHotbarWeapons,
     countInventoryType,
     hasRecipeResources,
     formatCosts,
-    getActiveEffectLabels,
     getDayNight: () => gameClient.worldState?.clientWorld?.dayNight,
   };
 }

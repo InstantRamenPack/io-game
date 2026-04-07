@@ -6,7 +6,11 @@ import { Inventory } from "@server/items/Inventory.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
-const MAG_PICKUP_TYPE_IDS = ["item:gun_mag", "item:crossbow_mag"] as const;
+const MAG_PICKUP_TYPE_IDS = [
+  "item:gun_mag",
+  "item:crossbow_mag",
+  "item:drone_mag",
+] as const;
 const PICKUP_SPAWN_INTERVAL_MS = 8000;
 const MAX_ACTIVE_MAG_PICKUPS = 8;
 const SPAWN_ATTEMPTS = 20;
@@ -51,11 +55,8 @@ export class PickupSystem implements System {
           continue;
         }
 
-        for (const [typeId, amount] of pickup.contents.stackables.entries()) {
-          player.inventory.addStackable(typeId, amount);
-        }
-        for (const weapon of pickup.contents.weapons) {
-          player.inventory.addWeapon(weapon);
+        if (!player.inventory.absorbInventory(pickup.contents)) {
+          continue;
         }
         world.despawn(pickup.id);
       }

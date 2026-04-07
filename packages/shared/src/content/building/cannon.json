@@ -1,3 +1,8 @@
 {
-  "label": "Cannon"
+  "label": "Cannon",
+  "hitboxProfiles": {
+    "default": [
+      { "width": 36, "height": 40, "offsetX": 0, "offsetY": 0 }
+    ]
+  }
 }

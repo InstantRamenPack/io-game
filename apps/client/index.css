@@ -33,6 +33,10 @@ body {
   );
 }
 
+[hidden] {
+  display: none !important;
+}
+
 #game-root {
   position: fixed;
   inset: 0;
@@ -266,6 +270,46 @@ body {
     transform 160ms ease;
 }
 
+.chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.chat-suggestion {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f4f4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-suggestion strong {
+  font: inherit;
+  font-weight: 600;
+}
+
+.chat-suggestion span {
+  color: rgba(244, 244, 244, 0.62);
+  font-size: 12px;
+}
+
+.chat-suggestion.is-selected {
+  border-color: rgba(130, 236, 79, 0.42);
+  background: rgba(130, 236, 79, 0.12);
+}
+
 .chat-shell.is-open .chat-input-row {
   opacity: 1;
   transform: translateY(0);
@@ -291,6 +335,61 @@ body {
 
 #chat-input::placeholder {
   color: rgba(244, 244, 244, 0.6);
+}
+
+.death-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(191, 56, 47, 0.2), transparent 48%),
+    rgba(5, 8, 6, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.death-card {
+  width: min(420px, calc(100vw - 48px));
+  padding: 24px;
+  border: 1px solid rgba(255, 173, 158, 0.28);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 9, 8, 0.94),
+    rgba(14, 8, 7, 0.9)
+  );
+  box-shadow: var(--shadow);
+}
+
+.death-kicker {
+  margin: 0 0 8px;
+  color: #ffb5a7;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.death-card h2 {
+  margin: 0;
+  font-size: 38px;
+}
+
+.death-card p {
+  color: rgba(244, 238, 235, 0.82);
+  line-height: 1.5;
+}
+
+.death-card button {
+  margin-top: 10px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7d58, #ffb176);
+  color: #180c08;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .hint-row {

@@ -125,6 +125,7 @@ export abstract class Entity {
       hitboxes: this.getSnapshotHitboxes(),
       hp: this.hp,
       maxHp: this.maxHp,
+      alive: this.alive,
       ownerId: this.ownerId,
     };
   }
@@ -247,7 +248,10 @@ export abstract class Entity {
       this.driveVx * normal.x + this.driveVy * normal.y,
     );
     if (driveInwardSpeed > 0) {
-      const removedDriveSpeed = Math.min(remainingInwardSpeed, driveInwardSpeed);
+      const removedDriveSpeed = Math.min(
+        remainingInwardSpeed,
+        driveInwardSpeed,
+      );
       this.driveVx -= normal.x * removedDriveSpeed;
       this.driveVy -= normal.y * removedDriveSpeed;
       remainingInwardSpeed -= removedDriveSpeed;
@@ -466,7 +470,6 @@ export abstract class Entity {
     const isFatal = nextHp <= 0;
     const damageEvent: NetEvent = {
       type: "damage",
-      tick: world.tick + 1,
       payload: {
         sourceId,
         targetId: this.id,

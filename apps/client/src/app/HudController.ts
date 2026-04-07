@@ -1,8 +1,5 @@
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type {
-  GameClient,
-  PointerInput,
-} from "@client/client/GameClient.ts";
+import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
 import type { HudState } from "@client/render/PixiHud.ts";
 
 export type { HudState };
@@ -28,6 +25,10 @@ export type HudController = {
    */
   toggleCraftingMenu(): void;
   /**
+   * Toggles the hotbar-layout panel visibility.
+   */
+  toggleInventory(): void;
+  /**
    * Updates the active hotbar slot from a one-based hotkey ordinal.
    * Returns `true` when a matching item existed and was selected.
    */
@@ -52,6 +53,10 @@ export type HudController = {
    * Reports whether the crafting panel is currently open.
    */
   isCraftingMenuOpen(): boolean;
+  /**
+   * Reports whether the hotbar-layout panel is currently open.
+   */
+  isInventoryOpen(): boolean;
   /**
    * Shows or hides the in-game HUD shell.
    */

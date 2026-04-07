@@ -9,6 +9,8 @@ import type {
   EffectContent,
   EntityContent,
   ItemContent,
+  ProjectileContent,
+  WeaponContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -48,6 +50,20 @@ export function requireItemContent(typeId: ResourceId): ItemContent {
   return itemContent;
 }
 
+export function getWeaponContent(
+  typeId: ResourceId,
+): WeaponContent | undefined {
+  return getItemContent(typeId)?.weapon;
+}
+
+export function requireWeaponContent(typeId: ResourceId): WeaponContent {
+  const weaponContent = getWeaponContent(typeId);
+  if (!weaponContent) {
+    throw new Error(`Unknown weapon content: ${typeId}`);
+  }
+  return weaponContent;
+}
+
 export function getEntityContent(
   typeId: ResourceId,
 ): EntityContent | undefined {
@@ -60,6 +76,22 @@ export function requireEntityContent(typeId: ResourceId): EntityContent {
     throw new Error(`Unknown entity content: ${typeId}`);
   }
   return entityContent;
+}
+
+export function getProjectileContent(
+  typeId: ResourceId,
+): ProjectileContent | undefined {
+  return getEntityContent(typeId)?.projectile;
+}
+
+export function requireProjectileContent(
+  typeId: ResourceId,
+): ProjectileContent {
+  const projectileContent = getProjectileContent(typeId);
+  if (!projectileContent) {
+    throw new Error(`Unknown projectile content: ${typeId}`);
+  }
+  return projectileContent;
 }
 
 export function getEffectContent(
@@ -82,6 +114,28 @@ export function getCraftableItemTypeIds(): readonly ResourceId[] {
 
 export function getBuildableItemTypeIds(): readonly ResourceId[] {
   return BUILDABLE_ITEM_TYPE_IDS;
+}
+
+export function getAllItemContentEntries(): Array<[ResourceId, ItemContent]> {
+  return [...itemContents.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+}
+
+export function getAllEntityContentEntries(): Array<
+  [ResourceId, EntityContent]
+> {
+  return [...entityContents.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+}
+
+export function getAllEffectContentEntries(): Array<
+  [ResourceId, EffectContent]
+> {
+  return [...effectContents.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
 }
 
 export function getResourceDisplayLabel(typeId: string): string {

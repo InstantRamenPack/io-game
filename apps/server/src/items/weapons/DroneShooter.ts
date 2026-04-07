@@ -1,3 +1,4 @@
+import { requireShootWeaponContent } from "@server/items/weaponContent.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
@@ -7,6 +8,14 @@ export class DroneShooter extends RangedWeapon {
   public static override readonly resourceName = "drone_shooter";
 
   constructor() {
-    super(0.8, "projectile:homing_drone", 1, 28, 0);
+    const weaponContent = requireShootWeaponContent(DroneShooter.typeId);
+    super(
+      weaponContent.cooldownTicks,
+      weaponContent.projectileTypeId,
+      weaponContent.magSize,
+      weaponContent.reloadTicks,
+      weaponContent.spreadDeg,
+      weaponContent.magItemTypeId,
+    );
   }
 }

@@ -193,7 +193,7 @@ export function createLaunchController({
 
   return {
     applyRuntimeConfig(runtimeConfig: ClientRuntimeConfig): void {
-      gameConfig.protocolVersion = runtimeConfig.protocolVersion;
+      gameConfig.compatHash = runtimeConfig.compatHash;
       gameClient.setTickRate(runtimeConfig.tickRate);
       gameClient.setWorldSize(runtimeConfig.worldSize);
     },

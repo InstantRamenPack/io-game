@@ -1,5 +1,5 @@
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
-import { ENTITY_KINDS } from "@shared/content/schema.ts";
+import { AttackStyleSchema, ENTITY_KINDS } from "@shared/content/schema.ts";
 import {
   RESOURCE_ID_PATTERN,
   type ResourceId,
@@ -23,14 +23,46 @@ export const WeaponSnapshotSchema = z.object({
   cooldownTicksRemaining: z.number().int().nonnegative().optional(),
   ammoInMag: z.number().int().nonnegative().optional(),
   magSize: z.number().int().positive().optional(),
+  reserveMagCount: z.number().int().nonnegative().optional(),
   reloadTicks: z.number().int().positive().optional(),
   reloadTicksRemaining: z.number().int().nonnegative().optional(),
 });
 
+export const EquippedItemSnapshotSchema = z.object({
+  typeId: ResourceIdSchema,
+  attackStyle: AttackStyleSchema,
+  cooldownTicksRemaining: z.number().int().nonnegative(),
+  ammoInMag: z.number().int().nonnegative().optional(),
+  magSize: z.number().int().positive().optional(),
+  reserveMagCount: z.number().int().nonnegative().optional(),
+  reloadTicks: z.number().int().positive().optional(),
+  reloadTicksRemaining: z.number().int().nonnegative().optional(),
+});
+
+export const EmptyInventorySlotSnapshotSchema = z.object({
+  kind: z.literal("empty"),
+});
+
+export const WeaponInventorySlotSnapshotSchema = WeaponSnapshotSchema.extend({
+  kind: z.literal("weapon"),
+});
+
+export const BuildableInventorySlotSnapshotSchema = z.object({
+  kind: z.literal("buildable"),
+  typeId: ResourceIdSchema,
+  count: z.number().int().positive(),
+});
+
+export const InventorySlotSnapshotSchema = z.discriminatedUnion("kind", [
+  EmptyInventorySlotSnapshotSchema,
+  WeaponInventorySlotSnapshotSchema,
+  BuildableInventorySlotSnapshotSchema,
+]);
+
 export const InventorySnapshotSchema = z.object({
-  stackables: z.array(StackableCountSnapshotSchema),
-  weapons: z.array(WeaponSnapshotSchema),
-  activeWeaponIndex: z.number().int().nonnegative().nullable(),
+  resources: z.array(StackableCountSnapshotSchema),
+  hotbarSlots: z.array(InventorySlotSnapshotSchema).length(10),
+  selectedHotbarIndex: z.number().int().min(0).max(9),
 });
 
 export const ActiveEffectSnapshotSchema = z.object({
@@ -50,6 +82,7 @@ export const EntitySnapshotBaseSchema = z.object({
   hitboxes: z.array(HitboxRectSchema).min(1),
   hp: z.number(),
   maxHp: z.number(),
+  alive: z.boolean(),
   ownerId: z.number().int().nonnegative().optional(),
 });
 
@@ -59,11 +92,13 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   inventory: InventorySnapshotSchema,
   activeEffects: z.array(ActiveEffectSnapshotSchema),
   moveSpeed: z.number(),
+  equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
   targetId: z.number().int().nonnegative().optional(),
+  equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
@@ -108,6 +143,17 @@ export type StackableCountSnapshot = z.infer<
   typeof StackableCountSnapshotSchema
 >;
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
+export type EquippedItemSnapshot = z.infer<typeof EquippedItemSnapshotSchema>;
+export type EmptyInventorySlotSnapshot = z.infer<
+  typeof EmptyInventorySlotSnapshotSchema
+>;
+export type WeaponInventorySlotSnapshot = z.infer<
+  typeof WeaponInventorySlotSnapshotSchema
+>;
+export type BuildableInventorySlotSnapshot = z.infer<
+  typeof BuildableInventorySlotSnapshotSchema
+>;
+export type InventorySlotSnapshot = z.infer<typeof InventorySlotSnapshotSchema>;
 export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
 export type ActiveEffectSnapshot = z.infer<typeof ActiveEffectSnapshotSchema>;
 export type PlayerInventorySnapshot = InventorySnapshot;

@@ -4,6 +4,7 @@ import { installGameHotkeys } from "@client/app/GameHotkeys.ts";
 import { createGameSelectors } from "@client/app/gameSelectors.ts";
 import { createHudController } from "@client/app/HudController.ts";
 import { createChatController } from "@client/app/ChatController.ts";
+import { createDeathController } from "@client/app/DeathController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
 import { createMenuController } from "@client/app/MenuController.ts";
 import {
@@ -44,6 +45,10 @@ const chatController = createChatController({
   gameClient,
   hudController,
 });
+const deathController = createDeathController({
+  elements,
+  gameClient,
+});
 const menuController = createMenuController({
   elements,
   authController,
@@ -68,6 +73,13 @@ gameClient.setPointerActionHandler((pointer) => {
 });
 gameClient.onWorldUpdated(() => {
   hudController.refreshUi();
+  deathController.sync();
+});
+gameClient.networkClient.onClose(() => {
+  deathController.sync();
+});
+gameClient.networkClient.onError(() => {
+  deathController.sync();
 });
 
 installGameHotkeys(elements, hudController);
@@ -80,6 +92,7 @@ installDebugBridge({
 
 hydratePlayerNameInput(elements.playerNameInput);
 menuController.refreshGateUi();
+deathController.sync();
 
 void authController.initialize((runtimeConfig) => {
   launchController.applyRuntimeConfig(runtimeConfig);

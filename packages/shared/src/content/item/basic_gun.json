@@ -1,3 +1,23 @@
 {
-  "label": "Gun"
+  "label": "Gun",
+  "hint": "Reliable sidearm with a fast reload and low recoil.",
+  "description": "Starter pistol for close and mid-range fights.",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 5,
+    "projectileTypeId": "projectile:basic_bullet",
+    "magSize": 12,
+    "reloadTicks": 20,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:gun_mag",
+    "equippedRender": {
+      "holdOffset": { "x": 14, "y": 4 },
+      "holdRotationDeg": -10,
+      "scale": 0.88,
+      "handedness": "right",
+      "recoilDistance": 10,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  }
 }

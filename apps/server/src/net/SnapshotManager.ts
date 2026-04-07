@@ -12,7 +12,7 @@ export class SnapshotManager {
   private preparedTick = -1;
   private preparedEvents: readonly NetEvent[] = [];
   private readonly snapshotByEntityId = new Map<number, EntitySnapshot>();
-  private readonly collidableQueryBuffer: Entity[] = [];
+  private readonly queryBuffer: Entity[] = [];
 
   /**
    * Caches entity snapshots once per tick so per-client replication can reuse them.
@@ -54,39 +54,23 @@ export class SnapshotManager {
     const maxX = player.x + interestRadius;
     const maxY = player.y + interestRadius;
     const includedIds = new Set<number>([playerId]);
-    const entities: EntitySnapshot[] = [];
 
     for (const entity of world.spatial.queryBox(
       minX,
       minY,
       maxX,
       maxY,
-      this.collidableQueryBuffer,
+      this.queryBuffer,
     )) {
       includedIds.add(entity.id);
     }
 
-    for (const entity of world.entities.nonCollidable()) {
-      if (
-        entity.x < minX ||
-        entity.x > maxX ||
-        entity.y < minY ||
-        entity.y > maxY
-      ) {
-        continue;
-      }
-      includedIds.add(entity.id);
-    }
-
-    for (const entity of world.entities.all()) {
-      if (!includedIds.has(entity.id)) {
-        continue;
-      }
-      const snapshot = this.snapshotByEntityId.get(entity.id);
-      if (snapshot) {
-        entities.push(snapshot);
-      }
-    }
+    const entities = [...includedIds]
+      .sort((leftId, rightId) => leftId - rightId)
+      .flatMap((entityId) => {
+        const snapshot = this.snapshotByEntityId.get(entityId);
+        return snapshot ? [snapshot] : [];
+      });
 
     return {
       tick: world.tick,

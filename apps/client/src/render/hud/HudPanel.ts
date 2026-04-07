@@ -1,11 +1,12 @@
-import * as PIXI from "pixijs";
+import * as PIXI from "pixi.js";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 type PanelLayout = {
   minWidth?: number;
   maxWidth?: number;
 };
 
-type TextStyleOptions = Partial<PIXI.ITextStyle>;
+type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
 
 export class HudPanel {
   public readonly container: PIXI.Container;
@@ -56,17 +57,16 @@ export class HudPanel {
         this.bodyText.height,
     );
 
-    this.background.clear();
-    this.background.lineStyle(1, 0x90c87a, 0.2);
-    this.background.beginFill(0x0a120b, 0.78);
-    this.background.drawRoundedRect(
+    drawRoundedRect(
+      this.background,
       0,
       0,
       this.widthValue,
       this.heightValue,
       12,
+      { color: 0x0a120b, alpha: 0.78 },
+      { width: 1, color: 0x90c87a, alpha: 0.2 },
     );
-    this.background.endFill();
 
     this.titleText.position.set(this.padding, this.padding);
     this.bodyText.position.set(

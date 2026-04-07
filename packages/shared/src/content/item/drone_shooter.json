@@ -1,5 +1,7 @@
 {
   "label": "Drone Shooter",
+  "hint": "Launches a slow homing explosive drone.",
+  "description": "Area-denial launcher with small magazine bursts.",
   "recipe": {
     "hint": "Launches a slow homing explosive drone.",
     "outputAmount": 1,
@@ -7,5 +9,23 @@
       { "typeId": "item:wood", "amount": 40 },
       { "typeId": "item:stone", "amount": 28 }
     ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 25,
+    "projectileTypeId": "projectile:homing_drone",
+    "magSize": 3,
+    "reloadTicks": 28,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:drone_mag",
+    "equippedRender": {
+      "holdOffset": { "x": 15, "y": 0 },
+      "holdRotationDeg": -4,
+      "scale": 0.98,
+      "handedness": "right",
+      "recoilDistance": 6,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
   }
 }

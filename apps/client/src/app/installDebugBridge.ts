@@ -53,7 +53,9 @@ export function installDebugBridge({
     } catch (error) {
       return {
         error:
-          error instanceof Error ? error.message : "server_debug_log_fetch_failed",
+          error instanceof Error
+            ? error.message
+            : "server_debug_log_fetch_failed",
       };
     }
   }
@@ -102,7 +104,6 @@ export function installDebugBridge({
     const playerEntity = selectors.getPlayerEntity();
     const worldEntities = selectors.getWorldEntities();
     const inventory = selectors.getInventory();
-    const activeWeaponIndex = inventory?.activeWeaponIndex ?? null;
     const hudState = hudController.getState();
     const performanceRates = gameClient.getMeasuredRates();
 
@@ -128,20 +129,24 @@ export function installDebugBridge({
           }
         : null,
       inventory: {
-        stackables: inventory?.stackables ?? [],
-        weapons: (inventory?.weapons ?? []).map((weapon, weaponIndex) => ({
-          ...weapon,
-          label: selectors.formatTypeLabel(weapon.typeId),
-          active: weaponIndex === activeWeaponIndex,
+        resources: inventory?.resources ?? [],
+        selectedHotbarIndex: inventory?.selectedHotbarIndex ?? 0,
+        hotbarSlots: (inventory?.hotbarSlots ?? []).map((slot, slotIndex) => ({
+          ...slot,
+          label:
+            slot.kind === "weapon" || slot.kind === "buildable"
+              ? selectors.formatTypeLabel(slot.typeId)
+              : "Empty",
+          active: slotIndex === (inventory?.selectedHotbarIndex ?? 0),
         })),
-        activeWeaponIndex,
       },
       ui: {
         craftingMenuOpen: hudState.craftingMenuOpen,
+        inventoryOpen: hudState.inventoryOpen,
         selectedCraft: hudState.selectedCraft,
         previewedCraft: hudState.previewedCraft,
-        selectedHotbarSlot: hudState.selectedHotbarSlot,
-        activeBuildItemTypeId: hudState.activeBuildItemTypeId,
+        hoveredInventorySlotIndex: hudState.hoveredInventorySlotIndex,
+        heldInventorySlotIndex: hudState.heldInventorySlotIndex,
       },
       buildings: worldEntities
         .filter((entity) => getResourceNamespace(entity.typeId) === "building")

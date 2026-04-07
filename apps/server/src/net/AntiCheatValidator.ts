@@ -1,107 +1,122 @@
-import type { InputCommand } from "@shared/net/protocol.ts";
+import type { ActionMessage, MoveIntentMessage } from "@shared/net/protocol.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
- * Server-side normalization and sanity checks for input commands.
+ * Server-side normalization and sanity checks for input messages.
  * The server stays authoritative even when validation remains lightweight.
  */
 export class AntiCheatValidator {
-  /**
-   * Validates and normalizes one input command payload.
-   * @param inputCommand Input payload received from the client.
-   * @param playerEntity Player entity associated with the payload.
-   * @param world
-   * @returns True when the command is acceptable.
-   */
-  public validate(
-    inputCommand: InputCommand,
+  public validateMoveIntent(moveIntent: MoveIntentMessage): boolean {
+    return Number.isFinite(moveIntent.seq);
+  }
+
+  public validateAction(
+    actionMessage: ActionMessage,
     playerEntity: Player,
     world: World,
   ): boolean {
-    this.clampMove(inputCommand);
-    this.clampAttack(inputCommand, world);
-    this.clampBuild(inputCommand, world);
-    this.clampSelectWeaponIndex(inputCommand, playerEntity);
+    if (!Number.isFinite(actionMessage.seq)) {
+      return false;
+    }
 
-    return !(
-      !Number.isFinite(inputCommand.seq) || !Number.isFinite(inputCommand.tick)
-    );
-  }
-
-  /**
-   * Clamps movement input to a unit-length vector and removes invalid numbers.
-   * @param inputCommand Input payload being normalized.
-   */
-  public clampMove(inputCommand: InputCommand): void {
-    if (!Number.isFinite(inputCommand.moveX)) inputCommand.moveX = 0;
-    if (!Number.isFinite(inputCommand.moveY)) inputCommand.moveY = 0;
-
-    const vectorLength = Math.hypot(inputCommand.moveX, inputCommand.moveY);
-    if (vectorLength > 1) {
-      inputCommand.moveX /= vectorLength;
-      inputCommand.moveY /= vectorLength;
+    switch (actionMessage.action) {
+      case "attack":
+        this.clampAttack(actionMessage, world);
+        return true;
+      case "build":
+        this.clampBuild(actionMessage, world);
+        return true;
+      case "selectHotbar":
+        this.clampSelectHotbar(actionMessage);
+        return true;
+      case "inventoryMove":
+        this.clampInventoryMove(actionMessage, playerEntity);
+        return true;
+      case "craft":
+        return true;
     }
   }
 
-  /**
-   * Normalizes one-shot attack world coordinates.
-   * @param inputCommand Input payload being normalized.
-   * @param world World bounds used to clamp the attack point.
-   */
-  private clampAttack(inputCommand: InputCommand, world: World): void {
-    if (!inputCommand.attack) {
+  private clampAttack(actionMessage: ActionMessage, world: World): void {
+    if (actionMessage.action !== "attack") {
       return;
     }
 
-    const { x, y } = inputCommand.attack;
+    const { x, y } = actionMessage.aim;
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      inputCommand.attack = undefined;
+      actionMessage.aim = {
+        x: world.gameConfig.worldSize.w / 2,
+        y: world.gameConfig.worldSize.h / 2,
+      };
       return;
     }
 
-    inputCommand.attack = {
+    actionMessage.aim = {
       x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
       y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
     };
   }
 
-  private clampSelectWeaponIndex(
-    inputCommand: InputCommand,
+  private clampBuild(actionMessage: ActionMessage, world: World): void {
+    if (actionMessage.action !== "build") {
+      return;
+    }
+
+    const { x, y } = actionMessage.build;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      actionMessage.build = {
+        x: world.gameConfig.worldSize.w / 2,
+        y: world.gameConfig.worldSize.h / 2,
+      };
+      return;
+    }
+
+    actionMessage.build = {
+      x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
+      y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
+    };
+  }
+
+  private clampSelectHotbar(actionMessage: ActionMessage): void {
+    if (actionMessage.action !== "selectHotbar") {
+      return;
+    }
+
+    if (
+      !Number.isFinite(actionMessage.index) ||
+      !Number.isInteger(actionMessage.index) ||
+      actionMessage.index < 0 ||
+      actionMessage.index >= 10
+    ) {
+      actionMessage.index = 0;
+    }
+  }
+
+  private clampInventoryMove(
+    actionMessage: ActionMessage,
     playerEntity: Player,
   ): void {
-    if (inputCommand.selectWeaponIndex === undefined) {
+    if (actionMessage.action !== "inventoryMove") {
       return;
     }
 
-    const { selectWeaponIndex } = inputCommand;
+    const { fromSlotIndex, toSlotIndex } = actionMessage.inventoryMove;
     if (
-      !Number.isFinite(selectWeaponIndex) ||
-      !Number.isInteger(selectWeaponIndex) ||
-      !playerEntity.inventory ||
-      selectWeaponIndex < 0 ||
-      selectWeaponIndex >= playerEntity.inventory.weapons.length
+      !Number.isFinite(fromSlotIndex) ||
+      !Number.isInteger(fromSlotIndex) ||
+      !Number.isFinite(toSlotIndex) ||
+      !Number.isInteger(toSlotIndex) ||
+      fromSlotIndex < 0 ||
+      fromSlotIndex >= 10 ||
+      toSlotIndex < 0 ||
+      toSlotIndex >= 10 ||
+      !playerEntity.inventory.hotbarSlots[fromSlotIndex]
     ) {
-      inputCommand.selectWeaponIndex = undefined;
-      return;
+      actionMessage.inventoryMove = {
+        fromSlotIndex: 0,
+        toSlotIndex: 0,
+      };
     }
-  }
-
-  private clampBuild(inputCommand: InputCommand, world: World): void {
-    if (!inputCommand.build) {
-      return;
-    }
-
-    const { x, y } = inputCommand.build;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      inputCommand.build = undefined;
-      return;
-    }
-
-    inputCommand.build = {
-      ...inputCommand.build,
-      x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
-      y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
-    };
   }
 }

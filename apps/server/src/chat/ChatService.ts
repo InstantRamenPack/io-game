@@ -6,10 +6,14 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Building } from "@server/entities/Building.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
+import { Weapon } from "@server/items/Weapon.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import {
   effectTypeRegistry,
   entityTypeRegistry,
+  itemTypeRegistry,
   type EntityTypeEntry,
+  type ItemTypeEntry,
 } from "@server/registry/registries.ts";
 
 type ChatServiceOptions = {
@@ -74,6 +78,14 @@ export class ChatService {
     this.broadcast(displayText, "global", player.name);
   }
 
+  /**
+   * Broadcasts a system message to all players.
+   * @param text The message text to broadcast
+   */
+  public broadcastSystemMessage(text: string): void {
+    this.broadcast(text, "system");
+  }
+
   private handleCommand(
     clientId: string,
     player: Player,
@@ -127,6 +139,9 @@ export class ChatService {
       case "effect":
         this.handleEffectCommand(clientId, player, parsed.args);
         return;
+      case "give":
+        this.handleGiveCommand(clientId, parsed.args);
+        return;
       default:
         this.sendSystem(
           clientId,
@@ -147,7 +162,8 @@ export class ChatService {
       "/spawn <entity> [amount] [@a|player|x y z] - spawn entities",
       "/kill @e <entity> | @a | <player> - kill entities or players",
       "/killall - kill every entity",
-      "/effect <effect> [@a|player] - apply an effect to a player",
+      "/effect <effect> [@a|@e|player] - apply an effect",
+      "/give <@a|player> <item> [amount] - grant an item",
     ];
     this.sendSystem(clientId, lines.join("\n"));
   }
@@ -357,8 +373,13 @@ export class ChatService {
 
     const targetToken = args[0]?.toLowerCase() ?? "";
     if (targetToken === "@a") {
-      this.killEntity(player);
-      this.sendSystem(clientId, "You died.");
+      const players = this.world.entities
+        .all()
+        .filter((entity): entity is Player => entity instanceof Player);
+      for (const targetPlayer of players) {
+        this.killEntity(targetPlayer);
+      }
+      this.sendSystem(clientId, `Killed ${players.length} player(s).`);
       return;
     }
 
@@ -416,7 +437,7 @@ export class ChatService {
     args: string[],
   ): void {
     if (args.length === 0) {
-      this.sendSystem(clientId, "Usage: /effect <effect> [@a|player]");
+      this.sendSystem(clientId, "Usage: /effect <effect> [@a|@e|player]");
       return;
     }
 
@@ -428,11 +449,13 @@ export class ChatService {
     }
 
     const targetToken = args[1]?.toLowerCase() ?? "@a";
-    let targets: Player[];
+    let targets: Entity[];
     if (targetToken === "@a") {
       targets = this.world.entities
         .all()
         .filter((e): e is Player => e instanceof Player);
+    } else if (targetToken === "@e") {
+      targets = this.world.entities.all();
     } else {
       const targetPlayer = this.findPlayerByName(args[1] ?? "");
       if (!targetPlayer) {
@@ -449,13 +472,68 @@ export class ChatService {
 
     this.sendSystem(
       clientId,
-      `Applied ${effectEntry.typeId} to ${targets.length} player(s).`,
+      `Applied ${effectEntry.typeId} to ${targets.length} target(s).`,
+    );
+  }
+
+  private handleGiveCommand(clientId: string, args: string[]): void {
+    if (args.length < 2) {
+      this.sendSystem(clientId, "Usage: /give <@a|player> <item> [amount]");
+      return;
+    }
+
+    const targetToken = args[0]?.toLowerCase() ?? "";
+    const itemToken = args[1] ?? "";
+    const itemEntry = this.resolveItemEntry(itemToken);
+    if (!itemEntry) {
+      this.sendSystem(clientId, `Unknown item "${itemToken}".`);
+      return;
+    }
+
+    let amount = 1;
+    if (args[2] && this.isIntegerLike(args[2] ?? "")) {
+      amount = Math.max(1, Math.floor(Number(args[2])));
+    }
+
+    let targets: Player[];
+    if (targetToken === "@a") {
+      targets = this.world.entities
+        .all()
+        .filter((entity): entity is Player => entity instanceof Player);
+    } else {
+      const targetPlayer = this.findPlayerByName(args[0] ?? "");
+      if (!targetPlayer) {
+        this.sendSystem(clientId, `No player named "${args[0] ?? ""}" found.`);
+        return;
+      }
+      targets = [targetPlayer];
+    }
+
+    let grantedCount = 0;
+    for (const target of targets) {
+      if (!this.giveItemToPlayer(target, itemEntry, amount)) {
+        continue;
+      }
+      grantedCount += 1;
+    }
+
+    if (grantedCount === 0) {
+      this.sendSystem(
+        clientId,
+        `Unable to give ${itemEntry.typeId}; every target inventory is full.`,
+      );
+      return;
+    }
+
+    this.sendSystem(
+      clientId,
+      `Gave ${amount} ${itemEntry.typeId} to ${grantedCount} player(s).`,
     );
   }
 
   private resolveEffectEntry(effectToken: string): {
     typeId: ResourceId;
-    ctor: new () => import("@server/effects/Effect.ts").Effect;
+    ctor: new () => Effect;
   } | null {
     const normalized = this.normalizeEntityKey(effectToken);
     for (const [typeId, entry] of effectTypeRegistry.entries()) {
@@ -463,10 +541,29 @@ export class ChatService {
       candidateKeys.add(this.normalizeEntityKey(typeId));
       candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));
       candidateKeys.add(this.normalizeEntityKey(entry.content.label));
-      const resourceName = (entry.ctor as { resourceName?: string }).resourceName ?? "";
+      const resourceName =
+        (entry.ctor as { resourceName?: string }).resourceName ?? "";
       candidateKeys.add(this.normalizeEntityKey(resourceName));
       if (candidateKeys.has(normalized)) {
-        return entry as { typeId: ResourceId; ctor: new () => import("@server/effects/Effect.ts").Effect };
+        return entry as { typeId: ResourceId; ctor: new () => Effect };
+      }
+    }
+    return null;
+  }
+
+  private resolveItemEntry(itemToken: string): ItemTypeEntry | null {
+    const normalized = this.normalizeEntityKey(itemToken);
+    for (const [typeId, entry] of itemTypeRegistry.entries()) {
+      const candidateKeys = new Set<string>();
+      candidateKeys.add(this.normalizeEntityKey(typeId));
+      candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));
+      candidateKeys.add(this.normalizeEntityKey(entry.ctor.name));
+      candidateKeys.add(this.normalizeEntityKey(entry.content.label));
+      const resourceName = entry.ctor.resourceName ?? "";
+      candidateKeys.add(this.normalizeEntityKey(resourceName));
+
+      if (candidateKeys.has(normalized)) {
+        return entry;
       }
     }
     return null;
@@ -584,6 +681,27 @@ export class ChatService {
 
   private normalizeEntityKey(value: string): string {
     return value.replace(/\s+/g, "").replace(/_/g, "").toLowerCase();
+  }
+
+  private giveItemToPlayer(
+    target: Player,
+    itemEntry: ItemTypeEntry,
+    amount: number,
+  ): boolean {
+    if (itemEntry.ctor.prototype instanceof Weapon) {
+      if (!target.inventory.canAddWeaponCount(amount)) {
+        return false;
+      }
+      for (let index = 0; index < amount; index += 1) {
+        target.inventory.addWeapon(new itemEntry.ctor() as Weapon);
+      }
+      return true;
+    }
+
+    if (!target.inventory.canAddStackable(itemEntry.typeId, amount)) {
+      return false;
+    }
+    return target.inventory.addStackable(itemEntry.typeId, amount);
   }
 
   private resolveSpawnTarget(

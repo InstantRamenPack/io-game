@@ -1,21 +1,24 @@
 import { Item } from "@server/items/Item.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { WeaponSnapshot } from "@shared/net/snapshots.ts";
+import { requireWeaponContent } from "@shared/content/catalog.ts";
+import type {
+  EquippedItemSnapshot,
+  WeaponSnapshot,
+} from "@shared/net/snapshots.ts";
 
 /**
  * Abstract weapon item that can perform attacks.
  * Subclasses implement specific attack behavior (ranged vs melee).
  */
 export abstract class Weapon extends Item {
-  public fireRate: number;
-
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
+  private readonly cooldownTicksPerUse: number;
 
-  protected constructor(fireRate: number) {
+  protected constructor(cooldownTicksPerUse: number) {
     super();
-    this.fireRate = fireRate;
+    this.cooldownTicksPerUse = Math.max(1, Math.floor(cooldownTicksPerUse));
   }
 
   /** Advances cooldown state by one fixed tick. */
@@ -49,8 +52,8 @@ export abstract class Weapon extends Item {
   ): boolean;
 
   /** Resets cooldown after a successful hit attempt. */
-  protected resetCooldown(tickRate: number): void {
-    this.cooldownTicks = Math.max(1, Math.round(tickRate / this.fireRate));
+  protected resetCooldown(): void {
+    this.cooldownTicks = this.cooldownTicksPerUse;
   }
 
   public toSnapshot(): WeaponSnapshot {
@@ -59,5 +62,20 @@ export abstract class Weapon extends Item {
       ownerId: this.ownerId,
       cooldownTicksRemaining: this.cooldownTicks,
     };
+  }
+
+  public toEquippedItemSnapshot(
+    _owner: Entity | undefined,
+  ): EquippedItemSnapshot {
+    const weaponContent = requireWeaponContent(this.typeId);
+    return {
+      typeId: this.typeId,
+      attackStyle: weaponContent.attackStyle,
+      cooldownTicksRemaining: this.cooldownTicks,
+    };
+  }
+
+  public getReserveMagCount(_owner: Entity | undefined): number | undefined {
+    return undefined;
   }
 }

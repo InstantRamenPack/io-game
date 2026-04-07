@@ -1,3 +1,13 @@
 {
-  "label": "Rifle Bullet"
+  "label": "Rifle Bullet",
+  "projectile": {
+    "speed": 55,
+    "range": 900,
+    "damage": 20,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 8,
+      "height": 8
+    }
+  }
 }

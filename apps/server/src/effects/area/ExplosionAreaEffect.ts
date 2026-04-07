@@ -21,7 +21,6 @@ export abstract class ExplosionAreaEffect extends RadialAreaEffect {
     const instigator = source.getCombatInstigator(world);
     const explosionEvent: NetEvent = {
       type: "explosion",
-      tick: world.tick + 1,
       payload: {
         sourceId: instigator?.id ?? source.id,
         x: origin.x,
