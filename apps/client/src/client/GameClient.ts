@@ -9,10 +9,19 @@ import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import {
+  getEntityContent,
+  getItemContent,
   getResourceDisplayLabel,
   getWeaponContent,
 } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import {
+  getHitboxBounds,
+  offsetHitboxBounds,
+  resolveHitboxRects,
+} from "@shared/geometry/hitbox.ts";
+import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
@@ -364,6 +373,7 @@ export class GameClient {
       );
       this.syncLocalAimRotation();
       this.worldState.clientWorld?.update(deltaMs);
+      this.syncPlacementPreview();
     }
     this.renderer.update(deltaMs);
   }
@@ -514,6 +524,7 @@ export class GameClient {
     this.worldState?.clear();
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
+    this.renderer.setPlacementPreview(null);
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -685,6 +696,113 @@ export class GameClient {
     }
 
     return dayNight.phase === "night" ? 1 : 0;
+  }
+
+  private syncPlacementPreview(): void {
+    const world = this.worldState?.clientWorld;
+    const player = this.getLocalPlayerEntity();
+    if (!world || !player || !player.alive) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const inventory = player.inventory;
+    if (!inventory) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const selectedSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+    if (selectedSlot?.kind !== "buildable") {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const pointer = this.pointerAimTarget;
+    if (!pointer) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const itemContent = getItemContent(selectedSlot.typeId);
+    const buildsEntityTypeId = itemContent?.buildsEntityTypeId;
+    if (!buildsEntityTypeId) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const buildEntityContent = getEntityContent(buildsEntityTypeId);
+    const hitboxProfiles = buildEntityContent?.hitboxProfiles;
+    if (!hitboxProfiles) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const activeProfileName = buildEntityContent?.activeHitboxProfile;
+    const previewProfile =
+      (activeProfileName && hitboxProfiles[activeProfileName]) ??
+      Object.values(hitboxProfiles)[0];
+    if (!previewProfile) {
+      this.renderer.setPlacementPreview(null);
+      return;
+    }
+
+    const previewRects = resolveHitboxRects(
+      pointer.x,
+      pointer.y,
+      previewProfile,
+    );
+    const previewBounds = offsetHitboxBounds(
+      getHitboxBounds(previewProfile),
+      pointer.x,
+      pointer.y,
+    );
+
+    let valid = true;
+    const distanceToPointer = Math.hypot(pointer.x - player.x, pointer.y - player.y);
+    if (distanceToPointer > BUILD_PLACEMENT_MAX_DISTANCE) {
+      valid = false;
+    }
+
+    if (
+      previewBounds.minX < 0 ||
+      previewBounds.minY < 0 ||
+      previewBounds.maxX > this.gameConfig.worldSize.w ||
+      previewBounds.maxY > this.gameConfig.worldSize.h
+    ) {
+      valid = false;
+    }
+
+    if (valid) {
+      for (const entity of world.entities.values()) {
+        if (!entity.alive || entity.id === player.id) {
+          continue;
+        }
+        if (entity.kind === "projectile" || entity.kind === "pickup") {
+          continue;
+        }
+        const entityContent = getEntityContent(entity.typeId);
+        if (entityContent?.collisionMode === "none") {
+          continue;
+        }
+
+        const entityRects = resolveHitboxRects(entity.x, entity.y, entity.hitboxes);
+        if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
+          valid = false;
+          break;
+        }
+      }
+    }
+
+    this.renderer.setPlacementPreview({
+      visible: true,
+      worldX: pointer.x,
+      worldY: pointer.y,
+      valid,
+      typeId: buildsEntityTypeId,
+      hitboxProfiles,
+      activeHitboxProfile: activeProfileName,
+    });
   }
 }
 

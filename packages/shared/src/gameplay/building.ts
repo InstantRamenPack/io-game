@@ -1,0 +1,1 @@
+export const BUILD_PLACEMENT_MAX_DISTANCE = 160;

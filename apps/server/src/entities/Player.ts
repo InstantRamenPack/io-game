@@ -4,6 +4,7 @@ import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
 } from "@shared/gameplay/crafting.ts";
+import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
@@ -245,7 +246,10 @@ export class Player extends Entity {
       return;
     }
 
-    if (Math.hypot(targetX - this.x, targetY - this.y) > 160) {
+    if (
+      Math.hypot(targetX - this.x, targetY - this.y) >
+      BUILD_PLACEMENT_MAX_DISTANCE
+    ) {
       return;
     }
 

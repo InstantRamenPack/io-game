@@ -10,6 +10,7 @@ export class PixiCullingController {
     worldRoot: Container;
     entityLayer: Container;
     effectLayer: Container;
+    placementLayer?: Container;
     hudRoot: Container;
     worldSize: WorldSize;
   }): void {
@@ -20,6 +21,10 @@ export class PixiCullingController {
     options.entityLayer.cullArea = this.worldBounds;
     options.effectLayer.cullable = true;
     options.effectLayer.cullArea = this.worldBounds;
+    if (options.placementLayer) {
+      options.placementLayer.cullable = true;
+      options.placementLayer.cullArea = this.worldBounds;
+    }
     options.hudRoot.cullableChildren = false;
   }
 

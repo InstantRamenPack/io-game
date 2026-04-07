@@ -3,6 +3,7 @@ import {
   type ResourceId,
 } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
+import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
 
 export const ENTITY_KINDS = [
   "player",
@@ -109,6 +110,11 @@ export const EntityContentSchema = z.object({
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   iconTextureId: ResourceIdSchema.optional(),
+  collisionMode: z.enum(["none", "static", "dynamic"]).optional(),
+  hitboxProfiles: z
+    .record(z.string().min(1), z.array(HitboxRectSchema).min(1))
+    .optional(),
+  activeHitboxProfile: z.string().min(1).optional(),
   projectile: ProjectileContentSchema.optional(),
 });
 

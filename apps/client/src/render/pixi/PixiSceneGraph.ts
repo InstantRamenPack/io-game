@@ -7,6 +7,7 @@ export class PixiSceneGraph {
   public readonly gridLayer = new Container({ label: "gridLayer" });
   public readonly effectLayer = new Container({ label: "effectLayer" });
   public readonly entityLayer = new Container({ label: "entityLayer" });
+  public readonly placementLayer = new Container({ label: "placementLayer" });
   public readonly hudLayer = new Container({ label: "hudLayer" });
   public readonly overlayLayer = new Container({ label: "overlayLayer" });
   public readonly gridGraphic = new Graphics();
@@ -18,6 +19,7 @@ export class PixiSceneGraph {
     this.worldRoot.interactiveChildren = false;
     this.effectLayer.interactiveChildren = false;
     this.entityLayer.interactiveChildren = false;
+    this.placementLayer.interactiveChildren = false;
     this.gridLayer.interactiveChildren = false;
     this.hudRoot.cullableChildren = false;
     this.worldRoot.cullableChildren = true;
@@ -29,6 +31,7 @@ export class PixiSceneGraph {
       this.gridLayer,
       this.effectLayer,
       this.entityLayer,
+      this.placementLayer,
     );
     this.hudRoot.addChild(this.overlayLayer, this.hudLayer);
   }

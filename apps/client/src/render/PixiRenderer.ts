@@ -8,6 +8,10 @@ import { PixiCullingController } from "@client/render/pixi/PixiCullingController
 import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import { PixiOverlayLayer } from "@client/render/pixi/PixiOverlayLayer.ts";
 import { PixiParticleLayer } from "@client/render/pixi/PixiParticleLayer.ts";
+import {
+  PixiPlacementPreview,
+  type PlacementPreviewState,
+} from "@client/render/pixi/PixiPlacementPreview.ts";
 import { PixiRenderScheduler } from "@client/render/pixi/PixiRenderScheduler.ts";
 import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
@@ -29,6 +33,7 @@ export class PixiRenderer {
   private readonly particleLayer = new PixiParticleLayer();
   private readonly overlayLayer = new PixiOverlayLayer();
   private readonly renderScheduler = new PixiRenderScheduler();
+  private readonly placementPreview = new PixiPlacementPreview();
 
   private hud: PixiHud | null = null;
   private readonly gridCellSize = 100;
@@ -132,6 +137,7 @@ export class PixiRenderer {
     });
     this.overlayLayer.attach(this.sceneGraph.overlayLayer);
     this.overlayLayer.resize(app);
+    this.placementPreview.attach(this.sceneGraph.placementLayer);
 
     if (this.hud) {
       this.hud.attach(this.sceneGraph.hudLayer);
@@ -141,6 +147,7 @@ export class PixiRenderer {
       worldRoot: this.sceneGraph.worldRoot,
       entityLayer: this.sceneGraph.entityLayer,
       effectLayer: this.sceneGraph.effectLayer,
+      placementLayer: this.sceneGraph.placementLayer,
       hudRoot: this.sceneGraph.hudRoot,
       worldSize: this.worldSize,
     });
@@ -236,6 +243,11 @@ export class PixiRenderer {
 
   public triggerDamageOverlay(durationMs = 200): void {
     this.overlayLayer.triggerDamageOverlay(durationMs);
+    this.renderScheduler.markDirty();
+  }
+
+  public setPlacementPreview(state: PlacementPreviewState | null): void {
+    this.placementPreview.sync(state);
     this.renderScheduler.markDirty();
   }
 
