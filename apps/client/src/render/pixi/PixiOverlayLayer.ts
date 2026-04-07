@@ -1,9 +1,4 @@
-import {
-  BlurFilter,
-  ColorMatrixFilter,
-  Container,
-  Graphics,
-} from "pixi.js";
+import { BlurFilter, ColorMatrixFilter, Container, Graphics } from "pixi.js";
 import type { Application } from "pixi.js";
 
 export class PixiOverlayLayer {
@@ -111,7 +106,10 @@ export class PixiOverlayLayer {
     this.confusionBloom
       .ellipse(cx, cy, bloomR, bloomR * 0.88)
       .fill({ color: 0xffffff, alpha: 1 });
-    const bloomBlur = new BlurFilter({ strength: Math.max(8, bloomR * 0.08), quality: 1 });
+    const bloomBlur = new BlurFilter({
+      strength: Math.max(8, bloomR * 0.08),
+      quality: 1,
+    });
     bloomBlur.padding = Math.round(bloomR);
     this.confusionBloom.filters = [bloomBlur];
     this.confusionBloom.filterArea = app.screen;
@@ -136,10 +134,7 @@ export class PixiOverlayLayer {
     this.damageOverlay.visible = alpha > 0.001;
   }
 
-  private updateConfusion(
-    app: Application,
-    deltaMs: number,
-  ): void {
+  private updateConfusion(app: Application, deltaMs: number): void {
     if (!this.confusionActive) {
       return;
     }
@@ -177,4 +172,3 @@ export class PixiOverlayLayer {
     this.container.filterArea = app.screen;
   }
 }
-

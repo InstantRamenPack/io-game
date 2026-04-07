@@ -46,11 +46,7 @@ export class PixiViewportController {
     this.swimOffsetY = 0;
   }
 
-  public update(
-    deltaMs: number,
-    app: Application,
-    worldRoot: Container,
-  ): void {
+  public update(deltaMs: number, app: Application, worldRoot: Container): void {
     if (!this.cameraInitialized) {
       return;
     }
@@ -60,7 +56,10 @@ export class PixiViewportController {
       effectiveDeltaMs <= 0
         ? 1
         : 1 -
-          Math.exp(-effectiveDeltaMs / PixiViewportController.CAMERA_FOLLOW_SMOOTHING_MS);
+          Math.exp(
+            -effectiveDeltaMs /
+              PixiViewportController.CAMERA_FOLLOW_SMOOTHING_MS,
+          );
     this.cameraPivotX = lerp(
       this.cameraPivotX,
       this.cameraTargetX,
@@ -74,10 +73,7 @@ export class PixiViewportController {
     this.sync(app, worldRoot);
   }
 
-  public sync(
-    app: Application,
-    worldRoot: Container,
-  ): void {
+  public sync(app: Application, worldRoot: Container): void {
     this.captureGameplayViewportSize(app);
     const scale = this.getGameplayScale(app);
     worldRoot.pivot.set(this.cameraPivotX, this.cameraPivotY);
@@ -131,7 +127,10 @@ export class PixiViewportController {
   private getGameplayScale(app: Application): number {
     const baseWidth = Math.max(1, this.gameplayViewportWidth);
     const baseHeight = Math.max(1, this.gameplayViewportHeight);
-    return Math.min(app.screen.width / baseWidth, app.screen.height / baseHeight);
+    return Math.min(
+      app.screen.width / baseWidth,
+      app.screen.height / baseHeight,
+    );
   }
 }
 

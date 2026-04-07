@@ -9,6 +9,7 @@ import type {
   EffectContent,
   EntityContent,
   ItemContent,
+  PlayerStarterLoadout,
   ProjectileContent,
   WeaponContent,
 } from "@shared/content/schema.ts";
@@ -92,6 +93,22 @@ export function requireProjectileContent(
     throw new Error(`Unknown projectile content: ${typeId}`);
   }
   return projectileContent;
+}
+
+export function getPlayerStarterLoadout(
+  typeId: ResourceId,
+): PlayerStarterLoadout | undefined {
+  return getEntityContent(typeId)?.player?.starterLoadout;
+}
+
+export function requirePlayerStarterLoadout(
+  typeId: ResourceId,
+): PlayerStarterLoadout {
+  const starterLoadout = getPlayerStarterLoadout(typeId);
+  if (!starterLoadout) {
+    throw new Error(`Missing player starter loadout content for ${typeId}`);
+  }
+  return starterLoadout;
 }
 
 export function getEffectContent(

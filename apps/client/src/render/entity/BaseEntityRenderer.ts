@@ -265,15 +265,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const left = entity.hitboxBounds.centerX - width / 2;
     const top = entity.hitboxBounds.minY - 12;
 
-    drawRoundedRect(
-      this.healthBarTrackGraphic,
-      left,
-      top,
-      width,
-      height,
-      3,
-      { color: 0x1b1b1b, alpha: 0.85 },
-    );
+    drawRoundedRect(this.healthBarTrackGraphic, left, top, width, height, 3, {
+      color: 0x1b1b1b,
+      alpha: 0.85,
+    });
     drawRoundedRect(
       this.healthBarFillGraphic,
       left,

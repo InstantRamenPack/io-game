@@ -95,6 +95,12 @@ export const ItemRecipeContentSchema = z.object({
   costs: z.array(ItemRequirementSchema).min(1),
 });
 
+export const PlayerStarterLoadoutSchema = z.object({
+  selectedHotbarIndex: z.number().int().min(0).max(9).default(0),
+  weapons: z.array(ResourceIdSchema).default([]),
+  stackables: z.array(ItemRequirementSchema).default([]),
+});
+
 export const ItemContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
@@ -116,6 +122,11 @@ export const EntityContentSchema = z.object({
     .optional(),
   activeHitboxProfile: z.string().min(1).optional(),
   projectile: ProjectileContentSchema.optional(),
+  player: z
+    .object({
+      starterLoadout: PlayerStarterLoadoutSchema.optional(),
+    })
+    .optional(),
 });
 
 export const EffectContentSchema = z.object({
@@ -133,6 +144,7 @@ export type WeaponContent = z.infer<typeof WeaponContentSchema>;
 export type ProjectileContent = z.infer<typeof ProjectileContentSchema>;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
+export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

@@ -10,7 +10,7 @@ export type { HudState };
  * the active hotbar slot" or "queue the selected craft recipe", without needing to
  * know how the DOM is rendered.
  */
-export type HudController = {
+export type HudRuntime = {
   /**
    * Returns the current presentational HUD state. Callers should treat the
    * returned object as read-only and use controller methods for mutations.
@@ -63,6 +63,8 @@ export type HudController = {
   setVisible(visible: boolean): void;
 };
 
+export type HudController = HudRuntime;
+
 type HudControllerOptions = {
   gameClient: GameClient;
   selectors: GameSelectors;
@@ -77,6 +79,5 @@ export function createHudController({
   gameClient,
   selectors,
 }: HudControllerOptions): HudController {
-  const hud = gameClient.renderer.createHud({ gameClient, selectors });
-  return hud as HudController;
+  return gameClient.renderer.createHud({ gameClient, selectors });
 }

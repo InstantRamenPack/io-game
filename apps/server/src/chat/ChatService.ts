@@ -2,6 +2,13 @@ import type { WsServer } from "@server/net/WsServer.ts";
 import type { World } from "@server/world/World.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ServerToClientMessage } from "@shared/net/protocol.ts";
+import {
+  CHAT_COMMAND_MANIFEST,
+  getChatHelpLines,
+  resolveChatCommandAlias,
+  type ChatCommandId,
+  validateChatCommandManifest,
+} from "@shared/chat/commandManifest.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Building } from "@server/entities/Building.ts";
@@ -32,6 +39,12 @@ type FilterResult = {
   flagged: boolean;
 };
 
+type ChatCommandHandler = (
+  clientId: string,
+  player: Player,
+  args: string[],
+) => void;
+
 /**
  * Server-side chat and command handler with Minecraft-style parsing.
  */
@@ -43,6 +56,7 @@ export class ChatService {
   private readonly placeholderNsfwList = ["badword1", "badword2"];
   private readonly lastWhisperByClientId = new Map<string, string>();
   private readonly maxSpawnAmount = 1000;
+  private readonly commandHandlers: Record<ChatCommandId, ChatCommandHandler>;
 
   constructor({
     networkServer,
@@ -52,6 +66,29 @@ export class ChatService {
     this.networkServer = networkServer;
     this.world = world;
     this.playerIdByClientId = playerIdByClientId;
+    this.commandHandlers = {
+      help: (clientId) => this.handleHelpCommand(clientId),
+      me: (clientId, player, args) =>
+        this.handleMeCommand(clientId, player, args),
+      say: (clientId, player, args) =>
+        this.handleSayCommand(clientId, player, args),
+      whisper: (clientId, player, args) =>
+        this.handleWhisperCommand(clientId, player, args),
+      reply: (clientId, player, args) =>
+        this.handleReplyCommand(clientId, player, args),
+      list: (clientId) => this.handleListCommand(clientId),
+      spawn: (clientId, player, args) =>
+        this.handleSpawnCommand(clientId, player, args),
+      kill: (clientId, player, args) =>
+        this.handleKillCommand(clientId, player, args),
+      killall: (clientId) => this.handleKillAllCommand(clientId),
+      effect: (clientId, player, args) =>
+        this.handleEffectCommand(clientId, player, args),
+      give: (clientId, _player, args) => this.handleGiveCommand(clientId, args),
+    };
+
+    validateChatCommandManifest();
+    this.validateCommandHandlers();
   }
 
   /**
@@ -106,66 +143,35 @@ export class ChatService {
       return;
     }
 
-    switch (parsed.command) {
-      case "help":
-        this.handleHelpCommand(clientId);
-        return;
-      case "me":
-        this.handleMeCommand(clientId, player, parsed.args);
-        return;
-      case "say":
-        this.handleSayCommand(clientId, player, parsed.args);
-        return;
-      case "w":
-      case "whisper":
-      case "tell":
-        this.handleWhisperCommand(clientId, player, parsed.args);
-        return;
-      case "list":
-        this.handleListCommand(clientId);
-        return;
-      case "r":
-        this.handleReplyCommand(clientId, player, parsed.args);
-        return;
-      case "spawn":
-        this.handleSpawnCommand(clientId, player, parsed.args);
-        return;
-      case "kill":
-        this.handleKillCommand(clientId, player, parsed.args);
-        return;
-      case "killall":
-        this.handleKillAllCommand(clientId);
-        return;
-      case "effect":
-        this.handleEffectCommand(clientId, player, parsed.args);
-        return;
-      case "give":
-        this.handleGiveCommand(clientId, parsed.args);
-        return;
-      default:
-        this.sendSystem(
-          clientId,
-          `Unknown command "${parsed.command}". Type /help for help.`,
-        );
+    const commandId = resolveChatCommandAlias(parsed.command);
+    if (!commandId) {
+      this.sendSystem(
+        clientId,
+        `Unknown command "${parsed.command}". Type /help for help.`,
+      );
+      return;
     }
+
+    const handler = this.commandHandlers[commandId];
+    if (!handler) {
+      this.sendSystem(clientId, `Command "${parsed.command}" is unavailable.`);
+      return;
+    }
+
+    handler(clientId, player, parsed.args);
   }
 
   private handleHelpCommand(clientId: string): void {
-    const lines = [
-      "Commands:",
-      "/help - show this help",
-      "/me <action> - emote text",
-      "/say <message> - chat message",
-      "/w <player> <message> - whisper",
-      "/r <message> - reply to last whisper",
-      "/list - list online players",
-      "/spawn <entity> [amount] [@a|player|x y z] - spawn entities",
-      "/kill @e <entity> | @a | <player> - kill entities or players",
-      "/killall - kill every entity",
-      "/effect <effect> [@a|@e|player] - apply an effect",
-      "/give <@a|player> <item> [amount] - grant an item",
-    ];
+    const lines = ["Commands:", ...getChatHelpLines()];
     this.sendSystem(clientId, lines.join("\n"));
+  }
+
+  private validateCommandHandlers(): void {
+    for (const command of CHAT_COMMAND_MANIFEST) {
+      if (!this.commandHandlers[command.id]) {
+        throw new Error(`Missing chat command handler for ${command.id}.`);
+      }
+    }
   }
 
   private handleMeCommand(

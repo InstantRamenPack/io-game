@@ -35,10 +35,7 @@ export class PixiParticleLayer {
     }
   }
 
-  public setTextures(options: {
-    softCircle: Texture;
-    ring: Texture;
-  }): void {
+  public setTextures(options: { softCircle: Texture; ring: Texture }): void {
     this.softCircleTexture = options.softCircle;
     this.ringTexture = options.ring;
   }

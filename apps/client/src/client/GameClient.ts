@@ -1,4 +1,9 @@
+import { ClientFrameLoop } from "@client/client/ClientFrameLoop.ts";
 import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
+import {
+  HeldAttackController,
+  type LocalWeaponState,
+} from "@client/client/HeldAttackController.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import {
@@ -8,12 +13,7 @@ import {
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import {
-  getEntityContent,
-  getItemContent,
-  getResourceDisplayLabel,
-  getWeaponContent,
-} from "@shared/content/catalog.ts";
+import { getEntityContent, getItemContent } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
@@ -25,14 +25,6 @@ import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
-
-export type GameplayHudState = {
-  activeWeaponLabel: string;
-  ammoLabel: string | null;
-  reloadTicksRemaining: number | null;
-  selectedHotbarIndex: number;
-  slotLabels: string[];
-};
 
 export type PerformanceRateState = {
   frameRate: number | null;
@@ -65,13 +57,15 @@ export class GameClient {
   public playerEntityId?: number;
   public interpolator: Interpolator;
 
-  private animationFrameId: number | undefined;
-  private lastAnimationFrameTime: number | undefined;
   private inputBound = false;
   private rendererPointerBound = false;
   private started = false;
   private sessionReady = false;
   private readonly rateMonitor = new ClientRateMonitor();
+  private readonly frameLoop = new ClientFrameLoop();
+  private readonly heldAttackController = new HeldAttackController({
+    tickRate: () => this.gameConfig.tickRate,
+  });
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
@@ -80,7 +74,6 @@ export class GameClient {
   private pointerAimTarget?: AimTarget;
   private pointerClientX: number | null = null;
   private pointerClientY: number | null = null;
-  private holdAttackCooldownUntilMs = 0;
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -404,51 +397,6 @@ export class GameClient {
     this.resetSessionState(true);
   }
 
-  public getGameplayHudState(): GameplayHudState | null {
-    const player = this.getLocalPlayerEntity();
-    const inventory = player?.inventory;
-    if (!player || !inventory) {
-      return null;
-    }
-
-    const selectedHotbarIndex = inventory.selectedHotbarIndex;
-    const activeSlot = inventory.hotbarSlots[selectedHotbarIndex];
-    const activeWeapon = activeSlot?.kind === "weapon" ? activeSlot : null;
-    const ammoInMag =
-      typeof activeWeapon?.ammoInMag === "number"
-        ? activeWeapon.ammoInMag
-        : null;
-    const magSize =
-      typeof activeWeapon?.magSize === "number" ? activeWeapon.magSize : null;
-    const reloadTicksRemaining =
-      typeof activeWeapon?.reloadTicksRemaining === "number"
-        ? activeWeapon.reloadTicksRemaining
-        : null;
-
-    return {
-      activeWeaponLabel: activeWeapon
-        ? getResourceDisplayLabel(activeWeapon.typeId)
-        : "Unarmed",
-      ammoLabel:
-        ammoInMag !== null && magSize !== null
-          ? `${ammoInMag}/${magSize}`
-          : null,
-      reloadTicksRemaining:
-        reloadTicksRemaining !== null && reloadTicksRemaining > 0
-          ? reloadTicksRemaining
-          : null,
-      selectedHotbarIndex,
-      slotLabels: inventory.hotbarSlots.map((slot, slotIndex) => {
-        const prefix = selectedHotbarIndex === slotIndex ? ">" : "";
-        const label =
-          slot.kind === "weapon" || slot.kind === "buildable"
-            ? getResourceDisplayLabel(slot.typeId)
-            : "Empty";
-        return `${prefix}${slotIndex + 1} ${label}`;
-      }),
-    };
-  }
-
   public getMeasuredRates(): PerformanceRateState {
     return this.rateMonitor.getMeasuredRates(performance.now());
   }
@@ -473,38 +421,25 @@ export class GameClient {
   }
 
   private startFrameLoop(): void {
-    if (this.animationFrameId !== undefined) {
+    if (this.frameLoop.isRunning()) {
       return;
     }
 
-    const tick = (timestamp: number): void => {
+    this.frameLoop.start((timestampMs, deltaMs) => {
       if (!this.started) {
-        this.animationFrameId = undefined;
+        this.stopFrameLoop();
         return;
       }
 
-      const deltaMs =
-        this.lastAnimationFrameTime === undefined
-          ? 0
-          : timestamp - this.lastAnimationFrameTime;
-      this.lastAnimationFrameTime = timestamp;
-      this.rateMonitor.recordFrameSample(timestamp);
+      this.rateMonitor.recordFrameSample(timestampMs);
       this.refreshPointerTargetFromScreen();
-      this.updateHeldAttack(timestamp);
-      this.update(deltaMs, timestamp);
-      this.animationFrameId = window.requestAnimationFrame(tick);
-    };
-
-    this.lastAnimationFrameTime = undefined;
-    this.animationFrameId = window.requestAnimationFrame(tick);
+      this.updateHeldAttack(timestampMs);
+      this.update(deltaMs, timestampMs);
+    });
   }
 
   private stopFrameLoop(): void {
-    if (this.animationFrameId !== undefined) {
-      window.cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = undefined;
-    }
-    this.lastAnimationFrameTime = undefined;
+    this.frameLoop.stop();
   }
 
   private onDisconnected(): void {
@@ -515,7 +450,7 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
-    this.holdAttackCooldownUntilMs = 0;
+    this.heldAttackController.reset();
     this.stopFrameLoop();
     this.rateMonitor.reset();
     if (disconnectTransport) {
@@ -578,7 +513,7 @@ export class GameClient {
     if (!activeWeapon) {
       return false;
     }
-    if (!this.canLikelyExecuteAttack(activeWeapon)) {
+    if (!this.heldAttackController.canLikelyExecuteAttack(activeWeapon)) {
       return false;
     }
 
@@ -589,13 +524,7 @@ export class GameClient {
       aim: { x, y },
     });
     this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
-    const weaponContent = getWeaponContent(activeWeapon.typeId);
-    if (weaponContent) {
-      const cooldownDurationMs =
-        (weaponContent.cooldownTicks * 1000) / this.gameConfig.tickRate;
-      this.holdAttackCooldownUntilMs =
-        now + Math.max(1, Math.floor(cooldownDurationMs));
-    }
+    this.heldAttackController.onAttackSent(now, activeWeapon);
     return true;
   }
 
@@ -610,28 +539,14 @@ export class GameClient {
     if (!localPlayer?.alive || !activeWeapon) {
       return;
     }
-    if (now < this.holdAttackCooldownUntilMs) {
-      return;
-    }
-    if (
-      typeof activeWeapon.cooldownTicksRemaining === "number" &&
-      activeWeapon.cooldownTicksRemaining > 0
-    ) {
+    if (!this.heldAttackController.canSendHeldAttack(now, activeWeapon)) {
       return;
     }
 
     this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
   }
 
-  private getLocalActiveWeapon():
-    | {
-        typeId: ResourceId;
-        cooldownTicksRemaining?: number;
-        ammoInMag?: number;
-        reloadTicks?: number;
-        reloadTicksRemaining?: number;
-      }
-    | undefined {
+  private getLocalActiveWeapon(): LocalWeaponState | undefined {
     const player = this.getLocalPlayerEntity();
     const inventory = player?.inventory;
     if (!inventory) {
@@ -644,32 +559,6 @@ export class GameClient {
     }
 
     return activeSlot;
-  }
-
-  private canLikelyExecuteAttack(activeWeapon: {
-    cooldownTicksRemaining?: number;
-    ammoInMag?: number;
-    reloadTicksRemaining?: number;
-  }): boolean {
-    if (
-      typeof activeWeapon.cooldownTicksRemaining === "number" &&
-      activeWeapon.cooldownTicksRemaining > 0
-    ) {
-      return false;
-    }
-    if (
-      typeof activeWeapon.reloadTicksRemaining === "number" &&
-      activeWeapon.reloadTicksRemaining > 0
-    ) {
-      return false;
-    }
-    if (
-      typeof activeWeapon.ammoInMag === "number" &&
-      activeWeapon.ammoInMag <= 0
-    ) {
-      return false;
-    }
-    return true;
   }
 
   private computeNightBlend(dayNight: DayNightSnapshot): number {
@@ -759,7 +648,10 @@ export class GameClient {
     );
 
     let valid = true;
-    const distanceToPointer = Math.hypot(pointer.x - player.x, pointer.y - player.y);
+    const distanceToPointer = Math.hypot(
+      pointer.x - player.x,
+      pointer.y - player.y,
+    );
     if (distanceToPointer > BUILD_PLACEMENT_MAX_DISTANCE) {
       valid = false;
     }
@@ -786,7 +678,11 @@ export class GameClient {
           continue;
         }
 
-        const entityRects = resolveHitboxRects(entity.x, entity.y, entity.hitboxes);
+        const entityRects = resolveHitboxRects(
+          entity.x,
+          entity.y,
+          entity.hitboxes,
+        );
         if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
           valid = false;
           break;

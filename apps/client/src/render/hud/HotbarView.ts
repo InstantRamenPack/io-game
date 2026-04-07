@@ -1,7 +1,5 @@
 import * as PIXI from "pixi.js";
-import {
-  drawRoundedRect,
-} from "@client/render/pixi/PixiGraphicUtils.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -150,15 +148,10 @@ class HotbarSlotView {
     const x = 4;
     const y = this.slotSize - 7;
 
-    drawRoundedRect(
-      this.ammoBarTrack,
-      x,
-      y,
-      trackWidth,
-      trackHeight,
-      2,
-      { color: 0x1f1f1f, alpha: 0.95 },
-    );
+    drawRoundedRect(this.ammoBarTrack, x, y, trackWidth, trackHeight, 2, {
+      color: 0x1f1f1f,
+      alpha: 0.95,
+    });
     this.ammoBarTrack.visible = true;
 
     const reloadTicksRemaining =
@@ -184,15 +177,10 @@ class HotbarSlotView {
     const clamped = Math.min(1, Math.max(0, fillRatio));
     const fillWidth = Math.floor(trackWidth * clamped);
     if (fillWidth > 0) {
-      drawRoundedRect(
-        this.ammoBarFill,
-        x,
-        y,
-        fillWidth,
-        trackHeight,
-        2,
-        { color: 0xff9f1a, alpha: 1 },
-      );
+      drawRoundedRect(this.ammoBarFill, x, y, fillWidth, trackHeight, 2, {
+        color: 0xff9f1a,
+        alpha: 1,
+      });
       this.ammoBarFill.visible = true;
     } else {
       this.ammoBarFill.clear();

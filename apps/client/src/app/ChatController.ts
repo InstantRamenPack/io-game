@@ -2,6 +2,12 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import {
+  CHAT_COMMAND_MANIFEST,
+  getChatCommandById,
+  resolveChatCommandAlias,
+  type ChatAutocompleteSource,
+} from "@shared/chat/commandManifest.ts";
+import {
   getAllEffectContentEntries,
   getAllEntityContentEntries,
   getAllItemContentEntries,
@@ -32,23 +38,23 @@ type ChatSuggestion = {
   detail?: string;
 };
 
+type ParsedCommandState = {
+  command: string;
+  args: string[];
+  currentToken: string;
+};
+
 const MAX_LINES = 8;
 const FADE_AFTER_MS = 8000;
 const REMOVE_AFTER_MS = 12000;
 
-const commandSuggestions: ChatSuggestion[] = [
-  { value: "effect", label: "/effect" },
-  { value: "give", label: "/give" },
-  { value: "help", label: "/help" },
-  { value: "kill", label: "/kill" },
-  { value: "killall", label: "/killall" },
-  { value: "list", label: "/list" },
-  { value: "me", label: "/me" },
-  { value: "r", label: "/r" },
-  { value: "say", label: "/say" },
-  { value: "spawn", label: "/spawn" },
-  { value: "w", label: "/w" },
-].sort((left, right) => left.label.localeCompare(right.label));
+const commandSuggestions: ChatSuggestion[] = CHAT_COMMAND_MANIFEST.map(
+  (command) => ({
+    value: command.primaryAlias,
+    label: `/${command.primaryAlias}`,
+    detail: command.summary,
+  }),
+).sort((left, right) => left.label.localeCompare(right.label));
 
 const entitySuggestions: ChatSuggestion[] = getAllEntityContentEntries()
   .filter(
@@ -450,61 +456,68 @@ function buildSuggestions(
     label: playerName,
   }));
 
-  switch (command) {
-    case "kill":
-      if (args.length === 1) {
-        return filterSuggestions(
-          [...selectorSuggestions, ...playerSuggestions].sort((left, right) =>
-            left.label.localeCompare(right.label),
-          ),
-          currentToken,
+  const commandId = resolveChatCommandAlias(command);
+  if (!commandId) {
+    return [];
+  }
+
+  const commandDefinition = getChatCommandById(commandId);
+  if (!commandDefinition.autocomplete) {
+    return [];
+  }
+
+  const currentArgIndex = Math.max(0, args.length - 1);
+  const matchedRules = commandDefinition.autocomplete.filter((rule) => {
+    if (rule.argIndex !== currentArgIndex) {
+      return false;
+    }
+    if (!rule.whenArgEquals) {
+      return true;
+    }
+    const expectedArg = args[rule.whenArgEquals.index] ?? "";
+    return expectedArg.toLowerCase() === rule.whenArgEquals.value.toLowerCase();
+  });
+  if (matchedRules.length === 0) {
+    return [];
+  }
+
+  const sourceSuggestions = new Map<string, ChatSuggestion>();
+  for (const rule of matchedRules) {
+    for (const source of rule.sources) {
+      for (const suggestion of getSourceSuggestions(
+        source,
+        playerSuggestions,
+      )) {
+        sourceSuggestions.set(
+          `${suggestion.value}|${suggestion.label}|${suggestion.detail ?? ""}`,
+          suggestion,
         );
       }
-      if ((args[0] ?? "").toLowerCase() === "@e" && args.length === 2) {
-        return filterSuggestions(entitySuggestions, currentToken);
-      }
-      return [];
-    case "spawn":
-      if (args.length === 1) {
-        return filterSuggestions(entitySuggestions, currentToken);
-      }
-      if (args.length === 3) {
-        return filterSuggestions(
-          [...selectorSuggestions, ...playerSuggestions].sort((left, right) =>
-            left.label.localeCompare(right.label),
-          ),
-          currentToken,
-        );
-      }
-      return [];
+    }
+  }
+
+  return filterSuggestions([...sourceSuggestions.values()], currentToken).sort(
+    (left, right) => left.label.localeCompare(right.label),
+  );
+}
+
+function getSourceSuggestions(
+  source: ChatAutocompleteSource,
+  playerSuggestions: ChatSuggestion[],
+): readonly ChatSuggestion[] {
+  switch (source) {
+    case "command":
+      return commandSuggestions;
+    case "entity":
+      return entitySuggestions;
+    case "item":
+      return itemSuggestions;
     case "effect":
-      if (args.length === 1) {
-        return filterSuggestions(effectSuggestions, currentToken);
-      }
-      if (args.length === 2) {
-        return filterSuggestions(
-          [...selectorSuggestions, ...playerSuggestions].sort((left, right) =>
-            left.label.localeCompare(right.label),
-          ),
-          currentToken,
-        );
-      }
-      return [];
-    case "give":
-      if (args.length === 1) {
-        return filterSuggestions(
-          [...selectorSuggestions, ...playerSuggestions].sort((left, right) =>
-            left.label.localeCompare(right.label),
-          ),
-          currentToken,
-        );
-      }
-      if (args.length === 2) {
-        return filterSuggestions(itemSuggestions, currentToken);
-      }
-      return [];
-    default:
-      return [];
+      return effectSuggestions;
+    case "selector":
+      return selectorSuggestions;
+    case "player":
+      return playerSuggestions;
   }
 }
 
@@ -527,11 +540,7 @@ function filterSuggestions(
   });
 }
 
-function parseCommandState(value: string): {
-  command: string;
-  args: string[];
-  currentToken: string;
-} | null {
+function parseCommandState(value: string): ParsedCommandState | null {
   const trimmedRight = value.trimEnd();
   const hasTrailingSpace = value.endsWith(" ");
   const raw = trimmedRight.slice(1);

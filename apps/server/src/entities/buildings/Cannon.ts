@@ -20,7 +20,8 @@ export class Cannon extends Building {
     super(id, label, tier, ownerId, {
       baseHp: 240,
       hitboxProfiles:
-        content?.hitboxProfiles ?? ({
+        content?.hitboxProfiles ??
+        ({
           default: [makeHitboxRect(36, 40)],
         } as const),
       activeHitboxProfile: content?.activeHitboxProfile,

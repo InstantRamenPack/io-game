@@ -305,18 +305,6 @@ export class Player extends Entity {
     world.spawn(building);
   }
 
-  public seedStarterInventory(): void {
-    this.inventory.addStackable("item:wood", 120);
-    this.inventory.addStackable("item:stone", 80);
-    this.inventory.addStackable("item:gun_mag", 2);
-    this.inventory.addStackable("item:crossbow_mag", 2);
-    this.inventory.addStackable("item:drone_mag", 2);
-    this.inventory.addStackable("item:landmine", 5);
-    this.inventory.addStackable("item:wall", 8);
-    this.inventory.addStackable("item:cannon", 2);
-    this.inventory.addStackable("item:crafting_station", 1);
-  }
-
   private applyHeldMovement(world: World): void {
     const shouldTrace = world.focusedTrace.matchesEntity(this);
     if (this.isStunned()) {

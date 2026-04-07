@@ -14,7 +14,9 @@ export class PixiCullingController {
     hudRoot: Container;
     worldSize: WorldSize;
   }): void {
-    this.worldBounds.copyFrom(new Rectangle(0, 0, options.worldSize.w, options.worldSize.h));
+    this.worldBounds.copyFrom(
+      new Rectangle(0, 0, options.worldSize.w, options.worldSize.h),
+    );
     options.worldRoot.cullable = false;
     options.worldRoot.cullableChildren = true;
     options.entityLayer.cullable = true;
@@ -32,4 +34,3 @@ export class PixiCullingController {
     this.worldBounds.copyFrom(new Rectangle(0, 0, worldSize.w, worldSize.h));
   }
 }
-

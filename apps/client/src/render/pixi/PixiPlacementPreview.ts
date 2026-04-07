@@ -121,7 +121,9 @@ function buildSignature(
   rects: readonly HitboxRect[],
 ): string {
   const rectSignature = rects
-    .map((rect) => `${rect.width},${rect.height},${rect.offsetX},${rect.offsetY}`)
+    .map(
+      (rect) => `${rect.width},${rect.height},${rect.offsetX},${rect.offsetY}`,
+    )
     .join("|");
   return `${typeId}:${style.shape}:${style.radius ?? 0}:${rectSignature}`;
 }
@@ -157,9 +159,9 @@ function drawPreviewRects(
           alpha,
         });
         if (stroke) {
-          graphics.roundRect(x, y, rect.width, rect.height, radius).stroke(
-            stroke,
-          );
+          graphics
+            .roundRect(x, y, rect.width, rect.height, radius)
+            .stroke(stroke);
         }
         break;
       }

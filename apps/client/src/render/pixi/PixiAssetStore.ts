@@ -107,17 +107,14 @@ export class PixiAssetStore {
       .circle(radius, radius, radius - (options.strokeWidth ?? 0) / 2)
       .fill({ color: options.fillColor, alpha: options.fillAlpha });
     if (options.strokeWidth && options.strokeColor !== undefined) {
-      graphic
-        .circle(radius, radius, radius - options.strokeWidth / 2)
-        .stroke({
-          width: options.strokeWidth,
-          color: options.strokeColor,
-          alpha: options.strokeAlpha ?? 1,
-        });
+      graphic.circle(radius, radius, radius - options.strokeWidth / 2).stroke({
+        width: options.strokeWidth,
+        color: options.strokeColor,
+        alpha: options.strokeAlpha ?? 1,
+      });
     }
     const texture = app.renderer.generateTexture(graphic);
     graphic.destroy();
     return texture;
   }
 }
-

@@ -8,11 +8,7 @@ export class PixiRenderScheduler {
     this.dirty = true;
   }
 
-  public render(
-    app: Application,
-    hud: PixiHud | null,
-    force = false,
-  ): void {
+  public render(app: Application, hud: PixiHud | null, force = false): void {
     if (!force && !this.dirty) {
       return;
     }

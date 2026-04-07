@@ -13,7 +13,8 @@ export class Wall extends Building {
     super(id, label, tier, ownerId, {
       baseHp: 180,
       hitboxProfiles:
-        content?.hitboxProfiles ?? ({
+        content?.hitboxProfiles ??
+        ({
           default: [makeHitboxRect(40, 40)],
         } as const),
       activeHitboxProfile: content?.activeHitboxProfile,

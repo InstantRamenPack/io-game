@@ -2,7 +2,6 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { ChatController } from "@client/app/ChatController.ts";
 import type { MenuController } from "@client/app/MenuController.ts";
-import type { RuntimeStatusController } from "@client/app/RuntimeStatusController.ts";
 import type { AuthController } from "@client/auth/Auth.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
@@ -31,7 +30,6 @@ type LaunchControllerOptions = {
   menuController: MenuController;
   hudController: HudController;
   chatController: ChatController;
-  runtimeStatusController: RuntimeStatusController;
   resolvePlayerName: () => string;
 };
 
@@ -49,9 +47,51 @@ export function createLaunchController({
   menuController,
   hudController,
   chatController,
-  runtimeStatusController,
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
+  function applyGameplayShellState(connected: boolean): void {
+    if (elements.gameRoot) {
+      elements.gameRoot.hidden = !connected;
+    }
+    if (elements.chatRoot) {
+      elements.chatRoot.hidden = !connected;
+    }
+
+    hudController.setVisible(connected);
+    chatController.setVisible(connected);
+
+    if (elements.launchBtn) {
+      const button = elements.launchBtn as HTMLButtonElement;
+      button.textContent = connected ? "Connected" : "Deploy";
+      button.disabled = connected;
+    }
+  }
+
+  function enterSessionUi(): void {
+    applyGameplayShellState(true);
+    menuController.showGameScreen();
+    hudController.refreshUi();
+  }
+
+  function exitSessionUi(options: {
+    connectionErrorMessage?: string;
+    refreshGateOnly?: boolean;
+  }): void {
+    hudController.reset();
+    applyGameplayShellState(false);
+
+    if (options.connectionErrorMessage && elements.accountGateText) {
+      elements.accountGateText.textContent = options.connectionErrorMessage;
+    }
+
+    if (options.refreshGateOnly) {
+      menuController.refreshGateUi();
+    } else {
+      menuController.showMenuScreen();
+    }
+    hudController.refreshUi();
+  }
+
   elements.launchBtn?.addEventListener("click", () => {
     if (authController.getState().authMode === "none") {
       authController.activateGuest();
@@ -120,75 +160,26 @@ export function createLaunchController({
   });
 
   gameClient.onSessionReady(() => {
-    if (elements.gameRoot) {
-      elements.gameRoot.hidden = false;
-    }
-    if (elements.chatRoot) {
-      elements.chatRoot.hidden = false;
-    }
-    hudController.setVisible(true);
-    chatController.setVisible(true);
-
-    runtimeStatusController.start();
-    menuController.showGameScreen();
-
-    if (elements.launchBtn) {
-      const button = elements.launchBtn as HTMLButtonElement;
-      button.textContent = "Connected";
-      button.disabled = true;
-    }
-
-    hudController.refreshUi();
+    enterSessionUi();
   });
 
   gameClient.networkClient.onClose(() => {
-    runtimeStatusController.stop();
-    hudController.reset();
-    chatController.setVisible(false);
-
-    if (elements.launchBtn) {
-      const button = elements.launchBtn as HTMLButtonElement;
-      button.textContent = "Deploy";
-      button.disabled = false;
-    }
-    if (elements.gameRoot) {
-      elements.gameRoot.hidden = true;
-    }
-    if (elements.chatRoot) {
-      elements.chatRoot.hidden = true;
-    }
-    hudController.setVisible(false);
-
-    menuController.showMenuScreen();
-    hudController.refreshUi();
+    exitSessionUi({});
   });
 
   gameClient.networkClient.onError((message) => {
-    runtimeStatusController.stop();
     if (authController.handleNetworkError(message)) {
       menuController.setMode("account");
     }
 
-    hudController.reset();
-    chatController.setVisible(false);
-
-    if (message === "socket_error" && elements.accountGateText) {
-      elements.accountGateText.textContent =
-        "Connection failed before gameplay started. Check the server and refresh.";
-    }
-
-    if (elements.launchBtn) {
-      const button = elements.launchBtn as HTMLButtonElement;
-      button.textContent = "Deploy";
-      button.disabled = false;
-    }
-    hudController.setVisible(false);
-    if (elements.chatRoot) {
-      elements.chatRoot.hidden = true;
-    }
-
-    menuController.refreshGateUi();
-    hudController.refreshUi();
+    const connectionErrorMessage =
+      message === "socket_error"
+        ? "Connection failed before gameplay started. Check the server and refresh."
+        : undefined;
+    exitSessionUi({
+      connectionErrorMessage,
+      refreshGateOnly: true,
+    });
   });
 
   return {

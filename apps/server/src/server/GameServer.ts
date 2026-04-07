@@ -1,4 +1,4 @@
-import type {GameConfig} from "@shared/config/GameConfig.ts";
+import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
   type ActionMessage,
   type HelloMessage,
@@ -7,21 +7,21 @@ import {
   type PingMessage,
   type ServerToClientMessage,
 } from "@shared/net/protocol.ts";
-import {ChatService} from "@server/chat/ChatService.ts";
-import {Player} from "@server/entities/Player.ts";
-import {SnapshotManager} from "@server/net/SnapshotManager.ts";
-import {AntiCheatValidator} from "@server/net/AntiCheatValidator.ts";
-import type {WsServer} from "@server/net/WsServer.ts";
-import {bootstrapTypeRegistries} from "@server/registry/bootstrap.ts";
-import {TickClock} from "@server/server/TickClock.ts";
-import type {AuthService} from "@server/services/AuthService.ts";
-import {BasicGun} from "@server/items/weapons/BasicGun.ts";
-import {BasicSpear} from "@server/items/weapons/BasicSpear.ts";
-import {BasicSword} from "@server/items/weapons/BasicSword.ts";
-import {Crossbow} from "@server/items/weapons/Crossbow.ts";
-import {World} from "@server/world/World.ts";
-import {DayNightSystemWithWaves} from "@server/systems/DayNightSystemWithWaves.ts";
-import {WaveSpawner} from "@server/systems/WaveSpawner.ts";
+import { ChatService } from "@server/chat/ChatService.ts";
+import { Player } from "@server/entities/Player.ts";
+import { SnapshotManager } from "@server/net/SnapshotManager.ts";
+import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
+import type { WsServer } from "@server/net/WsServer.ts";
+import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
+import {
+  applyPlayerStarterLoadout,
+  validatePlayerStarterLoadout,
+} from "@server/server/starterLoadout.ts";
+import { TickClock } from "@server/server/TickClock.ts";
+import type { AuthService } from "@server/services/AuthService.ts";
+import { World } from "@server/world/World.ts";
+import { DayNightSystemWithWaves } from "@server/systems/DayNightSystemWithWaves.ts";
+import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -50,6 +50,7 @@ export class GameServer {
     authService: AuthService,
   ) {
     bootstrapTypeRegistries();
+    validatePlayerStarterLoadout();
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
     this.authService = authService;
@@ -239,12 +240,7 @@ export class GameServer {
 
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
-    playerEntity.inventory.addWeapon(new BasicSword());
-    playerEntity.inventory.addWeapon(new BasicGun());
-    playerEntity.inventory.addWeapon(new BasicSpear());
-    playerEntity.inventory.addWeapon(new Crossbow());
-    playerEntity.inventory.setSelectedHotbarIndex(1);
-    playerEntity.seedStarterInventory();
+    applyPlayerStarterLoadout(playerEntity);
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);

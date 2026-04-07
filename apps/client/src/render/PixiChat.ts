@@ -273,14 +273,10 @@ export class PixiChat {
       this.viewHeight;
     this.root.position.set(Math.round(originX), Math.round(originY));
 
-    drawRect(
-      this.maskGraphic,
-      0,
-      0,
-      this.viewWidth,
-      this.viewHeight,
-      { color: 0xffffff, alpha: 1 },
-    );
+    drawRect(this.maskGraphic, 0, 0, this.viewWidth, this.viewHeight, {
+      color: 0xffffff,
+      alpha: 1,
+    });
 
     this.maxScroll = Math.max(0, this.contentHeight - this.viewHeight);
     if (!this.open) {

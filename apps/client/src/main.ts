@@ -11,7 +11,6 @@ import {
   hydratePlayerNameInput,
   resolvePlayerName,
 } from "@client/app/playerName.ts";
-import { createRuntimeStatusController } from "@client/app/RuntimeStatusController.ts";
 import { installDebugBridge } from "@client/app/installDebugBridge.ts";
 import { AuthController } from "@client/auth/Auth.ts";
 import { GameClient } from "@client/client/GameClient.ts";
@@ -53,9 +52,6 @@ const menuController = createMenuController({
   elements,
   authController,
 });
-const runtimeStatusController = createRuntimeStatusController({
-  hudController,
-});
 const launchController = createLaunchController({
   elements,
   gameClient,
@@ -64,7 +60,6 @@ const launchController = createLaunchController({
   menuController,
   hudController,
   chatController,
-  runtimeStatusController,
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
 });
 

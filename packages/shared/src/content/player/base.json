@@ -1,3 +1,25 @@
 {
-  "label": "Player"
+  "label": "Player",
+  "player": {
+    "starterLoadout": {
+      "selectedHotbarIndex": 1,
+      "weapons": [
+        "item:basic_sword",
+        "item:basic_gun",
+        "item:basic_spear",
+        "item:crossbow"
+      ],
+      "stackables": [
+        { "typeId": "item:wood", "amount": 120 },
+        { "typeId": "item:stone", "amount": 80 },
+        { "typeId": "item:gun_mag", "amount": 2 },
+        { "typeId": "item:crossbow_mag", "amount": 2 },
+        { "typeId": "item:drone_mag", "amount": 2 },
+        { "typeId": "item:landmine", "amount": 5 },
+        { "typeId": "item:wall", "amount": 8 },
+        { "typeId": "item:cannon", "amount": 2 },
+        { "typeId": "item:crafting_station", "amount": 1 }
+      ]
+    }
+  }
 }

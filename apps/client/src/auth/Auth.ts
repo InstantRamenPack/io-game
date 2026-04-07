@@ -28,11 +28,6 @@ type GoogleIdApi = {
 
 type GoogleApi = { accounts?: { id?: GoogleIdApi } };
 
-type MetaProgress = {
-  coins: number;
-  unlockedScout: boolean;
-};
-
 export type AuthState = {
   googleClientId: string | null;
   googleIdToken: string | null;
@@ -54,11 +49,6 @@ export type AuthGateViewState = {
 
 type AuthListener = (state: Readonly<AuthState>) => void;
 
-const DEFAULT_META_PROGRESS: MetaProgress = {
-  coins: 100,
-  unlockedScout: false,
-};
-
 export class AuthController {
   private readonly state: AuthState = {
     googleClientId: null,
@@ -71,7 +61,6 @@ export class AuthController {
   };
   private readonly listeners: AuthListener[] = [];
   private googleButtonRendered = false;
-  private metaProgress: MetaProgress = { ...DEFAULT_META_PROGRESS };
 
   public onChange(listener: AuthListener): void {
     this.listeners.push(listener);
@@ -166,13 +155,11 @@ export class AuthController {
         this.state.googleSubjectId = this.deriveSubjectFromToken(credential);
         this.state.authMode = "google";
         this.state.errorMessage = null;
-        this.loadMetaProgress();
         this.emit();
       },
     });
 
     this.state.initialized = true;
-    this.loadMetaProgress();
     this.emit();
   }
 
@@ -182,7 +169,6 @@ export class AuthController {
     this.state.googleEmail = null;
     this.state.googleSubjectId = null;
     this.state.errorMessage = null;
-    this.loadMetaProgress();
     this.emit();
   }
 
@@ -226,7 +212,6 @@ export class AuthController {
         message === "auth_not_configured"
           ? "Google sign-in unavailable. Deploy will continue as guest."
           : "Google sign-in expired. Deploy will continue as guest unless you sign in again.";
-      this.loadMetaProgress();
     }
 
     this.emit();
@@ -279,41 +264,6 @@ export class AuthController {
   private getGoogleIdApi(): GoogleIdApi | null {
     return ((window.google as GoogleApi | undefined)?.accounts?.id ??
       null) as GoogleIdApi | null;
-  }
-
-  private metaStorageKey(googleSubjectId: string): string {
-    return `zombs-meta-progress:${googleSubjectId}`;
-  }
-
-  private loadMetaProgress(): void {
-    if (this.state.authMode !== "google" || !this.state.googleSubjectId) {
-      this.metaProgress = { ...DEFAULT_META_PROGRESS };
-      return;
-    }
-
-    const rawPayload = window.localStorage.getItem(
-      this.metaStorageKey(this.state.googleSubjectId),
-    );
-    if (!rawPayload) {
-      this.metaProgress = { ...DEFAULT_META_PROGRESS };
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(rawPayload) as Partial<MetaProgress>;
-      this.metaProgress = {
-        coins:
-          typeof parsed.coins === "number" && Number.isFinite(parsed.coins)
-            ? Math.max(0, Math.floor(parsed.coins))
-            : DEFAULT_META_PROGRESS.coins,
-        unlockedScout:
-          typeof parsed.unlockedScout === "boolean"
-            ? parsed.unlockedScout
-            : DEFAULT_META_PROGRESS.unlockedScout,
-      };
-    } catch {
-      this.metaProgress = { ...DEFAULT_META_PROGRESS };
-    }
   }
 
   private async loadGoogleScript(): Promise<void> {

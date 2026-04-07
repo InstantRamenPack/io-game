@@ -13,7 +13,8 @@ export class CraftingStation extends Building {
     super(id, label, tier, ownerId, {
       baseHp: 260,
       hitboxProfiles:
-        content?.hitboxProfiles ?? ({
+        content?.hitboxProfiles ??
+        ({
           default: [makeHitboxRect(52, 42)],
         } as const),
       activeHitboxProfile: content?.activeHitboxProfile,

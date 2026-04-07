@@ -20,7 +20,8 @@ export class Landmine extends Building {
     super(id, label, tier, ownerId, {
       baseHp: 30,
       hitboxProfiles:
-        content?.hitboxProfiles ?? ({
+        content?.hitboxProfiles ??
+        ({
           default: [makeHitboxRect(18, 18)],
         } as const),
       activeHitboxProfile: content?.activeHitboxProfile,

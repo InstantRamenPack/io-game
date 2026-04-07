@@ -1,5 +1,5 @@
 import {
-  Graphics,
+  type Graphics,
   type ColorSource,
   type FillStyle,
   type StrokeStyle,
@@ -89,4 +89,3 @@ export function drawLine(
   graphics.clear();
   graphics.moveTo(startX, startY).lineTo(endX, endY).stroke(stroke);
 }
-

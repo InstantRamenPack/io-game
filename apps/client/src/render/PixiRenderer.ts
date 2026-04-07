@@ -151,7 +151,7 @@ export class PixiRenderer {
       hudRoot: this.sceneGraph.hudRoot,
       worldSize: this.worldSize,
     });
-    this.drawGrid();
+    this.drawGridGeometry();
     this.applyWorldFilters();
     this.viewportController.sync(app, this.sceneGraph.worldRoot);
     this.renderScene(true);
@@ -172,7 +172,7 @@ export class PixiRenderer {
     this.worldSize = { ...worldSize };
     this.viewportController.setWorldSize(this.worldSize);
     this.cullingController.updateWorldSize(this.worldSize);
-    this.drawGrid();
+    this.drawGridGeometry();
     this.renderScene(true);
   }
 
@@ -198,7 +198,7 @@ export class PixiRenderer {
       return;
     }
     this.gridNightBlend = nextBlend;
-    this.drawGrid();
+    this.updateGridColors();
     this.renderScheduler.markDirty();
   }
 
@@ -275,10 +275,35 @@ export class PixiRenderer {
     this.renderScheduler.render(app, this.hud, force);
   }
 
-  private drawGrid(): void {
-    const grid = this.sceneGraph.gridGraphic;
+  private drawGridGeometry(): void {
+    const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
+    const lineGraphic = this.sceneGraph.gridLinesGraphic;
     const { w, h } = this.worldSize;
     const cell = Math.max(10, Math.floor(this.gridCellSize));
+
+    bgGraphic.clear();
+    lineGraphic.clear();
+
+    drawRect(bgGraphic, 0, 0, w, h, { color: 0xffffff, alpha: 1 });
+
+    for (let x = 0; x <= w; x += cell) {
+      lineGraphic.moveTo(x, 0).lineTo(x, h);
+    }
+    for (let y = 0; y <= h; y += cell) {
+      lineGraphic.moveTo(0, y).lineTo(w, y);
+    }
+    lineGraphic.stroke({
+      width: 1,
+      color: 0xffffff,
+      alpha: 1,
+    });
+    this.sceneGraph.updateGridCache();
+    this.updateGridColors();
+  }
+
+  private updateGridColors(): void {
+    const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
+    const lineGraphic = this.sceneGraph.gridLinesGraphic;
     const fillColor = lerpColor(
       this.gridDayFillColor,
       this.gridNightFillColor,
@@ -290,23 +315,13 @@ export class PixiRenderer {
       applyContrastLag(this.gridNightBlend),
     );
 
-    drawRect(grid, 0, 0, w, h, { color: fillColor, alpha: 1 });
+    bgGraphic.tint = fillColor;
+    lineGraphic.tint = lineColor;
     const lineVisibility = Math.min(
       1,
       Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
     );
-    for (let x = 0; x <= w; x += cell) {
-      grid.moveTo(x, 0).lineTo(x, h);
-    }
-    for (let y = 0; y <= h; y += cell) {
-      grid.moveTo(0, y).lineTo(w, y);
-    }
-    grid.stroke({
-      width: 1,
-      color: lineColor,
-      alpha: 0.4 * lineVisibility,
-    });
-    this.sceneGraph.updateGridCache();
+    lineGraphic.alpha = 0.4 * lineVisibility;
   }
 
   private applyWorldFilters(): void {

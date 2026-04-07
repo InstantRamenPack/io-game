@@ -10,7 +10,8 @@ export class PixiSceneGraph {
   public readonly placementLayer = new Container({ label: "placementLayer" });
   public readonly hudLayer = new Container({ label: "hudLayer" });
   public readonly overlayLayer = new Container({ label: "overlayLayer" });
-  public readonly gridGraphic = new Graphics();
+  public readonly gridBackgroundGraphic = new Graphics();
+  public readonly gridLinesGraphic = new Graphics();
 
   constructor() {
     this.worldRoot.enableRenderGroup();
@@ -24,8 +25,8 @@ export class PixiSceneGraph {
     this.hudRoot.cullableChildren = false;
     this.worldRoot.cullableChildren = true;
 
-    this.gridLayer.addChild(this.gridGraphic);
-    this.gridLayer.cacheAsTexture(true);
+    this.gridLayer.addChild(this.gridBackgroundGraphic, this.gridLinesGraphic);
+    this.gridLinesGraphic.cacheAsTexture(true);
 
     this.worldRoot.addChild(
       this.gridLayer,
@@ -46,7 +47,7 @@ export class PixiSceneGraph {
   }
 
   public updateGridCache(): void {
-    this.gridLayer.updateCacheTexture();
+    // Only call this when grid lines need to be regenerated (on resize)
+    this.gridLinesGraphic.updateCacheTexture();
   }
 }
-

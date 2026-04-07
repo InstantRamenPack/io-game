@@ -1,60 +1,31 @@
 import * as PIXI from "pixi.js";
-import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
-import {
-  CraftingModal,
-  type CraftingModalEntry,
-} from "@client/render/hud/CraftingModal.ts";
-import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
-import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
-import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
-import { HudPanel } from "@client/render/hud/HudPanel.ts";
-import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
-import { HotbarView } from "@client/render/hud/HotbarView.ts";
-import { InventoryView } from "@client/render/hud/InventoryView.ts";
-import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
-import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
-import {
-  findCraftingStationAtWorldPoint,
-  hasNearbyCraftingStation,
-  isPlayerNearCraftingStation,
-} from "@client/render/hud/craftingStationInteraction.ts";
-import { buildStatusPanelContent } from "@client/render/hud/hudPanelModels.ts";
-import {
-  buildActiveEffectEntries,
-  buildCombatHudModel,
-  buildCraftTooltipContent,
-  buildInventoryTooltipContent,
-  buildSelectedItemLabel,
-} from "@client/render/hud/hudPresentationModels.ts";
-import {
-  computeHotbarActiveIndex,
-  toHotbarSlotItems,
-} from "@client/render/hud/hotbarModel.ts";
-import { sanitizeHotbarEditState as sanitizeHotbarEditInteraction } from "@client/render/hud/hotbarEditModel.ts";
-import {
-  buildResourceStackEntries,
-  syncDiscoveredResources as syncResourceStackModel,
-} from "@client/render/hud/resourceStackModel.ts";
-import {
-  CRAFTABLE_ITEM_TYPE_IDS,
-  getItemContent,
-} from "@shared/content/catalog.ts";
-import type { ItemRecipeContent } from "@shared/content/schema.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { InventorySnapshot } from "@shared/net/snapshots.ts";
+import type {GameSelectors} from "@client/app/gameSelectors.ts";
+import type {GameClient, PointerInput} from "@client/client/GameClient.ts";
+import {CraftingModal, type CraftingModalEntry,} from "@client/render/hud/CraftingModal.ts";
+import {CombatHudView} from "@client/render/hud/CombatHudView.ts";
+import {CraftingHudCoordinator} from "@client/render/hud/CraftingHudCoordinator.ts";
+import {DayNightIndicator} from "@client/render/hud/DayNightIndicator.ts";
+import {EffectIconView} from "@client/render/hud/EffectIconView.ts";
+import {GameplayHudCoordinator} from "@client/render/hud/GameplayHudCoordinator.ts";
+import {HudPanel} from "@client/render/hud/HudPanel.ts";
+import {HudTooltipCoordinator} from "@client/render/hud/HudTooltipCoordinator.ts";
+import {HudTooltipView} from "@client/render/hud/HudTooltipView.ts";
+import {HotbarView} from "@client/render/hud/HotbarView.ts";
+import type {HudInteractionState} from "@client/render/hud/HudInteractionState.ts";
+import {InventoryEditCoordinator} from "@client/render/hud/InventoryEditCoordinator.ts";
+import {InventoryView} from "@client/render/hud/InventoryView.ts";
+import {ResourceStackView} from "@client/render/hud/ResourceStackView.ts";
+import {SelectedItemToastView} from "@client/render/hud/SelectedItemToastView.ts";
+import {computeHotbarActiveIndex, toHotbarSlotItems,} from "@client/render/hud/hotbarModel.ts";
+import {CRAFTABLE_ITEM_TYPE_IDS, getItemContent,} from "@shared/content/catalog.ts";
+import type {ItemRecipeContent} from "@shared/content/schema.ts";
+import type {ResourceId} from "@shared/ids/ResourceId.ts";
+import type {InventorySnapshot} from "@shared/net/snapshots.ts";
 
 const HOTBAR_SLOT_COUNT = 10;
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
-export type HudState = {
-  craftingMenuOpen: boolean;
-  inventoryOpen: boolean;
-  selectedCraft: ResourceId;
-  previewedCraft: ResourceId;
-  hoveredInventorySlotIndex: number | null;
-  heldInventorySlotIndex: number | null;
-};
+export type HudState = HudInteractionState;
 
 type PixiHudOptions = {
   gameClient: GameClient;
@@ -62,12 +33,16 @@ type PixiHudOptions = {
 };
 
 type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
-type ScreenRect = { x: number; y: number; width: number; height: number };
 
 export class PixiHud {
   private readonly gameClient: GameClient;
   private readonly selectors: GameSelectors;
   private readonly state: HudState;
+  private readonly gameplayHudCoordinator = new GameplayHudCoordinator();
+  private readonly craftingHudCoordinator = new CraftingHudCoordinator();
+  private readonly inventoryEditCoordinator = new InventoryEditCoordinator();
+  private readonly tooltipCoordinator = new HudTooltipCoordinator();
+
   private root: PIXI.Container | null = null;
   private statusPanel?: HudPanel;
   private effectDetailPanel?: HudPanel;
@@ -82,18 +57,9 @@ export class PixiHud {
   private dayNightIndicator?: DayNightIndicator;
   private visible = false;
   private dirty = true;
-  private hoveredCraftItemTypeId: ResourceId | null = null;
-  private hoveredCraftPreview = false;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
-  private lastHotbarActiveIndex: number | null = null;
-  private draggedInventorySlotIndex: number | null = null;
-  private selectedItemToastLabel: string | null = null;
-  private selectedItemToastShownAtMs = 0;
-  private hasSeenInitialHotbarSelection = false;
-  private readonly discoveredResourceTypeIds: ResourceId[] = [];
-  private readonly resourceCounts = new Map<ResourceId, number>();
-  private readonly selectionToastDurationMs = 1600;
+
   private readonly titleStyle: TextStyleOptions = {
     fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
     fontSize: 11,
@@ -218,32 +184,40 @@ export class PixiHud {
 
   public toggleCraftingMenu(): void {
     if (this.state.craftingMenuOpen) {
-      this.closeCraftingMenu();
+      this.craftingHudCoordinator.close(this.state);
+      this.syncOverlaySuppression();
+      this.markDirty();
       return;
     }
 
     if (this.state.inventoryOpen) {
-      this.closeInventory();
+      this.inventoryEditCoordinator.close(this.state);
     }
 
     if (!this.hasNearbyCraftingStation()) {
       return;
     }
 
-    this.openCraftingMenu();
+    this.craftingHudCoordinator.open(this.state);
+    this.syncOverlaySuppression();
+    this.markDirty();
   }
 
   public toggleInventory(): void {
     if (this.state.inventoryOpen) {
-      this.closeInventory();
+      this.inventoryEditCoordinator.close(this.state);
+      this.syncOverlaySuppression();
+      this.markDirty();
       return;
     }
 
     if (this.state.craftingMenuOpen) {
-      this.closeCraftingMenu();
+      this.craftingHudCoordinator.close(this.state);
     }
 
-    this.openInventory();
+    this.inventoryEditCoordinator.open(this.state);
+    this.syncOverlaySuppression();
+    this.markDirty();
   }
 
   public selectHotbarItemByOrdinal(ordinal: number): boolean {
@@ -260,7 +234,10 @@ export class PixiHud {
         this.state.hoveredInventorySlotIndex,
         slotIndex,
       );
-      this.clearInventoryDragState();
+      this.inventoryEditCoordinator.sanitizeState(
+        this.state,
+        this.getHotbarItems(),
+      );
       this.markDirty();
       return true;
     }
@@ -275,29 +252,15 @@ export class PixiHud {
   }
 
   public moveCraftSelection(delta: number): boolean {
-    if (!this.state.craftingMenuOpen || delta === 0) {
-      return false;
-    }
-
-    const currentIndex = Math.max(
-      0,
-      CRAFTABLE_ITEM_TYPE_IDS.indexOf(this.state.selectedCraft),
+    const moved = this.craftingHudCoordinator.moveSelection(
+      this.state,
+      delta,
+      CRAFTABLE_ITEM_TYPE_IDS,
     );
-    const nextIndex = clamp(
-      currentIndex + delta,
-      0,
-      CRAFTABLE_ITEM_TYPE_IDS.length - 1,
-    );
-    const nextCraft = CRAFTABLE_ITEM_TYPE_IDS[nextIndex];
-    if (!nextCraft) {
-      return false;
+    if (moved) {
+      this.markDirty();
     }
-
-    this.hoveredCraftItemTypeId = null;
-    this.state.selectedCraft = nextCraft;
-    this.state.previewedCraft = nextCraft;
-    this.markDirty();
-    return true;
+    return moved;
   }
 
   public queueSelectedCraft(): void {
@@ -315,27 +278,77 @@ export class PixiHud {
   }
 
   public handlePointerInput(pointer: PointerInput): boolean {
-    if (this.state.inventoryOpen) {
-      return this.handleHotbarEditPointer(pointer);
+    if (this.state.inventoryOpen && this.hotbarEditView) {
+      return this.inventoryEditCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        hotbarItems: this.getHotbarItems(),
+        getSlotIndexAtPoint: (screenX, screenY) =>
+            this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
+        queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
+            this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
+        markDirty: () => this.markDirty(),
+      });
     }
 
-    if (pointer.kind === "move") {
-      return this.handleCraftingPointerMove(pointer);
+    if (pointer.kind === "move" && this.craftModalView) {
+      const consumed = this.craftingHudCoordinator.handlePointerMove({
+        state: this.state,
+        pointer,
+        getCraftAtPoint: (screenX, screenY) =>
+          this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+        getPreviewedCraftAtPoint: (screenX, screenY, previewedCraft) =>
+          this.craftModalView?.getPreviewedCraftAtPoint(
+            screenX,
+            screenY,
+            previewedCraft,
+          ) ?? null,
+      });
+      if (consumed) {
+        this.markDirty();
+      }
+      return consumed;
     }
+
     if (pointer.kind === "up") {
       return false;
     }
-    return this.handleGameplayPointerDown(pointer);
+
+    if (this.state.craftingMenuOpen && this.craftModalView) {
+      const consumed = this.craftingHudCoordinator.handleCraftModalPointerDown({
+        state: this.state,
+        screenX: pointer.screenX,
+        screenY: pointer.screenY,
+        canSubmitCraft: (itemTypeId) => this.canSubmitCraft(itemTypeId),
+        queueCraftItem: (itemTypeId) =>
+          this.gameClient.queueCraftItem(itemTypeId),
+        isCraftButtonAtPoint: (screenX, screenY) =>
+          this.craftModalView?.isCraftButtonAtPoint(screenX, screenY) ?? false,
+        getCraftAtPoint: (screenX, screenY) =>
+          this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+      });
+      if (consumed) {
+        this.markDirty();
+      }
+      return true;
+    }
+
+    return this.craftingHudCoordinator.handleGameplayPointerDown({
+      state: this.state,
+      pointer,
+      selectors: this.selectors,
+      openCraftingMenu: () => {
+        this.craftingHudCoordinator.open(this.state);
+        this.syncOverlaySuppression();
+        this.markDirty();
+      },
+      queueBuildPlacement: (x, y) => this.gameClient.queueBuildPlacement(x, y),
+    });
   }
 
   public reset(): void {
-    this.state.craftingMenuOpen = false;
-    this.state.inventoryOpen = false;
-    this.state.hoveredInventorySlotIndex = null;
-    this.state.heldInventorySlotIndex = null;
-    this.draggedInventorySlotIndex = null;
-    this.hoveredCraftItemTypeId = null;
-    this.hoveredCraftPreview = false;
+    this.craftingHudCoordinator.reset(this.state);
+    this.inventoryEditCoordinator.reset(this.state);
     this.gameClient.stopHoldFire();
     this.gameClient.setMovementSuppressed(false);
     this.markDirty();
@@ -371,20 +384,36 @@ export class PixiHud {
     const sizeChanged =
       app.screen.width !== this.lastLayoutWidth ||
       app.screen.height !== this.lastLayoutHeight;
-    this.syncCraftingBenchProximity();
-    this.syncResourceStackState();
-    this.sanitizeHotbarEditState();
-    const nowMs = performance.now();
+
+    const craftProximity = this.craftingHudCoordinator.syncProximity(
+      this.state,
+      this.selectors,
+    );
+    if (craftProximity.changed) {
+      this.syncOverlaySuppression();
+      this.markDirty();
+    }
+
     const inventory = this.selectors.getInventory();
+    const hotbarItems = this.getHotbarItems();
+    this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
+    this.gameplayHudCoordinator.syncResourceState(inventory);
+
+    const nowMs = performance.now();
     const hotbarActiveIndex = computeHotbarActiveIndex({
       inventory,
       pendingHotbarIndex: undefined,
     });
-    if (hotbarActiveIndex !== this.lastHotbarActiveIndex) {
-      this.handleHotbarSelectionChange(inventory, hotbarActiveIndex, nowMs);
+    const toastChanged = this.gameplayHudCoordinator.updateSelectionToast({
+      inventory,
+      hotbarActiveIndex,
+      nowMs,
+    });
+    if (toastChanged) {
       this.dirty = true;
     }
-    const selectionToastVisible = this.isSelectionToastVisible(nowMs);
+    const selectionToastVisible =
+      this.gameplayHudCoordinator.isSelectionToastVisible(nowMs);
 
     if (!this.dirty && !force && !sizeChanged && !selectionToastVisible) {
       return;
@@ -394,211 +423,87 @@ export class PixiHud {
     this.lastLayoutHeight = app.screen.height;
     this.dirty = false;
 
-    this.syncPanels(hotbarActiveIndex);
-    this.syncHotbarEditView(app.screen.width, app.screen.height);
-    this.syncCraftModal(app.screen.width, app.screen.height);
-    this.syncDayNight();
-    this.syncSelectedItemToast(nowMs);
-    this.layoutPanels(app.screen.width, app.screen.height);
-    this.syncTooltip(app.screen.width, app.screen.height);
+    this.syncHotbarEditView(app.screen.width, app.screen.height, hotbarItems);
+    const craftEntries = this.syncCraftModal(
+      app.screen.width,
+      app.screen.height,
+    );
+
+    if (
+      this.statusPanel &&
+      this.effectDetailPanel &&
+      this.effectIconView &&
+      this.combatHudView &&
+      this.hotbarView &&
+      this.resourceStackView
+    ) {
+      this.gameplayHudCoordinator.syncPanels({
+        statusPanel: this.statusPanel,
+        effectDetailPanel: this.effectDetailPanel,
+        effectIconView: this.effectIconView,
+        combatHudView: this.combatHudView,
+        hotbarView: this.hotbarView,
+        resourceStackView: this.resourceStackView,
+        playerEntity: this.selectors.getPlayerEntity(),
+        worldEntities: this.selectors.getWorldEntities(),
+        trackedBuildings: this.selectors.getTrackedBuildings(),
+        latestTick: this.gameClient.worldState?.latestTick ?? 0,
+        performanceRates: this.gameClient.getMeasuredRates(),
+        tickRate: this.gameClient.gameConfig.tickRate,
+        inventoryOpen: this.state.inventoryOpen,
+        inventory,
+        hotbarActiveIndex,
+        hotbarItems,
+      });
+    }
+
+    if (this.dayNightIndicator) {
+      this.gameplayHudCoordinator.syncDayNight({
+        dayNightIndicator: this.dayNightIndicator,
+        dayNight: this.selectors.getDayNight(),
+        latestSnapshotReceivedAt:
+          this.gameClient.worldState?.latestSnapshotReceivedAt,
+      });
+    }
+
+    if (
+      this.statusPanel &&
+      this.effectIconView &&
+      this.resourceStackView &&
+      this.hotbarView &&
+      this.combatHudView &&
+      this.selectedItemToastView &&
+      this.dayNightIndicator &&
+      this.effectDetailPanel
+    ) {
+      this.gameplayHudCoordinator.layout({
+        screenWidth: app.screen.width,
+        screenHeight: app.screen.height,
+        statusPanel: this.statusPanel,
+        effectIconView: this.effectIconView,
+        resourceStackView: this.resourceStackView,
+        hotbarView: this.hotbarView,
+        combatHudView: this.combatHudView,
+        selectedItemToastView: this.selectedItemToastView,
+        dayNightIndicator: this.dayNightIndicator,
+        effectDetailPanel: this.effectDetailPanel,
+        inventoryOpen: this.state.inventoryOpen,
+        inventoryPanelRect: this.hotbarEditView?.getPanelRect() ?? null,
+      });
+    }
+
+    if (this.selectedItemToastView) {
+      this.gameplayHudCoordinator.syncSelectionToast({
+        selectedItemToastView: this.selectedItemToastView,
+        nowMs,
+      });
+    }
+
+    this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
   }
 
   public markDirty(): void {
     this.dirty = true;
-  }
-
-  private handleHotbarEditPointer(pointer: PointerInput): boolean {
-    const hoveredSlotIndex =
-      this.hotbarEditView?.getSlotIndexAtPoint(
-        pointer.screenX,
-        pointer.screenY,
-      ) ?? null;
-    if (hoveredSlotIndex !== this.state.hoveredInventorySlotIndex) {
-      this.state.hoveredInventorySlotIndex = hoveredSlotIndex;
-      this.markDirty();
-    }
-
-    if (pointer.kind === "move") {
-      return true;
-    }
-
-    if (pointer.kind === "up") {
-      if (
-        this.draggedInventorySlotIndex !== null &&
-        hoveredSlotIndex !== null &&
-        hoveredSlotIndex !== this.draggedInventorySlotIndex
-      ) {
-        this.gameClient.queueInventoryMove(
-          this.draggedInventorySlotIndex,
-          hoveredSlotIndex,
-        );
-        this.clearInventoryDragState();
-        this.markDirty();
-      }
-      this.draggedInventorySlotIndex = null;
-      return true;
-    }
-
-    if (hoveredSlotIndex === null) {
-      this.clearInventoryDragState();
-      this.markDirty();
-      return true;
-    }
-
-    const item = this.getHotbarItems()[hoveredSlotIndex];
-    if (this.state.heldInventorySlotIndex !== null) {
-      if (this.state.heldInventorySlotIndex === hoveredSlotIndex) {
-        this.draggedInventorySlotIndex = hoveredSlotIndex;
-        return true;
-      }
-
-      this.gameClient.queueInventoryMove(
-        this.state.heldInventorySlotIndex,
-        hoveredSlotIndex,
-      );
-      this.clearInventoryDragState();
-      this.markDirty();
-      return true;
-    }
-
-    if (!item?.typeId) {
-      return true;
-    }
-
-    this.state.heldInventorySlotIndex = hoveredSlotIndex;
-    this.draggedInventorySlotIndex = hoveredSlotIndex;
-    this.markDirty();
-    return true;
-  }
-
-  private handleCraftingPointerMove(pointer: PointerInput): boolean {
-    if (!this.state.craftingMenuOpen || !this.craftModalView) {
-      return false;
-    }
-
-    const hoveredCraftTile = this.craftModalView.getCraftAtPoint(
-      pointer.screenX,
-      pointer.screenY,
-    );
-    const hoveredPreviewCraft =
-      hoveredCraftTile === null
-        ? this.craftModalView.getPreviewedCraftAtPoint(
-            pointer.screenX,
-            pointer.screenY,
-            this.state.previewedCraft,
-          )
-        : null;
-    const nextHoveredCraft = hoveredCraftTile ?? hoveredPreviewCraft;
-    const nextHoveredCraftPreview =
-      hoveredCraftTile === null && hoveredPreviewCraft !== null;
-    if (
-      nextHoveredCraft === this.hoveredCraftItemTypeId &&
-      nextHoveredCraftPreview === this.hoveredCraftPreview
-    ) {
-      return true;
-    }
-
-    this.hoveredCraftItemTypeId = nextHoveredCraft;
-    this.hoveredCraftPreview = nextHoveredCraftPreview;
-    this.state.previewedCraft = nextHoveredCraft ?? this.state.selectedCraft;
-    this.markDirty();
-    return true;
-  }
-
-  private handleGameplayPointerDown(pointer: PointerInput): boolean {
-    if (this.state.craftingMenuOpen) {
-      this.handleCraftModalPointerDown(pointer.screenX, pointer.screenY);
-      return true;
-    }
-
-    const clickedStation = findCraftingStationAtWorldPoint(
-      this.selectors.getCraftingStations(),
-      pointer.worldX,
-      pointer.worldY,
-    );
-    if (
-      clickedStation &&
-      isPlayerNearCraftingStation(
-        this.selectors.getPlayerEntity(),
-        clickedStation,
-      )
-    ) {
-      this.openCraftingMenu();
-      return true;
-    }
-
-    const inventory = this.selectors.getInventory();
-    const selectedSlot =
-      inventory?.hotbarSlots[inventory.selectedHotbarIndex ?? 0] ?? null;
-    if (selectedSlot?.kind === "buildable") {
-      this.gameClient.queueBuildPlacement(pointer.worldX, pointer.worldY);
-      return true;
-    }
-
-    return false;
-  }
-
-  private handleCraftModalPointerDown(screenX: number, screenY: number): void {
-    if (this.craftModalView?.isCraftButtonAtPoint(screenX, screenY)) {
-      const craftTarget = this.state.previewedCraft;
-      this.state.selectedCraft = craftTarget;
-      if (this.canSubmitCraft(craftTarget)) {
-        this.gameClient.queueCraftItem(craftTarget);
-      }
-      this.markDirty();
-      return;
-    }
-
-    const clickedCraft = this.craftModalView?.getCraftAtPoint(screenX, screenY);
-    if (!clickedCraft) {
-      return;
-    }
-
-    this.hoveredCraftItemTypeId = clickedCraft;
-    this.hoveredCraftPreview = false;
-    this.state.selectedCraft = clickedCraft;
-    this.state.previewedCraft = clickedCraft;
-    if (this.canSubmitCraft(clickedCraft)) {
-      this.gameClient.queueCraftItem(clickedCraft);
-    }
-    this.markDirty();
-  }
-
-  private openCraftingMenu(): void {
-    this.state.craftingMenuOpen = true;
-    this.state.previewedCraft = this.state.selectedCraft;
-    this.hoveredCraftItemTypeId = null;
-    this.hoveredCraftPreview = false;
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  private closeCraftingMenu(): void {
-    this.state.craftingMenuOpen = false;
-    this.state.previewedCraft = this.state.selectedCraft;
-    this.hoveredCraftItemTypeId = null;
-    this.hoveredCraftPreview = false;
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  private openInventory(): void {
-    this.state.inventoryOpen = true;
-    this.clearInventoryDragState();
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  private closeInventory(): void {
-    this.state.inventoryOpen = false;
-    this.clearInventoryDragState();
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  private clearInventoryDragState(): void {
-    this.state.heldInventorySlotIndex = null;
-    this.draggedInventorySlotIndex = null;
   }
 
   private syncOverlaySuppression(): void {
@@ -607,87 +512,31 @@ export class PixiHud {
     this.gameClient.setMovementSuppressed(suppressed);
   }
 
-  private syncPanels(hotbarActiveIndex: number | null): void {
-    if (
-      !this.statusPanel ||
-      !this.effectDetailPanel ||
-      !this.effectIconView ||
-      !this.combatHudView ||
-      !this.hotbarView ||
-      !this.resourceStackView
-    ) {
-      return;
-    }
-
-    const playerEntity = this.selectors.getPlayerEntity();
-    const worldEntities = this.selectors.getWorldEntities();
-    const buildings = this.selectors.getTrackedBuildings();
-    const performanceRates = this.gameClient.getMeasuredRates();
-    const activeEffectEntries = buildActiveEffectEntries({
-      activeEffects: playerEntity?.activeEffects,
-      tickRate: this.gameClient.gameConfig.tickRate,
-    });
-
-    const statusContent = buildStatusPanelContent({
-      playerEntity,
-      latestTick: this.gameClient.worldState?.latestTick ?? 0,
-      structureCount: buildings.length,
-      entityCount: worldEntities.length,
-      tickRate: performanceRates.tickRate,
-      frameRate: performanceRates.frameRate,
-    });
-    this.statusPanel.setContent(statusContent.title, statusContent.body, {
-      minWidth: statusContent.minWidth,
-      maxWidth: statusContent.maxWidth,
-    });
-
-    this.effectDetailPanel.setContent(
-      "Effects",
-      activeEffectEntries.length > 0
-        ? activeEffectEntries
-            .map(
-              (entry) =>
-                `${entry.label}: ${entry.secondsRemaining.toFixed(1)}s`,
-            )
-            .join("\n")
-        : "No active effects",
-      {
-        minWidth: 220,
-        maxWidth: 260,
-      },
-    );
-    this.effectDetailPanel.container.visible = this.state.inventoryOpen;
-    this.effectIconView.sync(activeEffectEntries);
-
-    const inventory = this.selectors.getInventory();
-    const activeSlot =
-      hotbarActiveIndex !== null
-        ? (inventory?.hotbarSlots[hotbarActiveIndex] ?? null)
-        : null;
-    this.combatHudView.sync(
-      buildCombatHudModel({
-        playerEntity,
-        activeSlot,
-      }),
-      this.hotbarView.width,
-    );
-
-    this.hotbarView.setSlots(this.getHotbarItems(), hotbarActiveIndex);
-    this.lastHotbarActiveIndex = hotbarActiveIndex;
-    this.resourceStackView.sync(
-      buildResourceStackEntries({
-        discoveredResourceTypeIds: this.discoveredResourceTypeIds,
-        resourceCounts: this.resourceCounts,
-      }),
-    );
-  }
-
-  private syncTooltip(screenWidth: number, screenHeight: number): void {
+  private syncTooltip(
+    screenWidth: number,
+    screenHeight: number,
+    craftEntries: CraftingModalEntry[],
+  ): void {
     if (!this.tooltipView) {
       return;
     }
 
-    const tooltipState = this.getTooltipState();
+    const tooltipState = this.tooltipCoordinator.resolveTooltipState({
+      inventoryOpen: this.state.inventoryOpen,
+      hoveredInventorySlotIndex: this.state.hoveredInventorySlotIndex,
+      inventory: this.selectors.getInventory(),
+      getInventorySlotRect: (slotIndex) =>
+        this.hotbarEditView?.getSlotRect(slotIndex) ?? null,
+      craftingMenuOpen: this.state.craftingMenuOpen,
+      hoveredCraftItemTypeId:
+        this.craftingHudCoordinator.getHoveredCraftItemTypeId(),
+      hoveredCraftPreview: this.craftingHudCoordinator.isHoveredCraftPreview(),
+      craftEntries,
+      getCraftRect: (typeId) =>
+        this.craftModalView?.getCraftRect(typeId) ?? null,
+      getCraftPreviewRect: () => this.craftModalView?.getPreviewRect() ?? null,
+    });
+
     this.tooltipView.sync(tooltipState?.content ?? null);
     if (!tooltipState) {
       return;
@@ -709,127 +558,11 @@ export class PixiHud {
     this.tooltipView.setPosition(tooltipX, tooltipY);
   }
 
-  private syncSelectedItemToast(nowMs: number): void {
-    if (!this.selectedItemToastView) {
-      return;
-    }
-
-    const alpha = this.getSelectionToastAlpha(nowMs);
-    this.selectedItemToastView.sync(this.selectedItemToastLabel, alpha);
-  }
-
-  private getTooltipState():
-    | {
-        content: ReturnType<typeof buildInventoryTooltipContent>;
-        rect: ScreenRect;
-      }
-    | {
-        content: ReturnType<typeof buildCraftTooltipContent>;
-        rect: ScreenRect;
-      }
-    | null {
-    if (
-      this.state.inventoryOpen &&
-      this.hotbarEditView &&
-      this.state.hoveredInventorySlotIndex !== null
-    ) {
-      const slot =
-        this.selectors.getInventory()?.hotbarSlots[
-          this.state.hoveredInventorySlotIndex
-        ];
-      const rect = this.hotbarEditView.getSlotRect(
-        this.state.hoveredInventorySlotIndex,
-      );
-      const content = slot ? buildInventoryTooltipContent(slot) : null;
-      if (rect && content) {
-        return { content, rect };
-      }
-    }
-
-    if (
-      this.state.craftingMenuOpen &&
-      this.craftModalView &&
-      this.hoveredCraftItemTypeId !== null
-    ) {
-      const entry = this.buildCraftEntries().find(
-        (item) => item.typeId === this.hoveredCraftItemTypeId,
-      );
-      if (!entry) {
-        return null;
-      }
-      const rect = this.hoveredCraftPreview
-        ? this.craftModalView.getPreviewRect()
-        : this.craftModalView.getCraftRect(this.hoveredCraftItemTypeId);
-      if (!rect) {
-        return null;
-      }
-      return {
-        content: buildCraftTooltipContent(entry),
-        rect,
-      };
-    }
-
-    return null;
-  }
-
-  private handleHotbarSelectionChange(
-    inventory: InventorySnapshot | undefined,
-    hotbarActiveIndex: number | null,
-    nowMs: number,
+  private syncHotbarEditView(
+    screenWidth: number,
+    screenHeight: number,
+    hotbarItems: ReturnType<typeof this.getHotbarItems>,
   ): void {
-    if (hotbarActiveIndex === null) {
-      this.hasSeenInitialHotbarSelection = false;
-      return;
-    }
-
-    const slot = inventory?.hotbarSlots[hotbarActiveIndex] ?? null;
-    if (!this.hasSeenInitialHotbarSelection) {
-      this.hasSeenInitialHotbarSelection = true;
-      return;
-    }
-
-    this.selectedItemToastLabel = buildSelectedItemLabel(slot);
-    this.selectedItemToastShownAtMs = nowMs;
-  }
-
-  private isSelectionToastVisible(nowMs: number): boolean {
-    return (
-      this.selectedItemToastLabel !== null &&
-      nowMs - this.selectedItemToastShownAtMs < this.selectionToastDurationMs
-    );
-  }
-
-  private getSelectionToastAlpha(nowMs: number): number {
-    if (!this.isSelectionToastVisible(nowMs)) {
-      return 0;
-    }
-
-    const elapsedMs = nowMs - this.selectedItemToastShownAtMs;
-    const holdDurationMs = 850;
-    const fadeDurationMs = this.selectionToastDurationMs - holdDurationMs;
-    if (elapsedMs <= holdDurationMs) {
-      return 1;
-    }
-
-    return clamp(1 - (elapsedMs - holdDurationMs) / fadeDurationMs, 0, 1);
-  }
-
-  private buildCraftEntries(): CraftingModalEntry[] {
-    return CRAFTABLE_ITEM_TYPE_IDS.map((itemTypeId) => {
-      const recipe = this.getRecipeForItem(itemTypeId);
-      return {
-        typeId: itemTypeId,
-        label: this.selectors.formatTypeLabel(itemTypeId),
-        description:
-          recipe.hint ?? "Assemble this item at a nearby crafting station.",
-        costsLabel: this.selectors.formatCosts(recipe.costs),
-        outputAmount: recipe.outputAmount,
-        available: this.selectors.hasRecipeResources(recipe),
-      } satisfies CraftingModalEntry;
-    });
-  }
-
-  private syncHotbarEditView(screenWidth: number, screenHeight: number): void {
     if (!this.hotbarEditView) {
       return;
     }
@@ -839,19 +572,29 @@ export class PixiHud {
       visible: this.state.inventoryOpen,
       screenWidth,
       screenHeight,
-      hotbarItems: this.getHotbarItems(),
+      hotbarItems,
       selectedHotbarIndex: inventory?.selectedHotbarIndex ?? 0,
       hoveredSlotIndex: this.state.hoveredInventorySlotIndex,
       heldSlotIndex: this.state.heldInventorySlotIndex,
     });
   }
 
-  private syncCraftModal(screenWidth: number, screenHeight: number): void {
+  private syncCraftModal(
+    screenWidth: number,
+    screenHeight: number,
+  ): CraftingModalEntry[] {
     if (!this.craftModalView) {
-      return;
+      return [];
     }
 
-    const craftEntries = this.buildCraftEntries();
+    const craftEntries = this.craftingHudCoordinator.buildCraftEntries({
+      craftableTypeIds: CRAFTABLE_ITEM_TYPE_IDS,
+      formatTypeLabel: (typeId) => this.selectors.formatTypeLabel(typeId),
+      formatCosts: (costs) => this.selectors.formatCosts(costs),
+      hasRecipeResources: (itemTypeId) =>
+        this.selectors.hasRecipeResources(this.getRecipeForItem(itemTypeId)),
+      getRecipeForItem: (itemTypeId) => this.getRecipeForItem(itemTypeId),
+    });
 
     const craftAvailability = this.describeCraftAvailability(
       this.state.previewedCraft,
@@ -868,112 +611,12 @@ export class PixiHud {
       previewStatusLabel: craftAvailability.statusLabel,
       visible: this.state.craftingMenuOpen,
     });
-  }
 
-  private layoutPanels(screenWidth: number, screenHeight: number): void {
-    if (
-      !this.statusPanel ||
-      !this.effectDetailPanel ||
-      !this.effectIconView ||
-      !this.combatHudView ||
-      !this.hotbarView ||
-      !this.selectedItemToastView ||
-      !this.dayNightIndicator ||
-      !this.resourceStackView
-    ) {
-      return;
-    }
-
-    const padding = 16;
-    const gap = 12;
-
-    this.statusPanel.setPosition(padding, padding);
-    this.effectIconView.setPosition(
-      screenWidth - padding - this.effectIconView.width,
-      padding,
-    );
-    this.resourceStackView.setPosition(
-      screenWidth - padding - this.resourceStackView.width,
-      screenHeight - padding - this.resourceStackView.height,
-    );
-
-    this.hotbarView.setPosition(
-      Math.floor((screenWidth - this.hotbarView.width) / 2),
-      screenHeight - padding - this.hotbarView.height,
-    );
-    this.combatHudView.setPosition(
-      this.hotbarView.container.x,
-      this.hotbarView.container.y - gap - this.combatHudView.height,
-    );
-    this.selectedItemToastView.setPosition(
-      Math.floor((screenWidth - this.selectedItemToastView.width) / 2),
-      this.combatHudView.container.y - 10 - this.selectedItemToastView.height,
-    );
-
-    const inventoryPanelRect = this.hotbarEditView?.getPanelRect();
-    if (inventoryPanelRect && this.state.inventoryOpen) {
-      this.effectDetailPanel.setPosition(
-        Math.floor((screenWidth - this.effectDetailPanel.width) / 2),
-        Math.max(
-          padding,
-          inventoryPanelRect.y - gap - this.effectDetailPanel.height,
-        ),
-      );
-      this.effectDetailPanel.container.visible = true;
-    } else {
-      this.effectDetailPanel.container.visible = false;
-    }
-
-    this.dayNightIndicator.setPosition(
-      Math.floor((screenWidth - this.dayNightIndicator.width) / 2),
-      padding,
-    );
-  }
-
-  private syncDayNight(): void {
-    if (!this.dayNightIndicator) {
-      return;
-    }
-    this.dayNightIndicator.sync(
-      this.selectors.getDayNight(),
-      this.gameClient.worldState?.latestSnapshotReceivedAt,
-    );
+    return craftEntries;
   }
 
   private hasNearbyCraftingStation(): boolean {
-    return hasNearbyCraftingStation(
-      this.selectors.getPlayerEntity(),
-      this.selectors.getCraftingStations(),
-    );
-  }
-
-  private syncCraftingBenchProximity(): void {
-    if (this.state.craftingMenuOpen && !this.hasNearbyCraftingStation()) {
-      this.closeCraftingMenu();
-    }
-  }
-
-  private sanitizeHotbarEditState(): void {
-    const { hoveredSlotIndex, heldSlotIndex } = sanitizeHotbarEditInteraction({
-      inventoryOpen: this.state.inventoryOpen,
-      hoveredSlotIndex: this.state.hoveredInventorySlotIndex,
-      heldSlotIndex: this.state.heldInventorySlotIndex,
-      hotbarItems: this.getHotbarItems(),
-    });
-
-    this.state.hoveredInventorySlotIndex = hoveredSlotIndex;
-    this.state.heldInventorySlotIndex = heldSlotIndex;
-    if (!this.state.inventoryOpen || heldSlotIndex === null) {
-      this.draggedInventorySlotIndex = null;
-    }
-  }
-
-  private syncResourceStackState(): void {
-    syncResourceStackModel({
-      inventory: this.selectors.getInventory(),
-      discoveredResourceTypeIds: this.discoveredResourceTypeIds,
-      resourceCounts: this.resourceCounts,
-    });
+    return this.craftingHudCoordinator.hasNearbyCraftingStation(this.selectors);
   }
 
   private canSubmitCraft(itemTypeId: ResourceId): boolean {
