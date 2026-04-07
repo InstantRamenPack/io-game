@@ -18,7 +18,7 @@ export class Police extends Enemy {
         default: [makeHitboxRect(24, 24)],
       },
       maxHp: 110,
-      moveSpeed: 9,
+      moveSpeed: 20,
       weapons: [new Taser()],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 420),

@@ -9,7 +9,7 @@ import type { World } from "@server/world/World.ts";
 export class StunnedEffect extends Effect {
   public static override readonly resourceName = "stunned";
 
-  constructor(public readonly durationTicks = 5) {
+  constructor(public readonly durationTicks = 10) {
     super();
   }
 
