@@ -15,7 +15,11 @@ export type InterpolationDebugFrame = {
   expectedSnapshotMs: number;
   observedTickMs: number;
   renderDelayTicks: number;
+  targetRenderDelayTicks: number;
   jitterTicks: number;
+  arrivalTickMsEwma: number | null;
+  arrivalJitterMsEwma: number;
+  playoutDelayMs: number;
   focusEntity: {
     entityId: number;
     entityKind: ClientEntity["kind"];
@@ -44,33 +48,137 @@ type InterpolationCorrectionMode = "follow" | "clamp" | "hard_snap";
  * one server tick behind the latest accepted snapshot.
  */
 export class Interpolator {
-  private readonly snapDistance: number;
+  private snapDistance = 192;
   private expectedSnapshotMs: number;
   private observedTickMs: number;
   private renderDelayTicks = 1;
+  private targetRenderDelayTicks = 1;
+  private playoutDelayMs = 0;
   private lastSnapshotTick?: number;
-  private readonly smoothing = 0.15;
-  private readonly tickDurationSmoothing = 0.2;
-  private readonly minRenderDelayTicks = 0.9;
-  private readonly maxRenderDelayTicks = 1.2;
-  private readonly maxExtrapolationTicks = 0.25;
-  private readonly maxDebugLogEntries = 600;
+  private arrivalTickMsEwma?: number;
+  private arrivalJitterMsEwma = 0;
+  private renderDelaySmoothing = 0.15;
+  private tickDurationSmoothing = 0.2;
+  private minRenderDelayTicks = 0.9;
+  private maxRenderDelayTicks = 1.2;
+  private maxExtrapolationTicks = 0.25;
+  private tickDurationMinFactor = 0.85;
+  private tickDurationMaxFactor = 1.25;
+  private arrivalEwmaSmoothing = 0.15;
+  private jitterEwmaSmoothing = 0.15;
+  private jitterBufferMultiplier = 2;
+  private jitterBufferSafetyMs = 8;
+  private maxDebugLogEntries = 600;
+  private correctionFollowSharpness = 18;
+  private correctionEpsilon = 0.01;
+  private correctionFrameScaleMin = 0.5;
+  private correctionFrameScaleMax = 2.5;
   private readonly debugLog: InterpolationDebugFrame[] = [];
 
   constructor(interpolationConfig: InterpolationConfig) {
-    this.snapDistance = interpolationConfig.snapDistance;
     this.expectedSnapshotMs = Math.max(
       1,
       interpolationConfig.expectedSnapshotMs,
     );
     this.observedTickMs = this.expectedSnapshotMs;
+    this.setConfig(interpolationConfig);
+  }
+
+  public setConfig(interpolationConfig: InterpolationConfig): void {
+    this.snapDistance = Math.max(0, interpolationConfig.snapDistance);
+    this.tickDurationSmoothing = clamp(
+      interpolationConfig.tickDurationSmoothing,
+      0.001,
+      1,
+    );
+    this.renderDelaySmoothing = clamp(
+      interpolationConfig.renderDelaySmoothing,
+      0.001,
+      1,
+    );
+    this.minRenderDelayTicks = Math.max(
+      0,
+      interpolationConfig.minRenderDelayTicks,
+    );
+    this.maxRenderDelayTicks = Math.max(
+      this.minRenderDelayTicks,
+      interpolationConfig.maxRenderDelayTicks,
+    );
+    this.maxExtrapolationTicks = Math.max(
+      0,
+      interpolationConfig.maxExtrapolationTicks,
+    );
+    this.tickDurationMinFactor = clamp(
+      interpolationConfig.tickDurationMinFactor,
+      0.05,
+      5,
+    );
+    this.tickDurationMaxFactor = Math.max(
+      this.tickDurationMinFactor + 0.01,
+      interpolationConfig.tickDurationMaxFactor,
+    );
+    this.arrivalEwmaSmoothing = clamp(
+      interpolationConfig.arrivalEwmaSmoothing,
+      0.001,
+      1,
+    );
+    this.jitterEwmaSmoothing = clamp(
+      interpolationConfig.jitterEwmaSmoothing,
+      0.001,
+      1,
+    );
+    this.jitterBufferMultiplier = Math.max(
+      0,
+      interpolationConfig.jitterBufferMultiplier,
+    );
+    this.jitterBufferSafetyMs = Math.max(
+      0,
+      interpolationConfig.jitterBufferSafetyMs,
+    );
+    this.maxDebugLogEntries = Math.max(
+      100,
+      Math.floor(interpolationConfig.maxDebugLogEntries),
+    );
+    this.correctionFollowSharpness = Math.max(
+      0.01,
+      interpolationConfig.correctionFollowSharpness,
+    );
+    this.correctionEpsilon = Math.max(0, interpolationConfig.correctionEpsilon);
+    this.correctionFrameScaleMin = Math.max(
+      0.01,
+      interpolationConfig.correctionFrameScaleMin,
+    );
+    this.correctionFrameScaleMax = Math.max(
+      this.correctionFrameScaleMin,
+      interpolationConfig.correctionFrameScaleMax,
+    );
+    this.expectedSnapshotMs = Math.max(
+      1,
+      interpolationConfig.expectedSnapshotMs,
+    );
+    if (this.debugLog.length > this.maxDebugLogEntries) {
+      this.debugLog.splice(0, this.debugLog.length - this.maxDebugLogEntries);
+    }
+    this.resetTimingState();
   }
 
   public setExpectedSnapshotMs(expectedSnapshotMs: number): void {
     this.expectedSnapshotMs = Math.max(1, expectedSnapshotMs);
+    this.resetTimingState();
+  }
+
+  private resetTimingState(): void {
     this.observedTickMs = this.expectedSnapshotMs;
-    this.renderDelayTicks = 1;
+    this.renderDelayTicks = clamp(
+      1,
+      this.minRenderDelayTicks,
+      this.maxRenderDelayTicks,
+    );
+    this.targetRenderDelayTicks = this.renderDelayTicks;
+    this.playoutDelayMs = this.renderDelayTicks * this.observedTickMs;
     this.lastSnapshotTick = undefined;
+    this.arrivalTickMsEwma = undefined;
+    this.arrivalJitterMsEwma = 0;
   }
 
   public updateInterpolation(
@@ -101,7 +209,11 @@ export class Interpolator {
             expectedSnapshotMs: this.expectedSnapshotMs,
             observedTickMs: this.observedTickMs,
             renderDelayTicks: this.renderDelayTicks,
+            targetRenderDelayTicks: this.targetRenderDelayTicks,
             jitterTicks: Math.max(0, this.renderDelayTicks - 1),
+            arrivalTickMsEwma: this.arrivalTickMsEwma ?? null,
+            arrivalJitterMsEwma: this.arrivalJitterMsEwma,
+            playoutDelayMs: this.playoutDelayMs,
             entity,
             sampleMode: "snap",
             correctionMode: "hard_snap",
@@ -128,17 +240,24 @@ export class Interpolator {
 
     if (this.lastSnapshotTick !== latestSnapshot.tick) {
       const tickSpan = Math.max(1, latestSnapshot.tick - previousSnapshot.tick);
-      const observedDelayTicks = clamp(
+      const arrivalTickMs = Math.max(
+        1,
         (latestSnapshot.receivedAtMs - previousSnapshot.receivedAtMs) /
-          (this.observedTickMs * tickSpan),
+          tickSpan,
+      );
+      this.updateArrivalStats(arrivalTickMs);
+      this.targetRenderDelayTicks = this.computeTargetRenderDelayTicks();
+      this.renderDelayTicks = lerp(
+        this.renderDelayTicks,
+        this.targetRenderDelayTicks,
+        this.renderDelaySmoothing,
+      );
+      this.renderDelayTicks = clamp(
+        this.renderDelayTicks,
         this.minRenderDelayTicks,
         this.maxRenderDelayTicks,
       );
-      this.renderDelayTicks = lerp(
-        this.renderDelayTicks,
-        observedDelayTicks,
-        this.smoothing,
-      );
+      this.playoutDelayMs = this.targetRenderDelayTicks * this.observedTickMs;
       this.lastSnapshotTick = latestSnapshot.tick;
     }
 
@@ -146,7 +265,7 @@ export class Interpolator {
       latestSnapshot.tick +
       (frameTimeMs - latestSnapshot.receivedAtMs) / this.observedTickMs;
     const renderTick = estimatedServerTickNow - this.renderDelayTicks;
-    const jitterTicks = Math.max(0, this.renderDelayTicks - 1);
+    const jitterTicks = Math.max(0, this.targetRenderDelayTicks - 1);
 
     for (const entity of worldState.clientWorld.entities.values()) {
       const sample = entity.samplePosition(
@@ -166,7 +285,11 @@ export class Interpolator {
             expectedSnapshotMs: this.expectedSnapshotMs,
             observedTickMs: this.observedTickMs,
             renderDelayTicks: this.renderDelayTicks,
+            targetRenderDelayTicks: this.targetRenderDelayTicks,
             jitterTicks,
+            arrivalTickMsEwma: this.arrivalTickMsEwma ?? null,
+            arrivalJitterMsEwma: this.arrivalJitterMsEwma,
+            playoutDelayMs: this.playoutDelayMs,
             entity,
             sampleMode: "snap",
             correctionMode: "hard_snap",
@@ -207,7 +330,11 @@ export class Interpolator {
           expectedSnapshotMs: this.expectedSnapshotMs,
           observedTickMs: this.observedTickMs,
           renderDelayTicks: this.renderDelayTicks,
+          targetRenderDelayTicks: this.targetRenderDelayTicks,
           jitterTicks,
+          arrivalTickMsEwma: this.arrivalTickMsEwma ?? null,
+          arrivalJitterMsEwma: this.arrivalJitterMsEwma,
+          playoutDelayMs: this.playoutDelayMs,
           entity,
           sampleMode: sample.mode,
           correctionMode,
@@ -342,7 +469,7 @@ export class Interpolator {
     const errorX = targetX - entity.x;
     const errorY = targetY - entity.y;
     const errorDistance = Math.hypot(errorX, errorY);
-    if (errorDistance <= Number.EPSILON) {
+    if (errorDistance <= this.correctionEpsilon) {
       entity.updatePosition(targetX, targetY);
       return "follow";
     }
@@ -358,12 +485,14 @@ export class Interpolator {
       deltaMs,
       referenceFrame,
     );
-    if (errorDistance <= maxCorrectionDistance) {
+    const followDistance = Math.min(errorDistance, maxCorrectionDistance);
+    const followFactor = this.computeFollowFactor(deltaMs);
+    const correctionScale =
+      (followDistance / errorDistance) * clamp(followFactor, 0, 1);
+    if (correctionScale >= 1 - this.correctionEpsilon) {
       entity.updatePosition(targetX, targetY);
       return "follow";
     }
-
-    const correctionScale = maxCorrectionDistance / errorDistance;
     entity.updatePosition(
       entity.x + errorX * correctionScale,
       entity.y + errorY * correctionScale,
@@ -376,7 +505,11 @@ export class Interpolator {
     deltaMs: number,
     referenceFrame: EntityServerFrame,
   ): number {
-    const frameScale = clamp(deltaMs / (1000 / 60), 0.5, 2.5);
+    const frameScale = clamp(
+      deltaMs / (1000 / 60),
+      this.correctionFrameScaleMin,
+      this.correctionFrameScaleMax,
+    );
     const speed = Math.hypot(referenceFrame.vx, referenceFrame.vy);
 
     switch (entity.kind) {
@@ -391,6 +524,14 @@ export class Interpolator {
     }
   }
 
+  private computeFollowFactor(deltaMs: number): number {
+    const dtSeconds = Math.max(0, deltaMs) / 1000;
+    if (dtSeconds <= 0) {
+      return 0;
+    }
+    return 1 - Math.exp(-this.correctionFollowSharpness * dtSeconds);
+  }
+
   private getHardSnapDistance(
     entity: ClientEntity,
     referenceFrame: EntityServerFrame,
@@ -399,6 +540,40 @@ export class Interpolator {
     const kindScale = getKindSnapScale(entity);
     const multiplier = entity.kind === "projectile" ? 1.25 : 1.5;
     return (this.snapDistance * kindScale + speed * 3) * multiplier;
+  }
+
+  private updateArrivalStats(arrivalTickMs: number): void {
+    if (this.arrivalTickMsEwma === undefined) {
+      this.arrivalTickMsEwma = arrivalTickMs;
+      this.arrivalJitterMsEwma = 0;
+      return;
+    }
+
+    this.arrivalTickMsEwma = lerp(
+      this.arrivalTickMsEwma,
+      arrivalTickMs,
+      this.arrivalEwmaSmoothing,
+    );
+    const deviationMs = Math.abs(arrivalTickMs - this.arrivalTickMsEwma);
+    this.arrivalJitterMsEwma = lerp(
+      this.arrivalJitterMsEwma,
+      deviationMs,
+      this.jitterEwmaSmoothing,
+    );
+  }
+
+  private computeTargetRenderDelayTicks(): number {
+    const arrivalTickMs = this.arrivalTickMsEwma ?? this.expectedSnapshotMs;
+    const playoutDelayMs =
+      arrivalTickMs +
+      this.jitterBufferMultiplier * this.arrivalJitterMsEwma +
+      this.jitterBufferSafetyMs;
+    this.playoutDelayMs = playoutDelayMs;
+    return clamp(
+      playoutDelayMs / Math.max(1, this.observedTickMs),
+      this.minRenderDelayTicks,
+      this.maxRenderDelayTicks,
+    );
   }
 
   private measureTickDurationMs(
@@ -420,8 +595,8 @@ export class Interpolator {
       elapsedTicks;
     return clamp(
       measuredTickMs,
-      this.expectedSnapshotMs * 0.85,
-      this.expectedSnapshotMs * 1.25,
+      this.expectedSnapshotMs * this.tickDurationMinFactor,
+      this.expectedSnapshotMs * this.tickDurationMaxFactor,
     );
   }
 
@@ -442,7 +617,11 @@ export class Interpolator {
     expectedSnapshotMs,
     observedTickMs,
     renderDelayTicks,
+    targetRenderDelayTicks,
     jitterTicks,
+    arrivalTickMsEwma,
+    arrivalJitterMsEwma,
+    playoutDelayMs,
     entity,
     sampleMode,
     correctionMode,
@@ -464,7 +643,11 @@ export class Interpolator {
     expectedSnapshotMs: number;
     observedTickMs: number;
     renderDelayTicks: number;
+    targetRenderDelayTicks: number;
     jitterTicks: number;
+    arrivalTickMsEwma: number | null;
+    arrivalJitterMsEwma: number;
+    playoutDelayMs: number;
     entity: ClientEntity;
     sampleMode: EntityPositionSample["mode"] | "snap";
     correctionMode: InterpolationCorrectionMode;
@@ -487,7 +670,11 @@ export class Interpolator {
       expectedSnapshotMs,
       observedTickMs,
       renderDelayTicks,
+      targetRenderDelayTicks,
       jitterTicks,
+      arrivalTickMsEwma,
+      arrivalJitterMsEwma,
+      playoutDelayMs,
       focusEntity: {
         entityId: entity.id,
         entityKind: entity.kind,
@@ -517,6 +704,22 @@ export class Interpolator {
 export type InterpolationConfig = {
   snapDistance: number;
   expectedSnapshotMs: number;
+  tickDurationSmoothing: number;
+  renderDelaySmoothing: number;
+  minRenderDelayTicks: number;
+  maxRenderDelayTicks: number;
+  maxExtrapolationTicks: number;
+  tickDurationMinFactor: number;
+  tickDurationMaxFactor: number;
+  arrivalEwmaSmoothing: number;
+  jitterEwmaSmoothing: number;
+  jitterBufferMultiplier: number;
+  jitterBufferSafetyMs: number;
+  maxDebugLogEntries: number;
+  correctionFollowSharpness: number;
+  correctionEpsilon: number;
+  correctionFrameScaleMin: number;
+  correctionFrameScaleMax: number;
 };
 
 function lerp(start: number, end: number, t: number): number {

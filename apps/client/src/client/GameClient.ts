@@ -173,6 +173,30 @@ export class GameClient {
     this.interpolator = new Interpolator({
       snapDistance: this.gameConfig.interpolation.snapDistance,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
+      tickDurationSmoothing:
+        this.gameConfig.interpolation.tickDurationSmoothing,
+      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
+      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
+      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
+      maxExtrapolationTicks:
+        this.gameConfig.interpolation.maxExtrapolationTicks,
+      tickDurationMinFactor:
+        this.gameConfig.interpolation.tickDurationMinFactor,
+      tickDurationMaxFactor:
+        this.gameConfig.interpolation.tickDurationMaxFactor,
+      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
+      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
+      jitterBufferMultiplier:
+        this.gameConfig.interpolation.jitterBufferMultiplier,
+      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
+      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
+      correctionFollowSharpness:
+        this.gameConfig.interpolation.correctionFollowSharpness,
+      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
+      correctionFrameScaleMin:
+        this.gameConfig.interpolation.correctionFrameScaleMin,
+      correctionFrameScaleMax:
+        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
     this.debugHitbox = options.debugHitbox ?? false;
     this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
@@ -242,8 +266,17 @@ export class GameClient {
     }
 
     this.gameConfig.tickRate = Math.floor(tickRate);
-    this.interpolator.setExpectedSnapshotMs(1000 / this.gameConfig.tickRate);
+    this.syncInterpolatorConfig();
     this.renderer.setTickRate(this.gameConfig.tickRate);
+  }
+
+  public setInterpolationConfig(
+    interpolation: GameConfig["interpolation"],
+  ): void {
+    this.gameConfig.interpolation = {
+      ...interpolation,
+    };
+    this.syncInterpolatorConfig();
   }
 
   public setPointerActionHandler(
@@ -435,6 +468,37 @@ export class GameClient {
       this.refreshPointerTargetFromScreen();
       this.updateHeldAttack(timestampMs);
       this.update(deltaMs, timestampMs);
+    });
+  }
+
+  private syncInterpolatorConfig(): void {
+    this.interpolator.setConfig({
+      snapDistance: this.gameConfig.interpolation.snapDistance,
+      expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
+      tickDurationSmoothing:
+        this.gameConfig.interpolation.tickDurationSmoothing,
+      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
+      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
+      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
+      maxExtrapolationTicks:
+        this.gameConfig.interpolation.maxExtrapolationTicks,
+      tickDurationMinFactor:
+        this.gameConfig.interpolation.tickDurationMinFactor,
+      tickDurationMaxFactor:
+        this.gameConfig.interpolation.tickDurationMaxFactor,
+      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
+      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
+      jitterBufferMultiplier:
+        this.gameConfig.interpolation.jitterBufferMultiplier,
+      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
+      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
+      correctionFollowSharpness:
+        this.gameConfig.interpolation.correctionFollowSharpness,
+      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
+      correctionFrameScaleMin:
+        this.gameConfig.interpolation.correctionFrameScaleMin,
+      correctionFrameScaleMax:
+        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
   }
 

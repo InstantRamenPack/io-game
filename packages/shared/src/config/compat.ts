@@ -55,7 +55,13 @@ function serializeEntries(
 }
 
 const compatManifest = {
-  runtimeConfig: ["googleClientId", "compatHash", "tickRate", "worldSize"],
+  runtimeConfig: [
+    "googleClientId",
+    "compatHash",
+    "tickRate",
+    "worldSize",
+    "interpolation",
+  ],
   messages: {
     clientToServer: [
       "hello",
