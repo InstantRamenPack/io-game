@@ -86,21 +86,21 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
-    const worldPoint = this.renderer.screenToWorld(
+    const aimTarget = this.computeAimTargetFromPointer(
       event.clientX,
       event.clientY,
     );
-    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.pointerAimTarget = aimTarget;
     const handled = this.pointerActionHandler?.({
       kind: "down",
       screenX: screenPoint.x,
       screenY: screenPoint.y,
-      worldX: worldPoint.x,
-      worldY: worldPoint.y,
+      worldX: aimTarget.x,
+      worldY: aimTarget.y,
       shiftKey: event.shiftKey,
     });
     if (!handled) {
-      this.inputManager.startHoldFire(worldPoint.x, worldPoint.y);
+      this.inputManager.startHoldFire(aimTarget.x, aimTarget.y);
     }
     event.preventDefault();
   };
@@ -115,21 +115,21 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
-    const worldPoint = this.renderer.screenToWorld(
+    const aimTarget = this.computeAimTargetFromPointer(
       event.clientX,
       event.clientY,
     );
-    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.pointerAimTarget = aimTarget;
     const handled = this.pointerActionHandler?.({
       kind: "move",
       screenX: screenPoint.x,
       screenY: screenPoint.y,
-      worldX: worldPoint.x,
-      worldY: worldPoint.y,
+      worldX: aimTarget.x,
+      worldY: aimTarget.y,
       shiftKey: event.shiftKey,
     });
     if (!handled) {
-      this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
+      this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
     }
   };
 
@@ -143,17 +143,17 @@ export class GameClient {
       event.clientX,
       event.clientY,
     );
-    const worldPoint = this.renderer.screenToWorld(
+    const aimTarget = this.computeAimTargetFromPointer(
       event.clientX,
       event.clientY,
     );
-    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
+    this.pointerAimTarget = aimTarget;
     this.pointerActionHandler?.({
       kind: "up",
       screenX: screenPoint.x,
       screenY: screenPoint.y,
-      worldX: worldPoint.x,
-      worldY: worldPoint.y,
+      worldX: aimTarget.x,
+      worldY: aimTarget.y,
       shiftKey: event.shiftKey,
     });
     this.inputManager.stopHoldFire();
@@ -407,8 +407,10 @@ export class GameClient {
     for (let index = 0; index < steps; index += 1) {
       const frameTimeMs = performance.now() + index * frameMs;
       this.refreshPointerTargetFromScreen();
-      this.updateHeldAttack(frameTimeMs);
       this.update(frameMs, frameTimeMs);
+      // Refresh after camera update so attacks use the current viewport.
+      this.refreshPointerTargetFromScreen();
+      this.updateHeldAttack(frameTimeMs);
     }
   }
 
@@ -433,8 +435,10 @@ export class GameClient {
 
       this.rateMonitor.recordFrameSample(timestampMs);
       this.refreshPointerTargetFromScreen();
-      this.updateHeldAttack(timestampMs);
       this.update(deltaMs, timestampMs);
+      // Refresh after camera update so attacks use the current viewport.
+      this.refreshPointerTargetFromScreen();
+      this.updateHeldAttack(timestampMs);
     });
   }
 
@@ -493,12 +497,12 @@ export class GameClient {
     if (this.pointerClientX === null || this.pointerClientY === null) {
       return;
     }
-    const worldPoint = this.renderer.screenToWorld(
+    const aimTarget = this.computeAimTargetFromPointer(
       this.pointerClientX,
       this.pointerClientY,
     );
-    this.pointerAimTarget = { x: worldPoint.x, y: worldPoint.y };
-    this.inputManager.updateHoldFireTarget(worldPoint.x, worldPoint.y);
+    this.pointerAimTarget = aimTarget;
+    this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
   }
 
   private sendAction(actionMessage: ActionMessage): void {
@@ -544,6 +548,34 @@ export class GameClient {
     }
 
     this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
+  }
+
+  private computeAimTargetFromPointer(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
+    const cursorWorld = this.renderer.screenToWorld(clientX, clientY);
+    const view = this.renderer.getView();
+    if (!view) {
+      return cursorWorld;
+    }
+
+    const rect = view.getBoundingClientRect();
+    const centerClientX = rect.left + rect.width / 2;
+    const centerClientY = rect.top + rect.height / 2;
+    const centerWorld = this.renderer.screenToWorld(
+      centerClientX,
+      centerClientY,
+    );
+
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return cursorWorld;
+    }
+
+    const deltaX = cursorWorld.x - centerWorld.x;
+    const deltaY = cursorWorld.y - centerWorld.y;
+    return { x: player.x + deltaX, y: player.y + deltaY };
   }
 
   private getLocalActiveWeapon(): LocalWeaponState | undefined {
