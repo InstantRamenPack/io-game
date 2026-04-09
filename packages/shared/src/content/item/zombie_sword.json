@@ -3,8 +3,8 @@
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 20,
-    "range": 10,
-    "damage": 5,
+    "range": 20,
+    "damage": 15,
     "knockback": 15,
     "sweepArcDeg": 110,
     "equippedRender": {

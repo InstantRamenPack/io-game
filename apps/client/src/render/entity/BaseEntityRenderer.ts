@@ -11,6 +11,7 @@ import type {
 } from "@client/render/entity/EntityRenderer.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import { getItemContent, getWeaponContent } from "@shared/content/catalog.ts";
+import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
 import type { WeaponContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import * as PIXI from "pixi.js";
@@ -26,6 +27,9 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   protected readonly healthBarFillGraphic: PIXI.Graphics;
   protected readonly hitboxContainer?: PIXI.Container;
   protected readonly hitboxGraphic?: PIXI.Graphics;
+  // Graphics used to render equipped-weapon attack shapes (swing/jab) behind
+  // the equipped item sprite when debug hitboxes are enabled.
+  protected readonly equippedHitboxGraphic?: PIXI.Graphics;
   protected readonly debugContainer?: PIXI.Container;
   protected readonly debugGraphic?: PIXI.Graphics;
 
@@ -82,6 +86,17 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
       this.hitboxGraphic = new PIXI.Graphics();
       this.hitboxContainer.addChild(this.hitboxGraphic);
+      // Create a per-entity equipped hitbox graphic and insert it just
+      // before the equipped item container so it renders behind the weapon
+      // sprite itself.
+      this.equippedHitboxGraphic = new PIXI.Graphics();
+      const insertIndex = this.entityContainer.getChildIndex(
+        this.equippedItemContainer,
+      );
+      this.entityContainer.addChildAt(
+        this.equippedHitboxGraphic,
+        Math.max(0, insertIndex),
+      );
     }
 
     if (debugInterpolationMode > 0) {
@@ -206,6 +221,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.healthBarContainer.destroy();
     this.entityContainer.destroy();
     this.hitboxGraphic?.destroy();
+    this.equippedHitboxGraphic?.destroy();
     this.hitboxContainer?.destroy();
     this.debugGraphic?.destroy();
     this.debugContainer?.destroy();
@@ -247,6 +263,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     if (this.debugGraphic) {
       this.drawEntityShape(this.debugGraphic, entity, fillColor, 0.2, 0.35);
     }
+    // Also update any equipped-weapon attack hitbox visuals (swing/jab).
+    this.redrawEquippedHitbox(entity);
   }
 
   private redrawHealthBar(entity: ClientEntity): void {
@@ -354,6 +372,89 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       container: this.equippedItemContainer,
       sprite: this.equippedItemSprite,
     });
+    // Update equipped-weapon debug hitbox each frame so it follows the
+    // current aim/animation state.
+    this.redrawEquippedHitbox(entity);
+  }
+
+  private redrawEquippedHitbox(entity: ClientEntity): void {
+    if (!this.equippedHitboxGraphic) {
+      return;
+    }
+    this.equippedHitboxGraphic.clear();
+
+    const equippedItem = entity.equippedItem;
+    if (!equippedItem) {
+      return;
+    }
+    const weaponContent = getWeaponContent(equippedItem.typeId);
+    if (!weaponContent) {
+      return;
+    }
+
+    // Compute aim direction from entity rotation (server stores aim in
+    // entity.rotation).
+    const dirX = Math.cos(entity.rotation);
+    const dirY = Math.sin(entity.rotation);
+
+    // Visual style for equipped attack hitboxes.
+    const fillColor = 0xff6b6b;
+    const fillAlpha = 0.28;
+    const strokeColor = 0xff4242;
+    const strokeAlpha = 0.9;
+
+    const attackStyle = weaponContent.attackStyle;
+    if (attackStyle === "swing") {
+      const swingContent = weaponContent as Extract<
+        WeaponContent,
+        { attackStyle: "swing" }
+      >;
+      const reach =
+        getHitboxDirectionalExtent(entity.hitboxes, dirX, dirY) +
+        swingContent.range;
+      const halfArc = (swingContent.sweepArcDeg * Math.PI) / 360;
+      const start = entity.rotation - halfArc;
+      const end = entity.rotation + halfArc;
+
+      this.equippedHitboxGraphic.beginFill(fillColor, fillAlpha);
+      this.equippedHitboxGraphic.lineStyle(2, strokeColor, strokeAlpha);
+      // Draw a filled sector (pie slice) centered on the entity origin.
+      this.equippedHitboxGraphic.moveTo(0, 0);
+      this.equippedHitboxGraphic.arc(0, 0, reach, start, end);
+      this.equippedHitboxGraphic.lineTo(0, 0);
+      this.equippedHitboxGraphic.endFill();
+    } else if (attackStyle === "jab") {
+      const jabContent = weaponContent as Extract<
+        WeaponContent,
+        { attackStyle: "jab" }
+      >;
+      const reach =
+        getHitboxDirectionalExtent(entity.hitboxes, dirX, dirY) +
+        jabContent.range;
+      const halfWidth = jabContent.jabWidth / 2;
+      const perpX = -dirY;
+      const perpY = dirX;
+
+      const p1x = perpX * halfWidth;
+      const p1y = perpY * halfWidth;
+      const p2x = -perpX * halfWidth;
+      const p2y = -perpY * halfWidth;
+      const endX = dirX * reach;
+      const endY = dirY * reach;
+      const p3x = endX + perpX * halfWidth;
+      const p3y = endY + perpY * halfWidth;
+      const p4x = endX - perpX * halfWidth;
+      const p4y = endY - perpY * halfWidth;
+
+      this.equippedHitboxGraphic.beginFill(fillColor, fillAlpha);
+      this.equippedHitboxGraphic.lineStyle(2, strokeColor, strokeAlpha);
+      this.equippedHitboxGraphic.moveTo(p1x, p1y);
+      this.equippedHitboxGraphic.lineTo(p3x, p3y);
+      this.equippedHitboxGraphic.lineTo(p4x, p4y);
+      this.equippedHitboxGraphic.lineTo(p2x, p2y);
+      this.equippedHitboxGraphic.lineTo(p1x, p1y);
+      this.equippedHitboxGraphic.endFill();
+    }
   }
 
   private buildEquippedRenderContext(
@@ -368,14 +469,24 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
           this.attackAnimationRemainingMs /
             Math.max(1, this.attackAnimationDurationMs);
     const facingLeft = Math.cos(entity.rotation) < 0;
+    // Consider the item's drawn handedness when deciding whether to mirror the
+    // sprite. Some assets are authored facing right, others facing left. The
+    // equippedRender.handedness field indicates which direction the sprite is
+    // authored for. We compute mirrorSign so that the final displayed sprite
+    // faces the aim direction (pointing right when the player aims right, and
+    // mirrored when aiming left).
+    const renderManifest = weaponContent.equippedRender;
+    const assetFacesRight = renderManifest.handedness === "right";
+    const mirrorSign: 1 | -1 = assetFacesRight === facingLeft ? -1 : 1;
+
     return {
       entity,
       weaponContent,
-      renderManifest: weaponContent.equippedRender,
+      renderManifest: renderManifest,
       typeId,
       attackStyle: weaponContent.attackStyle,
       facingLeft,
-      mirrorSign: facingLeft ? 1 : -1,
+      mirrorSign,
       progress,
       attackAnimationDurationMs: this.attackAnimationDurationMs,
     };

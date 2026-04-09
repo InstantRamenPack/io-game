@@ -7,16 +7,27 @@ import {
 
 export class DroneShooterEquippedRenderer extends RangedEquippedRenderer {
   public override syncAnimated(input: EquippedAnimatedSyncInput): void {
-    const { container, sprite, renderManifest, entity, progress } = input;
+    const {
+      container,
+      sprite,
+      renderManifest,
+      entity,
+      progress,
+      mirrorSign,
+      facingLeft,
+    } = input;
     const pulse = Math.sin(progress * Math.PI);
     const snappyCurve = Math.pow(Math.max(0, pulse), 0.68);
-    const orbitRadius = getOrbitRadius(renderManifest.holdOffset);
-    const recoilScale = 1.2;
-    sprite.position.set(
-      orbitRadius - renderManifest.recoilDistance * recoilScale * snappyCurve,
-      0,
-    );
+    // Scale recoil by orbit radius so smaller-held items recoil less visually.
+    const recoilScale = getOrbitRadius(renderManifest.holdOffset) / 16;
+    const orbitX =
+      renderManifest.holdOffset.x -
+      renderManifest.recoilDistance * recoilScale * snappyCurve;
+    const orbitY = renderManifest.holdOffset.y;
+    sprite.position.set(mirrorSign === 1 ? orbitX : -orbitX, orbitY);
     container.rotation =
-      entity.rotation + toRadians(renderManifest.holdRotationDeg);
+      entity.rotation +
+      toRadians(renderManifest.holdRotationDeg) +
+      (facingLeft ? Math.PI : 0);
   }
 }

@@ -11,9 +11,9 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:gun_mag",
     "equippedRender": {
-      "holdOffset": { "x": 14, "y": 4 },
-      "holdRotationDeg": -10,
-      "scale": 1.5,
+      "holdOffset": { "x": 30, "y": 8 },
+      "holdRotationDeg": 0,
+      "scale": 1.0,
       "handedness": "right",
       "recoilDistance": 10,
       "swingAngleDeg": 0,

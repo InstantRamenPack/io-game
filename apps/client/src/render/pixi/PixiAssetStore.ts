@@ -35,7 +35,7 @@ export class PixiAssetStore {
   }
 
   private async loadItemIcons(): Promise<void> {
-    const mappingUrl = "/hud/item-icons.json";
+    const mappingUrl = "/item_icons.json";
     let iconMap: Record<string, string> = {};
 
     try {
@@ -81,7 +81,7 @@ export class PixiAssetStore {
   private async loadItemSprites(): Promise<void> {
     let spriteMap: Record<string, string> = {};
     try {
-      const response = await fetch("/hud/item-sprites.json");
+      const response = await fetch("/item_sprites.json");
       if (response.ok) {
         const payload = (await response.json()) as Record<string, string>;
         if (payload && typeof payload === "object") {
@@ -92,9 +92,7 @@ export class PixiAssetStore {
       spriteMap = {};
     }
 
-    const spriteEntries = Object.entries(spriteMap).filter(
-      ([, value]) => typeof value === "string",
-    );
+    const spriteEntries = Object.entries(spriteMap).filter(() => true);
 
     await Promise.all(
       spriteEntries.map(async ([, url]) => {

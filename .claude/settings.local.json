@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cp /c/Users/brett/Downloads/basic_gun.png /c/Users/brett/io-game/apps/client/public/hud/sprites/basic_gun.png)",
-      "Bash(cp /c/Users/brett/Downloads/basic_gun_hotbar.png /c/Users/brett/io-game/apps/client/public/hud/icons/basic_gun_hotbar.png)"
-    ]
-  }
-}

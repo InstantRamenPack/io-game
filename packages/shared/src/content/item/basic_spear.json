@@ -10,9 +10,9 @@
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {
-      "holdOffset": { "x": 18, "y": 2 },
-      "holdRotationDeg": -18,
-      "scale": 1.08,
+      "holdOffset": { "x": 30, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 0.5,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 0,

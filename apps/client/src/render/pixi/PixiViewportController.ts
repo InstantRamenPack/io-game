@@ -3,8 +3,6 @@ import type { Application, Container } from "pixi.js";
 type WorldSize = { w: number; h: number };
 
 export class PixiViewportController {
-  private static readonly CAMERA_FOLLOW_SMOOTHING_MS = 120;
-
   private worldSize: WorldSize;
   private cameraPivotX = 0;
   private cameraPivotY = 0;
@@ -51,25 +49,9 @@ export class PixiViewportController {
       return;
     }
 
-    const effectiveDeltaMs = Math.min(Math.max(deltaMs, 0), 50);
-    const smoothingFactor =
-      effectiveDeltaMs <= 0
-        ? 1
-        : 1 -
-          Math.exp(
-            -effectiveDeltaMs /
-              PixiViewportController.CAMERA_FOLLOW_SMOOTHING_MS,
-          );
-    this.cameraPivotX = lerp(
-      this.cameraPivotX,
-      this.cameraTargetX,
-      smoothingFactor,
-    );
-    this.cameraPivotY = lerp(
-      this.cameraPivotY,
-      this.cameraTargetY,
-      smoothingFactor,
-    );
+    // Immediately lock camera pivot to target (no smoothing)
+    this.cameraPivotX = this.cameraTargetX;
+    this.cameraPivotY = this.cameraTargetY;
     this.sync(app, worldRoot);
   }
 
@@ -132,8 +114,4 @@ export class PixiViewportController {
       app.screen.height / baseHeight,
     );
   }
-}
-
-function lerp(start: number, end: number, t: number): number {
-  return start + (end - start) * t;
 }

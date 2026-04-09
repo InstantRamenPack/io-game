@@ -6,6 +6,9 @@ import type {
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type * as PIXI from "pixi.js";
+import {
+  toRadians,
+} from "@client/render/entity/equipped/equippedMath.ts";
 
 export type EquippedRenderContext = {
   entity: ClientEntity;
@@ -34,4 +37,48 @@ export interface EquippedItemRenderer {
   syncStatic(input: EquippedStaticSyncInput): void;
   syncAnimated(input: EquippedAnimatedSyncInput): void;
   onAttackStart?(context: EquippedRenderContext): void;
+}
+
+/**
+ * Base class that implements common static synchronization for equipped
+ * item sprites. Specialised renderers should extend this and call
+ * super.syncStatic(input) before applying style-specific tweaks.
+ */
+export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
+  public syncStatic(input: EquippedStaticSyncInput): void {
+    const {
+      container,
+      sprite,
+      texture,
+      renderManifest,
+      entity,
+      mirrorSign,
+      facingLeft,
+    } = input;
+    sprite.texture = texture;
+
+    // Compute uniform scale so sprites have consistent visual size, then
+    // apply handedness by multiplying X scale with mirrorSign.
+    const desiredSize = 42 * renderManifest.scale;
+    const scaleFactor = desiredSize / Math.max(1, texture.height);
+    sprite.scale.set(scaleFactor * mirrorSign, scaleFactor);
+
+    // Orbit/position should flip horizontally when mirrored so the weapon
+    // stays on the correct side of the player.
+    sprite.position.set(
+      renderManifest.holdOffset.x * (mirrorSign === 1 ? 1 : -1),
+      renderManifest.holdOffset.y,
+    );
+
+    container.position.set(0, 0);
+    container.rotation =
+      entity.rotation +
+      toRadians(renderManifest.holdRotationDeg) +
+      (facingLeft ? Math.PI : 0);
+  }
+
+  // Default animated sync does nothing; specific renderers may override.
+  public syncAnimated(_input: EquippedAnimatedSyncInput): void {
+    // no-op
+  }
 }

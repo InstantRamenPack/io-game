@@ -1,0 +1,8 @@
+{
+  "__default__": "/placeholder.png",
+  "item:basic_gun": "/sprites/basic_gun.png",
+  "item:basic_spear": "/sprites/basic_spear.png",
+  "item:basic_sword": "/sprites/basic_sword.png",
+  "item:spiked_spear": "/sprites/spiked_spear.png",
+  "item:zombie_sword": "/sprites/zombie_sword.png"
+}

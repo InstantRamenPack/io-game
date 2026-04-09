@@ -3,27 +3,29 @@ import type {
   EquippedItemRenderer,
   EquippedStaticSyncInput,
 } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
+import { BaseEquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
 import {
-  getOrbitRadius,
   toRadians,
 } from "@client/render/entity/equipped/equippedMath.ts";
 
-export class SweepMeleeEquippedRenderer implements EquippedItemRenderer {
-  public syncStatic(input: EquippedStaticSyncInput): void {
-    const { container, sprite, texture, renderManifest, entity, mirrorSign } =
-      input;
-    sprite.texture = texture;
-    sprite.width = 42 * renderManifest.scale;
-    sprite.height = 42 * renderManifest.scale;
-    sprite.scale.set(mirrorSign, 1);
-    sprite.position.set(getOrbitRadius(renderManifest.holdOffset), 0);
-    container.position.set(0, 0);
+export class SweepMeleeEquippedRenderer
+  extends BaseEquippedItemRenderer
+  implements EquippedItemRenderer
+{
+  public override syncStatic(input: EquippedStaticSyncInput): void {
+    const { container, renderManifest, facingLeft, entity } = input;
+    super.syncStatic(input);
+
     const halfArcRad = toRadians(renderManifest.swingAngleDeg * 0.5);
-    const idleOffset = input.facingLeft ? halfArcRad : -halfArcRad;
-    container.rotation = entity.rotation + idleOffset;
+    const idleOffset = facingLeft ? halfArcRad : -halfArcRad;
+    container.rotation =
+      entity.rotation +
+      toRadians(renderManifest.holdRotationDeg) +
+      idleOffset +
+      (facingLeft ? Math.PI : 0);
   }
 
-  public syncAnimated(input: EquippedAnimatedSyncInput): void {
+  public override syncAnimated(input: EquippedAnimatedSyncInput): void {
     const {
       container,
       sprite,
@@ -51,8 +53,15 @@ export class SweepMeleeEquippedRenderer implements EquippedItemRenderer {
         Math.max(Number.EPSILON, 1 - swingPhaseCutoff);
       rotationOffset = lerp(endOffset, startOffset, easeInQuad(recoverT));
     }
-    sprite.position.set(getOrbitRadius(renderManifest.holdOffset), 0);
-    container.rotation = entity.rotation + rotationOffset;
+    sprite.position.set(
+      renderManifest.holdOffset.x * (input.mirrorSign === 1 ? 1 : -1),
+      renderManifest.holdOffset.y,
+    );
+    container.rotation =
+      entity.rotation +
+      toRadians(renderManifest.holdRotationDeg) +
+      rotationOffset +
+      (facingLeft ? Math.PI : 0);
   }
 }
 

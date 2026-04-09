@@ -5,14 +5,14 @@
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 10,
-    "range": 60,
+    "range": 50,
     "damage": 25,
     "knockback": 15,
     "sweepArcDeg": 110,
     "equippedRender": {
-      "holdOffset": { "x": 11, "y": 5 },
-      "holdRotationDeg": 38,
-      "scale": 0.96,
+      "holdOffset": { "x": 40, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 1.7,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 110,
