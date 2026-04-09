@@ -13,9 +13,9 @@ export class RangedEquippedRenderer implements EquippedItemRenderer {
     const { container, sprite, texture, renderManifest, entity, mirrorSign } =
       input;
     sprite.texture = texture;
-    sprite.width = 42 * renderManifest.scale;
-    sprite.height = 42 * renderManifest.scale;
-    sprite.scale.set(mirrorSign, 1);
+    const baseScale = (42 * renderManifest.scale) / Math.max(1, texture.height);
+    sprite.scale.x = baseScale;
+    sprite.scale.y = baseScale;
     sprite.position.set(getOrbitRadius(renderManifest.holdOffset), 0);
     container.position.set(0, 0);
     container.rotation =

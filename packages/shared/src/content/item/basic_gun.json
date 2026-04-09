@@ -13,7 +13,7 @@
     "equippedRender": {
       "holdOffset": { "x": 14, "y": 4 },
       "holdRotationDeg": -10,
-      "scale": 0.88,
+      "scale": 1.5,
       "handedness": "right",
       "recoilDistance": 10,
       "swingAngleDeg": 0,

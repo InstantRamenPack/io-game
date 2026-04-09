@@ -561,12 +561,11 @@ function parseCommandState(value: string): ParsedCommandState | null {
 }
 
 function replaceCurrentToken(value: string, replacement: string): string {
-  const trimmedRight = value.trimEnd();
-  const lastSpaceIndex = trimmedRight.lastIndexOf(" ");
+  const lastSpaceIndex = value.lastIndexOf(" ");
   if (lastSpaceIndex < 0) {
     return `/${replacement} `;
   }
-  return `${trimmedRight.slice(0, lastSpaceIndex + 1)}${replacement} `;
+  return `${value.slice(0, lastSpaceIndex + 1)}${replacement} `;
 }
 
 function shouldAcceptSuggestionOnEnter(

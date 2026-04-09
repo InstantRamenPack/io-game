@@ -1,6 +1,6 @@
 {
   "__default__": "/hud/icons/placeholder.png",
-  "item:basic_gun": "/hud/icons/placeholder.png",
+  "item:basic_gun": "/hud/icons/basic_gun_hotbar.png",
   "item:basic_spear": "/hud/icons/basic_spear_hotbar.png",
   "item:basic_sword": "/hud/icons/basic_sword.png",
   "item:crossbow": "/hud/icons/placeholder.png",
