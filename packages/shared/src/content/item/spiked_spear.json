@@ -18,6 +18,7 @@
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {
+      "textureTypeId": "item:spiked_spear_ingame",
       "holdOffset": { "x": 18, "y": 2 },
       "holdRotationDeg": -18,
       "scale": 1.08,
