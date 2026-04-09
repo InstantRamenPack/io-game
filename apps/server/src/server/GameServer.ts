@@ -19,9 +19,8 @@ import {
 } from "@server/server/starterLoadout.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
+import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
-import { DayNightSystemWithWaves } from "@server/systems/DayNightSystemWithWaves.ts";
-import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -86,18 +85,10 @@ export class GameServer {
    */
   private initializeWaveSpawning(): void {
     try {
-      const configPath = "./apps/server/src/config/waves.json";
-      const waveSpawner = WaveSpawner.loadFromFile(
-        configPath,
-        this.chatService,
-      );
-
-      // Replace the standard DayNightSystem with DayNightSystemWithWaves
-      this.world.dayNightSystem = new DayNightSystemWithWaves({
-        tickRate: this.gameConfig.tickRate,
-        dayDurationMs: this.gameConfig.dayNight.dayDurationMs,
-        nightDurationMs: this.gameConfig.dayNight.nightDurationMs,
-        waveSpawner,
+      this.world.waveSystem = WaveSystem.loadFromFile({
+        dayNightSystem: this.world.dayNightSystem,
+        configPath: "./apps/server/src/config/waves.json",
+        chatService: this.chatService,
       });
       console.log("✓ Wave spawning system initialized");
     } catch (error) {

@@ -60,7 +60,6 @@ export class WaveSpawner {
   private readonly entityCtorByResourceName: Map<string, SpawnableEntityCtor>;
   private readonly chatService: WaveChatBroadcaster | null;
   private pendingSpawns: PendingSpawn[] = [];
-  private currentNightCycle = 0;
 
   /**
    * Creates a wave spawner with the given configuration.
@@ -115,7 +114,6 @@ export class WaveSpawner {
    * @param nightCycle The night cycle number (1-indexed)
    */
   public onNightStart(nightCycle: number): void {
-    this.currentNightCycle = nightCycle;
     this.pendingSpawns = [];
 
     // Find the wave configuration for this night cycle

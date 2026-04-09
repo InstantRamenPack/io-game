@@ -8,6 +8,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
+import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
@@ -23,6 +24,7 @@ export class World {
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
+  public waveSystem: WaveSystem;
   public readonly focusedTrace: FocusedServerTrace;
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
@@ -43,6 +45,7 @@ export class World {
       dayDurationMs: gameConfig.dayNight.dayDurationMs,
       nightDurationMs: gameConfig.dayNight.nightDurationMs,
     });
+    this.waveSystem = new WaveSystem({ dayNightSystem: this.dayNightSystem });
     this.focusedTrace = new FocusedServerTrace(gameConfig);
   }
 
@@ -54,6 +57,7 @@ export class World {
     const deltaMs = 1000 / this.gameConfig.tickRate;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
+    this.waveSystem.update(this, deltaMs);
 
     this.syncSpatialIndex();
     const tickPhaseEntities = this.entities.all();

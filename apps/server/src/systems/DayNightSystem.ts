@@ -28,11 +28,6 @@ export class DayNightSystem implements System {
     this.dayDurationTicks = this.durationMsToTicks(config.dayDurationMs);
     this.nightDurationTicks = this.durationMsToTicks(config.nightDurationMs);
     this.phase = config.startPhase ?? "day";
-    if (this.phase === "day") {
-      this.onDayStart();
-    } else {
-      this.onNightStart();
-    }
   }
 
   public update(_world: World, _deltaMs: number): void {
@@ -44,10 +39,8 @@ export class DayNightSystem implements System {
       if (this.phase === "night") {
         this.phase = "day";
         this.dayCount += 1;
-        this.onDayStart();
       } else {
         this.phase = "night";
-        this.onNightStart();
       }
       phaseDurationTicks = this.getPhaseDurationTicks();
     }
@@ -65,14 +58,6 @@ export class DayNightSystem implements System {
       dayDurationMs: this.ticksToMs(this.dayDurationTicks),
       nightDurationMs: this.ticksToMs(this.nightDurationTicks),
     };
-  }
-
-  protected onDayStart(): void {
-    // Placeholder hook for day-start behavior.
-  }
-
-  protected onNightStart(): void {
-    // Placeholder hook for night-start behavior.
   }
 
   private durationMsToTicks(durationMs: number): number {
