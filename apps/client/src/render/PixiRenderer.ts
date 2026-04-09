@@ -168,6 +168,10 @@ export class PixiRenderer {
     return this.assetStore.getItemTexture(typeId);
   }
 
+  public getItemSpriteTexture(typeId: string): Texture {
+    return this.assetStore.getItemSpriteTexture(typeId);
+  }
+
   public setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
     this.viewportController.setWorldSize(this.worldSize);

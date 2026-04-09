@@ -308,10 +308,6 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     const renderManifest = weaponContent.equippedRender;
-    const textureTypeId =
-      renderManifest.textureTypeId ??
-      itemContent.iconTextureId ??
-      equippedItem.typeId;
     const renderer = this.getEquippedItemRenderer(
       equippedItem.typeId,
       weaponContent.attackStyle,
@@ -323,11 +319,15 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       equippedItem.typeId,
       weaponContent,
     );
+    const textureTypeId =
+      renderManifest.textureTypeId ??
+      itemContent.iconTextureId ??
+      equippedItem.typeId;
     renderer.syncStatic({
       ...context,
       container: this.equippedItemContainer,
       sprite: this.equippedItemSprite,
-      texture: this.pixiRenderer.getItemTexture(textureTypeId),
+      texture: this.pixiRenderer.getItemSpriteTexture(textureTypeId),
     });
     this.syncEquippedItemAnimation(entity);
   }

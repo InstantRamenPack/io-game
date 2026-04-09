@@ -3,17 +3,27 @@ import type { Application } from "pixi.js";
 
 export class PixiAssetStore {
   private readonly itemTextures = new Map<string, Texture>();
+  private readonly itemSpriteTextures = new Map<string, Texture>();
   private readonly particleTextures = new Map<string, Texture>();
   private placeholderItemTexture: Texture | null = null;
   private itemIconMap: Record<string, string> = {};
 
   public async load(app: Application): Promise<void> {
-    await this.loadItemIcons();
+    await Promise.all([this.loadItemIcons(), this.loadItemSprites()]);
     this.buildParticleTextures(app);
   }
 
   public getItemTexture(typeId: string): Texture {
     return (
+      this.itemTextures.get(typeId) ??
+      this.placeholderItemTexture ??
+      Texture.WHITE
+    );
+  }
+
+  public getItemSpriteTexture(typeId: string): Texture {
+    return (
+      this.itemSpriteTextures.get(typeId) ??
       this.itemTextures.get(typeId) ??
       this.placeholderItemTexture ??
       Texture.WHITE
@@ -64,6 +74,40 @@ export class PixiAssetStore {
     for (const [typeId, url] of iconEntries) {
       if (url) {
         this.itemTextures.set(typeId, Texture.from(url));
+      }
+    }
+  }
+
+  private async loadItemSprites(): Promise<void> {
+    let spriteMap: Record<string, string> = {};
+    try {
+      const response = await fetch("/hud/item-sprites.json");
+      if (response.ok) {
+        const payload = (await response.json()) as Record<string, string>;
+        if (payload && typeof payload === "object") {
+          spriteMap = payload;
+        }
+      }
+    } catch {
+      spriteMap = {};
+    }
+
+    const spriteEntries = Object.entries(spriteMap).filter(
+      ([, value]) => typeof value === "string",
+    );
+
+    await Promise.all(
+      spriteEntries.map(async ([, url]) => {
+        if (url) {
+          await Assets.load(url);
+        }
+      }),
+    );
+
+    this.itemSpriteTextures.clear();
+    for (const [typeId, url] of spriteEntries) {
+      if (url) {
+        this.itemSpriteTextures.set(typeId, Texture.from(url));
       }
     }
   }
