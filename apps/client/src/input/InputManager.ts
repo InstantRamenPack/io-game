@@ -1,4 +1,5 @@
 import type { MoveIntentKey } from "@shared/net/protocol.ts";
+import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 
 type AttackTarget = {
   x: number;
@@ -36,7 +37,7 @@ export class InputManager {
   public bind(targetElement: HTMLElement | Window): void {
     targetElement.addEventListener("keydown", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
-      if (this.isTextInputTarget(keyboardEvent.target)) {
+      if (isKeyboardTextEntryTarget(keyboardEvent.target)) {
         return;
       }
 
@@ -58,7 +59,7 @@ export class InputManager {
 
     targetElement.addEventListener("keyup", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
-      if (this.isTextInputTarget(keyboardEvent.target)) {
+      if (isKeyboardTextEntryTarget(keyboardEvent.target)) {
         return;
       }
 
@@ -129,18 +130,5 @@ export class InputManager {
       }
     }
     this.pressedKeys.clear();
-  }
-
-  private isTextInputTarget(target: EventTarget | null): boolean {
-    if (!target || !(target instanceof HTMLElement)) {
-      return false;
-    }
-    const tag = target.tagName;
-    return (
-      tag === "INPUT" ||
-      tag === "TEXTAREA" ||
-      tag === "SELECT" ||
-      target.isContentEditable
-    );
   }
 }

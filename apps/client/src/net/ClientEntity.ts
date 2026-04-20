@@ -68,7 +68,7 @@ export class ClientEntity {
   public serverY: number;
   public visualVersion = 1;
   public healthVersion = 1;
-  private readonly serverFrameHistoryLimit: number;
+  private serverFrameHistoryLimit: number;
   private readonly serverFrameHistory: EntityServerFrame[] = [];
 
   constructor(
@@ -220,6 +220,16 @@ export class ClientEntity {
       mode: "hold",
       frame: latestFrame,
     };
+  }
+
+  public setServerFrameHistoryLimit(limit: number): void {
+    this.serverFrameHistoryLimit = Math.max(2, Math.floor(limit));
+    if (this.serverFrameHistory.length > this.serverFrameHistoryLimit) {
+      this.serverFrameHistory.splice(
+        0,
+        this.serverFrameHistory.length - this.serverFrameHistoryLimit,
+      );
+    }
   }
 
   private applyKindSpecificFields(snapshot: EntitySnapshot): void {

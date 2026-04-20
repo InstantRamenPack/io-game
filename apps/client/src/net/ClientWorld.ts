@@ -17,7 +17,7 @@ export class ClientWorld {
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugInterpolationMode: number;
-  private readonly serverFrameHistoryLimit: number;
+  private serverFrameHistoryLimit: number;
   private readonly renderManager?: EntityRenderManager;
 
   constructor(
@@ -111,6 +111,13 @@ export class ClientWorld {
       return;
     }
     this.renderManager?.triggerAttackAnimation(entity);
+  }
+
+  public setServerFrameHistoryLimit(limit: number): void {
+    this.serverFrameHistoryLimit = Math.max(2, Math.floor(limit));
+    for (const entity of this.entities.values()) {
+      entity.setServerFrameHistoryLimit(this.serverFrameHistoryLimit);
+    }
   }
 
   private updateConfusionVisuals(): void {
