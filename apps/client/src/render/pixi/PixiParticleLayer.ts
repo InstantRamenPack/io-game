@@ -79,8 +79,12 @@ export class PixiParticleLayer {
       return;
     }
 
-    const nextParticles: ExplosionParticle[] = [];
-    for (const entry of this.particles) {
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < this.particles.length; readIndex += 1) {
+      const entry = this.particles[readIndex];
+      if (!entry) {
+        continue;
+      }
       entry.remainingMs = Math.max(0, entry.remainingMs - deltaMs);
       if (entry.remainingMs <= 0) {
         this.container.removeParticle(entry.particle);
@@ -94,11 +98,11 @@ export class PixiParticleLayer {
       entry.particle.scaleY = entry.baseScale * (1 + progress * 2.8);
       entry.particle.alpha = Math.max(0, 1 - progress) * 0.9;
       entry.particle.rotation += deltaMs * 0.002;
-      nextParticles.push(entry);
+      this.particles[writeIndex] = entry;
+      writeIndex += 1;
     }
 
-    this.particles.length = 0;
-    this.particles.push(...nextParticles);
+    this.particles.length = writeIndex;
   }
 
   public destroy(): void {

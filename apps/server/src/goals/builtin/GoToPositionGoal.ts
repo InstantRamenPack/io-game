@@ -1,9 +1,9 @@
 import { Goal } from "@server/goals/Goal.ts";
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 export type GoalDestination = { x: number; y: number };
-export type GoalDestinationProvider<TSelf extends GoalControlledEntity> = (
+type GoalDestinationProvider<TSelf extends GoalActor> = (
   ctx: GoalContext<TSelf>,
 ) => GoalDestination | null;
 
@@ -11,7 +11,7 @@ export type GoalDestinationProvider<TSelf extends GoalControlledEntity> = (
  * Straight-line movement goal that walks toward a computed destination.
  */
 export class GoToPositionGoal<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
+  TSelf extends GoalActor = GoalActor,
 > extends Goal<TSelf> {
   private readonly destinationProvider: GoalDestinationProvider<TSelf>;
   private readonly arrivalRadius: number;

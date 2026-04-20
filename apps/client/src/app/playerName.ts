@@ -14,7 +14,7 @@ function createDefaultPlayerName(): string {
  * anonymous label when no saved value exists. This helper keeps persistence
  * logic out of the UI controllers so they can treat the input as plain state.
  */
-export function loadInitialPlayerName(): string {
+function loadInitialPlayerName(): string {
   const storedPlayerName = window.localStorage
     .getItem(PLAYER_NAME_STORAGE_KEY)
     ?.trim();

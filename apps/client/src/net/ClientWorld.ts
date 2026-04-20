@@ -13,12 +13,16 @@ export class ClientWorld {
   public entities: Map<number, ClientEntity>;
   public events: NetEvent[];
   public dayNight: DayNightSnapshot;
+  public version = 1;
 
   private readonly debugHitbox: boolean;
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugInterpolationMode: number;
   private readonly serverFrameHistoryLimit: number;
   private readonly renderManager?: EntityRenderManager;
+  private readonly dirtyEntityIds = new Set<number>();
+  private confusionEnabled = false;
+  private confusionIntensity = 0;
 
   constructor(
     snapshot: WorldSnapshot,
@@ -60,6 +64,8 @@ export class ClientWorld {
     this.renderManager?.destroy();
     this.entities.clear();
     this.events = [];
+    this.confusionEnabled = false;
+    this.confusionIntensity = 0;
   }
 
   public updateFromSnapshot(snapshot: WorldSnapshot, tick: number): void {
@@ -67,15 +73,25 @@ export class ClientWorld {
     this.events = [...snapshot.events];
     this.dayNight = snapshot.dayNight;
 
-    const updatedEntityIds = new Set<number>();
+    const isFullSnapshot = snapshot.full !== false;
+    let worldChanged = this.events.length > 0;
+    if (isFullSnapshot) {
+      this.dirtyEntityIds.clear();
+    }
 
     for (const entitySnapshot of snapshot.entities) {
-      updatedEntityIds.add(entitySnapshot.id);
+      if (isFullSnapshot) {
+        this.dirtyEntityIds.add(entitySnapshot.id);
+      }
 
       const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
+        const previousStateVersion = existingEntity.stateVersion;
         existingEntity.updateFromSnapshot(entitySnapshot, tick);
-        this.renderManager?.syncEntity(existingEntity);
+        if (existingEntity.stateVersion !== previousStateVersion) {
+          this.renderManager?.syncEntity(existingEntity);
+          worldChanged = true;
+        }
       } else {
         const entity = new ClientEntity(
           entitySnapshot,
@@ -84,16 +100,36 @@ export class ClientWorld {
         );
         this.entities.set(entitySnapshot.id, entity);
         this.renderManager?.syncEntity(entity);
+        worldChanged = true;
       }
     }
 
     this.applyEvents(snapshot.events);
 
-    for (const [entityId] of this.entities) {
-      if (!updatedEntityIds.has(entityId)) {
-        this.renderManager?.removeEntity(entityId);
-        this.entities.delete(entityId);
+    if (isFullSnapshot) {
+      for (const [entityId] of this.entities) {
+        if (!this.dirtyEntityIds.has(entityId)) {
+          this.renderManager?.removeEntity(entityId);
+          this.entities.delete(entityId);
+          worldChanged = true;
+        }
       }
+    } else {
+      const removedEntityIds = snapshot.removedEntityIds;
+      if (removedEntityIds) {
+        for (const removedEntityId of removedEntityIds) {
+          if (!this.entities.has(removedEntityId)) {
+            continue;
+          }
+          this.renderManager?.removeEntity(removedEntityId);
+          this.entities.delete(removedEntityId);
+          worldChanged = true;
+        }
+      }
+    }
+
+    if (worldChanged) {
+      this.version += 1;
     }
   }
 
@@ -120,7 +156,7 @@ export class ClientWorld {
 
     const playerEntityId = this.pixiRenderer.playerEntityId;
     if (playerEntityId === undefined) {
-      this.pixiRenderer.setConfusionState(false, 0);
+      this.syncConfusionState(false, 0);
       return;
     }
 
@@ -130,17 +166,31 @@ export class ClientWorld {
     );
 
     if (!confusionEffect) {
-      this.pixiRenderer.setConfusionState(false, 0);
+      this.syncConfusionState(false, 0);
       return;
     }
 
-    // Full intensity for first ~2s (40 ticks), then 4s gradual fade like Ela
+    // Confusion fades out over 80 ticks.
     const fadeOutTicks = 80;
     const intensity = Math.min(
       1,
       confusionEffect.ticksRemaining / fadeOutTicks,
     );
-    this.pixiRenderer.setConfusionState(true, intensity);
+    this.syncConfusionState(true, intensity);
+  }
+
+  private syncConfusionState(active: boolean, intensity: number): void {
+    const normalizedIntensity = Math.max(0, Math.min(1, intensity));
+    if (
+      this.confusionEnabled === active &&
+      Math.abs(this.confusionIntensity - normalizedIntensity) < 0.001
+    ) {
+      return;
+    }
+
+    this.confusionEnabled = active;
+    this.confusionIntensity = normalizedIntensity;
+    this.pixiRenderer?.setConfusionState(active, normalizedIntensity);
   }
 
   private applyEvents(events: NetEvent[]): void {

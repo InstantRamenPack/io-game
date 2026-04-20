@@ -8,7 +8,7 @@ import type {
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 
-export const HOTBAR_SLOT_COUNT = 10;
+const HOTBAR_SLOT_COUNT = 10;
 
 type BuildableSlot = {
   kind: "buildable";
@@ -21,7 +21,7 @@ type WeaponSlot = {
   weapon: Weapon;
 };
 
-export type InventorySlot = BuildableSlot | WeaponSlot | null;
+type InventorySlot = BuildableSlot | WeaponSlot | null;
 
 export class Inventory {
   public resources = new Map<ResourceId, number>();
@@ -329,9 +329,13 @@ export class Inventory {
   }
 
   public iterateWeaponSlots(): Weapon[] {
-    return this.hotbarSlots.flatMap((slot) =>
-      slot?.kind === "weapon" ? [slot.weapon] : [],
-    );
+    const weapons: Weapon[] = [];
+    for (const slot of this.hotbarSlots) {
+      if (slot?.kind === "weapon") {
+        weapons.push(slot.weapon);
+      }
+    }
+    return weapons;
   }
 
   public toSnapshot(owner?: Entity): InventorySnapshot {

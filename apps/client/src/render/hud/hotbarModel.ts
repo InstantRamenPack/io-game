@@ -30,7 +30,7 @@ export function toHotbarSlotItems(
   return slots.map((slot) => toSlotItem(slot));
 }
 
-export function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
+function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
   if (slot.kind === "empty") {
     return {
       typeId: null,

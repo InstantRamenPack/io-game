@@ -140,16 +140,8 @@ let shuttingDown = false;
 async function shutdown(exitCode: number): Promise<never> {
   if (!shuttingDown) {
     shuttingDown = true;
-    try {
-      serverProcess.kill();
-    } catch {
-      // process already exited
-    }
-    try {
-      clientProcess.kill();
-    } catch {
-      // process already exited
-    }
+    serverProcess.kill();
+    clientProcess.kill();
   }
 
   await Promise.allSettled([serverProcess.exited, clientProcess.exited]);

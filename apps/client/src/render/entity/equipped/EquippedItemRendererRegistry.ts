@@ -4,6 +4,7 @@ import { RangedEquippedRenderer } from "@client/render/entity/equipped/RangedEqu
 import { StabMeleeEquippedRenderer } from "@client/render/entity/equipped/StabMeleeEquippedRenderer.ts";
 import { SweepMeleeEquippedRenderer } from "@client/render/entity/equipped/SweepMeleeEquippedRenderer.ts";
 import type { AttackStyle } from "@shared/content/schema.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const rangedEquippedRenderer = new RangedEquippedRenderer();
@@ -18,7 +19,7 @@ const rendererByAttackStyle: Record<AttackStyle, EquippedItemRenderer> = {
 };
 
 const rendererByTypeId = new Map<ResourceId, EquippedItemRenderer>([
-  ["item:drone_shooter" as ResourceId, droneShooterEquippedRenderer],
+  [makeResourceId("item", "drone_shooter"), droneShooterEquippedRenderer],
 ]);
 
 export function resolveEquippedItemRenderer(options: {
@@ -29,5 +30,5 @@ export function resolveEquippedItemRenderer(options: {
   if (typeRenderer) {
     return typeRenderer;
   }
-  return rendererByAttackStyle[options.attackStyle] ?? rangedEquippedRenderer;
+  return rendererByAttackStyle[options.attackStyle];
 }

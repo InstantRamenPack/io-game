@@ -1,27 +1,27 @@
 import { requirePlayerStarterLoadout } from "@shared/content/catalog.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { Weapon } from "@server/items/Weapon.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { Player } from "@server/entities/Player.ts";
+import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 
-const PLAYER_BASE_TYPE_ID = "player:base" as ResourceId;
+const PLAYER_BASE_TYPE_ID = makeResourceId("player", "base");
 
 export function applyPlayerStarterLoadout(player: Player): void {
   const starterLoadout = requirePlayerStarterLoadout(PLAYER_BASE_TYPE_ID);
 
   for (const weaponTypeId of starterLoadout.weapons) {
     const weaponEntry = itemTypeRegistry.require(weaponTypeId);
-    if (!(weaponEntry.ctor.prototype instanceof Weapon)) {
+    if (!isWeaponCtor(weaponEntry.ctor)) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} is not a weapon item type.`,
       );
     }
-    player.inventory.addWeapon(new weaponEntry.ctor() as Weapon);
+    player.inventory.addWeapon(new weaponEntry.ctor());
   }
 
   for (const stackable of starterLoadout.stackables) {
     const itemEntry = itemTypeRegistry.require(stackable.typeId);
-    if (itemEntry.ctor.prototype instanceof Weapon) {
+    if (isWeaponCtor(itemEntry.ctor)) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} cannot be a weapon item type.`,
       );
@@ -42,7 +42,7 @@ export function validatePlayerStarterLoadout(): void {
         `Starter loadout references unknown weapon item ${weaponTypeId}.`,
       );
     }
-    if (!(entry.ctor.prototype instanceof Weapon)) {
+    if (!isWeaponCtor(entry.ctor)) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} is not registered as a weapon class.`,
       );
@@ -56,7 +56,7 @@ export function validatePlayerStarterLoadout(): void {
         `Starter loadout references unknown stackable item ${stackable.typeId}.`,
       );
     }
-    if (entry.ctor.prototype instanceof Weapon) {
+    if (isWeaponCtor(entry.ctor)) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} is registered as a weapon.`,
       );

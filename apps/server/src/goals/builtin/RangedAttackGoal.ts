@@ -1,6 +1,6 @@
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
@@ -9,7 +9,7 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
  * Strafing ranged attack goal that maintains distance while firing one weapon slot.
  */
 export class RangedAttackGoal<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
+  TSelf extends Entity & GoalActor = Entity & GoalActor,
 > extends Goal<TSelf> {
   private readonly weaponSlot: number;
   private readonly preferredDistance: number;

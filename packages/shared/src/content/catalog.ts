@@ -13,7 +13,11 @@ import type {
   ProjectileContent,
   WeaponContent,
 } from "@shared/content/schema.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getResourcePath,
+  isResourceId,
+  type ResourceId,
+} from "@shared/ids/ResourceId.ts";
 
 const itemContents = new Map<ResourceId, ItemContent>(itemContentEntries);
 
@@ -27,28 +31,48 @@ const entityContents = new Map<ResourceId, EntityContent>([
 
 const effectContents = new Map<ResourceId, EffectContent>(effectContentEntries);
 
-export const CRAFTABLE_ITEM_TYPE_IDS = Object.freeze(
-  [...itemContents.entries()]
-    .filter(([, itemContent]) => itemContent.recipe !== undefined)
-    .map(([typeId]) => typeId),
-);
+function requireMapValue<T>(
+  contents: ReadonlyMap<ResourceId, T>,
+  typeId: ResourceId,
+  errorMessage: string,
+): T {
+  const value = contents.get(typeId);
+  if (value === undefined) {
+    throw new Error(errorMessage);
+  }
+  return value;
+}
 
-export const BUILDABLE_ITEM_TYPE_IDS = Object.freeze(
-  [...itemContents.entries()]
-    .filter(([, itemContent]) => itemContent.buildsEntityTypeId !== undefined)
-    .map(([typeId]) => typeId),
-);
+export function sortResourceEntriesByTypeId<T>(
+  entries: Iterable<readonly [ResourceId, T]>,
+): Array<readonly [ResourceId, T]> {
+  return [...entries].sort(([left], [right]) => left.localeCompare(right));
+}
+
+function getItemTypeIds(
+  predicate: (itemContent: ItemContent) => boolean,
+): readonly ResourceId[] {
+  return Object.freeze(
+    [...itemContents.entries()]
+      .filter(([, itemContent]) => predicate(itemContent))
+      .map(([typeId]) => typeId),
+  );
+}
 
 export function getItemContent(typeId: ResourceId): ItemContent | undefined {
   return itemContents.get(typeId);
 }
 
+export const CRAFTABLE_ITEM_TYPE_IDS = getItemTypeIds(
+  (itemContent) => itemContent.recipe !== undefined,
+);
+
 export function requireItemContent(typeId: ResourceId): ItemContent {
-  const itemContent = getItemContent(typeId);
-  if (!itemContent) {
-    throw new Error(`Unknown item content: ${typeId}`);
-  }
-  return itemContent;
+  return requireMapValue(
+    itemContents,
+    typeId,
+    `Unknown item content: ${typeId}`,
+  );
 }
 
 export function getWeaponContent(
@@ -72,11 +96,11 @@ export function getEntityContent(
 }
 
 export function requireEntityContent(typeId: ResourceId): EntityContent {
-  const entityContent = getEntityContent(typeId);
-  if (!entityContent) {
-    throw new Error(`Unknown entity content: ${typeId}`);
-  }
-  return entityContent;
+  return requireMapValue(
+    entityContents,
+    typeId,
+    `Unknown entity content: ${typeId}`,
+  );
 }
 
 export function getProjectileContent(
@@ -95,7 +119,7 @@ export function requireProjectileContent(
   return projectileContent;
 }
 
-export function getPlayerStarterLoadout(
+function getPlayerStarterLoadout(
   typeId: ResourceId,
 ): PlayerStarterLoadout | undefined {
   return getEntityContent(typeId)?.player?.starterLoadout;
@@ -111,68 +135,55 @@ export function requirePlayerStarterLoadout(
   return starterLoadout;
 }
 
-export function getEffectContent(
-  typeId: ResourceId,
-): EffectContent | undefined {
+function getEffectContent(typeId: ResourceId): EffectContent | undefined {
   return effectContents.get(typeId);
 }
 
 export function requireEffectContent(typeId: ResourceId): EffectContent {
-  const effectContent = getEffectContent(typeId);
-  if (!effectContent) {
-    throw new Error(`Unknown effect content: ${typeId}`);
-  }
-  return effectContent;
-}
-
-export function getCraftableItemTypeIds(): readonly ResourceId[] {
-  return CRAFTABLE_ITEM_TYPE_IDS;
-}
-
-export function getBuildableItemTypeIds(): readonly ResourceId[] {
-  return BUILDABLE_ITEM_TYPE_IDS;
-}
-
-export function getAllItemContentEntries(): Array<[ResourceId, ItemContent]> {
-  return [...itemContents.entries()].sort(([left], [right]) =>
-    left.localeCompare(right),
+  return requireMapValue(
+    effectContents,
+    typeId,
+    `Unknown effect content: ${typeId}`,
   );
+}
+
+export function getAllItemContentEntries(): Array<
+  readonly [ResourceId, ItemContent]
+> {
+  return sortResourceEntriesByTypeId(itemContents.entries());
 }
 
 export function getAllEntityContentEntries(): Array<
-  [ResourceId, EntityContent]
+  readonly [ResourceId, EntityContent]
 > {
-  return [...entityContents.entries()].sort(([left], [right]) =>
-    left.localeCompare(right),
-  );
+  return sortResourceEntriesByTypeId(entityContents.entries());
 }
 
 export function getAllEffectContentEntries(): Array<
-  [ResourceId, EffectContent]
+  readonly [ResourceId, EffectContent]
 > {
-  return [...effectContents.entries()].sort(([left], [right]) =>
-    left.localeCompare(right),
-  );
+  return sortResourceEntriesByTypeId(effectContents.entries());
 }
 
 export function getResourceDisplayLabel(typeId: string): string {
-  const resourceId = typeId as ResourceId;
-  const itemContent = getItemContent(resourceId);
-  if (itemContent) {
-    return itemContent.label;
+  if (isResourceId(typeId)) {
+    const itemContent = getItemContent(typeId);
+    if (itemContent) {
+      return itemContent.label;
+    }
+
+    const entityContent = getEntityContent(typeId);
+    if (entityContent) {
+      return entityContent.label;
+    }
+
+    const effectContent = getEffectContent(typeId);
+    if (effectContent) {
+      return effectContent.label;
+    }
   }
 
-  const entityContent = getEntityContent(resourceId);
-  if (entityContent) {
-    return entityContent.label;
-  }
-
-  const effectContent = getEffectContent(resourceId);
-  if (effectContent) {
-    return effectContent.label;
-  }
-
-  const [, path = typeId] = typeId.split(":");
+  const path = getResourcePath(typeId) || typeId;
   const baseLabel = path.split("/").pop() ?? path;
   return baseLabel
     .split(/[_-]+/g)

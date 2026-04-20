@@ -1,14 +1,8 @@
 import * as PIXI from "pixi.js";
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import type { Rect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-
-type Rect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 class InventorySlotView {
   public readonly container = new PIXI.Container();

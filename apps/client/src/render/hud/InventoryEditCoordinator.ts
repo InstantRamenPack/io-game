@@ -1,4 +1,4 @@
-import type { PointerInput } from "@client/client/GameClient.ts";
+import type { PointerInput } from "@client/client/clientTypes.ts";
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
 import { sanitizeHotbarEditState } from "@client/render/hud/hotbarEditModel.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";

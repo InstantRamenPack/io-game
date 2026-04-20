@@ -35,7 +35,6 @@ export abstract class Weapon extends Item {
 
   /**
    * Returns whether this weapon can currently hit the provided target.
-   * Used by AI goals to select attacks by weapon slot.
    */
   public abstract canHitTarget(
     world: World,

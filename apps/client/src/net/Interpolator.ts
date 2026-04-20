@@ -514,7 +514,7 @@ export class Interpolator {
   }
 }
 
-export type InterpolationConfig = {
+type InterpolationConfig = {
   snapDistance: number;
   expectedSnapshotMs: number;
 };

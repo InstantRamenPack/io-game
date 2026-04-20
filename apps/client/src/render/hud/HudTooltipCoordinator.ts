@@ -4,12 +4,11 @@ import {
   type HudTooltipContent,
 } from "@client/render/hud/hudPresentationModels.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
+import type { ScreenRect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
-type ScreenRect = { x: number; y: number; width: number; height: number };
-
-export type TooltipState = {
+type TooltipState = {
   content: HudTooltipContent;
   rect: ScreenRect;
 };

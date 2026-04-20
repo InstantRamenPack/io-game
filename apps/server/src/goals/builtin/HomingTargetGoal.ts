@@ -11,11 +11,16 @@ export class HomingTargetGoal<
   TSelf extends Projectile = Projectile,
 > extends Goal<TSelf> {
   private readonly seekRadius: number;
+  private readonly seekRadiusSquared: number;
   private readonly turnBlend: number;
+  private readonly queryBuffer: Entity[] = [];
+  private cachedResolutionTick = -1;
+  private cachedTarget: Entity | null = null;
 
   constructor(priority: number, seekRadius: number, turnBlend: number) {
     super(priority, ["target", "move"]);
     this.seekRadius = seekRadius;
+    this.seekRadiusSquared = seekRadius * seekRadius;
     this.turnBlend = turnBlend;
   }
 
@@ -59,10 +64,16 @@ export class HomingTargetGoal<
   }
 
   private resolveTargetCandidate(ctx: GoalContext<TSelf>): Entity | null {
-    return (
+    if (this.cachedResolutionTick === ctx.world.tick) {
+      return this.cachedTarget;
+    }
+
+    const resolvedTarget =
       this.resolveTrackedTarget(ctx, ctx.self.targetId) ??
-      this.findNearestTargetInRange(ctx)
-    );
+      this.findNearestTargetInRange(ctx);
+    this.cachedResolutionTick = ctx.world.tick;
+    this.cachedTarget = resolvedTarget;
+    return resolvedTarget;
   }
 
   private resolveTrackedTarget(
@@ -94,6 +105,7 @@ export class HomingTargetGoal<
       ctx.self.y - this.seekRadius,
       ctx.self.x + this.seekRadius,
       ctx.self.y + this.seekRadius,
+      this.queryBuffer,
     )) {
       if (
         !candidate.alive ||
@@ -109,7 +121,7 @@ export class HomingTargetGoal<
         candidate.y,
       );
       if (
-        distanceSquared > this.seekRadius * this.seekRadius ||
+        distanceSquared > this.seekRadiusSquared ||
         distanceSquared >= bestDistanceSquared
       ) {
         continue;
@@ -195,7 +207,7 @@ export class HomingTargetGoal<
   private isWithinSeekRadius(ctx: GoalContext<TSelf>, target: Entity): boolean {
     return (
       this.distanceSquared(ctx.self.x, ctx.self.y, target.x, target.y) <=
-      this.seekRadius * this.seekRadius
+      this.seekRadiusSquared
     );
   }
 

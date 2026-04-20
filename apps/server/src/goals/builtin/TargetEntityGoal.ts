@@ -1,5 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 
@@ -9,10 +9,14 @@ type TargetEntityCtor = abstract new (...args: never[]) => Entity;
  * Maintains the nearest valid target instance for the acting goal-controlled entity.
  */
 export class TargetEntityGoal<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
+  TSelf extends GoalActor = GoalActor,
 > extends Goal<TSelf> {
   private readonly targetCtor: TargetEntityCtor;
   private readonly aggroRange: number;
+  private readonly aggroRangeSquared: number;
+  private readonly queryBuffer: Entity[] = [];
+  private cachedResolutionTick = -1;
+  private cachedTarget: Entity | null = null;
 
   /**
    * Creates a target-acquisition goal for live entities of the requested class.
@@ -28,6 +32,9 @@ export class TargetEntityGoal<
     super(priority, ["target"]);
     this.targetCtor = targetCtor;
     this.aggroRange = aggroRange;
+    this.aggroRangeSquared = Number.isFinite(aggroRange)
+      ? aggroRange * aggroRange
+      : Number.POSITIVE_INFINITY;
   }
 
   public override canStart(_ctx: GoalContext<TSelf>): boolean {
@@ -69,48 +76,68 @@ export class TargetEntityGoal<
       target.x,
       target.y,
     );
-    const aggroRangeSquared = this.aggroRange * this.aggroRange;
-    return distanceSquared <= aggroRangeSquared ? target : null;
+    return distanceSquared <= this.aggroRangeSquared ? target : null;
   }
 
   private resolveTargetCandidate(ctx: GoalContext<TSelf>): Entity | null {
-    return (
+    if (this.cachedResolutionTick === ctx.world.tick) {
+      return this.cachedTarget;
+    }
+
+    const resolvedTarget =
       this.resolveValidTarget(ctx, ctx.self.targetId) ??
-      this.findNearestTargetInRange(ctx)
-    );
+      this.findNearestTargetInRange(ctx);
+    this.cachedResolutionTick = ctx.world.tick;
+    this.cachedTarget = resolvedTarget;
+    return resolvedTarget;
   }
 
   private findNearestTargetInRange(ctx: GoalContext<TSelf>): Entity | null {
-    const aggroRangeSquared = this.aggroRange * this.aggroRange;
     let bestTarget: Entity | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
-    const candidateTargets = Number.isFinite(this.aggroRange)
-      ? ctx.world.spatial.queryBox(
-          ctx.self.x - this.aggroRange,
-          ctx.self.y - this.aggroRange,
-          ctx.self.x + this.aggroRange,
-          ctx.self.y + this.aggroRange,
-        )
-      : ctx.world.entities.queryInstances(this.targetCtor);
 
-    for (const target of candidateTargets) {
-      if (!(target instanceof this.targetCtor)) {
-        continue;
+    if (Number.isFinite(this.aggroRange)) {
+      for (const target of ctx.world.spatial.queryBox(
+        ctx.self.x - this.aggroRange,
+        ctx.self.y - this.aggroRange,
+        ctx.self.x + this.aggroRange,
+        ctx.self.y + this.aggroRange,
+        this.queryBuffer,
+      )) {
+        if (!(target instanceof this.targetCtor) || !target.alive) {
+          continue;
+        }
+
+        const distanceSquared = this.distanceSquared(
+          ctx.self.x,
+          ctx.self.y,
+          target.x,
+          target.y,
+        );
+        if (
+          distanceSquared > this.aggroRangeSquared ||
+          distanceSquared >= bestDistanceSquared
+        ) {
+          continue;
+        }
+
+        bestTarget = target;
+        bestDistanceSquared = distanceSquared;
       }
+      return bestTarget;
+    }
+
+    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
       if (!target.alive) {
         continue;
       }
-
       const distanceSquared = this.distanceSquared(
         ctx.self.x,
         ctx.self.y,
         target.x,
         target.y,
       );
-      if (
-        distanceSquared > aggroRangeSquared ||
-        distanceSquared >= bestDistanceSquared
-      ) {
+      if (distanceSquared >= bestDistanceSquared) {
         continue;
       }
 

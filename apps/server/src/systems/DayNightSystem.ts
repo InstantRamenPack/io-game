@@ -1,8 +1,6 @@
-import type { DayNightSnapshot } from "@shared/net/snapshots.ts";
+import type { DayNightPhase, DayNightSnapshot } from "@shared/net/snapshots.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-
-export type DayNightPhase = "day" | "night";
 
 type DayNightSystemConfig = {
   tickRate: number;

@@ -4,9 +4,7 @@ import type {
   EquippedStaticSyncInput,
 } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
 import { BaseEquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
-import {
-  toRadians,
-} from "@client/render/entity/equipped/equippedMath.ts";
+import { toRadians } from "@client/render/entity/equipped/equippedMath.ts";
 
 export class StabMeleeEquippedRenderer
   extends BaseEquippedItemRenderer

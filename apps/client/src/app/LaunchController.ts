@@ -13,7 +13,7 @@ import type { GameConfig } from "@shared/config/GameConfig.ts";
  * application is intentionally returned so `main.ts` can hand it to the auth
  * initializer without duplicating parsing logic.
  */
-export type LaunchController = {
+type LaunchController = {
   /**
    * Applies the runtime configuration loaded from the server to the client
    * runtime. The method updates protocol/tick settings and world bounds while
@@ -123,15 +123,14 @@ export function createLaunchController({
           playerName,
         });
       })
-      .catch(() => {
+      .catch((error) => {
         if (elements.accountGateText) {
           elements.accountGateText.textContent =
-            "Renderer unavailable. Continuing without canvas output.";
+            "Renderer unavailable. Deploy was not started.";
         }
-        gameClient.start(wsUrl, {
-          googleIdToken: token,
-          playerName,
-        });
+        button.textContent = "Deploy";
+        button.disabled = false;
+        console.error("Failed to initialize renderer:", error);
       });
   });
 

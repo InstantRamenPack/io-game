@@ -1,4 +1,4 @@
-import type { PerformanceRateState } from "@client/client/GameClient.ts";
+import type { PerformanceRateState } from "@client/client/clientTypes.ts";
 
 const RATE_SAMPLE_WINDOW_MS = 1000;
 const MIN_RATE_SAMPLE_WINDOW_MS = 250;

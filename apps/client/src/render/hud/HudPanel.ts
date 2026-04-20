@@ -1,12 +1,11 @@
 import * as PIXI from "pixi.js";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 
 type PanelLayout = {
   minWidth?: number;
   maxWidth?: number;
 };
-
-type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
 
 export class HudPanel {
   public readonly container: PIXI.Container;

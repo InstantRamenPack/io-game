@@ -1,6 +1,9 @@
 import * as PIXI from "pixi.js";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
+import type {
+  GameClientHudApi,
+  PointerInput,
+} from "@client/client/clientTypes.ts";
 import {
   CraftingModal,
   type CraftingModalEntry,
@@ -23,6 +26,7 @@ import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
 } from "@client/render/hud/hotbarModel.ts";
+import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
@@ -37,14 +41,12 @@ const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 export type HudState = HudInteractionState;
 
 type PixiHudOptions = {
-  gameClient: GameClient;
+  gameClient: GameClientHudApi;
   selectors: GameSelectors;
 };
 
-type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
-
 export class PixiHud {
-  private readonly gameClient: GameClient;
+  private readonly gameClient: GameClientHudApi;
   private readonly selectors: GameSelectors;
   private readonly state: HudState;
   private readonly gameplayHudCoordinator = new GameplayHudCoordinator();

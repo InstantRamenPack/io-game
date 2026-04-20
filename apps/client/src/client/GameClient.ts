@@ -1,11 +1,16 @@
 import { ClientFrameLoop } from "@client/client/ClientFrameLoop.ts";
 import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
+import type {
+  PerformanceRateState,
+  PointerInput,
+} from "@client/client/clientTypes.ts";
 import {
   HeldAttackController,
   type LocalWeaponState,
 } from "@client/client/HeldAttackController.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
+import type { ClientWorld } from "@client/net/ClientWorld.ts";
 import {
   Interpolator,
   type InterpolationDebugFrame,
@@ -20,30 +25,31 @@ import {
   getHitboxBounds,
   offsetHitboxBounds,
   resolveHitboxRects,
+  type HitboxBounds,
+  type HitboxRect,
 } from "@shared/geometry/hitbox.ts";
 import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
-export type PerformanceRateState = {
-  frameRate: number | null;
-  tickRate: number | null;
-};
-
-export type PointerInput = {
-  kind: "down" | "move" | "up";
-  screenX: number;
-  screenY: number;
-  worldX: number;
-  worldY: number;
-  shiftKey: boolean;
-};
-
 type AimTarget = {
   x: number;
   y: number;
 };
+
+type CachedPlacementBuildProfile = {
+  itemTypeId: ResourceId;
+  buildsEntityTypeId: ResourceId;
+  hitboxProfiles: Record<string, readonly HitboxRect[]>;
+  activeHitboxProfile?: string;
+  previewProfile: readonly HitboxRect[];
+  previewLocalBounds: HitboxBounds;
+};
+
+const PLACEMENT_SPATIAL_CELL_SIZE = 160;
+const PLACEMENT_KEY_OFFSET = 1 << 15;
+const PLACEMENT_KEY_STRIDE = 1 << 16;
 
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
@@ -74,6 +80,14 @@ export class GameClient {
   private pointerAimTarget?: AimTarget;
   private pointerClientX: number | null = null;
   private pointerClientY: number | null = null;
+  private placementIndexDirty = true;
+  private placementIndexedWorld?: ClientWorld;
+  private readonly placementSpatial = new Map<number, ClientEntity[]>();
+  private readonly placementWorkingCandidates: ClientEntity[] = [];
+  private readonly placementCandidateMarkers = new Map<number, number>();
+  private placementCandidateMarker = 0;
+  private placementProfileCache: CachedPlacementBuildProfile | undefined;
+  private pointerViewTarget: HTMLCanvasElement | null = null;
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -159,6 +173,10 @@ export class GameClient {
     this.inputManager.stopHoldFire();
   };
 
+  private readonly handlePointerViewRectInvalidation = (): void => {
+    this.renderer.invalidateViewRectCache();
+  };
+
   constructor(
     gameConfig: GameConfig,
     options: {
@@ -190,8 +208,6 @@ export class GameClient {
         pressed,
       );
     });
-
-    window.gameClient = this;
   }
 
   public bindInput(targetElement: HTMLElement | Window): void {
@@ -220,13 +236,21 @@ export class GameClient {
 
   public async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
+    this.renderer.invalidateViewRectCache();
 
     if (!this.rendererPointerBound) {
       const view = this.renderer.getView();
+      this.pointerViewTarget = view;
       view?.addEventListener("pointerdown", this.handlePointerDown);
       view?.addEventListener("pointermove", this.handlePointerMove);
       window.addEventListener("pointerup", this.handlePointerUp);
       window.addEventListener("pointercancel", this.handlePointerUp);
+      window.addEventListener("resize", this.handlePointerViewRectInvalidation);
+      window.addEventListener(
+        "scroll",
+        this.handlePointerViewRectInvalidation,
+        true,
+      );
       this.rendererPointerBound = true;
     }
   }
@@ -234,6 +258,7 @@ export class GameClient {
   public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
+    this.placementIndexDirty = true;
   }
 
   public setTickRate(tickRate: number): void {
@@ -326,8 +351,11 @@ export class GameClient {
     }
 
     return [...entities]
-      .filter((entity) => entity.kind === "player" && entity.name)
-      .map((entity) => entity.name as string)
+      .filter(
+        (entity): entity is ClientEntity & { name: string } =>
+          entity.kind === "player" && typeof entity.name === "string",
+      )
+      .map((entity) => entity.name)
       .sort((left, right) => left.localeCompare(right));
   }
 
@@ -377,6 +405,8 @@ export class GameClient {
       return;
     }
 
+    this.placementIndexDirty = true;
+
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
@@ -394,6 +424,29 @@ export class GameClient {
   }
 
   public stop(): void {
+    if (this.rendererPointerBound) {
+      this.pointerViewTarget?.removeEventListener(
+        "pointerdown",
+        this.handlePointerDown,
+      );
+      this.pointerViewTarget?.removeEventListener(
+        "pointermove",
+        this.handlePointerMove,
+      );
+      window.removeEventListener("pointerup", this.handlePointerUp);
+      window.removeEventListener("pointercancel", this.handlePointerUp);
+      window.removeEventListener(
+        "resize",
+        this.handlePointerViewRectInvalidation,
+      );
+      window.removeEventListener(
+        "scroll",
+        this.handlePointerViewRectInvalidation,
+        true,
+      );
+      this.rendererPointerBound = false;
+      this.pointerViewTarget = null;
+    }
     this.resetSessionState(true);
   }
 
@@ -454,6 +507,9 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
+    this.pointerClientX = null;
+    this.pointerClientY = null;
+    this.renderer.invalidateViewRectCache();
     this.heldAttackController.reset();
     this.stopFrameLoop();
     this.rateMonitor.reset();
@@ -464,6 +520,13 @@ export class GameClient {
     this.playerEntityId = undefined;
     this.renderer.setPlayerEntityId(undefined);
     this.renderer.setPlacementPreview(null);
+    this.placementSpatial.clear();
+    this.placementWorkingCandidates.length = 0;
+    this.placementCandidateMarkers.clear();
+    this.placementCandidateMarker = 0;
+    this.placementIndexDirty = true;
+    this.placementIndexedWorld = undefined;
+    this.placementProfileCache = undefined;
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -555,18 +618,10 @@ export class GameClient {
     clientY: number,
   ): { x: number; y: number } {
     const cursorWorld = this.renderer.screenToWorld(clientX, clientY);
-    const view = this.renderer.getView();
-    if (!view) {
+    const centerWorld = this.renderer.getViewportCenterWorld();
+    if (!centerWorld) {
       return cursorWorld;
     }
-
-    const rect = view.getBoundingClientRect();
-    const centerClientX = rect.left + rect.width / 2;
-    const centerClientY = rect.top + rect.height / 2;
-    const centerWorld = this.renderer.screenToWorld(
-      centerClientX,
-      centerClientY,
-    );
 
     const player = this.getLocalPlayerEntity();
     if (!player) {
@@ -635,6 +690,7 @@ export class GameClient {
 
     const selectedSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
     if (selectedSlot?.kind !== "buildable") {
+      this.placementProfileCache = undefined;
       this.renderer.setPlacementPreview(null);
       return;
     }
@@ -645,25 +701,8 @@ export class GameClient {
       return;
     }
 
-    const itemContent = getItemContent(selectedSlot.typeId);
-    const buildsEntityTypeId = itemContent?.buildsEntityTypeId;
-    if (!buildsEntityTypeId) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const buildEntityContent = getEntityContent(buildsEntityTypeId);
-    const hitboxProfiles = buildEntityContent?.hitboxProfiles;
-    if (!hitboxProfiles) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const activeProfileName = buildEntityContent?.activeHitboxProfile;
-    const previewProfile =
-      (activeProfileName && hitboxProfiles[activeProfileName]) ??
-      Object.values(hitboxProfiles)[0];
-    if (!previewProfile) {
+    const buildProfile = this.resolvePlacementBuildProfile(selectedSlot.typeId);
+    if (!buildProfile) {
       this.renderer.setPlacementPreview(null);
       return;
     }
@@ -671,10 +710,10 @@ export class GameClient {
     const previewRects = resolveHitboxRects(
       pointer.x,
       pointer.y,
-      previewProfile,
+      buildProfile.previewProfile,
     );
     const previewBounds = offsetHitboxBounds(
-      getHitboxBounds(previewProfile),
+      buildProfile.previewLocalBounds,
       pointer.x,
       pointer.y,
     );
@@ -698,26 +737,19 @@ export class GameClient {
     }
 
     if (valid) {
-      for (const entity of world.entities.values()) {
-        if (!entity.alive || entity.id === player.id) {
-          continue;
-        }
-        if (entity.kind === "projectile" || entity.kind === "pickup") {
-          continue;
-        }
-        const entityContent = getEntityContent(entity.typeId);
-        if (entityContent?.collisionMode === "none") {
-          continue;
-        }
-
-        const entityRects = resolveHitboxRects(
-          entity.x,
-          entity.y,
-          entity.hitboxes,
-        );
-        if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
-          valid = false;
-          break;
+      this.ensurePlacementSpatialIndex(world);
+      const candidates = this.queryPlacementCandidates(previewBounds);
+      for (const entity of candidates) {
+        if (this.isPlacementBlockingEntity(entity, player.id)) {
+          const entityRects = resolveHitboxRects(
+            entity.x,
+            entity.y,
+            entity.hitboxes,
+          );
+          if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
+            valid = false;
+            break;
+          }
         }
       }
     }
@@ -727,15 +759,163 @@ export class GameClient {
       worldX: pointer.x,
       worldY: pointer.y,
       valid,
-      typeId: buildsEntityTypeId,
+      typeId: buildProfile.buildsEntityTypeId,
+      hitboxProfiles: buildProfile.hitboxProfiles,
+      activeHitboxProfile: buildProfile.activeHitboxProfile,
+    });
+  }
+
+  private resolvePlacementBuildProfile(
+    selectedItemTypeId: ResourceId,
+  ): CachedPlacementBuildProfile | undefined {
+    if (this.placementProfileCache?.itemTypeId === selectedItemTypeId) {
+      return this.placementProfileCache;
+    }
+
+    const itemContent = getItemContent(selectedItemTypeId);
+    const buildsEntityTypeId = itemContent?.buildsEntityTypeId;
+    if (!buildsEntityTypeId) {
+      this.placementProfileCache = undefined;
+      return undefined;
+    }
+
+    const buildEntityContent = getEntityContent(buildsEntityTypeId);
+    const hitboxProfiles = buildEntityContent?.hitboxProfiles;
+    if (!hitboxProfiles) {
+      this.placementProfileCache = undefined;
+      return undefined;
+    }
+
+    const activeProfileName = buildEntityContent.activeHitboxProfile;
+    const previewProfile =
+      (activeProfileName && hitboxProfiles[activeProfileName]) ??
+      Object.values(hitboxProfiles)[0];
+    if (!previewProfile) {
+      this.placementProfileCache = undefined;
+      return undefined;
+    }
+
+    this.placementProfileCache = {
+      itemTypeId: selectedItemTypeId,
+      buildsEntityTypeId,
       hitboxProfiles,
       activeHitboxProfile: activeProfileName,
-    });
+      previewProfile,
+      previewLocalBounds: getHitboxBounds(previewProfile),
+    };
+    return this.placementProfileCache;
+  }
+
+  private ensurePlacementSpatialIndex(world: ClientWorld): void {
+    if (!this.placementIndexDirty && this.placementIndexedWorld === world) {
+      return;
+    }
+
+    this.placementSpatial.clear();
+    for (const entity of world.entities.values()) {
+      if (!entity.alive) {
+        continue;
+      }
+      if (entity.kind === "projectile" || entity.kind === "pickup") {
+        continue;
+      }
+      const entityContent = getEntityContent(entity.typeId);
+      if (entityContent?.collisionMode === "none") {
+        continue;
+      }
+
+      const bounds = offsetHitboxBounds(
+        entity.hitboxBounds,
+        entity.x,
+        entity.y,
+      );
+      const minCellX = Math.floor(bounds.minX / PLACEMENT_SPATIAL_CELL_SIZE);
+      const maxCellX = Math.floor(bounds.maxX / PLACEMENT_SPATIAL_CELL_SIZE);
+      const minCellY = Math.floor(bounds.minY / PLACEMENT_SPATIAL_CELL_SIZE);
+      const maxCellY = Math.floor(bounds.maxY / PLACEMENT_SPATIAL_CELL_SIZE);
+
+      for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+        for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+          const key = getPlacementCellKey(cellX, cellY);
+          let bucket = this.placementSpatial.get(key);
+          if (!bucket) {
+            bucket = [];
+            this.placementSpatial.set(key, bucket);
+          }
+          bucket.push(entity);
+        }
+      }
+    }
+
+    this.placementIndexDirty = false;
+    this.placementIndexedWorld = world;
+  }
+
+  private queryPlacementCandidates(
+    previewBounds: HitboxBounds,
+  ): readonly ClientEntity[] {
+    this.bumpPlacementCandidateMarker();
+    this.placementWorkingCandidates.length = 0;
+
+    const minCellX = Math.floor(
+      previewBounds.minX / PLACEMENT_SPATIAL_CELL_SIZE,
+    );
+    const maxCellX = Math.floor(
+      previewBounds.maxX / PLACEMENT_SPATIAL_CELL_SIZE,
+    );
+    const minCellY = Math.floor(
+      previewBounds.minY / PLACEMENT_SPATIAL_CELL_SIZE,
+    );
+    const maxCellY = Math.floor(
+      previewBounds.maxY / PLACEMENT_SPATIAL_CELL_SIZE,
+    );
+
+    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+      for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+        const bucket = this.placementSpatial.get(
+          getPlacementCellKey(cellX, cellY),
+        );
+        if (!bucket) {
+          continue;
+        }
+        for (const candidate of bucket) {
+          if (
+            this.placementCandidateMarkers.get(candidate.id) ===
+            this.placementCandidateMarker
+          ) {
+            continue;
+          }
+          this.placementCandidateMarkers.set(
+            candidate.id,
+            this.placementCandidateMarker,
+          );
+          this.placementWorkingCandidates.push(candidate);
+        }
+      }
+    }
+
+    return this.placementWorkingCandidates;
+  }
+
+  private bumpPlacementCandidateMarker(): void {
+    this.placementCandidateMarker += 1;
+    if (this.placementCandidateMarker >= Number.MAX_SAFE_INTEGER) {
+      this.placementCandidateMarker = 1;
+      this.placementCandidateMarkers.clear();
+    }
+  }
+
+  private isPlacementBlockingEntity(
+    entity: ClientEntity,
+    localPlayerId: number,
+  ): boolean {
+    return entity.id !== localPlayerId;
   }
 }
 
-declare global {
-  interface Window {
-    gameClient: GameClient;
-  }
+function getPlacementCellKey(cellX: number, cellY: number): number {
+  return (
+    (cellX + PLACEMENT_KEY_OFFSET) * PLACEMENT_KEY_STRIDE +
+    (cellY + PLACEMENT_KEY_OFFSET)
+  );
 }

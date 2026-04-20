@@ -17,8 +17,6 @@ export class Item {
     this.typeId = (this.constructor as typeof Item).typeId;
   }
 
-  /** Per-tick extension point for subclass-specific behavior. */
-  public tick(_world: World): void {
-    // placeholder; per-entity logic hooks can be added later
-  }
+  /** Override in subclasses that need per-tick behavior. */
+  public tick(_world: World): void {}
 }

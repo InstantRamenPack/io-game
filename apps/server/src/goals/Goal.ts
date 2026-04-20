@@ -1,4 +1,4 @@
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 
 export type GoalControl = "move" | "look" | "attack" | "target";
@@ -7,9 +7,7 @@ export type GoalControl = "move" | "look" | "attack" | "target";
  * Base lifecycle contract for server-authoritative goal-controlled behavior.
  * Lower numeric priorities win when multiple goals compete for the same control.
  */
-export abstract class Goal<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
-> {
+export abstract class Goal<TSelf extends GoalActor = GoalActor> {
   public readonly priority: number;
   public readonly controls: readonly GoalControl[];
 

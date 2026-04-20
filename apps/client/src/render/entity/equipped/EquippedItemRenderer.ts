@@ -6,9 +6,7 @@ import type {
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type * as PIXI from "pixi.js";
-import {
-  toRadians,
-} from "@client/render/entity/equipped/equippedMath.ts";
+import { toRadians } from "@client/render/entity/equipped/equippedMath.ts";
 
 export type EquippedRenderContext = {
   entity: ClientEntity;

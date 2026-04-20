@@ -6,7 +6,7 @@ import {
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type { PointerInput } from "@client/client/GameClient.ts";
+import type { PointerInput } from "@client/client/clientTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export class CraftingHudCoordinator {

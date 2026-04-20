@@ -210,6 +210,10 @@ export abstract class Projectile extends GoalControlledEntity {
       distanceSquaredFromPrevious: number;
       tieBreakerDistanceSquared: number;
     }> = [];
+    const singleHitProjectile = this.remainingHits === 1;
+    let bestTarget: CombatEntity | null = null;
+    let bestDistanceSquaredFromPrevious = Number.POSITIVE_INFINITY;
+    let bestTieBreakerDistanceSquared = Number.POSITIVE_INFINITY;
 
     for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
       if (candidate.id === this.id) {
@@ -233,16 +237,39 @@ export abstract class Projectile extends GoalControlledEntity {
         continue;
       }
 
+      const distanceSquaredFromPrevious =
+        (deltaX * deltaX + deltaY * deltaY) * hitTime * hitTime;
+      const tieBreakerDistanceSquared = getDistanceSquaredToResolvedRectSet(
+        targetHitboxes,
+        this.previousX,
+        this.previousY,
+      );
+
+      if (singleHitProjectile) {
+        const isBetterHit =
+          bestTarget === null ||
+          distanceSquaredFromPrevious < bestDistanceSquaredFromPrevious ||
+          (distanceSquaredFromPrevious === bestDistanceSquaredFromPrevious &&
+            (tieBreakerDistanceSquared < bestTieBreakerDistanceSquared ||
+              (tieBreakerDistanceSquared === bestTieBreakerDistanceSquared &&
+                candidate.id < bestTarget.id)));
+        if (isBetterHit) {
+          bestTarget = candidate;
+          bestDistanceSquaredFromPrevious = distanceSquaredFromPrevious;
+          bestTieBreakerDistanceSquared = tieBreakerDistanceSquared;
+        }
+        continue;
+      }
+
       impactTargets.push({
         target: candidate,
-        distanceSquaredFromPrevious:
-          (deltaX * deltaX + deltaY * deltaY) * hitTime * hitTime,
-        tieBreakerDistanceSquared: getDistanceSquaredToResolvedRectSet(
-          targetHitboxes,
-          this.previousX,
-          this.previousY,
-        ),
+        distanceSquaredFromPrevious,
+        tieBreakerDistanceSquared,
       });
+    }
+
+    if (singleHitProjectile) {
+      return bestTarget ? [bestTarget] : [];
     }
 
     impactTargets.sort((left, right) => {

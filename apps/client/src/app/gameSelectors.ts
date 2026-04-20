@@ -1,10 +1,9 @@
-import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import {
   getResourceNamespace,
-  type ResourceId,
+  getResourcePath,
 } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
@@ -14,7 +13,6 @@ import type {
 export type GameSelectors = {
   getTypePath(typeId: string): string;
   formatTypeLabel(typeId: string): string;
-  escapeHtml(value: string): string;
   getWorldEntities(): ClientEntity[];
   getPlayerEntity(): ClientEntity | undefined;
   getTrackedBuildings(): ClientEntity[];
@@ -26,23 +24,25 @@ export type GameSelectors = {
   getDayNight(): DayNightSnapshot | undefined;
 };
 
-export function createGameSelectors(gameClient: GameClient): GameSelectors {
+type GameClientSelectorsSource = {
+  playerEntityId?: number;
+  worldState?: {
+    clientWorld?: {
+      entities: Map<number, ClientEntity>;
+      dayNight: DayNightSnapshot;
+    };
+  };
+};
+
+export function createGameSelectors(
+  gameClient: GameClientSelectorsSource,
+): GameSelectors {
   function getTypePath(typeId: string): string {
-    const [, path = typeId] = typeId.split(":");
-    return path;
+    return getResourcePath(typeId) || typeId;
   }
 
   function formatTypeLabel(typeId: string): string {
     return getResourceDisplayLabel(typeId);
-  }
-
-  function escapeHtml(value: string): string {
-    return value
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
   }
 
   function getWorldEntities(): ClientEntity[] {
@@ -89,7 +89,7 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
     }, 0);
     const slottedCount = inventory.hotbarSlots.reduce((total, slot) => {
       if (slot.kind === "weapon") {
-        return total + Number(slot.typeId === (typeId as ResourceId));
+        return total + Number(slot.typeId === typeId);
       }
       if (slot.kind === "buildable" && slot.typeId === typeId) {
         return total + slot.count;
@@ -116,7 +116,6 @@ export function createGameSelectors(gameClient: GameClient): GameSelectors {
   return {
     getTypePath,
     formatTypeLabel,
-    escapeHtml,
     getWorldEntities,
     getPlayerEntity,
     getTrackedBuildings,

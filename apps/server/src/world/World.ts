@@ -29,6 +29,7 @@ export class World {
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
   private readonly pickupSystem = new PickupSystem();
+  private spatialDirty = true;
 
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
@@ -59,7 +60,7 @@ export class World {
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
 
-    this.syncSpatialIndex();
+    this.ensureSpatialIndex();
     const tickPhaseEntities = this.entities.all();
     for (const entity of tickPhaseEntities) {
       if (!this.entities.has(entity.id)) {
@@ -69,16 +70,26 @@ export class World {
     }
     this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
+    let movedEntity = false;
     for (const entity of tickPhaseEntities) {
       if (!this.entities.has(entity.id) || entity.collisionMode === "static") {
         continue;
       }
+      if (entity.vx !== 0 || entity.vy !== 0) {
+        movedEntity = true;
+      }
       entity.x += entity.vx;
       entity.y += entity.vy;
     }
+    if (movedEntity) {
+      this.markSpatialDirty();
+    }
     this.focusedTrace.recordWorldPhase(this, "after_integrate");
 
+    this.ensureSpatialIndex();
+
     this.collisionSystem.update(this);
+    this.ensureSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     for (const entity of this.entities.all()) {
@@ -90,7 +101,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     this.pickupSystem.update(this, deltaMs);
-    this.syncSpatialIndex();
+    this.ensureSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
 
@@ -100,6 +111,7 @@ export class World {
    */
   public spawn(entity: Entity): void {
     this.entities.add(entity);
+    this.markSpatialDirty();
   }
 
   /**
@@ -109,6 +121,7 @@ export class World {
   public despawn(id: number): void {
     this.entities.remove(id);
     this.entityIdGenerator.free(id);
+    this.markSpatialDirty();
   }
 
   /**
@@ -128,7 +141,15 @@ export class World {
     return this.entityIdGenerator.alloc();
   }
 
-  private syncSpatialIndex(): void {
+  public markSpatialDirty(): void {
+    this.spatialDirty = true;
+  }
+
+  public ensureSpatialIndex(): void {
+    if (!this.spatialDirty) {
+      return;
+    }
     this.spatial.rebuild(this.entities.all());
+    this.spatialDirty = false;
   }
 }

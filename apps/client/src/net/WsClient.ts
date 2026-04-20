@@ -7,7 +7,7 @@ import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
-export type ConnectOptions = {
+type ConnectOptions = {
   compatHash?: string;
   googleIdToken?: string;
   playerName?: string;

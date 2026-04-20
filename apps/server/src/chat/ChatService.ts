@@ -11,9 +11,7 @@ import {
 } from "@shared/chat/commandManifest.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
-import { Building } from "@server/entities/Building.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
-import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import {
   effectTypeRegistry,
@@ -22,6 +20,12 @@ import {
   type EntityTypeEntry,
   type ItemTypeEntry,
 } from "@server/registry/registries.ts";
+import {
+  isBuildingCtor,
+  isProjectileCtor,
+  isSpawnableEntityCtor,
+  isWeaponCtor,
+} from "@server/runtime/ctorGuards.ts";
 
 type ChatServiceOptions = {
   networkServer: WsServer;
@@ -44,6 +48,10 @@ type ChatCommandHandler = (
   player: Player,
   args: string[],
 ) => void;
+
+function isPlayerCtor(ctor: EntityTypeEntry["ctor"]): ctor is typeof Player {
+  return ctor.prototype instanceof Player;
+}
 
 /**
  * Server-side chat and command handler with Minecraft-style parsing.
@@ -350,16 +358,21 @@ export class ChatService {
 
     let spawned = 0;
     for (let i = 0; i < amount; i += 1) {
-      const entity = this.instantiateEntity(resolvedEntry, player, {
-        x: spawnX,
-        y: spawnY,
-      });
-      if (!entity) {
+      try {
+        const entity = this.instantiateEntity(resolvedEntry, player, {
+          x: spawnX,
+          y: spawnY,
+        });
+        if (!entity) {
+          break;
+        }
+        this.world.spawn(entity);
+        spawned += 1;
+      } catch (error) {
+        console.error(`Failed to spawn ${resolvedEntry.typeId}:`, error);
         this.sendSystem(clientId, `Failed to spawn ${resolvedEntry.typeId}.`);
         break;
       }
-      this.world.spawn(entity);
-      spawned += 1;
     }
 
     if (spawned > 0) {
@@ -369,7 +382,7 @@ export class ChatService {
 
   private handleKillCommand(
     clientId: string,
-    player: Player,
+    _player: Player,
     args: string[],
   ): void {
     if (args.length === 0) {
@@ -694,12 +707,12 @@ export class ChatService {
     itemEntry: ItemTypeEntry,
     amount: number,
   ): boolean {
-    if (itemEntry.ctor.prototype instanceof Weapon) {
+    if (isWeaponCtor(itemEntry.ctor)) {
       if (!target.inventory.canAddWeaponCount(amount)) {
         return false;
       }
       for (let index = 0; index < amount; index += 1) {
-        target.inventory.addWeapon(new itemEntry.ctor() as Weapon);
+        target.inventory.addWeapon(new itemEntry.ctor());
       }
       return true;
     }
@@ -791,52 +804,43 @@ export class ChatService {
     const entityId = this.world.allocEntityId();
     const ctor = entry.ctor;
 
-    try {
-      if (entry.kind === "projectile") {
-        const config: ProjectileSpawnConfig = {
-          ownerId: player.id,
-          x: position.x,
-          y: position.y,
-          directionX: 1,
-          directionY: 0,
-          rotation: 0,
-        };
-        return new (ctor as unknown as new (
-          id: number,
-          config: ProjectileSpawnConfig,
-        ) => Entity)(entityId, config);
+    if (entry.kind === "projectile") {
+      if (!isProjectileCtor(ctor)) {
+        return null;
       }
+      const config: ProjectileSpawnConfig = {
+        ownerId: player.id,
+        x: position.x,
+        y: position.y,
+        directionX: 1,
+        directionY: 0,
+        rotation: 0,
+      };
+      return new ctor(entityId, config);
+    }
 
-      if (entry.kind === "building" && ctor.prototype instanceof Building) {
-        const building = new (ctor as unknown as new (
-          id: number,
-          label: string,
-          tier: number,
-          ownerId?: number,
-        ) => Entity)(entityId, entry.content.label, 1, player.id);
-        building.x = position.x;
-        building.y = position.y;
-        return building;
-      }
+    if (entry.kind === "building" && isBuildingCtor(ctor)) {
+      const building = new ctor(entityId, entry.content.label, 1, player.id);
+      building.x = position.x;
+      building.y = position.y;
+      return building;
+    }
 
-      if (entry.kind === "player" && ctor.prototype instanceof Player) {
-        const spawnedPlayer = new (ctor as unknown as new (
-          id: number,
-          name?: string,
-        ) => Entity)(entityId, `spawned-${entityId}`);
-        spawnedPlayer.x = position.x;
-        spawnedPlayer.y = position.y;
-        return spawnedPlayer;
-      }
+    if (entry.kind === "player" && isPlayerCtor(ctor)) {
+      const spawnedPlayer = new ctor(entityId, `spawned-${entityId}`);
+      spawnedPlayer.x = position.x;
+      spawnedPlayer.y = position.y;
+      return spawnedPlayer;
+    }
 
-      const GenericEntityCtor = ctor as unknown as new (id: number) => Entity;
-      const entity = new GenericEntityCtor(entityId);
-      entity.x = position.x;
-      entity.y = position.y;
-      return entity;
-    } catch {
+    if (!isSpawnableEntityCtor(ctor)) {
       return null;
     }
+
+    const entity = new ctor(entityId);
+    entity.x = position.x;
+    entity.y = position.y;
+    return entity;
   }
 
   private isIntegerLike(value: string): boolean {

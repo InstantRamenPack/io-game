@@ -4,7 +4,7 @@ import { assertResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
  * Minimal registry keyed by stable resource ids.
  * Registries are writable during bootstrap and read-only after freeze.
  */
-export class TypeRegistry<T> {
+export class TypeRegistry<T extends { readonly typeId: ResourceId }> {
   private readonly valuesById = new Map<ResourceId, T>();
   private frozen = false;
 
@@ -19,6 +19,12 @@ export class TypeRegistry<T> {
     }
 
     this.valuesById.set(normalizedTypeId, value);
+  }
+
+  public registerAll(entries: Iterable<T>): void {
+    for (const entry of entries) {
+      this.register(entry.typeId, entry);
+    }
   }
 
   public freeze(): void {

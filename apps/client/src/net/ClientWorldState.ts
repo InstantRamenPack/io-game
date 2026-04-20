@@ -2,7 +2,7 @@ import { ClientWorld } from "@client/net/ClientWorld.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
-export type SnapshotFrame = {
+type SnapshotFrame = {
   tick: number;
   receivedAtMs: number;
 };

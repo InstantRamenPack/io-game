@@ -1,4 +1,4 @@
-import type { EntityKind } from "@shared/content/schema.ts";
+import type { CollisionMode, EntityKind } from "@shared/content/schema.ts";
 import type {
   HitboxBounds,
   HitboxRect,
@@ -16,8 +16,7 @@ import {
   type HitboxProfiles,
 } from "@server/entities/CompositeHitbox.ts";
 
-export type CollisionMode = "none" | "dynamic" | "static";
-export type MovementNormal = { x: number; y: number };
+type MovementNormal = { x: number; y: number };
 
 type MovementTuning = {
   driveAccelerationPerTick?: number;
@@ -29,7 +28,7 @@ type EntityConfig = {
   maxHp?: number;
 };
 
-export type ActiveEffectRuntime = {
+type ActiveEffectRuntime = {
   typeId: ResourceId;
   ticksRemaining: number;
   sourceId?: number;
@@ -340,9 +339,14 @@ export abstract class Entity {
   }
 
   public applyOrRefreshActiveEffect(effect: ActiveEffectRuntime): void {
-    this.activeEffects = this.activeEffects.filter(
-      (activeEffect) => activeEffect.typeId !== effect.typeId,
-    );
+    for (let index = 0; index < this.activeEffects.length; index += 1) {
+      const activeEffect = this.activeEffects[index];
+      if (activeEffect?.typeId !== effect.typeId) {
+        continue;
+      }
+      this.activeEffects[index] = { ...effect };
+      return;
+    }
     this.activeEffects.push({ ...effect });
   }
 
@@ -410,9 +414,16 @@ export abstract class Entity {
       return;
     }
 
-    const nextActiveEffects: ActiveEffectRuntime[] = [];
-    for (const effect of this.activeEffects) {
-      const nextEffect: ActiveEffectRuntime = { ...effect };
+    let writeIndex = 0;
+    for (
+      let readIndex = 0;
+      readIndex < this.activeEffects.length;
+      readIndex += 1
+    ) {
+      const nextEffect = this.activeEffects[readIndex];
+      if (!nextEffect) {
+        continue;
+      }
 
       if (
         typeof nextEffect.pulseDamage === "number" &&
@@ -438,11 +449,12 @@ export abstract class Entity {
 
       nextEffect.ticksRemaining -= 1;
       if (nextEffect.ticksRemaining > 0) {
-        nextActiveEffects.push(nextEffect);
+        this.activeEffects[writeIndex] = nextEffect;
+        writeIndex += 1;
       }
     }
 
-    this.activeEffects = nextActiveEffects;
+    this.activeEffects.length = writeIndex;
   }
 
   private getSnapshotHitboxes(): HitboxRect[] {

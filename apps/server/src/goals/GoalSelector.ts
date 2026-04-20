@@ -1,15 +1,15 @@
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import type { Goal, GoalControl } from "@server/goals/Goal.ts";
 
 /**
  * Selects and runs the best compatible goal set for one goal-controlled entity each tick.
  */
-export class GoalSelector<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
-> {
+export class GoalSelector<TSelf extends GoalActor = GoalActor> {
   private readonly goals: Goal<TSelf>[] = [];
   private readonly active = new Set<Goal<TSelf>>();
+  private readonly desired = new Set<Goal<TSelf>>();
+  private readonly controlMaskByGoal = new Map<Goal<TSelf>, number>();
 
   /**
    * Registers a new goal and keeps the selector sorted by priority.
@@ -20,6 +20,7 @@ export class GoalSelector<
     this.goals.sort(
       (leftGoal, rightGoal) => leftGoal.priority - rightGoal.priority,
     );
+    this.controlMaskByGoal.set(goal, this.resolveControlMask(goal.controls));
   }
 
   /**
@@ -27,12 +28,11 @@ export class GoalSelector<
    * @param ctx Runtime goal context for the acting entity.
    */
   public clear(ctx: GoalContext<TSelf>): void {
-    for (const goal of this.goals) {
-      if (this.active.has(goal)) {
-        goal.stop(ctx);
-      }
+    for (const goal of this.active) {
+      goal.stop(ctx);
     }
     this.active.clear();
+    this.desired.clear();
   }
 
   /**
@@ -40,37 +40,40 @@ export class GoalSelector<
    * @param ctx Runtime goal context for the acting entity.
    */
   public tick(ctx: GoalContext<TSelf>): void {
-    const desired = new Set<Goal<TSelf>>();
-    const claimedControls = new Set<GoalControl>();
+    this.desired.clear();
+    let claimedControlsMask = 0;
 
     for (const goal of this.goals) {
       const eligible = this.active.has(goal)
         ? goal.shouldContinue(ctx)
         : goal.canStart(ctx);
-      if (
-        !eligible ||
-        this.hasControlConflict(claimedControls, goal.controls)
-      ) {
+      if (!eligible) {
         continue;
       }
-      desired.add(goal);
-      this.claimControls(claimedControls, goal.controls);
+
+      const controlMask = this.controlMaskByGoal.get(goal) ?? 0;
+      if ((claimedControlsMask & controlMask) !== 0) {
+        continue;
+      }
+
+      this.desired.add(goal);
+      claimedControlsMask |= controlMask;
     }
 
     for (const goal of this.goals) {
-      if (this.active.has(goal) && !desired.has(goal)) {
+      if (this.active.has(goal) && !this.desired.has(goal)) {
         goal.stop(ctx);
       }
     }
 
     for (const goal of this.goals) {
-      if (desired.has(goal) && !this.active.has(goal)) {
+      if (this.desired.has(goal) && !this.active.has(goal)) {
         goal.start(ctx);
       }
     }
 
     this.active.clear();
-    for (const goal of desired) {
+    for (const goal of this.desired) {
       this.active.add(goal);
     }
 
@@ -81,32 +84,30 @@ export class GoalSelector<
     }
   }
   public hasActiveControl(control: GoalControl): boolean {
+    const requestedControlMask = GOAL_CONTROL_MASK[control];
     for (const goal of this.active) {
-      if (goal.controls.includes(control)) {
+      const goalControlMask = this.controlMaskByGoal.get(goal) ?? 0;
+      if ((goalControlMask & requestedControlMask) !== 0) {
         return true;
       }
     }
     return false;
   }
 
-  private hasControlConflict(
-    claimedControls: ReadonlySet<GoalControl>,
+  private resolveControlMask(
     requestedControls: readonly GoalControl[],
-  ): boolean {
+  ): number {
+    let controlMask = 0;
     for (const requestedControl of requestedControls) {
-      if (claimedControls.has(requestedControl)) {
-        return true;
-      }
+      controlMask |= GOAL_CONTROL_MASK[requestedControl];
     }
-    return false;
-  }
-
-  private claimControls(
-    claimedControls: Set<GoalControl>,
-    requestedControls: readonly GoalControl[],
-  ): void {
-    for (const requestedControl of requestedControls) {
-      claimedControls.add(requestedControl);
-    }
+    return controlMask;
   }
 }
+
+const GOAL_CONTROL_MASK: Record<GoalControl, number> = {
+  move: 1,
+  look: 2,
+  attack: 4,
+  target: 8,
+};

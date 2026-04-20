@@ -41,12 +41,13 @@ export type RegistrableEffectCtor<T extends Effect = Effect> = EffectCtor<T> &
     readonly typeId: ResourceId;
   };
 export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
-  ProjectileCtor<T> & {
-    readonly kind: "projectile";
-    readonly resourceName: string;
-    readonly definition: ProjectileDefinition;
-    readonly typeId: ResourceId;
-  };
+  RegistrableEntityCtor<T> &
+    ProjectileCtor<T> & {
+      readonly kind: "projectile";
+      readonly resourceName: string;
+      readonly definition: ProjectileDefinition;
+      readonly typeId: ResourceId;
+    };
 
 export type EntityTypeEntry = {
   typeId: ResourceId;

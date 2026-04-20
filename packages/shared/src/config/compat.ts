@@ -5,14 +5,8 @@ import { itemContentEntries } from "@shared/content/item/index.ts";
 import { pickupContentEntries } from "@shared/content/pickup/index.ts";
 import { playerContentEntries } from "@shared/content/player/index.ts";
 import { projectileContentEntries } from "@shared/content/projectile/index.ts";
-
-type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+import { sortResourceEntriesByTypeId } from "@shared/content/catalog.ts";
+import type { JsonObject, JsonValue } from "@shared/json.ts";
 
 function stableSerialize(value: JsonValue): string {
   if (value === null) {
@@ -28,9 +22,11 @@ function stableSerialize(value: JsonValue): string {
     return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
   }
 
-  const keys = Object.keys(value).sort();
-  return `{${keys
-    .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key]!)}`)
+  const entries = Object.entries(value)
+    .filter((entry): entry is [string, JsonValue] => entry[1] !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return `{${entries
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableSerialize(entry)}`)
     .join(",")}}`;
 }
 
@@ -44,14 +40,12 @@ function hashFnv1a(text: string): string {
 }
 
 function serializeEntries(
-  entries: ReadonlyArray<readonly [string, Record<string, unknown>]>,
+  entries: ReadonlyArray<readonly [string, JsonObject]>,
 ): JsonValue[] {
-  return [...entries]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([typeId, content]) => ({
-      typeId,
-      content: content as JsonValue,
-    }));
+  return entries.map(([typeId, content]) => ({
+    typeId,
+    content,
+  }));
 }
 
 const compatManifest = {
@@ -105,15 +99,19 @@ const compatManifest = {
     world: ["tick", "dayNight", "entities", "events"],
   },
   content: {
-    items: serializeEntries(itemContentEntries),
+    items: serializeEntries(sortResourceEntriesByTypeId(itemContentEntries)),
     entities: [
-      ...serializeEntries(playerContentEntries),
-      ...serializeEntries(enemyContentEntries),
-      ...serializeEntries(buildingContentEntries),
-      ...serializeEntries(projectileContentEntries),
-      ...serializeEntries(pickupContentEntries),
+      ...serializeEntries(sortResourceEntriesByTypeId(playerContentEntries)),
+      ...serializeEntries(sortResourceEntriesByTypeId(enemyContentEntries)),
+      ...serializeEntries(sortResourceEntriesByTypeId(buildingContentEntries)),
+      ...serializeEntries(
+        sortResourceEntriesByTypeId(projectileContentEntries),
+      ),
+      ...serializeEntries(sortResourceEntriesByTypeId(pickupContentEntries)),
     ],
-    effects: serializeEntries(effectContentEntries),
+    effects: serializeEntries(
+      sortResourceEntriesByTypeId(effectContentEntries),
+    ),
   },
 } satisfies JsonValue;
 

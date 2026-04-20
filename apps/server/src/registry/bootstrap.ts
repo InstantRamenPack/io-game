@@ -19,17 +19,9 @@ export function bootstrapTypeRegistries(): void {
     return;
   }
 
-  for (const entry of entityTypeManifests) {
-    entityTypeRegistry.register(entry.typeId, entry);
-  }
-
-  for (const entry of itemTypeManifests) {
-    itemTypeRegistry.register(entry.typeId, entry);
-  }
-
-  for (const entry of effectTypeManifests) {
-    effectTypeRegistry.register(entry.typeId, entry);
-  }
+  entityTypeRegistry.registerAll(entityTypeManifests);
+  itemTypeRegistry.registerAll(itemTypeManifests);
+  effectTypeRegistry.registerAll(effectTypeManifests);
 
   validateRegistryContent();
 

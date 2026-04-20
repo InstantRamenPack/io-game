@@ -13,6 +13,7 @@ import type {
   EquippedItemSnapshot,
   WeaponSnapshot,
 } from "@shared/net/snapshots.ts";
+import { isProjectileCtor } from "@server/runtime/ctorGuards.ts";
 
 /**
  * Ranged weapon that fires projectiles.
@@ -211,7 +212,12 @@ export class RangedWeapon extends Weapon {
         `Expected projectile entity type for ${this.projectileTypeId}.`,
       );
     }
-    return projectileEntry.ctor as RegistrableProjectileCtor;
+    if (!isProjectileCtor(projectileEntry.ctor)) {
+      throw new Error(
+        `Expected projectile entity constructor for ${this.projectileTypeId}.`,
+      );
+    }
+    return projectileEntry.ctor;
   }
 
   private isTargetInRange(

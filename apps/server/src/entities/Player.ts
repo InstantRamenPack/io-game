@@ -8,15 +8,15 @@ import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
-import type { Building } from "@server/entities/Building.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { Weapon } from "@server/items/Weapon.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import {
   entityTypeRegistry,
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
+import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
 
@@ -31,6 +31,7 @@ export class Player extends Entity {
   public inventory: Inventory;
   public moveSpeed = 15;
   public readonly queuedActions: ActionMessage[] = [];
+  private queuedActionHead = 0;
 
   private readonly heldMovement: HeldMovementState = {
     up: false,
@@ -56,17 +57,28 @@ export class Player extends Entity {
 
   public enqueueAction(actionMessage: ActionMessage): void {
     this.queuedActions.push(actionMessage);
-    if (this.queuedActions.length > 64) {
-      this.queuedActions.shift();
+    if (this.queuedActions.length - this.queuedActionHead <= 64) {
+      return;
+    }
+
+    this.queuedActionHead += 1;
+    if (this.queuedActionHead >= 32) {
+      this.queuedActions.splice(0, this.queuedActionHead);
+      this.queuedActionHead = 0;
     }
   }
 
   public clearQueuedInputState(): void {
     this.queuedActions.length = 0;
+    this.queuedActionHead = 0;
     this.heldMovement.up = false;
     this.heldMovement.down = false;
     this.heldMovement.left = false;
     this.heldMovement.right = false;
+  }
+
+  public getQueuedActionCount(): number {
+    return this.queuedActions.length - this.queuedActionHead;
   }
 
   public override tick(world: World): void {
@@ -191,8 +203,8 @@ export class Player extends Entity {
       return;
     }
 
-    const isWeaponOutput = outputEntry.ctor.prototype instanceof Weapon;
-    const canStoreCraftOutput = isWeaponOutput
+    const outputCtor = outputEntry.ctor;
+    const canStoreCraftOutput = isWeaponCtor(outputCtor)
       ? this.inventory.canAddWeaponCount(recipe.outputAmount)
       : this.inventory.canAddStackable(itemTypeId, recipe.outputAmount);
     if (!canStoreCraftOutput) {
@@ -207,9 +219,9 @@ export class Player extends Entity {
     }
 
     this.inventory.consumeTypes(recipe.costs);
-    if (isWeaponOutput) {
+    if (isWeaponCtor(outputCtor)) {
       for (let count = 0; count < recipe.outputAmount; count += 1) {
-        this.inventory.addWeapon(new outputEntry.ctor() as Weapon);
+        this.inventory.addWeapon(new outputCtor());
       }
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
@@ -258,15 +270,11 @@ export class Player extends Entity {
       return;
     }
 
-    type BuildableCtor = new (
-      id: number,
-      label: string,
-      tier?: number,
-      ownerId?: number,
-    ) => Building;
-    const BuildingCtor = buildingEntry.ctor as unknown as BuildableCtor;
+    if (!isBuildingCtor(buildingEntry.ctor)) {
+      return;
+    }
 
-    const building = new BuildingCtor(
+    const building = new buildingEntry.ctor(
       world.allocEntityId(),
       buildingEntry.content.label,
     );
@@ -308,8 +316,10 @@ export class Player extends Entity {
   private applyHeldMovement(world: World): void {
     const shouldTrace = world.focusedTrace.matchesEntity(this);
     if (this.isStunned()) {
-      const clearedQueuedActions = this.queuedActions.length;
+      const clearedQueuedActions =
+        this.queuedActions.length - this.queuedActionHead;
       this.queuedActions.length = 0;
+      this.queuedActionHead = 0;
       this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(
@@ -363,8 +373,9 @@ export class Player extends Entity {
   }
 
   private applyQueuedActions(world: World): void {
-    while (this.queuedActions.length > 0) {
-      const actionMessage = this.queuedActions.shift();
+    while (this.queuedActionHead < this.queuedActions.length) {
+      const actionMessage = this.queuedActions[this.queuedActionHead];
+      this.queuedActionHead += 1;
       if (!actionMessage) {
         continue;
       }
@@ -382,7 +393,7 @@ export class Player extends Entity {
           );
           break;
         case "craft":
-          this.craft(world, actionMessage.craft.itemTypeId as ResourceId);
+          this.craft(world, actionMessage.craft.itemTypeId);
           break;
         case "build":
           this.placeStructure(
@@ -398,6 +409,11 @@ export class Player extends Entity {
           );
           break;
       }
+    }
+
+    if (this.queuedActionHead > 0) {
+      this.queuedActions.length = 0;
+      this.queuedActionHead = 0;
     }
   }
 

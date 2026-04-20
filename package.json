@@ -30,14 +30,12 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "prettier": "^3.8.1",
-    "sharp": "^0.34.5",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
     "vite": "^8.0.8"
   },
   "dependencies": {
     "denque": "^2.1.0",
-    "io-game": ".",
     "lodash-es": "^4.18.1",
     "pixi.js": "8.17.1",
     "seedrandom": "^3.0.5",

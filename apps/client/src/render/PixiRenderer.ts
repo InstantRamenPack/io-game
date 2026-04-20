@@ -1,5 +1,5 @@
-import type { Application, Container, Texture } from "pixi.js";
-import type { GameClient } from "@client/client/GameClient.ts";
+import type { Application, Container, Filter, Texture } from "pixi.js";
+import type { GameClientHudApi } from "@client/client/clientTypes.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
 import { PixiAppHost } from "@client/render/pixi/PixiAppHost.ts";
@@ -15,9 +15,8 @@ import {
 import { PixiRenderScheduler } from "@client/render/pixi/PixiRenderScheduler.ts";
 import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
+import type { WorldSize } from "@client/render/renderTypes.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
-
-type WorldSize = { w: number; h: number };
 
 /**
  * Rendering facade for visible entity state.
@@ -44,6 +43,8 @@ export class PixiRenderer {
   private readonly gridNightLineColor = 0x9fd69a;
   private worldSize: WorldSize;
   private tickRate = 20;
+  private readonly worldFilterBuffer: Filter[] = [];
+  private lastWorldFilter: Filter | null = null;
 
   public playerEntityId?: number;
 
@@ -53,6 +54,7 @@ export class PixiRenderer {
       return;
     }
 
+    this.viewportController.invalidateViewRectCache();
     this.appHost.resize(this.getRendererResolution());
     this.overlayLayer.resize(app);
     this.viewportController.sync(app, this.sceneGraph.worldRoot);
@@ -69,15 +71,11 @@ export class PixiRenderer {
   }
 
   public get app(): Application | null {
-    try {
-      return this.appHost.getApp();
-    } catch {
-      return null;
-    }
+    return this.appHost.getAppIfReady();
   }
 
   public createHud(options: {
-    gameClient: GameClient;
+    gameClient: GameClientHudApi;
     selectors: GameSelectors;
   }): PixiHud {
     if (!this.hud) {
@@ -151,6 +149,7 @@ export class PixiRenderer {
       hudRoot: this.sceneGraph.hudRoot,
       worldSize: this.worldSize,
     });
+    this.syncCullViewport(app);
     this.drawGridGeometry();
     this.applyWorldFilters();
     this.viewportController.sync(app, this.sceneGraph.worldRoot);
@@ -191,6 +190,7 @@ export class PixiRenderer {
     const swimOffset = this.overlayLayer.getSwimOffset();
     this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
+    this.syncCullViewport(app);
     this.applyWorldFilters();
     this.renderScheduler.markDirty();
     this.renderScene();
@@ -210,6 +210,7 @@ export class PixiRenderer {
     this.viewportController.setCameraTarget(x, y);
     if (this.app) {
       this.viewportController.sync(this.app, this.sceneGraph.worldRoot);
+      this.syncCullViewport(this.app);
     }
     this.renderScheduler.markDirty();
   }
@@ -230,6 +231,21 @@ export class PixiRenderer {
     );
   }
 
+  public getViewportCenterWorld(): { x: number; y: number } | null {
+    const app = this.app;
+    if (!app) {
+      return null;
+    }
+
+    const centerClient = this.viewportController.getCanvasCenterClient(app);
+    return this.viewportController.screenToWorld(
+      app,
+      this.sceneGraph.worldRoot,
+      centerClient.x,
+      centerClient.y,
+    );
+  }
+
   public clientToScreen(
     clientX: number,
     clientY: number,
@@ -243,6 +259,10 @@ export class PixiRenderer {
 
   public getView(): HTMLCanvasElement | null {
     return this.appHost.getCanvas();
+  }
+
+  public invalidateViewRectCache(): void {
+    this.viewportController.invalidateViewRectCache();
   }
 
   public triggerDamageOverlay(durationMs = 200): void {
@@ -330,11 +350,34 @@ export class PixiRenderer {
 
   private applyWorldFilters(): void {
     const filter = this.overlayLayer.getWorldFilter();
-    this.sceneGraph.worldRoot.filters = filter ? [filter] : null;
+    if (filter === this.lastWorldFilter) {
+      return;
+    }
+
+    this.lastWorldFilter = filter;
+    if (!filter) {
+      this.worldFilterBuffer.length = 0;
+      this.sceneGraph.worldRoot.filters = null;
+      return;
+    }
+
+    this.worldFilterBuffer[0] = filter;
+    this.worldFilterBuffer.length = 1;
+    this.sceneGraph.worldRoot.filters = this.worldFilterBuffer;
   }
 
   private getRendererResolution(): number {
     return Math.max(1, window.devicePixelRatio || 1);
+  }
+
+  private syncCullViewport(app: Application): void {
+    const bounds = this.viewportController.getWorldViewportBounds(app);
+    this.cullingController.updateViewport(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    );
   }
 }
 

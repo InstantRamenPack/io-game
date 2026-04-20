@@ -6,7 +6,7 @@ import type { Entity } from "@server/entities/Entity.ts";
  */
 export class SpatialIndex {
   private readonly cellSize: number;
-  private readonly buckets = new Map<string, Entity[]>();
+  private readonly buckets = new Map<number, Entity[]>();
   private readonly visitedEntityIds = new Map<number, number>();
   private queryMarker = 0;
 
@@ -35,6 +35,7 @@ export class SpatialIndex {
    * @param minY Top query edge.
    * @param maxX Right query edge.
    * @param maxY Bottom query edge.
+   * @param result Optional output buffer reused by caller.
    * @returns Unique candidate entities from the covered cells.
    */
   public queryBox(
@@ -51,16 +52,13 @@ export class SpatialIndex {
       this.visitedEntityIds.clear();
     }
 
-    for (
-      let gridX = this.toCell(minX);
-      gridX <= this.toCell(maxX);
-      gridX += 1
-    ) {
-      for (
-        let gridY = this.toCell(minY);
-        gridY <= this.toCell(maxY);
-        gridY += 1
-      ) {
+    const minCellX = this.toCell(minX);
+    const maxCellX = this.toCell(maxX);
+    const minCellY = this.toCell(minY);
+    const maxCellY = this.toCell(maxY);
+
+    for (let gridX = minCellX; gridX <= maxCellX; gridX += 1) {
+      for (let gridY = minCellY; gridY <= maxCellY; gridY += 1) {
         const bucket = this.buckets.get(this.makeKey(gridX, gridY));
         if (!bucket) {
           continue;
@@ -80,21 +78,13 @@ export class SpatialIndex {
 
   private insert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
-    const minX = bounds.minX;
-    const maxX = bounds.maxX;
-    const minY = bounds.minY;
-    const maxY = bounds.maxY;
+    const minCellX = this.toCell(bounds.minX);
+    const maxCellX = this.toCell(bounds.maxX);
+    const minCellY = this.toCell(bounds.minY);
+    const maxCellY = this.toCell(bounds.maxY);
 
-    for (
-      let gridX = this.toCell(minX);
-      gridX <= this.toCell(maxX);
-      gridX += 1
-    ) {
-      for (
-        let gridY = this.toCell(minY);
-        gridY <= this.toCell(maxY);
-        gridY += 1
-      ) {
+    for (let gridX = minCellX; gridX <= maxCellX; gridX += 1) {
+      for (let gridY = minCellY; gridY <= maxCellY; gridY += 1) {
         const key = this.makeKey(gridX, gridY);
         let bucket = this.buckets.get(key);
         if (!bucket) {
@@ -110,7 +100,12 @@ export class SpatialIndex {
     return Math.floor(value / this.cellSize);
   }
 
-  private makeKey(gridX: number, gridY: number): string {
-    return `${gridX}:${gridY}`;
+  private makeKey(gridX: number, gridY: number): number {
+    return (
+      (gridX + CELL_KEY_OFFSET) * CELL_KEY_STRIDE + (gridY + CELL_KEY_OFFSET)
+    );
   }
 }
+
+const CELL_KEY_OFFSET = 1 << 15;
+const CELL_KEY_STRIDE = 1 << 16;

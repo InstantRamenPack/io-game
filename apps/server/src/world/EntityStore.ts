@@ -10,10 +10,10 @@ type EntityInstanceCtor<T extends Entity> = abstract new (
  */
 export class EntityStore {
   public byId = new Map<number, Entity>();
-  private allCache?: readonly Entity[];
-  private dynamicCache?: readonly Entity[];
-  private collidableCache?: readonly Entity[];
-  private nonCollidableCache?: readonly Entity[];
+  private allCache?: Entity[];
+  private dynamicCache?: Entity[];
+  private collidableCache?: Entity[];
+  private nonCollidableCache?: Entity[];
 
   /**
    * Inserts an entity into the primary id index.
@@ -70,7 +70,7 @@ export class EntityStore {
     if (!this.allCache) {
       this.allCache = [...this.byId.values()];
     }
-    return this.allCache as Entity[];
+    return this.allCache;
   }
 
   public dynamic(): Entity[] {
@@ -79,7 +79,7 @@ export class EntityStore {
         (entity) => entity.collisionMode === "dynamic",
       );
     }
-    return this.dynamicCache as Entity[];
+    return this.dynamicCache;
   }
 
   public collidable(): Entity[] {
@@ -88,7 +88,7 @@ export class EntityStore {
         (entity) => entity.collisionMode !== "none",
       );
     }
-    return this.collidableCache as Entity[];
+    return this.collidableCache;
   }
 
   public nonCollidable(): Entity[] {
@@ -97,7 +97,7 @@ export class EntityStore {
         (entity) => entity.collisionMode === "none",
       );
     }
-    return this.nonCollidableCache as Entity[];
+    return this.nonCollidableCache;
   }
 
   private invalidateViews(): void {

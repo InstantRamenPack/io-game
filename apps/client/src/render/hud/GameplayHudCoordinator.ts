@@ -19,13 +19,12 @@ import {
   buildResourceStackEntries,
   syncDiscoveredResources,
 } from "@client/render/hud/resourceStackModel.ts";
+import type { ScreenRect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
-
-type ScreenRect = { x: number; y: number; width: number; height: number };
 
 type PerformanceRates = {
   tickRate: number | null;

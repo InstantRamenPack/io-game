@@ -1,3 +1,4 @@
+import type { ResourceStackEntry } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
@@ -6,11 +7,6 @@ const HIDDEN_RESOURCE_TYPE_IDS = new Set<ResourceId>([
   "item:crossbow_mag",
   "item:drone_mag",
 ]);
-
-export type ResourceStackEntry = {
-  typeId: ResourceId;
-  count: number;
-};
 
 export function syncDiscoveredResources(options: {
   inventory: InventorySnapshot | undefined;

@@ -4,6 +4,8 @@ import {
   getSweptResolvedRectSetIntersectionTime,
 } from "@shared/geometry/collision.ts";
 import {
+  type HitboxBounds,
+  type ResolvedHitboxRect,
   offsetHitboxBounds,
   resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
@@ -23,24 +25,34 @@ const MAX_COLLISION_PASSES = 3;
  */
 class CollisionSystem implements System {
   private readonly queryBuffer: Entity[] = [];
+  private readonly worldHitboxCache = new Map<number, ResolvedHitboxRect[]>();
+  private readonly worldBoundsCache = new Map<number, HitboxBounds>();
+  private readonly movingProjectileHitboxCache = new Map<
+    number,
+    ResolvedHitboxRect[]
+  >();
 
   /**
    * Resolves nearby overlaps using the prebuilt broad-phase index, then clamps bodies to world bounds.
    * @param world Authoritative world being simulated.
    */
   public update(world: World): void {
-    let rebuildBeforeProjectileChecks = false;
+    this.worldHitboxCache.clear();
+    this.worldBoundsCache.clear();
+    this.movingProjectileHitboxCache.clear();
+    let spatialDirty = false;
 
     for (let pass = 0; pass < MAX_COLLISION_PASSES; pass += 1) {
       const collidableEntities = world.entities.collidable();
       let resolvedCollision = false;
+      let passChangedPositions = false;
 
       for (const entity of collidableEntities) {
         if (entity.collisionMode !== "dynamic") {
           continue;
         }
 
-        const bounds = entity.getWorldBounds();
+        const bounds = this.getCachedWorldBounds(entity);
         const candidates = world.spatial.queryBox(
           bounds.minX,
           bounds.minY,
@@ -62,9 +74,13 @@ class CollisionSystem implements System {
           ) {
             continue;
           }
-          resolvedCollision =
-            this.resolveEntityPair(world, entity, candidate) ||
-            resolvedCollision;
+          const pairResolved = this.resolveEntityPair(world, entity, candidate);
+          if (pairResolved) {
+            resolvedCollision = true;
+            passChangedPositions = true;
+            this.invalidateEntityCaches(entity);
+            this.invalidateEntityCaches(candidate);
+          }
         }
       }
 
@@ -72,20 +88,29 @@ class CollisionSystem implements System {
         break;
       }
 
-      rebuildBeforeProjectileChecks = true;
+      if (passChangedPositions) {
+        spatialDirty = true;
+      }
       if (pass < MAX_COLLISION_PASSES - 1) {
-        world.spatial.rebuild(world.entities.all());
+        if (passChangedPositions) {
+          world.markSpatialDirty();
+          world.ensureSpatialIndex();
+          spatialDirty = false;
+        }
       }
     }
 
     const collidableEntities = world.entities.collidable();
     for (const entity of collidableEntities) {
-      rebuildBeforeProjectileChecks =
-        this.resolveWorldBounds(entity, world) || rebuildBeforeProjectileChecks;
+      if (this.resolveWorldBounds(entity, world)) {
+        spatialDirty = true;
+        this.invalidateEntityCaches(entity);
+      }
     }
 
-    if (rebuildBeforeProjectileChecks) {
-      world.spatial.rebuild(world.entities.all());
+    if (spatialDirty) {
+      world.markSpatialDirty();
+      world.ensureSpatialIndex();
     }
     this.resolveProjectileBuildingCollisions(world);
   }
@@ -299,10 +324,20 @@ class CollisionSystem implements System {
     leftEntity: Entity,
     rightEntity: Entity,
   ): AxisSeparation | null {
-    return getResolvedRectSetSeparation(
-      leftEntity.getWorldHitboxes(),
-      rightEntity.getWorldHitboxes(),
-    );
+    const leftBounds = this.getCachedWorldBounds(leftEntity);
+    const rightBounds = this.getCachedWorldBounds(rightEntity);
+    if (
+      leftBounds.maxX <= rightBounds.minX ||
+      leftBounds.minX >= rightBounds.maxX ||
+      leftBounds.maxY <= rightBounds.minY ||
+      leftBounds.minY >= rightBounds.maxY
+    ) {
+      return null;
+    }
+
+    const leftHitboxes = this.getCachedWorldHitboxes(leftEntity);
+    const rightHitboxes = this.getCachedWorldHitboxes(rightEntity);
+    return getResolvedRectSetSeparation(leftHitboxes, rightHitboxes);
   }
 
   private invertSeparation(separation: AxisSeparation): AxisSeparation {
@@ -386,17 +421,19 @@ class CollisionSystem implements System {
         projectile.previousX,
         projectile.previousY,
       );
-      const currentBounds = projectile.getWorldBounds();
+      const currentBounds = this.getCachedWorldBounds(projectile);
       const minX = Math.min(previousBounds.minX, currentBounds.minX);
       const minY = Math.min(previousBounds.minY, currentBounds.minY);
       const maxX = Math.max(previousBounds.maxX, currentBounds.maxX);
       const maxY = Math.max(previousBounds.maxY, currentBounds.maxY);
-      const candidates = world.spatial.queryBox(minX, minY, maxX, maxY);
-      const movingHitboxes = resolveHitboxRects(
-        projectile.previousX,
-        projectile.previousY,
-        projectile.hitboxes,
+      const candidates = world.spatial.queryBox(
+        minX,
+        minY,
+        maxX,
+        maxY,
+        this.queryBuffer,
       );
+      const movingHitboxes = this.getMovingProjectileHitboxes(projectile);
 
       let nearestAttackableHitTime: number | null = null;
       let nearestBuildingHitTime: number | null = null;
@@ -406,7 +443,7 @@ class CollisionSystem implements System {
           continue;
         }
 
-        const targetHitboxes = candidate.getWorldHitboxes();
+        const targetHitboxes = this.getCachedWorldHitboxes(candidate);
         const hitTime = getSweptResolvedRectSetIntersectionTime(
           movingHitboxes,
           deltaX,
@@ -448,6 +485,50 @@ class CollisionSystem implements System {
         world.despawn(projectile.id);
       }
     }
+  }
+
+  private getCachedWorldHitboxes(entity: Entity): ResolvedHitboxRect[] {
+    const cached = this.worldHitboxCache.get(entity.id);
+    if (cached) {
+      return cached;
+    }
+
+    const hitboxes = entity.getWorldHitboxes();
+    this.worldHitboxCache.set(entity.id, hitboxes);
+    return hitboxes;
+  }
+
+  private getCachedWorldBounds(entity: Entity): HitboxBounds {
+    const cached = this.worldBoundsCache.get(entity.id);
+    if (cached) {
+      return cached;
+    }
+
+    const bounds = entity.getWorldBounds();
+    this.worldBoundsCache.set(entity.id, bounds);
+    return bounds;
+  }
+
+  private getMovingProjectileHitboxes(
+    projectile: Projectile,
+  ): ResolvedHitboxRect[] {
+    const cached = this.movingProjectileHitboxCache.get(projectile.id);
+    if (cached) {
+      return cached;
+    }
+
+    const movingHitboxes = resolveHitboxRects(
+      projectile.previousX,
+      projectile.previousY,
+      projectile.hitboxes,
+    );
+    this.movingProjectileHitboxCache.set(projectile.id, movingHitboxes);
+    return movingHitboxes;
+  }
+
+  private invalidateEntityCaches(entity: Entity): void {
+    this.worldHitboxCache.delete(entity.id);
+    this.worldBoundsCache.delete(entity.id);
   }
 }
 

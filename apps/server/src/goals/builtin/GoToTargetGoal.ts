@@ -1,5 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import type { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import {
   GoToPositionGoal,
   type GoalDestination,
@@ -10,7 +10,7 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
  * Straight-line chase goal that walks toward the current target entity.
  */
 export class GoToTargetGoal<
-  TSelf extends GoalControlledEntity = GoalControlledEntity,
+  TSelf extends GoalActor = GoalActor,
 > extends GoToPositionGoal<TSelf> {
   /**
    * Creates a chase goal that follows the acting enemy's current target entity.

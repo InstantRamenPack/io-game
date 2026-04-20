@@ -15,7 +15,7 @@ type Segment2D = {
   end: Point2D;
 };
 
-export function doResolvedRectsOverlap(
+function doResolvedRectsOverlap(
   leftRect: ResolvedHitboxRect,
   rightRect: ResolvedHitboxRect,
 ): boolean {
@@ -91,7 +91,7 @@ export function getResolvedRectSetSeparation(
   return bestCandidate;
 }
 
-export function getClosestPointOnResolvedRect(
+function getClosestPointOnResolvedRect(
   rect: ResolvedHitboxRect,
   x: number,
   y: number,
@@ -102,7 +102,7 @@ export function getClosestPointOnResolvedRect(
   };
 }
 
-export function getDistanceSquaredToResolvedRect(
+function getDistanceSquaredToResolvedRect(
   rect: ResolvedHitboxRect,
   x: number,
   y: number,
@@ -139,8 +139,9 @@ export function doesResolvedRectIntersectOrientedBox(
   halfLength: number,
   halfWidth: number,
 ): boolean {
-  const perpendicularX = -forwardY;
-  const perpendicularY = forwardX;
+  const perpendicularAxis = getPerpendicularAxis(forwardX, forwardY);
+  const perpendicularX = perpendicularAxis.x;
+  const perpendicularY = perpendicularAxis.y;
   const rectHalfWidth = rect.width / 2;
   const rectHalfHeight = rect.height / 2;
   const deltaX = rect.centerX - boxCenterX;
@@ -261,7 +262,7 @@ export function doesResolvedRectIntersectSweepArc(
   return false;
 }
 
-export function getSweptResolvedRectIntersectionTime(
+function getSweptResolvedRectIntersectionTime(
   movingRect: ResolvedHitboxRect,
   deltaX: number,
   deltaY: number,
@@ -423,6 +424,13 @@ function isPointWithinSweepArc(
 
   const dot = (deltaX * directionX + deltaY * directionY) / distance;
   return dot >= minDot;
+}
+
+function getPerpendicularAxis(directionX: number, directionY: number): Point2D {
+  return {
+    x: -directionY,
+    y: directionX,
+  };
 }
 
 function doesSegmentIntersectSweepArc(

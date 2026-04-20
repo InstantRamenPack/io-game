@@ -61,31 +61,3 @@ export function drawCircle(
     graphics.circle(x, y, radius).stroke(stroke);
   }
 }
-
-export function drawEllipse(
-  graphics: Graphics,
-  x: number,
-  y: number,
-  radiusX: number,
-  radiusY: number,
-  fill: FillInput,
-  stroke?: StrokeInput,
-): void {
-  graphics.clear();
-  graphics.ellipse(x, y, radiusX, radiusY).fill(normalizeFill(fill));
-  if (stroke) {
-    graphics.ellipse(x, y, radiusX, radiusY).stroke(stroke);
-  }
-}
-
-export function drawLine(
-  graphics: Graphics,
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-  stroke: Partial<StrokeStyle>,
-): void {
-  graphics.clear();
-  graphics.moveTo(startX, startY).lineTo(endX, endY).stroke(stroke);
-}

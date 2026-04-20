@@ -1,7 +1,7 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
-import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
-import type { World } from "@server/world/World.ts";
+import type { ActionMessage } from "@shared/net/protocol.ts";
+import type { JsonObject } from "@shared/json.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 type FocusedTracePhase =
   | "tick_start"
@@ -11,7 +11,18 @@ type FocusedTracePhase =
   | "after_after_movement"
   | "tick_end";
 
-type FocusedTracePayload = Record<string, unknown>;
+type FocusedTracePayload = JsonObject;
+
+type FocusedTraceCollisionMode = "none" | "dynamic" | "static";
+
+type FocusedTraceVelocityComponents = {
+  desiredVx: number;
+  desiredVy: number;
+  driveVx: number;
+  driveVy: number;
+  momentumVx: number;
+  momentumVy: number;
+};
 
 type FocusedTraceEntityState = {
   id: number;
@@ -26,7 +37,7 @@ type FocusedTraceEntityState = {
   hp: number;
   maxHp: number;
   alive: boolean;
-  collisionMode: Entity["collisionMode"];
+  collisionMode: FocusedTraceCollisionMode;
   desiredVx: number;
   desiredVy: number;
   driveVx: number;
@@ -41,6 +52,44 @@ type FocusedTraceEntityState = {
     speedMultiplier?: number;
     preventsAction?: boolean;
   }>;
+};
+
+type FocusedTraceEntityView = {
+  id: number;
+  typeId: ResourceId;
+  constructor: {
+    name: string;
+  };
+  name?: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  collisionMode: FocusedTraceCollisionMode;
+  activeEffects: Array<{
+    typeId: ResourceId;
+    ticksRemaining: number;
+    sourceId?: number;
+    speedMultiplier?: number;
+    preventsAction?: boolean;
+  }>;
+  getDebugVelocityComponents(): FocusedTraceVelocityComponents;
+  toSnapshot(): {
+    kind: string;
+  };
+  queuedActions?: readonly ActionMessage[];
+  getQueuedActionCount?(): number;
+};
+
+type FocusedTraceWorldView = {
+  tick: number;
+  get(id: number): FocusedTraceEntityView | undefined;
+  entities: {
+    all(): Iterable<FocusedTraceEntityView>;
+  };
 };
 
 type FocusedTraceEntry = {
@@ -58,7 +107,7 @@ type FocusedTraceEntry = {
   details?: FocusedTracePayload;
 };
 
-export type FocusedTraceSnapshot = {
+type FocusedTraceSnapshot = {
   enabled: boolean;
   target: FocusedTraceEntry["target"];
   entries: FocusedTraceEntry[];
@@ -112,19 +161,20 @@ export class FocusedServerTrace {
     this.resolvedEntityId = null;
   }
 
-  public matchesEntity(entity: Entity): boolean {
+  public matchesEntity(entity: FocusedTraceEntityView): boolean {
     if (!this.enabled) {
       return false;
     }
     if (this.configuredEntityId !== null) {
       return entity.id === this.configuredEntityId;
     }
-    return (
-      entity instanceof Player && entity.name === this.configuredPlayerName
-    );
+    return this.isConfiguredPlayer(entity);
   }
 
-  public recordWorldPhase(world: World, phase: FocusedTracePhase): void {
+  public recordWorldPhase(
+    world: FocusedTraceWorldView,
+    phase: FocusedTracePhase,
+  ): void {
     if (!this.enabled) {
       return;
     }
@@ -145,9 +195,9 @@ export class FocusedServerTrace {
   }
 
   public recordEntityEvent(
-    world: World,
+    world: FocusedTraceWorldView,
     event: string,
-    entity: Entity,
+    entity: FocusedTraceEntityView,
     details: FocusedTracePayload = {},
   ): void {
     if (!this.matchesEntity(entity)) {
@@ -166,17 +216,15 @@ export class FocusedServerTrace {
     });
   }
 
-  private resolveTrackedEntity(world: World): Entity | null {
+  private resolveTrackedEntity(
+    world: FocusedTraceWorldView,
+  ): FocusedTraceEntityView | null {
     const trackedEntity =
       this.configuredEntityId !== null
         ? (world.get(this.configuredEntityId) ?? null)
-        : (world.entities
-            .all()
-            .find(
-              (candidate): candidate is Player =>
-                candidate instanceof Player &&
-                candidate.name === this.configuredPlayerName,
-            ) ?? null);
+        : (Array.from(world.entities.all()).find((candidate) =>
+            this.isConfiguredPlayer(candidate),
+          ) ?? null);
 
     if (trackedEntity) {
       this.noteResolvedEntity(world, trackedEntity);
@@ -200,7 +248,10 @@ export class FocusedServerTrace {
     return null;
   }
 
-  private noteResolvedEntity(world: World, entity: Entity): void {
+  private noteResolvedEntity(
+    world: FocusedTraceWorldView,
+    entity: FocusedTraceEntityView,
+  ): void {
     if (entity.id === this.resolvedEntityId) {
       return;
     }
@@ -216,16 +267,15 @@ export class FocusedServerTrace {
     });
   }
 
-  private describeEntity(entity: Entity): FocusedTraceEntityState {
+  private describeEntity(
+    entity: FocusedTraceEntityView,
+  ): FocusedTraceEntityState {
     const velocityComponents = entity.getDebugVelocityComponents();
-    const ctor = entity.constructor as typeof Entity & {
-      readonly kind?: string;
-    };
     const baseState: FocusedTraceEntityState = {
       id: entity.id,
       typeId: entity.typeId,
       className: entity.constructor.name,
-      kind: ctor.kind ?? null,
+      kind: this.getEntityKind(entity),
       x: entity.x,
       y: entity.y,
       vx: entity.vx,
@@ -249,12 +299,30 @@ export class FocusedServerTrace {
       })),
     };
 
-    if (entity instanceof Player) {
+    if (this.isConfiguredPlayer(entity)) {
       baseState.name = entity.name;
-      baseState.queuedActionCount = entity.queuedActions.length;
+      baseState.queuedActionCount =
+        entity.getQueuedActionCount?.() ?? entity.queuedActions?.length;
     }
 
     return baseState;
+  }
+
+  private getEntityKind(entity: FocusedTraceEntityView): string {
+    return entity.toSnapshot().kind;
+  }
+
+  private isConfiguredPlayer(
+    entity: FocusedTraceEntityView,
+  ): entity is FocusedTraceEntityView & {
+    name: string;
+    queuedActions?: readonly ActionMessage[];
+  } {
+    return (
+      this.configuredPlayerName !== null &&
+      this.getEntityKind(entity) === "player" &&
+      entity.name === this.configuredPlayerName
+    );
   }
 
   private makeTargetMetadata(): FocusedTraceEntry["target"] {

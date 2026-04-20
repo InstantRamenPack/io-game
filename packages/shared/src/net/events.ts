@@ -17,7 +17,7 @@ export const ExplosionStyleSchema = z.enum([
   "wallbreaker",
 ]);
 
-export const ExplosionEventPayloadSchema = z.object({
+const ExplosionEventPayloadSchema = z.object({
   sourceId: z.number().int().nonnegative(),
   x: z.number(),
   y: z.number(),
@@ -41,6 +41,5 @@ export const NetEventSchema = z.discriminatedUnion("type", [
 ]);
 
 export type DamageEventPayload = z.infer<typeof DamageEventPayloadSchema>;
-export type ExplosionEventPayload = z.infer<typeof ExplosionEventPayloadSchema>;
 export type ExplosionStyle = z.infer<typeof ExplosionStyleSchema>;
 export type NetEvent = z.infer<typeof NetEventSchema>;

@@ -3,6 +3,7 @@ import {
   requireEntityContent,
   requireItemContent,
 } from "@shared/content/catalog.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
@@ -54,29 +55,30 @@ import type {
   RegistrableItemCtor,
 } from "@server/registry/registries.ts";
 
-function makeEntityTypeEntry(ctor: RegistrableEntityCtor): EntityTypeEntry {
+function makeTypeEntry<TCtor extends { readonly typeId: ResourceId }, TContent>(
+  ctor: TCtor,
+  content: TContent,
+): { typeId: ResourceId; content: TContent; ctor: TCtor } {
   return {
     typeId: ctor.typeId,
-    kind: ctor.kind,
-    content: requireEntityContent(ctor.typeId),
+    content,
     ctor,
+  };
+}
+
+function makeEntityTypeEntry(ctor: RegistrableEntityCtor): EntityTypeEntry {
+  return {
+    ...makeTypeEntry(ctor, requireEntityContent(ctor.typeId)),
+    kind: ctor.kind,
   };
 }
 
 function makeItemTypeEntry(ctor: RegistrableItemCtor): ItemTypeEntry {
-  return {
-    typeId: ctor.typeId,
-    content: requireItemContent(ctor.typeId),
-    ctor,
-  };
+  return makeTypeEntry(ctor, requireItemContent(ctor.typeId));
 }
 
 function makeEffectTypeEntry(ctor: RegistrableEffectCtor): EffectTypeEntry {
-  return {
-    typeId: ctor.typeId,
-    content: requireEffectContent(ctor.typeId),
-    ctor,
-  };
+  return makeTypeEntry(ctor, requireEffectContent(ctor.typeId));
 }
 
 export const entityTypeManifests = [

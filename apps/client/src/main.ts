@@ -85,6 +85,10 @@ installDebugBridge({
   hudController,
 });
 
+if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+  window.gameClient = gameClient;
+}
+
 hydratePlayerNameInput(elements.playerNameInput);
 menuController.refreshGateUi();
 deathController.sync();
@@ -92,3 +96,9 @@ deathController.sync();
 void authController.initialize((runtimeConfig) => {
   launchController.applyRuntimeConfig(runtimeConfig);
 });
+
+declare global {
+  interface Window {
+    gameClient?: GameClient;
+  }
+}

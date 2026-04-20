@@ -2,7 +2,7 @@ import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
 import { AttackStyleSchema, ENTITY_KINDS } from "@shared/content/schema.ts";
 import {
   RESOURCE_ID_PATTERN,
-  type ResourceId,
+  assertResourceId,
 } from "@shared/ids/ResourceId.ts";
 import { NetEventSchema } from "@shared/net/events.ts";
 import { z } from "zod";
@@ -10,9 +10,12 @@ import { z } from "zod";
 const ResourceIdSchema = z
   .string()
   .regex(RESOURCE_ID_PATTERN)
-  .transform((typeId) => typeId as ResourceId);
+  .transform((typeId) => assertResourceId(typeId));
 
-export const StackableCountSnapshotSchema = z.object({
+export const DayNightPhaseSchema = z.enum(["day", "night"]);
+export type DayNightPhase = z.infer<typeof DayNightPhaseSchema>;
+
+const StackableCountSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
   amount: z.number().int().positive(),
 });
@@ -39,15 +42,15 @@ export const EquippedItemSnapshotSchema = z.object({
   reloadTicksRemaining: z.number().int().nonnegative().optional(),
 });
 
-export const EmptyInventorySlotSnapshotSchema = z.object({
+const EmptyInventorySlotSnapshotSchema = z.object({
   kind: z.literal("empty"),
 });
 
-export const WeaponInventorySlotSnapshotSchema = WeaponSnapshotSchema.extend({
+const WeaponInventorySlotSnapshotSchema = WeaponSnapshotSchema.extend({
   kind: z.literal("weapon"),
 });
 
-export const BuildableInventorySlotSnapshotSchema = z.object({
+const BuildableInventorySlotSnapshotSchema = z.object({
   kind: z.literal("buildable"),
   typeId: ResourceIdSchema,
   count: z.number().int().positive(),
@@ -126,7 +129,7 @@ export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
 
 export const DayNightSnapshotSchema = z.object({
   dayCount: z.number().int().nonnegative(),
-  phase: z.enum(["day", "night"]),
+  phase: DayNightPhaseSchema,
   phaseElapsedMs: z.number().int().nonnegative(),
   dayDurationMs: z.number().int().positive(),
   nightDurationMs: z.number().int().positive(),
@@ -135,28 +138,17 @@ export const DayNightSnapshotSchema = z.object({
 export const WorldSnapshotSchema = z.object({
   tick: z.number().int().nonnegative(),
   dayNight: DayNightSnapshotSchema,
+  full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
+  removedEntityIds: z.array(z.number().int().nonnegative()).optional(),
   events: z.array(NetEventSchema),
 });
 
-export type StackableCountSnapshot = z.infer<
-  typeof StackableCountSnapshotSchema
->;
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
 export type EquippedItemSnapshot = z.infer<typeof EquippedItemSnapshotSchema>;
-export type EmptyInventorySlotSnapshot = z.infer<
-  typeof EmptyInventorySlotSnapshotSchema
->;
-export type WeaponInventorySlotSnapshot = z.infer<
-  typeof WeaponInventorySlotSnapshotSchema
->;
-export type BuildableInventorySlotSnapshot = z.infer<
-  typeof BuildableInventorySlotSnapshotSchema
->;
 export type InventorySlotSnapshot = z.infer<typeof InventorySlotSnapshotSchema>;
 export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
 export type ActiveEffectSnapshot = z.infer<typeof ActiveEffectSnapshotSchema>;
-export type PlayerInventorySnapshot = InventorySnapshot;
 export type EntitySnapshotBase = z.infer<typeof EntitySnapshotBaseSchema>;
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
 export type EnemySnapshot = z.infer<typeof EnemySnapshotSchema>;

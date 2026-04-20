@@ -1,6 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 
-export type PanelContent = {
+type PanelContent = {
   title: string;
   body: string;
   minWidth?: number;

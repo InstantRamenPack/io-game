@@ -1,8 +1,7 @@
 import * as PIXI from "pixi.js";
 import type { DayNightSnapshot } from "@shared/net/snapshots.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
-
-type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
+import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 
 export class DayNightIndicator {
   public readonly container: PIXI.Container;

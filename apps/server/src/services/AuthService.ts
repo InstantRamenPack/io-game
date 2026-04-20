@@ -6,7 +6,7 @@ type GoogleTokenInfoResponse = {
   sub?: string;
 };
 
-export type AuthenticatedUser = {
+type AuthenticatedUser = {
   googleSubjectId: string;
   email?: string;
 };

@@ -1,7 +1,11 @@
 import type { World } from "@server/world/World.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
-import type { Entity } from "@server/entities/Entity.ts";
+import {
+  isSpawnableEntityCtor,
+  type SpawnableEntityCtor,
+} from "@server/runtime/ctorGuards.ts";
 import { readFileSync } from "node:fs";
+import { z } from "zod";
 
 type WaveChatBroadcaster = {
   broadcastSystemMessage?: (text: string) => void;
@@ -10,7 +14,7 @@ type WaveChatBroadcaster = {
 /**
  * Configuration for a single entity spawn in a wave.
  */
-export type WaveSpawnConfig = {
+type WaveSpawnConfig = {
   /** Entity resource type name (e.g., "drifter", "shoota") */
   entityType: string;
   /** X coordinate for spawn */
@@ -26,7 +30,7 @@ export type WaveSpawnConfig = {
 /**
  * Configuration for a complete wave during a night cycle.
  */
-export type NightWaveConfig = {
+type NightWaveConfig = {
   /** Which night cycle this wave belongs to (1-indexed) */
   nightCycle: number;
   /** All spawns that occur during this night */
@@ -36,9 +40,26 @@ export type NightWaveConfig = {
 /**
  * Top-level wave configuration file structure.
  */
-export type WavesConfigFile = {
+type WavesConfigFile = {
   waves: NightWaveConfig[];
 };
+
+const WaveSpawnConfigSchema = z.object({
+  entityType: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  delayTicks: z.number().int().nonnegative(),
+  count: z.number().int().positive(),
+});
+
+const NightWaveConfigSchema = z.object({
+  nightCycle: z.number().int().positive(),
+  spawns: z.array(WaveSpawnConfigSchema),
+});
+
+const WavesConfigFileSchema = z.object({
+  waves: z.array(NightWaveConfigSchema),
+});
 
 /**
  * Internal state for tracking a pending spawn.
@@ -47,8 +68,6 @@ type PendingSpawn = {
   spawn: WaveSpawnConfig;
   ticksRemaining: number;
 };
-
-type SpawnableEntityCtor = new (entityId: number) => Entity;
 
 /**
  * Manages wave spawning mechanics tied to the day/night cycle.
@@ -84,10 +103,14 @@ export class WaveSpawner {
     const lookup = new Map<string, SpawnableEntityCtor>();
 
     for (const [, entry] of entityTypeRegistry.entries()) {
-      const entityTypeCtor = entry.ctor as unknown as typeof Entity;
-      const resourceName = entityTypeCtor.resourceName ?? "";
+      const resourceName = entry.ctor.resourceName ?? "";
       if (resourceName) {
-        lookup.set(resourceName, entry.ctor as unknown as SpawnableEntityCtor);
+        if (!isSpawnableEntityCtor(entry.ctor)) {
+          throw new Error(
+            `Entity type ${entry.typeId} is not spawnable by the wave system.`,
+          );
+        }
+        lookup.set(resourceName, entry.ctor);
       }
     }
 
@@ -105,7 +128,13 @@ export class WaveSpawner {
     chatService: WaveChatBroadcaster | null = null,
   ): WaveSpawner {
     const jsonText = readFileSync(configPath, "utf-8");
-    const config = JSON.parse(jsonText) as WavesConfigFile;
+    const parsedConfig = WavesConfigFileSchema.safeParse(JSON.parse(jsonText));
+    if (!parsedConfig.success) {
+      throw new Error(
+        `Invalid wave configuration at ${configPath}: ${parsedConfig.error.message}`,
+      );
+    }
+    const config = parsedConfig.data;
     return new WaveSpawner(config, chatService);
   }
 
@@ -116,17 +145,14 @@ export class WaveSpawner {
   public onNightStart(nightCycle: number): void {
     this.pendingSpawns = [];
 
-    // Find the wave configuration for this night cycle
     const waveConfig = this.wavesConfig.waves.find(
       (w) => w.nightCycle === nightCycle,
     );
 
     if (!waveConfig) {
-      // No spawns configured for this night
       return;
     }
 
-    // Queue all spawns for this night
     for (const spawn of waveConfig.spawns) {
       this.pendingSpawns.push({
         spawn,
@@ -134,7 +160,6 @@ export class WaveSpawner {
       });
     }
 
-    // Broadcast wave start message
     if (this.chatService?.broadcastSystemMessage) {
       this.chatService.broadcastSystemMessage(
         `🌙 Wave ${nightCycle} approaching! Enemies incoming!`,
@@ -150,11 +175,9 @@ export class WaveSpawner {
    */
   public update(world: World, isNight: boolean): void {
     if (!isNight || this.pendingSpawns.length === 0) {
-      // Only process spawns during night and when there are pending spawns
       return;
     }
 
-    // Process all pending spawns
     const spawnsToRemove: number[] = [];
 
     for (let i = this.pendingSpawns.length - 1; i >= 0; i--) {
@@ -166,13 +189,11 @@ export class WaveSpawner {
       pending.ticksRemaining -= 1;
 
       if (pending.ticksRemaining <= 0) {
-        // Time to spawn
         this.spawnEntities(world, pending.spawn);
         spawnsToRemove.push(i);
       }
     }
 
-    // Remove completed spawns (iterate from highest index to avoid shifting issues)
     for (const i of spawnsToRemove) {
       this.pendingSpawns.splice(i, 1);
     }
@@ -199,13 +220,11 @@ export class WaveSpawner {
       const entityId = world.allocEntityId();
       const entity = new entityCtor(entityId);
 
-      // Position the entity with some slight randomization to avoid perfect overlap
       const offsetX = world.randomNumberGenerator() * 40 - 20;
       const offsetY = world.randomNumberGenerator() * 40 - 20;
       entity.x = spawnConfig.x + offsetX;
       entity.y = spawnConfig.y + offsetY;
 
-      // Clamp to world bounds
       entity.x = Math.max(0, Math.min(entity.x, world.gameConfig.worldSize.w));
       entity.y = Math.max(0, Math.min(entity.y, world.gameConfig.worldSize.h));
 

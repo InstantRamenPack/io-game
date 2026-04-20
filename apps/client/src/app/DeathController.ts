@@ -1,7 +1,7 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 
-export type DeathController = {
+type DeathController = {
   sync: () => void;
   setVisible: (visible: boolean) => void;
 };

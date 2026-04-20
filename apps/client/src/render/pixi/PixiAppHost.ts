@@ -39,6 +39,10 @@ export class PixiAppHost {
     return this.app;
   }
 
+  public getAppIfReady(): Application | null {
+    return this.app;
+  }
+
   public getCanvas(): HTMLCanvasElement | null {
     return this.app ? (this.app.canvas as HTMLCanvasElement) : null;
   }

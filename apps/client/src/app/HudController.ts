@@ -1,5 +1,6 @@
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type { GameClient, PointerInput } from "@client/client/GameClient.ts";
+import type { GameClient } from "@client/client/GameClient.ts";
+import type { PointerInput } from "@client/client/clientTypes.ts";
 import type { HudState } from "@client/render/PixiHud.ts";
 
 export type { HudState };

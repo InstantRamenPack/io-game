@@ -20,14 +20,24 @@ const SPAWN_ATTEMPTS = 20;
  */
 export class PickupSystem implements System {
   private accumulatedSpawnMs = 0;
+  private activeMagPickupCount = 0;
+  private activeMagPickupCountInitialized = false;
+  private readonly queryBuffer: ItemEntity[] = [];
 
   public update(world: World, deltaMs: number): void {
+    if (!this.activeMagPickupCountInitialized) {
+      this.activeMagPickupCount = world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => this.isMagPickup(pickup)).length;
+      this.activeMagPickupCountInitialized = true;
+    }
+
     this.collectPickups(world);
 
     this.accumulatedSpawnMs += deltaMs;
     while (this.accumulatedSpawnMs >= PICKUP_SPAWN_INTERVAL_MS) {
       this.accumulatedSpawnMs -= PICKUP_SPAWN_INTERVAL_MS;
-      if (this.countActiveMagPickups(world) < MAX_ACTIVE_MAG_PICKUPS) {
+      if (this.activeMagPickupCount < MAX_ACTIVE_MAG_PICKUPS) {
         this.spawnRandomMagPickup(world);
       }
     }
@@ -35,22 +45,35 @@ export class PickupSystem implements System {
 
   private collectPickups(world: World): void {
     const players = world.entities.queryInstances(Player);
-    const pickups = world.entities.queryInstances(ItemEntity);
 
     for (const player of players) {
       if (!player.alive) {
         continue;
       }
 
-      for (const pickup of pickups) {
+      const bounds = player.getWorldBounds();
+      const candidates = world.spatial.queryBox(
+        bounds.minX,
+        bounds.minY,
+        bounds.maxX,
+        bounds.maxY,
+        this.queryBuffer,
+      );
+      const playerHitboxes = player.getWorldHitboxes();
+
+      for (const candidate of candidates) {
+        if (!(candidate instanceof ItemEntity)) {
+          continue;
+        }
+        const pickup = candidate;
         if (!world.entities.has(pickup.id)) {
           continue;
         }
+        if (!this.isMagPickup(pickup)) {
+          continue;
+        }
         if (
-          !doResolvedRectSetsOverlap(
-            player.getWorldHitboxes(),
-            pickup.getWorldHitboxes(),
-          )
+          !doResolvedRectSetsOverlap(playerHitboxes, pickup.getWorldHitboxes())
         ) {
           continue;
         }
@@ -58,19 +81,10 @@ export class PickupSystem implements System {
         if (!player.inventory.absorbInventory(pickup.contents)) {
           continue;
         }
+        this.activeMagPickupCount = Math.max(0, this.activeMagPickupCount - 1);
         world.despawn(pickup.id);
       }
     }
-  }
-
-  private countActiveMagPickups(world: World): number {
-    return world.entities
-      .queryInstances(ItemEntity)
-      .filter((pickup) =>
-        MAG_PICKUP_TYPE_IDS.some(
-          (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-        ),
-      ).length;
   }
 
   private spawnRandomMagPickup(world: World): void {
@@ -90,7 +104,6 @@ export class PickupSystem implements System {
         bounds.maxX > world.gameConfig.worldSize.w ||
         bounds.maxY > world.gameConfig.worldSize.h
       ) {
-        world.despawn(pickup.id);
         continue;
       }
 
@@ -103,13 +116,19 @@ export class PickupSystem implements System {
           ),
         );
       if (overlapsEntity) {
-        world.despawn(pickup.id);
         continue;
       }
 
       world.spawn(pickup);
+      this.activeMagPickupCount += 1;
       return;
     }
+  }
+
+  private isMagPickup(pickup: ItemEntity): boolean {
+    return MAG_PICKUP_TYPE_IDS.some(
+      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
+    );
   }
 
   private pickRandomMagType(world: World): ResourceId {

@@ -21,7 +21,6 @@ import { CannonBulletRenderer } from "@client/render/entity/projectile/CannonBul
 import { CrossbowArrowRenderer } from "@client/render/entity/projectile/CrossbowArrowRenderer.ts";
 import { HomingDroneRenderer } from "@client/render/entity/projectile/HomingDroneRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import type { EntityKind } from "@shared/content/schema.ts";
 import { getResourcePath } from "@shared/ids/ResourceId.ts";
 
 type EntityRendererCtor = new (
@@ -43,6 +42,7 @@ const rendererManifests = [
   ["crafting_station", CraftingStationRenderer],
   ["landmine", LandmineRenderer],
   ["basic_bullet", BasicBulletRenderer],
+  ["rifle_bullet", BasicBulletRenderer],
   ["cannon_bullet", CannonBulletRenderer],
   ["crossbow_arrow", CrossbowArrowRenderer],
   ["homing_drone", HomingDroneRenderer],
@@ -53,23 +53,17 @@ const rendererByResourcePath = new Map<string, EntityRendererCtor>(
   rendererManifests,
 );
 
-const fallbackRendererByKind: Partial<Record<EntityKind, EntityRendererCtor>> =
-  {
-    building: CraftingStationRenderer,
-    projectile: BasicBulletRenderer,
-    pickup: PickupRenderer,
-  };
-
 export function createEntityRenderer(
   entity: ClientEntity,
   pixiRenderer: PixiRenderer,
   options: EntityRendererOptions,
 ): EntityRenderer {
   const resourcePath = getResourcePath(entity.typeId);
-  const rendererCtor =
-    rendererByResourcePath.get(resourcePath) ??
-    fallbackRendererByKind[entity.kind] ??
-    PickupRenderer;
+  const rendererCtor = rendererByResourcePath.get(resourcePath);
+
+  if (!rendererCtor) {
+    throw new Error(`Missing entity renderer for ${entity.typeId}.`);
+  }
 
   return new rendererCtor(pixiRenderer, options);
 }

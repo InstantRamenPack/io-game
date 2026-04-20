@@ -68,6 +68,7 @@ export class ClientEntity {
   public serverY: number;
   public visualVersion = 1;
   public healthVersion = 1;
+  public stateVersion = 1;
   private readonly serverFrameHistoryLimit: number;
   private readonly serverFrameHistory: EntityServerFrame[] = [];
 
@@ -123,6 +124,16 @@ export class ClientEntity {
       );
     }
 
+    const previousServerX = this.serverX;
+    const previousServerY = this.serverY;
+    const previousVx = this.vx;
+    const previousVy = this.vy;
+    const previousRotation = this.rotation;
+    const previousAlive = this.alive;
+    const previousOwnerId = this.ownerId;
+    const previousHp = this.hp;
+    const previousMaxHp = this.maxHp;
+
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
     this.vx = snapshot.vx;
@@ -130,15 +141,26 @@ export class ClientEntity {
     this.rotation = snapshot.rotation;
     this.pushServerFrame(snapshot, tick);
 
+    let hasStateChange =
+      previousServerX !== this.serverX ||
+      previousServerY !== this.serverY ||
+      previousVx !== this.vx ||
+      previousVy !== this.vy ||
+      previousRotation !== this.rotation ||
+      previousAlive !== snapshot.alive ||
+      previousOwnerId !== snapshot.ownerId;
+
     if (!areHitboxesEqual(this.hitboxes, snapshot.hitboxes)) {
       this.hitboxes = snapshot.hitboxes;
       this.hitboxBounds = getHitboxBounds(this.hitboxes);
       this.visualVersion += 1;
       this.healthVersion += 1;
+      hasStateChange = true;
     }
 
-    if (this.hp !== snapshot.hp || this.maxHp !== snapshot.maxHp) {
+    if (previousHp !== snapshot.hp || previousMaxHp !== snapshot.maxHp) {
       this.healthVersion += 1;
+      hasStateChange = true;
     }
 
     this.hp = snapshot.hp;
@@ -146,7 +168,13 @@ export class ClientEntity {
     this.alive = snapshot.alive;
     this.ownerId = snapshot.ownerId;
 
-    this.applyKindSpecificFields(snapshot);
+    if (this.applyKindSpecificFields(snapshot)) {
+      hasStateChange = true;
+    }
+
+    if (hasStateChange) {
+      this.stateVersion += 1;
+    }
   }
 
   public samplePosition(
@@ -222,7 +250,16 @@ export class ClientEntity {
     };
   }
 
-  private applyKindSpecificFields(snapshot: EntitySnapshot): void {
+  private applyKindSpecificFields(snapshot: EntitySnapshot): boolean {
+    const previousName = this.name;
+    const previousLabel = this.label;
+    const previousTier = this.tier;
+    const previousInventory = this.inventory;
+    const previousEffects = this.activeEffects;
+    const previousMoveSpeed = this.moveSpeed;
+    const previousTargetId = this.targetId;
+    const previousEquippedItem = this.equippedItem;
+
     this.name = undefined;
     this.label = undefined;
     this.tier = undefined;
@@ -254,6 +291,17 @@ export class ClientEntity {
       case "projectile":
         break;
     }
+
+    return (
+      previousName !== this.name ||
+      previousLabel !== this.label ||
+      previousTier !== this.tier ||
+      previousInventory !== this.inventory ||
+      previousEffects !== this.activeEffects ||
+      previousMoveSpeed !== this.moveSpeed ||
+      previousTargetId !== this.targetId ||
+      previousEquippedItem !== this.equippedItem
+    );
   }
 
   private pushServerFrame(snapshot: EntitySnapshot, tick: number): void {

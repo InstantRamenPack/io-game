@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import type { Rect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const CRAFT_MODAL_TILE_GAP = 12;
@@ -8,13 +9,6 @@ const CRAFT_MODAL_PREVIEW_ICON_SIZE = 132;
 const CRAFT_BUTTON_WIDTH = 176;
 const CRAFT_BUTTON_HEIGHT = 48;
 const CRAFT_MODAL_MAX_TILES = 64;
-
-type Rect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 export type CraftingModalEntry = {
   typeId: ResourceId;

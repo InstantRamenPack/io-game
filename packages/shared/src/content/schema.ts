@@ -1,6 +1,6 @@
 import {
   RESOURCE_ID_PATTERN,
-  type ResourceId,
+  assertResourceId,
 } from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
@@ -15,10 +15,13 @@ export const ENTITY_KINDS = [
 
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
+export const CollisionModeSchema = z.enum(["none", "static", "dynamic"]);
+export type CollisionMode = z.infer<typeof CollisionModeSchema>;
+
 const ResourceIdSchema = z
   .string()
   .regex(RESOURCE_ID_PATTERN)
-  .transform((typeId) => typeId as ResourceId);
+  .transform((typeId) => assertResourceId(typeId));
 
 export const AttackStyleSchema = z.enum(["shoot", "swing", "jab"]);
 
@@ -116,7 +119,7 @@ export const EntityContentSchema = z.object({
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   iconTextureId: ResourceIdSchema.optional(),
-  collisionMode: z.enum(["none", "static", "dynamic"]).optional(),
+  collisionMode: CollisionModeSchema.optional(),
   hitboxProfiles: z
     .record(z.string().min(1), z.array(HitboxRectSchema).min(1))
     .optional(),

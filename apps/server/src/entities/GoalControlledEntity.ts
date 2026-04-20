@@ -1,4 +1,5 @@
 import { Entity } from "@server/entities/Entity.ts";
+import type { GoalActor } from "@server/goals/GoalActor.ts";
 import { GoalContext } from "@server/goals/GoalContext.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { GoalSelector } from "@server/goals/GoalSelector.ts";
@@ -8,11 +9,12 @@ import type { World } from "@server/world/World.ts";
 /**
  * Shared base for entities that participate in goal-driven movement or combat.
  */
-export abstract class GoalControlledEntity extends Entity {
+export abstract class GoalControlledEntity extends Entity implements GoalActor {
   public goalSelector: GoalSelector<this>;
   public weapons: Weapon[] = [];
   public targetId?: number;
   public moveSpeed: number;
+  private readonly goalContext = new GoalContext<this>();
 
   protected constructor(
     id: number,
@@ -46,7 +48,7 @@ export abstract class GoalControlledEntity extends Entity {
       return;
     }
 
-    this.goalSelector.tick(new GoalContext(world, this));
+    this.goalSelector.tick(this.goalContext.reset(world, this));
   }
 
   protected registerGoals(goals: readonly Goal<this>[]): void {

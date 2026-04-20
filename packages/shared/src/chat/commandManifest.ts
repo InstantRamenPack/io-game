@@ -19,7 +19,7 @@ export type ChatAutocompleteSource =
   | "selector"
   | "player";
 
-export type ChatAutocompleteRule = {
+type ChatAutocompleteRule = {
   argIndex: number;
   sources: readonly ChatAutocompleteSource[];
   whenArgEquals?: {
@@ -28,7 +28,7 @@ export type ChatAutocompleteRule = {
   };
 };
 
-export type ChatCommandEntry = {
+type ChatCommandEntry = {
   id: ChatCommandId;
   primaryAlias: string;
   aliases: readonly string[];

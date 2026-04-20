@@ -42,7 +42,7 @@ export function cloneHitboxRects(rects: readonly HitboxRect[]): HitboxRect[] {
   return rects.map((rect) => ({ ...rect }));
 }
 
-export function resolveHitboxRect(
+function resolveHitboxRect(
   originX: number,
   originY: number,
   rect: HitboxRect,

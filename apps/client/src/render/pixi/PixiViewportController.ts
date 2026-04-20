@@ -1,6 +1,5 @@
 import type { Application, Container } from "pixi.js";
-
-type WorldSize = { w: number; h: number };
+import type { WorldSize } from "@client/render/renderTypes.ts";
 
 export class PixiViewportController {
   private worldSize: WorldSize;
@@ -13,6 +12,12 @@ export class PixiViewportController {
   private gameplayViewportHeight = 0;
   private swimOffsetX = 0;
   private swimOffsetY = 0;
+  private viewRectCache: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null = null;
 
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
@@ -20,6 +25,11 @@ export class PixiViewportController {
 
   public setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
+    this.viewRectCache = null;
+  }
+
+  public invalidateViewRectCache(): void {
+    this.viewRectCache = null;
   }
 
   public setCameraTarget(x: number, y: number): void {
@@ -42,6 +52,7 @@ export class PixiViewportController {
     this.cameraInitialized = false;
     this.swimOffsetX = 0;
     this.swimOffsetY = 0;
+    this.viewRectCache = null;
   }
 
   public update(deltaMs: number, app: Application, worldRoot: Container): void {
@@ -66,12 +77,29 @@ export class PixiViewportController {
     );
   }
 
+  public getWorldViewportBounds(app: Application): {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  } {
+    const scale = this.getGameplayScale(app);
+    const halfWidth = app.screen.width / Math.max(Number.EPSILON, scale) / 2;
+    const halfHeight = app.screen.height / Math.max(Number.EPSILON, scale) / 2;
+    return {
+      minX: this.cameraPivotX - halfWidth,
+      minY: this.cameraPivotY - halfHeight,
+      maxX: this.cameraPivotX + halfWidth,
+      maxY: this.cameraPivotY + halfHeight,
+    };
+  }
+
   public clientToScreen(
     app: Application,
     clientX: number,
     clientY: number,
   ): { x: number; y: number } {
-    const rect = (app.canvas as HTMLCanvasElement).getBoundingClientRect();
+    const rect = this.getCanvasRect(app);
     if (rect.width <= 0 || rect.height <= 0) {
       return { x: clientX - rect.left, y: clientY - rect.top };
     }
@@ -79,6 +107,14 @@ export class PixiViewportController {
     return {
       x: ((clientX - rect.left) / rect.width) * app.screen.width,
       y: ((clientY - rect.top) / rect.height) * app.screen.height,
+    };
+  }
+
+  public getCanvasCenterClient(app: Application): { x: number; y: number } {
+    const rect = this.getCanvasRect(app);
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     };
   }
 
@@ -91,12 +127,10 @@ export class PixiViewportController {
     const screenPoint = this.clientToScreen(app, clientX, clientY);
     return {
       x:
-        (screenPoint.x - worldRoot.position.x + this.swimOffsetX) /
-          worldRoot.scale.x +
+        (screenPoint.x - worldRoot.position.x) / worldRoot.scale.x +
         worldRoot.pivot.x,
       y:
-        (screenPoint.y - worldRoot.position.y + this.swimOffsetY) /
-          worldRoot.scale.y +
+        (screenPoint.y - worldRoot.position.y) / worldRoot.scale.y +
         worldRoot.pivot.y,
     };
   }
@@ -113,5 +147,28 @@ export class PixiViewportController {
       app.screen.width / baseWidth,
       app.screen.height / baseHeight,
     );
+  }
+
+  private getCanvasRect(app: Application): {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } {
+    const cached = this.viewRectCache;
+    if (cached) {
+      return cached;
+    }
+
+    const canvas = app.canvas as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+
+    this.viewRectCache = {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+    return this.viewRectCache;
   }
 }

@@ -2,8 +2,9 @@ import {
   ClientRuntimeConfigSchema,
   type ClientRuntimeConfig,
 } from "@shared/config/ClientRuntimeConfig.ts";
+import { isJsonObject, parseJsonValue } from "@shared/json.ts";
 
-export type AuthMode = "none" | "guest" | "google";
+type AuthMode = "none" | "guest" | "google";
 
 type GoogleCredentialResponse = { credential?: string };
 
@@ -28,7 +29,12 @@ type GoogleIdApi = {
 
 type GoogleApi = { accounts?: { id?: GoogleIdApi } };
 
-export type AuthState = {
+type JwtPayload = {
+  email?: string;
+  sub?: string;
+};
+
+type AuthState = {
   googleClientId: string | null;
   googleIdToken: string | null;
   googleEmail: string | null;
@@ -38,7 +44,7 @@ export type AuthState = {
   errorMessage: string | null;
 };
 
-export type AuthGateViewState = {
+type AuthGateViewState = {
   showReadyState: boolean;
   gateText: string;
   accountButtonText: string;
@@ -102,20 +108,23 @@ export class AuthController {
       return;
     }
 
-    let runtimeConfig: ClientRuntimeConfig;
+    let rawRuntimeConfig: unknown;
     try {
-      const parsedRuntimeConfig = ClientRuntimeConfigSchema.safeParse(
-        await response.json(),
-      );
-      if (!parsedRuntimeConfig.success) {
-        throw new Error("invalid_runtime_config");
-      }
-      runtimeConfig = parsedRuntimeConfig.data;
+      rawRuntimeConfig = await response.json();
     } catch {
       this.state.errorMessage = "Unable to load auth config.";
       this.emit();
       return;
     }
+
+    const parsedRuntimeConfig =
+      ClientRuntimeConfigSchema.safeParse(rawRuntimeConfig);
+    if (!parsedRuntimeConfig.success) {
+      this.state.errorMessage = "Unable to load auth config.";
+      this.emit();
+      return;
+    }
+    const runtimeConfig: ClientRuntimeConfig = parsedRuntimeConfig.data;
 
     this.state.googleClientId = runtimeConfig.googleClientId;
     onRuntimeConfig(runtimeConfig);
@@ -232,7 +241,7 @@ export class AuthController {
     }
   }
 
-  private decodeJwtPayload(jwt: string): Record<string, unknown> | null {
+  private decodeJwtPayload(jwt: string): JwtPayload | null {
     const payloadBase64Url = jwt.split(".")[1];
     if (!payloadBase64Url) {
       return null;
@@ -243,7 +252,19 @@ export class AuthController {
       .replace(/_/g, "/")
       .padEnd(Math.ceil(payloadBase64Url.length / 4) * 4, "=");
     try {
-      return JSON.parse(atob(payloadBase64)) as Record<string, unknown>;
+      const payload = parseJsonValue(atob(payloadBase64));
+      if (!isJsonObject(payload)) {
+        return null;
+      }
+
+      const decoded: JwtPayload = {};
+      if (typeof payload.email === "string") {
+        decoded.email = payload.email;
+      }
+      if (typeof payload.sub === "string") {
+        decoded.sub = payload.sub;
+      }
+      return decoded;
     } catch {
       return null;
     }
@@ -262,8 +283,7 @@ export class AuthController {
   }
 
   private getGoogleIdApi(): GoogleIdApi | null {
-    return ((window.google as GoogleApi | undefined)?.accounts?.id ??
-      null) as GoogleIdApi | null;
+    return window.google?.accounts?.id ?? null;
   }
 
   private async loadGoogleScript(): Promise<void> {

@@ -1,7 +1,7 @@
 import type { EntityKind } from "@shared/content/schema.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 
-export type RuntimeTypeKind = EntityKind | "item" | "effect";
+type RuntimeTypeKind = EntityKind | "item" | "effect";
 
 export type DerivableTypeStatic<K extends RuntimeTypeKind = RuntimeTypeKind> = {
   readonly kind: K;

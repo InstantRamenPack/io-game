@@ -3,6 +3,7 @@ import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
+import { isJsonValue, type JsonValue } from "@shared/json.ts";
 
 type DebugBridgeOptions = {
   elements: AppElements;
@@ -39,7 +40,7 @@ export function installDebugBridge({
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  async function fetchServerLog(): Promise<unknown> {
+  async function fetchServerLog(): Promise<JsonValue> {
     try {
       const response = await fetch("/debug-log", {
         cache: "no-store",
@@ -49,7 +50,10 @@ export function installDebugBridge({
           error: `server_debug_log_http_${response.status}`,
         };
       }
-      return (await response.json()) as unknown;
+      const payload: JsonValue = await response.json();
+      return isJsonValue(payload)
+        ? payload
+        : { error: "server_debug_log_invalid_json" };
     } catch (error) {
       return {
         error:
@@ -75,15 +79,15 @@ export function installDebugBridge({
   }
 
   async function clearLog(): Promise<void> {
-    clearInterpolationLog();
-    try {
-      await fetch("/debug-log", {
-        method: "DELETE",
-        cache: "no-store",
-      });
-    } catch {
-      // Ignore failed server log clears so client-side clearing still works.
+    const response = await fetch("/debug-log", {
+      method: "DELETE",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`server_debug_log_http_${response.status}`);
     }
+
+    clearInterpolationLog();
   }
 
   async function downloadLog(): Promise<void> {

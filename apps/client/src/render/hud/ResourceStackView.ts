@@ -1,11 +1,8 @@
 import * as PIXI from "pixi.js";
 import { drawCircle } from "@client/render/pixi/PixiGraphicUtils.ts";
+import type { ResourceStackEntry } from "@client/render/renderTypes.ts";
+import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-
-type ResourceStackEntry = {
-  typeId: ResourceId;
-  count: number;
-};
 
 class ResourceCircleView {
   public readonly container = new PIXI.Container();
@@ -66,7 +63,7 @@ class ResourceCircleView {
 
     this.countText.text = String(entry.count);
     this.countText.position.set(this.size / 2, this.size - 10);
-    this.typeText.text = entry.typeId.split(":")[1] ?? entry.typeId;
+    this.typeText.text = getResourceDisplayLabel(entry.typeId);
     this.typeText.position.set(this.size + 10, this.size / 2);
     this.typeText.visible = false;
   }

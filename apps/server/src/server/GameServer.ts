@@ -84,16 +84,13 @@ export class GameServer {
    * Initializes the wave spawning system.
    */
   private initializeWaveSpawning(): void {
-    try {
-      this.world.waveSystem = WaveSystem.loadFromFile({
-        dayNightSystem: this.world.dayNightSystem,
-        configPath: "./apps/server/src/config/waves.json",
-        chatService: this.chatService,
-      });
-      console.log("✓ Wave spawning system initialized");
-    } catch (error) {
-      console.error("Failed to initialize wave spawning:", error);
-      // Game continues without wave spawning
+    this.world.waveSystem = WaveSystem.loadFromFile({
+      dayNightSystem: this.world.dayNightSystem,
+      configPath: "./apps/server/src/config/waves.json",
+      chatService: this.chatService,
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Wave spawning system initialized");
     }
   }
 
@@ -202,7 +199,7 @@ export class GameServer {
         {
           clientId,
           normalizedInput: structuredClone(actionMessage),
-          queueLength: player.queuedActions.length,
+          queueLength: player.getQueuedActionCount(),
         },
       );
     }

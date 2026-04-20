@@ -1,5 +1,6 @@
 import { Assets, Graphics, Texture } from "pixi.js";
 import type { Application } from "pixi.js";
+import { isJsonObject, type JsonValue } from "@shared/json.ts";
 
 export class PixiAssetStore {
   private readonly itemTextures = new Map<string, Texture>();
@@ -36,24 +37,15 @@ export class PixiAssetStore {
 
   private async loadItemIcons(): Promise<void> {
     const mappingUrl = "/item_icons.json";
-    let iconMap: Record<string, string> = {};
-
-    try {
-      const response = await fetch(mappingUrl);
-      if (response.ok) {
-        const payload = (await response.json()) as Record<string, string>;
-        if (payload && typeof payload === "object") {
-          iconMap = payload;
-        }
-      }
-    } catch {
-      iconMap = {};
+    const iconMap = await this.loadTextureMap(mappingUrl);
+    const defaultPath = iconMap.__default__;
+    if (!defaultPath) {
+      throw new Error(`Missing __default__ entry in ${mappingUrl}.`);
     }
 
-    const defaultPath = iconMap.__default__ || "/hud/icons/placeholder.png";
     this.itemIconMap = { ...iconMap };
     const iconEntries = Object.entries(iconMap).filter(
-      ([key, value]) => key !== "__default__" && typeof value === "string",
+      ([key]) => key !== "__default__",
     );
 
     const urlsToLoad = new Set<string>([defaultPath]);
@@ -79,20 +71,9 @@ export class PixiAssetStore {
   }
 
   private async loadItemSprites(): Promise<void> {
-    let spriteMap: Record<string, string> = {};
-    try {
-      const response = await fetch("/item_sprites.json");
-      if (response.ok) {
-        const payload = (await response.json()) as Record<string, string>;
-        if (payload && typeof payload === "object") {
-          spriteMap = payload;
-        }
-      }
-    } catch {
-      spriteMap = {};
-    }
-
-    const spriteEntries = Object.entries(spriteMap).filter(() => true);
+    const spriteEntries = Object.entries(
+      await this.loadTextureMap("/item_sprites.json"),
+    );
 
     await Promise.all(
       spriteEntries.map(async ([, url]) => {
@@ -108,6 +89,32 @@ export class PixiAssetStore {
         this.itemSpriteTextures.set(typeId, Texture.from(url));
       }
     }
+  }
+
+  private async loadTextureMap(url: string): Promise<Record<string, string>> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load ${url}: ${response.status} ${response.statusText}`.trim(),
+      );
+    }
+
+    const payload: JsonValue = await response.json();
+    if (!isJsonObject(payload)) {
+      throw new Error(`Invalid texture map in ${url}. Expected an object.`);
+    }
+
+    const map: Record<string, string> = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value !== "string") {
+        throw new Error(
+          `Invalid texture map entry for "${key}" in ${url}. Expected a string.`,
+        );
+      }
+      map[key] = value;
+    }
+
+    return map;
   }
 
   private buildParticleTextures(app: Application): void {

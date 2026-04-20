@@ -47,7 +47,6 @@ export class PixiSceneGraph {
   }
 
   public updateGridCache(): void {
-    // Only call this when grid lines need to be regenerated (on resize)
     this.gridLinesGraphic.updateCacheTexture();
   }
 }

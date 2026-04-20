@@ -1,14 +1,14 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CRAFTING_STATION_INTERACT_PADDING } from "@shared/gameplay/crafting.ts";
 
-export type WorldBounds = {
+type WorldBounds = {
   minX: number;
   minY: number;
   maxX: number;
   maxY: number;
 };
 
-export function getEntityWorldBounds(entity: ClientEntity): WorldBounds {
+function getEntityWorldBounds(entity: ClientEntity): WorldBounds {
   return {
     minX: entity.x + entity.hitboxBounds.minX,
     minY: entity.y + entity.hitboxBounds.minY,

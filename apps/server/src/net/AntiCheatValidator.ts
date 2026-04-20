@@ -36,6 +36,8 @@ export class AntiCheatValidator {
       case "craft":
         return true;
     }
+
+    return false;
   }
 
   private clampAttack(actionMessage: ActionMessage, world: World): void {

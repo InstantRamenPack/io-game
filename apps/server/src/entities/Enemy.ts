@@ -5,7 +5,7 @@ import type { Weapon } from "@server/items/Weapon.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 
-export type EnemyConfig = {
+type EnemyConfig = {
   moveSpeed?: number;
   hitboxProfiles: HitboxProfiles;
   activeHitboxProfile?: string;
