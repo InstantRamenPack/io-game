@@ -2,6 +2,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
+import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { CannonGun } from "@server/items/weapons/CannonGun.ts";
@@ -29,7 +30,8 @@ export class Cannon extends Building {
     this.weapons = [new CannonGun()];
     this.registerGoals([
       new TargetEntityGoal<Cannon>(0, Enemy, 650),
-      new RangedAttackGoal<Cannon>(1, 0, 0, 0, 45, 1),
+      new LookAtTargetGoal<Cannon>(1),
+      new RangedAttackGoal<Cannon>(2, 0, 0, 0, 45, 1),
     ]);
   }
 

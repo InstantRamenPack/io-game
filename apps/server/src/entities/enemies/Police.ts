@@ -3,6 +3,7 @@ import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
 
@@ -22,8 +23,9 @@ export class Police extends Enemy {
       weapons: [new Taser()],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 420),
-        new GoToTargetGoal<Enemy>(1, 18),
-        new AttackAtGoal<Enemy>(2, 0),
+        new LookAtTargetGoal<Enemy>(1),
+        new GoToTargetGoal<Enemy>(2, 18),
+        new AttackAtGoal<Enemy>(3, 0),
       ],
     });
   }

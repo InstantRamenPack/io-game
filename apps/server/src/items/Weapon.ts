@@ -43,12 +43,7 @@ export abstract class Weapon extends Item {
   ): boolean;
 
   /** Attempts an attack toward the given aim point. */
-  public abstract hit(
-    world: World,
-    owner: Entity,
-    aimX: number,
-    aimY: number,
-  ): boolean;
+  public abstract hit(world: World, owner: Entity, theta: number): boolean;
 
   /** Resets cooldown after a successful hit attempt. */
   protected resetCooldown(): void {

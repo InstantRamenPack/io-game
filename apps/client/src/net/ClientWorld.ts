@@ -1,6 +1,7 @@
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
+import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
@@ -136,6 +137,13 @@ export class ClientWorld {
   public update(deltaMs: number): void {
     this.renderManager?.update(deltaMs, this.entities.values());
     this.updateConfusionVisuals();
+  }
+
+  public setPresentationOverride(
+    entityId: number,
+    presentation: EntityPresentationState | null,
+  ): void {
+    this.renderManager?.setPresentationOverride(entityId, presentation);
   }
 
   public playAttackAnimation(entityId: number | undefined): void {

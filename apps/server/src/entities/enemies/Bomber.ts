@@ -4,6 +4,7 @@ import { BomberExplosionAreaEffect } from "@server/effects/area/BomberExplosionA
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -22,7 +23,8 @@ export class Bomber extends Enemy {
       weapons: [],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, Infinity),
-        new GoToTargetGoal<Enemy>(1, 20),
+        new LookAtTargetGoal<Enemy>(1),
+        new GoToTargetGoal<Enemy>(2, 20),
       ],
     });
   }

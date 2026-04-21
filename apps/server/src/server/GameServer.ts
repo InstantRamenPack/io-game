@@ -1,6 +1,7 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
   type ActionMessage,
+  type AimMessage,
   type HelloMessage,
   type MoveIntentMessage,
   parseClientToServerMessage,
@@ -168,6 +169,41 @@ export class GameServer {
     }
   }
 
+  public handleAim(clientId: string, aimMessage: AimMessage): void {
+    const player = this.getReadyPlayer(clientId);
+    if (!player) {
+      return;
+    }
+
+    const lastInputSequence =
+      this.lastInputSequenceByClientId.get(clientId) ?? -1;
+    if (aimMessage.seq <= lastInputSequence) {
+      this.rejectInput(clientId, player, "stale_input", aimMessage);
+      return;
+    }
+
+    if (!this.antiCheatValidator.validateAim(aimMessage)) {
+      this.rejectInput(clientId, player, "invalid_input", aimMessage);
+      return;
+    }
+
+    player.setAimTheta(aimMessage.theta);
+    this.lastInputSequenceByClientId.set(clientId, aimMessage.seq);
+
+    if (this.world.focusedTrace.matchesEntity(player)) {
+      this.world.focusedTrace.recordEntityEvent(
+        this.world,
+        "aim_applied",
+        player,
+        {
+          clientId,
+          theta: aimMessage.theta,
+          seq: aimMessage.seq,
+        },
+      );
+    }
+  }
+
   public handleAction(clientId: string, actionMessage: ActionMessage): void {
     const player = this.getReadyPlayer(clientId);
     if (!player) {
@@ -266,6 +302,12 @@ export class GameServer {
           return;
         }
         this.handleMoveIntent(clientId, clientMessage);
+        return;
+      case "aim":
+        if (!this.requireReady(clientId)) {
+          return;
+        }
+        this.handleAim(clientId, clientMessage);
         return;
       case "action":
         if (!this.requireReady(clientId)) {
@@ -392,7 +434,7 @@ export class GameServer {
     clientId: string,
     player: Player,
     reason: "stale_input" | "invalid_input",
-    payload: ActionMessage | MoveIntentMessage,
+    payload: ActionMessage | AimMessage | MoveIntentMessage,
   ): void {
     this.networkServer.send(
       clientId,

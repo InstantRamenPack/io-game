@@ -1,5 +1,6 @@
 import type {
   ActionMessage,
+  AimMessage,
   ChatMessage,
   MoveIntentKey,
 } from "@shared/net/protocol.ts";
@@ -118,6 +119,14 @@ export class WsClient {
       return;
     }
     this.socket.send(JSON.stringify({ t: "move", seq, key, pressed }));
+  }
+
+  public sendAim(seq: number, theta: number): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    const message: AimMessage = { t: "aim", seq, theta };
+    this.socket.send(JSON.stringify(message));
   }
 
   public sendAction(actionMessage: ActionMessage): void {

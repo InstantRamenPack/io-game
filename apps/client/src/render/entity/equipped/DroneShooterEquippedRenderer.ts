@@ -11,7 +11,6 @@ export class DroneShooterEquippedRenderer extends RangedEquippedRenderer {
       container,
       sprite,
       renderManifest,
-      entity,
       progress,
       mirrorSign,
       facingLeft,
@@ -26,7 +25,7 @@ export class DroneShooterEquippedRenderer extends RangedEquippedRenderer {
     const orbitY = renderManifest.holdOffset.y;
     sprite.position.set(mirrorSign === 1 ? orbitX : -orbitX, orbitY);
     container.rotation =
-      entity.rotation +
+      input.rotation +
       toRadians(renderManifest.holdRotationDeg) +
       (facingLeft ? Math.PI : 0);
   }

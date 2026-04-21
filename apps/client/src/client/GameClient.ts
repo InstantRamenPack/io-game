@@ -18,6 +18,7 @@ import {
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import { getEntityContent, getItemContent } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
@@ -30,13 +31,20 @@ import {
 } from "@shared/geometry/hitbox.ts";
 import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { ActionMessage } from "@shared/net/protocol.ts";
+import {
+  lerpAngle,
+  normalizeAngle,
+  shortestAngleDelta,
+} from "@shared/math/angle.ts";
+import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 type AimTarget = {
   x: number;
   y: number;
 };
+
+type HeldMovementState = Record<MoveIntentKey, boolean>;
 
 type CachedPlacementBuildProfile = {
   itemTypeId: ResourceId;
@@ -50,6 +58,9 @@ type CachedPlacementBuildProfile = {
 const PLACEMENT_SPATIAL_CELL_SIZE = 160;
 const PLACEMENT_KEY_OFFSET = 1 << 15;
 const PLACEMENT_KEY_STRIDE = 1 << 16;
+const AIM_SEND_EPSILON = 0.0025;
+const SELF_PRESENTATION_SNAP_DISTANCE = 96;
+const SELF_PRESENTATION_FOLLOW_SHARPNESS = 14;
 
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
@@ -78,8 +89,11 @@ export class GameClient {
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private pointerAimTarget?: AimTarget;
+  private selfPresentation?: EntityPresentationState;
   private pointerClientX: number | null = null;
   private pointerClientY: number | null = null;
+  private lastSentAimTheta?: number;
+  private lastSentAimAtMs = Number.NEGATIVE_INFINITY;
   private placementIndexDirty = true;
   private placementIndexedWorld?: ClientWorld;
   private readonly placementSpatial = new Map<number, ClientEntity[]>();
@@ -88,6 +102,12 @@ export class GameClient {
   private placementCandidateMarker = 0;
   private placementProfileCache: CachedPlacementBuildProfile | undefined;
   private pointerViewTarget: HTMLCanvasElement | null = null;
+  private readonly heldMovement: HeldMovementState = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  };
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.started || event.button !== 0 || !event.isPrimary) {
@@ -116,6 +136,7 @@ export class GameClient {
     if (!handled) {
       this.inputManager.startHoldFire(aimTarget.x, aimTarget.y);
     }
+    this.sendAimIfNeeded(performance.now(), true);
     event.preventDefault();
   };
 
@@ -145,6 +166,7 @@ export class GameClient {
     if (!handled) {
       this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
     }
+    this.sendAimIfNeeded(performance.now(), true);
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
@@ -171,6 +193,7 @@ export class GameClient {
       shiftKey: event.shiftKey,
     });
     this.inputManager.stopHoldFire();
+    this.sendAimIfNeeded(performance.now(), true);
   };
 
   private readonly handlePointerViewRectInvalidation = (): void => {
@@ -223,6 +246,7 @@ export class GameClient {
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
+      this.heldMovement[key] = pressed;
       if (!this.sessionReady || !this.isTransportConnected()) {
         return;
       }
@@ -319,7 +343,11 @@ export class GameClient {
   }
 
   public queueAttack(x: number, y: number): void {
-    this.sendAttackAction(x, y, performance.now());
+    const theta = this.computeThetaFromWorldPoint(x, y);
+    if (theta === null) {
+      return;
+    }
+    this.sendAttackAction(theta, performance.now());
   }
 
   public queueCraftItem(itemTypeId: ResourceId): void {
@@ -425,7 +453,7 @@ export class GameClient {
         deltaMs,
         this.playerEntityId,
       );
-      this.syncLocalAimRotation();
+      this.updateSelfPresentation(deltaMs);
       this.worldState.clientWorld?.update(deltaMs);
       this.syncPlacementPreview();
     }
@@ -524,6 +552,7 @@ export class GameClient {
       this.update(deltaMs, timestampMs);
       // Refresh after camera update so attacks use the current viewport.
       this.refreshPointerTargetFromScreen();
+      this.sendAimIfNeeded(timestampMs);
       this.updateHeldAttack(timestampMs);
     });
   }
@@ -571,8 +600,15 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
+    this.selfPresentation = undefined;
     this.pointerClientX = null;
     this.pointerClientY = null;
+    this.lastSentAimTheta = undefined;
+    this.lastSentAimAtMs = Number.NEGATIVE_INFINITY;
+    this.heldMovement.up = false;
+    this.heldMovement.down = false;
+    this.heldMovement.left = false;
+    this.heldMovement.right = false;
     this.renderer.invalidateViewRectCache();
     this.heldAttackController.reset();
     this.stopFrameLoop();
@@ -601,25 +637,6 @@ export class GameClient {
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
   }
 
-  private syncLocalAimRotation(): void {
-    if (!this.pointerAimTarget) {
-      return;
-    }
-
-    const player = this.getLocalPlayerEntity();
-    if (!player?.alive) {
-      return;
-    }
-
-    const deltaX = this.pointerAimTarget.x - player.x;
-    const deltaY = this.pointerAimTarget.y - player.y;
-    if (Math.hypot(deltaX, deltaY) <= Number.EPSILON) {
-      return;
-    }
-
-    player.rotation = Math.atan2(deltaY, deltaX);
-  }
-
   private refreshPointerTargetFromScreen(): void {
     if (this.pointerClientX === null || this.pointerClientY === null) {
       return;
@@ -639,7 +656,7 @@ export class GameClient {
     this.networkClient.sendAction(actionMessage);
   }
 
-  private sendAttackAction(x: number, y: number, now: number): boolean {
+  private sendAttackAction(theta: number, now: number): boolean {
     const activeWeapon = this.getLocalActiveWeapon();
     if (!activeWeapon) {
       return false;
@@ -652,7 +669,7 @@ export class GameClient {
       t: "action",
       seq: this.inputManager.nextSequence(),
       action: "attack",
-      aim: { x, y },
+      theta,
     });
     this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
     this.heldAttackController.onAttackSent(now, activeWeapon);
@@ -674,7 +691,11 @@ export class GameClient {
       return;
     }
 
-    this.sendAttackAction(holdFireTarget.x, holdFireTarget.y, now);
+    const theta = this.computeLocalAimTheta();
+    if (theta === null) {
+      return;
+    }
+    this.sendAttackAction(theta, now);
   }
 
   private computeAimTargetFromPointer(
@@ -687,14 +708,14 @@ export class GameClient {
       return cursorWorld;
     }
 
-    const player = this.getLocalPlayerEntity();
-    if (!player) {
+    const playerPose = this.getLocalPlayerVisualPose();
+    if (!playerPose) {
       return cursorWorld;
     }
 
     const deltaX = cursorWorld.x - centerWorld.x;
     const deltaY = cursorWorld.y - centerWorld.y;
-    return { x: player.x + deltaX, y: player.y + deltaY };
+    return { x: playerPose.x + deltaX, y: playerPose.y + deltaY };
   }
 
   private getLocalActiveWeapon(): LocalWeaponState | undefined {
@@ -736,6 +757,159 @@ export class GameClient {
     }
 
     return dayNight.phase === "night" ? 1 : 0;
+  }
+
+  private updateSelfPresentation(deltaMs: number): void {
+    const world = this.worldState?.clientWorld;
+    const player = this.getLocalPlayerEntity();
+    if (!world || !player?.alive || this.playerEntityId === undefined) {
+      if (this.playerEntityId !== undefined) {
+        world?.setPresentationOverride(this.playerEntityId, null);
+      }
+      this.selfPresentation = undefined;
+      return;
+    }
+
+    const dt = Math.max(0, deltaMs) / 1000;
+    const current = this.selfPresentation ?? {
+      x: player.x,
+      y: player.y,
+      rotation: player.rotation,
+    };
+    const moveVelocity = this.computeLocalPresentationVelocity(
+      player.moveSpeed ?? 0,
+    );
+    let nextX = current.x + moveVelocity.x * dt;
+    let nextY = current.y + moveVelocity.y * dt;
+    const errorDistance = Math.hypot(player.x - nextX, player.y - nextY);
+    if (errorDistance > SELF_PRESENTATION_SNAP_DISTANCE) {
+      nextX = player.x;
+      nextY = player.y;
+    } else {
+      const followT = 1 - Math.exp(-SELF_PRESENTATION_FOLLOW_SHARPNESS * dt);
+      nextX = lerp(nextX, player.x, followT);
+      nextY = lerp(nextY, player.y, followT);
+    }
+
+    const localAimTheta = this.computeLocalAimTheta();
+    this.selfPresentation = {
+      x: nextX,
+      y: nextY,
+      rotation:
+        localAimTheta ?? lerpAngle(current.rotation, player.rotation, 0.35),
+    };
+    world.setPresentationOverride(this.playerEntityId, this.selfPresentation);
+  }
+
+  private computeLocalPresentationVelocity(moveSpeed: number): {
+    x: number;
+    y: number;
+  } {
+    let moveX = 0;
+    let moveY = 0;
+    if (this.heldMovement.left) {
+      moveX -= 1;
+    }
+    if (this.heldMovement.right) {
+      moveX += 1;
+    }
+    if (this.heldMovement.up) {
+      moveY -= 1;
+    }
+    if (this.heldMovement.down) {
+      moveY += 1;
+    }
+
+    const magnitude = Math.hypot(moveX, moveY);
+    if (magnitude <= Number.EPSILON) {
+      return { x: 0, y: 0 };
+    }
+
+    return {
+      x: (moveX / magnitude) * moveSpeed,
+      y: (moveY / magnitude) * moveSpeed,
+    };
+  }
+
+  private getLocalPlayerVisualPose(): {
+    x: number;
+    y: number;
+    rotation: number;
+  } | null {
+    if (this.selfPresentation) {
+      return this.selfPresentation;
+    }
+
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return null;
+    }
+
+    return {
+      x: player.x,
+      y: player.y,
+      rotation: player.rotation,
+    };
+  }
+
+  private computeLocalAimTheta(): number | null {
+    if (!this.pointerAimTarget) {
+      return null;
+    }
+
+    const playerPose = this.getLocalPlayerVisualPose();
+    if (!playerPose) {
+      return null;
+    }
+
+    return this.computeThetaFromWorldPoint(
+      this.pointerAimTarget.x,
+      this.pointerAimTarget.y,
+      playerPose,
+    );
+  }
+
+  private computeThetaFromWorldPoint(
+    x: number,
+    y: number,
+    playerPose = this.getLocalPlayerVisualPose(),
+  ): number | null {
+    if (!playerPose) {
+      return null;
+    }
+
+    const deltaX = x - playerPose.x;
+    const deltaY = y - playerPose.y;
+    if (Math.hypot(deltaX, deltaY) <= Number.EPSILON) {
+      return null;
+    }
+
+    return normalizeAngle(Math.atan2(deltaY, deltaX));
+  }
+
+  private sendAimIfNeeded(now: number, force = false): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+
+    const theta = this.computeLocalAimTheta();
+    if (theta === null) {
+      return;
+    }
+
+    const changed =
+      this.lastSentAimTheta === undefined ||
+      Math.abs(shortestAngleDelta(this.lastSentAimTheta, theta)) >
+        AIM_SEND_EPSILON;
+    const intervalMs = 1000 / Math.max(1, this.gameConfig.tickRate);
+    const due = now - this.lastSentAimAtMs >= intervalMs;
+    if (!changed || (!force && !due)) {
+      return;
+    }
+
+    this.networkClient.sendAim(this.inputManager.nextSequence(), theta);
+    this.lastSentAimTheta = theta;
+    this.lastSentAimAtMs = now;
   }
 
   private syncPlacementPreview(): void {
@@ -975,6 +1149,10 @@ export class GameClient {
   ): boolean {
     return entity.id !== localPlayerId;
   }
+}
+
+function lerp(from: number, to: number, t: number): number {
+  return from + (to - from) * t;
 }
 
 function getPlacementCellKey(cellX: number, cellY: number): number {

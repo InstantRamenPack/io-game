@@ -2,6 +2,7 @@ import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
+import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
@@ -23,8 +24,9 @@ export class Drifter extends Enemy {
       weapons: [new ZombieSword()],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 480),
-        new GoToTargetGoal<Enemy>(1, 20),
-        new AttackAtGoal<Enemy>(2, 0),
+        new LookAtTargetGoal<Enemy>(1),
+        new GoToTargetGoal<Enemy>(2, 20),
+        new AttackAtGoal<Enemy>(3, 0),
       ],
     });
   }

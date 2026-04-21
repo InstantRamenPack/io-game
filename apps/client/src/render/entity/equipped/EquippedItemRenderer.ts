@@ -10,6 +10,7 @@ import { toRadians } from "@client/render/entity/equipped/equippedMath.ts";
 
 export type EquippedRenderContext = {
   entity: ClientEntity;
+  rotation: number;
   weaponContent: WeaponContent;
   renderManifest: EquippedRender;
   typeId: ResourceId;
@@ -49,7 +50,6 @@ export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
       sprite,
       texture,
       renderManifest,
-      entity,
       mirrorSign,
       facingLeft,
     } = input;
@@ -70,7 +70,7 @@ export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
 
     container.position.set(0, 0);
     container.rotation =
-      entity.rotation +
+      input.rotation +
       toRadians(renderManifest.holdRotationDeg) +
       (facingLeft ? Math.PI : 0);
   }

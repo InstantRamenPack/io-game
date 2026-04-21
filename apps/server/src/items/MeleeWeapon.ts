@@ -1,4 +1,5 @@
 import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -44,28 +45,19 @@ export abstract class MeleeWeapon extends Weapon {
       return false;
     }
 
-    const aim = this.resolveAim(owner, target.x, target.y);
-    if (!aim) {
-      return false;
-    }
+    const aim = this.resolveAim(
+      Math.atan2(target.y - owner.y, target.x - owner.x),
+    );
 
     return this.isTargetInAttackShape(owner, target, aim);
   }
 
-  public override hit(
-    world: World,
-    owner: Entity,
-    aimX: number,
-    aimY: number,
-  ): boolean {
+  public override hit(world: World, owner: Entity, theta: number): boolean {
     if (!this.canHit()) {
       return false;
     }
 
-    const aim = this.resolveAim(owner, aimX, aimY);
-    if (!aim) {
-      return false;
-    }
+    const aim = this.resolveAim(theta);
 
     owner.rotation = aim.angle;
 
@@ -126,22 +118,12 @@ export abstract class MeleeWeapon extends Weapon {
     );
   }
 
-  protected resolveAim(
-    owner: Entity,
-    aimX: number,
-    aimY: number,
-  ): MeleeAim | null {
-    const deltaX = aimX - owner.x;
-    const deltaY = aimY - owner.y;
-    const aimDistance = Math.hypot(deltaX, deltaY);
-    if (aimDistance <= Number.EPSILON) {
-      return null;
-    }
-
+  protected resolveAim(theta: number): MeleeAim {
+    const angle = normalizeAngle(theta);
     return {
-      directionX: deltaX / aimDistance,
-      directionY: deltaY / aimDistance,
-      angle: Math.atan2(deltaY, deltaX),
+      directionX: Math.cos(angle),
+      directionY: Math.sin(angle),
+      angle,
     };
   }
 

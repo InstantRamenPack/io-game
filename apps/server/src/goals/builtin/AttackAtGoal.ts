@@ -34,7 +34,11 @@ export class AttackAtGoal<
       return;
     }
 
-    weapon.hit(ctx.world, ctx.self, target.x, target.y);
+    weapon.hit(
+      ctx.world,
+      ctx.self,
+      Math.atan2(target.y - ctx.self.y, target.x - ctx.self.x),
+    );
   }
 
   public override shouldContinue(ctx: GoalContext<TSelf>): boolean {

@@ -11,13 +11,13 @@ export class SweepMeleeEquippedRenderer
   implements EquippedItemRenderer
 {
   public override syncStatic(input: EquippedStaticSyncInput): void {
-    const { container, renderManifest, facingLeft, entity } = input;
+    const { container, renderManifest, facingLeft } = input;
     super.syncStatic(input);
 
     const halfArcRad = toRadians(renderManifest.swingAngleDeg * 0.5);
     const idleOffset = facingLeft ? halfArcRad : -halfArcRad;
     container.rotation =
-      entity.rotation +
+      input.rotation +
       toRadians(renderManifest.holdRotationDeg) +
       idleOffset +
       (facingLeft ? Math.PI : 0);
@@ -28,7 +28,6 @@ export class SweepMeleeEquippedRenderer
       container,
       sprite,
       renderManifest,
-      entity,
       facingLeft,
       progress,
       attackAnimationDurationMs,
@@ -56,7 +55,7 @@ export class SweepMeleeEquippedRenderer
       renderManifest.holdOffset.y,
     );
     container.rotation =
-      entity.rotation +
+      input.rotation +
       toRadians(renderManifest.holdRotationDeg) +
       rotationOffset +
       (facingLeft ? Math.PI : 0);

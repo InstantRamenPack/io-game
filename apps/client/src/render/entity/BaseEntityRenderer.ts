@@ -6,6 +6,7 @@ import type {
 } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
 import { resolveEquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRendererRegistry.ts";
 import type {
+  EntityPresentationState,
   EntityRenderer,
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
@@ -108,8 +109,14 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
   }
 
-  public sync(entity: ClientEntity): void {
-    this.entityContainer.position.set(entity.x, entity.y);
+  public sync(
+    entity: ClientEntity,
+    presentation?: EntityPresentationState,
+  ): void {
+    const visualX = presentation?.x ?? entity.x;
+    const visualY = presentation?.y ?? entity.y;
+    const visualRotation = presentation?.rotation ?? entity.rotation;
+    this.entityContainer.position.set(visualX, visualY);
 
     if (this.hitboxContainer) {
       this.hitboxContainer.position.set(entity.x, entity.y);
@@ -121,7 +128,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     if (this.pixiRenderer.playerEntityId === entity.id) {
-      this.pixiRenderer.setCameraToPlayer(entity.x, entity.y);
+      this.pixiRenderer.setCameraToPlayer(visualX, visualY);
     }
 
     const visualChanged = this.lastVisualVersion !== entity.visualVersion;
@@ -135,7 +142,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.lastHealthVersion = entity.healthVersion;
     }
 
-    this.syncEquippedItem(entity);
+    this.syncEquippedItem(entity, visualRotation);
     const cooldownTicksRemaining =
       entity.equippedItem?.cooldownTicksRemaining ?? 0;
     if (
@@ -147,7 +154,11 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.lastAttackCooldownTicksRemaining = cooldownTicksRemaining;
   }
 
-  public update(deltaMs: number, entity: ClientEntity): void {
+  public update(
+    deltaMs: number,
+    entity: ClientEntity,
+    presentation?: EntityPresentationState,
+  ): void {
     this.damageFlashRemainingMs = Math.max(
       0,
       this.damageFlashRemainingMs - deltaMs,
@@ -157,7 +168,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.attackAnimationRemainingMs - deltaMs,
     );
     this.syncDamageFlashVisual();
-    this.syncEquippedItemAnimation(entity);
+    this.syncEquippedItemAnimation(
+      entity,
+      presentation?.rotation ?? entity.rotation,
+    );
   }
 
   public playAttackAnimation(entity: ClientEntity): void {
@@ -188,11 +202,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     ).onAttackStart?.(
       this.buildEquippedRenderContext(
         entity,
+        entity.rotation,
         entity.equippedItem.typeId,
         weaponContent,
       ),
     );
-    this.syncEquippedItemAnimation(entity);
+    this.syncEquippedItemAnimation(entity, entity.rotation);
   }
 
   public triggerDamageFlash(durationMs = 150): void {
@@ -264,7 +279,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.drawEntityShape(this.debugGraphic, entity, fillColor, 0.2, 0.35);
     }
     // Also update any equipped-weapon attack hitbox visuals (swing/jab).
-    this.redrawEquippedHitbox(entity);
+    this.redrawEquippedHitbox(entity, entity.rotation);
   }
 
   private redrawHealthBar(entity: ClientEntity): void {
@@ -307,7 +322,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.damageFlashGraphic.visible = alpha > 0.001;
   }
 
-  private syncEquippedItem(entity: ClientEntity): void {
+  private syncEquippedItem(entity: ClientEntity, rotation: number): void {
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       this.equippedItemContainer.visible = false;
@@ -334,6 +349,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.equippedItemContainer.visible = entity.alive;
     const context = this.buildEquippedRenderContext(
       entity,
+      rotation,
       equippedItem.typeId,
       weaponContent,
     );
@@ -347,10 +363,13 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       sprite: this.equippedItemSprite,
       texture: this.pixiRenderer.getItemSpriteTexture(textureTypeId),
     });
-    this.syncEquippedItemAnimation(entity);
+    this.syncEquippedItemAnimation(entity, rotation);
   }
 
-  private syncEquippedItemAnimation(entity: ClientEntity): void {
+  private syncEquippedItemAnimation(
+    entity: ClientEntity,
+    rotation: number,
+  ): void {
     const equippedItem = entity.equippedItem;
     const weaponContent = equippedItem
       ? getWeaponContent(equippedItem.typeId)
@@ -366,6 +385,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     renderer.syncAnimated({
       ...this.buildEquippedRenderContext(
         entity,
+        rotation,
         equippedItem.typeId,
         weaponContent,
       ),
@@ -374,10 +394,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     });
     // Update equipped-weapon debug hitbox each frame so it follows the
     // current aim/animation state.
-    this.redrawEquippedHitbox(entity);
+    this.redrawEquippedHitbox(entity, rotation);
   }
 
-  private redrawEquippedHitbox(entity: ClientEntity): void {
+  private redrawEquippedHitbox(entity: ClientEntity, rotation: number): void {
     if (!this.equippedHitboxGraphic) {
       return;
     }
@@ -394,8 +414,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     // Compute aim direction from entity rotation (server stores aim in
     // entity.rotation).
-    const dirX = Math.cos(entity.rotation);
-    const dirY = Math.sin(entity.rotation);
+    const dirX = Math.cos(rotation);
+    const dirY = Math.sin(rotation);
 
     // Visual style for equipped attack hitboxes.
     const fillColor = 0xff6b6b;
@@ -413,8 +433,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
         getHitboxDirectionalExtent(entity.hitboxes, dirX, dirY) +
         swingContent.range;
       const halfArc = (swingContent.sweepArcDeg * Math.PI) / 360;
-      const start = entity.rotation - halfArc;
-      const end = entity.rotation + halfArc;
+      const start = rotation - halfArc;
+      const end = rotation + halfArc;
 
       this.equippedHitboxGraphic.beginFill(fillColor, fillAlpha);
       this.equippedHitboxGraphic.lineStyle(2, strokeColor, strokeAlpha);
@@ -459,6 +479,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
   private buildEquippedRenderContext(
     entity: ClientEntity,
+    rotation: number,
     typeId: ResourceId,
     weaponContent: WeaponContent,
   ): EquippedRenderContext {
@@ -468,7 +489,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
         : 1 -
           this.attackAnimationRemainingMs /
             Math.max(1, this.attackAnimationDurationMs);
-    const facingLeft = Math.cos(entity.rotation) < 0;
+    const facingLeft = Math.cos(rotation) < 0;
     // Consider the item's drawn handedness when deciding whether to mirror the
     // sprite. Some assets are authored facing right, others facing left. The
     // equippedRender.handedness field indicates which direction the sprite is
@@ -481,6 +502,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     return {
       entity,
+      rotation,
       weaponContent,
       renderManifest: renderManifest,
       typeId,

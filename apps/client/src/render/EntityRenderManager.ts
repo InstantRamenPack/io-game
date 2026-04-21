@@ -2,12 +2,17 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { createEntityRenderer } from "@client/render/entity/rendererRegistry.ts";
 import type {
   EntityRenderer,
+  EntityPresentationState,
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
 export class EntityRenderManager {
   private readonly renderers = new Map<number, EntityRenderer>();
+  private readonly presentationByEntityId = new Map<
+    number,
+    EntityPresentationState
+  >();
 
   constructor(
     private readonly pixiRenderer: PixiRenderer,
@@ -16,15 +21,28 @@ export class EntityRenderManager {
 
   public syncEntity(entity: ClientEntity): void {
     const renderer = this.requireRenderer(entity);
-    renderer.sync(entity);
+    renderer.sync(entity, this.presentationByEntityId.get(entity.id));
   }
 
   public update(deltaMs: number, entities: Iterable<ClientEntity>): void {
     for (const entity of entities) {
       const renderer = this.requireRenderer(entity);
-      renderer.sync(entity);
-      renderer.update(deltaMs, entity);
+      const presentation = this.presentationByEntityId.get(entity.id);
+      renderer.sync(entity, presentation);
+      renderer.update(deltaMs, entity, presentation);
     }
+  }
+
+  public setPresentationOverride(
+    entityId: number,
+    presentation: EntityPresentationState | null,
+  ): void {
+    if (!presentation) {
+      this.presentationByEntityId.delete(entityId);
+      return;
+    }
+
+    this.presentationByEntityId.set(entityId, presentation);
   }
 
   public removeEntity(entityId: number): void {
@@ -35,6 +53,7 @@ export class EntityRenderManager {
 
     renderer.destroy();
     this.renderers.delete(entityId);
+    this.presentationByEntityId.delete(entityId);
   }
 
   public triggerDamageFlash(entityId: number, durationMs = 150): void {
@@ -50,6 +69,7 @@ export class EntityRenderManager {
       renderer.destroy();
     }
     this.renderers.clear();
+    this.presentationByEntityId.clear();
   }
 
   private requireRenderer(entity: ClientEntity): EntityRenderer {

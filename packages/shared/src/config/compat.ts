@@ -60,6 +60,7 @@ const compatManifest = {
     clientToServer: [
       "hello",
       "move",
+      "aim",
       "action:attack",
       "action:craft",
       "action:build",

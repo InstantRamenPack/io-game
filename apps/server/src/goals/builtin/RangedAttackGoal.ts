@@ -59,16 +59,21 @@ export class RangedAttackGoal<
     const aimPoint = this.resolveAimPoint(ctx, weapon, target);
     if (distance <= Number.EPSILON) {
       ctx.self.setDesiredVelocity(0, 0);
+      const aimTheta = Math.atan2(
+        aimPoint.y - ctx.self.y,
+        aimPoint.x - ctx.self.x,
+      );
       if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
-        weapon.hit(ctx.world, ctx.self, aimPoint.x, aimPoint.y);
+        weapon.hit(ctx.world, ctx.self, aimTheta);
       }
       return;
     }
 
-    ctx.self.rotation = Math.atan2(
+    const aimTheta = Math.atan2(
       aimPoint.y - ctx.self.y,
       aimPoint.x - ctx.self.x,
     );
+    ctx.self.rotation = aimTheta;
     this.ticksUntilSwap -= 1;
     if (this.ticksUntilSwap <= 0) {
       this.flipStrafeDirection();
@@ -105,7 +110,7 @@ export class RangedAttackGoal<
     }
 
     if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
-      weapon.hit(ctx.world, ctx.self, aimPoint.x, aimPoint.y);
+      weapon.hit(ctx.world, ctx.self, aimTheta);
     }
   }
 

@@ -6,6 +6,7 @@ import {
 } from "@shared/gameplay/crafting.ts";
 import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
@@ -32,6 +33,7 @@ export class Player extends Entity {
   public moveSpeed = 15;
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
+  private aimTheta = 0;
 
   private readonly heldMovement: HeldMovementState = {
     up: false,
@@ -68,6 +70,10 @@ export class Player extends Entity {
     }
   }
 
+  public setAimTheta(theta: number): void {
+    this.aimTheta = normalizeAngle(theta);
+  }
+
   public clearQueuedInputState(): void {
     this.queuedActions.length = 0;
     this.queuedActionHead = 0;
@@ -93,6 +99,7 @@ export class Player extends Entity {
     }
 
     this.applyHeldMovement(world);
+    this.rotation = this.aimTheta;
     this.applyQueuedActions(world);
   }
 
@@ -122,6 +129,8 @@ export class Player extends Entity {
     this.hp = 0;
     this.activeEffects = [];
     this.clearQueuedInputState();
+    this.aimTheta = 0;
+    this.rotation = 0;
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_died", this, {
       x: this.x,
@@ -142,8 +151,10 @@ export class Player extends Entity {
     this.hp = this.maxHp;
     this.activeEffects = [];
     this.clearQueuedInputState();
+    this.aimTheta = 0;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
+    this.rotation = 0;
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,
@@ -385,12 +396,8 @@ export class Player extends Entity {
           this.inventory.setSelectedHotbarIndex(actionMessage.index);
           break;
         case "attack":
-          this.getActiveWeapon()?.hit(
-            world,
-            this,
-            actionMessage.aim.x,
-            actionMessage.aim.y,
-          );
+          this.setAimTheta(actionMessage.theta);
+          this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
           break;
         case "craft":
           this.craft(world, actionMessage.craft.itemTypeId);

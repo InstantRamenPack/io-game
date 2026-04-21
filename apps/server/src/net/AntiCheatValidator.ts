@@ -1,4 +1,9 @@
-import type { ActionMessage, MoveIntentMessage } from "@shared/net/protocol.ts";
+import type {
+  ActionMessage,
+  AimMessage,
+  MoveIntentMessage,
+} from "@shared/net/protocol.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -9,6 +14,18 @@ import type { World } from "@server/world/World.ts";
 export class AntiCheatValidator {
   public validateMoveIntent(moveIntent: MoveIntentMessage): boolean {
     return Number.isFinite(moveIntent.seq);
+  }
+
+  public validateAim(aimMessage: AimMessage): boolean {
+    if (
+      !Number.isFinite(aimMessage.seq) ||
+      !Number.isFinite(aimMessage.theta)
+    ) {
+      return false;
+    }
+
+    aimMessage.theta = normalizeAngle(aimMessage.theta);
+    return true;
   }
 
   public validateAction(
@@ -22,7 +39,7 @@ export class AntiCheatValidator {
 
     switch (actionMessage.action) {
       case "attack":
-        this.clampAttack(actionMessage, world);
+        this.normalizeAttackTheta(actionMessage);
         return true;
       case "build":
         this.clampBuild(actionMessage, world);
@@ -40,24 +57,14 @@ export class AntiCheatValidator {
     return false;
   }
 
-  private clampAttack(actionMessage: ActionMessage, world: World): void {
+  private normalizeAttackTheta(actionMessage: ActionMessage): void {
     if (actionMessage.action !== "attack") {
       return;
     }
 
-    const { x, y } = actionMessage.aim;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      actionMessage.aim = {
-        x: world.gameConfig.worldSize.w / 2,
-        y: world.gameConfig.worldSize.h / 2,
-      };
-      return;
-    }
-
-    actionMessage.aim = {
-      x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
-      y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
-    };
+    actionMessage.theta = Number.isFinite(actionMessage.theta)
+      ? normalizeAngle(actionMessage.theta)
+      : 0;
   }
 
   private clampBuild(actionMessage: ActionMessage, world: World): void {

@@ -1,4 +1,5 @@
 import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import { canAttackTarget } from "@server/combat/combatRules.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
@@ -94,20 +95,8 @@ export class RangedWeapon extends Weapon {
     );
   }
 
-  public override hit(
-    world: World,
-    owner: Entity,
-    aimX: number,
-    aimY: number,
-  ): boolean {
+  public override hit(world: World, owner: Entity, theta: number): boolean {
     if (!this.canHit()) {
-      return false;
-    }
-
-    const deltaX = aimX - owner.x;
-    const deltaY = aimY - owner.y;
-    const aimDistance = Math.hypot(deltaX, deltaY);
-    if (aimDistance <= 0) {
       return false;
     }
 
@@ -116,7 +105,7 @@ export class RangedWeapon extends Weapon {
       return false;
     }
 
-    const baseAngle = Math.atan2(deltaY, deltaX);
+    const baseAngle = normalizeAngle(theta);
     owner.rotation = baseAngle;
     const spreadOffset =
       this.spread === 0

@@ -2,16 +2,14 @@ import {
   RESOURCE_ID_PATTERN,
   assertResourceId,
 } from "@shared/ids/ResourceId.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import { isJsonObject, parseJsonValue } from "@shared/json.ts";
 import { z } from "zod";
 
 const MoveIntentKeySchema = z.enum(["up", "down", "left", "right"]);
 
-const AttackInputSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-});
+const ThetaInputSchema = z.number().transform((theta) => normalizeAngle(theta));
 
 const CraftInputSchema = z.object({
   itemTypeId: z.string().regex(RESOURCE_ID_PATTERN).transform(assertResourceId),
@@ -41,11 +39,17 @@ const MoveIntentMessageSchema = z.object({
   pressed: z.boolean(),
 });
 
+const AimMessageSchema = z.object({
+  t: z.literal("aim"),
+  seq: z.number().int().nonnegative(),
+  theta: ThetaInputSchema,
+});
+
 const AttackActionMessageSchema = z.object({
   t: z.literal("action"),
   seq: z.number().int().nonnegative(),
   action: z.literal("attack"),
-  aim: AttackInputSchema,
+  theta: ThetaInputSchema,
 });
 
 const CraftActionMessageSchema = z.object({
@@ -128,6 +132,7 @@ const ChatMessageSchema = z.object({
 const ClientToServerMessageSchema = z.discriminatedUnion("t", [
   HelloMessageSchema,
   MoveIntentMessageSchema,
+  AimMessageSchema,
   ActionMessageSchema,
   RespawnMessageSchema,
   PingMessageSchema,
@@ -145,6 +150,7 @@ const ServerToClientMessageSchema = z.discriminatedUnion("t", [
 export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type MoveIntentMessage = z.infer<typeof MoveIntentMessageSchema>;
+export type AimMessage = z.infer<typeof AimMessageSchema>;
 export type ActionMessage = z.infer<typeof ActionMessageSchema>;
 type RespawnMessage = z.infer<typeof RespawnMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
@@ -157,6 +163,7 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
   | MoveIntentMessage
+  | AimMessage
   | ActionMessage
   | RespawnMessage
   | PingMessage

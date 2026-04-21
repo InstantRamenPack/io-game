@@ -1,5 +1,6 @@
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
+import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
@@ -25,7 +26,8 @@ export class Shoota extends Enemy {
       weapons: [new BasicGun()],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 480),
-        new RangedAttackGoal<Enemy>(1, 0, 220, 32, 45),
+        new LookAtTargetGoal<Enemy>(1),
+        new RangedAttackGoal<Enemy>(2, 0, 220, 32, 45),
       ],
     });
   }
