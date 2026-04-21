@@ -276,7 +276,6 @@ export class GameClient {
     this.gameConfig.interpolation = {
       ...interpolation,
     };
-    this.worldState?.setSnapshotHistoryLimit(this.gameConfig.interpolation.historySize);
     this.syncInterpolatorConfig();
   }
 

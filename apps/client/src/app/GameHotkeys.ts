@@ -1,6 +1,5 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
-import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 
 /**
  * Installs the top-level gameplay hotkeys that are only meaningful while the
@@ -16,7 +15,12 @@ export function installGameHotkeys(
       return;
     }
 
-    if (isKeyboardTextEntryTarget(document.activeElement)) {
+    const activeTag = document.activeElement?.tagName;
+    if (
+      activeTag === "INPUT" ||
+      activeTag === "SELECT" ||
+      activeTag === "TEXTAREA"
+    ) {
       return;
     }
 

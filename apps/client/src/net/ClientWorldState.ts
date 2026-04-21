@@ -21,7 +21,7 @@ export class ClientWorldState {
   private readonly pixiRenderer?: PixiRenderer;
   private readonly debugHitbox: boolean;
   private readonly debugInterpolationMode: number;
-  private snapshotHistoryLimit: number;
+  private readonly snapshotHistoryLimit: number;
   private readonly snapshotHistory: SnapshotFrame[] = [];
 
   constructor(
@@ -78,17 +78,6 @@ export class ClientWorldState {
 
   public getSnapshotHistory(): readonly SnapshotFrame[] {
     return this.snapshotHistory;
-  }
-
-  public setSnapshotHistoryLimit(limit: number): void {
-    this.snapshotHistoryLimit = Math.max(2, Math.floor(limit));
-    if (this.snapshotHistory.length > this.snapshotHistoryLimit) {
-      this.snapshotHistory.splice(
-        0,
-        this.snapshotHistory.length - this.snapshotHistoryLimit,
-      );
-    }
-    this.clientWorld?.setServerFrameHistoryLimit(this.snapshotHistoryLimit);
   }
 
   public clear(): void {
