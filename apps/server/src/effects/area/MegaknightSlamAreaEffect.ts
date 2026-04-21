@@ -16,7 +16,7 @@ const KNOCKBACK = 25;
  * Non-explosion slam AoE used by the Megaknight landing attack.
  */
 export class MegaknightSlamAreaEffect extends RadialAreaEffect {
-  protected override readonly radius = 120;
+  protected override readonly radius = 80;
 
   /**
    * The slam only affects player targets that pass combat rules.
