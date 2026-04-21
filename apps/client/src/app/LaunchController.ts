@@ -186,6 +186,7 @@ export function createLaunchController({
       gameConfig.compatHash = runtimeConfig.compatHash;
       gameClient.setTickRate(runtimeConfig.tickRate);
       gameClient.setWorldSize(runtimeConfig.worldSize);
+      gameClient.setInterpolationConfig(runtimeConfig.interpolation);
     },
   };
 }
