@@ -18,7 +18,6 @@ import {
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import { getEntityContent, getItemContent } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
@@ -46,6 +45,14 @@ type AimTarget = {
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
 
+type LocalPlayerTruthState = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+};
+
 type CachedPlacementBuildProfile = {
   itemTypeId: ResourceId;
   buildsEntityTypeId: ResourceId;
@@ -59,8 +66,11 @@ const PLACEMENT_SPATIAL_CELL_SIZE = 160;
 const PLACEMENT_KEY_OFFSET = 1 << 15;
 const PLACEMENT_KEY_STRIDE = 1 << 16;
 const AIM_SEND_EPSILON = 0.0025;
-const SELF_PRESENTATION_SNAP_DISTANCE = 96;
-const SELF_PRESENTATION_FOLLOW_SHARPNESS = 14;
+const LOCAL_PLAYER_RECONCILE_SNAP_DISTANCE = 96;
+const LOCAL_PLAYER_RECONCILE_FOLLOW_SHARPNESS = 14;
+const PLAYER_DRIVE_ACCELERATION_MULTIPLIER = 0.45;
+const PLAYER_DRIVE_ACCELERATION_MIN = 4;
+const CONFUSION_SPEED_MULTIPLIER = 0.4;
 
 /**
  * Coordinates client networking, snapshots, interpolation, and renderer sync.
@@ -89,7 +99,7 @@ export class GameClient {
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private pointerAimTarget?: AimTarget;
-  private selfPresentation?: EntityPresentationState;
+  private localPlayerTruth?: LocalPlayerTruthState;
   private pointerClientX: number | null = null;
   private pointerClientY: number | null = null;
   private lastSentAimTheta?: number;
@@ -453,7 +463,7 @@ export class GameClient {
         deltaMs,
         this.playerEntityId,
       );
-      this.updateSelfPresentation(deltaMs);
+      this.updateLocalPlayerTruth(deltaMs);
       this.worldState.clientWorld?.update(deltaMs);
       this.syncPlacementPreview();
     }
@@ -600,7 +610,7 @@ export class GameClient {
     this.started = false;
     this.sessionReady = false;
     this.pointerAimTarget = undefined;
-    this.selfPresentation = undefined;
+    this.localPlayerTruth = undefined;
     this.pointerClientX = null;
     this.pointerClientY = null;
     this.lastSentAimTheta = undefined;
@@ -759,54 +769,103 @@ export class GameClient {
     return dayNight.phase === "night" ? 1 : 0;
   }
 
-  private updateSelfPresentation(deltaMs: number): void {
+  private updateLocalPlayerTruth(deltaMs: number): void {
     const world = this.worldState?.clientWorld;
     const player = this.getLocalPlayerEntity();
     if (!world || !player?.alive || this.playerEntityId === undefined) {
       if (this.playerEntityId !== undefined) {
         world?.setPresentationOverride(this.playerEntityId, null);
       }
-      this.selfPresentation = undefined;
+      this.localPlayerTruth = undefined;
       return;
     }
 
     const dt = Math.max(0, deltaMs) / 1000;
     const authoritativeX = player.serverX;
     const authoritativeY = player.serverY;
-    const current = this.selfPresentation ?? {
+    const current = this.localPlayerTruth ?? {
       x: authoritativeX,
       y: authoritativeY,
+      vx: player.vx,
+      vy: player.vy,
       rotation: player.rotation,
     };
-    const moveVelocity = this.computeLocalPresentationVelocity(
-      player.moveSpeed ?? 0,
-    );
-    let nextX = current.x + moveVelocity.x * dt;
-    let nextY = current.y + moveVelocity.y * dt;
+    const simulated = this.simulateLocalPlayerTruth(current, player, deltaMs);
+    let nextX = simulated.x;
+    let nextY = simulated.y;
+    let nextVx = simulated.vx;
+    let nextVy = simulated.vy;
     const errorDistance = Math.hypot(
       authoritativeX - nextX,
       authoritativeY - nextY,
     );
-    if (errorDistance > SELF_PRESENTATION_SNAP_DISTANCE) {
+    if (errorDistance > LOCAL_PLAYER_RECONCILE_SNAP_DISTANCE) {
       nextX = authoritativeX;
       nextY = authoritativeY;
+      nextVx = player.vx;
+      nextVy = player.vy;
     } else {
-      const followT = 1 - Math.exp(-SELF_PRESENTATION_FOLLOW_SHARPNESS * dt);
+      const followT =
+        1 - Math.exp(-LOCAL_PLAYER_RECONCILE_FOLLOW_SHARPNESS * dt);
       nextX = lerp(nextX, authoritativeX, followT);
       nextY = lerp(nextY, authoritativeY, followT);
+      nextVx = lerp(nextVx, player.vx, followT);
+      nextVy = lerp(nextVy, player.vy, followT);
     }
 
     const localAimTheta = this.computeLocalAimTheta();
-    this.selfPresentation = {
+    const nextRotation =
+      localAimTheta ?? lerpAngle(current.rotation, player.rotation, 0.35);
+    this.localPlayerTruth = {
       x: nextX,
       y: nextY,
-      rotation:
-        localAimTheta ?? lerpAngle(current.rotation, player.rotation, 0.35),
+      vx: nextVx,
+      vy: nextVy,
+      rotation: nextRotation,
     };
-    world.setPresentationOverride(this.playerEntityId, this.selfPresentation);
+    world.setPresentationOverride(this.playerEntityId, this.localPlayerTruth);
   }
 
-  private computeLocalPresentationVelocity(moveSpeed: number): {
+  private simulateLocalPlayerTruth(
+    current: LocalPlayerTruthState,
+    player: ClientEntity,
+    deltaMs: number,
+  ): LocalPlayerTruthState {
+    const tickMs = 1000 / Math.max(1, this.gameConfig.tickRate);
+    const frameTicks = Math.max(0, deltaMs) / tickMs;
+    if (frameTicks <= 0) {
+      return current;
+    }
+
+    const moveSpeed = player.moveSpeed ?? 0;
+    const movementBlocked = this.isLocalMovementBlocked(player);
+    const moveVelocity = movementBlocked
+      ? { x: 0, y: 0 }
+      : this.computeLocalDesiredVelocity(
+          moveSpeed * this.resolveLocalMovementSpeedMultiplier(player),
+        );
+    const driveAccelerationPerTick = Math.max(
+      PLAYER_DRIVE_ACCELERATION_MIN,
+      moveSpeed * PLAYER_DRIVE_ACCELERATION_MULTIPLIER,
+    );
+    const simulatedVelocity = advanceVelocityToward(
+      current.vx,
+      current.vy,
+      moveVelocity.x,
+      moveVelocity.y,
+      driveAccelerationPerTick * frameTicks,
+    );
+
+    return {
+      ...current,
+      x: current.x + simulatedVelocity.x * frameTicks,
+      y: current.y + simulatedVelocity.y * frameTicks,
+      vx: simulatedVelocity.x,
+      vy: simulatedVelocity.y,
+    };
+  }
+
+  private computeLocalDesiredVelocity(moveSpeed: number): {
     x: number;
     y: number;
   } {
@@ -836,13 +895,30 @@ export class GameClient {
     };
   }
 
+  private isLocalMovementBlocked(player: ClientEntity): boolean {
+    return (
+      player.activeEffects?.some((effect) => effect.typeId === "effect:stunned") ??
+      false
+    );
+  }
+
+  private resolveLocalMovementSpeedMultiplier(player: ClientEntity): number {
+    let multiplier = 1;
+    for (const effect of player.activeEffects ?? []) {
+      if (effect.typeId === "effect:confusion") {
+        multiplier *= CONFUSION_SPEED_MULTIPLIER;
+      }
+    }
+    return multiplier;
+  }
+
   private getLocalPlayerVisualPose(): {
     x: number;
     y: number;
     rotation: number;
   } | null {
-    if (this.selfPresentation) {
-      return this.selfPresentation;
+    if (this.localPlayerTruth) {
+      return this.localPlayerTruth;
     }
 
     const player = this.getLocalPlayerEntity();
@@ -851,8 +927,8 @@ export class GameClient {
     }
 
     return {
-      x: player.x,
-      y: player.y,
+      x: player.serverX,
+      y: player.serverY,
       rotation: player.rotation,
     };
   }
@@ -1158,6 +1234,30 @@ export class GameClient {
 
 function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
+}
+
+function advanceVelocityToward(
+  currentVx: number,
+  currentVy: number,
+  targetVx: number,
+  targetVy: number,
+  maxDelta: number,
+): { x: number; y: number } {
+  if (!Number.isFinite(maxDelta) || maxDelta <= 0) {
+    return { x: currentVx, y: currentVy };
+  }
+
+  const deltaX = targetVx - currentVx;
+  const deltaY = targetVy - currentVy;
+  const distance = Math.hypot(deltaX, deltaY);
+  if (distance <= Number.EPSILON || distance <= maxDelta) {
+    return { x: targetVx, y: targetVy };
+  }
+
+  return {
+    x: currentVx + (deltaX / distance) * maxDelta,
+    y: currentVy + (deltaY / distance) * maxDelta,
+  };
 }
 
 function getPlacementCellKey(cellX: number, cellY: number): number {

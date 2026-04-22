@@ -269,38 +269,6 @@ export class Interpolator {
     const jitterTicks = Math.max(0, this.targetRenderDelayTicks - 1);
 
     for (const entity of worldState.clientWorld.entities.values()) {
-      if (playerEntityId !== undefined && entity.id === playerEntityId) {
-        entity.updatePosition(entity.serverX, entity.serverY);
-        this.recordFocusedEntityDebugFrame({
-          frameTimeMs,
-          deltaMs,
-          previousSnapshotTick: previousSnapshot.tick,
-          latestSnapshotTick: latestSnapshot.tick,
-          estimatedServerTickNow,
-          renderTick,
-          expectedSnapshotMs: this.expectedSnapshotMs,
-          observedTickMs: this.observedTickMs,
-          renderDelayTicks: this.renderDelayTicks,
-          targetRenderDelayTicks: this.targetRenderDelayTicks,
-          jitterTicks,
-          arrivalTickMsEwma: this.arrivalTickMsEwma ?? null,
-          arrivalJitterMsEwma: this.arrivalJitterMsEwma,
-          playoutDelayMs: this.playoutDelayMs,
-          entity,
-          sampleMode: "snap",
-          correctionMode: "hard_snap",
-          targetX: entity.serverX,
-          targetY: entity.serverY,
-          preCorrectionErrorDistance: 0,
-          referenceTick: latestSnapshot.tick,
-          previousTick: null,
-          nextTick: null,
-          alpha: null,
-          overrunTicks: null,
-        });
-        continue;
-      }
-
       const sample = entity.samplePosition(
         renderTick,
         this.maxExtrapolationTicks,
