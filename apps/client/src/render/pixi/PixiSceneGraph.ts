@@ -11,6 +11,7 @@ export class PixiSceneGraph {
   public readonly hudLayer = new Container({ label: "hudLayer" });
   public readonly overlayLayer = new Container({ label: "overlayLayer" });
   public readonly gridBackgroundGraphic = new Graphics();
+  public readonly landmarkGraphic = new Graphics();
   public readonly gridLinesGraphic = new Graphics();
 
   constructor() {
@@ -25,7 +26,11 @@ export class PixiSceneGraph {
     this.hudRoot.cullableChildren = false;
     this.worldRoot.cullableChildren = true;
 
-    this.gridLayer.addChild(this.gridBackgroundGraphic, this.gridLinesGraphic);
+    this.gridLayer.addChild(
+      this.gridBackgroundGraphic,
+      this.landmarkGraphic,
+      this.gridLinesGraphic,
+    );
     this.gridLinesGraphic.cacheAsTexture(true);
 
     this.worldRoot.addChild(

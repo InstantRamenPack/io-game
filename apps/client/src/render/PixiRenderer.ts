@@ -36,6 +36,12 @@ export class PixiRenderer {
 
   private hud: PixiHud | null = null;
   private readonly gridCellSize = 100;
+  private readonly homeBaseWidth = 1600;
+  private readonly homeBaseHeight = 1200;
+  private readonly homeBaseOuterColor = 0xc1c8d3;
+  private readonly homeBaseInnerColor = 0x8f99a8;
+  private readonly homeBaseAccentColor = 0xe4e9f1;
+  private readonly homeBaseShadowColor = 0x5c6470;
   private gridNightBlend = 0;
   private readonly gridDayFillColor = 0xd7f3d2;
   private readonly gridNightFillColor = 0x3f5f46;
@@ -301,14 +307,41 @@ export class PixiRenderer {
 
   private drawGridGeometry(): void {
     const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
+    const landmarkGraphic = this.sceneGraph.landmarkGraphic;
     const lineGraphic = this.sceneGraph.gridLinesGraphic;
     const { w, h } = this.worldSize;
     const cell = Math.max(10, Math.floor(this.gridCellSize));
+    const baseWidth = Math.min(this.homeBaseWidth, Math.max(800, w * 0.6));
+    const baseHeight = Math.min(this.homeBaseHeight, Math.max(600, h * 0.5));
+    const baseX = (w - baseWidth) / 2;
+    const baseY = (h - baseHeight) / 2;
+    const inset = Math.max(80, Math.min(baseWidth, baseHeight) * 0.08);
+    const centerBandHeight = Math.max(160, baseHeight * 0.16);
+    const centerBandY = baseY + (baseHeight - centerBandHeight) / 2;
 
     bgGraphic.clear();
+    landmarkGraphic.clear();
     lineGraphic.clear();
 
     drawRect(bgGraphic, 0, 0, w, h, { color: 0xffffff, alpha: 1 });
+
+    landmarkGraphic
+      .roundRect(baseX, baseY, baseWidth, baseHeight, 16)
+      .fill({ color: this.homeBaseOuterColor, alpha: 0.92 })
+      .stroke({ width: 18, color: this.homeBaseShadowColor, alpha: 0.9 });
+    landmarkGraphic
+      .roundRect(
+        baseX + inset,
+        baseY + inset,
+        baseWidth - inset * 2,
+        baseHeight - inset * 2,
+        12,
+      )
+      .fill({ color: this.homeBaseInnerColor, alpha: 0.72 })
+      .stroke({ width: 6, color: this.homeBaseAccentColor, alpha: 0.6 });
+    landmarkGraphic
+      .rect(baseX + inset * 0.8, centerBandY, baseWidth - inset * 1.6, centerBandHeight)
+      .fill({ color: this.homeBaseAccentColor, alpha: 0.2 });
 
     for (let x = 0; x <= w; x += cell) {
       lineGraphic.moveTo(x, 0).lineTo(x, h);

@@ -10,8 +10,8 @@ export class GameConfig {
 
   public tickRate = GameConfig.DEFAULT_TICK_RATE;
   public worldSize = {
-    w: 3000,
-    h: 3000,
+    w: 10000,
+    h: 7000,
   };
   public collision = {
     spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE,
