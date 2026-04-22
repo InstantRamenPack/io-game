@@ -1,4 +1,5 @@
 import type { AppElements } from "@client/app/AppElements.ts";
+import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 
 type DeathController = {
@@ -9,12 +10,15 @@ type DeathController = {
 export function createDeathController({
   elements,
   gameClient,
+  sessionUiController,
 }: {
   elements: AppElements;
   gameClient: GameClient;
+  sessionUiController: SessionUiController;
 }): DeathController {
   const overlay = elements.deathOverlay;
   const respawnBtn = elements.respawnBtn;
+  let releaseDeathSuppression: (() => void) | undefined;
 
   if (!overlay || !respawnBtn) {
     return {
@@ -25,21 +29,29 @@ export function createDeathController({
 
   const setVisible = (visible: boolean): void => {
     overlay.hidden = !visible;
-    if (elements.chatRoot) {
-      elements.chatRoot.style.pointerEvents = visible ? "none" : "";
+    if (visible) {
+      releaseDeathSuppression ??=
+        gameClient.acquireMovementSuppression("death");
+      return;
     }
-    gameClient.setMovementSuppressed(visible);
+    releaseDeathSuppression?.();
+    releaseDeathSuppression = undefined;
   };
 
   const sync = (): void => {
-    const gameplayVisible = elements.menuRoot?.style.display === "none";
-    if (!gameClient.isSessionReady() || !gameplayVisible) {
+    if (!gameClient.isSessionReady()) {
       setVisible(false);
       return;
     }
 
     const isAlive = gameClient.isLocalPlayerAlive();
-    setVisible(isAlive === false);
+    const dead = isAlive === false;
+    setVisible(dead);
+    if (dead) {
+      sessionUiController.showDead();
+    } else {
+      sessionUiController.showPlaying();
+    }
   };
 
   respawnBtn.addEventListener("click", () => {

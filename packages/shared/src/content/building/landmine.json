@@ -1,5 +1,6 @@
 {
   "label": "Landmine",
+  "maxHp": 30,
   "collisionMode": "none",
   "hitboxProfiles": {
     "default": [{ "width": 18, "height": 18, "offsetX": 0, "offsetY": 0 }]

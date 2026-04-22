@@ -1,32 +1,17 @@
-import { getEntityContent } from "@shared/content/catalog.ts";
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { LandmineExplosionAreaEffect } from "@server/effects/area/LandmineExplosionAreaEffect.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
-import { makeResourceId } from "@shared/ids/ResourceId.ts";
 
 const TRIGGER_RADIUS = 28;
 export class Landmine extends Building {
   public static override readonly resourceName = "landmine";
 
-  constructor(id: number, label: string, tier = 1, ownerId?: number) {
-    const content = getEntityContent(
-      makeResourceId("building", Landmine.resourceName),
-    );
-    super(id, label, tier, ownerId, {
-      baseHp: 30,
-      hitboxProfiles:
-        content?.hitboxProfiles ??
-        ({
-          default: [makeHitboxRect(18, 18)],
-        } as const),
-      activeHitboxProfile: content?.activeHitboxProfile,
-    });
-    this.collisionMode = "none";
+  constructor(id: number, tier = 1, ownerId?: number) {
+    super(id, tier, ownerId);
   }
 
   public override getCombatInstigator(world: World): Entity | null {

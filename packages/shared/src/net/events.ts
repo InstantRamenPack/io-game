@@ -1,8 +1,14 @@
 import { z } from "zod";
+import {
+  NonNegativeIntSchema,
+  PositiveFiniteNumberSchema,
+} from "@shared/validation/schemas.ts";
+
+export const NET_EVENT_TYPES = ["damage", "explosion"] as const;
 
 export const DamageEventPayloadSchema = z.object({
-  sourceId: z.number().int().nonnegative(),
-  targetId: z.number().int().nonnegative(),
+  sourceId: NonNegativeIntSchema,
+  targetId: NonNegativeIntSchema,
   amount: z.number(),
   remainingHp: z.number(),
   maxHp: z.number(),
@@ -18,10 +24,10 @@ export const ExplosionStyleSchema = z.enum([
 ]);
 
 const ExplosionEventPayloadSchema = z.object({
-  sourceId: z.number().int().nonnegative(),
+  sourceId: NonNegativeIntSchema,
   x: z.number(),
   y: z.number(),
-  radius: z.number().positive(),
+  radius: PositiveFiniteNumberSchema,
   style: ExplosionStyleSchema,
 });
 

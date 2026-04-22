@@ -1,12 +1,12 @@
 import "../index.css";
 import { getAppElements } from "@client/app/AppElements.ts";
-import { installGameHotkeys } from "@client/app/GameHotkeys.ts";
 import { createGameSelectors } from "@client/app/gameSelectors.ts";
 import { createHudController } from "@client/app/HudController.ts";
 import { createChatController } from "@client/app/ChatController.ts";
 import { createDeathController } from "@client/app/DeathController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
 import { createMenuController } from "@client/app/MenuController.ts";
+import { createSessionUiController } from "@client/app/session/SessionUiController.ts";
 import {
   hydratePlayerNameInput,
   resolvePlayerName,
@@ -15,6 +15,8 @@ import { installDebugBridge } from "@client/app/installDebugBridge.ts";
 import { AuthController } from "@client/auth/Auth.ts";
 import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
+import { GameInputRouter } from "@client/input/GameInputRouter.ts";
+import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 /**
@@ -31,6 +33,7 @@ const gameClient = new GameClient(gameConfig, {
   debugInterpolationMode: DEBUG_INTERPOLATION_MODE,
 });
 const authController = new AuthController();
+const sessionUiController = createSessionUiController(elements);
 
 gameClient.bindInput(window);
 
@@ -43,14 +46,17 @@ const chatController = createChatController({
   elements,
   gameClient,
   hudController,
+  sessionUiController,
 });
 const deathController = createDeathController({
   elements,
   gameClient,
+  sessionUiController,
 });
 const menuController = createMenuController({
   elements,
   authController,
+  sessionUiController,
 });
 const launchController = createLaunchController({
   elements,
@@ -58,6 +64,7 @@ const launchController = createLaunchController({
   gameConfig,
   authController,
   menuController,
+  sessionUiController,
   hudController,
   chatController,
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
@@ -76,18 +83,62 @@ gameClient.networkClient.onClose(() => {
 gameClient.networkClient.onError(() => {
   deathController.sync();
 });
-
-installGameHotkeys(elements, hudController);
 installDebugBridge({
   elements,
   gameClient,
   selectors,
   hudController,
+  sessionUiController,
 });
 
 if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
   window.gameClient = gameClient;
 }
+
+new GameInputRouter({
+  getContext: () => ({
+    sessionMode: sessionUiController.getState().mode,
+    chatOpen: chatController.isOpen(),
+    inventoryOpen: hudController.isInventoryOpen(),
+    craftingOpen: hudController.isCraftingMenuOpen(),
+    textEntryActive: isKeyboardTextEntryTarget(document.activeElement),
+  }),
+  dispatch: (command) => {
+    switch (command.type) {
+      case "openChat":
+        chatController.open();
+        return;
+      case "openChatSlash":
+        chatController.open("/");
+        return;
+      case "toggleCraftingMenu":
+        hudController.toggleCraftingMenu();
+        return;
+      case "toggleInventory":
+        hudController.toggleInventory();
+        return;
+      case "closeCraftingMenu":
+        if (hudController.isCraftingMenuOpen()) {
+          hudController.toggleCraftingMenu();
+        }
+        return;
+      case "closeInventory":
+        if (hudController.isInventoryOpen()) {
+          hudController.toggleInventory();
+        }
+        return;
+      case "moveCraftSelection":
+        hudController.moveCraftSelection(command.delta);
+        return;
+      case "queueSelectedCraft":
+        hudController.queueSelectedCraft();
+        return;
+      case "selectHotbarOrdinal":
+        hudController.selectHotbarItemByOrdinal(command.ordinal);
+        return;
+    }
+  },
+}).bind(window);
 
 hydratePlayerNameInput(elements.playerNameInput);
 menuController.refreshGateUi();

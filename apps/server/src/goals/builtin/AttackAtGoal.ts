@@ -1,9 +1,9 @@
-import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
+import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
 /**
  * Melee attack goal that swings one configured weapon slot once a target is in range.
@@ -54,13 +54,8 @@ export class AttackAtGoal<
     ctx: GoalContext<TSelf>,
     weapon: MeleeWeapon,
   ): Entity | null {
-    const { targetId } = ctx.self;
-    if (targetId === undefined) {
-      return null;
-    }
-
-    const target = ctx.world.get(targetId);
-    if (!target || !canAttackTarget(ctx.world, ctx.self, target)) {
+    const target = goalTargetResolver.resolveTrackedCombatTarget(ctx);
+    if (!target) {
       return null;
     }
 

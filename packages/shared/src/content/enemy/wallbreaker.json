@@ -1,1 +1,9 @@
-{ "label": "Wallbreaker" }
+{
+  "label": "Wallbreaker",
+  "maxHp": 1,
+  "moveSpeed": 12,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "default": [{ "width": 22, "height": 22, "offsetX": 0, "offsetY": 0 }]
+  }
+}

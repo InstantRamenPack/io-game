@@ -1,4 +1,4 @@
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
@@ -26,7 +26,10 @@ export class WallbreakerExplosionAreaEffect extends ExplosionAreaEffect {
     source: Entity,
     target: Entity,
   ): boolean {
-    return target.alive && canAttackTarget(world, source, target);
+    return (
+      target.alive &&
+      combatEligibilityService.canAttackTarget(world, source, target)
+    );
   }
 
   /**

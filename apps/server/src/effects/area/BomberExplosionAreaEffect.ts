@@ -1,4 +1,4 @@
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { ExplosionAreaEffect } from "@server/effects/area/ExplosionAreaEffect.ts";
@@ -26,7 +26,7 @@ export class BomberExplosionAreaEffect extends ExplosionAreaEffect {
     return (
       target.alive &&
       target instanceof Player &&
-      canAttackTarget(world, source, target)
+      combatEligibilityService.canAttackTarget(world, source, target)
     );
   }
 

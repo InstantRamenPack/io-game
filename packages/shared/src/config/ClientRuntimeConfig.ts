@@ -1,32 +1,45 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
+import {
+  NonNegativeFiniteNumberSchema,
+  PositiveFiniteNumberSchema,
+  PositiveIntSchema,
+} from "@shared/validation/schemas.ts";
 import { z } from "zod";
+
+export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
+  "googleClientId",
+  "compatHash",
+  "tickRate",
+  "worldSize",
+  "interpolation",
+]);
 
 export const ClientRuntimeConfigSchema = z.object({
   googleClientId: z.string().min(1).nullable(),
   compatHash: z.string().min(1),
-  tickRate: z.number().int().positive(),
+  tickRate: PositiveIntSchema,
   worldSize: z.object({
-    w: z.number().finite().positive(),
-    h: z.number().finite().positive(),
+    w: PositiveFiniteNumberSchema,
+    h: PositiveFiniteNumberSchema,
   }),
   interpolation: z
     .object({
-      snapDistance: z.number().finite().nonnegative(),
-      historySize: z.number().int().min(2),
+      snapDistance: NonNegativeFiniteNumberSchema,
+      historySize: PositiveIntSchema.min(2),
       tickDurationSmoothing: z.number().positive().max(1),
       renderDelaySmoothing: z.number().positive().max(1),
-      minRenderDelayTicks: z.number().finite().nonnegative(),
-      maxRenderDelayTicks: z.number().finite().nonnegative(),
-      maxExtrapolationTicks: z.number().finite().nonnegative(),
+      minRenderDelayTicks: NonNegativeFiniteNumberSchema,
+      maxRenderDelayTicks: NonNegativeFiniteNumberSchema,
+      maxExtrapolationTicks: NonNegativeFiniteNumberSchema,
       tickDurationMinFactor: z.number().positive(),
       tickDurationMaxFactor: z.number().positive(),
       arrivalEwmaSmoothing: z.number().positive().max(1),
       jitterEwmaSmoothing: z.number().positive().max(1),
-      jitterBufferMultiplier: z.number().finite().nonnegative(),
-      jitterBufferSafetyMs: z.number().finite().nonnegative(),
-      maxDebugLogEntries: z.number().int().min(100),
+      jitterBufferMultiplier: NonNegativeFiniteNumberSchema,
+      jitterBufferSafetyMs: NonNegativeFiniteNumberSchema,
+      maxDebugLogEntries: PositiveIntSchema.min(100),
       correctionFollowSharpness: z.number().positive(),
-      correctionEpsilon: z.number().finite().nonnegative(),
+      correctionEpsilon: NonNegativeFiniteNumberSchema,
       correctionFrameScaleMin: z.number().positive(),
       correctionFrameScaleMax: z.number().positive(),
     })

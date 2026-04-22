@@ -2,6 +2,7 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { ChatController } from "@client/app/ChatController.ts";
 import type { MenuController } from "@client/app/MenuController.ts";
+import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import type { AuthController } from "@client/auth/Auth.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
@@ -28,6 +29,7 @@ type LaunchControllerOptions = {
   gameConfig: GameConfig;
   authController: AuthController;
   menuController: MenuController;
+  sessionUiController: SessionUiController;
   hudController: HudController;
   chatController: ChatController;
   resolvePlayerName: () => string;
@@ -45,18 +47,12 @@ export function createLaunchController({
   gameConfig,
   authController,
   menuController,
+  sessionUiController,
   hudController,
   chatController,
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
   function applyGameplayShellState(connected: boolean): void {
-    if (elements.gameRoot) {
-      elements.gameRoot.hidden = !connected;
-    }
-    if (elements.chatRoot) {
-      elements.chatRoot.hidden = !connected;
-    }
-
     hudController.setVisible(connected);
     chatController.setVisible(connected);
 
@@ -69,7 +65,7 @@ export function createLaunchController({
 
   function enterSessionUi(): void {
     applyGameplayShellState(true);
-    menuController.showGameScreen();
+    sessionUiController.showPlaying();
     hudController.refreshUi();
   }
 
@@ -87,7 +83,7 @@ export function createLaunchController({
     if (options.refreshGateOnly) {
       menuController.refreshGateUi();
     } else {
-      menuController.showMenuScreen();
+      sessionUiController.showMenu();
     }
     hudController.refreshUi();
   }
@@ -100,6 +96,7 @@ export function createLaunchController({
     const button = elements.launchBtn as HTMLButtonElement;
     button.textContent = "Connecting...";
     button.disabled = true;
+    sessionUiController.showConnecting();
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;

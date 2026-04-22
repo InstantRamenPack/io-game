@@ -1,5 +1,4 @@
 import { ClientWorld } from "@client/net/ClientWorld.ts";
-import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 type SnapshotFrame = {
@@ -10,29 +9,16 @@ type SnapshotFrame = {
 /**
  * Stores the latest authoritative snapshot received from the server together
  * with the currently active client world and interpolation timing metadata.
- * A renderer is optional so the same type can be used both at runtime and in
- * headless tests.
  */
 export class ClientWorldState {
   public latestTick?: number;
   public latestSnapshotReceivedAt?: number;
   public clientWorld?: ClientWorld;
 
-  private readonly pixiRenderer?: PixiRenderer;
-  private readonly debugHitbox: boolean;
-  private readonly debugInterpolationMode: number;
   private readonly snapshotHistoryLimit: number;
   private readonly snapshotHistory: SnapshotFrame[] = [];
 
-  constructor(
-    pixiRenderer?: PixiRenderer,
-    debugHitbox = false,
-    debugInterpolationMode = 0,
-    snapshotHistoryLimit = 2,
-  ) {
-    this.pixiRenderer = pixiRenderer;
-    this.debugHitbox = debugHitbox;
-    this.debugInterpolationMode = debugInterpolationMode;
+  constructor(snapshotHistoryLimit = 2) {
     this.snapshotHistoryLimit = Math.max(2, Math.floor(snapshotHistoryLimit));
   }
 
@@ -65,9 +51,6 @@ export class ClientWorldState {
         snapshot,
         snapshot.tick,
         this.snapshotHistoryLimit,
-        this.pixiRenderer,
-        this.debugHitbox,
-        this.debugInterpolationMode,
       );
     } else {
       this.clientWorld.updateFromSnapshot(snapshot, snapshot.tick);

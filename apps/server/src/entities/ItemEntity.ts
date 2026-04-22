@@ -1,5 +1,5 @@
 import { Entity } from "@server/entities/Entity.ts";
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
+import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { PickupSnapshot } from "@shared/net/snapshots.ts";
 
@@ -9,9 +9,14 @@ export class ItemEntity extends Entity {
   public contents: Inventory;
 
   constructor(id: number, inventory = new Inventory()) {
-    super(id, { maxHp: 0 });
+    const content = requireHitboxEntityBaselineContent(ItemEntity.typeId);
+    super(id, { maxHp: content.maxHp });
     this.contents = inventory;
-    this.setHitboxProfiles({ default: [makeHitboxRect(28, 28)] });
+    this.collisionMode = content.collisionMode;
+    this.setHitboxProfiles(
+      content.hitboxProfiles,
+      content.activeHitboxProfile ?? "default",
+    );
   }
 
   public override toSnapshot(): PickupSnapshot {

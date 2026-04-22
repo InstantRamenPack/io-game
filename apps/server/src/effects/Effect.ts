@@ -1,8 +1,7 @@
-import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 import { requireEffectContent } from "@shared/content/catalog.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Base gameplay effect for lightweight server-authoritative status hooks.
@@ -12,7 +11,7 @@ export abstract class Effect {
   public static readonly resourceName: string = "";
 
   public static get typeId(): ResourceId {
-    return deriveTypeIdFromStaticMetadata(this);
+    return makeResourceId(this.kind, this.resourceName);
   }
 
   public readonly typeId: ResourceId;

@@ -1,4 +1,5 @@
 import type { AppElements, MenuMode } from "@client/app/AppElements.ts";
+import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import {
   createAuthGateViewState,
   type AuthController,
@@ -44,6 +45,7 @@ export type MenuController = {
 type MenuControllerOptions = {
   elements: AppElements;
   authController: AuthController;
+  sessionUiController: SessionUiController;
 };
 
 /**
@@ -54,6 +56,7 @@ type MenuControllerOptions = {
 export function createMenuController({
   elements,
   authController,
+  sessionUiController,
 }: MenuControllerOptions): MenuController {
   let currentMode: MenuMode = "play";
 
@@ -129,14 +132,10 @@ export function createMenuController({
     setMode,
     refreshGateUi,
     showGameScreen(): void {
-      if (elements.menuRoot) {
-        elements.menuRoot.style.display = "none";
-      }
+      sessionUiController.showPlaying();
     },
     showMenuScreen(): void {
-      if (elements.menuRoot) {
-        elements.menuRoot.style.display = "";
-      }
+      sessionUiController.showMenu();
     },
   };
 }

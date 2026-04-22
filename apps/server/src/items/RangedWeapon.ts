@@ -1,6 +1,6 @@
 import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -86,7 +86,7 @@ export class RangedWeapon extends Weapon {
   ): boolean {
     return (
       this.canHit() &&
-      canAttackTarget(world, owner, target) &&
+      combatEligibilityService.canAttackTarget(world, owner, target) &&
       this.isTargetInRange(
         owner,
         target,

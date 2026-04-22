@@ -1,5 +1,5 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import { CRAFTING_STATION_INTERACT_PADDING } from "@shared/gameplay/crafting.ts";
+import { CRAFTING_STATION_INTERACT_PADDING } from "@shared/gameplay/constants.ts";
 
 type WorldBounds = {
   minX: number;

@@ -1,4 +1,4 @@
-import { requireShootWeaponContent } from "@server/items/weaponContent.ts";
+import { requireShootWeaponRuntime } from "@server/combat/contentAdapters.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
@@ -8,7 +8,7 @@ export class Crossbow extends RangedWeapon {
   public static override readonly resourceName = "crossbow";
 
   constructor() {
-    const weaponContent = requireShootWeaponContent(Crossbow.typeId);
+    const weaponContent = requireShootWeaponRuntime(Crossbow.typeId);
     super(
       weaponContent.cooldownTicks,
       weaponContent.projectileTypeId,

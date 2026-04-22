@@ -1,1 +1,12 @@
-{ "label": "Saboteur" }
+{
+  "label": "Saboteur",
+  "maxHp": 80,
+  "moveSpeed": 11,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "default": [
+      { "width": 18, "height": 12, "offsetX": 0, "offsetY": -6 },
+      { "width": 22, "height": 14, "offsetX": 0, "offsetY": 8 }
+    ]
+  }
+}

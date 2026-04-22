@@ -1,5 +1,7 @@
 {
   "label": "Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
   "projectile": {
     "speed": 40,
     "range": 700,

@@ -1,5 +1,7 @@
 {
   "label": "Cannon Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
   "projectile": {
     "speed": 24,
     "range": 650,

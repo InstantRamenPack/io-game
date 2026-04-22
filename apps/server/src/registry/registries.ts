@@ -14,11 +14,12 @@ import type {
 } from "@server/entities/Projectile.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { Item } from "@server/items/Item.ts";
-import type {
-  EffectClassMetadata,
-  EntityClassMetadata,
-  ItemClassMetadata,
-} from "@server/registry/typeMetadata.ts";
+
+type RuntimeTypeMetadata<KKind extends string> = {
+  readonly kind: KKind;
+  readonly resourceName: string;
+  readonly typeId: ResourceId;
+};
 
 export type EntityCtor<T extends Entity = Entity> = new (...args: never[]) => T;
 export type ItemCtor<T extends Item = Item> = new () => T;
@@ -29,24 +30,15 @@ export type ProjectileCtor<T extends Projectile = Projectile> = new (
 ) => T;
 
 export type RegistrableEntityCtor<T extends Entity = Entity> = EntityCtor<T> &
-  EntityClassMetadata & {
-    readonly typeId: ResourceId;
-  };
+  RuntimeTypeMetadata<EntityKind>;
 export type RegistrableItemCtor<T extends Item = Item> = ItemCtor<T> &
-  ItemClassMetadata & {
-    readonly typeId: ResourceId;
-  };
+  RuntimeTypeMetadata<"item">;
 export type RegistrableEffectCtor<T extends Effect = Effect> = EffectCtor<T> &
-  EffectClassMetadata & {
-    readonly typeId: ResourceId;
-  };
+  RuntimeTypeMetadata<"effect">;
 export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
   RegistrableEntityCtor<T> &
     ProjectileCtor<T> & {
-      readonly kind: "projectile";
-      readonly resourceName: string;
       readonly definition: ProjectileDefinition;
-      readonly typeId: ResourceId;
     };
 
 export type EntityTypeEntry = {

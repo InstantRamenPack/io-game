@@ -1,10 +1,12 @@
-import { buildingContentEntries } from "@shared/content/building/index.ts";
-import { enemyContentEntries } from "@shared/content/enemy/index.ts";
-import { effectContentEntries } from "@shared/content/effect/index.ts";
-import { itemContentEntries } from "@shared/content/item/index.ts";
-import { pickupContentEntries } from "@shared/content/pickup/index.ts";
-import { playerContentEntries } from "@shared/content/player/index.ts";
-import { projectileContentEntries } from "@shared/content/projectile/index.ts";
+import {
+  buildingContentEntries,
+  effectContentEntries,
+  enemyContentEntries,
+  itemContentEntries,
+  pickupContentEntries,
+  playerContentEntries,
+  projectileContentEntries,
+} from "@shared/content/generated/manifest.ts";
 import type {
   EffectContent,
   EntityContent,
@@ -18,6 +20,7 @@ import {
   isResourceId,
   type ResourceId,
 } from "@shared/ids/ResourceId.ts";
+import type { JsonObject } from "@shared/json.ts";
 
 const itemContents = new Map<ResourceId, ItemContent>(itemContentEntries);
 
@@ -30,6 +33,15 @@ const entityContents = new Map<ResourceId, EntityContent>([
 ]);
 
 const effectContents = new Map<ResourceId, EffectContent>(effectContentEntries);
+
+function serializeEntries<T>(
+  entries: ReadonlyArray<readonly [ResourceId, T]>,
+): JsonObject[] {
+  return entries.map(([typeId, content]) => ({
+    typeId,
+    content: content as JsonObject,
+  }));
+}
 
 function requireMapValue<T>(
   contents: ReadonlyMap<ResourceId, T>,
@@ -164,6 +176,18 @@ export function getAllEffectContentEntries(): Array<
 > {
   return sortResourceEntriesByTypeId(effectContents.entries());
 }
+
+export const CONTENT_COMPAT_DESCRIPTOR = Object.freeze({
+  items: serializeEntries(getAllItemContentEntries()),
+  entities: [
+    ...serializeEntries(sortResourceEntriesByTypeId(playerContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(enemyContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(buildingContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(projectileContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(pickupContentEntries)),
+  ],
+  effects: serializeEntries(getAllEffectContentEntries()),
+});
 
 export function getResourceDisplayLabel(typeId: string): string {
   if (isResourceId(typeId)) {

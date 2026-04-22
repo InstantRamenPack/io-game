@@ -1,12 +1,19 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
+import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
+import { isGameplaySession } from "@client/app/session/sessionUiSelectors.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import {
-  CHAT_COMMAND_MANIFEST,
-  getChatCommandById,
+  CHAT_COMMAND_SCHEMAS,
+  getChatCommandSchemaById,
   resolveChatCommandAlias,
   type ChatAutocompleteSource,
-} from "@shared/chat/commandManifest.ts";
+} from "@shared/chat/commandSchema.ts";
+import {
+  filterAutocompleteSuggestions,
+  matchChatAutocompleteRules,
+  parseChatAutocompleteState,
+} from "@shared/chat/commandAutocomplete.ts";
 import {
   getAllEffectContentEntries,
   getAllEntityContentEntries,
@@ -17,12 +24,16 @@ import type { ChatMessage } from "@shared/net/protocol.ts";
 
 export type ChatController = {
   setVisible: (visible: boolean) => void;
+  open: (seedText?: string) => void;
+  close: () => void;
+  isOpen: () => boolean;
 };
 
 type ChatControllerOptions = {
   elements: AppElements;
   gameClient: GameClient;
   hudController: HudController;
+  sessionUiController: SessionUiController;
 };
 
 type ChatLine = {
@@ -48,7 +59,7 @@ const MAX_LINES = 8;
 const FADE_AFTER_MS = 8000;
 const REMOVE_AFTER_MS = 12000;
 
-const commandSuggestions: ChatSuggestion[] = CHAT_COMMAND_MANIFEST.map(
+const commandSuggestions: ChatSuggestion[] = CHAT_COMMAND_SCHEMAS.map(
   (command) => ({
     value: command.primaryAlias,
     label: `/${command.primaryAlias}`,
@@ -92,6 +103,7 @@ export function createChatController({
   elements,
   gameClient,
   hudController,
+  sessionUiController,
 }: ChatControllerOptions): ChatController {
   const root = elements.chatRoot;
   const linesEl = elements.chatLines;
@@ -101,6 +113,9 @@ export function createChatController({
   if (!root || !linesEl || !input || !suggestionsEl) {
     return {
       setVisible: () => undefined,
+      open: () => undefined,
+      close: () => undefined,
+      isOpen: () => false,
     };
   }
 
@@ -111,6 +126,7 @@ export function createChatController({
   let historyDraft = "";
   let suggestions: ChatSuggestion[] = [];
   let selectedSuggestionIndex = 0;
+  let releaseChatSuppression: (() => void) | undefined;
 
   const setVisible = (visible: boolean): void => {
     root.hidden = !visible;
@@ -119,16 +135,18 @@ export function createChatController({
     }
   };
 
-  const openChat = (): void => {
+  const openChat = (seedText = ""): void => {
     if (isOpen) {
       return;
     }
     isOpen = true;
     root.classList.add("is-open");
-    input.value = "";
+    input.value = seedText;
     historyIndex = history.length;
     historyDraft = "";
+    releaseChatSuppression ??= gameClient.acquireMovementSuppression("chat");
     input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
     updateSuggestions();
     for (const line of lines) {
       clearLineTimers(line);
@@ -143,6 +161,8 @@ export function createChatController({
     isOpen = false;
     root.classList.remove("is-open");
     input.blur();
+    releaseChatSuppression?.();
+    releaseChatSuppression = undefined;
     suggestions = [];
     renderSuggestions();
     scheduleAllLines();
@@ -236,7 +256,8 @@ export function createChatController({
 
   const isGameActive = (): boolean => {
     return (
-      gameClient.isSessionReady() && elements.menuRoot?.style.display === "none"
+      gameClient.isSessionReady() &&
+      isGameplaySession(sessionUiController.getState())
     );
   };
 
@@ -286,74 +307,6 @@ export function createChatController({
     input.setSelectionRange(input.value.length, input.value.length);
   };
 
-  window.addEventListener("keydown", (event) => {
-    if (event.repeat) {
-      return;
-    }
-    const key = event.key.toLowerCase();
-
-    if (isOpen) {
-      if (key === "enter") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (
-          shouldAcceptSuggestionOnEnter(
-            input.value,
-            suggestions,
-            selectedSuggestionIndex,
-          )
-        ) {
-          acceptSuggestion(suggestions[selectedSuggestionIndex]!);
-          return;
-        }
-
-        const text = input.value.trim();
-        if (text.length > 0) {
-          gameClient.networkClient.sendChat(text);
-          history.push(text);
-          historyIndex = history.length;
-          historyDraft = "";
-        }
-        closeChat();
-      } else if (key === "escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        closeChat();
-      }
-      return;
-    }
-
-    if (!isGameActive()) {
-      return;
-    }
-
-    if (key === "enter") {
-      if (shouldBlockEnterForMenus()) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      openChat();
-      return;
-    }
-
-    if (key === "/") {
-      event.preventDefault();
-      event.stopPropagation();
-      openChat();
-      input.value = "/";
-      input.setSelectionRange(input.value.length, input.value.length);
-      updateSuggestions();
-      return;
-    }
-
-    if (key === "t") {
-      event.preventDefault();
-      event.stopPropagation();
-      openChat();
-    }
-  });
-
   input.addEventListener("input", () => {
     selectedSuggestionIndex = 0;
     updateSuggestions();
@@ -363,6 +316,30 @@ export function createChatController({
     const keyboardEvent = event as KeyboardEvent;
     if (keyboardEvent.key === "Escape") {
       event.preventDefault();
+      closeChat();
+      return;
+    }
+
+    if (keyboardEvent.key === "Enter") {
+      event.preventDefault();
+      if (
+        shouldAcceptSuggestionOnEnter(
+          input.value,
+          suggestions,
+          selectedSuggestionIndex,
+        )
+      ) {
+        acceptSuggestion(suggestions[selectedSuggestionIndex]!);
+        return;
+      }
+
+      const text = input.value.trim();
+      if (text.length > 0) {
+        gameClient.sendChat(text);
+        history.push(text);
+        historyIndex = history.length;
+        historyDraft = "";
+      }
       closeChat();
       return;
     }
@@ -426,6 +403,14 @@ export function createChatController({
 
   return {
     setVisible,
+    open(seedText?: string): void {
+      if (!isGameActive() || (seedText === "" && shouldBlockEnterForMenus())) {
+        return;
+      }
+      openChat(seedText);
+    },
+    close: closeChat,
+    isOpen: () => isOpen,
   };
 }
 
@@ -444,11 +429,11 @@ function buildSuggestions(
 
   const { command, args, currentToken } = commandState;
   if (!command) {
-    return filterSuggestions(commandSuggestions, currentToken);
+    return filterAutocompleteSuggestions(commandSuggestions, currentToken);
   }
 
   if (args.length === 0) {
-    return filterSuggestions(commandSuggestions, command);
+    return filterAutocompleteSuggestions(commandSuggestions, command);
   }
 
   const playerSuggestions = playerNames.map((playerName) => ({
@@ -461,22 +446,12 @@ function buildSuggestions(
     return [];
   }
 
-  const commandDefinition = getChatCommandById(commandId);
+  const commandDefinition = getChatCommandSchemaById(commandId);
   if (!commandDefinition.autocomplete) {
     return [];
   }
 
-  const currentArgIndex = Math.max(0, args.length - 1);
-  const matchedRules = commandDefinition.autocomplete.filter((rule) => {
-    if (rule.argIndex !== currentArgIndex) {
-      return false;
-    }
-    if (!rule.whenArgEquals) {
-      return true;
-    }
-    const expectedArg = args[rule.whenArgEquals.index] ?? "";
-    return expectedArg.toLowerCase() === rule.whenArgEquals.value.toLowerCase();
-  });
+  const matchedRules = matchChatAutocompleteRules(commandDefinition, args);
   if (matchedRules.length === 0) {
     return [];
   }
@@ -496,9 +471,10 @@ function buildSuggestions(
     }
   }
 
-  return filterSuggestions([...sourceSuggestions.values()], currentToken).sort(
-    (left, right) => left.label.localeCompare(right.label),
-  );
+  return filterAutocompleteSuggestions(
+    [...sourceSuggestions.values()],
+    currentToken,
+  ).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function getSourceSuggestions(
@@ -521,43 +497,8 @@ function getSourceSuggestions(
   }
 }
 
-function filterSuggestions(
-  source: ChatSuggestion[],
-  partial: string,
-): ChatSuggestion[] {
-  const normalizedPartial = normalizeSuggestionText(partial);
-  return source.filter((suggestion) => {
-    if (normalizedPartial.length === 0) {
-      return true;
-    }
-    return (
-      normalizeSuggestionText(suggestion.value).includes(normalizedPartial) ||
-      normalizeSuggestionText(suggestion.label).includes(normalizedPartial) ||
-      normalizeSuggestionText(suggestion.detail ?? "").includes(
-        normalizedPartial,
-      )
-    );
-  });
-}
-
 function parseCommandState(value: string): ParsedCommandState | null {
-  const trimmedRight = value.trimEnd();
-  const hasTrailingSpace = value.endsWith(" ");
-  const raw = trimmedRight.slice(1);
-  const parts = raw.length > 0 ? raw.split(/\s+/g) : [];
-  if (hasTrailingSpace) {
-    parts.push("");
-  }
-
-  const command = (parts[0] ?? "").toLowerCase();
-  const args = parts.slice(1);
-  const currentToken =
-    args.length > 0 ? (args[args.length - 1] ?? "") : command;
-  return {
-    command,
-    args,
-    currentToken,
-  };
+  return parseChatAutocompleteState(value);
 }
 
 function replaceCurrentToken(value: string, replacement: string): string {

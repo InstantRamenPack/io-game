@@ -4,6 +4,7 @@ import { Player } from "@server/entities/Player.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { MegaknightSlamAreaEffect } from "@server/effects/area/MegaknightSlamAreaEffect.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
+import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
 type JumpPhase = "windup" | "airborne" | "land";
 
@@ -182,15 +183,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Player | null {
-    const { targetId } = ctx.self;
-    if (targetId === undefined) {
-      return null;
-    }
-    const target = ctx.world.get(targetId);
-    if (!(target instanceof Player) || !target.alive) {
-      return null;
-    }
-    return target;
+    return goalTargetResolver.resolveTrackedLivingTarget(ctx, Player);
   }
 
   private resolveTargetInRange(ctx: GoalContext<TSelf>): Player | null {

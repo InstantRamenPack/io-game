@@ -1,15 +1,11 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
-import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
+import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
-  moveSpeed?: number;
-  hitboxProfiles: HitboxProfiles;
-  activeHitboxProfile?: string;
-  maxHp: number;
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
@@ -26,13 +22,16 @@ export class Enemy extends GoalControlledEntity {
    * @param config Enemy tuning and goal stack.
    */
   constructor(id: number, config: EnemyConfig) {
-    super(id, config);
+    const content = requireHitboxEntityBaselineContent(
+      (new.target as typeof Enemy).typeId,
+    );
+    super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
     this.registerGoals(config.goals ?? []);
-    this.collisionMode = "dynamic";
+    this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(
-      config.hitboxProfiles,
-      config.activeHitboxProfile ?? "default",
+      content.hitboxProfiles,
+      content.activeHitboxProfile ?? "default",
     );
   }
 

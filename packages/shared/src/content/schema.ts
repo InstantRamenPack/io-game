@@ -1,9 +1,9 @@
-import {
-  RESOURCE_ID_PATTERN,
-  assertResourceId,
-} from "@shared/ids/ResourceId.ts";
 import { z } from "zod";
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
+import {
+  HotbarIndexSchema,
+  ResourceIdSchema,
+} from "@shared/validation/schemas.ts";
 
 export const ENTITY_KINDS = [
   "player",
@@ -17,11 +17,6 @@ export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 export const CollisionModeSchema = z.enum(["none", "static", "dynamic"]);
 export type CollisionMode = z.infer<typeof CollisionModeSchema>;
-
-const ResourceIdSchema = z
-  .string()
-  .regex(RESOURCE_ID_PATTERN)
-  .transform((typeId) => assertResourceId(typeId));
 
 export const AttackStyleSchema = z.enum(["shoot", "swing", "jab"]);
 
@@ -99,7 +94,7 @@ export const ItemRecipeContentSchema = z.object({
 });
 
 export const PlayerStarterLoadoutSchema = z.object({
-  selectedHotbarIndex: z.number().int().min(0).max(9).default(0),
+  selectedHotbarIndex: HotbarIndexSchema.default(0),
   weapons: z.array(ResourceIdSchema).default([]),
   stackables: z.array(ItemRequirementSchema).default([]),
 });
@@ -119,6 +114,8 @@ export const EntityContentSchema = z.object({
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   iconTextureId: ResourceIdSchema.optional(),
+  maxHp: z.number().finite().nonnegative().optional(),
+  moveSpeed: z.number().finite().nonnegative().optional(),
   collisionMode: CollisionModeSchema.optional(),
   hitboxProfiles: z
     .record(z.string().min(1), z.array(HitboxRectSchema).min(1))

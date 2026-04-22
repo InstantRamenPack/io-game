@@ -1,28 +1,34 @@
-import {
-  RESOURCE_ID_PATTERN,
-  assertResourceId,
-} from "@shared/ids/ResourceId.ts";
+import { MAX_CHAT_MESSAGE_LENGTH } from "@shared/gameplay/constants.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import { isJsonObject, parseJsonValue } from "@shared/json.ts";
+import {
+  ChatTextSchema,
+  FiniteNumberSchema,
+  HotbarIndexSchema,
+  NonNegativeIntSchema,
+  ResourceIdSchema,
+} from "@shared/validation/schemas.ts";
 import { z } from "zod";
 
 const MoveIntentKeySchema = z.enum(["up", "down", "left", "right"]);
 
-const ThetaInputSchema = z.number().transform((theta) => normalizeAngle(theta));
+const ThetaInputSchema = FiniteNumberSchema.transform((theta) =>
+  normalizeAngle(theta),
+);
 
 const CraftInputSchema = z.object({
-  itemTypeId: z.string().regex(RESOURCE_ID_PATTERN).transform(assertResourceId),
+  itemTypeId: ResourceIdSchema,
 });
 
 const BuildInputSchema = z.object({
-  x: z.number(),
-  y: z.number(),
+  x: FiniteNumberSchema,
+  y: FiniteNumberSchema,
 });
 
 const InventoryMoveInputSchema = z.object({
-  fromSlotIndex: z.number().int().min(0).max(9),
-  toSlotIndex: z.number().int().min(0).max(9),
+  fromSlotIndex: HotbarIndexSchema,
+  toSlotIndex: HotbarIndexSchema,
 });
 
 const HelloMessageSchema = z.object({
@@ -34,50 +40,50 @@ const HelloMessageSchema = z.object({
 
 const MoveIntentMessageSchema = z.object({
   t: z.literal("move"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   key: MoveIntentKeySchema,
   pressed: z.boolean(),
 });
 
 const AimMessageSchema = z.object({
   t: z.literal("aim"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   theta: ThetaInputSchema,
 });
 
 const AttackActionMessageSchema = z.object({
   t: z.literal("action"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   action: z.literal("attack"),
   theta: ThetaInputSchema,
 });
 
 const CraftActionMessageSchema = z.object({
   t: z.literal("action"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   action: z.literal("craft"),
   craft: CraftInputSchema,
 });
 
 const BuildActionMessageSchema = z.object({
   t: z.literal("action"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   action: z.literal("build"),
   build: BuildInputSchema,
 });
 
 const InventoryMoveActionMessageSchema = z.object({
   t: z.literal("action"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   action: z.literal("inventoryMove"),
   inventoryMove: InventoryMoveInputSchema,
 });
 
 const SelectHotbarActionMessageSchema = z.object({
   t: z.literal("action"),
-  seq: z.number().int().nonnegative(),
+  seq: NonNegativeIntSchema,
   action: z.literal("selectHotbar"),
-  index: z.number().int().min(0).max(9),
+  index: HotbarIndexSchema,
 });
 
 const ActionMessageSchema = z.discriminatedUnion("action", [
@@ -94,22 +100,22 @@ const RespawnMessageSchema = z.object({
 
 const PingMessageSchema = z.object({
   t: z.literal("ping"),
-  timeMs: z.number().optional(),
+  timeMs: FiniteNumberSchema.optional(),
 });
 
 const ChatInputMessageSchema = z.object({
   t: z.literal("chat"),
-  text: z.string().min(1).max(240),
+  text: ChatTextSchema,
 });
 
 const PongMessageSchema = z.object({
   t: z.literal("pong"),
-  timeMs: z.number().optional(),
+  timeMs: FiniteNumberSchema.optional(),
 });
 
 const WelcomeMessageSchema = z.object({
   t: z.literal("welcome"),
-  entityId: z.number().int().nonnegative(),
+  entityId: NonNegativeIntSchema,
 });
 
 const SnapshotMessageSchema = z.object({
@@ -124,9 +130,26 @@ const ErrorMessageSchema = z.object({
 
 const ChatMessageSchema = z.object({
   t: z.literal("chat"),
-  text: z.string(),
+  text: z.string().max(MAX_CHAT_MESSAGE_LENGTH),
   kind: z.enum(["global", "system", "emote", "whisper"]).optional(),
   from: z.string().optional(),
+});
+
+export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
+  clientToServer: [
+    "hello",
+    "move",
+    "aim",
+    "action:attack",
+    "action:craft",
+    "action:build",
+    "action:inventoryMove",
+    "action:selectHotbar",
+    "respawn",
+    "ping",
+    "chat",
+  ],
+  serverToClient: ["welcome", "snapshot", "pong", "error", "chat"],
 });
 
 const ClientToServerMessageSchema = z.discriminatedUnion("t", [

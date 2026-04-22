@@ -1,9 +1,9 @@
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 import {
-  createStandardMeleeHitEffects,
-  requireJabWeaponContent,
-} from "@server/items/weaponContent.ts";
+  createMeleeHitEffectsForWeapon,
+  requireJabWeaponRuntime,
+} from "@server/combat/contentAdapters.ts";
 
 /**
  * Spear variant that bleeds.
@@ -12,11 +12,13 @@ export class SpikedSpear extends StabMeleeWeapon {
   public static override readonly resourceName = "spiked_spear";
 
   constructor() {
-    const weaponContent = requireJabWeaponContent(SpikedSpear.typeId);
+    const weaponContent = requireJabWeaponRuntime(SpikedSpear.typeId);
     super(
       weaponContent.cooldownTicks,
       weaponContent.range,
-      createStandardMeleeHitEffects(SpikedSpear.typeId, [new BleedingEffect()]),
+      createMeleeHitEffectsForWeapon(SpikedSpear.typeId, [
+        new BleedingEffect(),
+      ]),
       weaponContent.jabWidth,
     );
   }

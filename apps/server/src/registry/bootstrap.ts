@@ -1,13 +1,13 @@
 import {
+  buildEffectTypeEntries,
+  buildEntityTypeEntries,
+  buildItemTypeEntries,
+} from "@server/registry/buildRegistries.ts";
+import {
   effectTypeRegistry,
   entityTypeRegistry,
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
-import {
-  effectTypeManifests,
-  entityTypeManifests,
-  itemTypeManifests,
-} from "@server/registry/manifests.ts";
 
 let registriesBootstrapped = false;
 
@@ -19,9 +19,9 @@ export function bootstrapTypeRegistries(): void {
     return;
   }
 
-  entityTypeRegistry.registerAll(entityTypeManifests);
-  itemTypeRegistry.registerAll(itemTypeManifests);
-  effectTypeRegistry.registerAll(effectTypeManifests);
+  entityTypeRegistry.registerAll(buildEntityTypeEntries());
+  itemTypeRegistry.registerAll(buildItemTypeEntries());
+  effectTypeRegistry.registerAll(buildEffectTypeEntries());
 
   validateRegistryContent();
 

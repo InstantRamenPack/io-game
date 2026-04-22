@@ -3,7 +3,6 @@ import type {
   AimMessage,
   MoveIntentMessage,
 } from "@shared/net/protocol.ts";
-import { normalizeAngle } from "@shared/math/angle.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -12,20 +11,15 @@ import type { World } from "@server/world/World.ts";
  * The server stays authoritative even when validation remains lightweight.
  */
 export class AntiCheatValidator {
-  public validateMoveIntent(moveIntent: MoveIntentMessage): boolean {
-    return Number.isFinite(moveIntent.seq);
+  public validateMoveIntent(
+    _moveIntent: MoveIntentMessage,
+    playerEntity: Player,
+  ): boolean {
+    return playerEntity.alive;
   }
 
-  public validateAim(aimMessage: AimMessage): boolean {
-    if (
-      !Number.isFinite(aimMessage.seq) ||
-      !Number.isFinite(aimMessage.theta)
-    ) {
-      return false;
-    }
-
-    aimMessage.theta = normalizeAngle(aimMessage.theta);
-    return true;
+  public validateAim(_aimMessage: AimMessage, playerEntity: Player): boolean {
+    return playerEntity.alive;
   }
 
   public validateAction(
@@ -33,23 +27,27 @@ export class AntiCheatValidator {
     playerEntity: Player,
     world: World,
   ): boolean {
-    if (!Number.isFinite(actionMessage.seq)) {
+    if (!playerEntity.alive) {
       return false;
     }
 
     switch (actionMessage.action) {
       case "attack":
-        this.normalizeAttackTheta(actionMessage);
-        return true;
+        return playerEntity.getActiveWeapon() !== undefined;
       case "build":
-        this.clampBuild(actionMessage, world);
-        return true;
+        return (
+          actionMessage.build.x >= 0 &&
+          actionMessage.build.x <= world.gameConfig.worldSize.w &&
+          actionMessage.build.y >= 0 &&
+          actionMessage.build.y <= world.gameConfig.worldSize.h
+        );
       case "selectHotbar":
-        this.clampSelectHotbar(actionMessage);
-        return true;
+        return (
+          actionMessage.index >= 0 &&
+          actionMessage.index < playerEntity.inventory.hotbarSlots.length
+        );
       case "inventoryMove":
-        this.clampInventoryMove(actionMessage, playerEntity);
-        return true;
+        return this.isValidInventoryMove(actionMessage, playerEntity);
       case "craft":
         return true;
     }
@@ -57,75 +55,22 @@ export class AntiCheatValidator {
     return false;
   }
 
-  private normalizeAttackTheta(actionMessage: ActionMessage): void {
-    if (actionMessage.action !== "attack") {
-      return;
-    }
-
-    actionMessage.theta = Number.isFinite(actionMessage.theta)
-      ? normalizeAngle(actionMessage.theta)
-      : 0;
-  }
-
-  private clampBuild(actionMessage: ActionMessage, world: World): void {
-    if (actionMessage.action !== "build") {
-      return;
-    }
-
-    const { x, y } = actionMessage.build;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      actionMessage.build = {
-        x: world.gameConfig.worldSize.w / 2,
-        y: world.gameConfig.worldSize.h / 2,
-      };
-      return;
-    }
-
-    actionMessage.build = {
-      x: Math.min(world.gameConfig.worldSize.w, Math.max(0, x)),
-      y: Math.min(world.gameConfig.worldSize.h, Math.max(0, y)),
-    };
-  }
-
-  private clampSelectHotbar(actionMessage: ActionMessage): void {
-    if (actionMessage.action !== "selectHotbar") {
-      return;
-    }
-
-    if (
-      !Number.isFinite(actionMessage.index) ||
-      !Number.isInteger(actionMessage.index) ||
-      actionMessage.index < 0 ||
-      actionMessage.index >= 10
-    ) {
-      actionMessage.index = 0;
-    }
-  }
-
-  private clampInventoryMove(
+  private isValidInventoryMove(
     actionMessage: ActionMessage,
     playerEntity: Player,
-  ): void {
+  ): boolean {
     if (actionMessage.action !== "inventoryMove") {
-      return;
+      return false;
     }
 
     const { fromSlotIndex, toSlotIndex } = actionMessage.inventoryMove;
-    if (
-      !Number.isFinite(fromSlotIndex) ||
-      !Number.isInteger(fromSlotIndex) ||
-      !Number.isFinite(toSlotIndex) ||
-      !Number.isInteger(toSlotIndex) ||
-      fromSlotIndex < 0 ||
-      fromSlotIndex >= 10 ||
-      toSlotIndex < 0 ||
-      toSlotIndex >= 10 ||
-      !playerEntity.inventory.hotbarSlots[fromSlotIndex]
-    ) {
-      actionMessage.inventoryMove = {
-        fromSlotIndex: 0,
-        toSlotIndex: 0,
-      };
-    }
+    return (
+      (fromSlotIndex < 0 ||
+        fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+        toSlotIndex < 0 ||
+        toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+        playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined) ===
+      false
+    );
   }
 }
