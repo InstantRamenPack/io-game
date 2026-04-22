@@ -1,9 +1,9 @@
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
-import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 import {
-  createStandardMeleeHitEffects,
-  requireSwingWeaponContent,
-} from "@server/items/weaponContent.ts";
+  createMeleeHitEffectsForWeapon,
+  requireSwingWeaponRuntime,
+} from "@server/combat/contentAdapters.ts";
+import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -18,11 +18,11 @@ export class LeadPipe extends SweepMeleeWeapon {
   private readonly confusionEffect = new ConfusionEffect();
 
   constructor() {
-    const weaponContent = requireSwingWeaponContent(LeadPipe.typeId);
+    const weaponContent = requireSwingWeaponRuntime(LeadPipe.typeId);
     super(
       weaponContent.cooldownTicks,
       weaponContent.range,
-      createStandardMeleeHitEffects(LeadPipe.typeId),
+      createMeleeHitEffectsForWeapon(LeadPipe.typeId),
       weaponContent.sweepArcDeg,
     );
   }

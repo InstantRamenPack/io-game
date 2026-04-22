@@ -4,13 +4,12 @@ import type {
   HitboxRect,
   ResolvedHitboxRect,
 } from "@shared/geometry/hitbox.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { World } from "@server/world/World.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
-import { deriveTypeIdFromStaticMetadata } from "@server/registry/typeMetadata.ts";
 import {
   CompositeHitbox,
   type HitboxProfiles,
@@ -47,11 +46,9 @@ export abstract class Entity {
   public static readonly resourceName: string = "";
 
   public static get typeId(): ResourceId {
-    return deriveTypeIdFromStaticMetadata(
-      this as typeof Entity & {
-        readonly kind: EntityKind;
-        readonly resourceName: string;
-      },
+    return makeResourceId(
+      (this as typeof Entity & { readonly kind: EntityKind }).kind,
+      this.resourceName,
     );
   }
 

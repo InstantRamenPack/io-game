@@ -1,16 +1,8 @@
-import {
-  getDistanceSquaredToResolvedRectSet,
-  getSweptResolvedRectSetIntersectionTime,
-} from "@shared/geometry/collision.ts";
-import {
-  cloneHitboxRects,
-  offsetHitboxBounds,
-  resolveHitboxRects,
-  type HitboxRect,
-} from "@shared/geometry/hitbox.ts";
+import { cloneHitboxRects, type HitboxRect } from "@shared/geometry/hitbox.ts";
 import type { Entity as CombatEntity } from "@server/entities/Entity.ts";
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { projectileImpactResolver } from "@server/combat/ProjectileImpactResolver.ts";
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import { requireEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { World } from "@server/world/World.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { ProjectileSnapshot } from "@shared/net/snapshots.ts";
@@ -36,6 +28,13 @@ type ProjectileCtorWithDefinition = typeof Projectile & {
   readonly definition: ProjectileDefinition;
 };
 
+export type ProjectileImpactTarget = {
+  target: CombatEntity;
+  hitTime: number;
+  distanceSquaredFromPrevious: number;
+  tieBreakerDistanceSquared: number;
+};
+
 /**
  * Shared base for server-authoritative projectiles.
  * Projectiles own their post-move lifetime and hit resolution after movement.
@@ -53,7 +52,10 @@ export abstract class Projectile extends GoalControlledEntity {
   private readonly hitTargetIds = new Set<number>();
 
   protected constructor(id: number, config: ProjectileSpawnConfig) {
-    super(id, { maxHp: 0 });
+    const baseline = requireEntityBaselineContent(
+      (new.target as typeof Projectile).typeId,
+    );
+    super(id, { maxHp: baseline.maxHp });
     const definition = requireProjectileDefinition(
       this.constructor as Partial<ProjectileCtorWithDefinition>,
     );
@@ -71,7 +73,7 @@ export abstract class Projectile extends GoalControlledEntity {
     this.remainingRange = definition.range;
     this.rotation =
       config.rotation ?? Math.atan2(this.directionY, this.directionX);
-    this.collisionMode = "none";
+    this.collisionMode = baseline.collisionMode;
     this.hitEffects = [...(definition.hitEffects ?? [])];
     this.setMovementTuning({
       driveAccelerationPerTick: this.speed,
@@ -128,10 +130,16 @@ export abstract class Projectile extends GoalControlledEntity {
       return true;
     }
 
-    const targets = this.resolveImpactTargets(world);
-    const targetsToHit = this.limitImpactTargets(targets);
+    const impactResolution = projectileImpactResolver.resolve(
+      world,
+      this,
+      this.hitTargetIds,
+    );
+    const targetsToHit = this.limitImpactTargets(
+      impactResolution.targets.map(({ target }) => target),
+    );
     if (targetsToHit.length === 0) {
-      return false;
+      return impactResolution.blockedByBuilding;
     }
 
     for (const target of targetsToHit) {
@@ -142,7 +150,10 @@ export abstract class Projectile extends GoalControlledEntity {
       this.remainingHits -= targetsToHit.length;
     }
 
-    return this.shouldDespawnAfterHit(targetsToHit);
+    return (
+      impactResolution.blockedByBuilding ||
+      this.shouldDespawnAfterHit(targetsToHit)
+    );
   }
 
   protected shouldDespawnAfterHit(
@@ -185,108 +196,6 @@ export abstract class Projectile extends GoalControlledEntity {
       ...snapshot,
       kind: "projectile",
     };
-  }
-
-  protected resolveImpactTargets(world: World): CombatEntity[] {
-    const previousBounds = offsetHitboxBounds(
-      this.getHitboxBounds(),
-      this.previousX,
-      this.previousY,
-    );
-    const currentBounds = this.getWorldBounds();
-    const minX = Math.min(previousBounds.minX, currentBounds.minX);
-    const minY = Math.min(previousBounds.minY, currentBounds.minY);
-    const maxX = Math.max(previousBounds.maxX, currentBounds.maxX);
-    const maxY = Math.max(previousBounds.maxY, currentBounds.maxY);
-    const deltaX = this.x - this.previousX;
-    const deltaY = this.y - this.previousY;
-    const movingHitboxes = resolveHitboxRects(
-      this.previousX,
-      this.previousY,
-      this.hitboxes,
-    );
-    const impactTargets: Array<{
-      target: CombatEntity;
-      distanceSquaredFromPrevious: number;
-      tieBreakerDistanceSquared: number;
-    }> = [];
-    const singleHitProjectile = this.remainingHits === 1;
-    let bestTarget: CombatEntity | null = null;
-    let bestDistanceSquaredFromPrevious = Number.POSITIVE_INFINITY;
-    let bestTieBreakerDistanceSquared = Number.POSITIVE_INFINITY;
-
-    for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
-      if (candidate.id === this.id) {
-        continue;
-      }
-      if (this.hitTargetIds.has(candidate.id)) {
-        continue;
-      }
-      if (!canAttackTarget(world, this, candidate)) {
-        continue;
-      }
-
-      const targetHitboxes = candidate.getWorldHitboxes();
-      const hitTime = getSweptResolvedRectSetIntersectionTime(
-        movingHitboxes,
-        deltaX,
-        deltaY,
-        targetHitboxes,
-      );
-      if (hitTime === null) {
-        continue;
-      }
-
-      const distanceSquaredFromPrevious =
-        (deltaX * deltaX + deltaY * deltaY) * hitTime * hitTime;
-      const tieBreakerDistanceSquared = getDistanceSquaredToResolvedRectSet(
-        targetHitboxes,
-        this.previousX,
-        this.previousY,
-      );
-
-      if (singleHitProjectile) {
-        const isBetterHit =
-          bestTarget === null ||
-          distanceSquaredFromPrevious < bestDistanceSquaredFromPrevious ||
-          (distanceSquaredFromPrevious === bestDistanceSquaredFromPrevious &&
-            (tieBreakerDistanceSquared < bestTieBreakerDistanceSquared ||
-              (tieBreakerDistanceSquared === bestTieBreakerDistanceSquared &&
-                candidate.id < bestTarget.id)));
-        if (isBetterHit) {
-          bestTarget = candidate;
-          bestDistanceSquaredFromPrevious = distanceSquaredFromPrevious;
-          bestTieBreakerDistanceSquared = tieBreakerDistanceSquared;
-        }
-        continue;
-      }
-
-      impactTargets.push({
-        target: candidate,
-        distanceSquaredFromPrevious,
-        tieBreakerDistanceSquared,
-      });
-    }
-
-    if (singleHitProjectile) {
-      return bestTarget ? [bestTarget] : [];
-    }
-
-    impactTargets.sort((left, right) => {
-      if (
-        left.distanceSquaredFromPrevious !== right.distanceSquaredFromPrevious
-      ) {
-        return (
-          left.distanceSquaredFromPrevious - right.distanceSquaredFromPrevious
-        );
-      }
-      if (left.tieBreakerDistanceSquared !== right.tieBreakerDistanceSquared) {
-        return left.tieBreakerDistanceSquared - right.tieBreakerDistanceSquared;
-      }
-      return left.target.id - right.target.id;
-    });
-
-    return impactTargets.map(({ target }) => target);
   }
 
   private limitImpactTargets(targets: readonly CombatEntity[]): CombatEntity[] {

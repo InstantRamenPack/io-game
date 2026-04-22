@@ -1,15 +1,18 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
-} from "@shared/gameplay/crafting.ts";
-import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
+  BUILD_PLACEMENT_MAX_DISTANCE,
+} from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
+import {
+  requireHitboxEntityBaselineContent,
+  requireMovingEntityBaselineContent,
+} from "@server/entities/entityBaselineContent.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import {
@@ -43,11 +46,17 @@ export class Player extends Entity {
   };
 
   constructor(id: number, name = "player") {
-    super(id, { maxHp: 100 });
+    const baseline = requireMovingEntityBaselineContent(Player.typeId);
+    const hitboxContent = requireHitboxEntityBaselineContent(Player.typeId);
+    super(id, { maxHp: baseline.maxHp });
     this.name = name;
     this.inventory = new Inventory();
-    this.setHitboxProfiles({ default: [makeHitboxRect(32, 32)] });
-    this.collisionMode = "dynamic";
+    this.moveSpeed = baseline.moveSpeed;
+    this.setHitboxProfiles(
+      hitboxContent.hitboxProfiles,
+      hitboxContent.activeHitboxProfile ?? "default",
+    );
+    this.collisionMode = baseline.collisionMode;
     this.setMovementTuning({
       driveAccelerationPerTick: Math.max(4, this.moveSpeed * 0.45),
     });
@@ -295,10 +304,7 @@ export class Player extends Entity {
       return;
     }
 
-    const building = new buildingEntry.ctor(
-      world.allocEntityId(),
-      buildingEntry.content.label,
-    );
+    const building = new buildingEntry.ctor(world.allocEntityId());
     building.x = targetX;
     building.y = targetY;
     building.ownerId = this.id;

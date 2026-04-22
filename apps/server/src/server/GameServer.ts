@@ -182,7 +182,7 @@ export class GameServer {
       return;
     }
 
-    if (!this.antiCheatValidator.validateMoveIntent(moveIntent)) {
+    if (!this.antiCheatValidator.validateMoveIntent(moveIntent, player)) {
       this.rejectInput(clientId, player, "invalid_input", moveIntent);
       return;
     }
@@ -218,7 +218,7 @@ export class GameServer {
       return;
     }
 
-    if (!this.antiCheatValidator.validateAim(aimMessage)) {
+    if (!this.antiCheatValidator.validateAim(aimMessage, player)) {
       this.rejectInput(clientId, player, "invalid_input", aimMessage);
       return;
     }

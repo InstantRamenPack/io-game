@@ -8,212 +8,72 @@ import {
   HeldAttackController,
   type LocalWeaponState,
 } from "@client/client/HeldAttackController.ts";
+import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
+import { PointerAimController } from "@client/client/input/PointerAimController.ts";
+import { LocalPlayerPredictionController } from "@client/client/movement/LocalPlayerPredictionController.ts";
+import type { HeldMovementState } from "@client/client/movement/LocalPlayerPredictionController.ts";
+import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
+import { ClientSessionLifecycle } from "@client/client/session/ClientSessionLifecycle.ts";
+import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
+import { InputBlocker } from "@client/input/InputBlocker.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import type { ClientWorld } from "@client/net/ClientWorld.ts";
+import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import {
   Interpolator,
   type InterpolationDebugFrame,
 } from "@client/net/Interpolator.ts";
-import { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
+import type { WorldPresentationSink } from "@client/net/presentation/WorldPresentationSink.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import { getEntityContent, getItemContent } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
-import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  getHitboxBounds,
-  offsetHitboxBounds,
-  resolveHitboxRects,
-  type HitboxBounds,
-  type HitboxRect,
-} from "@shared/geometry/hitbox.ts";
-import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/building.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import {
-  lerpAngle,
-  normalizeAngle,
-  shortestAngleDelta,
-} from "@shared/math/angle.ts";
-import type {
-  ActionMessage,
-  LobbyStateMessage,
-  MoveIntentKey,
-} from "@shared/net/protocol.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
+import type { LobbyStateMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
-type AimTarget = {
-  x: number;
-  y: number;
-};
-
-type HeldMovementState = Record<MoveIntentKey, boolean>;
-
-type LocalPlayerTruthState = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  rotation: number;
-};
-
-type CachedPlacementBuildProfile = {
-  itemTypeId: ResourceId;
-  buildsEntityTypeId: ResourceId;
-  hitboxProfiles: Record<string, readonly HitboxRect[]>;
-  activeHitboxProfile?: string;
-  previewProfile: readonly HitboxRect[];
-  previewLocalBounds: HitboxBounds;
-};
-
-const PLACEMENT_SPATIAL_CELL_SIZE = 160;
-const PLACEMENT_KEY_OFFSET = 1 << 15;
-const PLACEMENT_KEY_STRIDE = 1 << 16;
 const AIM_SEND_EPSILON = 0.0025;
-const LOCAL_PLAYER_RECONCILE_SNAP_DISTANCE = 96;
-const LOCAL_PLAYER_RECONCILE_FOLLOW_SHARPNESS = 14;
-const PLAYER_DRIVE_ACCELERATION_MULTIPLIER = 0.45;
-const PLAYER_DRIVE_ACCELERATION_MIN = 4;
-const CONFUSION_SPEED_MULTIPLIER = 0.4;
 
 /**
- * Coordinates client networking, snapshots, interpolation, and renderer sync.
+ * Coordinates the client runtime while gameplay concerns live in focused
+ * modules for session lifecycle, action dispatch, pointer aim, prediction, and
+ * placement preview.
  */
 export class GameClient {
-  public networkClient: WsClient;
+  public readonly networkClient: WsClient;
   public worldState?: ClientWorldState;
-  public inputManager: InputManager;
-  public renderer: PixiRenderer;
-  public gameConfig: GameConfig;
+  public readonly inputManager: InputManager;
+  public readonly renderer: PixiRenderer;
+  public readonly gameConfig: GameConfig;
   public playerEntityId?: number;
-  public interpolator: Interpolator;
+  public readonly interpolator: Interpolator;
 
   private inputBound = false;
-  private rendererPointerBound = false;
-  private started = false;
-  private sessionReady = false;
+  private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private readonly rateMonitor = new ClientRateMonitor();
   private readonly frameLoop = new ClientFrameLoop();
   private readonly heldAttackController = new HeldAttackController({
     tickRate: () => this.gameConfig.tickRate,
   });
-  private readonly debugHitbox: boolean;
-  private readonly debugInterpolationMode: number;
-  private pointerActionHandler?: (pointer: PointerInput) => boolean;
+  private readonly sessionLifecycle = new ClientSessionLifecycle();
+  private readonly pointerAimController = new PointerAimController();
+  private readonly predictionController = new LocalPlayerPredictionController();
+  private readonly placementPreviewController =
+    new PlacementPreviewController();
+  private readonly inputBlocker = new InputBlocker();
+  private readonly actionDispatcher: ClientActionDispatcher;
+  private readonly presentationSink: WorldPresentationSink;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
-  private pointerAimTarget?: AimTarget;
-  private localPlayerTruth?: LocalPlayerTruthState;
-  private pointerClientX: number | null = null;
-  private pointerClientY: number | null = null;
   private lobbyState?: LobbyStateMessage;
-  private lastSentAimTheta?: number;
-  private lastSentAimAtMs = Number.NEGATIVE_INFINITY;
-  private placementIndexDirty = true;
-  private placementIndexedWorld?: ClientWorld;
-  private readonly placementSpatial = new Map<number, ClientEntity[]>();
-  private readonly placementWorkingCandidates: ClientEntity[] = [];
-  private readonly placementCandidateMarkers = new Map<number, number>();
-  private placementCandidateMarker = 0;
-  private placementProfileCache: CachedPlacementBuildProfile | undefined;
-  private pointerViewTarget: HTMLCanvasElement | null = null;
+  private releaseLegacyMovementSuppression?: () => void;
   private readonly heldMovement: HeldMovementState = {
     up: false,
     down: false,
     left: false,
     right: false,
-  };
-
-  private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (!this.started || event.button !== 0 || !event.isPrimary) {
-      return;
-    }
-
-    this.pointerClientX = event.clientX;
-    this.pointerClientY = event.clientY;
-    const screenPoint = this.renderer.clientToScreen(
-      event.clientX,
-      event.clientY,
-    );
-    const aimTarget = this.computeAimTargetFromPointer(
-      event.clientX,
-      event.clientY,
-    );
-    this.pointerAimTarget = aimTarget;
-    const handled = this.pointerActionHandler?.({
-      kind: "down",
-      screenX: screenPoint.x,
-      screenY: screenPoint.y,
-      worldX: aimTarget.x,
-      worldY: aimTarget.y,
-      shiftKey: event.shiftKey,
-    });
-    if (!handled) {
-      this.inputManager.startHoldFire(aimTarget.x, aimTarget.y);
-    }
-    this.sendAimIfNeeded(performance.now(), true);
-    event.preventDefault();
-  };
-
-  private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (!this.started || !event.isPrimary) {
-      return;
-    }
-    this.pointerClientX = event.clientX;
-    this.pointerClientY = event.clientY;
-    const screenPoint = this.renderer.clientToScreen(
-      event.clientX,
-      event.clientY,
-    );
-    const aimTarget = this.computeAimTargetFromPointer(
-      event.clientX,
-      event.clientY,
-    );
-    this.pointerAimTarget = aimTarget;
-    const handled = this.pointerActionHandler?.({
-      kind: "move",
-      screenX: screenPoint.x,
-      screenY: screenPoint.y,
-      worldX: aimTarget.x,
-      worldY: aimTarget.y,
-      shiftKey: event.shiftKey,
-    });
-    if (!handled) {
-      this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
-    }
-    this.sendAimIfNeeded(performance.now(), true);
-  };
-
-  private readonly handlePointerUp = (event: PointerEvent): void => {
-    if (event.button !== 0 || !event.isPrimary) {
-      return;
-    }
-    this.pointerClientX = event.clientX;
-    this.pointerClientY = event.clientY;
-    const screenPoint = this.renderer.clientToScreen(
-      event.clientX,
-      event.clientY,
-    );
-    const aimTarget = this.computeAimTargetFromPointer(
-      event.clientX,
-      event.clientY,
-    );
-    this.pointerAimTarget = aimTarget;
-    this.pointerActionHandler?.({
-      kind: "up",
-      screenX: screenPoint.x,
-      screenY: screenPoint.y,
-      worldX: aimTarget.x,
-      worldY: aimTarget.y,
-      shiftKey: event.shiftKey,
-    });
-    this.inputManager.stopHoldFire();
-    this.sendAimIfNeeded(performance.now(), true);
-  };
-
-  private readonly handlePointerViewRectInvalidation = (): void => {
-    this.renderer.invalidateViewRectCache();
   };
 
   constructor(
@@ -227,6 +87,16 @@ export class GameClient {
     this.networkClient = new WsClient();
     this.inputManager = new InputManager();
     this.renderer = new PixiRenderer(this.gameConfig.worldSize);
+    this.presentationSink = new PixiWorldPresentationSink(
+      this.renderer,
+      options,
+    );
+    this.actionDispatcher = new ClientActionDispatcher({
+      networkClient: this.networkClient,
+      inputManager: this.inputManager,
+      isSessionReady: () => this.isSessionReady(),
+      isTransportConnected: () => this.isTransportConnected(),
+    });
     this.interpolator = new Interpolator({
       snapDistance: this.gameConfig.interpolation.snapDistance,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
@@ -255,8 +125,6 @@ export class GameClient {
       correctionFrameScaleMax:
         this.gameConfig.interpolation.correctionFrameScaleMax,
     });
-    this.debugHitbox = options.debugHitbox ?? false;
-    this.debugInterpolationMode = options.debugInterpolationMode ?? 0;
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
@@ -264,14 +132,10 @@ export class GameClient {
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
-      if (!this.sessionReady || !this.isTransportConnected()) {
-        return;
-      }
-      this.networkClient.sendMoveIntent(
-        this.inputManager.nextSequence(),
-        key,
-        pressed,
-      );
+      this.actionDispatcher.sendMoveIntent(key, pressed);
+    });
+    this.inputBlocker.onChange((blocked) => {
+      this.inputManager.setMovementSuppressed(blocked);
     });
   }
 
@@ -292,7 +156,7 @@ export class GameClient {
   }
 
   public isSessionReady(): boolean {
-    return this.sessionReady;
+    return this.sessionLifecycle.isSessionReady();
   }
 
   public isTransportConnected(): boolean {
@@ -308,21 +172,21 @@ export class GameClient {
   }
 
   public requestJoinLobby(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
       return;
     }
     this.networkClient.joinLobby();
   }
 
   public requestJoinLobbyByCode(lobbyCode: string): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
       return;
     }
     this.networkClient.joinLobbyByCode(lobbyCode);
   }
 
   public requestLeaveLobby(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
       return;
     }
     this.networkClient.leaveLobby();
@@ -331,28 +195,25 @@ export class GameClient {
   public async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
     this.renderer.invalidateViewRectCache();
-
-    if (!this.rendererPointerBound) {
-      const view = this.renderer.getView();
-      this.pointerViewTarget = view;
-      view?.addEventListener("pointerdown", this.handlePointerDown);
-      view?.addEventListener("pointermove", this.handlePointerMove);
-      window.addEventListener("pointerup", this.handlePointerUp);
-      window.addEventListener("pointercancel", this.handlePointerUp);
-      window.addEventListener("resize", this.handlePointerViewRectInvalidation);
-      window.addEventListener(
-        "scroll",
-        this.handlePointerViewRectInvalidation,
-        true,
-      );
-      this.rendererPointerBound = true;
-    }
+    this.pointerAimController.bind({
+      renderer: this.renderer,
+      isStarted: () => this.sessionLifecycle.isStarted(),
+      getPlayerPose: () =>
+        this.predictionController.getVisualPose(this.getLocalPlayerEntity()),
+      handlePointerInput: (pointer) =>
+        this.pointerActionHandler?.(pointer) ?? false,
+      startHoldFire: (x, y) => this.inputManager.startHoldFire(x, y),
+      updateHoldFireTarget: (x, y) =>
+        this.inputManager.updateHoldFireTarget(x, y),
+      stopHoldFire: () => this.inputManager.stopHoldFire(),
+      onAimChanged: (force) => this.sendAimIfNeeded(performance.now(), force),
+    });
   }
 
   public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
-    this.placementIndexDirty = true;
+    this.placementPreviewController.invalidate();
   }
 
   public setTickRate(tickRate: number): void {
@@ -397,53 +258,44 @@ export class GameClient {
   }
 
   public queueCraftItem(itemTypeId: ResourceId): void {
-    this.sendAction({
-      t: "action",
-      seq: this.inputManager.nextSequence(),
-      action: "craft",
-      craft: { itemTypeId },
-    });
+    this.actionDispatcher.queueCraftItem(itemTypeId);
   }
 
   public queueBuildPlacement(x: number, y: number): void {
-    this.sendAction({
-      t: "action",
-      seq: this.inputManager.nextSequence(),
-      action: "build",
-      build: { x, y },
-    });
+    this.actionDispatcher.queueBuildPlacement(x, y);
   }
 
   public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
-    this.sendAction({
-      t: "action",
-      seq: this.inputManager.nextSequence(),
-      action: "inventoryMove",
-      inventoryMove: {
-        fromSlotIndex,
-        toSlotIndex,
-      },
-    });
+    this.actionDispatcher.queueInventoryMove(fromSlotIndex, toSlotIndex);
   }
 
   public queueSelectHotbarIndex(index: number): void {
-    this.sendAction({
-      t: "action",
-      seq: this.inputManager.nextSequence(),
-      action: "selectHotbar",
-      index,
-    });
+    this.actionDispatcher.queueSelectHotbarIndex(index);
   }
 
   public requestRespawn(): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-    this.networkClient.sendRespawn();
+    this.actionDispatcher.requestRespawn();
+  }
+
+  public sendChat(text: string): void {
+    this.actionDispatcher.sendChat(text);
+  }
+
+  public acquireMovementSuppression(
+    reason: MovementSuppressionReason,
+  ): () => void {
+    return this.inputBlocker.acquire(reason);
   }
 
   public setMovementSuppressed(suppressed: boolean): void {
-    this.inputManager.setMovementSuppressed(suppressed);
+    if (suppressed) {
+      this.releaseLegacyMovementSuppression ??=
+        this.inputBlocker.acquire("legacy");
+      return;
+    }
+
+    this.releaseLegacyMovementSuppression?.();
+    this.releaseLegacyMovementSuppression = undefined;
   }
 
   public isLocalPlayerAlive(): boolean | null {
@@ -470,16 +322,12 @@ export class GameClient {
     url: string,
     connectOptions: { googleIdToken?: string; playerName: string },
   ): void {
-    if (this.started) {
+    if (!this.sessionLifecycle.begin()) {
       return;
     }
-    this.started = true;
-    this.sessionReady = false;
+
     this.rateMonitor.reset();
-    this.worldState = new ClientWorldState(
-      this.renderer,
-      this.debugHitbox,
-      this.debugInterpolationMode,
+    this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
     this.startFrameLoop();
@@ -492,17 +340,44 @@ export class GameClient {
   }
 
   public update(deltaMs: number, frameTimeMs = performance.now()): void {
-    if (this.worldState) {
+    const worldState = this.worldState;
+    const world = worldState?.clientWorld;
+    if (worldState && world) {
       this.interpolator.updateInterpolation(
-        this.worldState,
+        worldState,
         frameTimeMs,
         deltaMs,
         this.playerEntityId,
       );
-      this.updateLocalPlayerTruth(deltaMs);
-      this.worldState.clientWorld?.update(deltaMs);
-      this.syncPlacementPreview();
+
+      const player = this.getLocalPlayerEntity();
+      const playerPose = this.predictionController.getVisualPose(player);
+      const aimTheta = this.pointerAimController.computeAimTheta(playerPose);
+      const presentation = this.predictionController.update({
+        deltaMs,
+        tickRate: this.gameConfig.tickRate,
+        player,
+        heldMovement: this.heldMovement,
+        aimTheta,
+      });
+
+      if (this.playerEntityId !== undefined) {
+        this.presentationSink.setPresentationOverride(
+          this.playerEntityId,
+          presentation,
+        );
+      }
+
+      this.presentationSink.update(deltaMs, world);
+      this.placementPreviewController.sync({
+        renderer: this.renderer,
+        world,
+        player,
+        pointerAimTarget: this.pointerAimController.getAimTarget(),
+        gameConfig: this.gameConfig,
+      });
     }
+
     this.renderer.update(deltaMs);
   }
 
@@ -512,51 +387,34 @@ export class GameClient {
       return;
     }
 
-    this.placementIndexDirty = true;
-
+    this.placementPreviewController.invalidate();
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
+
+    if (this.worldState?.clientWorld) {
+      this.presentationSink.syncWorld(this.worldState.clientWorld);
+      this.presentationSink.applyEvents(snapshot.events);
+    }
+
     for (const worldUpdatedHandler of this.worldUpdatedHandlers) {
       worldUpdatedHandler();
     }
   }
 
   public onWelcome(entityId: number): void {
-    if (this.sessionReady) {
+    if (this.isSessionReady()) {
       this.resetForInstanceMigration();
     }
     this.playerEntityId = entityId;
-    this.sessionReady = true;
-    this.renderer.setPlayerEntityId(entityId);
+    this.sessionLifecycle.markSessionReady();
+    this.presentationSink.setPlayerEntityId(entityId);
     for (const sessionReadyHandler of this.sessionReadyHandlers) {
       sessionReadyHandler();
     }
   }
 
   public stop(): void {
-    if (this.rendererPointerBound) {
-      this.pointerViewTarget?.removeEventListener(
-        "pointerdown",
-        this.handlePointerDown,
-      );
-      this.pointerViewTarget?.removeEventListener(
-        "pointermove",
-        this.handlePointerMove,
-      );
-      window.removeEventListener("pointerup", this.handlePointerUp);
-      window.removeEventListener("pointercancel", this.handlePointerUp);
-      window.removeEventListener(
-        "resize",
-        this.handlePointerViewRectInvalidation,
-      );
-      window.removeEventListener(
-        "scroll",
-        this.handlePointerViewRectInvalidation,
-        true,
-      );
-      this.rendererPointerBound = false;
-      this.pointerViewTarget = null;
-    }
+    this.pointerAimController.unbind();
     this.resetSessionState(true);
   }
 
@@ -571,7 +429,6 @@ export class GameClient {
       const frameTimeMs = performance.now() + index * frameMs;
       this.refreshPointerTargetFromScreen();
       this.update(frameMs, frameTimeMs);
-      // Refresh after camera update so attacks use the current viewport.
       this.refreshPointerTargetFromScreen();
       this.updateHeldAttack(frameTimeMs);
     }
@@ -591,7 +448,7 @@ export class GameClient {
     }
 
     this.frameLoop.start((timestampMs, deltaMs) => {
-      if (!this.started) {
+      if (!this.sessionLifecycle.isStarted()) {
         this.stopFrameLoop();
         return;
       }
@@ -599,7 +456,6 @@ export class GameClient {
       this.rateMonitor.recordFrameSample(timestampMs);
       this.refreshPointerTargetFromScreen();
       this.update(deltaMs, timestampMs);
-      // Refresh after camera update so attacks use the current viewport.
       this.refreshPointerTargetFromScreen();
       this.sendAimIfNeeded(timestampMs);
       this.updateHeldAttack(timestampMs);
@@ -654,61 +510,48 @@ export class GameClient {
 
   private resetForInstanceMigration(): void {
     this.worldState?.clear();
-    this.worldState = new ClientWorldState(
-      this.renderer,
-      this.debugHitbox,
-      this.debugInterpolationMode,
+    this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
-    this.localPlayerTruth = undefined;
-    this.pointerAimTarget = undefined;
-    this.lastSentAimTheta = undefined;
-    this.lastSentAimAtMs = Number.NEGATIVE_INFINITY;
+    this.pointerAimController.reset();
+    this.predictionController.reset();
     this.heldAttackController.reset();
-    this.placementSpatial.clear();
-    this.placementWorkingCandidates.length = 0;
-    this.placementCandidateMarkers.clear();
-    this.placementCandidateMarker = 0;
-    this.placementIndexDirty = true;
-    this.placementIndexedWorld = undefined;
-    this.placementProfileCache = undefined;
-    this.renderer.setPlacementPreview(null);
+    this.inputManager.stopHoldFire();
+    this.renderer.invalidateViewRectCache();
+    this.presentationSink.setPlayerEntityId(undefined);
+    this.presentationSink.reset();
+    this.placementPreviewController.reset(this.renderer);
   }
 
   private resetSessionState(disconnectTransport: boolean): void {
-    this.started = false;
-    this.sessionReady = false;
-    this.pointerAimTarget = undefined;
-    this.localPlayerTruth = undefined;
-    this.pointerClientX = null;
-    this.pointerClientY = null;
+    this.sessionLifecycle.reset();
+    this.pointerAimController.reset();
+    this.predictionController.reset();
+    this.heldAttackController.reset();
+    this.rateMonitor.reset();
+    this.stopFrameLoop();
+    this.inputManager.stopHoldFire();
+    this.renderer.invalidateViewRectCache();
+    this.releaseLegacyMovementSuppression?.();
+    this.releaseLegacyMovementSuppression = undefined;
     this.lobbyState = undefined;
-    this.lastSentAimTheta = undefined;
-    this.lastSentAimAtMs = Number.NEGATIVE_INFINITY;
     this.heldMovement.up = false;
     this.heldMovement.down = false;
     this.heldMovement.left = false;
     this.heldMovement.right = false;
-    this.renderer.invalidateViewRectCache();
-    this.heldAttackController.reset();
-    this.stopFrameLoop();
-    this.rateMonitor.reset();
+
     if (disconnectTransport) {
       this.networkClient.disconnect();
     }
+
     this.worldState?.clear();
+    this.worldState = undefined;
     this.playerEntityId = undefined;
-    this.renderer.setPlayerEntityId(undefined);
-    this.renderer.setPlacementPreview(null);
-    this.placementSpatial.clear();
-    this.placementWorkingCandidates.length = 0;
-    this.placementCandidateMarkers.clear();
-    this.placementCandidateMarker = 0;
-    this.placementIndexDirty = true;
-    this.placementIndexedWorld = undefined;
-    this.placementProfileCache = undefined;
+    this.presentationSink.setPlayerEntityId(undefined);
+    this.presentationSink.reset();
+    this.placementPreviewController.reset(this.renderer);
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -720,22 +563,12 @@ export class GameClient {
   }
 
   private refreshPointerTargetFromScreen(): void {
-    if (this.pointerClientX === null || this.pointerClientY === null) {
+    const aimTarget =
+      this.pointerAimController.refreshPointerTargetFromScreen();
+    if (!aimTarget) {
       return;
     }
-    const aimTarget = this.computeAimTargetFromPointer(
-      this.pointerClientX,
-      this.pointerClientY,
-    );
-    this.pointerAimTarget = aimTarget;
     this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
-  }
-
-  private sendAction(actionMessage: ActionMessage): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
-      return;
-    }
-    this.networkClient.sendAction(actionMessage);
   }
 
   private sendAttackAction(theta: number, now: number): boolean {
@@ -747,20 +580,24 @@ export class GameClient {
       return false;
     }
 
-    this.sendAction({
-      t: "action",
-      seq: this.inputManager.nextSequence(),
-      action: "attack",
-      theta,
-    });
-    this.worldState?.clientWorld?.playAttackAnimation(this.playerEntityId);
+    this.actionDispatcher.queueAttack(theta);
+    if (this.playerEntityId !== undefined && this.worldState?.clientWorld) {
+      this.presentationSink.playAttackAnimation(
+        this.playerEntityId,
+        this.worldState.clientWorld,
+      );
+    }
     this.heldAttackController.onAttackSent(now, activeWeapon);
     return true;
   }
 
   private updateHeldAttack(now: number): void {
     const holdFireTarget = this.inputManager.getHoldFireTarget();
-    if (!holdFireTarget || !this.sessionReady || !this.isTransportConnected()) {
+    if (
+      !holdFireTarget ||
+      !this.isSessionReady() ||
+      !this.isTransportConnected()
+    ) {
       return;
     }
 
@@ -773,31 +610,13 @@ export class GameClient {
       return;
     }
 
-    const theta = this.computeLocalAimTheta();
+    const theta = this.pointerAimController.computeAimTheta(
+      this.predictionController.getVisualPose(localPlayer),
+    );
     if (theta === null) {
       return;
     }
     this.sendAttackAction(theta, now);
-  }
-
-  private computeAimTargetFromPointer(
-    clientX: number,
-    clientY: number,
-  ): { x: number; y: number } {
-    const cursorWorld = this.renderer.screenToWorld(clientX, clientY);
-    const centerWorld = this.renderer.getViewportCenterWorld();
-    if (!centerWorld) {
-      return cursorWorld;
-    }
-
-    const playerPose = this.getLocalPlayerVisualPose();
-    if (!playerPose) {
-      return cursorWorld;
-    }
-
-    const deltaX = cursorWorld.x - centerWorld.x;
-    const deltaY = cursorWorld.y - centerWorld.y;
-    return { x: playerPose.x + deltaX, y: playerPose.y + deltaY };
   }
 
   private getLocalActiveWeapon(): LocalWeaponState | undefined {
@@ -841,191 +660,12 @@ export class GameClient {
     return dayNight.phase === "night" ? 1 : 0;
   }
 
-  private updateLocalPlayerTruth(deltaMs: number): void {
-    const world = this.worldState?.clientWorld;
-    const player = this.getLocalPlayerEntity();
-    if (!world || !player?.alive || this.playerEntityId === undefined) {
-      if (this.playerEntityId !== undefined) {
-        world?.setPresentationOverride(this.playerEntityId, null);
-      }
-      this.localPlayerTruth = undefined;
-      return;
-    }
-
-    const dt = Math.max(0, deltaMs) / 1000;
-    const authoritativeX = player.serverX;
-    const authoritativeY = player.serverY;
-    const current = this.localPlayerTruth ?? {
-      x: authoritativeX,
-      y: authoritativeY,
-      vx: player.vx,
-      vy: player.vy,
-      rotation: player.rotation,
-    };
-    const simulated = this.simulateLocalPlayerTruth(current, player, deltaMs);
-    let nextX = simulated.x;
-    let nextY = simulated.y;
-    let nextVx = simulated.vx;
-    let nextVy = simulated.vy;
-    const errorDistance = Math.hypot(
-      authoritativeX - nextX,
-      authoritativeY - nextY,
-    );
-    if (errorDistance > LOCAL_PLAYER_RECONCILE_SNAP_DISTANCE) {
-      nextX = authoritativeX;
-      nextY = authoritativeY;
-      nextVx = player.vx;
-      nextVy = player.vy;
-    } else {
-      const followT =
-        1 - Math.exp(-LOCAL_PLAYER_RECONCILE_FOLLOW_SHARPNESS * dt);
-      nextX = lerp(nextX, authoritativeX, followT);
-      nextY = lerp(nextY, authoritativeY, followT);
-      nextVx = lerp(nextVx, player.vx, followT);
-      nextVy = lerp(nextVy, player.vy, followT);
-    }
-
-    const localAimTheta = this.computeLocalAimTheta();
-    const nextRotation =
-      localAimTheta ?? lerpAngle(current.rotation, player.rotation, 0.35);
-    this.localPlayerTruth = {
-      x: nextX,
-      y: nextY,
-      vx: nextVx,
-      vy: nextVy,
-      rotation: nextRotation,
-    };
-    world.setPresentationOverride(this.playerEntityId, this.localPlayerTruth);
-  }
-
-  private simulateLocalPlayerTruth(
-    current: LocalPlayerTruthState,
-    player: ClientEntity,
-    deltaMs: number,
-  ): LocalPlayerTruthState {
-    const tickMs = 1000 / Math.max(1, this.gameConfig.tickRate);
-    const frameTicks = Math.max(0, deltaMs) / tickMs;
-    if (frameTicks <= 0) {
-      return current;
-    }
-
-    const moveSpeed = player.moveSpeed ?? 0;
-    const movementBlocked = this.isLocalMovementBlocked(player);
-    const moveVelocity = movementBlocked
-      ? { x: 0, y: 0 }
-      : this.computeLocalDesiredVelocity(
-          moveSpeed * this.resolveLocalMovementSpeedMultiplier(player),
-        );
-    const driveAccelerationPerTick = Math.max(
-      PLAYER_DRIVE_ACCELERATION_MIN,
-      moveSpeed * PLAYER_DRIVE_ACCELERATION_MULTIPLIER,
-    );
-    const simulatedVelocity = advanceVelocityToward(
-      current.vx,
-      current.vy,
-      moveVelocity.x,
-      moveVelocity.y,
-      driveAccelerationPerTick * frameTicks,
-    );
-
-    return {
-      ...current,
-      x: current.x + simulatedVelocity.x * frameTicks,
-      y: current.y + simulatedVelocity.y * frameTicks,
-      vx: simulatedVelocity.x,
-      vy: simulatedVelocity.y,
-    };
-  }
-
-  private computeLocalDesiredVelocity(moveSpeed: number): {
-    x: number;
-    y: number;
-  } {
-    let moveX = 0;
-    let moveY = 0;
-    if (this.heldMovement.left) {
-      moveX -= 1;
-    }
-    if (this.heldMovement.right) {
-      moveX += 1;
-    }
-    if (this.heldMovement.up) {
-      moveY -= 1;
-    }
-    if (this.heldMovement.down) {
-      moveY += 1;
-    }
-
-    const magnitude = Math.hypot(moveX, moveY);
-    if (magnitude <= Number.EPSILON) {
-      return { x: 0, y: 0 };
-    }
-
-    return {
-      x: (moveX / magnitude) * moveSpeed,
-      y: (moveY / magnitude) * moveSpeed,
-    };
-  }
-
-  private isLocalMovementBlocked(player: ClientEntity): boolean {
-    return (
-      player.activeEffects?.some((effect) => effect.typeId === "effect:stunned") ??
-      false
-    );
-  }
-
-  private resolveLocalMovementSpeedMultiplier(player: ClientEntity): number {
-    let multiplier = 1;
-    for (const effect of player.activeEffects ?? []) {
-      if (effect.typeId === "effect:confusion") {
-        multiplier *= CONFUSION_SPEED_MULTIPLIER;
-      }
-    }
-    return multiplier;
-  }
-
-  private getLocalPlayerVisualPose(): {
-    x: number;
-    y: number;
-    rotation: number;
-  } | null {
-    if (this.localPlayerTruth) {
-      return this.localPlayerTruth;
-    }
-
-    const player = this.getLocalPlayerEntity();
-    if (!player) {
-      return null;
-    }
-
-    return {
-      x: player.serverX,
-      y: player.serverY,
-      rotation: player.rotation,
-    };
-  }
-
-  private computeLocalAimTheta(): number | null {
-    if (!this.pointerAimTarget) {
-      return null;
-    }
-
-    const playerPose = this.getLocalPlayerVisualPose();
-    if (!playerPose) {
-      return null;
-    }
-
-    return this.computeThetaFromWorldPoint(
-      this.pointerAimTarget.x,
-      this.pointerAimTarget.y,
-      playerPose,
-    );
-  }
-
   private computeThetaFromWorldPoint(
     x: number,
     y: number,
-    playerPose = this.getLocalPlayerVisualPose(),
+    playerPose = this.predictionController.getVisualPose(
+      this.getLocalPlayerEntity(),
+    ),
   ): number | null {
     if (!playerPose) {
       return null;
@@ -1041,300 +681,23 @@ export class GameClient {
   }
 
   private sendAimIfNeeded(now: number, force = false): void {
-    if (!this.sessionReady || !this.isTransportConnected()) {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
       return;
     }
 
-    const theta = this.computeLocalAimTheta();
+    const theta = this.pointerAimController.maybeGetAimToSend({
+      now,
+      intervalMs: 1000 / Math.max(1, this.gameConfig.tickRate),
+      epsilon: AIM_SEND_EPSILON,
+      force,
+      playerPose: this.predictionController.getVisualPose(
+        this.getLocalPlayerEntity(),
+      ),
+    });
     if (theta === null) {
       return;
     }
 
-    const changed =
-      this.lastSentAimTheta === undefined ||
-      Math.abs(shortestAngleDelta(this.lastSentAimTheta, theta)) >
-        AIM_SEND_EPSILON;
-    const intervalMs = 1000 / Math.max(1, this.gameConfig.tickRate);
-    const due = now - this.lastSentAimAtMs >= intervalMs;
-    if (!changed || (!force && !due)) {
-      return;
-    }
-
-    this.networkClient.sendAim(this.inputManager.nextSequence(), theta);
-    this.lastSentAimTheta = theta;
-    this.lastSentAimAtMs = now;
+    this.actionDispatcher.sendAim(theta);
   }
-
-  private syncPlacementPreview(): void {
-    const world = this.worldState?.clientWorld;
-    const player = this.getLocalPlayerEntity();
-    if (!world || !player || !player.alive) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const inventory = player.inventory;
-    if (!inventory) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const selectedSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
-    if (selectedSlot?.kind !== "buildable") {
-      this.placementProfileCache = undefined;
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const pointer = this.pointerAimTarget;
-    if (!pointer) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const buildProfile = this.resolvePlacementBuildProfile(selectedSlot.typeId);
-    if (!buildProfile) {
-      this.renderer.setPlacementPreview(null);
-      return;
-    }
-
-    const previewRects = resolveHitboxRects(
-      pointer.x,
-      pointer.y,
-      buildProfile.previewProfile,
-    );
-    const previewBounds = offsetHitboxBounds(
-      buildProfile.previewLocalBounds,
-      pointer.x,
-      pointer.y,
-    );
-
-    let valid = true;
-    const distanceToPointer = Math.hypot(
-      pointer.x - player.x,
-      pointer.y - player.y,
-    );
-    if (distanceToPointer > BUILD_PLACEMENT_MAX_DISTANCE) {
-      valid = false;
-    }
-
-    if (
-      previewBounds.minX < 0 ||
-      previewBounds.minY < 0 ||
-      previewBounds.maxX > this.gameConfig.worldSize.w ||
-      previewBounds.maxY > this.gameConfig.worldSize.h
-    ) {
-      valid = false;
-    }
-
-    if (valid) {
-      this.ensurePlacementSpatialIndex(world);
-      const candidates = this.queryPlacementCandidates(previewBounds);
-      for (const entity of candidates) {
-        if (this.isPlacementBlockingEntity(entity, player.id)) {
-          const entityRects = resolveHitboxRects(
-            entity.x,
-            entity.y,
-            entity.hitboxes,
-          );
-          if (doResolvedRectSetsOverlap(previewRects, entityRects)) {
-            valid = false;
-            break;
-          }
-        }
-      }
-    }
-
-    this.renderer.setPlacementPreview({
-      visible: true,
-      worldX: pointer.x,
-      worldY: pointer.y,
-      valid,
-      typeId: buildProfile.buildsEntityTypeId,
-      hitboxProfiles: buildProfile.hitboxProfiles,
-      activeHitboxProfile: buildProfile.activeHitboxProfile,
-    });
-  }
-
-  private resolvePlacementBuildProfile(
-    selectedItemTypeId: ResourceId,
-  ): CachedPlacementBuildProfile | undefined {
-    if (this.placementProfileCache?.itemTypeId === selectedItemTypeId) {
-      return this.placementProfileCache;
-    }
-
-    const itemContent = getItemContent(selectedItemTypeId);
-    const buildsEntityTypeId = itemContent?.buildsEntityTypeId;
-    if (!buildsEntityTypeId) {
-      this.placementProfileCache = undefined;
-      return undefined;
-    }
-
-    const buildEntityContent = getEntityContent(buildsEntityTypeId);
-    const hitboxProfiles = buildEntityContent?.hitboxProfiles;
-    if (!hitboxProfiles) {
-      this.placementProfileCache = undefined;
-      return undefined;
-    }
-
-    const activeProfileName = buildEntityContent.activeHitboxProfile;
-    const previewProfile =
-      (activeProfileName && hitboxProfiles[activeProfileName]) ??
-      Object.values(hitboxProfiles)[0];
-    if (!previewProfile) {
-      this.placementProfileCache = undefined;
-      return undefined;
-    }
-
-    this.placementProfileCache = {
-      itemTypeId: selectedItemTypeId,
-      buildsEntityTypeId,
-      hitboxProfiles,
-      activeHitboxProfile: activeProfileName,
-      previewProfile,
-      previewLocalBounds: getHitboxBounds(previewProfile),
-    };
-    return this.placementProfileCache;
-  }
-
-  private ensurePlacementSpatialIndex(world: ClientWorld): void {
-    if (!this.placementIndexDirty && this.placementIndexedWorld === world) {
-      return;
-    }
-
-    this.placementSpatial.clear();
-    for (const entity of world.entities.values()) {
-      if (!entity.alive) {
-        continue;
-      }
-      if (entity.kind === "projectile" || entity.kind === "pickup") {
-        continue;
-      }
-      const entityContent = getEntityContent(entity.typeId);
-      if (entityContent?.collisionMode === "none") {
-        continue;
-      }
-
-      const bounds = offsetHitboxBounds(
-        entity.hitboxBounds,
-        entity.x,
-        entity.y,
-      );
-      const minCellX = Math.floor(bounds.minX / PLACEMENT_SPATIAL_CELL_SIZE);
-      const maxCellX = Math.floor(bounds.maxX / PLACEMENT_SPATIAL_CELL_SIZE);
-      const minCellY = Math.floor(bounds.minY / PLACEMENT_SPATIAL_CELL_SIZE);
-      const maxCellY = Math.floor(bounds.maxY / PLACEMENT_SPATIAL_CELL_SIZE);
-
-      for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
-        for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
-          const key = getPlacementCellKey(cellX, cellY);
-          let bucket = this.placementSpatial.get(key);
-          if (!bucket) {
-            bucket = [];
-            this.placementSpatial.set(key, bucket);
-          }
-          bucket.push(entity);
-        }
-      }
-    }
-
-    this.placementIndexDirty = false;
-    this.placementIndexedWorld = world;
-  }
-
-  private queryPlacementCandidates(
-    previewBounds: HitboxBounds,
-  ): readonly ClientEntity[] {
-    this.bumpPlacementCandidateMarker();
-    this.placementWorkingCandidates.length = 0;
-
-    const minCellX = Math.floor(
-      previewBounds.minX / PLACEMENT_SPATIAL_CELL_SIZE,
-    );
-    const maxCellX = Math.floor(
-      previewBounds.maxX / PLACEMENT_SPATIAL_CELL_SIZE,
-    );
-    const minCellY = Math.floor(
-      previewBounds.minY / PLACEMENT_SPATIAL_CELL_SIZE,
-    );
-    const maxCellY = Math.floor(
-      previewBounds.maxY / PLACEMENT_SPATIAL_CELL_SIZE,
-    );
-
-    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
-      for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
-        const bucket = this.placementSpatial.get(
-          getPlacementCellKey(cellX, cellY),
-        );
-        if (!bucket) {
-          continue;
-        }
-        for (const candidate of bucket) {
-          if (
-            this.placementCandidateMarkers.get(candidate.id) ===
-            this.placementCandidateMarker
-          ) {
-            continue;
-          }
-          this.placementCandidateMarkers.set(
-            candidate.id,
-            this.placementCandidateMarker,
-          );
-          this.placementWorkingCandidates.push(candidate);
-        }
-      }
-    }
-
-    return this.placementWorkingCandidates;
-  }
-
-  private bumpPlacementCandidateMarker(): void {
-    this.placementCandidateMarker += 1;
-    if (this.placementCandidateMarker >= Number.MAX_SAFE_INTEGER) {
-      this.placementCandidateMarker = 1;
-      this.placementCandidateMarkers.clear();
-    }
-  }
-
-  private isPlacementBlockingEntity(
-    entity: ClientEntity,
-    localPlayerId: number,
-  ): boolean {
-    return entity.id !== localPlayerId;
-  }
-}
-
-function lerp(from: number, to: number, t: number): number {
-  return from + (to - from) * t;
-}
-
-function advanceVelocityToward(
-  currentVx: number,
-  currentVy: number,
-  targetVx: number,
-  targetVy: number,
-  maxDelta: number,
-): { x: number; y: number } {
-  if (!Number.isFinite(maxDelta) || maxDelta <= 0) {
-    return { x: currentVx, y: currentVy };
-  }
-
-  const deltaX = targetVx - currentVx;
-  const deltaY = targetVy - currentVy;
-  const distance = Math.hypot(deltaX, deltaY);
-  if (distance <= Number.EPSILON || distance <= maxDelta) {
-    return { x: targetVx, y: targetVy };
-  }
-
-  return {
-    x: currentVx + (deltaX / distance) * maxDelta,
-    y: currentVy + (deltaY / distance) * maxDelta,
-  };
-}
-
-function getPlacementCellKey(cellX: number, cellY: number): number {
-  return (
-    (cellX + PLACEMENT_KEY_OFFSET) * PLACEMENT_KEY_STRIDE +
-    (cellY + PLACEMENT_KEY_OFFSET)
-  );
 }

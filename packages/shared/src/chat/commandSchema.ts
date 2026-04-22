@@ -19,7 +19,7 @@ export type ChatAutocompleteSource =
   | "selector"
   | "player";
 
-type ChatAutocompleteRule = {
+export type ChatAutocompleteRule = {
   argIndex: number;
   sources: readonly ChatAutocompleteSource[];
   whenArgEquals?: {
@@ -28,7 +28,7 @@ type ChatAutocompleteRule = {
   };
 };
 
-type ChatCommandEntry = {
+export type ChatCommandSchemaEntry = {
   id: ChatCommandId;
   primaryAlias: string;
   aliases: readonly string[];
@@ -37,7 +37,7 @@ type ChatCommandEntry = {
   autocomplete?: readonly ChatAutocompleteRule[];
 };
 
-export const CHAT_COMMAND_MANIFEST = [
+export const CHAT_COMMAND_SCHEMAS = [
   {
     id: "help",
     primaryAlias: "help",
@@ -165,19 +165,21 @@ export const CHAT_COMMAND_MANIFEST = [
       },
     ],
   },
-] as const satisfies readonly ChatCommandEntry[];
+] as const satisfies readonly ChatCommandSchemaEntry[];
 
 const commandAliasToId = new Map<string, ChatCommandId>();
-const commandById = new Map<ChatCommandId, ChatCommandEntry>();
+const commandById = new Map<ChatCommandId, ChatCommandSchemaEntry>();
 
-for (const command of CHAT_COMMAND_MANIFEST) {
+for (const command of CHAT_COMMAND_SCHEMAS) {
   commandById.set(command.id, command);
   for (const alias of command.aliases) {
     commandAliasToId.set(alias.toLowerCase(), command.id);
   }
 }
 
-export function getChatCommandById(commandId: ChatCommandId): ChatCommandEntry {
+export function getChatCommandSchemaById(
+  commandId: ChatCommandId,
+): ChatCommandSchemaEntry {
   const command = commandById.get(commandId);
   if (!command) {
     throw new Error(`Unknown chat command id: ${commandId}`);
@@ -192,16 +194,16 @@ export function resolveChatCommandAlias(
 }
 
 export function getChatHelpLines(): string[] {
-  return CHAT_COMMAND_MANIFEST.map(
+  return CHAT_COMMAND_SCHEMAS.map(
     (command) => `${command.usage} - ${command.summary}`,
   );
 }
 
-export function validateChatCommandManifest(): void {
+export function validateChatCommandSchema(): void {
   const seenIds = new Set<ChatCommandId>();
   const seenAliases = new Set<string>();
 
-  for (const command of CHAT_COMMAND_MANIFEST) {
+  for (const command of CHAT_COMMAND_SCHEMAS) {
     if (seenIds.has(command.id)) {
       throw new Error(`Duplicate chat command id: ${command.id}`);
     }

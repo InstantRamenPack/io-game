@@ -12,12 +12,7 @@ export type SpawnableEntityCtor = RegistrableEntityCtor &
   (new (entityId: number) => Entity);
 
 type BuildingCtor = RegistrableEntityCtor &
-  (new (
-    id: number,
-    label: string,
-    tier?: number,
-    ownerId?: number,
-  ) => Building);
+  (new (id: number, tier?: number, ownerId?: number) => Building);
 
 export function isWeaponCtor(
   ctor: RegistrableItemCtor,

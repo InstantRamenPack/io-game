@@ -1,8 +1,8 @@
-import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 import {
-  createStandardMeleeHitEffects,
-  requireJabWeaponContent,
-} from "@server/items/weaponContent.ts";
+  createMeleeHitEffectsForWeapon,
+  requireJabWeaponRuntime,
+} from "@server/combat/contentAdapters.ts";
+import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 
 /**
  * Fast short-range stabbing weapon with low damage.
@@ -11,11 +11,11 @@ export class BasicDagger extends StabMeleeWeapon {
   public static override readonly resourceName = "basic_dagger";
 
   constructor() {
-    const weaponContent = requireJabWeaponContent(BasicDagger.typeId);
+    const weaponContent = requireJabWeaponRuntime(BasicDagger.typeId);
     super(
       weaponContent.cooldownTicks,
       weaponContent.range,
-      createStandardMeleeHitEffects(BasicDagger.typeId),
+      createMeleeHitEffectsForWeapon(BasicDagger.typeId),
       weaponContent.jabWidth,
     );
   }

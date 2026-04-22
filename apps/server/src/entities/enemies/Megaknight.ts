@@ -4,7 +4,6 @@ import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { JumpAttackGoal } from "@server/goals/builtin/JumpAttackGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 
 const BASE_SIZE = 40;
 const MIN_SIZE = 12;
@@ -15,12 +14,6 @@ export class Megaknight extends Enemy {
 
   constructor(id: number) {
     super(id, {
-      hitboxProfiles: {
-        base: [makeHitboxRect(28, 20, 0, -10), makeHitboxRect(40, 20, 0, 10)],
-      },
-      activeHitboxProfile: "base",
-      maxHp: 150,
-      moveSpeed: 7,
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 600),
         new LookAtTargetGoal<Enemy>(1),

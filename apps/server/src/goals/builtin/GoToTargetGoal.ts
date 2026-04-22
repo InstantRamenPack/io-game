@@ -5,6 +5,7 @@ import {
   type GoalDestination,
 } from "@server/goals/builtin/GoToPositionGoal.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
+import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
 /**
  * Straight-line chase goal that walks toward the current target entity.
@@ -30,17 +31,7 @@ export class GoToTargetGoal<
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
-    const { targetId } = ctx.self;
-    if (targetId === undefined) {
-      return null;
-    }
-
-    const target = ctx.world.get(targetId);
-    if (!target || !target.alive) {
-      return null;
-    }
-
-    return target;
+    return goalTargetResolver.resolveTrackedLivingTarget(ctx);
   }
 
   private resolveDestination(ctx: GoalContext<TSelf>): GoalDestination | null {

@@ -8,6 +8,7 @@
     "dev:client": "vite --config apps/client/vite.config.ts",
     "dev": "bun run scripts/dev.ts",
     "dev:server": "if [ \"$DISABLE_TLS\" != \"1\" ] && [ -f certs/localhost.pem ] && [ -f certs/localhost-key.pem ]; then TLS_CERT_PATH=certs/localhost.pem TLS_KEY_PATH=certs/localhost-key.pem bun run apps/server/index.ts; else bun run apps/server/index.ts; fi",
+    "generate:content-manifest": "bun run scripts/generate-content-manifest.ts",
     "build": "bun run typecheck && bun run build:client",
     "prod:server": "bun run apps/server/index.ts",
     "lint": "eslint . && prettier --check .",

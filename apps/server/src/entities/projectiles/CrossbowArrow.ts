@@ -3,7 +3,7 @@ import {
   type ProjectileSpawnConfig,
   type ProjectileDefinition,
 } from "@server/entities/Projectile.ts";
-import { makeProjectileDefinition } from "@server/entities/projectiles/projectileContent.ts";
+import { createProjectileDefinitionForType } from "@server/combat/contentAdapters.ts";
 
 /**
  * Pierce-capable projectile fired by the crossbow.
@@ -11,7 +11,7 @@ import { makeProjectileDefinition } from "@server/entities/projectiles/projectil
 export class CrossbowArrow extends Projectile {
   public static override readonly resourceName = "crossbow_arrow";
   public static readonly definition: ProjectileDefinition =
-    makeProjectileDefinition("projectile:crossbow_arrow");
+    createProjectileDefinitionForType("projectile:crossbow_arrow");
 
   constructor(id: number, config: ProjectileSpawnConfig) {
     super(id, config);

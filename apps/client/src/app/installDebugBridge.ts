@@ -1,6 +1,7 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { HudController } from "@client/app/HudController.ts";
+import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import { isJsonValue, type JsonValue } from "@shared/json.ts";
@@ -10,6 +11,7 @@ type DebugBridgeOptions = {
   gameClient: GameClient;
   selectors: GameSelectors;
   hudController: HudController;
+  sessionUiController: SessionUiController;
 };
 
 export function installDebugBridge({
@@ -17,6 +19,7 @@ export function installDebugBridge({
   gameClient,
   selectors,
   hudController,
+  sessionUiController,
 }: DebugBridgeOptions): void {
   function getInterpolationLog(): string {
     return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
@@ -112,7 +115,7 @@ export function installDebugBridge({
     const performanceRates = gameClient.getMeasuredRates();
 
     return JSON.stringify({
-      mode: elements.menuRoot?.style.display === "none" ? "game" : "menu",
+      mode: sessionUiController.getState().mode,
       connected: gameClient.isTransportConnected(),
       sessionReady: gameClient.isSessionReady(),
       coordinateSystem: "origin top-left; +x right; +y down",

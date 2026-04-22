@@ -1,5 +1,11 @@
 {
   "label": "Player",
+  "maxHp": 100,
+  "moveSpeed": 15,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "default": [{ "width": 32, "height": 32, "offsetX": 0, "offsetY": 0 }]
+  },
   "player": {
     "starterLoadout": {
       "selectedHotbarIndex": 1,

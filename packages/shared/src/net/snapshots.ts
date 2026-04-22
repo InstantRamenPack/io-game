@@ -1,45 +1,45 @@
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
 import { AttackStyleSchema, ENTITY_KINDS } from "@shared/content/schema.ts";
-import {
-  RESOURCE_ID_PATTERN,
-  assertResourceId,
-} from "@shared/ids/ResourceId.ts";
 import { NetEventSchema } from "@shared/net/events.ts";
+import {
+  EntityIdSchema,
+  HotbarIndexSchema,
+  HotbarSlotArrayLength,
+  NonNegativeIntSchema,
+  PositiveIntSchema,
+  ResourceIdSchema,
+  makeFixedLengthArraySchema,
+} from "@shared/validation/schemas.ts";
 import { z } from "zod";
-
-const ResourceIdSchema = z
-  .string()
-  .regex(RESOURCE_ID_PATTERN)
-  .transform((typeId) => assertResourceId(typeId));
 
 export const DayNightPhaseSchema = z.enum(["day", "night"]);
 export type DayNightPhase = z.infer<typeof DayNightPhaseSchema>;
 
 const StackableCountSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
-  amount: z.number().int().positive(),
+  amount: PositiveIntSchema,
 });
 
 export const WeaponSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
-  ownerId: z.number().int().nonnegative().optional(),
-  cooldownTicksRemaining: z.number().int().nonnegative().optional(),
-  ammoInMag: z.number().int().nonnegative().optional(),
-  magSize: z.number().int().positive().optional(),
-  reserveMagCount: z.number().int().nonnegative().optional(),
-  reloadTicks: z.number().int().positive().optional(),
-  reloadTicksRemaining: z.number().int().nonnegative().optional(),
+  ownerId: EntityIdSchema.optional(),
+  cooldownTicksRemaining: NonNegativeIntSchema.optional(),
+  ammoInMag: NonNegativeIntSchema.optional(),
+  magSize: PositiveIntSchema.optional(),
+  reserveMagCount: NonNegativeIntSchema.optional(),
+  reloadTicks: PositiveIntSchema.optional(),
+  reloadTicksRemaining: NonNegativeIntSchema.optional(),
 });
 
 export const EquippedItemSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
   attackStyle: AttackStyleSchema,
-  cooldownTicksRemaining: z.number().int().nonnegative(),
-  ammoInMag: z.number().int().nonnegative().optional(),
-  magSize: z.number().int().positive().optional(),
-  reserveMagCount: z.number().int().nonnegative().optional(),
-  reloadTicks: z.number().int().positive().optional(),
-  reloadTicksRemaining: z.number().int().nonnegative().optional(),
+  cooldownTicksRemaining: NonNegativeIntSchema,
+  ammoInMag: NonNegativeIntSchema.optional(),
+  magSize: PositiveIntSchema.optional(),
+  reserveMagCount: NonNegativeIntSchema.optional(),
+  reloadTicks: PositiveIntSchema.optional(),
+  reloadTicksRemaining: NonNegativeIntSchema.optional(),
 });
 
 const EmptyInventorySlotSnapshotSchema = z.object({
@@ -53,7 +53,7 @@ const WeaponInventorySlotSnapshotSchema = WeaponSnapshotSchema.extend({
 const BuildableInventorySlotSnapshotSchema = z.object({
   kind: z.literal("buildable"),
   typeId: ResourceIdSchema,
-  count: z.number().int().positive(),
+  count: PositiveIntSchema,
 });
 
 export const InventorySlotSnapshotSchema = z.discriminatedUnion("kind", [
@@ -64,17 +64,20 @@ export const InventorySlotSnapshotSchema = z.discriminatedUnion("kind", [
 
 export const InventorySnapshotSchema = z.object({
   resources: z.array(StackableCountSnapshotSchema),
-  hotbarSlots: z.array(InventorySlotSnapshotSchema).length(10),
-  selectedHotbarIndex: z.number().int().min(0).max(9),
+  hotbarSlots: makeFixedLengthArraySchema(
+    InventorySlotSnapshotSchema,
+    HotbarSlotArrayLength,
+  ),
+  selectedHotbarIndex: HotbarIndexSchema,
 });
 
 export const ActiveEffectSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
-  ticksRemaining: z.number().int().positive(),
+  ticksRemaining: PositiveIntSchema,
 });
 
 export const EntitySnapshotBaseSchema = z.object({
-  id: z.number().int().nonnegative(),
+  id: EntityIdSchema,
   kind: z.enum(ENTITY_KINDS),
   typeId: ResourceIdSchema,
   x: z.number(),
@@ -86,7 +89,7 @@ export const EntitySnapshotBaseSchema = z.object({
   hp: z.number(),
   maxHp: z.number(),
   alive: z.boolean(),
-  ownerId: z.number().int().nonnegative().optional(),
+  ownerId: EntityIdSchema.optional(),
 });
 
 export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
@@ -100,7 +103,7 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
-  targetId: z.number().int().nonnegative().optional(),
+  targetId: EntityIdSchema.optional(),
   equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
@@ -128,20 +131,53 @@ export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const DayNightSnapshotSchema = z.object({
-  dayCount: z.number().int().nonnegative(),
+  dayCount: NonNegativeIntSchema,
   phase: DayNightPhaseSchema,
-  phaseElapsedMs: z.number().int().nonnegative(),
-  dayDurationMs: z.number().int().positive(),
-  nightDurationMs: z.number().int().positive(),
+  phaseElapsedMs: NonNegativeIntSchema,
+  dayDurationMs: PositiveIntSchema,
+  nightDurationMs: PositiveIntSchema,
 });
 
 export const WorldSnapshotSchema = z.object({
-  tick: z.number().int().nonnegative(),
+  tick: NonNegativeIntSchema,
   dayNight: DayNightSnapshotSchema,
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
-  removedEntityIds: z.array(z.number().int().nonnegative()).optional(),
+  removedEntityIds: z.array(EntityIdSchema).optional(),
   events: z.array(NetEventSchema),
+});
+
+export const SNAPSHOT_COMPAT_DESCRIPTOR = Object.freeze({
+  entityBase: [
+    "id",
+    "kind",
+    "typeId",
+    "x",
+    "y",
+    "vx",
+    "vy",
+    "rotation",
+    "hitboxes",
+    "hp",
+    "maxHp",
+    "alive",
+    "ownerId",
+  ],
+  equippedItem: [
+    "typeId",
+    "attackStyle",
+    "cooldownTicksRemaining",
+    "ammoInMag",
+    "magSize",
+    "reserveMagCount",
+    "reloadTicks",
+    "reloadTicksRemaining",
+  ],
+  player: ["name", "inventory", "activeEffects", "moveSpeed", "equippedItem"],
+  enemy: ["targetId", "equippedItem"],
+  building: ["label", "tier"],
+  pickup: ["inventory"],
+  world: ["tick", "dayNight", "entities", "events"],
 });
 
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;

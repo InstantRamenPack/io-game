@@ -1,4 +1,3 @@
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
@@ -15,11 +14,6 @@ export class Police extends Enemy {
 
   constructor(id: number) {
     super(id, {
-      hitboxProfiles: {
-        default: [makeHitboxRect(24, 24)],
-      },
-      maxHp: 110,
-      moveSpeed: 20,
       weapons: [new Taser()],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 420),

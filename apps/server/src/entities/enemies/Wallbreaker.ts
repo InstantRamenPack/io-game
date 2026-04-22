@@ -1,5 +1,4 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
-import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -17,11 +16,6 @@ export class Wallbreaker extends Enemy {
 
   constructor(id: number) {
     super(id, {
-      hitboxProfiles: {
-        default: [makeHitboxRect(22, 22)],
-      },
-      maxHp: 1,
-      moveSpeed: 12,
       weapons: [],
       goals: [
         new TargetEntityGoal<Enemy>(0, Wall, Infinity),

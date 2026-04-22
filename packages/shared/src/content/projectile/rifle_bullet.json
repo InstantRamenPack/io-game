@@ -1,5 +1,7 @@
 {
   "label": "Rifle Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
   "projectile": {
     "speed": 55,
     "range": 900,

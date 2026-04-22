@@ -1,8 +1,9 @@
-import { canAttackTarget } from "@server/combat/combatRules.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
+import { resolveInterceptPoint } from "@server/goals/math/InterceptSolver.ts";
+import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
 /**
@@ -125,20 +126,7 @@ export class RangedAttackGoal<
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
-    const { targetId } = ctx.self;
-    if (targetId === undefined) {
-      return null;
-    }
-
-    const target = ctx.world.get(targetId);
-    if (!target || !target.alive) {
-      return null;
-    }
-    if (!canAttackTarget(ctx.world, ctx.self, target)) {
-      return null;
-    }
-
-    return target;
+    return goalTargetResolver.resolveTrackedCombatTarget(ctx);
   }
 
   private resolveWeapon(ctx: GoalContext<TSelf>): RangedWeapon {
@@ -157,71 +145,16 @@ export class RangedAttackGoal<
     weapon: RangedWeapon,
     target: Entity,
   ): { x: number; y: number } {
-    const projectileSpeed = weapon.getProjectileSpeed();
-    const interceptTime = this.resolveInterceptTime(
-      ctx.self.x,
-      ctx.self.y,
-      target.x,
-      target.y,
-      target.vx,
-      target.vy,
-      projectileSpeed,
-    );
-    if (interceptTime === null) {
-      return { x: target.x, y: target.y };
-    }
-
-    return {
-      x: target.x + target.vx * interceptTime * this.leadBlendFactor,
-      y: target.y + target.vy * interceptTime * this.leadBlendFactor,
-    };
-  }
-
-  private resolveInterceptTime(
-    originX: number,
-    originY: number,
-    targetX: number,
-    targetY: number,
-    targetVx: number,
-    targetVy: number,
-    projectileSpeed: number,
-  ): number | null {
-    if (!Number.isFinite(projectileSpeed) || projectileSpeed <= 0) {
-      return null;
-    }
-
-    const relativeX = targetX - originX;
-    const relativeY = targetY - originY;
-    const targetSpeedSquared = targetVx * targetVx + targetVy * targetVy;
-    const projectileSpeedSquared = projectileSpeed * projectileSpeed;
-    const quadraticA = targetSpeedSquared - projectileSpeedSquared;
-    const quadraticB = 2 * (relativeX * targetVx + relativeY * targetVy);
-    const quadraticC = relativeX * relativeX + relativeY * relativeY;
-
-    if (Math.abs(quadraticA) <= 1e-6) {
-      if (Math.abs(quadraticB) <= 1e-6) {
-        return null;
-      }
-
-      const linearTime = -quadraticC / quadraticB;
-      return linearTime > 0 ? linearTime : null;
-    }
-
-    const discriminant = quadraticB * quadraticB - 4 * quadraticA * quadraticC;
-    if (discriminant < 0) {
-      return null;
-    }
-
-    const discriminantRoot = Math.sqrt(discriminant);
-    const firstTime = (-quadraticB - discriminantRoot) / (2 * quadraticA);
-    const secondTime = (-quadraticB + discriminantRoot) / (2 * quadraticA);
-    const positiveTimes = [firstTime, secondTime].filter((time) => time > 0);
-
-    if (positiveTimes.length === 0) {
-      return null;
-    }
-
-    return Math.min(...positiveTimes);
+    return resolveInterceptPoint({
+      originX: ctx.self.x,
+      originY: ctx.self.y,
+      targetX: target.x,
+      targetY: target.y,
+      targetVx: target.vx,
+      targetVy: target.vy,
+      projectileSpeed: weapon.getProjectileSpeed(),
+      leadBlendFactor: this.leadBlendFactor,
+    });
   }
 
   private resolveStrafeVector(

@@ -1,18 +1,12 @@
 import {
   type AxisSeparation,
   getResolvedRectSetSeparation,
-  getSweptResolvedRectSetIntersectionTime,
 } from "@shared/geometry/collision.ts";
 import {
   type HitboxBounds,
   type ResolvedHitboxRect,
-  offsetHitboxBounds,
-  resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
-import { canAttackTarget } from "@server/combat/combatRules.ts";
-import { Building } from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Projectile } from "@server/entities/Projectile.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -27,10 +21,6 @@ class CollisionSystem implements System {
   private readonly queryBuffer: Entity[] = [];
   private readonly worldHitboxCache = new Map<number, ResolvedHitboxRect[]>();
   private readonly worldBoundsCache = new Map<number, HitboxBounds>();
-  private readonly movingProjectileHitboxCache = new Map<
-    number,
-    ResolvedHitboxRect[]
-  >();
 
   /**
    * Resolves nearby overlaps using the prebuilt broad-phase index, then clamps bodies to world bounds.
@@ -39,7 +29,6 @@ class CollisionSystem implements System {
   public update(world: World): void {
     this.worldHitboxCache.clear();
     this.worldBoundsCache.clear();
-    this.movingProjectileHitboxCache.clear();
     let spatialDirty = false;
 
     for (let pass = 0; pass < MAX_COLLISION_PASSES; pass += 1) {
@@ -112,7 +101,6 @@ class CollisionSystem implements System {
       world.markSpatialDirty();
       world.ensureSpatialIndex();
     }
-    this.resolveProjectileBuildingCollisions(world);
   }
 
   /**
@@ -399,94 +387,6 @@ class CollisionSystem implements System {
     };
   }
 
-  /**
-   * Despawns projectiles that collide with buildings before hitting an attackable target.
-   * This keeps bullets from damaging buildings while still blocking their path.
-   * @param world Authoritative world being simulated.
-   */
-  private resolveProjectileBuildingCollisions(world: World): void {
-    const projectiles = world.entities
-      .all()
-      .filter((entity): entity is Projectile => entity instanceof Projectile);
-
-    for (const projectile of projectiles) {
-      if (!projectile.alive) {
-        continue;
-      }
-
-      const deltaX = projectile.x - projectile.previousX;
-      const deltaY = projectile.y - projectile.previousY;
-      const previousBounds = offsetHitboxBounds(
-        projectile.getHitboxBounds(),
-        projectile.previousX,
-        projectile.previousY,
-      );
-      const currentBounds = this.getCachedWorldBounds(projectile);
-      const minX = Math.min(previousBounds.minX, currentBounds.minX);
-      const minY = Math.min(previousBounds.minY, currentBounds.minY);
-      const maxX = Math.max(previousBounds.maxX, currentBounds.maxX);
-      const maxY = Math.max(previousBounds.maxY, currentBounds.maxY);
-      const candidates = world.spatial.queryBox(
-        minX,
-        minY,
-        maxX,
-        maxY,
-        this.queryBuffer,
-      );
-      const movingHitboxes = this.getMovingProjectileHitboxes(projectile);
-
-      let nearestAttackableHitTime: number | null = null;
-      let nearestBuildingHitTime: number | null = null;
-
-      for (const candidate of candidates) {
-        if (candidate.id === projectile.id || !candidate.alive) {
-          continue;
-        }
-
-        const targetHitboxes = this.getCachedWorldHitboxes(candidate);
-        const hitTime = getSweptResolvedRectSetIntersectionTime(
-          movingHitboxes,
-          deltaX,
-          deltaY,
-          targetHitboxes,
-        );
-        if (hitTime === null) {
-          continue;
-        }
-
-        if (candidate instanceof Building) {
-          if (
-            nearestBuildingHitTime === null ||
-            hitTime < nearestBuildingHitTime
-          ) {
-            nearestBuildingHitTime = hitTime;
-          }
-          continue;
-        }
-
-        if (!canAttackTarget(world, projectile, candidate)) {
-          continue;
-        }
-
-        if (
-          nearestAttackableHitTime === null ||
-          hitTime < nearestAttackableHitTime
-        ) {
-          nearestAttackableHitTime = hitTime;
-        }
-      }
-
-      if (
-        nearestBuildingHitTime !== null &&
-        (nearestAttackableHitTime === null ||
-          nearestBuildingHitTime <= nearestAttackableHitTime)
-      ) {
-        projectile.alive = false;
-        world.despawn(projectile.id);
-      }
-    }
-  }
-
   private getCachedWorldHitboxes(entity: Entity): ResolvedHitboxRect[] {
     const cached = this.worldHitboxCache.get(entity.id);
     if (cached) {
@@ -507,23 +407,6 @@ class CollisionSystem implements System {
     const bounds = entity.getWorldBounds();
     this.worldBoundsCache.set(entity.id, bounds);
     return bounds;
-  }
-
-  private getMovingProjectileHitboxes(
-    projectile: Projectile,
-  ): ResolvedHitboxRect[] {
-    const cached = this.movingProjectileHitboxCache.get(projectile.id);
-    if (cached) {
-      return cached;
-    }
-
-    const movingHitboxes = resolveHitboxRects(
-      projectile.previousX,
-      projectile.previousY,
-      projectile.hitboxes,
-    );
-    this.movingProjectileHitboxCache.set(projectile.id, movingHitboxes);
-    return movingHitboxes;
   }
 
   private invalidateEntityCaches(entity: Entity): void {

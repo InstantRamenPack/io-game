@@ -2,6 +2,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
+import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
 /**
  * Continuously rotates an actor to face its current tracked target.
@@ -45,12 +46,6 @@ export class LookAtTargetGoal<
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
-    const { targetId } = ctx.self;
-    if (targetId === undefined) {
-      return null;
-    }
-
-    const target = ctx.world.get(targetId);
-    return target?.alive ? target : null;
+    return goalTargetResolver.resolveTrackedLivingTarget(ctx);
   }
 }

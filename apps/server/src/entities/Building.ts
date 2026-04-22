@@ -1,13 +1,7 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
-import type { HitboxProfiles } from "@server/entities/CompositeHitbox.ts";
+import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { BuildingSnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
-
-type BuildingStats = {
-  baseHp: number;
-  hitboxProfiles: HitboxProfiles;
-  activeHitboxProfile?: string;
-};
 
 /**
  * Shared static-structure base for all concrete building entities.
@@ -17,22 +11,19 @@ export class Building extends GoalControlledEntity {
   public readonly label: string;
   public tier: number;
 
-  constructor(
-    id: number,
-    label: string,
-    tier: number,
-    ownerId: number | undefined,
-    stats: BuildingStats,
-  ) {
+  constructor(id: number, tier: number, ownerId: number | undefined) {
+    const content = requireHitboxEntityBaselineContent(
+      (new.target as typeof Building).typeId,
+    );
     const resolvedTier = Math.max(1, tier);
-    super(id, { maxHp: stats.baseHp * resolvedTier });
-    this.label = label;
+    super(id, { maxHp: content.maxHp * resolvedTier });
+    this.label = content.label;
     this.tier = resolvedTier;
     this.ownerId = ownerId;
-    this.collisionMode = "static";
+    this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(
-      stats.hitboxProfiles,
-      stats.activeHitboxProfile ?? "default",
+      content.hitboxProfiles,
+      content.activeHitboxProfile ?? "default",
     );
   }
 

@@ -1,8 +1,8 @@
 import { Building } from "@server/entities/Building.ts";
+import { requireSwingWeaponRuntime } from "@server/combat/contentAdapters.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
-import { requireSwingWeaponContent } from "@server/items/weaponContent.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -20,7 +20,7 @@ export class SaboteurSword extends SweepMeleeWeapon {
   private readonly knockbackEffect = new KnockbackEffect();
 
   constructor() {
-    const weaponContent = requireSwingWeaponContent(SaboteurSword.typeId);
+    const weaponContent = requireSwingWeaponRuntime(SaboteurSword.typeId);
     super(
       weaponContent.cooldownTicks,
       weaponContent.range,

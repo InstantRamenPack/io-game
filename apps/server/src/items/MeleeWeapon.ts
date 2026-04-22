@@ -1,6 +1,6 @@
 import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
@@ -41,7 +41,10 @@ export abstract class MeleeWeapon extends Weapon {
     owner: Entity,
     target: Entity,
   ): boolean {
-    if (!this.canHit() || !canAttackTarget(world, owner, target)) {
+    if (
+      !this.canHit() ||
+      !combatEligibilityService.canAttackTarget(world, owner, target)
+    ) {
       return false;
     }
 
@@ -141,7 +144,7 @@ export abstract class MeleeWeapon extends Weapon {
       bounds.maxX,
       bounds.maxY,
     )) {
-      if (!canAttackTarget(world, owner, entity)) {
+      if (!combatEligibilityService.canAttackTarget(world, owner, entity)) {
         continue;
       }
       if (!this.isTargetInAttackShape(owner, entity, aim)) {

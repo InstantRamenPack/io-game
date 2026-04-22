@@ -1,4 +1,4 @@
-import { canAttackTarget } from "@server/combat/combatRules.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Effect } from "@server/effects/Effect.ts";
 import type { DamageEventPayload, NetEvent } from "@shared/net/events.ts";
@@ -20,7 +20,7 @@ export class DamageEffect extends Effect {
     const instigator = source.getCombatInstigator(world);
     if (
       !instigator ||
-      !canAttackTarget(world, source, target) ||
+      !combatEligibilityService.canAttackTarget(world, source, target) ||
       !Number.isFinite(this.amount) ||
       this.amount <= 0
     ) {

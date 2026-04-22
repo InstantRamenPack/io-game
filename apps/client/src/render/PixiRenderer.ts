@@ -1,20 +1,13 @@
-import type { Application, Container, Filter, Texture } from "pixi.js";
+import type { Application, Container, Texture } from "pixi.js";
 import type { GameClientHudApi } from "@client/client/clientTypes.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
 import { PixiAppHost } from "@client/render/pixi/PixiAppHost.ts";
 import { PixiAssetStore } from "@client/render/pixi/PixiAssetStore.ts";
-import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
-import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
-import { PixiOverlayLayer } from "@client/render/pixi/PixiOverlayLayer.ts";
-import { PixiParticleLayer } from "@client/render/pixi/PixiParticleLayer.ts";
-import {
-  PixiPlacementPreview,
-  type PlacementPreviewState,
-} from "@client/render/pixi/PixiPlacementPreview.ts";
+import { PixiEffectSystem } from "@client/render/pixi/PixiEffectSystem.ts";
 import { PixiRenderScheduler } from "@client/render/pixi/PixiRenderScheduler.ts";
-import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
-import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
+import { type PlacementPreviewState } from "@client/render/pixi/PixiPlacementPreview.ts";
+import { PixiWorldView } from "@client/render/pixi/PixiWorldView.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
 
@@ -25,32 +18,14 @@ import type { ExplosionStyle } from "@shared/net/events.ts";
  */
 export class PixiRenderer {
   private readonly appHost = new PixiAppHost();
-  private readonly sceneGraph = new PixiSceneGraph();
   private readonly assetStore = new PixiAssetStore();
-  private readonly viewportController: PixiViewportController;
-  private readonly cullingController = new PixiCullingController();
-  private readonly particleLayer = new PixiParticleLayer();
-  private readonly overlayLayer = new PixiOverlayLayer();
+  private readonly worldView: PixiWorldView;
+  private readonly effectSystem = new PixiEffectSystem();
   private readonly renderScheduler = new PixiRenderScheduler();
-  private readonly placementPreview = new PixiPlacementPreview();
 
   private hud: PixiHud | null = null;
-  private readonly gridCellSize = 100;
-  private readonly homeBaseWidth = 1600;
-  private readonly homeBaseHeight = 1200;
-  private readonly homeBaseOuterColor = 0xc1c8d3;
-  private readonly homeBaseInnerColor = 0x8f99a8;
-  private readonly homeBaseAccentColor = 0xe4e9f1;
-  private readonly homeBaseShadowColor = 0x5c6470;
-  private gridNightBlend = 0;
-  private readonly gridDayFillColor = 0xd7f3d2;
-  private readonly gridNightFillColor = 0x3f5f46;
-  private readonly gridDayLineColor = 0x2d4f37;
-  private readonly gridNightLineColor = 0x9fd69a;
   private worldSize: WorldSize;
   private tickRate = 20;
-  private readonly worldFilterBuffer: Filter[] = [];
-  private lastWorldFilter: Filter | null = null;
 
   public playerEntityId?: number;
 
@@ -60,20 +35,20 @@ export class PixiRenderer {
       return;
     }
 
-    this.viewportController.invalidateViewRectCache();
     this.appHost.resize(this.getRendererResolution());
-    this.overlayLayer.resize(app);
-    this.viewportController.sync(app, this.sceneGraph.worldRoot);
+    this.effectSystem.resize(app);
+    this.worldView.invalidateViewRectCache();
+    this.worldView.attach(app);
     this.renderScene(true);
   };
 
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
-    this.viewportController = new PixiViewportController(worldSize);
+    this.worldView = new PixiWorldView(worldSize);
   }
 
   public get entityContainer(): Container | null {
-    return this.sceneGraph.entityLayer;
+    return this.worldView.entityContainer;
   }
 
   public get app(): Application | null {
@@ -89,7 +64,7 @@ export class PixiRenderer {
     }
 
     if (this.app) {
-      this.hud.attach(this.sceneGraph.hudLayer);
+      this.hud.attach(this.worldView.hudContainer);
     }
 
     this.renderScheduler.markDirty();
@@ -99,7 +74,7 @@ export class PixiRenderer {
   public setPlayerEntityId(entityId: number | undefined): void {
     this.playerEntityId = entityId;
     if (entityId === undefined) {
-      this.viewportController.reset();
+      this.worldView.invalidateViewRectCache();
     }
   }
 
@@ -118,7 +93,7 @@ export class PixiRenderer {
     worldSize: WorldSize,
   ): Promise<void> {
     this.worldSize = { ...worldSize };
-    this.viewportController.setWorldSize(this.worldSize);
+    this.worldView.setWorldSize(this.worldSize);
 
     const app = await this.appHost.attach(hostElement, {
       backgroundColor: 0xd7f3d2,
@@ -133,32 +108,21 @@ export class PixiRenderer {
     window.addEventListener("resize", this.handleResize);
 
     await this.assetStore.load(app);
-    this.sceneGraph.attach(app);
-    this.particleLayer.attach(this.sceneGraph.effectLayer);
-    this.particleLayer.setTextures({
+    this.worldView.attach(app);
+    this.effectSystem.attach({
+      effectContainer: this.worldView.effectContainer,
+      overlayContainer: this.worldView.overlayContainer,
+    });
+    this.effectSystem.setTextures({
       softCircle: this.assetStore.getParticleTexture("soft-circle"),
       ring: this.assetStore.getParticleTexture("ring"),
     });
-    this.overlayLayer.attach(this.sceneGraph.overlayLayer);
-    this.overlayLayer.resize(app);
-    this.placementPreview.attach(this.sceneGraph.placementLayer);
+    this.effectSystem.resize(app);
 
     if (this.hud) {
-      this.hud.attach(this.sceneGraph.hudLayer);
+      this.hud.attach(this.worldView.hudContainer);
     }
-
-    this.cullingController.configure({
-      worldRoot: this.sceneGraph.worldRoot,
-      entityLayer: this.sceneGraph.entityLayer,
-      effectLayer: this.sceneGraph.effectLayer,
-      placementLayer: this.sceneGraph.placementLayer,
-      hudRoot: this.sceneGraph.hudRoot,
-      worldSize: this.worldSize,
-    });
-    this.syncCullViewport(app);
-    this.drawGridGeometry();
-    this.applyWorldFilters();
-    this.viewportController.sync(app, this.sceneGraph.worldRoot);
+    this.effectSystem.syncWorldFilters(this.worldView.worldRoot);
     this.renderScene(true);
   }
 
@@ -179,9 +143,7 @@ export class PixiRenderer {
 
   public setWorldSize(worldSize: WorldSize): void {
     this.worldSize = { ...worldSize };
-    this.viewportController.setWorldSize(this.worldSize);
-    this.cullingController.updateWorldSize(this.worldSize);
-    this.drawGridGeometry();
+    this.worldView.setWorldSize(this.worldSize);
     this.renderScene(true);
   }
 
@@ -191,33 +153,21 @@ export class PixiRenderer {
       return;
     }
 
-    this.particleLayer.update(deltaMs);
-    this.overlayLayer.update(app, deltaMs);
-    const swimOffset = this.overlayLayer.getSwimOffset();
-    this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
-    this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
-    this.syncCullViewport(app);
-    this.applyWorldFilters();
+    const swimOffset = this.effectSystem.update(app, deltaMs);
+    this.worldView.update(deltaMs, app, swimOffset);
+    this.effectSystem.syncWorldFilters(this.worldView.worldRoot);
     this.renderScheduler.markDirty();
     this.renderScene();
   }
 
   public setGridNightBlend(blend: number): void {
     const nextBlend = Math.max(0, Math.min(1, blend));
-    if (this.gridNightBlend === nextBlend) {
-      return;
-    }
-    this.gridNightBlend = nextBlend;
-    this.updateGridColors();
+    this.worldView.setGridNightBlend(nextBlend);
     this.renderScheduler.markDirty();
   }
 
   public setCameraToPlayer(x: number, y: number): void {
-    this.viewportController.setCameraTarget(x, y);
-    if (this.app) {
-      this.viewportController.sync(this.app, this.sceneGraph.worldRoot);
-      this.syncCullViewport(this.app);
-    }
+    this.worldView.setCameraToPlayer(this.app, x, y);
     this.renderScheduler.markDirty();
   }
 
@@ -226,30 +176,12 @@ export class PixiRenderer {
     clientY: number,
   ): { x: number; y: number } {
     const app = this.app;
-    if (!app) {
-      return { x: clientX, y: clientY };
-    }
-    return this.viewportController.screenToWorld(
-      app,
-      this.sceneGraph.worldRoot,
-      clientX,
-      clientY,
-    );
+    return this.worldView.screenToWorld(app, clientX, clientY);
   }
 
   public getViewportCenterWorld(): { x: number; y: number } | null {
     const app = this.app;
-    if (!app) {
-      return null;
-    }
-
-    const centerClient = this.viewportController.getCanvasCenterClient(app);
-    return this.viewportController.screenToWorld(
-      app,
-      this.sceneGraph.worldRoot,
-      centerClient.x,
-      centerClient.y,
-    );
+    return this.worldView.getViewportCenterWorld(app);
   }
 
   public clientToScreen(
@@ -257,10 +189,7 @@ export class PixiRenderer {
     clientY: number,
   ): { x: number; y: number } {
     const app = this.app;
-    if (!app) {
-      return { x: clientX, y: clientY };
-    }
-    return this.viewportController.clientToScreen(app, clientX, clientY);
+    return this.worldView.clientToScreen(app, clientX, clientY);
   }
 
   public getView(): HTMLCanvasElement | null {
@@ -268,16 +197,16 @@ export class PixiRenderer {
   }
 
   public invalidateViewRectCache(): void {
-    this.viewportController.invalidateViewRectCache();
+    this.worldView.invalidateViewRectCache();
   }
 
   public triggerDamageOverlay(durationMs = 200): void {
-    this.overlayLayer.triggerDamageOverlay(durationMs);
+    this.effectSystem.triggerDamageOverlay(durationMs);
     this.renderScheduler.markDirty();
   }
 
   public setPlacementPreview(state: PlacementPreviewState | null): void {
-    this.placementPreview.sync(state);
+    this.worldView.setPlacementPreview(state);
     this.renderScheduler.markDirty();
   }
 
@@ -287,13 +216,13 @@ export class PixiRenderer {
     radius: number,
     style: ExplosionStyle,
   ): void {
-    this.particleLayer.triggerExplosion(x, y, radius, style);
+    this.effectSystem.triggerExplosionEffect(x, y, radius, style);
     this.renderScheduler.markDirty();
   }
 
   public setConfusionState(active: boolean, intensityRatio: number): void {
-    this.overlayLayer.setConfusionState(active, intensityRatio);
-    this.applyWorldFilters();
+    this.effectSystem.setConfusionState(active, intensityRatio);
+    this.effectSystem.syncWorldFilters(this.worldView.worldRoot);
     this.renderScheduler.markDirty();
   }
 
@@ -304,136 +233,9 @@ export class PixiRenderer {
     }
     this.renderScheduler.render(app, this.hud, force);
   }
-
-  private drawGridGeometry(): void {
-    const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
-    const landmarkGraphic = this.sceneGraph.landmarkGraphic;
-    const lineGraphic = this.sceneGraph.gridLinesGraphic;
-    const { w, h } = this.worldSize;
-    const cell = Math.max(10, Math.floor(this.gridCellSize));
-    const baseWidth = Math.min(this.homeBaseWidth, Math.max(800, w * 0.6));
-    const baseHeight = Math.min(this.homeBaseHeight, Math.max(600, h * 0.5));
-    const baseX = (w - baseWidth) / 2;
-    const baseY = (h - baseHeight) / 2;
-    const inset = Math.max(80, Math.min(baseWidth, baseHeight) * 0.08);
-    const centerBandHeight = Math.max(160, baseHeight * 0.16);
-    const centerBandY = baseY + (baseHeight - centerBandHeight) / 2;
-
-    bgGraphic.clear();
-    landmarkGraphic.clear();
-    lineGraphic.clear();
-
-    drawRect(bgGraphic, 0, 0, w, h, { color: 0xffffff, alpha: 1 });
-
-    landmarkGraphic
-      .roundRect(baseX, baseY, baseWidth, baseHeight, 16)
-      .fill({ color: this.homeBaseOuterColor, alpha: 0.92 })
-      .stroke({ width: 18, color: this.homeBaseShadowColor, alpha: 0.9 });
-    landmarkGraphic
-      .roundRect(
-        baseX + inset,
-        baseY + inset,
-        baseWidth - inset * 2,
-        baseHeight - inset * 2,
-        12,
-      )
-      .fill({ color: this.homeBaseInnerColor, alpha: 0.72 })
-      .stroke({ width: 6, color: this.homeBaseAccentColor, alpha: 0.6 });
-    landmarkGraphic
-      .rect(baseX + inset * 0.8, centerBandY, baseWidth - inset * 1.6, centerBandHeight)
-      .fill({ color: this.homeBaseAccentColor, alpha: 0.2 });
-
-    for (let x = 0; x <= w; x += cell) {
-      lineGraphic.moveTo(x, 0).lineTo(x, h);
-    }
-    for (let y = 0; y <= h; y += cell) {
-      lineGraphic.moveTo(0, y).lineTo(w, y);
-    }
-    lineGraphic.stroke({
-      width: 1,
-      color: 0xffffff,
-      alpha: 1,
-    });
-    this.sceneGraph.updateGridCache();
-    this.updateGridColors();
-  }
-
-  private updateGridColors(): void {
-    const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
-    const lineGraphic = this.sceneGraph.gridLinesGraphic;
-    const fillColor = lerpColor(
-      this.gridDayFillColor,
-      this.gridNightFillColor,
-      this.gridNightBlend,
-    );
-    const lineColor = lerpColor(
-      this.gridDayLineColor,
-      this.gridNightLineColor,
-      applyContrastLag(this.gridNightBlend),
-    );
-
-    bgGraphic.tint = fillColor;
-    lineGraphic.tint = lineColor;
-    const lineVisibility = Math.min(
-      1,
-      Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
-    );
-    lineGraphic.alpha = 0.4 * lineVisibility;
-  }
-
-  private applyWorldFilters(): void {
-    const filter = this.overlayLayer.getWorldFilter();
-    if (filter === this.lastWorldFilter) {
-      return;
-    }
-
-    this.lastWorldFilter = filter;
-    if (!filter) {
-      this.worldFilterBuffer.length = 0;
-      this.sceneGraph.worldRoot.filters = null;
-      return;
-    }
-
-    this.worldFilterBuffer[0] = filter;
-    this.worldFilterBuffer.length = 1;
-    this.sceneGraph.worldRoot.filters = this.worldFilterBuffer;
-  }
-
   private getRendererResolution(): number {
     return Math.max(1, window.devicePixelRatio || 1);
   }
-
-  private syncCullViewport(app: Application): void {
-    const bounds = this.viewportController.getWorldViewportBounds(app);
-    this.cullingController.updateViewport(
-      bounds.minX,
-      bounds.minY,
-      bounds.maxX,
-      bounds.maxY,
-    );
-  }
-}
-
-function lerpColor(start: number, end: number, t: number): number {
-  const clamped = Math.max(0, Math.min(1, t));
-  const startR = (start >> 16) & 0xff;
-  const startG = (start >> 8) & 0xff;
-  const startB = start & 0xff;
-  const endR = (end >> 16) & 0xff;
-  const endG = (end >> 8) & 0xff;
-  const endB = end & 0xff;
-  const r = Math.round(startR + (endR - startR) * clamped);
-  const g = Math.round(startG + (endG - startG) * clamped);
-  const b = Math.round(startB + (endB - startB) * clamped);
-  return (r << 16) | (g << 8) | b;
-}
-
-function applyContrastLag(blend: number): number {
-  const lag = 0.12;
-  if (blend >= 0.5) {
-    return Math.min(1, blend + lag);
-  }
-  return Math.max(0, blend - lag);
 }
 
 declare global {

@@ -1,7 +1,5 @@
-import { Building } from "@server/entities/Building.ts";
-import { Enemy } from "@server/entities/Enemy.ts";
+import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -16,19 +14,5 @@ export function canAttackTarget(
   source: Entity,
   target: Entity,
 ): boolean {
-  const instigator = source.getCombatInstigator(world);
-  if (!instigator || !instigator.alive || !target.alive) {
-    return false;
-  }
-  if (instigator.id === target.id) {
-    return false;
-  }
-
-  if (instigator instanceof Player) {
-    return target instanceof Enemy || target instanceof Player;
-  }
-  if (instigator instanceof Enemy) {
-    return target instanceof Player || target instanceof Building;
-  }
-  return false;
+  return combatEligibilityService.canAttackTarget(world, source, target);
 }

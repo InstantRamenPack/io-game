@@ -1,5 +1,7 @@
 {
   "label": "Homing Drone",
+  "maxHp": 0,
+  "collisionMode": "none",
   "projectile": {
     "speed": 13.5,
     "range": 5000,

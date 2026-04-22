@@ -1,1 +1,13 @@
-{ "label": "Megaknight" }
+{
+  "label": "Megaknight",
+  "maxHp": 150,
+  "moveSpeed": 7,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "base": [
+      { "width": 28, "height": 20, "offsetX": 0, "offsetY": -10 },
+      { "width": 40, "height": 20, "offsetX": 0, "offsetY": 10 }
+    ]
+  },
+  "activeHitboxProfile": "base"
+}
