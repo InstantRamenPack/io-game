@@ -35,7 +35,11 @@ import {
   normalizeAngle,
   shortestAngleDelta,
 } from "@shared/math/angle.ts";
-import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
+import type {
+  ActionMessage,
+  LobbyStateMessage,
+  MoveIntentKey,
+} from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 type AimTarget = {
@@ -98,10 +102,12 @@ export class GameClient {
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
+  private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private pointerAimTarget?: AimTarget;
   private localPlayerTruth?: LocalPlayerTruthState;
   private pointerClientX: number | null = null;
   private pointerClientY: number | null = null;
+  private lobbyState?: LobbyStateMessage;
   private lastSentAimTheta?: number;
   private lastSentAimAtMs = Number.NEGATIVE_INFINITY;
   private placementIndexDirty = true;
@@ -254,6 +260,7 @@ export class GameClient {
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
+    this.networkClient.onLobbyState((state) => this.onLobbyState(state));
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
@@ -290,6 +297,35 @@ export class GameClient {
 
   public isTransportConnected(): boolean {
     return this.networkClient.socket?.readyState === WebSocket.OPEN;
+  }
+
+  public onLobbyStateUpdated(handler: (state: LobbyStateMessage) => void): void {
+    this.lobbyStateHandlers.push(handler);
+  }
+
+  public getLobbyState(): LobbyStateMessage | undefined {
+    return this.lobbyState;
+  }
+
+  public requestJoinLobby(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.joinLobby();
+  }
+
+  public requestJoinLobbyByCode(lobbyCode: string): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.joinLobbyByCode(lobbyCode);
+  }
+
+  public requestLeaveLobby(): void {
+    if (!this.sessionReady || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.leaveLobby();
   }
 
   public async initRenderer(hostElement: HTMLElement): Promise<void> {
@@ -486,6 +522,9 @@ export class GameClient {
   }
 
   public onWelcome(entityId: number): void {
+    if (this.sessionReady) {
+      this.resetForInstanceMigration();
+    }
     this.playerEntityId = entityId;
     this.sessionReady = true;
     this.renderer.setPlayerEntityId(entityId);
@@ -606,6 +645,38 @@ export class GameClient {
     this.resetSessionState(false);
   }
 
+  private onLobbyState(state: LobbyStateMessage): void {
+    this.lobbyState = state;
+    for (const handler of this.lobbyStateHandlers) {
+      handler(state);
+    }
+  }
+
+  private resetForInstanceMigration(): void {
+    this.worldState?.clear();
+    this.worldState = new ClientWorldState(
+      this.renderer,
+      this.debugHitbox,
+      this.debugInterpolationMode,
+      this.gameConfig.interpolation.historySize,
+    );
+    this.rateMonitor.reset();
+    this.syncInterpolatorConfig();
+    this.localPlayerTruth = undefined;
+    this.pointerAimTarget = undefined;
+    this.lastSentAimTheta = undefined;
+    this.lastSentAimAtMs = Number.NEGATIVE_INFINITY;
+    this.heldAttackController.reset();
+    this.placementSpatial.clear();
+    this.placementWorkingCandidates.length = 0;
+    this.placementCandidateMarkers.clear();
+    this.placementCandidateMarker = 0;
+    this.placementIndexDirty = true;
+    this.placementIndexedWorld = undefined;
+    this.placementProfileCache = undefined;
+    this.renderer.setPlacementPreview(null);
+  }
+
   private resetSessionState(disconnectTransport: boolean): void {
     this.started = false;
     this.sessionReady = false;
@@ -613,6 +684,7 @@ export class GameClient {
     this.localPlayerTruth = undefined;
     this.pointerClientX = null;
     this.pointerClientY = null;
+    this.lobbyState = undefined;
     this.lastSentAimTheta = undefined;
     this.lastSentAimAtMs = Number.NEGATIVE_INFINITY;
     this.heldMovement.up = false;

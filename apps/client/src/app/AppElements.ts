@@ -25,6 +25,15 @@ export type AppElements = {
   chatLines: HTMLElement | null;
   chatInput: HTMLInputElement | null;
   chatSuggestions: HTMLElement | null;
+  lobbyHudRoot: HTMLElement | null;
+  lobbyHudStatus: HTMLElement | null;
+  lobbyHudMeta: HTMLElement | null;
+  lobbyJoinBtn: HTMLButtonElement | null;
+  lobbyLeaveBtn: HTMLButtonElement | null;
+  lobbyCodeInput: HTMLInputElement | null;
+  lobbyCodeJoinBtn: HTMLButtonElement | null;
+  gameStartPrompt: HTMLElement | null;
+  matchCoreHud: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
   deathOverlay: HTMLElement | null;
   respawnBtn: HTMLButtonElement | null;
@@ -52,6 +61,23 @@ export function getAppElements(): AppElements {
     chatLines: document.getElementById("chat-lines"),
     chatInput: document.getElementById("chat-input") as HTMLInputElement | null,
     chatSuggestions: document.getElementById("chat-suggestions"),
+    lobbyHudRoot: document.getElementById("lobby-hud-root"),
+    lobbyHudStatus: document.getElementById("lobby-hud-status"),
+    lobbyHudMeta: document.getElementById("lobby-hud-meta"),
+    lobbyJoinBtn: document.getElementById(
+      "lobby-join-btn",
+    ) as HTMLButtonElement | null,
+    lobbyLeaveBtn: document.getElementById(
+      "lobby-leave-btn",
+    ) as HTMLButtonElement | null,
+    lobbyCodeInput: document.getElementById(
+      "lobby-code-input",
+    ) as HTMLInputElement | null,
+    lobbyCodeJoinBtn: document.getElementById(
+      "lobby-code-join-btn",
+    ) as HTMLButtonElement | null,
+    gameStartPrompt: document.getElementById("game-start-prompt"),
+    matchCoreHud: document.getElementById("match-core-hud"),
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,

@@ -6,6 +6,7 @@ import { createHudController } from "@client/app/HudController.ts";
 import { createChatController } from "@client/app/ChatController.ts";
 import { createDeathController } from "@client/app/DeathController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
+import { createLobbyHudController } from "@client/app/LobbyHudController.ts";
 import { createMenuController } from "@client/app/MenuController.ts";
 import {
   hydratePlayerNameInput,
@@ -44,6 +45,10 @@ const chatController = createChatController({
   gameClient,
   hudController,
 });
+const lobbyHudController = createLobbyHudController({
+  elements,
+  gameClient,
+});
 const deathController = createDeathController({
   elements,
   gameClient,
@@ -60,6 +65,7 @@ const launchController = createLaunchController({
   menuController,
   hudController,
   chatController,
+  lobbyHudController,
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
 });
 

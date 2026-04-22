@@ -1,4 +1,10 @@
 import type { ServerWebSocket } from "bun";
+import type {
+  CloseHandler,
+  MessageHandler,
+  NetworkServerLike,
+  OpenHandler,
+} from "@server/net/NetworkServerLike.ts";
 
 type WsData = { clientId: string };
 
@@ -6,14 +12,12 @@ type WsData = { clientId: string };
  * Thin server-side WebSocket registry and event router.
  * Wraps Bun sockets with client ids and a small subscription surface.
  */
-export class WsServer {
+export class WsServer implements NetworkServerLike {
   private readonly maxPacketBytes: number;
   private readonly sockets = new Map<string, ServerWebSocket<WsData>>();
-  private readonly messageHandlers: Array<
-    (clientId: string, rawMessage: string) => void
-  > = [];
-  private readonly openHandlers: Array<(clientId: string) => void> = [];
-  private readonly closeHandlers: Array<(clientId: string) => void> = [];
+  private readonly messageHandlers: MessageHandler[] = [];
+  private readonly openHandlers: OpenHandler[] = [];
+  private readonly closeHandlers: CloseHandler[] = [];
 
   constructor(maxPacketBytes = Number.POSITIVE_INFINITY) {
     this.maxPacketBytes = maxPacketBytes;

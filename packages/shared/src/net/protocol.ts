@@ -102,6 +102,33 @@ const ChatInputMessageSchema = z.object({
   text: z.string().min(1).max(240),
 });
 
+const LobbyJoinActionSchema = z.object({
+  t: z.literal("lobby"),
+  action: z.literal("join"),
+});
+
+const LobbyJoinByCodeActionSchema = z.object({
+  t: z.literal("lobby"),
+  action: z.literal("joinByCode"),
+  lobbyCode: z
+    .string()
+    .trim()
+    .min(4)
+    .max(12)
+    .regex(/^[A-Za-z0-9_-]+$/),
+});
+
+const LobbyLeaveActionSchema = z.object({
+  t: z.literal("lobby"),
+  action: z.literal("leave"),
+});
+
+const LobbyActionMessageSchema = z.discriminatedUnion("action", [
+  LobbyJoinActionSchema,
+  LobbyJoinByCodeActionSchema,
+  LobbyLeaveActionSchema,
+]);
+
 const PongMessageSchema = z.object({
   t: z.literal("pong"),
   timeMs: z.number().optional(),
@@ -129,6 +156,18 @@ const ChatMessageSchema = z.object({
   from: z.string().optional(),
 });
 
+const LobbyStateMessageSchema = z.object({
+  t: z.literal("lobby_state"),
+  inLobby: z.boolean(),
+  lobbyCode: z.string().optional(),
+  playerCount: z.number().int().nonnegative(),
+  maxPlayers: z.number().int().positive(),
+  createdAtMs: z.number().int().nonnegative().optional(),
+  countdownEndsAtMs: z.number().int().nonnegative().nullable().optional(),
+  startedAtMs: z.number().int().nonnegative().nullable().optional(),
+  serverNowMs: z.number().int().nonnegative(),
+});
+
 const ClientToServerMessageSchema = z.discriminatedUnion("t", [
   HelloMessageSchema,
   MoveIntentMessageSchema,
@@ -137,6 +176,7 @@ const ClientToServerMessageSchema = z.discriminatedUnion("t", [
   RespawnMessageSchema,
   PingMessageSchema,
   ChatInputMessageSchema,
+  LobbyActionMessageSchema,
 ]);
 
 const ServerToClientMessageSchema = z.discriminatedUnion("t", [
@@ -145,6 +185,7 @@ const ServerToClientMessageSchema = z.discriminatedUnion("t", [
   WelcomeMessageSchema,
   ErrorMessageSchema,
   ChatMessageSchema,
+  LobbyStateMessageSchema,
 ]);
 
 export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
@@ -160,6 +201,8 @@ export type SnapshotMessage = z.infer<typeof SnapshotMessageSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 type ChatInputMessage = z.infer<typeof ChatInputMessageSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type LobbyActionMessage = z.infer<typeof LobbyActionMessageSchema>;
+export type LobbyStateMessage = z.infer<typeof LobbyStateMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
   | MoveIntentMessage
@@ -167,13 +210,15 @@ type ClientToServerMessage =
   | ActionMessage
   | RespawnMessage
   | PingMessage
-  | ChatInputMessage;
+  | ChatInputMessage
+  | LobbyActionMessage;
 export type ServerToClientMessage =
   | SnapshotMessage
   | PongMessage
   | WelcomeMessage
   | ErrorMessage
-  | ChatMessage;
+  | ChatMessage
+  | LobbyStateMessage;
 
 type ParseServerMessageOptions = {
   validateSnapshots?: boolean;

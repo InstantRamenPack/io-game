@@ -78,6 +78,33 @@
       </footer>
     </main>
     <div id="game-root" hidden></div>
+    <div id="game-start-prompt" class="game-start-prompt" hidden>
+      Game started
+    </div>
+    <div id="match-core-hud" class="match-core-hud" hidden></div>
+    <section id="lobby-hud-root" class="lobby-hud" hidden>
+      <div class="lobby-hud-kicker">Match Lobby</div>
+      <div id="lobby-hud-status" class="lobby-hud-status">
+        No lobby queue selected
+      </div>
+      <div id="lobby-hud-meta" class="lobby-hud-meta">
+        Join an open lobby or enter a code.
+      </div>
+      <div class="lobby-hud-actions">
+        <button id="lobby-join-btn" type="button">Join Open Lobby</button>
+        <button id="lobby-leave-btn" type="button">Leave Lobby</button>
+      </div>
+      <div class="lobby-hud-actions">
+        <input
+          id="lobby-code-input"
+          type="text"
+          maxlength="12"
+          placeholder="Lobby code"
+          aria-label="Lobby code"
+        />
+        <button id="lobby-code-join-btn" type="button">Join Code</button>
+      </div>
+    </section>
     <div id="chat-root" class="chat-shell" hidden>
       <div id="chat-lines" class="chat-lines" aria-live="polite"></div>
       <div id="chat-suggestions" class="chat-suggestions" hidden></div>
