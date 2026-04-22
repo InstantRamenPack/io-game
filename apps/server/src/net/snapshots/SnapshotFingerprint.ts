@@ -69,6 +69,7 @@ function fingerprintInventory(inventory: InventorySnapshot): string {
       .map((resource) => `${resource.typeId}:${resource.amount}`)
       .join(";"),
     inventory.hotbarSlots.map(fingerprintInventorySlot).join(";"),
+    inventory.unlockedRecipeTypeIds.join(";"),
   ].join("|");
 }
 

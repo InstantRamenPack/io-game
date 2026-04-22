@@ -33,6 +33,8 @@ export class GameInputRouter {
 
     if (key === "enter") {
       if (context.craftingOpen) {
+        event.preventDefault();
+        this.options.dispatch({ type: "queueSelectedCraft" });
         return;
       }
       event.preventDefault();
@@ -98,10 +100,6 @@ export class GameInputRouter {
         return;
       }
 
-      if (key === " ") {
-        event.preventDefault();
-        this.options.dispatch({ type: "queueSelectedCraft" });
-      }
       return;
     }
 

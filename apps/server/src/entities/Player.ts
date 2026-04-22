@@ -1,4 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -207,6 +208,19 @@ export class Player extends Entity {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
           itemTypeId,
           result: "missing_recipe",
+        });
+      }
+      return;
+    }
+
+    if (
+      isRecipeBlueprintLocked(itemTypeId) &&
+      !this.inventory.isRecipeUnlocked(itemTypeId)
+    ) {
+      if (shouldTrace) {
+        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
+          itemTypeId,
+          result: "recipe_locked",
         });
       }
       return;

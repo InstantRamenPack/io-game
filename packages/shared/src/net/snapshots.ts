@@ -69,6 +69,7 @@ export const InventorySnapshotSchema = z.object({
     HotbarSlotArrayLength,
   ),
   selectedHotbarIndex: HotbarIndexSchema,
+  unlockedRecipeTypeIds: z.array(ResourceIdSchema),
 });
 
 export const ActiveEffectSnapshotSchema = z.object({

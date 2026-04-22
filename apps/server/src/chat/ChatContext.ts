@@ -1,5 +1,6 @@
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
+import { getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ServerToClientMessage } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -203,6 +204,14 @@ export class ChatContext {
     itemEntry: ItemTypeEntry,
     amount: number,
   ): boolean {
+    const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(
+      itemEntry.typeId,
+    );
+    if (unlockedRecipeTypeId) {
+      target.inventory.unlockRecipe(unlockedRecipeTypeId);
+      return true;
+    }
+
     if (isWeaponCtor(itemEntry.ctor)) {
       if (!target.inventory.canAddWeaponCount(amount)) {
         return false;
