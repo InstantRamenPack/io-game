@@ -1,6 +1,7 @@
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
+import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
@@ -33,6 +34,7 @@ import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.t
 import { StoneItem } from "@server/items/materials/StoneItem.ts";
 import { WoodItem } from "@server/items/materials/WoodItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
+import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
 import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
 import { WallItem } from "@server/items/structures/WallItem.ts";
@@ -62,6 +64,7 @@ export const entityRuntimeCtors = [
   Shoota,
   Wallbreaker,
   Cannon,
+  Chest,
   CraftingStation,
   Landmine,
   Wall,
@@ -99,6 +102,7 @@ export const itemRuntimeCtors = [
   SniperMagazineItem,
   WallItem,
   CannonItem,
+  ChestItem,
   CraftingStationItem,
   LandmineItem,
 ] as const;

@@ -4,6 +4,7 @@ import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import { isJsonObject, parseJsonValue } from "@shared/json.ts";
 import {
   ChatTextSchema,
+  EntityIdSchema,
   FiniteNumberSchema,
   HotbarIndexSchema,
   NonNegativeIntSchema,
@@ -29,6 +30,14 @@ const BuildInputSchema = z.object({
 const InventoryMoveInputSchema = z.object({
   fromSlotIndex: HotbarIndexSchema,
   toSlotIndex: HotbarIndexSchema,
+});
+
+const ChestMoveInputSchema = z.object({
+  chestEntityId: EntityIdSchema,
+  fromSource: z.enum(["hotbar", "chest"]),
+  fromIndex: z.number().int().min(0).max(26),
+  toSource: z.enum(["hotbar", "chest"]),
+  toIndex: z.number().int().min(0).max(26),
 });
 
 const HelloMessageSchema = z.object({
@@ -86,12 +95,35 @@ const SelectHotbarActionMessageSchema = z.object({
   index: HotbarIndexSchema,
 });
 
+const ChestMoveActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("chestMove"),
+  chestMove: ChestMoveInputSchema,
+});
+
+const DropActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("drop"),
+  dropWholeStack: z.boolean(),
+});
+
+const PickupActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("pickup"),
+});
+
 const ActionMessageSchema = z.discriminatedUnion("action", [
   AttackActionMessageSchema,
   CraftActionMessageSchema,
   BuildActionMessageSchema,
   InventoryMoveActionMessageSchema,
   SelectHotbarActionMessageSchema,
+  ChestMoveActionMessageSchema,
+  DropActionMessageSchema,
+  PickupActionMessageSchema,
 ]);
 
 const RespawnMessageSchema = z.object({
@@ -184,6 +216,9 @@ export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
     "action:build",
     "action:inventoryMove",
     "action:selectHotbar",
+    "action:chestMove",
+    "action:drop",
+    "action:pickup",
     "respawn",
     "ping",
     "chat",

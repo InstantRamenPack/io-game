@@ -1,73 +1,120 @@
-import { CircleEntityRenderer } from "@client/render/entity/CircleEntityRenderer.ts";
+import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
 import type { EntityRendererOptions } from "@client/render/entity/EntityRenderer.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
-import { isBlueprintItemTypeId } from "@shared/content/catalog.ts";
-import type * as PIXI from "pixi.js";
+import type { InventorySlotSnapshot } from "@shared/net/snapshots.ts";
+import { Sprite, Text, TextStyle, Texture, type Graphics } from "pixi.js";
 
-export class PickupRenderer extends CircleEntityRenderer {
-  private static readonly DEFAULT_PICKUP_COLOR = 0xd6e5d2;
-  private static readonly BLUEPRINT_PICKUP_COLOR = 0x7ab6ff;
+type PickupDisplay = {
+  typeId: string;
+  count: number;
+};
+
+export class PickupRenderer extends BaseEntityRenderer {
+  private readonly itemSprite: Sprite;
+  private readonly stackCountText: Text;
 
   constructor(pixiRenderer: PixiRenderer, options: EntityRendererOptions = {}) {
-    super(pixiRenderer, PickupRenderer.DEFAULT_PICKUP_COLOR, options);
+    super(pixiRenderer, options);
+    this.itemSprite = new Sprite(Texture.EMPTY);
+    this.itemSprite.anchor.set(0.5, 0.5);
+    this.stackCountText = new Text(
+      "",
+      new TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 12,
+        fontWeight: "700",
+        fill: 0xf4f8ef,
+        stroke: { color: 0x0c120b, width: 3 },
+      }),
+    );
+    this.stackCountText.anchor.set(1, 1);
+    this.entityContainer.addChild(this.itemSprite, this.stackCountText);
   }
 
   protected override drawEntityShape(
-    graphics: PIXI.Graphics,
+    graphics: Graphics,
     entity: ClientEntity,
-    fillColor: number,
-    alpha: number,
-    lineAlpha = 1,
+    _fillColor: number,
+    _alpha: number,
   ): void {
-    if (!this.isBlueprintPickup(entity)) {
-      super.drawEntityShape(graphics, entity, fillColor, alpha, lineAlpha);
-      return;
-    }
-
-    const sideLength = Math.max(
+    const visualSize = Math.max(
       entity.hitboxBounds.width,
       entity.hitboxBounds.height,
     );
-    const halfSideLength = sideLength / 2;
+    const halfVisualSize = visualSize / 2;
     graphics.clear();
     graphics.roundRect(
-      -halfSideLength,
-      -halfSideLength,
-      sideLength,
-      sideLength,
-      4,
+      -halfVisualSize,
+      -halfVisualSize,
+      visualSize,
+      visualSize,
+      5,
     );
-    graphics.fill({ color: fillColor, alpha: alpha * 0.55 });
-    graphics.stroke({ width: 2, color: 0x000000, alpha: lineAlpha });
+    graphics.fill({ color: 0x203126, alpha: 0.9 });
+    graphics.stroke({ width: 2, color: 0x000000, alpha: 0.8 });
+
+    const display = this.resolvePickupDisplay(entity);
+    if (!display) {
+      this.itemSprite.visible = false;
+      this.stackCountText.visible = false;
+      return;
+    }
+
+    this.itemSprite.visible = true;
+    this.itemSprite.texture = this.pixiRenderer.getItemSpriteTexture(
+      display.typeId,
+    );
+    const iconSize = Math.max(12, visualSize - 10);
+    this.itemSprite.width = iconSize;
+    this.itemSprite.height = iconSize;
+    this.itemSprite.position.set(0, 0);
+
+    this.stackCountText.visible = display.count > 1;
+    this.stackCountText.text = String(display.count);
+    this.stackCountText.position.set(halfVisualSize - 2, halfVisualSize - 2);
   }
 
   protected override getFillColor(entity: ClientEntity): number {
-    if (this.isBlueprintPickup(entity)) {
-      return PickupRenderer.BLUEPRINT_PICKUP_COLOR;
+    if (this.resolvePickupDisplay(entity)?.count ?? 0 > 1) {
+      return 0x9cc8a0;
     }
-    return PickupRenderer.DEFAULT_PICKUP_COLOR;
+    return 0xd6e5d2;
   }
 
-  private isBlueprintPickup(entity: ClientEntity): boolean {
+  private resolvePickupDisplay(entity: ClientEntity): PickupDisplay | null {
     const inventory = entity.inventory;
     if (!inventory) {
-      return false;
+      return null;
     }
 
-    if (
-      inventory.resources.some((resource) =>
-        isBlueprintItemTypeId(resource.typeId),
-      )
-    ) {
-      return true;
-    }
-
-    return inventory.hotbarSlots.some((slot) => {
+    for (const slot of inventory.hotbarSlots) {
       if (slot.kind === "empty") {
-        return false;
+        continue;
       }
-      return isBlueprintItemTypeId(slot.typeId);
-    });
+      return {
+        typeId: slot.typeId,
+        count: this.getSlotCount(slot),
+      };
+    }
+
+    const resourceEntry = inventory.resources[0];
+    if (resourceEntry && resourceEntry.amount > 0) {
+      return {
+        typeId: resourceEntry.typeId,
+        count: resourceEntry.amount,
+      };
+    }
+
+    return null;
+  }
+
+  private getSlotCount(
+    slot: Exclude<InventorySlotSnapshot, { kind: "empty" }>,
+  ): number {
+    if (slot.kind === "buildable") {
+      return slot.count;
+    }
+    return 1;
   }
 }

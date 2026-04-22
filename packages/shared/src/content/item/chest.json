@@ -1,0 +1,12 @@
+{
+  "label": "Chest",
+  "buildsEntityTypeId": "building:chest",
+  "recipe": {
+    "hint": "Store items safely.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 30 },
+      { "typeId": "item:stone", "amount": 10 }
+    ]
+  }
+}

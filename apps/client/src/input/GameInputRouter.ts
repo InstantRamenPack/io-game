@@ -66,13 +66,40 @@ export class GameInputRouter {
 
     if (key === "e") {
       event.preventDefault();
+      if (context.chestOpen) {
+        this.options.dispatch({ type: "closeChest" });
+      } else if (context.inventoryOpen) {
+        this.options.dispatch({ type: "closeInventory" });
+      } else {
+        this.options.dispatch({ type: "pickupNearestItem" });
+      }
+      return;
+    }
+
+    if (key === "i") {
+      event.preventDefault();
       this.options.dispatch({
         type: context.inventoryOpen ? "closeInventory" : "toggleInventory",
       });
       return;
     }
 
+    if (key === "q") {
+      event.preventDefault();
+      this.options.dispatch({
+        type: "dropSelectedItem",
+        dropWholeStack: event.ctrlKey,
+      });
+      return;
+    }
+
     if (key === "escape") {
+      if (context.chestOpen) {
+        event.preventDefault();
+        this.options.dispatch({ type: "closeChest" });
+        return;
+      }
+
       if (context.inventoryOpen) {
         event.preventDefault();
         this.options.dispatch({ type: "closeInventory" });

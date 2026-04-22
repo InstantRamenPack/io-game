@@ -272,8 +272,32 @@ export class GameClient {
     this.actionDispatcher.queueInventoryMove(fromSlotIndex, toSlotIndex);
   }
 
+  public queueChestMove(
+    chestEntityId: number,
+    fromSource: "hotbar" | "chest",
+    fromIndex: number,
+    toSource: "hotbar" | "chest",
+    toIndex: number,
+  ): void {
+    this.actionDispatcher.queueChestMove(
+      chestEntityId,
+      fromSource,
+      fromIndex,
+      toSource,
+      toIndex,
+    );
+  }
+
   public queueSelectHotbarIndex(index: number): void {
     this.actionDispatcher.queueSelectHotbarIndex(index);
+  }
+
+  public queueDropSelectedItem(dropWholeStack: boolean): void {
+    this.actionDispatcher.queueDropSelectedItem(dropWholeStack);
+  }
+
+  public queuePickupNearbyItem(): void {
+    this.actionDispatcher.queuePickupNearbyItem();
   }
 
   public requestRespawn(): void {

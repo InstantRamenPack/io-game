@@ -1,9 +1,15 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
+import {
+  getBlueprintUnlockedRecipeTypeId,
+  isRecipeBlueprintLocked,
+} from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
   BUILD_PLACEMENT_MAX_DISTANCE,
+  CHEST_INTERACT_PADDING,
+  CHEST_SLOT_COUNT,
+  HOTBAR_SLOT_COUNT,
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
@@ -14,6 +20,7 @@ import {
   requireHitboxEntityBaselineContent,
   requireMovingEntityBaselineContent,
 } from "@server/entities/entityBaselineContent.ts";
+import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import {
@@ -22,6 +29,7 @@ import {
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
 import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
@@ -450,6 +458,15 @@ export class Player extends Entity {
             actionMessage.inventoryMove.toSlotIndex,
           );
           break;
+        case "chestMove":
+          this.applyChestMove(world, actionMessage.chestMove);
+          break;
+        case "drop":
+          this.dropSelectedItem(world, actionMessage.dropWholeStack);
+          break;
+        case "pickup":
+          this.pickupNearestOverlappingItem(world);
+          break;
       }
     }
 
@@ -464,6 +481,246 @@ export class Player extends Entity {
       leftEntity.getWorldHitboxes(),
       rightEntity.getWorldHitboxes(),
     );
+  }
+
+  private dropSelectedItem(world: World, dropWholeStack: boolean): void {
+    const selectedHotbarIndex = this.inventory.selectedHotbarIndex;
+    const selectedSlot = this.inventory.hotbarSlots[selectedHotbarIndex];
+    if (!selectedSlot) {
+      return;
+    }
+
+    const droppedInventory = new Inventory();
+    if (selectedSlot.kind === "weapon") {
+      this.inventory.hotbarSlots[selectedHotbarIndex] = null;
+      droppedInventory.addWeapon(selectedSlot.weapon);
+    } else {
+      const dropCount = dropWholeStack ? selectedSlot.count : 1;
+      if (dropCount <= 0) {
+        return;
+      }
+      selectedSlot.count -= dropCount;
+      if (selectedSlot.count <= 0) {
+        this.inventory.hotbarSlots[selectedHotbarIndex] = null;
+      }
+      droppedInventory.addStackable(selectedSlot.typeId, dropCount);
+    }
+
+    this.spawnDroppedInventory(world, droppedInventory);
+  }
+
+  private spawnDroppedInventory(
+    world: World,
+    droppedInventory: Inventory,
+  ): void {
+    const pickup = new ItemEntity(world.allocEntityId(), droppedInventory);
+    const dropDistance = 20;
+    const aimX = Math.cos(this.rotation);
+    const aimY = Math.sin(this.rotation);
+    const directionX = Number.isFinite(aimX) ? aimX : 1;
+    const directionY = Number.isFinite(aimY) ? aimY : 0;
+    pickup.x = this.x + directionX * dropDistance;
+    pickup.y = this.y + directionY * dropDistance;
+
+    const bounds = pickup.getWorldBounds();
+    if (bounds.minX < 0) {
+      pickup.x -= bounds.minX;
+    }
+    if (bounds.maxX > world.gameConfig.worldSize.w) {
+      pickup.x -= bounds.maxX - world.gameConfig.worldSize.w;
+    }
+    if (bounds.minY < 0) {
+      pickup.y -= bounds.minY;
+    }
+    if (bounds.maxY > world.gameConfig.worldSize.h) {
+      pickup.y -= bounds.maxY - world.gameConfig.worldSize.h;
+    }
+
+    world.spawn(pickup);
+  }
+
+  private pickupNearestOverlappingItem(world: World): void {
+    const bounds = this.getWorldBounds();
+    const playerHitboxes = this.getWorldHitboxes();
+    let nearestPickup: ItemEntity | undefined;
+    let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+
+    for (const candidate of world.spatial.queryBox(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    )) {
+      if (!(candidate instanceof ItemEntity)) {
+        continue;
+      }
+      if (
+        !doResolvedRectSetsOverlap(playerHitboxes, candidate.getWorldHitboxes())
+      ) {
+        continue;
+      }
+      const distanceSquared =
+        (candidate.x - this.x) * (candidate.x - this.x) +
+        (candidate.y - this.y) * (candidate.y - this.y);
+      if (distanceSquared < nearestDistanceSquared) {
+        nearestDistanceSquared = distanceSquared;
+        nearestPickup = candidate;
+      }
+    }
+
+    if (!nearestPickup) {
+      return;
+    }
+
+    if (!this.inventory.absorbInventory(nearestPickup.contents)) {
+      return;
+    }
+
+    this.unlockBlueprintPickupRecipes(nearestPickup.contents);
+    world.despawn(nearestPickup.id);
+  }
+
+  private unlockBlueprintPickupRecipes(pickupInventory: Inventory): void {
+    const pickupTypeIds = new Set<ResourceId>();
+    for (const [typeId] of pickupInventory.resources.entries()) {
+      pickupTypeIds.add(typeId);
+    }
+    for (const slot of pickupInventory.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        pickupTypeIds.add(slot.weapon.typeId);
+      } else {
+        pickupTypeIds.add(slot.typeId);
+      }
+    }
+
+    for (const typeId of pickupTypeIds) {
+      const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(typeId);
+      if (!unlockedRecipeTypeId) {
+        continue;
+      }
+      this.inventory.unlockRecipe(unlockedRecipeTypeId);
+    }
+  }
+
+  private applyChestMove(
+    world: World,
+    action: {
+      chestEntityId: number;
+      fromSource: "hotbar" | "chest";
+      fromIndex: number;
+      toSource: "hotbar" | "chest";
+      toIndex: number;
+    },
+  ): void {
+    const { chestEntityId, fromSource, fromIndex, toSource, toIndex } = action;
+
+    const maxHotbar = HOTBAR_SLOT_COUNT - 1;
+    if (fromSource === "hotbar" && (fromIndex < 0 || fromIndex > maxHotbar)) {
+      return;
+    }
+    if (
+      fromSource === "chest" &&
+      (fromIndex < 0 || fromIndex >= CHEST_SLOT_COUNT)
+    ) {
+      return;
+    }
+    if (toSource === "hotbar" && (toIndex < 0 || toIndex > maxHotbar)) {
+      return;
+    }
+    if (toSource === "chest" && (toIndex < 0 || toIndex >= CHEST_SLOT_COUNT)) {
+      return;
+    }
+
+    const chestEntity = world.entities.get<Chest>(chestEntityId);
+    if (!chestEntity || chestEntity.typeId !== "building:chest") {
+      return;
+    }
+
+    const bounds = chestEntity.getWorldBounds();
+    if (
+      this.x < bounds.minX - CHEST_INTERACT_PADDING ||
+      this.x > bounds.maxX + CHEST_INTERACT_PADDING ||
+      this.y < bounds.minY - CHEST_INTERACT_PADDING ||
+      this.y > bounds.maxY + CHEST_INTERACT_PADDING
+    ) {
+      return;
+    }
+
+    const fromValue = this.extractSlotValue(fromSource, fromIndex, chestEntity);
+    if (fromValue === null) {
+      return;
+    }
+    const toValue = this.extractSlotValue(toSource, toIndex, chestEntity);
+
+    if (
+      fromValue.kind === "buildable" &&
+      toValue?.kind === "buildable" &&
+      fromValue.typeId === toValue.typeId
+    ) {
+      const stacked = fromValue.count + toValue.count;
+      this.writeSlotValue(toSource, toIndex, chestEntity, {
+        kind: "buildable",
+        typeId: toValue.typeId,
+        count: stacked,
+      });
+      this.writeSlotValue(fromSource, fromIndex, chestEntity, null);
+      return;
+    }
+
+    this.writeSlotValue(toSource, toIndex, chestEntity, fromValue);
+    this.writeSlotValue(fromSource, fromIndex, chestEntity, toValue);
+  }
+
+  private extractSlotValue(
+    source: "hotbar" | "chest",
+    index: number,
+    chest: Chest,
+  ): ChestSlot {
+    if (source === "chest") {
+      return chest.getSlot(index);
+    }
+    const slot = this.inventory.hotbarSlots[index] ?? null;
+    if (!slot) {
+      return null;
+    }
+    if (slot.kind === "buildable") {
+      return { kind: "buildable", typeId: slot.typeId, count: slot.count };
+    }
+    return { kind: "weapon", typeId: slot.weapon.typeId };
+  }
+
+  private writeSlotValue(
+    source: "hotbar" | "chest",
+    index: number,
+    chest: Chest,
+    value: ChestSlot,
+  ): void {
+    if (source === "chest") {
+      chest.setSlot(index, value);
+      return;
+    }
+    if (value === null) {
+      this.inventory.hotbarSlots[index] = null;
+      return;
+    }
+    if (value.kind === "buildable") {
+      this.inventory.hotbarSlots[index] = {
+        kind: "buildable",
+        typeId: value.typeId,
+        count: value.count,
+      };
+      return;
+    }
+    const entry = itemTypeRegistry.get(value.typeId);
+    if (entry && isWeaponCtor(entry.ctor)) {
+      this.inventory.hotbarSlots[index] = {
+        kind: "weapon",
+        weapon: new entry.ctor(),
+      };
+    }
   }
 
   private getNearbyCraftingStations(world: World): Entity[] {

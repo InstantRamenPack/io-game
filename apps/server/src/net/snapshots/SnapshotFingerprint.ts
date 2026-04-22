@@ -42,7 +42,11 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
       );
       break;
     case "building":
-      parts.push(snapshot.label, snapshot.tier);
+      parts.push(
+        snapshot.label,
+        snapshot.tier,
+        fingerprintOptionalChestSlots(snapshot.chestSlots),
+      );
       break;
     case "pickup":
       parts.push(fingerprintInventory(snapshot.inventory));
@@ -81,6 +85,15 @@ function fingerprintInventorySlot(slot: InventorySlotSnapshot): string {
     return `buildable:${slot.typeId}:${slot.count}`;
   }
   return `weapon:${fingerprintWeapon(slot)}`;
+}
+
+function fingerprintOptionalChestSlots(
+  chestSlots: readonly InventorySlotSnapshot[] | undefined,
+): string {
+  if (!chestSlots) {
+    return "";
+  }
+  return chestSlots.map(fingerprintInventorySlot).join(";");
 }
 
 function fingerprintWeapon(weapon: WeaponSnapshot): string {

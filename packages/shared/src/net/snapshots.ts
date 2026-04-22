@@ -108,10 +108,16 @@ export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
+export const CHEST_SLOT_COUNT = 27;
+
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("building"),
   label: z.string(),
   tier: z.number(),
+  chestSlots: z
+    .array(InventorySlotSnapshotSchema)
+    .length(CHEST_SLOT_COUNT)
+    .optional(),
 });
 
 export const ProjectileSnapshotSchema = EntitySnapshotBaseSchema.extend({
@@ -176,7 +182,7 @@ export const SNAPSHOT_COMPAT_DESCRIPTOR = Object.freeze({
   ],
   player: ["name", "inventory", "activeEffects", "moveSpeed", "equippedItem"],
   enemy: ["targetId", "equippedItem"],
-  building: ["label", "tier"],
+  building: ["label", "tier", "chestSlots"],
   pickup: ["inventory"],
   world: ["tick", "dayNight", "entities", "events"],
 });

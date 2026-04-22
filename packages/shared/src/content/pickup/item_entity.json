@@ -1,7 +1,7 @@
 {
   "label": "Pickup",
   "maxHp": 0,
-  "collisionMode": "none",
+  "collisionMode": "dynamic",
   "hitboxProfiles": {
     "default": [{ "width": 28, "height": 28, "offsetX": 0, "offsetY": 0 }]
   }

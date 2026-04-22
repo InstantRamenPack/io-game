@@ -107,6 +107,7 @@ new GameInputRouter({
     chatOpen: chatController.isOpen(),
     inventoryOpen: hudController.isInventoryOpen(),
     craftingOpen: hudController.isCraftingMenuOpen(),
+    chestOpen: hudController.isChestOpen(),
     textEntryActive: isKeyboardTextEntryTarget(document.activeElement),
   }),
   dispatch: (command) => {
@@ -133,6 +134,9 @@ new GameInputRouter({
           hudController.toggleInventory();
         }
         return;
+      case "closeChest":
+        hudController.closeChest();
+        return;
       case "moveCraftSelection":
         hudController.moveCraftSelection(command.delta);
         return;
@@ -141,6 +145,12 @@ new GameInputRouter({
         return;
       case "selectHotbarOrdinal":
         hudController.selectHotbarItemByOrdinal(command.ordinal);
+        return;
+      case "dropSelectedItem":
+        gameClient.queueDropSelectedItem(command.dropWholeStack);
+        return;
+      case "pickupNearestItem":
+        gameClient.queuePickupNearbyItem();
         return;
     }
   },
