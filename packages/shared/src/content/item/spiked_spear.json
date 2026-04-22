@@ -3,11 +3,13 @@
   "hint": "Piercing spear that causes bleeding.",
   "description": "Long jab with bleed pressure on top of direct damage.",
   "recipe": {
-    "hint": "Piercing spear that causes bleeding.",
+    "hint": "Upgrade a Spear into a Spiked Spear at a crafting bench.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 26 },
-      { "typeId": "item:stone", "amount": 18 }
+      { "typeId": "item:basic_spear", "amount": 1 },
+      { "typeId": "item:blueprint_spiked_spear", "amount": 1 },
+      { "typeId": "item:wood", "amount": 12 },
+      { "typeId": "item:stone", "amount": 8 }
     ]
   },
   "weapon": {

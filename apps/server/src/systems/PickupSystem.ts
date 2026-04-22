@@ -3,6 +3,8 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
+import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -11,17 +13,42 @@ const MAG_PICKUP_TYPE_IDS = [
   "item:crossbow_mag",
   "item:drone_mag",
 ] as const;
-const PICKUP_SPAWN_INTERVAL_MS = 8000;
+
+const WEAPON_PICKUP_TYPE_IDS = [
+  "item:basic_spear",
+  "item:lead_pipe",
+  "item:baseball_bat",
+  "item:basic_dagger",
+] as const satisfies readonly ResourceId[];
+const BLUEPRINT_PICKUP_TYPE_IDS = ["item:blueprint_spiked_spear"] as const satisfies readonly ResourceId[];
+
+const MAG_PICKUP_SPAWN_INTERVAL_MS = 8000;
 const MAX_ACTIVE_MAG_PICKUPS = 8;
+
+const WEAPON_PICKUP_SPAWN_INTERVAL_MS = 20000;
+const MAX_ACTIVE_WEAPON_PICKUPS = 4;
+
+const BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS = 60000;
+const MAX_ACTIVE_BLUEPRINT_PICKUPS = 2;
+
 const SPAWN_ATTEMPTS = 20;
 
 /**
- * Spawns consumable mag pickups and grants them on player overlap.
+ * Spawns consumable pickups (mags, weapons, blueprints) and grants them on player overlap.
  */
 export class PickupSystem implements System {
-  private accumulatedSpawnMs = 0;
+  private magAccumulatedMs = 0;
   private activeMagPickupCount = 0;
   private activeMagPickupCountInitialized = false;
+
+  private weaponAccumulatedMs = 0;
+  private activeWeaponPickupCount = 0;
+  private activeWeaponPickupCountInitialized = false;
+
+  private blueprintAccumulatedMs = 0;
+  private activeBlueprintPickupCount = 0;
+  private activeBlueprintPickupCountInitialized = false;
+
   private readonly queryBuffer: ItemEntity[] = [];
 
   public update(world: World, deltaMs: number): void {
@@ -32,13 +59,43 @@ export class PickupSystem implements System {
       this.activeMagPickupCountInitialized = true;
     }
 
+    if (!this.activeWeaponPickupCountInitialized) {
+      this.activeWeaponPickupCount = world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => this.isWeaponPickup(pickup)).length;
+      this.activeWeaponPickupCountInitialized = true;
+    }
+
+    if (!this.activeBlueprintPickupCountInitialized) {
+      this.activeBlueprintPickupCount = world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => this.isBlueprintPickup(pickup)).length;
+      this.activeBlueprintPickupCountInitialized = true;
+    }
+
     this.collectPickups(world);
 
-    this.accumulatedSpawnMs += deltaMs;
-    while (this.accumulatedSpawnMs >= PICKUP_SPAWN_INTERVAL_MS) {
-      this.accumulatedSpawnMs -= PICKUP_SPAWN_INTERVAL_MS;
+    this.magAccumulatedMs += deltaMs;
+    while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
+      this.magAccumulatedMs -= MAG_PICKUP_SPAWN_INTERVAL_MS;
       if (this.activeMagPickupCount < MAX_ACTIVE_MAG_PICKUPS) {
         this.spawnRandomMagPickup(world);
+      }
+    }
+
+    this.weaponAccumulatedMs += deltaMs;
+    while (this.weaponAccumulatedMs >= WEAPON_PICKUP_SPAWN_INTERVAL_MS) {
+      this.weaponAccumulatedMs -= WEAPON_PICKUP_SPAWN_INTERVAL_MS;
+      if (this.activeWeaponPickupCount < MAX_ACTIVE_WEAPON_PICKUPS) {
+        this.spawnRandomWeaponPickup(world);
+      }
+    }
+
+    this.blueprintAccumulatedMs += deltaMs;
+    while (this.blueprintAccumulatedMs >= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS) {
+      this.blueprintAccumulatedMs -= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS;
+      if (this.activeBlueprintPickupCount < MAX_ACTIVE_BLUEPRINT_PICKUPS) {
+        this.spawnRandomBlueprintPickup(world);
       }
     }
   }
@@ -69,30 +126,74 @@ export class PickupSystem implements System {
         if (!world.entities.has(pickup.id)) {
           continue;
         }
-        if (!this.isMagPickup(pickup)) {
-          continue;
-        }
         if (
           !doResolvedRectSetsOverlap(playerHitboxes, pickup.getWorldHitboxes())
         ) {
           continue;
         }
 
-        if (!player.inventory.absorbInventory(pickup.contents)) {
-          continue;
+        if (this.isMagPickup(pickup)) {
+          if (!player.inventory.absorbInventory(pickup.contents)) {
+            continue;
+          }
+          this.activeMagPickupCount = Math.max(0, this.activeMagPickupCount - 1);
+          world.despawn(pickup.id);
+        } else if (this.isWeaponPickup(pickup)) {
+          if (!player.inventory.absorbInventory(pickup.contents)) {
+            continue;
+          }
+          this.activeWeaponPickupCount = Math.max(
+            0,
+            this.activeWeaponPickupCount - 1,
+          );
+          world.despawn(pickup.id);
+        } else if (this.isBlueprintPickup(pickup)) {
+          if (!player.inventory.absorbInventory(pickup.contents)) {
+            continue;
+          }
+          this.activeBlueprintPickupCount = Math.max(
+            0,
+            this.activeBlueprintPickupCount - 1,
+          );
+          world.despawn(pickup.id);
         }
-        this.activeMagPickupCount = Math.max(0, this.activeMagPickupCount - 1);
-        world.despawn(pickup.id);
       }
     }
   }
 
   private spawnRandomMagPickup(world: World): void {
-    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt += 1) {
-      const typeId = this.pickRandomMagType(world);
-      const inventory = new Inventory();
-      inventory.addStackable(typeId, 1);
+    const typeId = this.pickRandomTypeId(world, MAG_PICKUP_TYPE_IDS);
+    const inventory = new Inventory();
+    inventory.addStackable(typeId, 1);
+    if (this.trySpawnPickup(world, inventory)) {
+      this.activeMagPickupCount += 1;
+    }
+  }
 
+  private spawnRandomWeaponPickup(world: World): void {
+    const typeId = this.pickRandomTypeId(world, WEAPON_PICKUP_TYPE_IDS);
+    const weaponEntry = itemTypeRegistry.get(typeId);
+    if (!weaponEntry || !isWeaponCtor(weaponEntry.ctor)) {
+      return;
+    }
+    const inventory = new Inventory();
+    inventory.addWeapon(new weaponEntry.ctor());
+    if (this.trySpawnPickup(world, inventory)) {
+      this.activeWeaponPickupCount += 1;
+    }
+  }
+
+  private spawnRandomBlueprintPickup(world: World): void {
+    const typeId = this.pickRandomTypeId(world, BLUEPRINT_PICKUP_TYPE_IDS);
+    const inventory = new Inventory();
+    inventory.addStackable(typeId, 1);
+    if (this.trySpawnPickup(world, inventory)) {
+      this.activeBlueprintPickupCount += 1;
+    }
+  }
+
+  private trySpawnPickup(world: World, inventory: Inventory): boolean {
+    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt += 1) {
       const pickup = new ItemEntity(world.allocEntityId(), inventory);
       pickup.x = world.randomNumberGenerator() * world.gameConfig.worldSize.w;
       pickup.y = world.randomNumberGenerator() * world.gameConfig.worldSize.h;
@@ -120,9 +221,9 @@ export class PickupSystem implements System {
       }
 
       world.spawn(pickup);
-      this.activeMagPickupCount += 1;
-      return;
+      return true;
     }
+    return false;
   }
 
   private isMagPickup(pickup: ItemEntity): boolean {
@@ -131,10 +232,23 @@ export class PickupSystem implements System {
     );
   }
 
-  private pickRandomMagType(world: World): ResourceId {
-    const index = Math.floor(
-      world.randomNumberGenerator() * MAG_PICKUP_TYPE_IDS.length,
+  private isWeaponPickup(pickup: ItemEntity): boolean {
+    return WEAPON_PICKUP_TYPE_IDS.some(
+      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
-    return MAG_PICKUP_TYPE_IDS[index] ?? MAG_PICKUP_TYPE_IDS[0];
+  }
+
+  private isBlueprintPickup(pickup: ItemEntity): boolean {
+    return BLUEPRINT_PICKUP_TYPE_IDS.some(
+      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
+    );
+  }
+
+  private pickRandomTypeId<T extends ResourceId>(
+    world: World,
+    typeIds: readonly [T, ...T[]],
+  ): T {
+    const index = Math.floor(world.randomNumberGenerator() * typeIds.length);
+    return typeIds[index] ?? typeIds[0];
   }
 }

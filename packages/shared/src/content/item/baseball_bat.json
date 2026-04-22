@@ -1,0 +1,22 @@
+{
+  "label": "Baseball Bat",
+  "hint": "Wide swing with solid reach. Fractures bone on hit.",
+  "description": "Reliable blunt weapon with medium range. Always fractures targets, slowing their movement.",
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 12,
+    "range": 55,
+    "damage": 22,
+    "knockback": 20,
+    "sweepArcDeg": 100,
+    "equippedRender": {
+      "holdOffset": { "x": 38, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 1.5,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 100,
+      "jabDistance": 0
+    }
+  }
+}

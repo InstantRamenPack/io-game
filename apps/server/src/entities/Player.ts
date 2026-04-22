@@ -215,8 +215,18 @@ export class Player extends Entity {
     }
 
     const outputCtor = outputEntry.ctor;
+    const weaponSlotsFreedByCosts = isWeaponCtor(outputCtor)
+      ? recipe.costs.reduce((total, cost) => {
+          const costEntry = itemTypeRegistry.get(cost.typeId);
+          return costEntry && isWeaponCtor(costEntry.ctor)
+            ? total + cost.amount
+            : total;
+        }, 0)
+      : 0;
+    const netWeaponSlotsNeeded = recipe.outputAmount - weaponSlotsFreedByCosts;
     const canStoreCraftOutput = isWeaponCtor(outputCtor)
-      ? this.inventory.canAddWeaponCount(recipe.outputAmount)
+      ? netWeaponSlotsNeeded <= 0 ||
+        this.inventory.canAddWeaponCount(netWeaponSlotsNeeded)
       : this.inventory.canAddStackable(itemTypeId, recipe.outputAmount);
     if (!canStoreCraftOutput) {
       if (shouldTrace) {

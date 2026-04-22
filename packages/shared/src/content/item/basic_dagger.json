@@ -1,0 +1,22 @@
+{
+  "label": "Dagger",
+  "hint": "Lightning-fast stab with minimal reach.",
+  "description": "Very fast stabbing weapon with low range and damage. Excels at rapid harassment.",
+  "weapon": {
+    "attackStyle": "jab",
+    "cooldownTicks": 6,
+    "range": 28,
+    "damage": 12,
+    "knockback": 6,
+    "jabWidth": 14,
+    "equippedRender": {
+      "holdOffset": { "x": 25, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 0.9,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 20
+    }
+  }
+}

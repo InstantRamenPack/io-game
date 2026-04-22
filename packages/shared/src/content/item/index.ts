@@ -1,3 +1,7 @@
+import baseballBatItemJson from "@shared/content/item/baseball_bat.json";
+import basicDaggerItemJson from "@shared/content/item/basic_dagger.json";
+import leadPipeItemJson from "@shared/content/item/lead_pipe.json";
+import blueprintSpikedSpearItemJson from "@shared/content/item/blueprint_spiked_spear.json";
 import basicGunItemJson from "@shared/content/item/basic_gun.json";
 import basicRifleItemJson from "@shared/content/item/basic_rifle.json";
 import basicSpearItemJson from "@shared/content/item/basic_spear.json";
@@ -20,7 +24,10 @@ import saboteurSwordItemJson from "@shared/content/item/saboteur_sword.json";
 import { makeParsedItemContentEntry } from "@shared/content/parseContent.ts";
 
 export const itemContentEntries = [
+  makeParsedItemContentEntry("baseball_bat", baseballBatItemJson),
+  makeParsedItemContentEntry("basic_dagger", basicDaggerItemJson),
   makeParsedItemContentEntry("basic_gun", basicGunItemJson),
+  makeParsedItemContentEntry("lead_pipe", leadPipeItemJson),
   makeParsedItemContentEntry("basic_rifle", basicRifleItemJson),
   makeParsedItemContentEntry("basic_spear", basicSpearItemJson),
   makeParsedItemContentEntry("basic_sword", basicSwordItemJson),
@@ -39,4 +46,5 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("cannon", cannonItemJson),
   makeParsedItemContentEntry("crafting_station", craftingStationItemJson),
   makeParsedItemContentEntry("landmine", landmineItemJson),
+  makeParsedItemContentEntry("blueprint_spiked_spear", blueprintSpikedSpearItemJson),
 ] as const;

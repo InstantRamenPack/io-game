@@ -25,14 +25,18 @@ import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
+import { FracturedEffect } from "@server/effects/builtin/FracturedEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
+import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
+import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { DroneShooter } from "@server/items/weapons/DroneShooter.ts";
+import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
 import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
@@ -44,6 +48,7 @@ import { WallItem } from "@server/items/structures/WallItem.ts";
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
 import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
+import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpikedSpearItem.ts";
 import { StoneItem } from "@server/items/materials/StoneItem.ts";
 import { WoodItem } from "@server/items/materials/WoodItem.ts";
 import type {
@@ -103,11 +108,14 @@ export const entityTypeManifests = [
 ] as const;
 
 export const itemTypeManifests = [
+  makeItemTypeEntry(BaseballBat),
+  makeItemTypeEntry(BasicDagger),
   makeItemTypeEntry(BasicGun),
   makeItemTypeEntry(BasicRifle),
   makeItemTypeEntry(BasicSpear),
   makeItemTypeEntry(BasicSword),
   makeItemTypeEntry(Crossbow),
+  makeItemTypeEntry(LeadPipe),
   makeItemTypeEntry(SpikedSpear),
   makeItemTypeEntry(Taser),
   makeItemTypeEntry(DroneShooter),
@@ -115,6 +123,7 @@ export const itemTypeManifests = [
   makeItemTypeEntry(SaboteurSword),
   makeItemTypeEntry(WoodItem),
   makeItemTypeEntry(StoneItem),
+  makeItemTypeEntry(BlueprintSpikedSpearItem),
   makeItemTypeEntry(GunMagazineItem),
   makeItemTypeEntry(CrossbowMagazineItem),
   makeItemTypeEntry(DroneMagazineItem),
@@ -128,6 +137,7 @@ export const effectTypeManifests = [
   makeEffectTypeEntry(BleedingEffect),
   makeEffectTypeEntry(ConfusionEffect),
   makeEffectTypeEntry(DamageEffect),
+  makeEffectTypeEntry(FracturedEffect),
   makeEffectTypeEntry(KnockbackEffect),
   makeEffectTypeEntry(StunnedEffect),
 ] as const;
