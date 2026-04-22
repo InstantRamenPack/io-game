@@ -65,6 +65,8 @@ export class ClientEntity {
   public moveSpeed?: number;
   public targetId?: number;
   public equippedItem?: EquippedItemSnapshot;
+  public food?: number;
+  public maxFood?: number;
   public serverX: number;
   public serverY: number;
   public visualVersion = 1;
@@ -134,6 +136,8 @@ export class ClientEntity {
     const previousOwnerId = this.ownerId;
     const previousHp = this.hp;
     const previousMaxHp = this.maxHp;
+    const previousFood = this.food;
+    const previousMaxFood = this.maxFood;
 
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
@@ -170,6 +174,11 @@ export class ClientEntity {
     this.ownerId = snapshot.ownerId;
 
     if (this.applyKindSpecificFields(snapshot)) {
+      hasStateChange = true;
+    }
+
+    if (previousFood !== this.food || previousMaxFood !== this.maxFood) {
+      this.healthVersion += 1;
       hasStateChange = true;
     }
 
@@ -260,6 +269,8 @@ export class ClientEntity {
     const previousMoveSpeed = this.moveSpeed;
     const previousTargetId = this.targetId;
     const previousEquippedItem = this.equippedItem;
+    const previousFood = this.food;
+    const previousMaxFood = this.maxFood;
 
     this.name = undefined;
     this.label = undefined;
@@ -269,6 +280,8 @@ export class ClientEntity {
     this.moveSpeed = undefined;
     this.targetId = undefined;
     this.equippedItem = undefined;
+    this.food = undefined;
+    this.maxFood = undefined;
 
     switch (snapshot.kind) {
       case "player":
@@ -277,6 +290,8 @@ export class ClientEntity {
         this.activeEffects = snapshot.activeEffects;
         this.moveSpeed = snapshot.moveSpeed;
         this.equippedItem = snapshot.equippedItem;
+        this.food = snapshot.food;
+        this.maxFood = snapshot.maxFood;
         break;
       case "enemy":
         this.targetId = snapshot.targetId;
@@ -301,7 +316,9 @@ export class ClientEntity {
       previousEffects !== this.activeEffects ||
       previousMoveSpeed !== this.moveSpeed ||
       previousTargetId !== this.targetId ||
-      previousEquippedItem !== this.equippedItem
+      previousEquippedItem !== this.equippedItem ||
+      previousFood !== this.food ||
+      previousMaxFood !== this.maxFood
     );
   }
 

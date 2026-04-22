@@ -3,79 +3,36 @@
     {
       "nightCycle": 1,
       "spawns": [
-        {
-          "entityType": "drifter",
-          "x": 1500,
-          "y": 600,
-          "delayTicks": 0,
-          "count": 3
-        },
-        {
-          "entityType": "shoota",
-          "x": 1500,
-          "y": 2400,
-          "delayTicks": 60,
-          "count": 2
-        }
+        { "entityType": "drifter", "x": 1500, "y": 1500, "delayTicks": 0, "count": 4 },
+        { "entityType": "shoota",  "x": 1500, "y": 800,  "delayTicks": 40, "count": 2 },
+        { "entityType": "drifter", "x": 4200, "y": 1200, "delayTicks": 0, "count": 2 },
+        { "entityType": "drifter", "x": 4800, "y": 5300, "delayTicks": 20, "count": 3 },
+        { "entityType": "shoota",  "x": 5300, "y": 5600, "delayTicks": 40, "count": 2 }
       ]
     },
     {
       "nightCycle": 2,
       "spawns": [
-        {
-          "entityType": "drifter",
-          "x": 1500,
-          "y": 1500,
-          "delayTicks": 0,
-          "count": 4
-        },
-        {
-          "entityType": "bomber",
-          "x": 600,
-          "y": 1500,
-          "delayTicks": 30,
-          "count": 2
-        },
-        {
-          "entityType": "shoota",
-          "x": 2400,
-          "y": 1500,
-          "delayTicks": 60,
-          "count": 3
-        }
+        { "entityType": "drifter", "x": 1500, "y": 1500, "delayTicks": 0, "count": 5 },
+        { "entityType": "bomber",  "x": 700,  "y": 1500, "delayTicks": 30, "count": 2 },
+        { "entityType": "shoota",  "x": 2300, "y": 1500, "delayTicks": 60, "count": 3 },
+        { "entityType": "police",  "x": 1500, "y": 900,  "delayTicks": 90, "count": 2 },
+        { "entityType": "drifter", "x": 4000, "y": 900,  "delayTicks": 0, "count": 3 },
+        { "entityType": "drifter", "x": 4800, "y": 5500, "delayTicks": 0, "count": 4 },
+        { "entityType": "shoota",  "x": 5500, "y": 5200, "delayTicks": 30, "count": 2 }
       ]
     },
     {
       "nightCycle": 3,
       "spawns": [
-        {
-          "entityType": "megaknight",
-          "x": 1500,
-          "y": 1500,
-          "delayTicks": 0,
-          "count": 1
-        },
-        {
-          "entityType": "drifter",
-          "x": 800,
-          "y": 1500,
-          "delayTicks": 0,
-          "count": 3
-        },
-        {
-          "entityType": "drifter",
-          "x": 1500,
-          "y": 800,
-          "delayTicks": 0,
-          "count": 2
-        },
-        {
-          "entityType": "police",
-          "x": 2200,
-          "y": 1500,
-          "delayTicks": 90,
-          "count": 2
-        }
+        { "entityType": "megaknight", "x": 1500, "y": 1500, "delayTicks": 0, "count": 1 },
+        { "entityType": "drifter",    "x": 800,  "y": 1500, "delayTicks": 0, "count": 4 },
+        { "entityType": "police",     "x": 2200, "y": 1500, "delayTicks": 60, "count": 3 },
+        { "entityType": "shoota",     "x": 1500, "y": 800,  "delayTicks": 30, "count": 3 },
+        { "entityType": "drifter",    "x": 3800, "y": 1000, "delayTicks": 0, "count": 3 },
+        { "entityType": "drifter",    "x": 5000, "y": 5400, "delayTicks": 0, "count": 4 },
+        { "entityType": "shoota",     "x": 5600, "y": 5100, "delayTicks": 30, "count": 3 },
+        { "entityType": "bomber",     "x": 4500, "y": 5700, "delayTicks": 60, "count": 2 }
       ]
     }
   ]

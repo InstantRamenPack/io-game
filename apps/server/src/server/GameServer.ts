@@ -23,6 +23,7 @@ import {
 } from "@server/server/starterLoadout.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
+import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
 
@@ -89,6 +90,9 @@ export class GameServer {
 
     // Initialize wave spawning system
     this.initializeWaveSpawning();
+
+    // Spawn static map structures and initial enemies
+    loadMap(this.world);
 
     this.clock = new TickClock(gameConfig.tickRate);
 

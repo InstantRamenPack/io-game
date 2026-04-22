@@ -1,0 +1,8 @@
+{
+  "label": "Building",
+  "maxHp": 99999,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [{ "width": 440, "height": 300, "offsetX": 0, "offsetY": 0 }]
+  }
+}

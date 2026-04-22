@@ -4,8 +4,7 @@
     "hint": "Restocks the crossbow with a fresh magazine.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 8 },
-      { "typeId": "item:stone", "amount": 4 }
+      { "typeId": "item:hunk", "amount": 12 }
     ]
   }
 }

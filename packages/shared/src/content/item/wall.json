@@ -5,8 +5,7 @@
     "hint": "Fast perimeter coverage. Cheap and disposable.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 20 },
-      { "typeId": "item:stone", "amount": 6 }
+      { "typeId": "item:hunk", "amount": 26 }
     ]
   }
 }

@@ -1,7 +1,11 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
+import { FenceRenderer } from "@client/render/entity/building/FenceRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
+import { MapBuildingRenderer } from "@client/render/entity/building/MapBuildingRenderer.ts";
+import { TentRenderer } from "@client/render/entity/building/TentRenderer.ts";
+import { TreeRenderer } from "@client/render/entity/building/TreeRenderer.ts";
 import { WallRenderer } from "@client/render/entity/building/WallRenderer.ts";
 import { DrifterRenderer } from "@client/render/entity/enemy/DrifterRenderer.ts";
 import { MegaknightRenderer } from "@client/render/entity/enemy/MegaknightRenderer.ts";
@@ -37,6 +41,13 @@ const rendererManifests = [
   ["police", PoliceRenderer],
   ["wallbreaker", WallbreakerRenderer],
   ["bomber", BomberRenderer],
+  ["tree", TreeRenderer],
+  ["building_xl", MapBuildingRenderer],
+  ["building_l", MapBuildingRenderer],
+  ["building_m", MapBuildingRenderer],
+  ["fence_h", FenceRenderer],
+  ["fence_v", FenceRenderer],
+  ["tent", TentRenderer],
   ["wall", WallRenderer],
   ["cannon", CannonRenderer],
   ["crafting_station", CraftingStationRenderer],

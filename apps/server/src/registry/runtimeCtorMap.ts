@@ -1,8 +1,15 @@
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { BuildingL } from "@server/entities/buildings/BuildingL.ts";
+import { BuildingM } from "@server/entities/buildings/BuildingM.ts";
+import { BuildingXl } from "@server/entities/buildings/BuildingXl.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { FenceH } from "@server/entities/buildings/FenceH.ts";
+import { FenceV } from "@server/entities/buildings/FenceV.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
+import { Tent } from "@server/entities/buildings/Tent.ts";
+import { Tree } from "@server/entities/buildings/Tree.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
@@ -26,8 +33,9 @@ import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpik
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
 import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
-import { StoneItem } from "@server/items/materials/StoneItem.ts";
-import { WoodItem } from "@server/items/materials/WoodItem.ts";
+import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
+import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
+import { HunkItem } from "@server/items/materials/HunkItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
 import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
@@ -56,9 +64,16 @@ export const entityRuntimeCtors = [
   Saboteur,
   Shoota,
   Wallbreaker,
+  BuildingL,
+  BuildingM,
+  BuildingXl,
   Cannon,
   CraftingStation,
+  FenceH,
+  FenceV,
   Landmine,
+  Tent,
+  Tree,
   Wall,
   BasicBullet,
   CannonBullet,
@@ -81,8 +96,9 @@ export const itemRuntimeCtors = [
   DroneShooter,
   ZombieSword,
   SaboteurSword,
-  WoodItem,
-  StoneItem,
+  HunkItem,
+  JunkFoodItem,
+  QualityFoodItem,
   BlueprintSpikedSpearItem,
   GunMagazineItem,
   CrossbowMagazineItem,

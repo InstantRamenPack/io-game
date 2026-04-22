@@ -6,8 +6,7 @@
     "hint": "pew pew big pew pew",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 60 },
-      { "typeId": "item:stone", "amount": 40 }
+      { "typeId": "item:hunk", "amount": 100 }
     ]
   },
   "weapon": {

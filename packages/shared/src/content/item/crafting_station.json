@@ -5,8 +5,7 @@
     "hint": "Adds a core utility structure to your base.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 30 },
-      { "typeId": "item:stone", "amount": 12 }
+      { "typeId": "item:hunk", "amount": 42 }
     ]
   }
 }

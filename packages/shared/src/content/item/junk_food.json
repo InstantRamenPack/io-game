@@ -1,0 +1,5 @@
+{
+  "label": "Junk Food",
+  "hint": "Filling but low quality.",
+  "food": { "foodRestore": 40 }
+}

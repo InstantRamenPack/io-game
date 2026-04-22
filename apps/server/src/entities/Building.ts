@@ -8,7 +8,7 @@ import type { World } from "@server/world/World.ts";
  */
 export class Building extends GoalControlledEntity {
   public static readonly kind = "building" as const;
-  public readonly label: string;
+  public label: string;
   public tier: number;
 
   constructor(id: number, tier: number, ownerId: number | undefined) {

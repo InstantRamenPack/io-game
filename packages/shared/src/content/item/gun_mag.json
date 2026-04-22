@@ -4,8 +4,7 @@
     "hint": "Fresh magazine for the gun or rifle.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 6 },
-      { "typeId": "item:stone", "amount": 6 }
+      { "typeId": "item:hunk", "amount": 12 }
     ]
   }
 }

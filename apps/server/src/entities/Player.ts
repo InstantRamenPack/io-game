@@ -31,9 +31,15 @@ export class Player extends Entity {
   public static readonly kind = "player" as const;
   public static override readonly resourceName = "base";
 
+  public static readonly MAX_FOOD = 100;
+  // Drains to zero in 3 minutes at 20 ticks/sec
+  private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
+
   public name: string;
   public inventory: Inventory;
   public moveSpeed = 15;
+  public food = Player.MAX_FOOD;
+  public maxFood = Player.MAX_FOOD;
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
@@ -107,6 +113,7 @@ export class Player extends Entity {
       weapon.tick(world);
     }
 
+    this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
     this.applyHeldMovement(world);
     this.rotation = this.aimTheta;
     this.applyQueuedActions(world);
@@ -122,6 +129,8 @@ export class Player extends Entity {
       activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
       equippedItem: this.getActiveWeapon()?.toEquippedItemSnapshot(this),
+      food: this.food,
+      maxFood: this.maxFood,
     };
   }
 
@@ -158,6 +167,7 @@ export class Player extends Entity {
     };
     this.alive = true;
     this.hp = this.maxHp;
+    this.food = this.maxFood;
     this.activeEffects = [];
     this.clearQueuedInputState();
     this.aimTheta = 0;

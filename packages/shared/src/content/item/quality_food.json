@@ -1,0 +1,5 @@
+{
+  "label": "Quality Food",
+  "hint": "Nutritious but less filling.",
+  "food": { "foodRestore": 20 }
+}

@@ -107,6 +107,7 @@ export const ItemContentSchema = z.object({
   recipe: ItemRecipeContentSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
+  food: z.object({ foodRestore: z.number().finite().positive() }).optional(),
 });
 
 export const EntityContentSchema = z.object({
@@ -145,6 +146,7 @@ export type ProjectileContent = z.infer<typeof ProjectileContentSchema>;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
+export type FoodContent = { foodRestore: number };
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

@@ -6,8 +6,7 @@
     "hint": "Launches a slow homing explosive drone.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 40 },
-      { "typeId": "item:stone", "amount": 28 }
+      { "typeId": "item:hunk", "amount": 68 }
     ]
   },
   "weapon": {

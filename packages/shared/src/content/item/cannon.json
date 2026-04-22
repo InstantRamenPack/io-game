@@ -5,8 +5,7 @@
     "hint": "Heavy defensive fire for outer lanes.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 35 },
-      { "typeId": "item:stone", "amount": 30 }
+      { "typeId": "item:hunk", "amount": 65 }
     ]
   }
 }
