@@ -301,6 +301,11 @@ export class GameClient {
     this.releaseLegacyMovementSuppression = undefined;
   }
 
+  public clearMovementSuppressions(): void {
+    this.releaseLegacyMovementSuppression = undefined;
+    this.inputBlocker.clear();
+  }
+
   public isLocalPlayerAlive(): boolean | null {
     const player = this.getLocalPlayerEntity();
     return player ? player.alive : null;

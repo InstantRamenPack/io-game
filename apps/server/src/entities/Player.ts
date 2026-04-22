@@ -22,6 +22,7 @@ import {
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
 import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import type { CollisionMode } from "@shared/content/schema.ts";
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
 
@@ -35,6 +36,7 @@ export class Player extends Entity {
   public name: string;
   public inventory: Inventory;
   public moveSpeed = 15;
+  private readonly defaultCollisionMode: CollisionMode;
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
@@ -58,6 +60,7 @@ export class Player extends Entity {
       hitboxContent.activeHitboxProfile ?? "default",
     );
     this.collisionMode = baseline.collisionMode;
+    this.defaultCollisionMode = baseline.collisionMode;
     this.setMovementTuning({
       driveAccelerationPerTick: Math.max(4, this.moveSpeed * 0.45),
     });
@@ -141,6 +144,7 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.rotation = 0;
+    this.collisionMode = "none";
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_died", this, {
       x: this.x,
@@ -165,6 +169,7 @@ export class Player extends Entity {
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.rotation = 0;
+    this.collisionMode = this.defaultCollisionMode;
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,

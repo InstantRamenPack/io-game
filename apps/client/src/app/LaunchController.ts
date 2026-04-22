@@ -168,8 +168,12 @@ export function createLaunchController({
   });
 
   gameClient.networkClient.onError((message) => {
+    const fatalNetworkError = isFatalNetworkError(message);
     if (authController.handleNetworkError(message)) {
       menuController.setMode("account");
+    }
+    if (!fatalNetworkError) {
+      return;
     }
 
     const connectionErrorMessage =
@@ -190,4 +194,15 @@ export function createLaunchController({
       gameClient.setInterpolationConfig(runtimeConfig.interpolation);
     },
   };
+}
+
+function isFatalNetworkError(message: string): boolean {
+  return (
+    message === "socket_error" ||
+    message === "compat_mismatch" ||
+    message === "auth_not_configured" ||
+    message === "auth_invalid" ||
+    message === "server_full" ||
+    message === "hello_required"
+  );
 }

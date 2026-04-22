@@ -37,6 +37,14 @@ export class InputBlocker {
     return [...new Set(this.reasonsByToken.values())];
   }
 
+  public clear(): void {
+    if (this.reasonsByToken.size === 0) {
+      return;
+    }
+    this.reasonsByToken.clear();
+    this.emit();
+  }
+
   private emit(): void {
     const reasons = this.getReasons();
     const blocked = reasons.length > 0;

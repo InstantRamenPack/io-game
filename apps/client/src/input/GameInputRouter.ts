@@ -23,8 +23,7 @@ export class GameInputRouter {
       return;
     }
 
-    const gameplayActive =
-      context.sessionMode === "playing" || context.sessionMode === "dead";
+    const gameplayActive = context.sessionMode === "playing";
     if (!gameplayActive) {
       return;
     }
