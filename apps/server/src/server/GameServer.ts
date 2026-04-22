@@ -634,7 +634,11 @@ export class GameServer {
       return;
     }
 
-    if (lobby.startedAtMs === null && playerCount < 2 && lobby.countdownEndsAtMs) {
+    if (
+      lobby.startedAtMs === null &&
+      playerCount < 2 &&
+      lobby.countdownEndsAtMs
+    ) {
       lobby.countdownEndsAtMs = null;
       this.broadcastLobbyMessage(
         lobby,
@@ -710,8 +714,8 @@ export class GameServer {
   }
 
   private generateLobbyCode(): string {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWYZ";
+    let code: string;
     do {
       code = "";
       for (let index = 0; index < MATCH_LOBBY_CODE_LENGTH; index += 1) {
@@ -737,7 +741,10 @@ export class GameServer {
     lobby.gameServer = this.makeLobbyGameServer(lobby.scopedNetwork);
   }
 
-  private migrateClientToLobbyServer(clientId: string, lobby: MatchLobby): void {
+  private migrateClientToLobbyServer(
+    clientId: string,
+    lobby: MatchLobby,
+  ): void {
     if (this.activeServerByClientId.get(clientId) === lobby.gameServer) {
       lobby.scopedNetwork.addClient(clientId);
       return;
@@ -796,7 +803,10 @@ export class GameServer {
   private sendLobbyState(clientId: string, force = false): void {
     const state = this.buildLobbyStateForClient(clientId);
     const serialized = JSON.stringify(state);
-    if (!force && this.lastSentLobbyStateByClientId.get(clientId) === serialized) {
+    if (
+      !force &&
+      this.lastSentLobbyStateByClientId.get(clientId) === serialized
+    ) {
       return;
     }
     this.lastSentLobbyStateByClientId.set(clientId, serialized);

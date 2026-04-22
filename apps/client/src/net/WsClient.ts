@@ -194,7 +194,9 @@ export class WsClient {
     this.chatHandlers.push(chatHandler);
   }
 
-  public onLobbyState(lobbyStateHandler: (state: LobbyStateMessage) => void): void {
+  public onLobbyState(
+    lobbyStateHandler: (state: LobbyStateMessage) => void,
+  ): void {
     this.lobbyStateHandlers.push(lobbyStateHandler);
   }
 

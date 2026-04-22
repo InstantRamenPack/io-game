@@ -25,7 +25,15 @@ export function createLobbyHudController({
   const gameStartPrompt = elements.gameStartPrompt;
   const matchCoreHud = elements.matchCoreHud;
 
-  if (!root || !statusEl || !metaEl || !joinBtn || !leaveBtn || !codeInput || !joinCodeBtn) {
+  if (
+    !root ||
+    !statusEl ||
+    !metaEl ||
+    !joinBtn ||
+    !leaveBtn ||
+    !codeInput ||
+    !joinCodeBtn
+  ) {
     return {
       setVisible: () => undefined,
     };
@@ -99,7 +107,10 @@ export function createLobbyHudController({
     let countdownText = "Waiting for 2 players";
     if (state.startedAtMs !== null && state.startedAtMs !== undefined) {
       countdownText = "Game started";
-    } else if (state.countdownEndsAtMs !== null && state.countdownEndsAtMs !== undefined) {
+    } else if (
+      state.countdownEndsAtMs !== null &&
+      state.countdownEndsAtMs !== undefined
+    ) {
       const countdownSeconds = Math.max(
         0,
         Math.ceil((state.countdownEndsAtMs - nowMs) / 1000),

@@ -16,7 +16,9 @@ export class BaseballBat extends SweepMeleeWeapon {
     super(
       weaponContent.cooldownTicks,
       weaponContent.range,
-      createMeleeHitEffectsForWeapon(BaseballBat.typeId, [new FracturedEffect()]),
+      createMeleeHitEffectsForWeapon(BaseballBat.typeId, [
+        new FracturedEffect(),
+      ]),
       weaponContent.sweepArcDeg,
     );
   }
