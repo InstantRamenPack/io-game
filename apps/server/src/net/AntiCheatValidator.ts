@@ -52,6 +52,8 @@ export class AntiCheatValidator {
       case "chestMove":
         return this.isValidChestMove(actionMessage, playerEntity, world);
       case "craft":
+      case "drop":
+      case "pickup":
         return true;
     }
 
@@ -91,7 +93,9 @@ export class AntiCheatValidator {
     const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
     const chestEntity = world.entities.get<Chest>(chestEntityId);
     const chestSlotCount =
-      chestEntity?.typeId === "building:chest" ? chestEntity.chestSlots.length : 0;
+      chestEntity?.typeId === "building:chest"
+        ? chestEntity.chestSlots.length
+        : 0;
 
     const isValidFrom =
       fromSource === "hotbar"

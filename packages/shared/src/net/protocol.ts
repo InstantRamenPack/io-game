@@ -102,6 +102,19 @@ const ChestMoveActionMessageSchema = z.object({
   chestMove: ChestMoveInputSchema,
 });
 
+const DropActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("drop"),
+  dropWholeStack: z.boolean(),
+});
+
+const PickupActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("pickup"),
+});
+
 const ActionMessageSchema = z.discriminatedUnion("action", [
   AttackActionMessageSchema,
   CraftActionMessageSchema,
@@ -109,6 +122,8 @@ const ActionMessageSchema = z.discriminatedUnion("action", [
   InventoryMoveActionMessageSchema,
   SelectHotbarActionMessageSchema,
   ChestMoveActionMessageSchema,
+  DropActionMessageSchema,
+  PickupActionMessageSchema,
 ]);
 
 const RespawnMessageSchema = z.object({
@@ -202,6 +217,8 @@ export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
     "action:inventoryMove",
     "action:selectHotbar",
     "action:chestMove",
+    "action:drop",
+    "action:pickup",
     "respawn",
     "ping",
     "chat",

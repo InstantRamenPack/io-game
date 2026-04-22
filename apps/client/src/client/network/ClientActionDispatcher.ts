@@ -87,6 +87,19 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueDropSelectedItem(dropWholeStack: boolean): void {
+    this.sendAction({
+      action: "drop",
+      dropWholeStack,
+    });
+  }
+
+  public queuePickupNearbyItem(): void {
+    this.sendAction({
+      action: "pickup",
+    });
+  }
+
   public requestRespawn(): void {
     if (!this.canSend()) {
       return;
@@ -120,7 +133,9 @@ export class ClientActionDispatcher {
             toSource: "hotbar" | "chest";
             toIndex: number;
           };
-        },
+        }
+      | { action: "drop"; dropWholeStack: boolean }
+      | { action: "pickup" },
   ): void {
     if (!this.canSend()) {
       return;

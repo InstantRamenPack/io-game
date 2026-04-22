@@ -146,6 +146,12 @@ new GameInputRouter({
       case "selectHotbarOrdinal":
         hudController.selectHotbarItemByOrdinal(command.ordinal);
         return;
+      case "dropSelectedItem":
+        gameClient.queueDropSelectedItem(command.dropWholeStack);
+        return;
+      case "pickupNearestItem":
+        gameClient.queuePickupNearbyItem();
+        return;
     }
   },
 }).bind(window);

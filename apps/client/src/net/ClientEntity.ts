@@ -293,6 +293,9 @@ export class ClientEntity {
         break;
       case "pickup":
         this.inventory = snapshot.inventory;
+        if (previousInventory !== this.inventory) {
+          this.visualVersion += 1;
+        }
         break;
       case "projectile":
         break;

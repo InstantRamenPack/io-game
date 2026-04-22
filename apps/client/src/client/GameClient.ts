@@ -292,6 +292,14 @@ export class GameClient {
     this.actionDispatcher.queueSelectHotbarIndex(index);
   }
 
+  public queueDropSelectedItem(dropWholeStack: boolean): void {
+    this.actionDispatcher.queueDropSelectedItem(dropWholeStack);
+  }
+
+  public queuePickupNearbyItem(): void {
+    this.actionDispatcher.queuePickupNearbyItem();
+  }
+
   public requestRespawn(): void {
     this.actionDispatcher.requestRespawn();
   }

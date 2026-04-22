@@ -7,6 +7,7 @@ import {
   type ResolvedHitboxRect,
 } from "@shared/geometry/hitbox.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -55,6 +56,9 @@ class CollisionSystem implements System {
             candidate.id === entity.id ||
             candidate.collisionMode === "none"
           ) {
+            continue;
+          }
+          if (!this.shouldResolveCollisionPair(entity, candidate)) {
             continue;
           }
           if (
@@ -170,6 +174,10 @@ class CollisionSystem implements System {
     leftEntity: Entity,
     rightEntity: Entity,
   ): boolean {
+    if (!this.shouldResolveCollisionPair(leftEntity, rightEntity)) {
+      return false;
+    }
+
     if (
       leftEntity.collisionMode === "static" &&
       rightEntity.collisionMode === "static"
@@ -205,6 +213,24 @@ class CollisionSystem implements System {
       return true;
     }
 
+    return false;
+  }
+
+  private shouldResolveCollisionPair(
+    leftEntity: Entity,
+    rightEntity: Entity,
+  ): boolean {
+    const leftIsItemEntity = leftEntity instanceof ItemEntity;
+    const rightIsItemEntity = rightEntity instanceof ItemEntity;
+    if (!leftIsItemEntity && !rightIsItemEntity) {
+      return true;
+    }
+    if (leftIsItemEntity && rightIsItemEntity) {
+      if (leftEntity.canMergeStackableWith(rightEntity)) {
+        return false;
+      }
+      return true;
+    }
     return false;
   }
 

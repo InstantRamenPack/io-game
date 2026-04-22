@@ -8,4 +8,6 @@ export type InputCommand =
   | { type: "closeChest" }
   | { type: "moveCraftSelection"; delta: number }
   | { type: "queueSelectedCraft" }
-  | { type: "selectHotbarOrdinal"; ordinal: number };
+  | { type: "selectHotbarOrdinal"; ordinal: number }
+  | { type: "dropSelectedItem"; dropWholeStack: boolean }
+  | { type: "pickupNearestItem" };
