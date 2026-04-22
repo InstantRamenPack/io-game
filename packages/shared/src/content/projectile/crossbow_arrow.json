@@ -3,13 +3,13 @@
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
-    "speed": 36,
-    "range": 720,
+    "speed": 80,
+    "range": 1500,
     "damage": 16,
     "maxHits": 5,
     "hitbox": {
-      "width": 8,
-      "height": 8
+      "width": 12,
+      "height": 12
     }
   }
 }
