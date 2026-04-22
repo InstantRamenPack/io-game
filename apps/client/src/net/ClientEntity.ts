@@ -18,6 +18,7 @@ export type EntityServerFrame = {
   y: number;
   vx: number;
   vy: number;
+  rotation: number;
 };
 
 export type EntityPositionSample =
@@ -312,6 +313,7 @@ export class ClientEntity {
       latestFrame.y = snapshot.y;
       latestFrame.vx = snapshot.vx;
       latestFrame.vy = snapshot.vy;
+      latestFrame.rotation = snapshot.rotation;
       return;
     }
 
@@ -321,6 +323,7 @@ export class ClientEntity {
       y: snapshot.y,
       vx: snapshot.vx,
       vy: snapshot.vy,
+      rotation: snapshot.rotation,
     });
     if (this.serverFrameHistory.length > this.serverFrameHistoryLimit) {
       this.serverFrameHistory.splice(

@@ -4,6 +4,7 @@ import type {
   EntityServerFrame,
 } from "@client/net/ClientEntity.ts";
 import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { lerpAngle } from "@shared/math/angle.ts";
 
 export type InterpolationDebugFrame = {
   frameTimeMs: number;
@@ -274,6 +275,7 @@ export class Interpolator {
       );
       if (!sample) {
         entity.updatePosition(entity.serverX, entity.serverY);
+        entity.rotation = entity.rotation;
         if (playerEntityId !== undefined && entity.id === playerEntityId) {
           this.recordFocusedEntityDebugFrame({
             frameTimeMs,
@@ -308,6 +310,7 @@ export class Interpolator {
 
       const referenceFrame = getReferenceFrame(sample);
       const target = this.computeTargetPosition(entity, sample);
+      const targetRotation = this.computeTargetRotation(sample);
       const preCorrectionErrorDistance = Math.hypot(
         target.x - entity.x,
         target.y - entity.y,
@@ -319,6 +322,7 @@ export class Interpolator {
         deltaMs,
         referenceFrame,
       );
+      entity.rotation = targetRotation;
       if (playerEntityId !== undefined && entity.id === playerEntityId) {
         this.recordFocusedEntityDebugFrame({
           frameTimeMs,
@@ -381,6 +385,21 @@ export class Interpolator {
           entity,
           sample.previous,
           sample.next,
+          sample.alpha,
+        );
+    }
+  }
+
+  private computeTargetRotation(sample: EntityPositionSample): number {
+    switch (sample.mode) {
+      case "hold":
+        return sample.frame.rotation;
+      case "extrapolate":
+        return sample.latest.rotation;
+      case "interpolate":
+        return lerpAngle(
+          sample.previous.rotation,
+          sample.next.rotation,
           sample.alpha,
         );
     }
