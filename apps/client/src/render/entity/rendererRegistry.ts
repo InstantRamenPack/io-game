@@ -1,5 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts";
+import { ChestRenderer } from "@client/render/entity/building/ChestRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
 import { WallRenderer } from "@client/render/entity/building/WallRenderer.ts";
@@ -39,6 +40,7 @@ const rendererManifests = [
   ["bomber", BomberRenderer],
   ["wall", WallRenderer],
   ["cannon", CannonRenderer],
+  ["chest", ChestRenderer],
   ["crafting_station", CraftingStationRenderer],
   ["landmine", LandmineRenderer],
   ["basic_bullet", BasicBulletRenderer],

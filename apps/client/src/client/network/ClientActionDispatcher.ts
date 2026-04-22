@@ -67,6 +67,19 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueChestMove(
+    chestEntityId: number,
+    fromSource: "hotbar" | "chest",
+    fromIndex: number,
+    toSource: "hotbar" | "chest",
+    toIndex: number,
+  ): void {
+    this.sendAction({
+      action: "chestMove",
+      chestMove: { chestEntityId, fromSource, fromIndex, toSource, toIndex },
+    });
+  }
+
   public queueSelectHotbarIndex(index: number): void {
     this.sendAction({
       action: "selectHotbar",
@@ -97,7 +110,17 @@ export class ClientActionDispatcher {
           action: "inventoryMove";
           inventoryMove: { fromSlotIndex: number; toSlotIndex: number };
         }
-      | { action: "selectHotbar"; index: number },
+      | { action: "selectHotbar"; index: number }
+      | {
+          action: "chestMove";
+          chestMove: {
+            chestEntityId: number;
+            fromSource: "hotbar" | "chest";
+            fromIndex: number;
+            toSource: "hotbar" | "chest";
+            toIndex: number;
+          };
+        },
   ): void {
     if (!this.canSend()) {
       return;

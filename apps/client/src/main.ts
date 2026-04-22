@@ -107,6 +107,7 @@ new GameInputRouter({
     chatOpen: chatController.isOpen(),
     inventoryOpen: hudController.isInventoryOpen(),
     craftingOpen: hudController.isCraftingMenuOpen(),
+    chestOpen: hudController.isChestOpen(),
     textEntryActive: isKeyboardTextEntryTarget(document.activeElement),
   }),
   dispatch: (command) => {
@@ -132,6 +133,9 @@ new GameInputRouter({
         if (hudController.isInventoryOpen()) {
           hudController.toggleInventory();
         }
+        return;
+      case "closeChest":
+        hudController.closeChest();
         return;
       case "moveCraftSelection":
         hudController.moveCraftSelection(command.delta);

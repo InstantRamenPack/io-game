@@ -3,6 +3,9 @@ import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
   BUILD_PLACEMENT_MAX_DISTANCE,
+  CHEST_INTERACT_PADDING,
+  CHEST_SLOT_COUNT,
+  HOTBAR_SLOT_COUNT,
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
@@ -21,6 +24,7 @@ import {
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
 import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import { Chest, type ChestSlot } from "@server/entities/buildings/Chest.ts";
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
 
@@ -431,6 +435,9 @@ export class Player extends Entity {
             actionMessage.inventoryMove.toSlotIndex,
           );
           break;
+        case "chestMove":
+          this.applyChestMove(world, actionMessage.chestMove);
+          break;
       }
     }
 
@@ -445,6 +452,128 @@ export class Player extends Entity {
       leftEntity.getWorldHitboxes(),
       rightEntity.getWorldHitboxes(),
     );
+  }
+
+  private applyChestMove(
+    world: World,
+    action: {
+      chestEntityId: number;
+      fromSource: "hotbar" | "chest";
+      fromIndex: number;
+      toSource: "hotbar" | "chest";
+      toIndex: number;
+    },
+  ): void {
+    const { chestEntityId, fromSource, fromIndex, toSource, toIndex } = action;
+
+    const maxHotbar = HOTBAR_SLOT_COUNT - 1;
+    if (fromSource === "hotbar" && (fromIndex < 0 || fromIndex > maxHotbar)) {
+      return;
+    }
+    if (
+      fromSource === "chest" &&
+      (fromIndex < 0 || fromIndex >= CHEST_SLOT_COUNT)
+    ) {
+      return;
+    }
+    if (toSource === "hotbar" && (toIndex < 0 || toIndex > maxHotbar)) {
+      return;
+    }
+    if (
+      toSource === "chest" &&
+      (toIndex < 0 || toIndex >= CHEST_SLOT_COUNT)
+    ) {
+      return;
+    }
+
+    const chestEntity = world.entities.get<Chest>(chestEntityId);
+    if (!chestEntity || chestEntity.typeId !== "building:chest") {
+      return;
+    }
+
+    const bounds = chestEntity.getWorldBounds();
+    if (
+      this.x < bounds.minX - CHEST_INTERACT_PADDING ||
+      this.x > bounds.maxX + CHEST_INTERACT_PADDING ||
+      this.y < bounds.minY - CHEST_INTERACT_PADDING ||
+      this.y > bounds.maxY + CHEST_INTERACT_PADDING
+    ) {
+      return;
+    }
+
+    const fromValue = this.extractSlotValue(fromSource, fromIndex, chestEntity);
+    if (fromValue === null) {
+      return;
+    }
+    const toValue = this.extractSlotValue(toSource, toIndex, chestEntity);
+
+    if (
+      fromValue.kind === "buildable" &&
+      toValue?.kind === "buildable" &&
+      fromValue.typeId === toValue.typeId
+    ) {
+      const stacked = fromValue.count + toValue.count;
+      this.writeSlotValue(
+        toSource,
+        toIndex,
+        chestEntity,
+        { kind: "buildable", typeId: toValue.typeId, count: stacked },
+      );
+      this.writeSlotValue(fromSource, fromIndex, chestEntity, null);
+      return;
+    }
+
+    this.writeSlotValue(toSource, toIndex, chestEntity, fromValue);
+    this.writeSlotValue(fromSource, fromIndex, chestEntity, toValue);
+  }
+
+  private extractSlotValue(
+    source: "hotbar" | "chest",
+    index: number,
+    chest: Chest,
+  ): ChestSlot {
+    if (source === "chest") {
+      return chest.getSlot(index);
+    }
+    const slot = this.inventory.hotbarSlots[index] ?? null;
+    if (!slot) {
+      return null;
+    }
+    if (slot.kind === "buildable") {
+      return { kind: "buildable", typeId: slot.typeId, count: slot.count };
+    }
+    return { kind: "weapon", typeId: slot.weapon.typeId };
+  }
+
+  private writeSlotValue(
+    source: "hotbar" | "chest",
+    index: number,
+    chest: Chest,
+    value: ChestSlot,
+  ): void {
+    if (source === "chest") {
+      chest.setSlot(index, value);
+      return;
+    }
+    if (value === null) {
+      this.inventory.hotbarSlots[index] = null;
+      return;
+    }
+    if (value.kind === "buildable") {
+      this.inventory.hotbarSlots[index] = {
+        kind: "buildable",
+        typeId: value.typeId,
+        count: value.count,
+      };
+      return;
+    }
+    const entry = itemTypeRegistry.get(value.typeId);
+    if (entry && isWeaponCtor(entry.ctor)) {
+      this.inventory.hotbarSlots[index] = {
+        kind: "weapon",
+        weapon: new entry.ctor(),
+      };
+    }
   }
 
   private getNearbyCraftingStations(world: World): Entity[] {

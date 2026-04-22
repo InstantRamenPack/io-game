@@ -10,6 +10,7 @@ import type {
   EquippedItemSnapshot,
   EntitySnapshot,
   InventorySnapshot,
+  InventorySlotSnapshot,
 } from "@shared/net/snapshots.ts";
 
 export type EntityServerFrame = {
@@ -60,6 +61,7 @@ export class ClientEntity {
   public name?: string;
   public label?: string;
   public tier?: number;
+  public chestSlots?: readonly InventorySlotSnapshot[];
   public inventory?: InventorySnapshot;
   public activeEffects?: readonly ActiveEffectSnapshot[];
   public moveSpeed?: number;
@@ -255,6 +257,7 @@ export class ClientEntity {
     const previousName = this.name;
     const previousLabel = this.label;
     const previousTier = this.tier;
+    const previousChestSlots = this.chestSlots;
     const previousInventory = this.inventory;
     const previousEffects = this.activeEffects;
     const previousMoveSpeed = this.moveSpeed;
@@ -264,6 +267,7 @@ export class ClientEntity {
     this.name = undefined;
     this.label = undefined;
     this.tier = undefined;
+    this.chestSlots = undefined;
     this.inventory = undefined;
     this.activeEffects = undefined;
     this.moveSpeed = undefined;
@@ -285,6 +289,7 @@ export class ClientEntity {
       case "building":
         this.label = snapshot.label;
         this.tier = snapshot.tier;
+        this.chestSlots = snapshot.chestSlots;
         break;
       case "pickup":
         this.inventory = snapshot.inventory;
@@ -297,6 +302,7 @@ export class ClientEntity {
       previousName !== this.name ||
       previousLabel !== this.label ||
       previousTier !== this.tier ||
+      previousChestSlots !== this.chestSlots ||
       previousInventory !== this.inventory ||
       previousEffects !== this.activeEffects ||
       previousMoveSpeed !== this.moveSpeed ||

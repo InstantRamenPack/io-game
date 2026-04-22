@@ -3,6 +3,7 @@ import type {
   AimMessage,
   MoveIntentMessage,
 } from "@shared/net/protocol.ts";
+import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -48,6 +49,8 @@ export class AntiCheatValidator {
         );
       case "inventoryMove":
         return this.isValidInventoryMove(actionMessage, playerEntity);
+      case "chestMove":
+        return this.isValidChestMove(actionMessage, playerEntity, world);
       case "craft":
         return true;
     }
@@ -72,5 +75,33 @@ export class AntiCheatValidator {
         playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined) ===
       false
     );
+  }
+
+  private isValidChestMove(
+    actionMessage: ActionMessage,
+    playerEntity: Player,
+    world: World,
+  ): boolean {
+    if (actionMessage.action !== "chestMove") {
+      return false;
+    }
+
+    const { chestEntityId, fromSource, fromIndex, toSource, toIndex } =
+      actionMessage.chestMove;
+    const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
+    const chestEntity = world.entities.get<Chest>(chestEntityId);
+    const chestSlotCount =
+      chestEntity?.typeId === "building:chest" ? chestEntity.chestSlots.length : 0;
+
+    const isValidFrom =
+      fromSource === "hotbar"
+        ? fromIndex >= 0 && fromIndex < hotbarSlotCount
+        : fromIndex >= 0 && fromIndex < chestSlotCount;
+    const isValidTo =
+      toSource === "hotbar"
+        ? toIndex >= 0 && toIndex < hotbarSlotCount
+        : toIndex >= 0 && toIndex < chestSlotCount;
+
+    return isValidFrom && isValidTo;
   }
 }

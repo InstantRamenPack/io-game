@@ -17,6 +17,7 @@ export type GameSelectors = {
   getPlayerEntity(): ClientEntity | undefined;
   getTrackedBuildings(): ClientEntity[];
   getCraftingStations(): ClientEntity[];
+  getChests(): ClientEntity[];
   getInventory(): InventorySnapshot | undefined;
   countInventoryType(typeId: string): number;
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
@@ -71,6 +72,12 @@ export function createGameSelectors(
     );
   }
 
+  function getChests(): ClientEntity[] {
+    return getTrackedBuildings().filter(
+      (entity) => entity.typeId === "building:chest",
+    );
+  }
+
   function getInventory(): InventorySnapshot | undefined {
     return getPlayerEntity()?.inventory;
   }
@@ -120,6 +127,7 @@ export function createGameSelectors(
     getPlayerEntity,
     getTrackedBuildings,
     getCraftingStations,
+    getChests,
     getInventory,
     countInventoryType,
     hasRecipeResources,

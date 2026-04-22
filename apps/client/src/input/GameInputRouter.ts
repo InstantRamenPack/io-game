@@ -65,13 +65,23 @@ export class GameInputRouter {
 
     if (key === "e") {
       event.preventDefault();
-      this.options.dispatch({
-        type: context.inventoryOpen ? "closeInventory" : "toggleInventory",
-      });
+      if (context.chestOpen) {
+        this.options.dispatch({ type: "closeChest" });
+      } else if (context.inventoryOpen) {
+        this.options.dispatch({ type: "closeInventory" });
+      } else {
+        this.options.dispatch({ type: "toggleInventory" });
+      }
       return;
     }
 
     if (key === "escape") {
+      if (context.chestOpen) {
+        event.preventDefault();
+        this.options.dispatch({ type: "closeChest" });
+        return;
+      }
+
       if (context.inventoryOpen) {
         event.preventDefault();
         this.options.dispatch({ type: "closeInventory" });

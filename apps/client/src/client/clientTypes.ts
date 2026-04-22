@@ -32,6 +32,13 @@ export type GameClientHudApi = {
   queueSelectHotbarIndex(index: number): void;
   queueCraftItem(itemTypeId: ResourceId): void;
   queueBuildPlacement(x: number, y: number): void;
+  queueChestMove(
+    chestEntityId: number,
+    fromSource: "hotbar" | "chest",
+    fromIndex: number,
+    toSource: "hotbar" | "chest",
+    toIndex: number,
+  ): void;
   stopHoldFire(): void;
   setMovementSuppressed(suppressed: boolean): void;
   getMeasuredRates(): PerformanceRateState;
