@@ -2,6 +2,7 @@ import type {
   ActionMessage,
   AimMessage,
   ChatMessage,
+  LobbyStateMessage,
   MoveIntentKey,
 } from "@shared/net/protocol.ts";
 import { parseServerToClientMessage } from "@shared/net/protocol.ts";
@@ -24,6 +25,7 @@ export class WsClient {
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
   private welcomeHandlers: Array<(entityId: number) => void> = [];
   private chatHandlers: Array<(message: ChatMessage) => void> = [];
+  private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
@@ -102,6 +104,13 @@ export class WsClient {
         return;
       }
 
+      if (serverMessage.t === "lobby_state") {
+        for (const lobbyStateHandler of this.lobbyStateHandlers) {
+          lobbyStateHandler(serverMessage);
+        }
+        return;
+      }
+
       if (serverMessage.t === "error") {
         for (const errorHandler of this.errorHandlers) {
           errorHandler(serverMessage.message);
@@ -150,6 +159,29 @@ export class WsClient {
     this.socket.send(JSON.stringify({ t: "chat", text }));
   }
 
+  public joinLobby(): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify({ t: "lobby", action: "join" }));
+  }
+
+  public joinLobbyByCode(lobbyCode: string): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(
+      JSON.stringify({ t: "lobby", action: "joinByCode", lobbyCode }),
+    );
+  }
+
+  public leaveLobby(): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify({ t: "lobby", action: "leave" }));
+  }
+
   public onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
     this.snapshotHandlers.push(snapshotHandler);
   }
@@ -160,6 +192,10 @@ export class WsClient {
 
   public onChat(chatHandler: (message: ChatMessage) => void): void {
     this.chatHandlers.push(chatHandler);
+  }
+
+  public onLobbyState(lobbyStateHandler: (state: LobbyStateMessage) => void): void {
+    this.lobbyStateHandlers.push(lobbyStateHandler);
   }
 
   public onOpen(openHandler: () => void): void {

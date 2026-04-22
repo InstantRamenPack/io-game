@@ -1,4 +1,4 @@
-import type { WsServer } from "@server/net/WsServer.ts";
+import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ServerToClientMessage } from "@shared/net/protocol.ts";
@@ -28,7 +28,7 @@ import {
 } from "@server/runtime/ctorGuards.ts";
 
 type ChatServiceOptions = {
-  networkServer: WsServer;
+  networkServer: NetworkServerLike;
   world: World;
   playerIdByClientId: Map<string, number>;
 };
@@ -57,7 +57,7 @@ function isPlayerCtor(ctor: EntityTypeEntry["ctor"]): ctor is typeof Player {
  * Server-side chat and command handler with Minecraft-style parsing.
  */
 export class ChatService {
-  private readonly networkServer: WsServer;
+  private readonly networkServer: NetworkServerLike;
   private readonly world: World;
   private readonly playerIdByClientId: Map<string, number>;
   private readonly maxMessageLength = 240;

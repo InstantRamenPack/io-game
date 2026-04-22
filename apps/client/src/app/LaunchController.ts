@@ -1,5 +1,6 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
+import type { LobbyHudController } from "@client/app/LobbyHudController.ts";
 import type { ChatController } from "@client/app/ChatController.ts";
 import type { MenuController } from "@client/app/MenuController.ts";
 import type { AuthController } from "@client/auth/Auth.ts";
@@ -30,6 +31,7 @@ type LaunchControllerOptions = {
   menuController: MenuController;
   hudController: HudController;
   chatController: ChatController;
+  lobbyHudController: LobbyHudController;
   resolvePlayerName: () => string;
 };
 
@@ -47,6 +49,7 @@ export function createLaunchController({
   menuController,
   hudController,
   chatController,
+  lobbyHudController,
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
   function applyGameplayShellState(connected: boolean): void {
@@ -59,6 +62,7 @@ export function createLaunchController({
 
     hudController.setVisible(connected);
     chatController.setVisible(connected);
+    lobbyHudController.setVisible(connected);
 
     if (elements.launchBtn) {
       const button = elements.launchBtn as HTMLButtonElement;
