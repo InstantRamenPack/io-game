@@ -771,9 +771,11 @@ export class GameClient {
     }
 
     const dt = Math.max(0, deltaMs) / 1000;
+    const authoritativeX = player.serverX;
+    const authoritativeY = player.serverY;
     const current = this.selfPresentation ?? {
-      x: player.x,
-      y: player.y,
+      x: authoritativeX,
+      y: authoritativeY,
       rotation: player.rotation,
     };
     const moveVelocity = this.computeLocalPresentationVelocity(
@@ -781,14 +783,17 @@ export class GameClient {
     );
     let nextX = current.x + moveVelocity.x * dt;
     let nextY = current.y + moveVelocity.y * dt;
-    const errorDistance = Math.hypot(player.x - nextX, player.y - nextY);
+    const errorDistance = Math.hypot(
+      authoritativeX - nextX,
+      authoritativeY - nextY,
+    );
     if (errorDistance > SELF_PRESENTATION_SNAP_DISTANCE) {
-      nextX = player.x;
-      nextY = player.y;
+      nextX = authoritativeX;
+      nextY = authoritativeY;
     } else {
       const followT = 1 - Math.exp(-SELF_PRESENTATION_FOLLOW_SHARPNESS * dt);
-      nextX = lerp(nextX, player.x, followT);
-      nextY = lerp(nextY, player.y, followT);
+      nextX = lerp(nextX, authoritativeX, followT);
+      nextY = lerp(nextY, authoritativeY, followT);
     }
 
     const localAimTheta = this.computeLocalAimTheta();
