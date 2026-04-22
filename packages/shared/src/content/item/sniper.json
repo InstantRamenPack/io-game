@@ -1,0 +1,31 @@
+{
+  "label": "Sniper",
+  "hint": "Extreme-range precision rifle with brutal single-shot damage.",
+  "description": "One round per reload with expensive ammunition and long downtime.",
+  "recipe": {
+    "hint": "Heavy precision rifle with expensive maintenance and reloads.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:wood", "amount": 110 },
+      { "typeId": "item:stone", "amount": 120 }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 26,
+    "projectileTypeId": "projectile:sniper_bullet",
+    "magSize": 1,
+    "reloadTicks": 95,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:sniper_mag",
+    "equippedRender": {
+      "holdOffset": { "x": 22, "y": 2 },
+      "holdRotationDeg": -10,
+      "scale": 1.14,
+      "handedness": "right",
+      "recoilDistance": 18,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  }
+}

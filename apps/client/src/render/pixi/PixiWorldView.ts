@@ -1,4 +1,4 @@
-import type { Application, Container } from "pixi.js";
+import { Graphics, type Application, type Container } from "pixi.js";
 import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import {
   PixiPlacementPreview,
@@ -20,18 +20,24 @@ const GRID_DAY_FILL_COLOR = 0xd7f3d2;
 const GRID_NIGHT_FILL_COLOR = 0x3f5f46;
 const GRID_DAY_LINE_COLOR = 0x2d4f37;
 const GRID_NIGHT_LINE_COLOR = 0x9fd69a;
+const SNIPER_AIM_LINE_COLOR = 0xff2d2d;
+const SNIPER_AIM_LINE_ALPHA = 0.35;
+const SNIPER_AIM_LINE_WIDTH = 2;
 
 export class PixiWorldView {
   private readonly sceneGraph = new PixiSceneGraph();
   private readonly viewportController: PixiViewportController;
   private readonly cullingController = new PixiCullingController();
   private readonly placementPreview = new PixiPlacementPreview();
+  private readonly sniperAimGuide = new Graphics();
   private worldSize: WorldSize;
   private gridNightBlend = 0;
 
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
     this.viewportController = new PixiViewportController(worldSize);
+    this.sniperAimGuide.visible = false;
+    this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
   }
 
   public get entityContainer(): Container {
@@ -156,6 +162,45 @@ export class PixiWorldView {
     this.placementPreview.sync(state);
   }
 
+  public setSniperAimGuide(
+    state: {
+      originX: number;
+      originY: number;
+      directionX: number;
+      directionY: number;
+    } | null,
+  ): void {
+    if (!state) {
+      this.sniperAimGuide.clear();
+      this.sniperAimGuide.visible = false;
+      return;
+    }
+
+    const endpoint = clipRayToWorldBounds(
+      state.originX,
+      state.originY,
+      state.directionX,
+      state.directionY,
+      this.worldSize,
+    );
+    if (!endpoint) {
+      this.sniperAimGuide.clear();
+      this.sniperAimGuide.visible = false;
+      return;
+    }
+
+    this.sniperAimGuide.clear();
+    this.sniperAimGuide
+      .moveTo(state.originX, state.originY)
+      .lineTo(endpoint.x, endpoint.y)
+      .stroke({
+        width: SNIPER_AIM_LINE_WIDTH,
+        color: SNIPER_AIM_LINE_COLOR,
+        alpha: SNIPER_AIM_LINE_ALPHA,
+      });
+    this.sniperAimGuide.visible = true;
+  }
+
   private drawGridGeometry(): void {
     const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
     const landmarkGraphic = this.sceneGraph.landmarkGraphic;
@@ -276,6 +321,63 @@ export class PixiWorldView {
       bounds.maxY,
     );
   }
+}
+
+function clipRayToWorldBounds(
+  originX: number,
+  originY: number,
+  directionX: number,
+  directionY: number,
+  worldSize: WorldSize,
+): { x: number; y: number } | null {
+  const rayLength = Math.hypot(directionX, directionY);
+  if (rayLength <= Number.EPSILON) {
+    return null;
+  }
+
+  const dx = directionX / rayLength;
+  const dy = directionY / rayLength;
+  const ts: number[] = [];
+  const minX = 0;
+  const minY = 0;
+  const maxX = worldSize.w;
+  const maxY = worldSize.h;
+
+  if (Math.abs(dx) > Number.EPSILON) {
+    ts.push((minX - originX) / dx, (maxX - originX) / dx);
+  }
+  if (Math.abs(dy) > Number.EPSILON) {
+    ts.push((minY - originY) / dy, (maxY - originY) / dy);
+  }
+
+  let closestT = Number.POSITIVE_INFINITY;
+  for (const t of ts) {
+    if (!Number.isFinite(t) || t <= 0) {
+      continue;
+    }
+    const x = originX + dx * t;
+    const y = originY + dy * t;
+    if (
+      x < minX - 0.01 ||
+      x > maxX + 0.01 ||
+      y < minY - 0.01 ||
+      y > maxY + 0.01
+    ) {
+      continue;
+    }
+    if (t < closestT) {
+      closestT = t;
+    }
+  }
+
+  if (!Number.isFinite(closestT)) {
+    return null;
+  }
+
+  return {
+    x: originX + dx * closestT,
+    y: originY + dy * closestT,
+  };
 }
 
 function lerpColor(start: number, end: number, t: number): number {

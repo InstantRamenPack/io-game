@@ -54,7 +54,15 @@ export function createDeathController({
     }
   };
 
-  respawnBtn.addEventListener("click", () => {
+  respawnBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    respawnBtn.blur();
+    gameClient.clearMovementSuppressions();
+    // Clear death-gate suppression immediately so controls can't stay stuck
+    // behind overlay state if the respawn snapshot arrives late.
+    setVisible(false);
+    sessionUiController.showPlaying();
     gameClient.requestRespawn();
   });
 

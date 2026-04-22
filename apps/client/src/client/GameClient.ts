@@ -34,6 +34,7 @@ import type { LobbyStateMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
 const AIM_SEND_EPSILON = 0.0025;
+const SNIPER_WEAPON_TYPE_ID = "item:sniper";
 
 /**
  * Coordinates the client runtime while gameplay concerns live in focused
@@ -163,7 +164,9 @@ export class GameClient {
     return this.networkClient.socket?.readyState === WebSocket.OPEN;
   }
 
-  public onLobbyStateUpdated(handler: (state: LobbyStateMessage) => void): void {
+  public onLobbyStateUpdated(
+    handler: (state: LobbyStateMessage) => void,
+  ): void {
     this.lobbyStateHandlers.push(handler);
   }
 
@@ -269,8 +272,32 @@ export class GameClient {
     this.actionDispatcher.queueInventoryMove(fromSlotIndex, toSlotIndex);
   }
 
+  public queueChestMove(
+    chestEntityId: number,
+    fromSource: "hotbar" | "chest",
+    fromIndex: number,
+    toSource: "hotbar" | "chest",
+    toIndex: number,
+  ): void {
+    this.actionDispatcher.queueChestMove(
+      chestEntityId,
+      fromSource,
+      fromIndex,
+      toSource,
+      toIndex,
+    );
+  }
+
   public queueSelectHotbarIndex(index: number): void {
     this.actionDispatcher.queueSelectHotbarIndex(index);
+  }
+
+  public queueDropSelectedItem(dropWholeStack: boolean): void {
+    this.actionDispatcher.queueDropSelectedItem(dropWholeStack);
+  }
+
+  public queuePickupNearbyItem(): void {
+    this.actionDispatcher.queuePickupNearbyItem();
   }
 
   public requestRespawn(): void {
@@ -296,6 +323,11 @@ export class GameClient {
 
     this.releaseLegacyMovementSuppression?.();
     this.releaseLegacyMovementSuppression = undefined;
+  }
+
+  public clearMovementSuppressions(): void {
+    this.releaseLegacyMovementSuppression = undefined;
+    this.inputBlocker.clear();
   }
 
   public isLocalPlayerAlive(): boolean | null {
@@ -376,6 +408,12 @@ export class GameClient {
         pointerAimTarget: this.pointerAimController.getAimTarget(),
         gameConfig: this.gameConfig,
       });
+      this.syncSniperAimGuide(
+        playerPose,
+        this.pointerAimController.getAimTarget(),
+      );
+    } else {
+      this.renderer.setSniperAimGuide(null);
     }
 
     this.renderer.update(deltaMs);
@@ -523,6 +561,7 @@ export class GameClient {
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
     this.placementPreviewController.reset(this.renderer);
+    this.renderer.setSniperAimGuide(null);
   }
 
   private resetSessionState(disconnectTransport: boolean): void {
@@ -552,6 +591,7 @@ export class GameClient {
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
     this.placementPreviewController.reset(this.renderer);
+    this.renderer.setSniperAimGuide(null);
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -699,5 +739,34 @@ export class GameClient {
     }
 
     this.actionDispatcher.sendAim(theta);
+  }
+
+  private syncSniperAimGuide(
+    playerPose: { x: number; y: number } | null,
+    aimTarget: { x: number; y: number } | undefined,
+  ): void {
+    const activeWeapon = this.getLocalActiveWeapon();
+    if (
+      !playerPose ||
+      !aimTarget ||
+      activeWeapon?.typeId !== SNIPER_WEAPON_TYPE_ID
+    ) {
+      this.renderer.setSniperAimGuide(null);
+      return;
+    }
+
+    const directionX = aimTarget.x - playerPose.x;
+    const directionY = aimTarget.y - playerPose.y;
+    if (Math.hypot(directionX, directionY) <= Number.EPSILON) {
+      this.renderer.setSniperAimGuide(null);
+      return;
+    }
+
+    this.renderer.setSniperAimGuide({
+      originX: playerPose.x,
+      originY: playerPose.y,
+      directionX,
+      directionY,
+    });
   }
 }

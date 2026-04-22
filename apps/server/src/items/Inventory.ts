@@ -25,13 +25,16 @@ type InventorySlot = BuildableSlot | WeaponSlot | null;
 
 export class Inventory {
   public resources = new Map<ResourceId, number>();
+  private readonly unlockedRecipeTypeIds = new Set<ResourceId>();
   public hotbarSlots: InventorySlot[] = Array.from(
     { length: HOTBAR_SLOT_COUNT },
     () => null,
   );
   public selectedHotbarIndex = 0;
   private cachedResourceSnapshot?: InventorySnapshot["resources"];
+  private cachedUnlockedRecipeSnapshot?: InventorySnapshot["unlockedRecipeTypeIds"];
   private resourcesDirty = true;
+  private unlockedRecipesDirty = true;
 
   public addStackable(typeId: ResourceId, amount: number): boolean {
     if (amount <= 0) {
@@ -176,7 +179,28 @@ export class Inventory {
       }
     }
 
+    for (const unlockedRecipeTypeId of other.unlockedRecipeTypeIds) {
+      this.unlockRecipe(unlockedRecipeTypeId);
+    }
+
     return true;
+  }
+
+  public unlockRecipe(typeId: ResourceId): boolean {
+    if (this.unlockedRecipeTypeIds.has(typeId)) {
+      return false;
+    }
+    this.unlockedRecipeTypeIds.add(typeId);
+    this.unlockedRecipesDirty = true;
+    return true;
+  }
+
+  public isRecipeUnlocked(typeId: ResourceId): boolean {
+    return this.unlockedRecipeTypeIds.has(typeId);
+  }
+
+  public getUnlockedRecipeTypeIds(): readonly ResourceId[] {
+    return this.getUnlockedRecipeSnapshot();
   }
 
   public getActiveWeapon(): Weapon | undefined {
@@ -345,6 +369,7 @@ export class Inventory {
         this.toSlotSnapshot(slot, owner),
       ),
       selectedHotbarIndex: this.selectedHotbarIndex,
+      unlockedRecipeTypeIds: this.getUnlockedRecipeSnapshot(),
     };
   }
 
@@ -360,6 +385,16 @@ export class Inventory {
     }
 
     return this.cachedResourceSnapshot;
+  }
+
+  private getUnlockedRecipeSnapshot(): InventorySnapshot["unlockedRecipeTypeIds"] {
+    if (!this.cachedUnlockedRecipeSnapshot || this.unlockedRecipesDirty) {
+      this.cachedUnlockedRecipeSnapshot = [...this.unlockedRecipeTypeIds].sort(
+        (leftTypeId, rightTypeId) => leftTypeId.localeCompare(rightTypeId),
+      );
+      this.unlockedRecipesDirty = false;
+    }
+    return this.cachedUnlockedRecipeSnapshot;
   }
 
   private findMatchingBuildableSlotIndex(typeId: ResourceId): number | null {

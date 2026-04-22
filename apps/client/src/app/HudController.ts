@@ -59,6 +59,14 @@ export type HudRuntime = {
    */
   isInventoryOpen(): boolean;
   /**
+   * Reports whether the chest panel is currently open.
+   */
+  isChestOpen(): boolean;
+  /**
+   * Closes the chest panel if it is open.
+   */
+  closeChest(): void;
+  /**
    * Shows or hides the in-game HUD shell.
    */
   setVisible(visible: boolean): void;

@@ -5,5 +5,6 @@ export type InputContext = {
   chatOpen: boolean;
   inventoryOpen: boolean;
   craftingOpen: boolean;
+  chestOpen: boolean;
   textEntryActive: boolean;
 };

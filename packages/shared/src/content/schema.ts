@@ -105,6 +105,7 @@ export const ItemContentSchema = z.object({
   description: z.string().min(1).optional(),
   iconTextureId: ResourceIdSchema.optional(),
   recipe: ItemRecipeContentSchema.optional(),
+  unlocksRecipeTypeId: ResourceIdSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
   food: z.object({ foodRestore: z.number().finite().positive() }).optional(),

@@ -10,6 +10,8 @@ import {
 } from "@client/render/hud/CraftingModal.ts";
 import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
+import { ChestView } from "@client/render/hud/ChestView.ts";
+import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
 import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
 import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
 import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
@@ -30,6 +32,7 @@ import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
+  isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -52,6 +55,7 @@ export class PixiHud {
   private readonly gameplayHudCoordinator = new GameplayHudCoordinator();
   private readonly craftingHudCoordinator = new CraftingHudCoordinator();
   private readonly inventoryEditCoordinator = new InventoryEditCoordinator();
+  private readonly chestHudCoordinator = new ChestHudCoordinator();
   private readonly tooltipCoordinator = new HudTooltipCoordinator();
 
   private root: PIXI.Container | null = null;
@@ -61,6 +65,7 @@ export class PixiHud {
   private combatHudView?: CombatHudView;
   private hotbarView?: HotbarView;
   private hotbarEditView?: InventoryView;
+  private chestView?: ChestView;
   private resourceStackView?: ResourceStackView;
   private craftModalView?: CraftingModal;
   private tooltipView?: HudTooltipView;
@@ -110,10 +115,14 @@ export class PixiHud {
     this.state = {
       craftingMenuOpen: false,
       inventoryOpen: false,
+      chestOpen: false,
+      openChestEntityId: null,
       selectedCraft: defaultCraftItemTypeId,
       previewedCraft: defaultCraftItemTypeId,
       hoveredInventorySlotIndex: null,
       heldInventorySlotIndex: null,
+      hoveredChestSlotRef: null,
+      heldChestSlotRef: null,
     };
   }
 
@@ -137,6 +146,10 @@ export class PixiHud {
           this.gameClient.renderer.getItemTexture(typeId),
       });
       this.hotbarEditView = new InventoryView({
+        iconProvider: (typeId) =>
+          this.gameClient.renderer.getItemTexture(typeId),
+      });
+      this.chestView = new ChestView({
         iconProvider: (typeId) =>
           this.gameClient.renderer.getItemTexture(typeId),
       });
@@ -170,6 +183,7 @@ export class PixiHud {
         this.hotbarView.container,
         this.resourceStackView.container,
         this.hotbarEditView.container,
+        this.chestView.container,
         this.craftModalView.container,
         this.dayNightIndicator.container,
         this.selectedItemToastView.container,
@@ -263,10 +277,11 @@ export class PixiHud {
   }
 
   public moveCraftSelection(delta: number): boolean {
+    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
     const moved = this.craftingHudCoordinator.moveSelection(
       this.state,
       delta,
-      CRAFTABLE_ITEM_TYPE_IDS,
+      visibleCraftableTypeIds,
     );
     if (moved) {
       this.markDirty();
@@ -289,6 +304,41 @@ export class PixiHud {
   }
 
   public handlePointerInput(pointer: PointerInput): boolean {
+    if (this.state.chestOpen && this.chestView) {
+      const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+        this.state,
+        this.selectors,
+      );
+      const hotbarSlots =
+        this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots();
+      return this.chestHudCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        getSlotRefAtPoint: (sx, sy) =>
+          this.chestView?.getSlotRefAtPoint(sx, sy) ?? null,
+        getSlotItem: (ref) => {
+          if (ref.source === "chest") {
+            const slot = chestSlots?.[ref.index];
+            return slot?.kind !== "empty" ? { typeId: slot?.typeId ?? null } : { typeId: null };
+          }
+          const slot = hotbarSlots[ref.index];
+          if (!slot || slot.kind === "empty") return { typeId: null };
+          return { typeId: slot.typeId };
+        },
+        queueChestMove: (from, to) => {
+          if (this.state.openChestEntityId === null) return;
+          this.gameClient.queueChestMove(
+            this.state.openChestEntityId,
+            from.source,
+            from.index,
+            to.source,
+            to.index,
+          );
+        },
+        markDirty: () => this.markDirty(),
+      });
+    }
+
     if (this.state.inventoryOpen && this.hotbarEditView) {
       return this.inventoryEditCoordinator.handlePointerInput({
         state: this.state,
@@ -344,6 +394,27 @@ export class PixiHud {
       return true;
     }
 
+    const chestHandled = this.chestHudCoordinator.handleGameplayPointerDown({
+      state: this.state,
+      pointer,
+      selectors: this.selectors,
+      openChest: (chestEntityId) => {
+        if (this.state.craftingMenuOpen) {
+          this.craftingHudCoordinator.close(this.state);
+        }
+        if (this.state.inventoryOpen) {
+          this.inventoryEditCoordinator.close(this.state);
+        }
+        this.chestHudCoordinator.open(this.state, chestEntityId);
+        this.syncOverlaySuppression();
+        this.markDirty();
+      },
+      queueBuildPlacement: (x, y) => this.gameClient.queueBuildPlacement(x, y),
+    });
+    if (chestHandled) {
+      return true;
+    }
+
     return this.craftingHudCoordinator.handleGameplayPointerDown({
       state: this.state,
       pointer,
@@ -360,6 +431,7 @@ export class PixiHud {
   public reset(): void {
     this.craftingHudCoordinator.reset(this.state);
     this.inventoryEditCoordinator.reset(this.state);
+    this.chestHudCoordinator.reset(this.state);
     this.gameClient.stopHoldFire();
     this.gameClient.setMovementSuppressed(false);
     this.markDirty();
@@ -371,6 +443,19 @@ export class PixiHud {
 
   public isInventoryOpen(): boolean {
     return this.state.inventoryOpen;
+  }
+
+  public isChestOpen(): boolean {
+    return this.state.chestOpen;
+  }
+
+  public closeChest(): void {
+    if (!this.state.chestOpen) {
+      return;
+    }
+    this.chestHudCoordinator.close(this.state);
+    this.syncOverlaySuppression();
+    this.markDirty();
   }
 
   public setVisible(visible: boolean): void {
@@ -405,6 +490,15 @@ export class PixiHud {
       this.markDirty();
     }
 
+    const chestProximity = this.chestHudCoordinator.syncProximity(
+      this.state,
+      this.selectors,
+    );
+    if (chestProximity.changed) {
+      this.syncOverlaySuppression();
+      this.markDirty();
+    }
+
     const inventory = this.selectors.getInventory();
     const hotbarItems = this.getHotbarItems();
     this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
@@ -435,6 +529,7 @@ export class PixiHud {
     this.dirty = false;
 
     this.syncHotbarEditView(app.screen.width, app.screen.height, hotbarItems);
+    this.syncChestView(app.screen.width, app.screen.height);
     const craftEntries = this.syncCraftModal(
       app.screen.width,
       app.screen.height,
@@ -518,7 +613,10 @@ export class PixiHud {
   }
 
   private syncOverlaySuppression(): void {
-    const suppressed = this.state.craftingMenuOpen || this.state.inventoryOpen;
+    const suppressed =
+      this.state.craftingMenuOpen ||
+      this.state.inventoryOpen ||
+      this.state.chestOpen;
     this.gameClient.stopHoldFire();
     this.gameClient.setMovementSuppressed(suppressed);
   }
@@ -590,6 +688,26 @@ export class PixiHud {
     });
   }
 
+  private syncChestView(screenWidth: number, screenHeight: number): void {
+    if (!this.chestView) {
+      return;
+    }
+    const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+      this.state,
+      this.selectors,
+    );
+    const inventory = this.selectors.getInventory();
+    this.chestView.sync({
+      visible: this.state.chestOpen,
+      screenWidth,
+      screenHeight,
+      chestSlots: chestSlots ?? [],
+      hotbarSlots: inventory?.hotbarSlots ?? emptyHotbarSlots(),
+      hoveredRef: this.state.hoveredChestSlotRef,
+      heldRef: this.state.heldChestSlotRef,
+    });
+  }
+
   private syncCraftModal(
     screenWidth: number,
     screenHeight: number,
@@ -598,8 +716,11 @@ export class PixiHud {
       return [];
     }
 
+    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
+    this.syncCraftSelection(visibleCraftableTypeIds);
+
     const craftEntries = this.craftingHudCoordinator.buildCraftEntries({
-      craftableTypeIds: CRAFTABLE_ITEM_TYPE_IDS,
+      craftableTypeIds: visibleCraftableTypeIds,
       formatTypeLabel: (typeId) => this.selectors.formatTypeLabel(typeId),
       formatCosts: (costs) => this.selectors.formatCosts(costs),
       hasRecipeResources: (itemTypeId) =>
@@ -631,6 +752,10 @@ export class PixiHud {
   }
 
   private canSubmitCraft(itemTypeId: ResourceId): boolean {
+    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
+      return false;
+    }
+
     if (!this.hasNearbyCraftingStation()) {
       return false;
     }
@@ -642,6 +767,13 @@ export class PixiHud {
     enabled: boolean;
     statusLabel: string;
   } {
+    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
+      return {
+        enabled: false,
+        statusLabel: "Blueprint required",
+      };
+    }
+
     if (!this.hasNearbyCraftingStation()) {
       return {
         enabled: false,
@@ -674,6 +806,33 @@ export class PixiHud {
     return toHotbarSlotItems(
       this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots(),
     );
+  }
+
+  private getVisibleCraftableTypeIds(): readonly ResourceId[] {
+    const unlockedRecipeTypeIds = new Set(
+      this.selectors.getInventory()?.unlockedRecipeTypeIds ?? [],
+    );
+
+    return CRAFTABLE_ITEM_TYPE_IDS.filter((itemTypeId) => {
+      if (!isRecipeBlueprintLocked(itemTypeId)) {
+        return true;
+      }
+      return unlockedRecipeTypeIds.has(itemTypeId);
+    });
+  }
+
+  private syncCraftSelection(craftableTypeIds: readonly ResourceId[]): void {
+    const firstCraftTypeId = craftableTypeIds[0];
+    if (!firstCraftTypeId) {
+      return;
+    }
+
+    if (!craftableTypeIds.includes(this.state.selectedCraft)) {
+      this.state.selectedCraft = firstCraftTypeId;
+    }
+    if (!craftableTypeIds.includes(this.state.previewedCraft)) {
+      this.state.previewedCraft = this.state.selectedCraft;
+    }
   }
 }
 

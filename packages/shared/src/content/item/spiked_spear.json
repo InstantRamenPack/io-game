@@ -7,8 +7,13 @@
     "outputAmount": 1,
     "costs": [
       { "typeId": "item:basic_spear", "amount": 1 },
+<<<<<<< HEAD
       { "typeId": "item:blueprint_spiked_spear", "amount": 1 },
       { "typeId": "item:hunk", "amount": 20 }
+=======
+      { "typeId": "item:wood", "amount": 12 },
+      { "typeId": "item:stone", "amount": 8 }
+>>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
     ]
   },
   "weapon": {

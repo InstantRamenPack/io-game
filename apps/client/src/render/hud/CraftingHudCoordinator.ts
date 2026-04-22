@@ -161,9 +161,6 @@ export class CraftingHudCoordinator {
     this.hoveredCraftPreview = false;
     state.selectedCraft = clickedCraft;
     state.previewedCraft = clickedCraft;
-    if (canSubmitCraft(clickedCraft)) {
-      queueCraftItem(clickedCraft);
-    }
     return true;
   }
 

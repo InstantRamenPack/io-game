@@ -3,6 +3,7 @@ import buildingbuildingLJson from "@shared/content/building/building_l.json";
 import buildingbuildingMJson from "@shared/content/building/building_m.json";
 import buildingbuildingXlJson from "@shared/content/building/building_xl.json";
 import buildingcannonJson from "@shared/content/building/cannon.json";
+import buildingchestJson from "@shared/content/building/chest.json";
 import buildingcraftingStationJson from "@shared/content/building/crafting_station.json";
 import buildingfenceHJson from "@shared/content/building/fence_h.json";
 import buildingfenceVJson from "@shared/content/building/fence_v.json";
@@ -29,8 +30,11 @@ import itembasicGunJson from "@shared/content/item/basic_gun.json";
 import itembasicRifleJson from "@shared/content/item/basic_rifle.json";
 import itembasicSpearJson from "@shared/content/item/basic_spear.json";
 import itembasicSwordJson from "@shared/content/item/basic_sword.json";
+import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
+import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
 import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
+import itemchestJson from "@shared/content/item/chest.json";
 import itemcraftingStationJson from "@shared/content/item/crafting_station.json";
 import itemcrossbowJson from "@shared/content/item/crossbow.json";
 import itemcrossbowMagJson from "@shared/content/item/crossbow_mag.json";
@@ -43,6 +47,8 @@ import itemlandmineJson from "@shared/content/item/landmine.json";
 import itemleadPipeJson from "@shared/content/item/lead_pipe.json";
 import itemqualityFoodJson from "@shared/content/item/quality_food.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
+import itemsniperJson from "@shared/content/item/sniper.json";
+import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
 import itemtaserJson from "@shared/content/item/taser.json";
 import itemwallJson from "@shared/content/item/wall.json";
@@ -54,6 +60,7 @@ import projectilecannonBulletJson from "@shared/content/projectile/cannon_bullet
 import projectilecrossbowArrowJson from "@shared/content/projectile/crossbow_arrow.json";
 import projectilehomingDroneJson from "@shared/content/projectile/homing_drone.json";
 import projectilerifleBulletJson from "@shared/content/projectile/rifle_bullet.json";
+import projectilesniperBulletJson from "@shared/content/projectile/sniper_bullet.json";
 import {
   makeParsedEffectContentEntry,
   makeParsedEntityContentEntry,
@@ -69,6 +76,7 @@ export const buildingContentEntries = [
     buildingbuildingXlJson,
   ),
   makeParsedEntityContentEntry("building", "cannon", buildingcannonJson),
+  makeParsedEntityContentEntry("building", "chest", buildingchestJson),
   makeParsedEntityContentEntry(
     "building",
     "crafting_station",
@@ -109,10 +117,16 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("basic_spear", itembasicSpearJson),
   makeParsedItemContentEntry("basic_sword", itembasicSwordJson),
   makeParsedItemContentEntry(
+    "blueprint_basic_rifle",
+    itemblueprintBasicRifleJson,
+  ),
+  makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
+  makeParsedItemContentEntry(
     "blueprint_spiked_spear",
     itemblueprintSpikedSpearJson,
   ),
   makeParsedItemContentEntry("cannon", itemcannonJson),
+  makeParsedItemContentEntry("chest", itemchestJson),
   makeParsedItemContentEntry("crafting_station", itemcraftingStationJson),
   makeParsedItemContentEntry("crossbow", itemcrossbowJson),
   makeParsedItemContentEntry("crossbow_mag", itemcrossbowMagJson),
@@ -125,6 +139,8 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("lead_pipe", itemleadPipeJson),
   makeParsedItemContentEntry("quality_food", itemqualityFoodJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),
+  makeParsedItemContentEntry("sniper", itemsniperJson),
+  makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
   makeParsedItemContentEntry("taser", itemtaserJson),
   makeParsedItemContentEntry("wall", itemwallJson),
@@ -164,5 +180,10 @@ export const projectileContentEntries = [
     "projectile",
     "rifle_bullet",
     projectilerifleBulletJson,
+  ),
+  makeParsedEntityContentEntry(
+    "projectile",
+    "sniper_bullet",
+    projectilesniperBulletJson,
   ),
 ] as const;

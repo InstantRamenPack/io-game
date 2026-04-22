@@ -1,8 +1,8 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { getItemContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
-import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
@@ -21,7 +21,11 @@ const WEAPON_PICKUP_TYPE_IDS = [
   "item:baseball_bat",
   "item:basic_dagger",
 ] as const satisfies readonly ResourceId[];
-const BLUEPRINT_PICKUP_TYPE_IDS = ["item:blueprint_spiked_spear"] as const satisfies readonly ResourceId[];
+const BLUEPRINT_PICKUP_TYPE_IDS = [
+  "item:blueprint_spiked_spear",
+  "item:blueprint_basic_rifle",
+  "item:blueprint_sniper",
+] as const satisfies readonly ResourceId[];
 
 const MAG_PICKUP_SPAWN_INTERVAL_MS = 8000;
 const MAX_ACTIVE_MAG_PICKUPS = 8;
@@ -42,18 +46,13 @@ const MAX_ACTIVE_FOOD_PICKUPS = 8;
 const SPAWN_ATTEMPTS = 20;
 
 /**
- * Spawns consumable pickups (mags, weapons, blueprints) and grants them on player overlap.
+ * Spawns consumable pickups (mags, weapons, blueprints).
  */
 export class PickupSystem implements System {
   private magAccumulatedMs = 0;
-  private activeMagPickupCount = 0;
-  private activeMagPickupCountInitialized = false;
-
   private weaponAccumulatedMs = 0;
-  private activeWeaponPickupCount = 0;
-  private activeWeaponPickupCountInitialized = false;
-
   private blueprintAccumulatedMs = 0;
+<<<<<<< HEAD
   private activeBlueprintPickupCount = 0;
   private activeBlueprintPickupCountInitialized = false;
 
@@ -62,22 +61,27 @@ export class PickupSystem implements System {
   private activeFoodPickupCountInitialized = false;
 
   private readonly queryBuffer: ItemEntity[] = [];
+=======
+  private readonly queryBuffer: Entity[] = [];
+>>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
 
   public update(world: World, deltaMs: number): void {
-    if (!this.activeMagPickupCountInitialized) {
-      this.activeMagPickupCount = world.entities
-        .queryInstances(ItemEntity)
-        .filter((pickup) => this.isMagPickup(pickup)).length;
-      this.activeMagPickupCountInitialized = true;
+    this.mergeOverlappingStackablePickups(world);
+
+    let activeMagPickupCount = 0;
+    let activeWeaponPickupCount = 0;
+    let activeBlueprintPickupCount = 0;
+    for (const pickup of world.entities.queryInstances(ItemEntity)) {
+      if (this.isMagPickup(pickup)) {
+        activeMagPickupCount += 1;
+      } else if (this.isWeaponPickup(pickup)) {
+        activeWeaponPickupCount += 1;
+      } else if (this.isBlueprintPickup(pickup)) {
+        activeBlueprintPickupCount += 1;
+      }
     }
 
-    if (!this.activeWeaponPickupCountInitialized) {
-      this.activeWeaponPickupCount = world.entities
-        .queryInstances(ItemEntity)
-        .filter((pickup) => this.isWeaponPickup(pickup)).length;
-      this.activeWeaponPickupCountInitialized = true;
-    }
-
+<<<<<<< HEAD
     if (!this.activeBlueprintPickupCountInitialized) {
       this.activeBlueprintPickupCount = world.entities
         .queryInstances(ItemEntity)
@@ -94,27 +98,32 @@ export class PickupSystem implements System {
 
     this.collectPickups(world);
 
+=======
+>>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
     this.magAccumulatedMs += deltaMs;
     while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
       this.magAccumulatedMs -= MAG_PICKUP_SPAWN_INTERVAL_MS;
-      if (this.activeMagPickupCount < MAX_ACTIVE_MAG_PICKUPS) {
+      if (activeMagPickupCount < MAX_ACTIVE_MAG_PICKUPS) {
         this.spawnRandomMagPickup(world);
+        activeMagPickupCount += 1;
       }
     }
 
     this.weaponAccumulatedMs += deltaMs;
     while (this.weaponAccumulatedMs >= WEAPON_PICKUP_SPAWN_INTERVAL_MS) {
       this.weaponAccumulatedMs -= WEAPON_PICKUP_SPAWN_INTERVAL_MS;
-      if (this.activeWeaponPickupCount < MAX_ACTIVE_WEAPON_PICKUPS) {
+      if (activeWeaponPickupCount < MAX_ACTIVE_WEAPON_PICKUPS) {
         this.spawnRandomWeaponPickup(world);
+        activeWeaponPickupCount += 1;
       }
     }
 
     this.blueprintAccumulatedMs += deltaMs;
     while (this.blueprintAccumulatedMs >= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS) {
       this.blueprintAccumulatedMs -= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS;
-      if (this.activeBlueprintPickupCount < MAX_ACTIVE_BLUEPRINT_PICKUPS) {
+      if (activeBlueprintPickupCount < MAX_ACTIVE_BLUEPRINT_PICKUPS) {
         this.spawnRandomBlueprintPickup(world);
+        activeBlueprintPickupCount += 1;
       }
     }
 
@@ -127,15 +136,19 @@ export class PickupSystem implements System {
     }
   }
 
-  private collectPickups(world: World): void {
-    const players = world.entities.queryInstances(Player);
+  private mergeOverlappingStackablePickups(world: World): void {
+    const removedPickupIds = new Set<number>();
+    const pickups = world.entities.queryInstances(ItemEntity);
 
-    for (const player of players) {
-      if (!player.alive) {
+    for (const pickup of pickups) {
+      if (removedPickupIds.has(pickup.id) || !world.entities.has(pickup.id)) {
+        continue;
+      }
+      if (!pickup.getSingleStackable()) {
         continue;
       }
 
-      const bounds = player.getWorldBounds();
+      const bounds = pickup.getWorldBounds();
       const candidates = world.spatial.queryBox(
         bounds.minX,
         bounds.minY,
@@ -143,21 +156,17 @@ export class PickupSystem implements System {
         bounds.maxY,
         this.queryBuffer,
       );
-      const playerHitboxes = player.getWorldHitboxes();
 
       for (const candidate of candidates) {
-        if (!(candidate instanceof ItemEntity)) {
-          continue;
-        }
-        const pickup = candidate;
-        if (!world.entities.has(pickup.id)) {
-          continue;
-        }
         if (
-          !doResolvedRectSetsOverlap(playerHitboxes, pickup.getWorldHitboxes())
+          !(candidate instanceof ItemEntity) ||
+          candidate.id === pickup.id ||
+          removedPickupIds.has(candidate.id) ||
+          !world.entities.has(candidate.id)
         ) {
           continue;
         }
+<<<<<<< HEAD
 
         if (this.isMagPickup(pickup)) {
           if (!player.inventory.absorbInventory(pickup.contents)) {
@@ -193,7 +202,25 @@ export class PickupSystem implements System {
           player.food = Math.min(player.maxFood, player.food + foodRestore);
           this.activeFoodPickupCount = Math.max(0, this.activeFoodPickupCount - 1);
           world.despawn(pickup.id);
+=======
+        if (!pickup.canMergeStackableWith(candidate)) {
+          continue;
+>>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
         }
+        if (
+          !doResolvedRectSetsOverlap(
+            pickup.getWorldHitboxes(),
+            candidate.getWorldHitboxes(),
+          )
+        ) {
+          continue;
+        }
+        if (!pickup.mergeStackableFrom(candidate)) {
+          continue;
+        }
+
+        world.despawn(candidate.id);
+        removedPickupIds.add(candidate.id);
       }
     }
   }
@@ -202,9 +229,7 @@ export class PickupSystem implements System {
     const typeId = this.pickRandomTypeId(world, MAG_PICKUP_TYPE_IDS);
     const inventory = new Inventory();
     inventory.addStackable(typeId, 1);
-    if (this.trySpawnPickup(world, inventory)) {
-      this.activeMagPickupCount += 1;
-    }
+    this.trySpawnPickup(world, inventory);
   }
 
   private spawnRandomWeaponPickup(world: World): void {
@@ -215,18 +240,14 @@ export class PickupSystem implements System {
     }
     const inventory = new Inventory();
     inventory.addWeapon(new weaponEntry.ctor());
-    if (this.trySpawnPickup(world, inventory)) {
-      this.activeWeaponPickupCount += 1;
-    }
+    this.trySpawnPickup(world, inventory);
   }
 
   private spawnRandomBlueprintPickup(world: World): void {
     const typeId = this.pickRandomTypeId(world, BLUEPRINT_PICKUP_TYPE_IDS);
     const inventory = new Inventory();
     inventory.addStackable(typeId, 1);
-    if (this.trySpawnPickup(world, inventory)) {
-      this.activeBlueprintPickupCount += 1;
-    }
+    this.trySpawnPickup(world, inventory);
   }
 
   private trySpawnPickup(world: World, inventory: Inventory): boolean {

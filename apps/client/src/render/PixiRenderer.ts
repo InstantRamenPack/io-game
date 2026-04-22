@@ -210,6 +210,18 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public setSniperAimGuide(
+    state: {
+      originX: number;
+      originY: number;
+      directionX: number;
+      directionY: number;
+    } | null,
+  ): void {
+    this.worldView.setSniperAimGuide(state);
+    this.renderScheduler.markDirty();
+  }
+
   public triggerExplosionEffect(
     x: number,
     y: number,

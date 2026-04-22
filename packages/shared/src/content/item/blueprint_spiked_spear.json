@@ -1,5 +1,6 @@
 {
   "label": "Blueprint: Spiked Spear",
   "hint": "Rare crafting schematic for the Spiked Spear.",
-  "description": "A rare blueprint that, combined with a Spear and materials at a crafting bench, unlocks the powerful Spiked Spear."
+  "description": "Unlocks the Spiked Spear recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:spiked_spear"
 }
