@@ -1,0 +1,6 @@
+{
+  "label": "Blueprint: Rifle",
+  "hint": "Rare crafting schematic for the Rifle.",
+  "description": "Unlocks the rifle recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:basic_rifle"
+}

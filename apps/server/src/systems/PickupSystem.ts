@@ -1,4 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import { getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -20,7 +21,11 @@ const WEAPON_PICKUP_TYPE_IDS = [
   "item:baseball_bat",
   "item:basic_dagger",
 ] as const satisfies readonly ResourceId[];
-const BLUEPRINT_PICKUP_TYPE_IDS = ["item:blueprint_spiked_spear"] as const satisfies readonly ResourceId[];
+const BLUEPRINT_PICKUP_TYPE_IDS = [
+  "item:blueprint_spiked_spear",
+  "item:blueprint_basic_rifle",
+  "item:blueprint_sniper",
+] as const satisfies readonly ResourceId[];
 
 const MAG_PICKUP_SPAWN_INTERVAL_MS = 8000;
 const MAX_ACTIVE_MAG_PICKUPS = 8;
@@ -136,7 +141,10 @@ export class PickupSystem implements System {
           if (!player.inventory.absorbInventory(pickup.contents)) {
             continue;
           }
-          this.activeMagPickupCount = Math.max(0, this.activeMagPickupCount - 1);
+          this.activeMagPickupCount = Math.max(
+            0,
+            this.activeMagPickupCount - 1,
+          );
           world.despawn(pickup.id);
         } else if (this.isWeaponPickup(pickup)) {
           if (!player.inventory.absorbInventory(pickup.contents)) {
@@ -148,9 +156,7 @@ export class PickupSystem implements System {
           );
           world.despawn(pickup.id);
         } else if (this.isBlueprintPickup(pickup)) {
-          if (!player.inventory.absorbInventory(pickup.contents)) {
-            continue;
-          }
+          this.unlockBlueprintPickupRecipes(player.inventory, pickup.contents);
           this.activeBlueprintPickupCount = Math.max(
             0,
             this.activeBlueprintPickupCount - 1,
@@ -189,6 +195,24 @@ export class PickupSystem implements System {
     inventory.addStackable(typeId, 1);
     if (this.trySpawnPickup(world, inventory)) {
       this.activeBlueprintPickupCount += 1;
+    }
+  }
+
+  private unlockBlueprintPickupRecipes(
+    inventory: Inventory,
+    pickupContents: Inventory,
+  ): void {
+    for (const blueprintTypeId of BLUEPRINT_PICKUP_TYPE_IDS) {
+      if (pickupContents.getStackableCount(blueprintTypeId) <= 0) {
+        continue;
+      }
+
+      const unlockedRecipeTypeId =
+        getBlueprintUnlockedRecipeTypeId(blueprintTypeId);
+      if (!unlockedRecipeTypeId) {
+        continue;
+      }
+      inventory.unlockRecipe(unlockedRecipeTypeId);
     }
   }
 

@@ -1,0 +1,15 @@
+{
+  "label": "Sniper Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 240,
+    "range": 1000000,
+    "damage": 50,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 7,
+      "height": 7
+    }
+  }
+}

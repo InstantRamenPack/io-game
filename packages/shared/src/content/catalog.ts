@@ -79,6 +79,35 @@ export const CRAFTABLE_ITEM_TYPE_IDS = getItemTypeIds(
   (itemContent) => itemContent.recipe !== undefined,
 );
 
+const BLUEPRINT_TYPE_IDS = getItemTypeIds(
+  (itemContent) => itemContent.unlocksRecipeTypeId !== undefined,
+);
+
+const BLUEPRINT_LOCKED_RECIPE_TYPE_IDS = new Set<ResourceId>(
+  BLUEPRINT_TYPE_IDS.map(
+    (typeId) =>
+      requireMapValue(
+        itemContents,
+        typeId,
+        `Unknown blueprint item content: ${typeId}`,
+      ).unlocksRecipeTypeId as ResourceId,
+  ),
+);
+
+export function getBlueprintUnlockedRecipeTypeId(
+  typeId: ResourceId,
+): ResourceId | undefined {
+  return getItemContent(typeId)?.unlocksRecipeTypeId;
+}
+
+export function isBlueprintItemTypeId(typeId: ResourceId): boolean {
+  return getBlueprintUnlockedRecipeTypeId(typeId) !== undefined;
+}
+
+export function isRecipeBlueprintLocked(typeId: ResourceId): boolean {
+  return BLUEPRINT_LOCKED_RECIPE_TYPE_IDS.has(typeId);
+}
+
 export function requireItemContent(typeId: ResourceId): ItemContent {
   return requireMapValue(
     itemContents,

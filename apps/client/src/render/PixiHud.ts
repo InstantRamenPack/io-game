@@ -32,6 +32,7 @@ import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
+  isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -276,10 +277,11 @@ export class PixiHud {
   }
 
   public moveCraftSelection(delta: number): boolean {
+    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
     const moved = this.craftingHudCoordinator.moveSelection(
       this.state,
       delta,
-      CRAFTABLE_ITEM_TYPE_IDS,
+      visibleCraftableTypeIds,
     );
     if (moved) {
       this.markDirty();
@@ -714,8 +716,11 @@ export class PixiHud {
       return [];
     }
 
+    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
+    this.syncCraftSelection(visibleCraftableTypeIds);
+
     const craftEntries = this.craftingHudCoordinator.buildCraftEntries({
-      craftableTypeIds: CRAFTABLE_ITEM_TYPE_IDS,
+      craftableTypeIds: visibleCraftableTypeIds,
       formatTypeLabel: (typeId) => this.selectors.formatTypeLabel(typeId),
       formatCosts: (costs) => this.selectors.formatCosts(costs),
       hasRecipeResources: (itemTypeId) =>
@@ -747,6 +752,10 @@ export class PixiHud {
   }
 
   private canSubmitCraft(itemTypeId: ResourceId): boolean {
+    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
+      return false;
+    }
+
     if (!this.hasNearbyCraftingStation()) {
       return false;
     }
@@ -758,6 +767,13 @@ export class PixiHud {
     enabled: boolean;
     statusLabel: string;
   } {
+    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
+      return {
+        enabled: false,
+        statusLabel: "Blueprint required",
+      };
+    }
+
     if (!this.hasNearbyCraftingStation()) {
       return {
         enabled: false,
@@ -790,6 +806,33 @@ export class PixiHud {
     return toHotbarSlotItems(
       this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots(),
     );
+  }
+
+  private getVisibleCraftableTypeIds(): readonly ResourceId[] {
+    const unlockedRecipeTypeIds = new Set(
+      this.selectors.getInventory()?.unlockedRecipeTypeIds ?? [],
+    );
+
+    return CRAFTABLE_ITEM_TYPE_IDS.filter((itemTypeId) => {
+      if (!isRecipeBlueprintLocked(itemTypeId)) {
+        return true;
+      }
+      return unlockedRecipeTypeIds.has(itemTypeId);
+    });
+  }
+
+  private syncCraftSelection(craftableTypeIds: readonly ResourceId[]): void {
+    const firstCraftTypeId = craftableTypeIds[0];
+    if (!firstCraftTypeId) {
+      return;
+    }
+
+    if (!craftableTypeIds.includes(this.state.selectedCraft)) {
+      this.state.selectedCraft = firstCraftTypeId;
+    }
+    if (!craftableTypeIds.includes(this.state.previewedCraft)) {
+      this.state.previewedCraft = this.state.selectedCraft;
+    }
   }
 }
 

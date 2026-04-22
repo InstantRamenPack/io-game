@@ -1,7 +1,7 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
-import { isGameplaySession } from "@client/app/session/sessionUiSelectors.ts";
+import { isPlayingSession } from "@client/app/session/sessionUiSelectors.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import {
   CHAT_COMMAND_SCHEMAS,
@@ -257,7 +257,7 @@ export function createChatController({
   const isGameActive = (): boolean => {
     return (
       gameClient.isSessionReady() &&
-      isGameplaySession(sessionUiController.getState())
+      isPlayingSession(sessionUiController.getState())
     );
   };
 

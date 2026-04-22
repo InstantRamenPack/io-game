@@ -20,12 +20,20 @@ export class EntityRenderManager {
   ) {}
 
   public syncEntity(entity: ClientEntity): void {
+    if (entity.kind === "player" && !entity.alive) {
+      this.removeEntity(entity.id);
+      return;
+    }
     const renderer = this.requireRenderer(entity);
     renderer.sync(entity, this.presentationByEntityId.get(entity.id));
   }
 
   public update(deltaMs: number, entities: Iterable<ClientEntity>): void {
     for (const entity of entities) {
+      if (entity.kind === "player" && !entity.alive) {
+        this.removeEntity(entity.id);
+        continue;
+      }
       const renderer = this.requireRenderer(entity);
       const presentation = this.presentationByEntityId.get(entity.id);
       renderer.sync(entity, presentation);

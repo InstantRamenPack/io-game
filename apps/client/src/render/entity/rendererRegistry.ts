@@ -45,6 +45,7 @@ const rendererManifests = [
   ["landmine", LandmineRenderer],
   ["basic_bullet", BasicBulletRenderer],
   ["rifle_bullet", BasicBulletRenderer],
+  ["sniper_bullet", BasicBulletRenderer],
   ["cannon_bullet", CannonBulletRenderer],
   ["crossbow_arrow", CrossbowArrowRenderer],
   ["homing_drone", HomingDroneRenderer],
