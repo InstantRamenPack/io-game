@@ -3,8 +3,6 @@
   "recipe": {
     "hint": "Fresh magazine for the gun or rifle.",
     "outputAmount": 1,
-    "costs": [
-      { "typeId": "item:hunk", "amount": 12 }
-    ]
+    "costs": [{ "typeId": "item:hunk", "amount": 12 }]
   }
 }

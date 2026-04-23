@@ -1,7 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { getItemContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
@@ -52,7 +50,6 @@ export class PickupSystem implements System {
   private magAccumulatedMs = 0;
   private weaponAccumulatedMs = 0;
   private blueprintAccumulatedMs = 0;
-<<<<<<< HEAD
   private activeBlueprintPickupCount = 0;
   private activeBlueprintPickupCountInitialized = false;
 
@@ -61,9 +58,6 @@ export class PickupSystem implements System {
   private activeFoodPickupCountInitialized = false;
 
   private readonly queryBuffer: ItemEntity[] = [];
-=======
-  private readonly queryBuffer: Entity[] = [];
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
 
   public update(world: World, deltaMs: number): void {
     this.mergeOverlappingStackablePickups(world);
@@ -81,7 +75,6 @@ export class PickupSystem implements System {
       }
     }
 
-<<<<<<< HEAD
     if (!this.activeBlueprintPickupCountInitialized) {
       this.activeBlueprintPickupCount = world.entities
         .queryInstances(ItemEntity)
@@ -96,10 +89,6 @@ export class PickupSystem implements System {
       this.activeFoodPickupCountInitialized = true;
     }
 
-    this.collectPickups(world);
-
-=======
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
     this.magAccumulatedMs += deltaMs;
     while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
       this.magAccumulatedMs -= MAG_PICKUP_SPAWN_INTERVAL_MS;
@@ -166,46 +155,8 @@ export class PickupSystem implements System {
         ) {
           continue;
         }
-<<<<<<< HEAD
-
-        if (this.isMagPickup(pickup)) {
-          if (!player.inventory.absorbInventory(pickup.contents)) {
-            continue;
-          }
-          this.activeMagPickupCount = Math.max(0, this.activeMagPickupCount - 1);
-          world.despawn(pickup.id);
-        } else if (this.isWeaponPickup(pickup)) {
-          if (!player.inventory.absorbInventory(pickup.contents)) {
-            continue;
-          }
-          this.activeWeaponPickupCount = Math.max(
-            0,
-            this.activeWeaponPickupCount - 1,
-          );
-          world.despawn(pickup.id);
-        } else if (this.isBlueprintPickup(pickup)) {
-          if (!player.inventory.absorbInventory(pickup.contents)) {
-            continue;
-          }
-          this.activeBlueprintPickupCount = Math.max(
-            0,
-            this.activeBlueprintPickupCount - 1,
-          );
-          world.despawn(pickup.id);
-        } else if (this.isFoodPickup(pickup)) {
-          const foodTypeId = FOOD_PICKUP_TYPE_IDS.find(
-            (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-          );
-          const foodRestore = foodTypeId
-            ? (getItemContent(foodTypeId)?.food?.foodRestore ?? 0)
-            : 0;
-          player.food = Math.min(player.maxFood, player.food + foodRestore);
-          this.activeFoodPickupCount = Math.max(0, this.activeFoodPickupCount - 1);
-          world.despawn(pickup.id);
-=======
         if (!pickup.canMergeStackableWith(candidate)) {
           continue;
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
         }
         if (
           !doResolvedRectSetsOverlap(

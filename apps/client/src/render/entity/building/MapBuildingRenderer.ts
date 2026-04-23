@@ -74,8 +74,11 @@ export class MapBuildingRenderer extends BaseEntityRenderer {
   }
 
   protected getFillColor(entity: ClientEntity): number {
-    if (entity.label && LABEL_COLORS[entity.label]) {
-      return LABEL_COLORS[entity.label];
+    if (entity.label) {
+      const color = LABEL_COLORS[entity.label];
+      if (color !== undefined) {
+        return color;
+      }
     }
     return DEFAULT_FILL;
   }

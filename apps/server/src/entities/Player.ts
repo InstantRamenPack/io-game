@@ -48,12 +48,9 @@ export class Player extends Entity {
   public name: string;
   public inventory: Inventory;
   public moveSpeed = 15;
-<<<<<<< HEAD
   public food = Player.MAX_FOOD;
   public maxFood = Player.MAX_FOOD;
-=======
   private readonly defaultCollisionMode: CollisionMode;
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;

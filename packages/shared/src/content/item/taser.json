@@ -5,9 +5,7 @@
   "recipe": {
     "hint": "Melee sweep that stuns on hit.",
     "outputAmount": 1,
-    "costs": [
-      { "typeId": "item:hunk", "amount": 42 }
-    ]
+    "costs": [{ "typeId": "item:hunk", "amount": 42 }]
   },
   "weapon": {
     "attackStyle": "swing",

@@ -37,15 +37,10 @@ import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpik
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
 import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
-<<<<<<< HEAD
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
-=======
 import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.ts";
-import { StoneItem } from "@server/items/materials/StoneItem.ts";
-import { WoodItem } from "@server/items/materials/WoodItem.ts";
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
@@ -111,16 +106,11 @@ export const itemRuntimeCtors = [
   DroneShooter,
   ZombieSword,
   SaboteurSword,
-<<<<<<< HEAD
   HunkItem,
   JunkFoodItem,
   QualityFoodItem,
-=======
-  WoodItem,
-  StoneItem,
   BlueprintBasicRifleItem,
   BlueprintSniperItem,
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
   BlueprintSpikedSpearItem,
   GunMagazineItem,
   CrossbowMagazineItem,

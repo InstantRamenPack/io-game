@@ -5,9 +5,7 @@
   "recipe": {
     "hint": "Launches a slow homing explosive drone.",
     "outputAmount": 1,
-    "costs": [
-      { "typeId": "item:hunk", "amount": 68 }
-    ]
+    "costs": [{ "typeId": "item:hunk", "amount": 68 }]
   },
   "weapon": {
     "attackStyle": "shoot",

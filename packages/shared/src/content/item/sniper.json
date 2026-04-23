@@ -6,8 +6,8 @@
     "hint": "Heavy precision rifle with expensive maintenance and reloads.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 110 },
-      { "typeId": "item:stone", "amount": 120 }
+      { "typeId": "item:blueprint_sniper", "amount": 1 },
+      { "typeId": "item:hunk", "amount": 150 }
     ]
   },
   "weapon": {
