@@ -37,10 +37,17 @@ import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpik
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
 import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
+<<<<<<< HEAD
 import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.ts";
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
+=======
+import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
+import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
+import { HunkItem } from "@server/items/materials/HunkItem.ts";
+import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.ts";
+>>>>>>> 36a24ec1d37147a7bea63d9b94bdeb4fa5703bc9
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";

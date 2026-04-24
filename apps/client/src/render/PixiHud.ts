@@ -319,7 +319,9 @@ export class PixiHud {
         getSlotItem: (ref) => {
           if (ref.source === "chest") {
             const slot = chestSlots?.[ref.index];
-            return slot?.kind !== "empty" ? { typeId: slot?.typeId ?? null } : { typeId: null };
+            return slot?.kind !== "empty"
+              ? { typeId: slot?.typeId ?? null }
+              : { typeId: null };
           }
           const slot = hotbarSlots[ref.index];
           if (!slot || slot.kind === "empty") return { typeId: null };

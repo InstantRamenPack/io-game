@@ -1,7 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { getItemContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -53,8 +51,19 @@ export class PickupSystem implements System {
   private magAccumulatedMs = 0;
   private weaponAccumulatedMs = 0;
   private blueprintAccumulatedMs = 0;
+<<<<<<< HEAD
   private foodAccumulatedMs = 0;
   private readonly queryBuffer: Entity[] = [];
+=======
+  private activeBlueprintPickupCount = 0;
+  private activeBlueprintPickupCountInitialized = false;
+
+  private foodAccumulatedMs = 0;
+  private activeFoodPickupCount = 0;
+  private activeFoodPickupCountInitialized = false;
+
+  private readonly queryBuffer: ItemEntity[] = [];
+>>>>>>> 36a24ec1d37147a7bea63d9b94bdeb4fa5703bc9
 
   public update(world: World, deltaMs: number): void {
     this.mergeOverlappingStackablePickups(world);
@@ -75,8 +84,25 @@ export class PickupSystem implements System {
       }
     }
 
+<<<<<<< HEAD
     this.collectFoodPickups(world);
 
+=======
+    if (!this.activeBlueprintPickupCountInitialized) {
+      this.activeBlueprintPickupCount = world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => this.isBlueprintPickup(pickup)).length;
+      this.activeBlueprintPickupCountInitialized = true;
+    }
+
+    if (!this.activeFoodPickupCountInitialized) {
+      this.activeFoodPickupCount = world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => this.isFoodPickup(pickup)).length;
+      this.activeFoodPickupCountInitialized = true;
+    }
+
+>>>>>>> 36a24ec1d37147a7bea63d9b94bdeb4fa5703bc9
     this.magAccumulatedMs += deltaMs;
     while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
       this.magAccumulatedMs -= MAG_PICKUP_SPAWN_INTERVAL_MS;

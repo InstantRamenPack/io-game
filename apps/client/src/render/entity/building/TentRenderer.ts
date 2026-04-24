@@ -14,8 +14,7 @@ export class TentRenderer extends BaseEntityRenderer {
     alpha: number,
     lineAlpha = 1,
   ): void {
-    const { minX, minY, width, height, centerX, centerY } =
-      entity.hitboxBounds;
+    const { minX, minY, width, height, centerX, centerY } = entity.hitboxBounds;
 
     // Tent body as triangle-top shape
     const points = [

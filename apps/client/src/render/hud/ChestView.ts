@@ -45,11 +45,7 @@ class ChestSlotView {
   }): void {
     const { item, hovered, held } = options;
     const fill = held ? 0x2a2011 : hovered ? 0x1e2618 : 0x151a16;
-    const border = held
-      ? 0xf2c36a
-      : hovered
-        ? 0x81ba6d
-        : 0x526151;
+    const border = held ? 0xf2c36a : hovered ? 0x81ba6d : 0x526151;
 
     this.background.clear();
     this.background
@@ -234,7 +230,8 @@ export class ChestView {
     this.title.position.set(this.padding, this.padding - 2);
     this.helper.position.set(this.padding, this.padding + 28);
 
-    const chestOffsetX = this.padding + Math.floor((contentWidth - chestGridWidth) / 2);
+    const chestOffsetX =
+      this.padding + Math.floor((contentWidth - chestGridWidth) / 2);
     const chestStartY = this.padding + titleH;
 
     const chestItems = toHotbarSlotItems(chestSlots as InventorySlotSnapshot[]);
@@ -254,22 +251,22 @@ export class ChestView {
         slot.setLayout(x, y);
         slot.render({
           item: chestItems[i] ?? emptySlotItem(),
-          hovered:
-            hoveredRef?.source === "chest" && hoveredRef.index === i,
+          hovered: hoveredRef?.source === "chest" && hoveredRef.index === i,
           held: heldRef?.source === "chest" && heldRef.index === i,
         });
       }
     }
 
-    const sectionY =
-      chestStartY + chestGridHeight + this.gap * 2;
+    const sectionY = chestStartY + chestGridHeight + this.gap * 2;
     this.sectionLabel.position.set(this.padding, sectionY);
 
     const hotbarOffsetX =
       this.padding + Math.floor((contentWidth - hotbarGridWidth) / 2);
     const hotbarStartY = sectionY + sectionLabelH;
 
-    const hotbarItems = toHotbarSlotItems(hotbarSlots as InventorySlotSnapshot[]);
+    const hotbarItems = toHotbarSlotItems(
+      hotbarSlots as InventorySlotSnapshot[],
+    );
     for (let i = 0; i < HOTBAR_SLOTS; i++) {
       const x = hotbarOffsetX + i * (this.slotSize + this.gap);
       const y = hotbarStartY;
@@ -284,8 +281,7 @@ export class ChestView {
         slot.setLayout(x, y);
         slot.render({
           item: hotbarItems[i] ?? emptySlotItem(),
-          hovered:
-            hoveredRef?.source === "hotbar" && hoveredRef.index === i,
+          hovered: hoveredRef?.source === "hotbar" && hoveredRef.index === i,
           held: heldRef?.source === "hotbar" && heldRef.index === i,
         });
       }

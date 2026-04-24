@@ -72,7 +72,15 @@ export class CombatHudView {
     this.heightValue = HEALTH_ROW_HEIGHT;
 
     if (!model.ammo) {
-      this.drawHealthRow(model.hp, model.maxHp, model.food, model.maxFood, 0, this.widthValue, padding);
+      this.drawHealthRow(
+        model.hp,
+        model.maxHp,
+        model.food,
+        model.maxFood,
+        0,
+        this.widthValue,
+        padding,
+      );
       this.ammoFrame.clear();
       this.reserveText.text = "";
       this.hideAmmoSprites();
@@ -215,7 +223,10 @@ export class CombatHudView {
       { color: 0xb44646, alpha: 0.96 },
     );
     this.healthText.text = `${Math.max(0, Math.round(hp))}/${Math.max(0, Math.round(maxHp))}`;
-    this.healthText.position.set(hpTrackX + halfWidth / 2, y + HEALTH_ROW_HEIGHT / 2);
+    this.healthText.position.set(
+      hpTrackX + halfWidth / 2,
+      y + HEALTH_ROW_HEIGHT / 2,
+    );
 
     const foodRatio = Math.max(0, Math.min(1, food / Math.max(1, maxFood)));
     drawRoundedRect(
@@ -237,7 +248,10 @@ export class CombatHudView {
       { color: 0xc8922a, alpha: 0.96 },
     );
     this.foodText.text = `${Math.max(0, Math.round(food))}/${Math.max(0, Math.round(maxFood))}`;
-    this.foodText.position.set(foodTrackX + halfWidth / 2, y + HEALTH_ROW_HEIGHT / 2);
+    this.foodText.position.set(
+      foodTrackX + halfWidth / 2,
+      y + HEALTH_ROW_HEIGHT / 2,
+    );
   }
 
   private ensureAmmoSpriteCount(count: number): void {

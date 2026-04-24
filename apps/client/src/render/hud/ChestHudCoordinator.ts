@@ -50,12 +50,12 @@ export class ChestHudCoordinator {
   public handlePointerInput(options: {
     state: HudInteractionState;
     pointer: PointerInput;
-    getSlotRefAtPoint: (screenX: number, screenY: number) => ChestSlotRef | null;
+    getSlotRefAtPoint: (
+      screenX: number,
+      screenY: number,
+    ) => ChestSlotRef | null;
     getSlotItem: (ref: ChestSlotRef) => { typeId: string | null } | null;
-    queueChestMove: (
-      from: ChestSlotRef,
-      to: ChestSlotRef,
-    ) => void;
+    queueChestMove: (from: ChestSlotRef, to: ChestSlotRef) => void;
     markDirty: () => void;
   }): boolean {
     const {
@@ -104,7 +104,10 @@ export class ChestHudCoordinator {
     const item = getSlotItem(hoveredRef);
     if (state.heldChestSlotRef !== null) {
       const held = state.heldChestSlotRef;
-      if (held.source === hoveredRef.source && held.index === hoveredRef.index) {
+      if (
+        held.source === hoveredRef.source &&
+        held.index === hoveredRef.index
+      ) {
         this.draggedRef = hoveredRef;
         return true;
       }

@@ -4,8 +4,12 @@
   "recipe": {
     "hint": "Store items safely.",
     "outputAmount": 1,
+<<<<<<< HEAD
     "costs": [
       { "typeId": "item:hunk", "amount": 30 }
     ]
+=======
+    "costs": [{ "typeId": "item:hunk", "amount": 50 }]
+>>>>>>> 36a24ec1d37147a7bea63d9b94bdeb4fa5703bc9
   }
 }

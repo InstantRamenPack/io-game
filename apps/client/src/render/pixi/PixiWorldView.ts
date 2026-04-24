@@ -220,11 +220,21 @@ export class PixiWorldView {
     drawRect(bgGraphic, 0, 0, w, h, { color: 0xffffff, alpha: 1 });
 
     // Zone backgrounds
-    landmarkGraphic.rect(300, 300, 2400, 2400).fill({ color: 0x8b3a3a, alpha: 0.1 });
-    landmarkGraphic.rect(350, 3300, 1450, 1500).fill({ color: 0x3a5f8b, alpha: 0.13 });
-    landmarkGraphic.rect(3200, 250, 3300, 2250).fill({ color: 0x8b7a3a, alpha: 0.1 });
-    landmarkGraphic.rect(3200, 4800, 2900, 1900).fill({ color: 0x8b5a2a, alpha: 0.1 });
-    landmarkGraphic.rect(7000, 200, 2800, 6600).fill({ color: 0x2a5a2a, alpha: 0.13 });
+    landmarkGraphic
+      .rect(300, 300, 2400, 2400)
+      .fill({ color: 0x8b3a3a, alpha: 0.1 });
+    landmarkGraphic
+      .rect(350, 3300, 1450, 1500)
+      .fill({ color: 0x3a5f8b, alpha: 0.13 });
+    landmarkGraphic
+      .rect(3200, 250, 3300, 2250)
+      .fill({ color: 0x8b7a3a, alpha: 0.1 });
+    landmarkGraphic
+      .rect(3200, 4800, 2900, 1900)
+      .fill({ color: 0x8b5a2a, alpha: 0.1 });
+    landmarkGraphic
+      .rect(7000, 200, 2800, 6600)
+      .fill({ color: 0x2a5a2a, alpha: 0.13 });
 
     // Helipad at extraction zone center (1000, 4050)
     const hx = 1000;
@@ -249,7 +259,12 @@ export class PixiWorldView {
       .rect(hx + hCrossW / 2, hy - hBarH / 2, hBarW, hBarH)
       .fill({ color: 0x6b5500, alpha: 0.85 });
     landmarkGraphic
-      .rect(hx - hCrossW / 2 - hBarW, hy - hCrossH / 2, hCrossW + hBarW * 2, hCrossH)
+      .rect(
+        hx - hCrossW / 2 - hBarW,
+        hy - hCrossH / 2,
+        hCrossW + hBarW * 2,
+        hCrossH,
+      )
       .fill({ color: 0x6b5500, alpha: 0.85 });
 
     landmarkGraphic

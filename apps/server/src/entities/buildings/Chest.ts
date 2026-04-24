@@ -1,5 +1,8 @@
 import { Building } from "@server/entities/Building.ts";
-import type { BuildingSnapshot, InventorySlotSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  BuildingSnapshot,
+  InventorySlotSnapshot,
+} from "@shared/net/snapshots.ts";
 import { CHEST_SLOT_COUNT } from "@shared/net/snapshots.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
