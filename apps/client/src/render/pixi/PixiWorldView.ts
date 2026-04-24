@@ -32,6 +32,11 @@ export class PixiWorldView {
   private readonly sniperAimGuide = new Graphics();
   private worldSize: WorldSize;
   private gridNightBlend = 0;
+  private lastGridCameraX = Number.NaN;
+  private lastGridCameraY = Number.NaN;
+  private lastGridScale = Number.NaN;
+  private lastGridScreenWidth = -1;
+  private lastGridScreenHeight = -1;
 
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
@@ -80,7 +85,16 @@ export class PixiWorldView {
     this.worldSize = { ...worldSize };
     this.viewportController.setWorldSize(this.worldSize);
     this.cullingController.updateWorldSize(this.worldSize);
+    this.invalidateGridLineCache();
     this.drawGridGeometry();
+  }
+
+  private invalidateGridLineCache(): void {
+    this.lastGridCameraX = Number.NaN;
+    this.lastGridCameraY = Number.NaN;
+    this.lastGridScale = Number.NaN;
+    this.lastGridScreenWidth = -1;
+    this.lastGridScreenHeight = -1;
   }
 
   public update(
@@ -91,7 +105,7 @@ export class PixiWorldView {
     this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
-    this.redrawScreenGridLines(app);
+    this.redrawScreenGridLinesIfNeeded(app);
   }
 
   public setGridNightBlend(blend: number): void {
@@ -314,16 +328,44 @@ export class PixiWorldView {
     lineGraphic.alpha = 0.4 * lineVisibility;
   }
 
-  private redrawScreenGridLines(app: Application): void {
-    const g = this.sceneGraph.gridLinesGraphic;
+  private redrawScreenGridLinesIfNeeded(app: Application): void {
     const { x: camX, y: camY } = this.viewportController.getCameraPosition();
     const scale = this.viewportController.getCurrentScale(app);
-    const cellPx = GRID_CELL_SIZE * scale;
     const sw = app.screen.width;
     const sh = app.screen.height;
 
+    if (
+      Math.abs(this.lastGridCameraX - camX) < 0.0001 &&
+      Math.abs(this.lastGridCameraY - camY) < 0.0001 &&
+      this.lastGridScale === scale &&
+      this.lastGridScreenWidth === sw &&
+      this.lastGridScreenHeight === sh
+    ) {
+      return;
+    }
+
+    this.lastGridCameraX = camX;
+    this.lastGridCameraY = camY;
+    this.lastGridScale = scale;
+    this.lastGridScreenWidth = sw;
+    this.lastGridScreenHeight = sh;
+
+    const cellPx = GRID_CELL_SIZE * scale;
     const offX = ((camX % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
     const offY = ((camY % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
+
+    this.redrawScreenGridLines(app, offX, offY, cellPx);
+  }
+
+  private redrawScreenGridLines(
+    app: Application,
+    offX: number,
+    offY: number,
+    cellPx: number,
+  ): void {
+    const g = this.sceneGraph.gridLinesGraphic;
+    const sw = app.screen.width;
+    const sh = app.screen.height;
 
     g.clear();
     for (let x = sw / 2 - offX; x >= -cellPx; x -= cellPx) {
