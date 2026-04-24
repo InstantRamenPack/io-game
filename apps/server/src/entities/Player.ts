@@ -48,12 +48,9 @@ export class Player extends Entity {
   public name: string;
   public inventory: Inventory;
   public moveSpeed = 15;
-<<<<<<< HEAD
   public food = Player.MAX_FOOD;
   public maxFood = Player.MAX_FOOD;
-=======
   private readonly defaultCollisionMode: CollisionMode;
->>>>>>> 7dc093c4840d9a7bce7e1a00d5a35e9d2a22bffe
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
@@ -147,6 +144,13 @@ export class Player extends Entity {
       food: this.food,
       maxFood: this.maxFood,
     };
+  }
+
+  public override getDamageReductionMultiplier(): number {
+    const fraction = this.food / Math.max(1, this.maxFood);
+    if (fraction >= 0.8) return 0.7;
+    if (fraction >= 0.5) return 0.85;
+    return 1;
   }
 
   public getActiveWeapon(): Weapon | undefined {

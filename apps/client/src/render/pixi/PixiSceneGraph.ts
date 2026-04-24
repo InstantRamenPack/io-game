@@ -29,9 +29,7 @@ export class PixiSceneGraph {
     this.gridLayer.addChild(
       this.gridBackgroundGraphic,
       this.landmarkGraphic,
-      this.gridLinesGraphic,
     );
-    this.gridLinesGraphic.cacheAsTexture(true);
 
     this.worldRoot.addChild(
       this.gridLayer,
@@ -39,7 +37,7 @@ export class PixiSceneGraph {
       this.entityLayer,
       this.placementLayer,
     );
-    this.hudRoot.addChild(this.overlayLayer, this.hudLayer);
+    this.hudRoot.addChild(this.gridLinesGraphic, this.overlayLayer, this.hudLayer);
   }
 
   public attach(app: Application): void {
@@ -52,6 +50,6 @@ export class PixiSceneGraph {
   }
 
   public updateGridCache(): void {
-    this.gridLinesGraphic.updateCacheTexture();
+    // no-op: grid lines are now redrawn each frame in screen space
   }
 }

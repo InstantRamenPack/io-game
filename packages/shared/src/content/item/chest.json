@@ -5,8 +5,7 @@
     "hint": "Store items safely.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:wood", "amount": 30 },
-      { "typeId": "item:stone", "amount": 10 }
+      { "typeId": "item:hunk", "amount": 30 }
     ]
   }
 }

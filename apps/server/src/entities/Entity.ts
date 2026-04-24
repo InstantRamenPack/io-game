@@ -321,6 +321,10 @@ export abstract class Entity {
     return this;
   }
 
+  public getDamageReductionMultiplier(): number {
+    return 1;
+  }
+
   public getReloadInventory(): Inventory | null {
     return null;
   }
@@ -470,7 +474,8 @@ export abstract class Entity {
       return;
     }
 
-    const nextHp = Math.max(0, Math.min(this.maxHp, this.hp - amount));
+    const effectiveAmount = amount * this.getDamageReductionMultiplier();
+    const nextHp = Math.max(0, Math.min(this.maxHp, this.hp - effectiveAmount));
     if (nextHp === this.hp) {
       return;
     }
@@ -482,7 +487,7 @@ export abstract class Entity {
       payload: {
         sourceId,
         targetId: this.id,
-        amount,
+        amount: effectiveAmount,
         remainingHp: nextHp,
         maxHp: this.maxHp,
         x: this.x,

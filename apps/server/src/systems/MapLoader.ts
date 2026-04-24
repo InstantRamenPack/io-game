@@ -272,6 +272,8 @@ function spawnBuilding(world: World, spec: BuildingSpec): void {
 
   building.x = spec.x;
   building.y = spec.y;
+  building.hp = 0;
+  building.maxHp = 0;
   world.spawn(building);
 }
 

@@ -144,6 +144,7 @@ export const createAdminCommandHandlers: ChatCommandHandlerFactory = (
     const entities = context.world.entities.all();
     let killed = 0;
     for (const entity of entities) {
+      if (entity.maxHp === 0) continue;
       context.killEntity(entity);
       killed += 1;
     }

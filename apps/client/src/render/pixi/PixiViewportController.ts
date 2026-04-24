@@ -77,6 +77,14 @@ export class PixiViewportController {
     );
   }
 
+  public getCameraPosition(): { x: number; y: number } {
+    return { x: this.cameraPivotX, y: this.cameraPivotY };
+  }
+
+  public getCurrentScale(app: Application): number {
+    return this.getGameplayScale(app);
+  }
+
   public getWorldViewportBounds(app: Application): {
     minX: number;
     minY: number;

@@ -91,6 +91,7 @@ export class PixiWorldView {
     this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
+    this.redrawScreenGridLines(app);
   }
 
   public setGridNightBlend(blend: number): void {
@@ -204,9 +205,7 @@ export class PixiWorldView {
   private drawGridGeometry(): void {
     const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
     const landmarkGraphic = this.sceneGraph.landmarkGraphic;
-    const lineGraphic = this.sceneGraph.gridLinesGraphic;
     const { w, h } = this.worldSize;
-    const cell = Math.max(10, Math.floor(GRID_CELL_SIZE));
     const baseWidth = Math.min(HOME_BASE_WIDTH, Math.max(800, w * 0.6));
     const baseHeight = Math.min(HOME_BASE_HEIGHT, Math.max(600, h * 0.5));
     const baseX = (w - baseWidth) / 2;
@@ -217,7 +216,6 @@ export class PixiWorldView {
 
     bgGraphic.clear();
     landmarkGraphic.clear();
-    lineGraphic.clear();
 
     drawRect(bgGraphic, 0, 0, w, h, { color: 0xffffff, alpha: 1 });
 
@@ -277,17 +275,6 @@ export class PixiWorldView {
       )
       .fill({ color: HOME_BASE_ACCENT_COLOR, alpha: 0.2 });
 
-    for (let x = 0; x <= w; x += cell) {
-      lineGraphic.moveTo(x, 0).lineTo(x, h);
-    }
-    for (let y = 0; y <= h; y += cell) {
-      lineGraphic.moveTo(0, y).lineTo(w, y);
-    }
-    lineGraphic.stroke({
-      width: 1,
-      color: 0xffffff,
-      alpha: 1,
-    });
     this.sceneGraph.updateGridCache();
     this.updateGridColors();
   }
@@ -310,6 +297,33 @@ export class PixiWorldView {
       Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
     );
     lineGraphic.alpha = 0.4 * lineVisibility;
+  }
+
+  private redrawScreenGridLines(app: Application): void {
+    const g = this.sceneGraph.gridLinesGraphic;
+    const { x: camX, y: camY } = this.viewportController.getCameraPosition();
+    const scale = this.viewportController.getCurrentScale(app);
+    const cellPx = GRID_CELL_SIZE * scale;
+    const sw = app.screen.width;
+    const sh = app.screen.height;
+
+    const offX = ((camX % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
+    const offY = ((camY % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
+
+    g.clear();
+    for (let x = sw / 2 - offX; x >= -cellPx; x -= cellPx) {
+      g.moveTo(x, 0).lineTo(x, sh);
+    }
+    for (let x = sw / 2 - offX + cellPx; x <= sw + cellPx; x += cellPx) {
+      g.moveTo(x, 0).lineTo(x, sh);
+    }
+    for (let y = sh / 2 - offY; y >= -cellPx; y -= cellPx) {
+      g.moveTo(0, y).lineTo(sw, y);
+    }
+    for (let y = sh / 2 - offY + cellPx; y <= sh + cellPx; y += cellPx) {
+      g.moveTo(0, y).lineTo(sw, y);
+    }
+    g.stroke({ width: 1, color: 0xffffff, alpha: 1 });
   }
 
   private syncCullViewport(app: Application): void {
