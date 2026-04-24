@@ -60,11 +60,11 @@ const MILITARY_STRUCTURES: BuildingSpec[] = [
   { type: "fence_v", x: 2700, y: 2100 },
   { type: "fence_v", x: 2700, y: 2500 },
 
-  // Corner guard towers
-  { type: "m", x: 420, y: 420, label: "Guard Tower" },
-  { type: "m", x: 2580, y: 420, label: "Guard Tower" },
-  { type: "m", x: 420, y: 2580, label: "Guard Tower" },
-  { type: "m", x: 2580, y: 2580, label: "Guard Tower" },
+  // Corner guard towers (moved inward enough that building edges clear the fence lines)
+  { type: "m", x: 530, y: 480, label: "Guard Tower" },
+  { type: "m", x: 2470, y: 480, label: "Guard Tower" },
+  { type: "m", x: 530, y: 2520, label: "Guard Tower" },
+  { type: "m", x: 2470, y: 2520, label: "Guard Tower" },
 
   // Main buildings
   { type: "xl", x: 1500, y: 1100, label: "Command Center" },
@@ -107,8 +107,8 @@ const EXTRACTION_STRUCTURES: BuildingSpec[] = [
   { type: "fence_v", x: 1750, y: 3750 },
   { type: "fence_v", x: 1750, y: 4300 },
 
-  // Control booth
-  { type: "m", x: 1550, y: 3600, label: "Control Booth" },
+  // Control booth (moved left to clear fence_v at x=1750)
+  { type: "m", x: 1400, y: 3600, label: "Control Booth" },
 ];
 
 // No enemies at extraction zone (safe area)
@@ -123,10 +123,13 @@ const VILLAGE_STRUCTURES: BuildingSpec[] = [
   { type: "l", x: 3550, y: 2000, label: "Farm" },
   { type: "m", x: 4800, y: 700, label: "Blacksmith" },
   { type: "m", x: 5400, y: 1100, label: "Clinic" },
-  // Scattered fence fragments (ruined village feel)
+  // Extra buildings in bottom corners of village
+  { type: "m", x: 4100, y: 2300, label: "House" },
+  { type: "l", x: 5800, y: 2000, label: "Warehouse" },
+  // Scattered fence fragments (ruined village feel) — shifted clear of buildings
   { type: "fence_h", x: 3900, y: 1200 },
   { type: "fence_v", x: 4300, y: 1600 },
-  { type: "fence_h", x: 5100, y: 800 },
+  { type: "fence_h", x: 5200, y: 1300 },
 ];
 
 const VILLAGE_ENEMIES: EnemySpec[] = [
@@ -250,36 +253,6 @@ const FOREST_TREES: { x: number; y: number }[] = [
   { x: 9680, y: 5930 },
 ];
 
-// ---------------------------------------------------------------------------
-// Scattered terrain rocks across the map
-// ---------------------------------------------------------------------------
-const TERRAIN_ROCKS: BuildingSpec[] = [
-  // Near military base approaches
-  { type: "m", x: 1100, y: 3000, label: "Rock" },
-  { type: "m", x: 2400, y: 3100, label: "Rock" },
-  { type: "m", x: 2800, y: 2000, label: "Rock" },
-
-  // Between zones (no-man's land)
-  { type: "m", x: 2900, y: 1500, label: "Rock" },
-  { type: "m", x: 2950, y: 3500, label: "Rock" },
-  { type: "m", x: 1900, y: 5500, label: "Rock" },
-  { type: "m", x: 2600, y: 6000, label: "Rock" },
-
-  // Around village outskirts
-  { type: "m", x: 6200, y: 1800, label: "Rock" },
-  { type: "m", x: 6400, y: 2800, label: "Rock" },
-  { type: "m", x: 6600, y: 1200, label: "Rock" },
-
-  // Around outpost outskirts
-  { type: "m", x: 6100, y: 6000, label: "Rock" },
-  { type: "m", x: 6300, y: 5400, label: "Rock" },
-  { type: "m", x: 2800, y: 5900, label: "Rock" },
-
-  // Forest edge rocks (transition zone)
-  { type: "m", x: 6750, y: 3500, label: "Rock" },
-  { type: "m", x: 6850, y: 5000, label: "Rock" },
-  { type: "m", x: 6700, y: 6400, label: "Rock" },
-];
 
 function spawnBuilding(world: World, spec: BuildingSpec): void {
   const id = world.allocEntityId();
@@ -366,10 +339,6 @@ export function loadMap(world: World): void {
   for (const pos of FOREST_TREES) {
     spawnBuilding(world, { type: "tree", x: pos.x, y: pos.y });
   }
-  for (const spec of TERRAIN_ROCKS) {
-    spawnBuilding(world, spec);
-  }
-
   for (const spec of MILITARY_ENEMIES) {
     spawnEnemy(world, spec);
   }

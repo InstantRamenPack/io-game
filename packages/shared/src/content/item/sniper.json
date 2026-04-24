@@ -7,11 +7,7 @@
     "outputAmount": 1,
     "costs": [
       { "typeId": "item:blueprint_sniper", "amount": 1 },
-<<<<<<< HEAD
       { "typeId": "item:hunk", "amount": 120 }
-=======
-      { "typeId": "item:hunk", "amount": 150 }
->>>>>>> 36a24ec1d37147a7bea63d9b94bdeb4fa5703bc9
     ]
   },
   "weapon": {
