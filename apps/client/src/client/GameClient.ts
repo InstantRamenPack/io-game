@@ -661,17 +661,7 @@ export class GameClient {
 
   private getLocalActiveWeapon(): LocalWeaponState | undefined {
     const player = this.getLocalPlayerEntity();
-    const inventory = player?.inventory;
-    if (!inventory) {
-      return undefined;
-    }
-
-    const activeSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
-    if (activeSlot?.kind !== "weapon") {
-      return undefined;
-    }
-
-    return activeSlot;
+    return player?.equippedItem;
   }
 
   private computeNightBlend(dayNight: DayNightSnapshot): number {

@@ -18,13 +18,16 @@ const MAG_PICKUP_TYPE_IDS = [
 
 const WEAPON_PICKUP_TYPE_IDS = [
   "item:basic_spear",
+  "item:cleaver",
   "item:lead_pipe",
   "item:baseball_bat",
   "item:basic_dagger",
+  "item:scissors",
 ] as const satisfies readonly ResourceId[];
 const BLUEPRINT_PICKUP_TYPE_IDS = [
   "item:blueprint_spiked_spear",
   "item:blueprint_basic_rifle",
+  "item:blueprint_katana",
   "item:blueprint_sniper",
 ] as const satisfies readonly ResourceId[];
 
@@ -140,7 +143,12 @@ export class PickupSystem implements System {
         if (!this.isFoodPickup(candidate)) {
           continue;
         }
-        if (!doResolvedRectSetsOverlap(playerHitboxes, candidate.getWorldHitboxes())) {
+        if (
+          !doResolvedRectSetsOverlap(
+            playerHitboxes,
+            candidate.getWorldHitboxes(),
+          )
+        ) {
           continue;
         }
 

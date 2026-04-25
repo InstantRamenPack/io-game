@@ -79,6 +79,7 @@ const entitySuggestions: ChatSuggestion[] = getAllEntityContentEntries()
   .sort((left, right) => left.label.localeCompare(right.label));
 
 const itemSuggestions: ChatSuggestion[] = getAllItemContentEntries()
+  .filter(([, content]) => !content.hidden)
   .map(([typeId, content]) => ({
     value: getResourcePath(typeId),
     label: content.label,

@@ -129,6 +129,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     if (this.pixiRenderer.playerEntityId === entity.id) {
       this.pixiRenderer.setCameraToPlayer(visualX, visualY);
+      this.pixiRenderer.setPlayerPosition(visualX, visualY);
     }
 
     const visualChanged = this.lastVisualVersion !== entity.visualVersion;
@@ -256,7 +257,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     return Math.max(entity.hitboxBounds.width, entity.hitboxBounds.height) / 2;
   }
 
-  private redrawPresentation(entity: ClientEntity): void {
+  protected redrawPresentation(entity: ClientEntity): void {
     const fillColor = this.getFillColor(entity);
 
     this.drawEntityShape(this.entityGraphic, entity, fillColor, 1, 1);
@@ -326,6 +327,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       this.equippedItemContainer.visible = false;
+      this.resetEquippedItemContainerChildren();
       this.equippedRenderer = null;
       this.equippedRendererTypeId = null;
       return;
@@ -335,6 +337,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const weaponContent = getWeaponContent(equippedItem.typeId);
     if (!itemContent || !weaponContent) {
       this.equippedItemContainer.visible = false;
+      this.resetEquippedItemContainerChildren();
       this.equippedRenderer = null;
       this.equippedRendererTypeId = null;
       return;
@@ -521,9 +524,21 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     if (this.equippedRenderer && this.equippedRendererTypeId === typeId) {
       return this.equippedRenderer;
     }
+    this.resetEquippedItemContainerChildren();
     const renderer = resolveEquippedItemRenderer({ typeId, attackStyle });
     this.equippedRenderer = renderer;
     this.equippedRendererTypeId = typeId;
     return renderer;
+  }
+
+  private resetEquippedItemContainerChildren(): void {
+    for (const child of [...this.equippedItemContainer.children]) {
+      if (child === this.equippedItemSprite) {
+        continue;
+      }
+      this.equippedItemContainer.removeChild(child);
+      child.destroy();
+    }
+    this.equippedItemSprite.visible = true;
   }
 }

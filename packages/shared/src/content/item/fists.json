@@ -1,0 +1,23 @@
+{
+  "label": "Fists",
+  "hint": "Bare-handed strikes. Weak, short, and quick.",
+  "description": "The most rudimentary melee attack. Low damage, low range, and fast punches.",
+  "hidden": true,
+  "weapon": {
+    "attackStyle": "jab",
+    "cooldownTicks": 7,
+    "range": 20,
+    "damage": 8,
+    "knockback": 4,
+    "jabWidth": 18,
+    "equippedRender": {
+      "holdOffset": { "x": 12, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 0.8,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 12
+    }
+  }
+}

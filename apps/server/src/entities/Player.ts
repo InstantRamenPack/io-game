@@ -23,6 +23,7 @@ import {
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
+import { Fists } from "@server/items/weapons/Fists.ts";
 import {
   entityTypeRegistry,
   itemTypeRegistry,
@@ -51,6 +52,7 @@ export class Player extends Entity {
   public food = Player.MAX_FOOD;
   public maxFood = Player.MAX_FOOD;
   private readonly defaultCollisionMode: CollisionMode;
+  private readonly fists = new Fists();
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
@@ -124,6 +126,8 @@ export class Player extends Entity {
       weapon.ownerId = this.id;
       weapon.tick(world);
     }
+    this.fists.ownerId = this.id;
+    this.fists.tick(world);
 
     this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
     this.applyHeldMovement(world);
@@ -154,7 +158,15 @@ export class Player extends Entity {
   }
 
   public getActiveWeapon(): Weapon | undefined {
-    return this.inventory.getActiveWeapon();
+    const selectedSlot =
+      this.inventory.hotbarSlots[this.inventory.selectedHotbarIndex];
+    if (selectedSlot?.kind === "weapon") {
+      return selectedSlot.weapon;
+    }
+    if (selectedSlot === null) {
+      return this.fists;
+    }
+    return undefined;
   }
 
   public override getReloadInventory(): Inventory {

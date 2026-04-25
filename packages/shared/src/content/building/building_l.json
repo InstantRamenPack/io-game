@@ -3,6 +3,12 @@
   "maxHp": 99999,
   "collisionMode": "static",
   "hitboxProfiles": {
-    "default": [{ "width": 560, "height": 400, "offsetX": 0, "offsetY": 0 }]
+    "default": [
+      { "width": 560, "height": 22, "offsetX": 0, "offsetY": -189 },
+      { "width": 244, "height": 22, "offsetX": -158, "offsetY": 189 },
+      { "width": 244, "height": 22, "offsetX": 158, "offsetY": 189 },
+      { "width": 22, "height": 400, "offsetX": -269, "offsetY": 0 },
+      { "width": 22, "height": 400, "offsetX": 269, "offsetY": 0 }
+    ]
   }
 }

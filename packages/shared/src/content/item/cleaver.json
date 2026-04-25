@@ -1,0 +1,22 @@
+{
+  "label": "Cleaver",
+  "hint": "Short sweeping chop. Sometimes opens a bleeding wound.",
+  "description": "Basic melee weapon with medium damage, short reach, and a chance to inflict bleeding.",
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 12,
+    "range": 42,
+    "damage": 20,
+    "knockback": 14,
+    "sweepArcDeg": 95,
+    "equippedRender": {
+      "holdOffset": { "x": 36, "y": 0 },
+      "holdRotationDeg": 0,
+      "scale": 1.4,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 95,
+      "jabDistance": 0
+    }
+  }
+}

@@ -28,6 +28,8 @@ export class PixiRenderer {
   private tickRate = 20;
 
   public playerEntityId?: number;
+  public playerX: number | undefined = undefined;
+  public playerY: number | undefined = undefined;
 
   private readonly handleResize = (): void => {
     const app = this.app;
@@ -76,6 +78,11 @@ export class PixiRenderer {
     if (entityId === undefined) {
       this.worldView.invalidateViewRectCache();
     }
+  }
+
+  public setPlayerPosition(x: number, y: number): void {
+    this.playerX = x;
+    this.playerY = y;
   }
 
   public setTickRate(tickRate: number): void {

@@ -152,6 +152,9 @@ export class ChatContext {
   public resolveItemEntry(itemToken: string): ItemTypeEntry | null {
     const normalized = this.normalizeEntityKey(itemToken);
     for (const [typeId, entry] of itemTypeRegistry.entries()) {
+      if (entry.content.hidden) {
+        continue;
+      }
       const candidateKeys = new Set<string>();
       candidateKeys.add(this.normalizeEntityKey(typeId));
       candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));

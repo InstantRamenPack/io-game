@@ -31,22 +31,27 @@ import itembasicRifleJson from "@shared/content/item/basic_rifle.json";
 import itembasicSpearJson from "@shared/content/item/basic_spear.json";
 import itembasicSwordJson from "@shared/content/item/basic_sword.json";
 import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
+import itemblueprintKatanaJson from "@shared/content/item/blueprint_katana.json";
 import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
 import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
 import itemchestJson from "@shared/content/item/chest.json";
+import itemcleaverJson from "@shared/content/item/cleaver.json";
 import itemcraftingStationJson from "@shared/content/item/crafting_station.json";
 import itemcrossbowJson from "@shared/content/item/crossbow.json";
 import itemcrossbowMagJson from "@shared/content/item/crossbow_mag.json";
 import itemdroneMagJson from "@shared/content/item/drone_mag.json";
 import itemdroneShooterJson from "@shared/content/item/drone_shooter.json";
+import itemfistsJson from "@shared/content/item/fists.json";
 import itemgunMagJson from "@shared/content/item/gun_mag.json";
 import itemhunkJson from "@shared/content/item/hunk.json";
 import itemjunkFoodJson from "@shared/content/item/junk_food.json";
+import itemkatanaJson from "@shared/content/item/katana.json";
 import itemlandmineJson from "@shared/content/item/landmine.json";
 import itemleadPipeJson from "@shared/content/item/lead_pipe.json";
 import itemqualityFoodJson from "@shared/content/item/quality_food.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
+import itemscissorsJson from "@shared/content/item/scissors.json";
 import itemsniperJson from "@shared/content/item/sniper.json";
 import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
@@ -120,6 +125,7 @@ export const itemContentEntries = [
     "blueprint_basic_rifle",
     itemblueprintBasicRifleJson,
   ),
+  makeParsedItemContentEntry("blueprint_katana", itemblueprintKatanaJson),
   makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
   makeParsedItemContentEntry(
     "blueprint_spiked_spear",
@@ -127,18 +133,22 @@ export const itemContentEntries = [
   ),
   makeParsedItemContentEntry("cannon", itemcannonJson),
   makeParsedItemContentEntry("chest", itemchestJson),
+  makeParsedItemContentEntry("cleaver", itemcleaverJson),
   makeParsedItemContentEntry("crafting_station", itemcraftingStationJson),
   makeParsedItemContentEntry("crossbow", itemcrossbowJson),
   makeParsedItemContentEntry("crossbow_mag", itemcrossbowMagJson),
   makeParsedItemContentEntry("drone_mag", itemdroneMagJson),
   makeParsedItemContentEntry("drone_shooter", itemdroneShooterJson),
+  makeParsedItemContentEntry("fists", itemfistsJson),
   makeParsedItemContentEntry("gun_mag", itemgunMagJson),
   makeParsedItemContentEntry("hunk", itemhunkJson),
   makeParsedItemContentEntry("junk_food", itemjunkFoodJson),
+  makeParsedItemContentEntry("katana", itemkatanaJson),
   makeParsedItemContentEntry("landmine", itemlandmineJson),
   makeParsedItemContentEntry("lead_pipe", itemleadPipeJson),
   makeParsedItemContentEntry("quality_food", itemqualityFoodJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),
+  makeParsedItemContentEntry("scissors", itemscissorsJson),
   makeParsedItemContentEntry("sniper", itemsniperJson),
   makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),

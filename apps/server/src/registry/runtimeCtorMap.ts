@@ -32,6 +32,7 @@ import { FracturedEffect } from "@server/effects/builtin/FracturedEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import { BlueprintBasicRifleItem } from "@server/items/blueprints/BlueprintBasicRifleItem.ts";
+import { BlueprintKatanaItem } from "@server/items/blueprints/BlueprintKatanaItem.ts";
 import { BlueprintSniperItem } from "@server/items/blueprints/BlueprintSniperItem.ts";
 import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpikedSpearItem.ts";
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
@@ -52,9 +53,13 @@ import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
+import { Cleaver } from "@server/items/weapons/Cleaver.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { DroneShooter } from "@server/items/weapons/DroneShooter.ts";
+import { Fists } from "@server/items/weapons/Fists.ts";
 import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
+import { Katana } from "@server/items/weapons/Katana.ts";
+import { Scissors } from "@server/items/weapons/Scissors.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
@@ -98,8 +103,12 @@ export const itemRuntimeCtors = [
   BasicRifle,
   BasicSpear,
   BasicSword,
+  Cleaver,
   Crossbow,
+  Fists,
+  Katana,
   LeadPipe,
+  Scissors,
   Sniper,
   SpikedSpear,
   Taser,
@@ -110,6 +119,7 @@ export const itemRuntimeCtors = [
   JunkFoodItem,
   QualityFoodItem,
   BlueprintBasicRifleItem,
+  BlueprintKatanaItem,
   BlueprintSniperItem,
   BlueprintSpikedSpearItem,
   GunMagazineItem,
