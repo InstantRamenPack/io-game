@@ -317,27 +317,32 @@ export function createChatController({
     const keyboardEvent = event as KeyboardEvent;
     if (keyboardEvent.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       closeChat();
       return;
     }
 
     if (keyboardEvent.key === "Enter") {
       event.preventDefault();
-      if (
+      event.stopPropagation();
+      const trimmedText = input.value.trim();
+      const shouldCompleteCommand =
         shouldAcceptSuggestionOnEnter(
           input.value,
           suggestions,
           selectedSuggestionIndex,
-        )
-      ) {
+        ) &&
+        trimmedText.startsWith("/") &&
+        !trimmedText.includes(" ");
+
+      if (shouldCompleteCommand) {
         acceptSuggestion(suggestions[selectedSuggestionIndex]!);
         return;
       }
 
-      const text = input.value.trim();
-      if (text.length > 0) {
-        gameClient.sendChat(text);
-        history.push(text);
+      if (trimmedText.length > 0) {
+        gameClient.sendChat(trimmedText);
+        history.push(trimmedText);
         historyIndex = history.length;
         historyDraft = "";
       }
@@ -518,14 +523,22 @@ function shouldAcceptSuggestionOnEnter(
   if (suggestions.length === 0) {
     return false;
   }
+
   const currentToken = getCurrentToken(value);
   if (currentToken.length === 0) {
     return true;
   }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue.startsWith("/") || trimmedValue.includes(" ")) {
+    return false;
+  }
+
   const selectedSuggestion = suggestions[selectedSuggestionIndex];
   if (!selectedSuggestion) {
     return false;
   }
+
   return (
     normalizeSuggestionText(currentToken) !==
     normalizeSuggestionText(selectedSuggestion.value)

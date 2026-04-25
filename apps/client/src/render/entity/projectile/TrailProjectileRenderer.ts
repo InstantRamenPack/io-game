@@ -103,19 +103,27 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
         continue;
       }
       const alpha =
-        0.22 * (1 - Math.max(point.ageMs, next.ageMs) / TRAIL_LIFETIME_MS);
-      if (alpha <= 0.01) {
+        0.5 * (1 - Math.max(point.ageMs, next.ageMs) / TRAIL_LIFETIME_MS);
+      if (alpha <= 0.02) {
         continue;
       }
 
+      const dx = point.x - newestPoint.x;
+      const dy = point.y - newestPoint.y;
+      const nx = next.x - newestPoint.x;
+      const ny = next.y - newestPoint.y;
+
       this.trailGraphic
-        .moveTo(point.x - newestPoint.x, point.y - newestPoint.y)
-        .lineTo(next.x - newestPoint.x, next.y - newestPoint.y)
-        .stroke({
-          width: 2,
-          color: 0xffffff,
-          alpha,
-        });
+        .lineStyle(7, 0x000000, Math.min(alpha * 0.85, 0.9))
+        .moveTo(dx, dy)
+        .lineTo(nx, ny)
+        .lineStyle(3, 0xffd56e, alpha)
+        .moveTo(dx, dy)
+        .lineTo(nx, ny)
+        .beginFill(0xffd56e, alpha * 0.9)
+        .drawCircle(dx, dy, 1.5)
+        .drawCircle(nx, ny, 1.5)
+        .endFill();
     }
   }
 }
