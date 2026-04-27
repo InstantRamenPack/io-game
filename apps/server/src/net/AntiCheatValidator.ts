@@ -64,14 +64,11 @@ export class AntiCheatValidator {
     }
 
     const { fromSlotIndex, toSlotIndex } = actionMessage.inventoryMove;
-    return (
-      (fromSlotIndex < 0 ||
+    return !(fromSlotIndex < 0 ||
         fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
         toSlotIndex < 0 ||
         toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
-        playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined) ===
-      false
-    );
+        playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined);
   }
 
   private isValidChestMove(
