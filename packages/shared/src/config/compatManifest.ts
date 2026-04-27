@@ -36,22 +36,19 @@ function hashFnv1a(text: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+function cloneDescriptorRecord(
+  descriptors: Readonly<Record<string, readonly string[]>>,
+): JsonObject {
+  return Object.fromEntries(
+    Object.entries(descriptors).map(([key, values]) => [key, [...values]]),
+  );
+}
+
 export const COMPAT_MANIFEST: JsonObject = {
   runtimeConfig: [...CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR],
-  messages: {
-    clientToServer: [...PROTOCOL_COMPAT_DESCRIPTOR.clientToServer],
-    serverToClient: [...PROTOCOL_COMPAT_DESCRIPTOR.serverToClient],
-  },
+  messages: cloneDescriptorRecord(PROTOCOL_COMPAT_DESCRIPTOR),
   events: [...NET_EVENT_TYPES],
-  snapshots: {
-    entityBase: [...SNAPSHOT_COMPAT_DESCRIPTOR.entityBase],
-    equippedItem: [...SNAPSHOT_COMPAT_DESCRIPTOR.equippedItem],
-    player: [...SNAPSHOT_COMPAT_DESCRIPTOR.player],
-    enemy: [...SNAPSHOT_COMPAT_DESCRIPTOR.enemy],
-    building: [...SNAPSHOT_COMPAT_DESCRIPTOR.building],
-    pickup: [...SNAPSHOT_COMPAT_DESCRIPTOR.pickup],
-    world: [...SNAPSHOT_COMPAT_DESCRIPTOR.world],
-  },
+  snapshots: cloneDescriptorRecord(SNAPSHOT_COMPAT_DESCRIPTOR),
   content: CONTENT_COMPAT_DESCRIPTOR,
 };
 

@@ -1,5 +1,5 @@
 import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
-import { getEntitySnapshotFingerprint } from "@server/net/snapshots/SnapshotFingerprint.ts";
+import { getEntityRuntimeFingerprint } from "@server/net/snapshots/SnapshotFingerprint.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -10,6 +10,10 @@ export class SnapshotTickCache {
   private preparedDayNight: WorldSnapshot["dayNight"] | null = null;
   private readonly snapshotByEntityId = new Map<number, EntitySnapshot>();
   private readonly previousFingerprintByEntityId = new Map<number, string>();
+  private readonly previousSnapshotByEntityId = new Map<
+    number,
+    EntitySnapshot
+  >();
   private readonly snapshotVersionByEntityId = new Map<number, number>();
 
   public prepare(world: World): void {
@@ -18,21 +22,23 @@ export class SnapshotTickCache {
     this.snapshotByEntityId.clear();
 
     for (const entity of world.entities.all()) {
-      const snapshot = entity.toSnapshot() as EntitySnapshot;
-      const nextFingerprint = getEntitySnapshotFingerprint(snapshot);
+      const nextFingerprint = getEntityRuntimeFingerprint(entity);
       const previousFingerprint = this.previousFingerprintByEntityId.get(
         entity.id,
       );
+      const previousSnapshot = this.previousSnapshotByEntityId.get(entity.id);
       const previousVersion =
         this.snapshotVersionByEntityId.get(entity.id) ?? 0;
 
+      if (previousFingerprint === nextFingerprint && previousSnapshot) {
+        this.snapshotByEntityId.set(entity.id, previousSnapshot);
+        continue;
+      }
+
+      const snapshot = entity.toSnapshot() as EntitySnapshot;
       this.snapshotByEntityId.set(entity.id, snapshot);
-      this.snapshotVersionByEntityId.set(
-        entity.id,
-        previousFingerprint === nextFingerprint
-          ? previousVersion
-          : previousVersion + 1,
-      );
+      this.previousSnapshotByEntityId.set(entity.id, snapshot);
+      this.snapshotVersionByEntityId.set(entity.id, previousVersion + 1);
       this.previousFingerprintByEntityId.set(entity.id, nextFingerprint);
     }
 
@@ -42,6 +48,7 @@ export class SnapshotTickCache {
       }
       this.snapshotVersionByEntityId.delete(entityId);
       this.previousFingerprintByEntityId.delete(entityId);
+      this.previousSnapshotByEntityId.delete(entityId);
     }
   }
 

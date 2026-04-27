@@ -26,10 +26,7 @@ export class PixiSceneGraph {
     this.hudRoot.cullableChildren = false;
     this.worldRoot.cullableChildren = true;
 
-    this.gridLayer.addChild(
-      this.gridBackgroundGraphic,
-      this.landmarkGraphic,
-    );
+    this.gridLayer.addChild(this.gridBackgroundGraphic, this.landmarkGraphic);
 
     this.worldRoot.addChild(
       this.gridLayer,
@@ -37,7 +34,11 @@ export class PixiSceneGraph {
       this.entityLayer,
       this.placementLayer,
     );
-    this.hudRoot.addChild(this.gridLinesGraphic, this.overlayLayer, this.hudLayer);
+    this.hudRoot.addChild(
+      this.gridLinesGraphic,
+      this.overlayLayer,
+      this.hudLayer,
+    );
   }
 
   public attach(app: Application): void {

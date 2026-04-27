@@ -89,15 +89,13 @@ gameClient.networkClient.onClose(() => {
 gameClient.networkClient.onError(() => {
   deathController.sync();
 });
-installDebugBridge({
-  elements,
-  gameClient,
-  selectors,
-  hudController,
-  sessionUiController,
-});
-
 if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+  installDebugBridge({
+    gameClient,
+    selectors,
+    hudController,
+    sessionUiController,
+  });
   window.gameClient = gameClient;
 }
 

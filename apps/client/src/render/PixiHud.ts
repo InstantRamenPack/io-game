@@ -435,7 +435,9 @@ export class PixiHud {
     this.inventoryEditCoordinator.reset(this.state);
     this.chestHudCoordinator.reset(this.state);
     this.gameClient.stopHoldFire();
-    this.gameClient.setMovementSuppressed(false);
+    this.gameClient.setMovementSuppression("crafting", false);
+    this.gameClient.setMovementSuppression("inventory", false);
+    this.gameClient.setMovementSuppression("chest", false);
     this.markDirty();
   }
 
@@ -615,12 +617,16 @@ export class PixiHud {
   }
 
   private syncOverlaySuppression(): void {
-    const suppressed =
-      this.state.craftingMenuOpen ||
-      this.state.inventoryOpen ||
-      this.state.chestOpen;
     this.gameClient.stopHoldFire();
-    this.gameClient.setMovementSuppressed(suppressed);
+    this.gameClient.setMovementSuppression(
+      "crafting",
+      this.state.craftingMenuOpen,
+    );
+    this.gameClient.setMovementSuppression(
+      "inventory",
+      this.state.inventoryOpen,
+    );
+    this.gameClient.setMovementSuppression("chest", this.state.chestOpen);
   }
 
   private syncTooltip(

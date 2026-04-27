@@ -10,6 +10,10 @@ export class PixiCullingController {
   private placementLayer?: Container;
   private worldRoot?: Container;
   private readonly cullPadding = 160;
+  private lastViewportMinX = Number.NaN;
+  private lastViewportMinY = Number.NaN;
+  private lastViewportMaxX = Number.NaN;
+  private lastViewportMaxY = Number.NaN;
 
   public configure(options: {
     worldRoot: Container;
@@ -29,17 +33,31 @@ export class PixiCullingController {
     options.worldRoot.cullable = false;
     options.worldRoot.cullableChildren = true;
     options.entityLayer.cullable = false;
+    options.entityLayer.cullableChildren = true;
     options.effectLayer.cullable = false;
+    options.effectLayer.cullableChildren = true;
     if (options.placementLayer) {
       options.placementLayer.cullable = false;
+      options.placementLayer.cullableChildren = true;
     }
     options.hudRoot.cullableChildren = false;
-
+    this.entityLayer = options.entityLayer;
+    this.effectLayer = options.effectLayer;
+    this.placementLayer = options.placementLayer;
+    this.entityLayer.cullArea = this.cullArea;
+    this.effectLayer.cullArea = this.cullArea;
+    if (this.placementLayer) {
+      this.placementLayer.cullArea = this.cullArea;
+    }
     this.updateViewport(0, 0, this.worldBounds.width, this.worldBounds.height);
   }
 
   public updateWorldSize(worldSize: WorldSize): void {
     this.worldBounds.copyFrom(new Rectangle(0, 0, worldSize.w, worldSize.h));
+    this.lastViewportMinX = Number.NaN;
+    this.lastViewportMinY = Number.NaN;
+    this.lastViewportMaxX = Number.NaN;
+    this.lastViewportMaxY = Number.NaN;
     this.updateViewport(0, 0, worldSize.w, worldSize.h);
   }
 
@@ -49,6 +67,19 @@ export class PixiCullingController {
     maxX: number,
     maxY: number,
   ): void {
+    if (
+      this.lastViewportMinX === minX &&
+      this.lastViewportMinY === minY &&
+      this.lastViewportMaxX === maxX &&
+      this.lastViewportMaxY === maxY
+    ) {
+      return;
+    }
+    this.lastViewportMinX = minX;
+    this.lastViewportMinY = minY;
+    this.lastViewportMaxX = maxX;
+    this.lastViewportMaxY = maxY;
+
     const paddedMinX = Math.max(0, minX - this.cullPadding);
     const paddedMinY = Math.max(0, minY - this.cullPadding);
     const paddedMaxX = Math.min(
@@ -66,21 +97,6 @@ export class PixiCullingController {
 
     if (this.worldRoot) {
       this.worldRoot.cullArea = this.cullArea;
-    }
-
-    this.updateLayerCull(this.entityLayer);
-    this.updateLayerCull(this.effectLayer);
-    this.updateLayerCull(this.placementLayer);
-  }
-
-  private updateLayerCull(layer: Container | undefined): void {
-    if (!layer) {
-      return;
-    }
-
-    for (const child of layer.children) {
-      child.cullable = true;
-      child.cullArea = this.cullArea;
     }
   }
 }

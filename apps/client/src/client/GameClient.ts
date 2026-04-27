@@ -24,7 +24,6 @@ import {
   type InterpolationDebugFrame,
 } from "@client/net/Interpolator.ts";
 import { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
-import type { WorldPresentationSink } from "@client/net/presentation/WorldPresentationSink.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
@@ -33,7 +32,7 @@ import { normalizeAngle } from "@shared/math/angle.ts";
 import type { LobbyStateMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
 
-const AIM_SEND_EPSILON = 0.0025;
+const POSE_SEND_INTERVAL_MS = 1000 / 60;
 const SNIPER_WEAPON_TYPE_ID = "item:sniper";
 
 /**
@@ -63,13 +62,17 @@ export class GameClient {
   private readonly placementPreviewController =
     new PlacementPreviewController();
   private readonly inputBlocker = new InputBlocker();
+  private readonly suppressionReleaseByReason = new Map<
+    MovementSuppressionReason,
+    () => void
+  >();
   private readonly actionDispatcher: ClientActionDispatcher;
-  private readonly presentationSink: WorldPresentationSink;
+  private readonly presentationSink: PixiWorldPresentationSink;
+  private lastPoseSentAtMs = Number.NEGATIVE_INFINITY;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private lobbyState?: LobbyStateMessage;
-  private releaseLegacyMovementSuppression?: () => void;
   private readonly heldMovement: HeldMovementState = {
     up: false,
     down: false,
@@ -101,30 +104,6 @@ export class GameClient {
     this.interpolator = new Interpolator({
       snapDistance: this.gameConfig.interpolation.snapDistance,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
-      tickDurationSmoothing:
-        this.gameConfig.interpolation.tickDurationSmoothing,
-      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
-      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
-      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
-      maxExtrapolationTicks:
-        this.gameConfig.interpolation.maxExtrapolationTicks,
-      tickDurationMinFactor:
-        this.gameConfig.interpolation.tickDurationMinFactor,
-      tickDurationMaxFactor:
-        this.gameConfig.interpolation.tickDurationMaxFactor,
-      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
-      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
-      jitterBufferMultiplier:
-        this.gameConfig.interpolation.jitterBufferMultiplier,
-      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
-      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
-      correctionFollowSharpness:
-        this.gameConfig.interpolation.correctionFollowSharpness,
-      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
-      correctionFrameScaleMin:
-        this.gameConfig.interpolation.correctionFrameScaleMin,
-      correctionFrameScaleMax:
-        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
@@ -133,7 +112,6 @@ export class GameClient {
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
-      this.actionDispatcher.sendMoveIntent(key, pressed);
     });
     this.inputBlocker.onChange((blocked) => {
       this.inputManager.setMovementSuppressed(blocked);
@@ -209,14 +187,17 @@ export class GameClient {
       updateHoldFireTarget: (x, y) =>
         this.inputManager.updateHoldFireTarget(x, y),
       stopHoldFire: () => this.inputManager.stopHoldFire(),
-      onAimChanged: (force) => this.sendAimIfNeeded(performance.now(), force),
+      onAimChanged: (force) => this.sendPoseIfNeeded(performance.now(), force),
     });
   }
 
   public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
-    this.placementPreviewController.invalidate();
+    this.placementPreviewController.invalidate({
+      spatialIndex: false,
+      preview: true,
+    });
   }
 
   public setTickRate(tickRate: number): void {
@@ -314,19 +295,34 @@ export class GameClient {
     return this.inputBlocker.acquire(reason);
   }
 
-  public setMovementSuppressed(suppressed: boolean): void {
+  public setMovementSuppression(
+    reason: MovementSuppressionReason,
+    suppressed: boolean,
+  ): void {
+    const release = this.suppressionReleaseByReason.get(reason);
     if (suppressed) {
-      this.releaseLegacyMovementSuppression ??=
-        this.inputBlocker.acquire("legacy");
+      if (release) {
+        return;
+      }
+      this.suppressionReleaseByReason.set(
+        reason,
+        this.inputBlocker.acquire(reason),
+      );
       return;
     }
 
-    this.releaseLegacyMovementSuppression?.();
-    this.releaseLegacyMovementSuppression = undefined;
+    if (!release) {
+      return;
+    }
+    release();
+    this.suppressionReleaseByReason.delete(reason);
   }
 
   public clearMovementSuppressions(): void {
-    this.releaseLegacyMovementSuppression = undefined;
+    for (const release of this.suppressionReleaseByReason.values()) {
+      release();
+    }
+    this.suppressionReleaseByReason.clear();
     this.inputBlocker.clear();
   }
 
@@ -389,8 +385,10 @@ export class GameClient {
         deltaMs,
         tickRate: this.gameConfig.tickRate,
         player,
+        world,
         heldMovement: this.heldMovement,
         aimTheta,
+        worldSize: this.gameConfig.worldSize,
       });
 
       if (this.playerEntityId !== undefined) {
@@ -398,6 +396,10 @@ export class GameClient {
           this.playerEntityId,
           presentation,
         );
+      }
+      if (player && presentation) {
+        player.updatePosition(presentation.x, presentation.y);
+        player.rotation = presentation.rotation;
       }
 
       this.presentationSink.update(deltaMs, world);
@@ -424,8 +426,15 @@ export class GameClient {
     if (!applied) {
       return;
     }
+    this.predictionController.reconcileToAuthoritativeSnapshot({
+      player: this.getLocalPlayerEntity(),
+      lastProcessedSeq: snapshot.lastProcessedSeq,
+    });
 
-    this.placementPreviewController.invalidate();
+    this.placementPreviewController.invalidate({
+      spatialIndex: true,
+      preview: true,
+    });
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
 
@@ -495,7 +504,7 @@ export class GameClient {
       this.refreshPointerTargetFromScreen();
       this.update(deltaMs, timestampMs);
       this.refreshPointerTargetFromScreen();
-      this.sendAimIfNeeded(timestampMs);
+      this.sendPoseIfNeeded(timestampMs);
       this.updateHeldAttack(timestampMs);
     });
   }
@@ -504,30 +513,6 @@ export class GameClient {
     this.interpolator.setConfig({
       snapDistance: this.gameConfig.interpolation.snapDistance,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
-      tickDurationSmoothing:
-        this.gameConfig.interpolation.tickDurationSmoothing,
-      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
-      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
-      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
-      maxExtrapolationTicks:
-        this.gameConfig.interpolation.maxExtrapolationTicks,
-      tickDurationMinFactor:
-        this.gameConfig.interpolation.tickDurationMinFactor,
-      tickDurationMaxFactor:
-        this.gameConfig.interpolation.tickDurationMaxFactor,
-      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
-      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
-      jitterBufferMultiplier:
-        this.gameConfig.interpolation.jitterBufferMultiplier,
-      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
-      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
-      correctionFollowSharpness:
-        this.gameConfig.interpolation.correctionFollowSharpness,
-      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
-      correctionFrameScaleMin:
-        this.gameConfig.interpolation.correctionFrameScaleMin,
-      correctionFrameScaleMax:
-        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
   }
 
@@ -560,6 +545,7 @@ export class GameClient {
     this.renderer.invalidateViewRectCache();
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
+    this.clearMovementSuppressions();
     this.placementPreviewController.reset(this.renderer);
     this.renderer.setSniperAimGuide(null);
   }
@@ -573,13 +559,13 @@ export class GameClient {
     this.stopFrameLoop();
     this.inputManager.stopHoldFire();
     this.renderer.invalidateViewRectCache();
-    this.releaseLegacyMovementSuppression?.();
-    this.releaseLegacyMovementSuppression = undefined;
+    this.clearMovementSuppressions();
     this.lobbyState = undefined;
     this.heldMovement.up = false;
     this.heldMovement.down = false;
     this.heldMovement.left = false;
     this.heldMovement.right = false;
+    this.lastPoseSentAtMs = Number.NEGATIVE_INFINITY;
 
     if (disconnectTransport) {
       this.networkClient.disconnect();
@@ -629,6 +615,35 @@ export class GameClient {
     }
     this.heldAttackController.onAttackSent(now, activeWeapon);
     return true;
+  }
+
+  private sendPoseIfNeeded(now: number, force = false): void {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
+      return;
+    }
+
+    if (!force && now - this.lastPoseSentAtMs < POSE_SEND_INTERVAL_MS) {
+      return;
+    }
+
+    const player = this.getLocalPlayerEntity();
+    if (!player?.alive) {
+      return;
+    }
+
+    const pose = this.predictionController.getPoseForSend(player);
+    if (!pose) {
+      return;
+    }
+
+    const theta = this.pointerAimController.computeAimTheta(pose) ?? pose.rotation;
+    const seq = this.inputManager.nextSequence();
+    const clientTimeMs = performance.now();
+    this.networkClient.sendPose(seq, clientTimeMs, pose.x, pose.y, theta, {
+      ...this.heldMovement,
+    });
+    this.predictionController.recordSentPose(seq, clientTimeMs);
+    this.lastPoseSentAtMs = now;
   }
 
   private updateHeldAttack(now: number): void {
@@ -708,27 +723,6 @@ export class GameClient {
     }
 
     return normalizeAngle(Math.atan2(deltaY, deltaX));
-  }
-
-  private sendAimIfNeeded(now: number, force = false): void {
-    if (!this.isSessionReady() || !this.isTransportConnected()) {
-      return;
-    }
-
-    const theta = this.pointerAimController.maybeGetAimToSend({
-      now,
-      intervalMs: 1000 / Math.max(1, this.gameConfig.tickRate),
-      epsilon: AIM_SEND_EPSILON,
-      force,
-      playerPose: this.predictionController.getVisualPose(
-        this.getLocalPlayerEntity(),
-      ),
-    });
-    if (theta === null) {
-      return;
-    }
-
-    this.actionDispatcher.sendAim(theta);
   }
 
   private syncSniperAimGuide(

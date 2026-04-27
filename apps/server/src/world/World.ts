@@ -89,7 +89,6 @@ export class World {
     this.ensureSpatialIndex();
 
     this.collisionSystem.update(this);
-    this.ensureSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     for (const entity of this.entities.all()) {
@@ -149,7 +148,7 @@ export class World {
     if (!this.spatialDirty) {
       return;
     }
-    this.spatial.rebuild(this.entities.all());
+    this.spatial.sync(this.entities.all());
     this.spatialDirty = false;
   }
 }

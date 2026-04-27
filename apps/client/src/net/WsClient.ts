@@ -1,9 +1,8 @@
 import type {
   ActionMessage,
-  AimMessage,
   ChatMessage,
   LobbyStateMessage,
-  MoveIntentKey,
+  PoseHeldMovement,
 } from "@shared/net/protocol.ts";
 import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
@@ -119,23 +118,28 @@ export class WsClient {
     });
   }
 
-  public sendMoveIntent(
+  public sendPose(
     seq: number,
-    key: MoveIntentKey,
-    pressed: boolean,
+    clientTimeMs: number,
+    x: number,
+    y: number,
+    theta: number,
+    heldMovement: PoseHeldMovement,
   ): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    this.socket.send(JSON.stringify({ t: "move", seq, key, pressed }));
-  }
-
-  public sendAim(seq: number, theta: number): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    const message: AimMessage = { t: "aim", seq, theta };
-    this.socket.send(JSON.stringify(message));
+    this.socket.send(
+      JSON.stringify({
+        t: "pose",
+        seq,
+        clientTimeMs,
+        x,
+        y,
+        theta,
+        heldMovement,
+      }),
+    );
   }
 
   public sendAction(actionMessage: ActionMessage): void {

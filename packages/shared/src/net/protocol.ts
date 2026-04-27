@@ -1,4 +1,7 @@
-import { MAX_CHAT_MESSAGE_LENGTH } from "@shared/gameplay/constants.ts";
+import {
+  MAX_CHAT_MESSAGE_LENGTH,
+  MAX_CHEST_INDEX,
+} from "@shared/gameplay/constants.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
 import { isJsonObject, parseJsonValue } from "@shared/json.ts";
@@ -18,6 +21,13 @@ const ThetaInputSchema = FiniteNumberSchema.transform((theta) =>
   normalizeAngle(theta),
 );
 
+const PoseHeldMovementSchema = z.object({
+  up: z.boolean(),
+  down: z.boolean(),
+  left: z.boolean(),
+  right: z.boolean(),
+});
+
 const CraftInputSchema = z.object({
   itemTypeId: ResourceIdSchema,
 });
@@ -35,9 +45,9 @@ const InventoryMoveInputSchema = z.object({
 const ChestMoveInputSchema = z.object({
   chestEntityId: EntityIdSchema,
   fromSource: z.enum(["hotbar", "chest"]),
-  fromIndex: z.number().int().min(0).max(26),
+  fromIndex: z.number().int().min(0).max(MAX_CHEST_INDEX),
   toSource: z.enum(["hotbar", "chest"]),
-  toIndex: z.number().int().min(0).max(26),
+  toIndex: z.number().int().min(0).max(MAX_CHEST_INDEX),
 });
 
 const HelloMessageSchema = z.object({
@@ -47,17 +57,14 @@ const HelloMessageSchema = z.object({
   playerName: z.string().optional(),
 });
 
-const MoveIntentMessageSchema = z.object({
-  t: z.literal("move"),
+const PoseMessageSchema = z.object({
+  t: z.literal("pose"),
   seq: NonNegativeIntSchema,
-  key: MoveIntentKeySchema,
-  pressed: z.boolean(),
-});
-
-const AimMessageSchema = z.object({
-  t: z.literal("aim"),
-  seq: NonNegativeIntSchema,
+  clientTimeMs: FiniteNumberSchema,
+  x: FiniteNumberSchema,
+  y: FiniteNumberSchema,
   theta: ThetaInputSchema,
+  heldMovement: PoseHeldMovementSchema,
 });
 
 const AttackActionMessageSchema = z.object({
@@ -115,7 +122,7 @@ const PickupActionMessageSchema = z.object({
   action: z.literal("pickup"),
 });
 
-const ActionMessageSchema = z.discriminatedUnion("action", [
+const ActionMessageSchemaOptions = [
   AttackActionMessageSchema,
   CraftActionMessageSchema,
   BuildActionMessageSchema,
@@ -124,7 +131,12 @@ const ActionMessageSchema = z.discriminatedUnion("action", [
   ChestMoveActionMessageSchema,
   DropActionMessageSchema,
   PickupActionMessageSchema,
-]);
+] as const;
+
+const ActionMessageSchema = z.discriminatedUnion(
+  "action",
+  ActionMessageSchemaOptions,
+);
 
 const RespawnMessageSchema = z.object({
   t: z.literal("respawn"),
@@ -161,11 +173,16 @@ const LobbyLeaveActionSchema = z.object({
   action: z.literal("leave"),
 });
 
-const LobbyActionMessageSchema = z.discriminatedUnion("action", [
+const LobbyActionMessageSchemaOptions = [
   LobbyJoinActionSchema,
   LobbyJoinByCodeActionSchema,
   LobbyLeaveActionSchema,
-]);
+] as const;
+
+const LobbyActionMessageSchema = z.discriminatedUnion(
+  "action",
+  LobbyActionMessageSchemaOptions,
+);
 
 const PongMessageSchema = z.object({
   t: z.literal("pong"),
@@ -206,60 +223,103 @@ const LobbyStateMessageSchema = z.object({
   serverNowMs: z.number().int().nonnegative(),
 });
 
-export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
-  clientToServer: [
-    "hello",
-    "move",
-    "aim",
-    "action:attack",
-    "action:craft",
-    "action:build",
-    "action:inventoryMove",
-    "action:selectHotbar",
-    "action:chestMove",
-    "action:drop",
-    "action:pickup",
-    "respawn",
-    "ping",
-    "chat",
-    "lobby:join",
-    "lobby:joinByCode",
-    "lobby:leave",
-  ],
-  serverToClient: [
-    "welcome",
-    "snapshot",
-    "pong",
-    "error",
-    "chat",
-    "lobby_state",
-  ],
-});
+type ObjectSchema = z.ZodObject<z.ZodRawShape>;
 
-const ClientToServerMessageSchema = z.discriminatedUnion("t", [
+function literalField(schema: ObjectSchema, fieldName: string): string {
+  const field = schema.shape[fieldName];
+  if (!(field instanceof z.ZodLiteral)) {
+    throw new Error(`[compat] Expected literal field '${fieldName}'`);
+  }
+  if (typeof field.value !== "string") {
+    throw new Error(`[compat] Literal field '${fieldName}' must be a string`);
+  }
+  return field.value;
+}
+
+function literalTags(
+  schemas: readonly ObjectSchema[],
+  fieldName: string,
+): readonly string[] {
+  return Object.freeze(
+    schemas.map((schema) => literalField(schema, fieldName)),
+  );
+}
+
+function prefixedLiteralTags(
+  schemas: readonly ObjectSchema[],
+  fieldName: string,
+  prefix: string,
+): readonly string[] {
+  return Object.freeze(
+    schemas.map((schema) => `${prefix}${literalField(schema, fieldName)}`),
+  );
+}
+
+function assertUniqueDescriptor(
+  label: string,
+  values: readonly string[],
+): void {
+  if (new Set(values).size === values.length) {
+    return;
+  }
+  throw new Error(`[compat] Duplicate protocol descriptor entry in ${label}`);
+}
+
+const ClientToServerMessageSchemaOptions = [
   HelloMessageSchema,
-  MoveIntentMessageSchema,
-  AimMessageSchema,
+  PoseMessageSchema,
   ActionMessageSchema,
   RespawnMessageSchema,
   PingMessageSchema,
   ChatInputMessageSchema,
   LobbyActionMessageSchema,
-]);
+] as const;
 
-const ServerToClientMessageSchema = z.discriminatedUnion("t", [
+const ServerToClientMessageSchemaOptions = [
   SnapshotMessageSchema,
   PongMessageSchema,
   WelcomeMessageSchema,
   ErrorMessageSchema,
   ChatMessageSchema,
   LobbyStateMessageSchema,
-]);
+] as const;
+
+export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
+  clientToServer: Object.freeze([
+    ...literalTags([HelloMessageSchema, PoseMessageSchema], "t"),
+    ...prefixedLiteralTags(ActionMessageSchemaOptions, "action", "action:"),
+    ...literalTags(
+      [RespawnMessageSchema, PingMessageSchema, ChatInputMessageSchema],
+      "t",
+    ),
+    ...prefixedLiteralTags(LobbyActionMessageSchemaOptions, "action", "lobby:"),
+  ]),
+  serverToClient: literalTags(ServerToClientMessageSchemaOptions, "t"),
+});
+
+assertUniqueDescriptor(
+  "clientToServer",
+  PROTOCOL_COMPAT_DESCRIPTOR.clientToServer,
+);
+assertUniqueDescriptor(
+  "serverToClient",
+  PROTOCOL_COMPAT_DESCRIPTOR.serverToClient,
+);
+
+const ClientToServerMessageSchema = z.discriminatedUnion(
+  "t",
+  ClientToServerMessageSchemaOptions,
+);
+
+const ServerToClientMessageSchema = z.discriminatedUnion(
+  "t",
+  ServerToClientMessageSchemaOptions,
+);
 
 export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
-export type MoveIntentMessage = z.infer<typeof MoveIntentMessageSchema>;
-export type AimMessage = z.infer<typeof AimMessageSchema>;
+export type PoseHeldMovement = z.infer<typeof PoseHeldMovementSchema>;
+export type PoseMessage = z.infer<typeof PoseMessageSchema>;
 export type ActionMessage = z.infer<typeof ActionMessageSchema>;
 type RespawnMessage = z.infer<typeof RespawnMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
@@ -273,8 +333,7 @@ export type LobbyActionMessage = z.infer<typeof LobbyActionMessageSchema>;
 export type LobbyStateMessage = z.infer<typeof LobbyStateMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
-  | MoveIntentMessage
-  | AimMessage
+  | PoseMessage
   | ActionMessage
   | RespawnMessage
   | PingMessage

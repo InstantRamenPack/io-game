@@ -187,7 +187,12 @@ export class MapBuildingRenderer extends BaseEntityRenderer {
       .fill({ color: strokeColor, alpha: wallAlpha });
     // Bottom right (with door gap)
     graphics
-      .rect(centerX + doorW / 2, maxY - wallThick, (width - doorW) / 2, wallThick)
+      .rect(
+        centerX + doorW / 2,
+        maxY - wallThick,
+        (width - doorW) / 2,
+        wallThick,
+      )
       .fill({ color: strokeColor, alpha: wallAlpha });
     // Left
     graphics

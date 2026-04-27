@@ -1,4 +1,3 @@
-import type { AppElements } from "@client/app/AppElements.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
@@ -7,15 +6,16 @@ import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import { isJsonValue, type JsonValue } from "@shared/json.ts";
 
 type DebugBridgeOptions = {
-  elements: AppElements;
   gameClient: GameClient;
   selectors: GameSelectors;
   hudController: HudController;
   sessionUiController: SessionUiController;
 };
 
+/**
+ * Installs opt-in browser debug globals for local development sessions.
+ */
 export function installDebugBridge({
-  elements,
   gameClient,
   selectors,
   hudController,

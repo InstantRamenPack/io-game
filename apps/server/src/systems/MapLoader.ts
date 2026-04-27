@@ -1,114 +1,112 @@
-import { BuildingL } from "@server/entities/buildings/BuildingL.ts";
-import { BuildingM } from "@server/entities/buildings/BuildingM.ts";
-import { BuildingXl } from "@server/entities/buildings/BuildingXl.ts";
-import { FenceH } from "@server/entities/buildings/FenceH.ts";
-import { FenceV } from "@server/entities/buildings/FenceV.ts";
-import { Tent } from "@server/entities/buildings/Tent.ts";
-import { Tree } from "@server/entities/buildings/Tree.ts";
-import { Drifter } from "@server/entities/enemies/Drifter.ts";
-import { Police } from "@server/entities/enemies/Police.ts";
-import { Shoota } from "@server/entities/enemies/Shoota.ts";
-import type { Building } from "@server/entities/Building.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
+import { Building } from "@server/entities/Building.ts";
+import type { Entity } from "@server/entities/Entity.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
 
-type BuildingSpec =
-  | { type: "xl"; x: number; y: number; label: string }
-  | { type: "l"; x: number; y: number; label: string }
-  | { type: "m"; x: number; y: number; label: string }
-  | { type: "fence_h"; x: number; y: number }
-  | { type: "fence_v"; x: number; y: number }
-  | { type: "tent"; x: number; y: number }
-  | { type: "tree"; x: number; y: number };
+const BUILDING_XL_TYPE_ID = makeResourceId("building", "building_xl");
+const BUILDING_L_TYPE_ID = makeResourceId("building", "building_l");
+const BUILDING_M_TYPE_ID = makeResourceId("building", "building_m");
+const FENCE_H_TYPE_ID = makeResourceId("building", "fence_h");
+const FENCE_V_TYPE_ID = makeResourceId("building", "fence_v");
+const TENT_TYPE_ID = makeResourceId("building", "tent");
+const TREE_TYPE_ID = makeResourceId("building", "tree");
+const DRIFTER_TYPE_ID = makeResourceId("enemy", "drifter");
+const SHOOTA_TYPE_ID = makeResourceId("enemy", "shoota");
+const POLICE_TYPE_ID = makeResourceId("enemy", "police");
 
-type EnemySpec =
-  | { kind: "drifter"; x: number; y: number }
-  | { kind: "shoota"; x: number; y: number }
-  | { kind: "police"; x: number; y: number };
+type MapSpawnSpec = {
+  typeId: ResourceId;
+  x: number;
+  y: number;
+  label?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Military Base  (zone: x 300-2700, y 300-2700)
 // fence_h entities cover 400 units horizontally; fence_v cover 400 vertically
 // ---------------------------------------------------------------------------
-const MILITARY_STRUCTURES: BuildingSpec[] = [
+const MILITARY_STRUCTURES: MapSpawnSpec[] = [
   // Perimeter — top row (y=300)
-  { type: "fence_h", x: 500, y: 300 },
-  { type: "fence_h", x: 900, y: 300 },
-  { type: "fence_h", x: 1300, y: 300 },
-  { type: "fence_h", x: 1700, y: 300 },
-  { type: "fence_h", x: 2100, y: 300 },
-  { type: "fence_h", x: 2500, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 500, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 900, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 1300, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 1700, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 2100, y: 300 },
+  { typeId: FENCE_H_TYPE_ID, x: 2500, y: 300 },
 
   // Perimeter — south row (y=2700), gate gap at x 1100-1900
-  { type: "fence_h", x: 500, y: 2700 },
-  { type: "fence_h", x: 900, y: 2700 },
-  { type: "fence_h", x: 2100, y: 2700 },
-  { type: "fence_h", x: 2500, y: 2700 },
+  { typeId: FENCE_H_TYPE_ID, x: 500, y: 2700 },
+  { typeId: FENCE_H_TYPE_ID, x: 900, y: 2700 },
+  { typeId: FENCE_H_TYPE_ID, x: 2100, y: 2700 },
+  { typeId: FENCE_H_TYPE_ID, x: 2500, y: 2700 },
 
   // Perimeter — left col (x=300)
-  { type: "fence_v", x: 300, y: 500 },
-  { type: "fence_v", x: 300, y: 900 },
-  { type: "fence_v", x: 300, y: 1300 },
-  { type: "fence_v", x: 300, y: 1700 },
-  { type: "fence_v", x: 300, y: 2100 },
-  { type: "fence_v", x: 300, y: 2500 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 500 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 900 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 1300 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 1700 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 2100 },
+  { typeId: FENCE_V_TYPE_ID, x: 300, y: 2500 },
 
   // Perimeter — right col (x=2700)
-  { type: "fence_v", x: 2700, y: 500 },
-  { type: "fence_v", x: 2700, y: 900 },
-  { type: "fence_v", x: 2700, y: 1300 },
-  { type: "fence_v", x: 2700, y: 1700 },
-  { type: "fence_v", x: 2700, y: 2100 },
-  { type: "fence_v", x: 2700, y: 2500 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 500 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 900 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 1300 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 1700 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 2100 },
+  { typeId: FENCE_V_TYPE_ID, x: 2700, y: 2500 },
 
   // Corner guard towers (moved inward enough that building edges clear the fence lines)
-  { type: "m", x: 530, y: 480, label: "Guard Tower" },
-  { type: "m", x: 2470, y: 480, label: "Guard Tower" },
-  { type: "m", x: 530, y: 2520, label: "Guard Tower" },
-  { type: "m", x: 2470, y: 2520, label: "Guard Tower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 530, y: 480, label: "Guard Tower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 2470, y: 480, label: "Guard Tower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 530, y: 2520, label: "Guard Tower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 2470, y: 2520, label: "Guard Tower" },
 
   // Main buildings
-  { type: "xl", x: 1500, y: 1100, label: "Command Center" },
-  { type: "l", x: 700, y: 850, label: "Barracks" },
-  { type: "l", x: 2300, y: 850, label: "Barracks" },
-  { type: "l", x: 700, y: 1950, label: "Armory" },
-  { type: "l", x: 2300, y: 1950, label: "Vehicle Bay" },
+  { typeId: BUILDING_XL_TYPE_ID, x: 1500, y: 1100, label: "Command Center" },
+  { typeId: BUILDING_L_TYPE_ID, x: 700, y: 850, label: "Barracks" },
+  { typeId: BUILDING_L_TYPE_ID, x: 2300, y: 850, label: "Barracks" },
+  { typeId: BUILDING_L_TYPE_ID, x: 700, y: 1950, label: "Armory" },
+  { typeId: BUILDING_L_TYPE_ID, x: 2300, y: 1950, label: "Vehicle Bay" },
 
   // Internal rocks / obstacles
-  { type: "m", x: 1500, y: 2200, label: "Watchtower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 1500, y: 2200, label: "Watchtower" },
 ];
 
-const MILITARY_ENEMIES: EnemySpec[] = [
-  { kind: "drifter", x: 1100, y: 1500 },
-  { kind: "drifter", x: 1900, y: 1500 },
-  { kind: "drifter", x: 1500, y: 700 },
-  { kind: "drifter", x: 800, y: 1400 },
-  { kind: "drifter", x: 2200, y: 1400 },
-  { kind: "drifter", x: 1500, y: 1800 },
-  { kind: "shoota", x: 1100, y: 800 },
-  { kind: "shoota", x: 1900, y: 800 },
-  { kind: "shoota", x: 700, y: 2200 },
-  { kind: "shoota", x: 2300, y: 2200 },
-  { kind: "police", x: 1500, y: 1500 },
-  { kind: "police", x: 900, y: 2000 },
+const MILITARY_ENEMIES: MapSpawnSpec[] = [
+  { typeId: DRIFTER_TYPE_ID, x: 1100, y: 1500 },
+  { typeId: DRIFTER_TYPE_ID, x: 1900, y: 1500 },
+  { typeId: DRIFTER_TYPE_ID, x: 1500, y: 700 },
+  { typeId: DRIFTER_TYPE_ID, x: 800, y: 1400 },
+  { typeId: DRIFTER_TYPE_ID, x: 2200, y: 1400 },
+  { typeId: DRIFTER_TYPE_ID, x: 1500, y: 1800 },
+  { typeId: SHOOTA_TYPE_ID, x: 1100, y: 800 },
+  { typeId: SHOOTA_TYPE_ID, x: 1900, y: 800 },
+  { typeId: SHOOTA_TYPE_ID, x: 700, y: 2200 },
+  { typeId: SHOOTA_TYPE_ID, x: 2300, y: 2200 },
+  { typeId: POLICE_TYPE_ID, x: 1500, y: 1500 },
+  { typeId: POLICE_TYPE_ID, x: 900, y: 2000 },
 ];
 
 // ---------------------------------------------------------------------------
 // Extraction Zone  (zone: x 350-1800, y 3300-4800)
 // ---------------------------------------------------------------------------
-const EXTRACTION_STRUCTURES: BuildingSpec[] = [
+const EXTRACTION_STRUCTURES: MapSpawnSpec[] = [
   // Perimeter fences (loose, open feel)
-  { type: "fence_h", x: 750, y: 3350 },
-  { type: "fence_h", x: 1350, y: 3350 },
-  { type: "fence_h", x: 750, y: 4750 },
-  { type: "fence_h", x: 1350, y: 4750 },
-  { type: "fence_v", x: 400, y: 3750 },
-  { type: "fence_v", x: 400, y: 4300 },
+  { typeId: FENCE_H_TYPE_ID, x: 750, y: 3350 },
+  { typeId: FENCE_H_TYPE_ID, x: 1350, y: 3350 },
+  { typeId: FENCE_H_TYPE_ID, x: 750, y: 4750 },
+  { typeId: FENCE_H_TYPE_ID, x: 1350, y: 4750 },
+  { typeId: FENCE_V_TYPE_ID, x: 400, y: 3750 },
+  { typeId: FENCE_V_TYPE_ID, x: 400, y: 4300 },
   // East side open (entrance from military side left unblocked)
-  { type: "fence_v", x: 1750, y: 3750 },
-  { type: "fence_v", x: 1750, y: 4300 },
+  { typeId: FENCE_V_TYPE_ID, x: 1750, y: 3750 },
+  { typeId: FENCE_V_TYPE_ID, x: 1750, y: 4300 },
 
   // Control booth (moved left to clear fence_v at x=1750)
-  { type: "m", x: 1400, y: 3600, label: "Control Booth" },
+  { typeId: BUILDING_M_TYPE_ID, x: 1400, y: 3600, label: "Control Booth" },
 ];
 
 // No enemies at extraction zone (safe area)
@@ -116,57 +114,57 @@ const EXTRACTION_STRUCTURES: BuildingSpec[] = [
 // ---------------------------------------------------------------------------
 // Abandoned Village  (zone: x 3200-6500, y 250-2500)
 // ---------------------------------------------------------------------------
-const VILLAGE_STRUCTURES: BuildingSpec[] = [
-  { type: "m", x: 3600, y: 650, label: "House" },
-  { type: "m", x: 4050, y: 900, label: "House" },
-  { type: "m", x: 3700, y: 1400, label: "House" },
-  { type: "l", x: 3550, y: 2000, label: "Farm" },
-  { type: "m", x: 4800, y: 700, label: "Blacksmith" },
-  { type: "m", x: 5400, y: 1100, label: "Clinic" },
+const VILLAGE_STRUCTURES: MapSpawnSpec[] = [
+  { typeId: BUILDING_M_TYPE_ID, x: 3600, y: 650, label: "House" },
+  { typeId: BUILDING_M_TYPE_ID, x: 4050, y: 900, label: "House" },
+  { typeId: BUILDING_M_TYPE_ID, x: 3700, y: 1400, label: "House" },
+  { typeId: BUILDING_L_TYPE_ID, x: 3550, y: 2000, label: "Farm" },
+  { typeId: BUILDING_M_TYPE_ID, x: 4800, y: 700, label: "Blacksmith" },
+  { typeId: BUILDING_M_TYPE_ID, x: 5400, y: 1100, label: "Clinic" },
   // Extra buildings in bottom corners of village
-  { type: "m", x: 4100, y: 2300, label: "House" },
-  { type: "l", x: 5800, y: 2000, label: "Warehouse" },
+  { typeId: BUILDING_M_TYPE_ID, x: 4100, y: 2300, label: "House" },
+  { typeId: BUILDING_L_TYPE_ID, x: 5800, y: 2000, label: "Warehouse" },
   // Scattered fence fragments (ruined village feel) — shifted clear of buildings
-  { type: "fence_h", x: 3900, y: 1200 },
-  { type: "fence_v", x: 4300, y: 1600 },
-  { type: "fence_h", x: 5200, y: 1300 },
+  { typeId: FENCE_H_TYPE_ID, x: 3900, y: 1200 },
+  { typeId: FENCE_V_TYPE_ID, x: 4300, y: 1600 },
+  { typeId: FENCE_H_TYPE_ID, x: 5200, y: 1300 },
 ];
 
-const VILLAGE_ENEMIES: EnemySpec[] = [
-  { kind: "drifter", x: 4200, y: 1300 },
-  { kind: "drifter", x: 3900, y: 700 },
-  { kind: "drifter", x: 5000, y: 1500 },
+const VILLAGE_ENEMIES: MapSpawnSpec[] = [
+  { typeId: DRIFTER_TYPE_ID, x: 4200, y: 1300 },
+  { typeId: DRIFTER_TYPE_ID, x: 3900, y: 700 },
+  { typeId: DRIFTER_TYPE_ID, x: 5000, y: 1500 },
 ];
 
 // ---------------------------------------------------------------------------
 // Outpost  (zone: x 3200-6100, y 4800-6700)
 // ---------------------------------------------------------------------------
-const OUTPOST_STRUCTURES: BuildingSpec[] = [
-  { type: "tent", x: 3550, y: 5200 },
-  { type: "tent", x: 3900, y: 5550 },
-  { type: "tent", x: 4300, y: 5100 },
-  { type: "tent", x: 4700, y: 5500 },
-  { type: "tent", x: 5100, y: 5200 },
-  { type: "tent", x: 5500, y: 5600 },
-  { type: "tent", x: 5800, y: 5050 },
-  { type: "tent", x: 6000, y: 5450 },
-  { type: "m", x: 4750, y: 5900, label: "Watchtower" },
-  { type: "m", x: 4300, y: 5900, label: "Supply Cache" },
+const OUTPOST_STRUCTURES: MapSpawnSpec[] = [
+  { typeId: TENT_TYPE_ID, x: 3550, y: 5200 },
+  { typeId: TENT_TYPE_ID, x: 3900, y: 5550 },
+  { typeId: TENT_TYPE_ID, x: 4300, y: 5100 },
+  { typeId: TENT_TYPE_ID, x: 4700, y: 5500 },
+  { typeId: TENT_TYPE_ID, x: 5100, y: 5200 },
+  { typeId: TENT_TYPE_ID, x: 5500, y: 5600 },
+  { typeId: TENT_TYPE_ID, x: 5800, y: 5050 },
+  { typeId: TENT_TYPE_ID, x: 6000, y: 5450 },
+  { typeId: BUILDING_M_TYPE_ID, x: 4750, y: 5900, label: "Watchtower" },
+  { typeId: BUILDING_M_TYPE_ID, x: 4300, y: 5900, label: "Supply Cache" },
   // Fence fragments (ruined perimeter)
-  { type: "fence_h", x: 3700, y: 4950 },
-  { type: "fence_h", x: 4900, y: 4950 },
-  { type: "fence_v", x: 3300, y: 5500 },
-  { type: "fence_v", x: 6200, y: 5300 },
+  { typeId: FENCE_H_TYPE_ID, x: 3700, y: 4950 },
+  { typeId: FENCE_H_TYPE_ID, x: 4900, y: 4950 },
+  { typeId: FENCE_V_TYPE_ID, x: 3300, y: 5500 },
+  { typeId: FENCE_V_TYPE_ID, x: 6200, y: 5300 },
 ];
 
-const OUTPOST_ENEMIES: EnemySpec[] = [
-  { kind: "drifter", x: 4000, y: 5350 },
-  { kind: "drifter", x: 4600, y: 5200 },
-  { kind: "drifter", x: 5300, y: 5700 },
-  { kind: "drifter", x: 5700, y: 5200 },
-  { kind: "shoota", x: 4800, y: 6100 },
-  { kind: "shoota", x: 5200, y: 5500 },
-  { kind: "shoota", x: 3800, y: 5800 },
+const OUTPOST_ENEMIES: MapSpawnSpec[] = [
+  { typeId: DRIFTER_TYPE_ID, x: 4000, y: 5350 },
+  { typeId: DRIFTER_TYPE_ID, x: 4600, y: 5200 },
+  { typeId: DRIFTER_TYPE_ID, x: 5300, y: 5700 },
+  { typeId: DRIFTER_TYPE_ID, x: 5700, y: 5200 },
+  { typeId: SHOOTA_TYPE_ID, x: 4800, y: 6100 },
+  { typeId: SHOOTA_TYPE_ID, x: 5200, y: 5500 },
+  { typeId: SHOOTA_TYPE_ID, x: 3800, y: 5800 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -253,70 +251,27 @@ const FOREST_TREES: { x: number; y: number }[] = [
   { x: 9680, y: 5930 },
 ];
 
-
-function spawnBuilding(world: World, spec: BuildingSpec): void {
-  const id = world.allocEntityId();
-  let building: Building;
-
-  switch (spec.type) {
-    case "xl": {
-      const b = new BuildingXl(id);
-      b.label = spec.label;
-      building = b;
-      break;
-    }
-    case "l": {
-      const b = new BuildingL(id);
-      b.label = spec.label;
-      building = b;
-      break;
-    }
-    case "m": {
-      const b = new BuildingM(id);
-      b.label = spec.label;
-      building = b;
-      break;
-    }
-    case "fence_h":
-      building = new FenceH(id);
-      break;
-    case "fence_v":
-      building = new FenceV(id);
-      break;
-    case "tent":
-      building = new Tent(id);
-      break;
-    case "tree":
-      building = new Tree(id);
-      break;
+function spawnMapEntity(world: World, spec: MapSpawnSpec): void {
+  const entry = entityTypeRegistry.require(spec.typeId);
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error(`Map spawn type ${spec.typeId} is not spawnable.`);
   }
 
-  building.x = spec.x;
-  building.y = spec.y;
-  building.hp = 0;
-  building.maxHp = 0;
-  world.spawn(building);
-}
+  const entityId = world.allocEntityId();
+  const entity: Entity = new entry.ctor(entityId);
 
-function spawnEnemy(world: World, spec: EnemySpec): void {
-  const id = world.allocEntityId();
-  let enemy;
+  entity.x = spec.x;
+  entity.y = spec.y;
 
-  switch (spec.kind) {
-    case "drifter":
-      enemy = new Drifter(id);
-      break;
-    case "shoota":
-      enemy = new Shoota(id);
-      break;
-    case "police":
-      enemy = new Police(id);
-      break;
+  if (entity instanceof Building) {
+    if (spec.label) {
+      entity.label = spec.label;
+    }
+    entity.hp = 0;
+    entity.maxHp = 0;
   }
 
-  enemy.x = spec.x;
-  enemy.y = spec.y;
-  world.spawn(enemy);
+  world.spawn(entity);
 }
 
 /**
@@ -325,27 +280,27 @@ function spawnEnemy(world: World, spec: EnemySpec): void {
  */
 export function loadMap(world: World): void {
   for (const spec of MILITARY_STRUCTURES) {
-    spawnBuilding(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const spec of EXTRACTION_STRUCTURES) {
-    spawnBuilding(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const spec of VILLAGE_STRUCTURES) {
-    spawnBuilding(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const spec of OUTPOST_STRUCTURES) {
-    spawnBuilding(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const pos of FOREST_TREES) {
-    spawnBuilding(world, { type: "tree", x: pos.x, y: pos.y });
+    spawnMapEntity(world, { typeId: TREE_TYPE_ID, x: pos.x, y: pos.y });
   }
   for (const spec of MILITARY_ENEMIES) {
-    spawnEnemy(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const spec of VILLAGE_ENEMIES) {
-    spawnEnemy(world, spec);
+    spawnMapEntity(world, spec);
   }
   for (const spec of OUTPOST_ENEMIES) {
-    spawnEnemy(world, spec);
+    spawnMapEntity(world, spec);
   }
 }

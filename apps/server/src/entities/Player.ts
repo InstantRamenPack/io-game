@@ -1,8 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  getBlueprintUnlockedRecipeTypeId,
-  isRecipeBlueprintLocked,
-} from "@shared/content/catalog.ts";
+import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -13,7 +10,7 @@ import {
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
+import type { ActionMessage, PoseHeldMovement } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import {
@@ -22,6 +19,7 @@ import {
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import {
@@ -33,7 +31,15 @@ import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
-type HeldMovementState = Record<MoveIntentKey, boolean>;
+type ClientPoseState = {
+  seq: number;
+  clientTimeMs: number;
+  x: number;
+  y: number;
+  theta: number;
+  heldMovement: PoseHeldMovement;
+  receivedAtMs: number;
+};
 
 /**
  * Authoritative player entity driven by held movement state and queued actions.
@@ -43,6 +49,7 @@ export class Player extends Entity {
   public static override readonly resourceName = "base";
 
   public static readonly MAX_FOOD = 100;
+  private static readonly CLIENT_POSE_STALE_TIMEOUT_MS = 250;
   // Drains to zero in 3 minutes at 20 ticks/sec
   private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
 
@@ -56,13 +63,10 @@ export class Player extends Entity {
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
-
-  private readonly heldMovement: HeldMovementState = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-  };
+  private latestClientPose?: ClientPoseState;
+  private hasObservedShadowPosition = false;
+  private lastObservedShadowX = 0;
+  private lastObservedShadowY = 0;
 
   constructor(id: number, name = "player") {
     const baseline = requireMovingEntityBaselineContent(Player.typeId);
@@ -82,10 +86,6 @@ export class Player extends Entity {
     });
   }
 
-  public setMoveIntent(key: MoveIntentKey, pressed: boolean): void {
-    this.heldMovement[key] = pressed;
-  }
-
   public enqueueAction(actionMessage: ActionMessage): void {
     this.queuedActions.push(actionMessage);
     if (this.queuedActions.length - this.queuedActionHead <= 64) {
@@ -103,13 +103,17 @@ export class Player extends Entity {
     this.aimTheta = normalizeAngle(theta);
   }
 
+  public applyClientPose(pose: ClientPoseState): void {
+    this.latestClientPose = {
+      ...pose,
+      theta: normalizeAngle(pose.theta),
+      heldMovement: { ...pose.heldMovement },
+    };
+  }
+
   public clearQueuedInputState(): void {
     this.queuedActions.length = 0;
     this.queuedActionHead = 0;
-    this.heldMovement.up = false;
-    this.heldMovement.down = false;
-    this.heldMovement.left = false;
-    this.heldMovement.right = false;
   }
 
   public getQueuedActionCount(): number {
@@ -130,7 +134,10 @@ export class Player extends Entity {
     this.fists.tick(world);
 
     this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
-    this.applyHeldMovement(world);
+    const hasFreshClientPose = this.applyLatestClientPose(world);
+    if (!hasFreshClientPose) {
+      this.resetMovement();
+    }
     this.rotation = this.aimTheta;
     this.applyQueuedActions(world);
   }
@@ -180,8 +187,10 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.rotation = 0;
+    this.latestClientPose = undefined;
     this.collisionMode = "none";
     this.resetMovement();
+    this.hasObservedShadowPosition = false;
     world.focusedTrace.recordEntityEvent(world, "player_died", this, {
       x: this.x,
       y: this.y,
@@ -203,11 +212,13 @@ export class Player extends Entity {
     this.activeEffects = [];
     this.clearQueuedInputState();
     this.aimTheta = 0;
+    this.latestClientPose = undefined;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.rotation = 0;
     this.collisionMode = this.defaultCollisionMode;
     this.resetMovement();
+    this.hasObservedShadowPosition = false;
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,
       after: {
@@ -218,6 +229,39 @@ export class Player extends Entity {
         hp: this.hp,
         alive: this.alive,
       },
+    });
+  }
+
+  public override afterMovement(world: World): void {
+    if (!this.alive || !world.entities.has(this.id)) {
+      this.hasObservedShadowPosition = false;
+      return;
+    }
+
+    if (!this.hasObservedShadowPosition) {
+      this.lastObservedShadowX = this.x;
+      this.lastObservedShadowY = this.y;
+      this.vx = 0;
+      this.vy = 0;
+      this.hasObservedShadowPosition = true;
+      return;
+    }
+
+    const deltaX = this.x - this.lastObservedShadowX;
+    const deltaY = this.y - this.lastObservedShadowY;
+    this.vx = deltaX;
+    this.vy = deltaY;
+    this.lastObservedShadowX = this.x;
+    this.lastObservedShadowY = this.y;
+
+    if (!world.focusedTrace.matchesEntity(this)) {
+      return;
+    }
+    world.focusedTrace.recordEntityEvent(world, "shadow_velocity_observed", this, {
+      observedVx: deltaX,
+      observedVy: deltaY,
+      latestClientPoseSeq: this.latestClientPose?.seq ?? null,
+      latestClientTimeMs: this.latestClientPose?.clientTimeMs ?? null,
     });
   }
 
@@ -396,63 +440,49 @@ export class Player extends Entity {
     world.spawn(building);
   }
 
-  private applyHeldMovement(world: World): void {
-    const shouldTrace = world.focusedTrace.matchesEntity(this);
-    if (this.isStunned()) {
-      const clearedQueuedActions =
-        this.queuedActions.length - this.queuedActionHead;
-      this.queuedActions.length = 0;
-      this.queuedActionHead = 0;
-      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
-      if (shouldTrace) {
+  private applyLatestClientPose(world: World): boolean {
+    const pose = this.latestClientPose;
+    if (!pose) {
+      return false;
+    }
+    if (Date.now() - pose.receivedAtMs > Player.CLIENT_POSE_STALE_TIMEOUT_MS) {
+      if (world.focusedTrace.matchesEntity(this)) {
         world.focusedTrace.recordEntityEvent(
           world,
-          "movement_blocked_stunned",
+          "client_pose_stale",
           this,
           {
-            clearedQueuedActions,
+            seq: pose.seq,
+            clientTimeMs: pose.clientTimeMs,
+            receivedAtMs: pose.receivedAtMs,
           },
         );
       }
-      return;
+      return false;
     }
 
-    let moveX =
-      Number(this.heldMovement.right) - Number(this.heldMovement.left);
-    let moveY = Number(this.heldMovement.down) - Number(this.heldMovement.up);
-    const vectorLength = Math.hypot(moveX, moveY);
-    if (vectorLength > 1) {
-      moveX /= vectorLength;
-      moveY /= vectorLength;
-    }
+    this.x = pose.x;
+    this.y = pose.y;
+    this.aimTheta = pose.theta;
+    this.rotation = pose.theta;
+    this.resetDriveVelocity();
 
-    const speedMultiplier = this.activeEffects.reduce(
-      (accumulator, effect) =>
-        effect.speedMultiplier !== undefined
-          ? accumulator * effect.speedMultiplier
-          : accumulator,
-      1,
-    );
-
-    this.setDesiredVelocity(
-      moveX * this.moveSpeed * speedMultiplier,
-      moveY * this.moveSpeed * speedMultiplier,
-    );
-    if (shouldTrace) {
-      const velocityComponents = this.getDebugVelocityComponents();
-      world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
-        heldMovement: { ...this.heldMovement },
-        moveX,
-        moveY,
-        speedMultiplier,
-        desiredVx: velocityComponents.desiredVx,
-        desiredVy: velocityComponents.desiredVy,
-        driveVx: velocityComponents.driveVx,
-        driveVy: velocityComponents.driveVy,
-        momentumVx: velocityComponents.momentumVx,
-        momentumVy: velocityComponents.momentumVy,
-      });
+    if (world.focusedTrace.matchesEntity(this)) {
+      world.focusedTrace.recordEntityEvent(
+        world,
+        "client_pose_tick_applied",
+        this,
+        {
+          seq: pose.seq,
+          clientTimeMs: pose.clientTimeMs,
+          heldMovement: { ...pose.heldMovement },
+          x: pose.x,
+          y: pose.y,
+          theta: pose.theta,
+        },
+      );
     }
+    return true;
   }
 
   private applyQueuedActions(world: World): void {
@@ -601,37 +631,12 @@ export class Player extends Entity {
       return;
     }
 
-    if (!this.inventory.absorbInventory(nearestPickup.contents)) {
+    if (
+      !absorbInventoryByAcquisitionRules(this.inventory, nearestPickup.contents)
+    ) {
       return;
     }
-
-    this.unlockBlueprintPickupRecipes(nearestPickup.contents);
     world.despawn(nearestPickup.id);
-  }
-
-  private unlockBlueprintPickupRecipes(pickupInventory: Inventory): void {
-    const pickupTypeIds = new Set<ResourceId>();
-    for (const [typeId] of pickupInventory.resources.entries()) {
-      pickupTypeIds.add(typeId);
-    }
-    for (const slot of pickupInventory.hotbarSlots) {
-      if (!slot) {
-        continue;
-      }
-      if (slot.kind === "weapon") {
-        pickupTypeIds.add(slot.weapon.typeId);
-      } else {
-        pickupTypeIds.add(slot.typeId);
-      }
-    }
-
-    for (const typeId of pickupTypeIds) {
-      const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(typeId);
-      if (!unlockedRecipeTypeId) {
-        continue;
-      }
-      this.inventory.unlockRecipe(unlockedRecipeTypeId);
-    }
   }
 
   private applyChestMove(

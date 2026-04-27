@@ -1,7 +1,6 @@
 import type { InputManager } from "@client/input/InputManager.ts";
 import type { WsClient } from "@client/net/WsClient.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { MoveIntentKey } from "@shared/net/protocol.ts";
 
 type DispatcherOptions = {
   networkClient: WsClient;
@@ -12,29 +11,6 @@ type DispatcherOptions = {
 
 export class ClientActionDispatcher {
   constructor(private readonly options: DispatcherOptions) {}
-
-  public sendMoveIntent(key: MoveIntentKey, pressed: boolean): void {
-    if (!this.canSend()) {
-      return;
-    }
-
-    this.options.networkClient.sendMoveIntent(
-      this.options.inputManager.nextSequence(),
-      key,
-      pressed,
-    );
-  }
-
-  public sendAim(theta: number): void {
-    if (!this.canSend()) {
-      return;
-    }
-
-    this.options.networkClient.sendAim(
-      this.options.inputManager.nextSequence(),
-      theta,
-    );
-  }
 
   public queueAttack(theta: number): void {
     this.sendAction({

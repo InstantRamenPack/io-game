@@ -10,3 +10,4 @@ export const MAX_CHAT_MESSAGE_LENGTH = 240;
 export const CHEST_INTERACT_PADDING = 48;
 export const CHEST_INTERACT_RADIUS = 160;
 export const CHEST_SLOT_COUNT = 27;
+export const MAX_CHEST_INDEX = CHEST_SLOT_COUNT - 1;

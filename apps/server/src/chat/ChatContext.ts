@@ -1,6 +1,5 @@
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
-import { getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ServerToClientMessage } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -18,8 +17,8 @@ import {
   isBuildingCtor,
   isProjectileCtor,
   isSpawnableEntityCtor,
-  isWeaponCtor,
 } from "@server/runtime/ctorGuards.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 
 type FilterResult = {
   text: string;
@@ -207,28 +206,11 @@ export class ChatContext {
     itemEntry: ItemTypeEntry,
     amount: number,
   ): boolean {
-    const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(
-      itemEntry.typeId,
+    return grantItemEntryByAcquisitionRules(
+      target.inventory,
+      itemEntry,
+      amount,
     );
-    if (unlockedRecipeTypeId) {
-      target.inventory.unlockRecipe(unlockedRecipeTypeId);
-      return true;
-    }
-
-    if (isWeaponCtor(itemEntry.ctor)) {
-      if (!target.inventory.canAddWeaponCount(amount)) {
-        return false;
-      }
-      for (let index = 0; index < amount; index += 1) {
-        target.inventory.addWeapon(new itemEntry.ctor());
-      }
-      return true;
-    }
-
-    if (!target.inventory.canAddStackable(itemEntry.typeId, amount)) {
-      return false;
-    }
-    return target.inventory.addStackable(itemEntry.typeId, amount);
   }
 
   public resolveSpawnTarget(

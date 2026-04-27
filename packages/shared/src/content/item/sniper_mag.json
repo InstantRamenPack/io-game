@@ -3,8 +3,6 @@
   "recipe": {
     "hint": "Single high-caliber round for the sniper.",
     "outputAmount": 1,
-    "costs": [
-      { "typeId": "item:hunk", "amount": 18 }
-    ]
+    "costs": [{ "typeId": "item:hunk", "amount": 18 }]
   }
 }

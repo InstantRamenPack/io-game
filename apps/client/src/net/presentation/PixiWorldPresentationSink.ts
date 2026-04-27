@@ -1,11 +1,10 @@
 import type { ClientWorld } from "@client/net/ClientWorld.ts";
 import type { WorldPresentationEvent } from "@client/net/presentation/WorldPresentationEvent.ts";
-import type { WorldPresentationSink } from "@client/net/presentation/WorldPresentationSink.ts";
 import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 
-export class PixiWorldPresentationSink implements WorldPresentationSink {
+export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
 
@@ -48,7 +47,7 @@ export class PixiWorldPresentationSink implements WorldPresentationSink {
   }
 
   public update(deltaMs: number, world: ClientWorld): void {
-    this.renderManager.update(deltaMs, world.entities.values());
+    this.renderManager.update(deltaMs);
     this.updateConfusion(world);
   }
 

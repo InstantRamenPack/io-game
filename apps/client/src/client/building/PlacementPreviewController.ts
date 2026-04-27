@@ -23,32 +23,69 @@ type CachedPlacementBuildProfile = {
   previewLocalBounds: HitboxBounds;
 };
 
+type PlacementPreviewOutput = Parameters<
+  PixiRenderer["setPlacementPreview"]
+>[0];
+
 const PLACEMENT_SPATIAL_CELL_SIZE = 160;
 const PLACEMENT_KEY_OFFSET = 1 << 15;
 const PLACEMENT_KEY_STRIDE = 1 << 16;
 
 export class PlacementPreviewController {
   private placementIndexDirty = true;
+  private previewDirty = true;
   private placementIndexedWorld?: ClientWorld;
   private readonly placementSpatial = new Map<number, ClientEntity[]>();
   private readonly placementWorkingCandidates: ClientEntity[] = [];
   private readonly placementCandidateMarkers = new Map<number, number>();
   private placementCandidateMarker = 0;
+  private placementSpatialRevision = 0;
   private placementProfileCache: CachedPlacementBuildProfile | undefined;
+  private lastEmittedPreviewState: PlacementPreviewOutput = null;
+  private lastComputedPreviewState: PlacementPreviewOutput = null;
+  private lastComputedWorld?: ClientWorld;
+  private lastComputedPlayerId = -1;
+  private lastComputedPlayerStateVersion = -1;
+  private lastComputedPointerX = Number.NaN;
+  private lastComputedPointerY = Number.NaN;
+  private lastComputedSelectedItemTypeId: ResourceId | undefined;
+  private lastComputedSpatialRevision = -1;
+  private lastComputedWorldWidth = -1;
+  private lastComputedWorldHeight = -1;
 
-  public invalidate(): void {
-    this.placementIndexDirty = true;
+  public invalidate(options?: {
+    spatialIndex?: boolean;
+    preview?: boolean;
+  }): void {
+    if (options?.spatialIndex ?? true) {
+      this.placementIndexDirty = true;
+    }
+    if (options?.preview ?? true) {
+      this.previewDirty = true;
+    }
   }
 
   public reset(renderer: PixiRenderer): void {
-    renderer.setPlacementPreview(null);
+    this.emitPlacementPreview(renderer, null);
     this.placementSpatial.clear();
     this.placementWorkingCandidates.length = 0;
     this.placementCandidateMarkers.clear();
     this.placementCandidateMarker = 0;
     this.placementIndexDirty = true;
+    this.previewDirty = true;
     this.placementIndexedWorld = undefined;
+    this.placementSpatialRevision = 0;
     this.placementProfileCache = undefined;
+    this.lastComputedPreviewState = null;
+    this.lastComputedWorld = undefined;
+    this.lastComputedPlayerId = -1;
+    this.lastComputedPlayerStateVersion = -1;
+    this.lastComputedPointerX = Number.NaN;
+    this.lastComputedPointerY = Number.NaN;
+    this.lastComputedSelectedItemTypeId = undefined;
+    this.lastComputedSpatialRevision = -1;
+    this.lastComputedWorldWidth = -1;
+    this.lastComputedWorldHeight = -1;
   }
 
   public sync(options: {
@@ -60,31 +97,49 @@ export class PlacementPreviewController {
   }): void {
     const { renderer, world, player, pointerAimTarget, gameConfig } = options;
     if (!world || !player || !player.alive) {
-      renderer.setPlacementPreview(null);
+      this.emitPlacementPreview(renderer, null);
       return;
     }
 
     const inventory = player.inventory;
     if (!inventory) {
-      renderer.setPlacementPreview(null);
+      this.emitPlacementPreview(renderer, null);
       return;
     }
 
     const selectedSlot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
     if (selectedSlot?.kind !== "buildable") {
       this.placementProfileCache = undefined;
-      renderer.setPlacementPreview(null);
+      this.emitPlacementPreview(renderer, null);
       return;
     }
 
     if (!pointerAimTarget) {
-      renderer.setPlacementPreview(null);
+      this.emitPlacementPreview(renderer, null);
       return;
     }
 
     const buildProfile = this.resolvePlacementBuildProfile(selectedSlot.typeId);
     if (!buildProfile) {
-      renderer.setPlacementPreview(null);
+      this.emitPlacementPreview(renderer, null);
+      return;
+    }
+
+    this.ensurePlacementSpatialIndex(world);
+
+    if (
+      !this.previewDirty &&
+      this.lastComputedWorld === world &&
+      this.lastComputedPlayerId === player.id &&
+      this.lastComputedPlayerStateVersion === player.stateVersion &&
+      this.lastComputedPointerX === pointerAimTarget.x &&
+      this.lastComputedPointerY === pointerAimTarget.y &&
+      this.lastComputedSelectedItemTypeId === selectedSlot.typeId &&
+      this.lastComputedSpatialRevision === this.placementSpatialRevision &&
+      this.lastComputedWorldWidth === gameConfig.worldSize.w &&
+      this.lastComputedWorldHeight === gameConfig.worldSize.h
+    ) {
+      this.emitPlacementPreview(renderer, this.lastComputedPreviewState);
       return;
     }
 
@@ -118,7 +173,6 @@ export class PlacementPreviewController {
     }
 
     if (valid) {
-      this.ensurePlacementSpatialIndex(world);
       const candidates = this.queryPlacementCandidates(previewBounds);
       for (const entity of candidates) {
         if (entity.id === player.id) {
@@ -137,7 +191,7 @@ export class PlacementPreviewController {
       }
     }
 
-    renderer.setPlacementPreview({
+    const nextPreviewState: PlacementPreviewOutput = {
       visible: true,
       worldX: pointerAimTarget.x,
       worldY: pointerAimTarget.y,
@@ -145,7 +199,19 @@ export class PlacementPreviewController {
       typeId: buildProfile.buildsEntityTypeId,
       hitboxProfiles: buildProfile.hitboxProfiles,
       activeHitboxProfile: buildProfile.activeHitboxProfile,
-    });
+    };
+    this.lastComputedPreviewState = nextPreviewState;
+    this.lastComputedWorld = world;
+    this.lastComputedPlayerId = player.id;
+    this.lastComputedPlayerStateVersion = player.stateVersion;
+    this.lastComputedPointerX = pointerAimTarget.x;
+    this.lastComputedPointerY = pointerAimTarget.y;
+    this.lastComputedSelectedItemTypeId = selectedSlot.typeId;
+    this.lastComputedSpatialRevision = this.placementSpatialRevision;
+    this.lastComputedWorldWidth = gameConfig.worldSize.w;
+    this.lastComputedWorldHeight = gameConfig.worldSize.h;
+    this.previewDirty = false;
+    this.emitPlacementPreview(renderer, nextPreviewState);
   }
 
   private resolvePlacementBuildProfile(
@@ -232,6 +298,8 @@ export class PlacementPreviewController {
 
     this.placementIndexDirty = false;
     this.placementIndexedWorld = world;
+    this.placementSpatialRevision += 1;
+    this.previewDirty = true;
   }
 
   private queryPlacementCandidates(
@@ -287,11 +355,43 @@ export class PlacementPreviewController {
       this.placementCandidateMarkers.clear();
     }
   }
+
+  private emitPlacementPreview(
+    renderer: PixiRenderer,
+    state: PlacementPreviewOutput,
+  ): void {
+    if (arePlacementPreviewStatesEqual(this.lastEmittedPreviewState, state)) {
+      return;
+    }
+    renderer.setPlacementPreview(state);
+    this.lastEmittedPreviewState = state;
+  }
 }
 
 function getPlacementCellKey(cellX: number, cellY: number): number {
   return (
     (cellX + PLACEMENT_KEY_OFFSET) * PLACEMENT_KEY_STRIDE +
     (cellY + PLACEMENT_KEY_OFFSET)
+  );
+}
+
+function arePlacementPreviewStatesEqual(
+  left: PlacementPreviewOutput,
+  right: PlacementPreviewOutput,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return left === right;
+  }
+  return (
+    left.visible === right.visible &&
+    left.valid === right.valid &&
+    left.worldX === right.worldX &&
+    left.worldY === right.worldY &&
+    left.typeId === right.typeId &&
+    left.activeHitboxProfile === right.activeHitboxProfile &&
+    left.hitboxProfiles === right.hitboxProfiles
   );
 }
