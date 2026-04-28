@@ -1,11 +1,4 @@
-import {
-  doResolvedRectSetsOverlap,
-  getSweptResolvedRectSetIntersectionTime,
-} from "@shared/geometry/collision.ts";
-import {
-  offsetHitboxBounds,
-  resolveHitboxRects,
-} from "@shared/geometry/hitbox.ts";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
@@ -17,7 +10,7 @@ import {
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { ActionMessage, PoseHeldMovement } from "@shared/net/protocol.ts";
+import type { ActionMessage, InputMovement } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import {
@@ -42,13 +35,11 @@ import {
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
-type ClientPoseState = {
+type PlayerInputIntentState = {
   seq: number;
-  clientTimeMs: number;
-  x: number;
-  y: number;
+  clientTimeMs?: number;
   theta: number;
-  heldMovement: PoseHeldMovement;
+  movement: InputMovement;
   receivedAtMs: number;
 };
 
@@ -62,7 +53,7 @@ export class Player extends Entity {
   public static override readonly resourceName = "base";
 
   public static readonly MAX_FOOD = 100;
-  private static readonly CLIENT_POSE_STALE_TIMEOUT_MS = 250;
+  private static readonly INPUT_STALE_TIMEOUT_MS = 250;
   // Drains to zero in 3 minutes at 20 ticks/sec
   private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
 
@@ -76,10 +67,7 @@ export class Player extends Entity {
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
-  private latestClientPose?: ClientPoseState;
-  private hasObservedShadowPosition = false;
-  private lastObservedShadowX = 0;
-  private lastObservedShadowY = 0;
+  private latestInputIntent?: PlayerInputIntentState;
 
   constructor(id: number, name = "player") {
     const baseline = requireMovingEntityBaselineContent(Player.typeId);
@@ -116,11 +104,11 @@ export class Player extends Entity {
     this.aimTheta = normalizeAngle(theta);
   }
 
-  public applyClientPose(pose: ClientPoseState): void {
-    this.latestClientPose = {
-      ...pose,
-      theta: normalizeAngle(pose.theta),
-      heldMovement: { ...pose.heldMovement },
+  public applyInputIntent(input: PlayerInputIntentState): void {
+    this.latestInputIntent = {
+      ...input,
+      theta: normalizeAngle(input.theta),
+      movement: { ...input.movement },
     };
   }
 
@@ -147,9 +135,9 @@ export class Player extends Entity {
     this.fists.tick(world);
 
     this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
-    const hasFreshClientPose = this.applyLatestClientPose(world);
-    if (!hasFreshClientPose) {
-      this.resetMovement();
+    const hasFreshInput = this.applyLatestInputIntent(world);
+    if (!hasFreshInput) {
+      this.resetDriveVelocity();
     }
     this.rotation = this.aimTheta;
     this.applyQueuedActions(world);
@@ -200,10 +188,9 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.rotation = 0;
-    this.latestClientPose = undefined;
+    this.latestInputIntent = undefined;
     this.collisionMode = "none";
     this.resetMovement();
-    this.hasObservedShadowPosition = false;
     world.focusedTrace.recordEntityEvent(world, "player_died", this, {
       x: this.x,
       y: this.y,
@@ -225,13 +212,12 @@ export class Player extends Entity {
     this.activeEffects = [];
     this.clearQueuedInputState();
     this.aimTheta = 0;
-    this.latestClientPose = undefined;
+    this.latestInputIntent = undefined;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.rotation = 0;
     this.collisionMode = this.defaultCollisionMode;
     this.resetMovement();
-    this.hasObservedShadowPosition = false;
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,
       after: {
@@ -243,44 +229,6 @@ export class Player extends Entity {
         alive: this.alive,
       },
     });
-  }
-
-  public override afterMovement(world: World): void {
-    if (!this.alive || !world.entities.has(this.id)) {
-      this.hasObservedShadowPosition = false;
-      return;
-    }
-
-    if (!this.hasObservedShadowPosition) {
-      this.lastObservedShadowX = this.x;
-      this.lastObservedShadowY = this.y;
-      this.vx = 0;
-      this.vy = 0;
-      this.hasObservedShadowPosition = true;
-      return;
-    }
-
-    const deltaX = this.x - this.lastObservedShadowX;
-    const deltaY = this.y - this.lastObservedShadowY;
-    this.vx = deltaX;
-    this.vy = deltaY;
-    this.lastObservedShadowX = this.x;
-    this.lastObservedShadowY = this.y;
-
-    if (!world.focusedTrace.matchesEntity(this)) {
-      return;
-    }
-    world.focusedTrace.recordEntityEvent(
-      world,
-      "shadow_velocity_observed",
-      this,
-      {
-        observedVx: deltaX,
-        observedVy: deltaY,
-        latestClientPoseSeq: this.latestClientPose?.seq ?? null,
-        latestClientTimeMs: this.latestClientPose?.clientTimeMs ?? null,
-      },
-    );
   }
 
   public craft(world: World, itemTypeId: ResourceId): void {
@@ -476,223 +424,97 @@ export class Player extends Entity {
     world.spawn(placedEntity);
   }
 
-  private applyLatestClientPose(world: World): boolean {
-    const pose = this.latestClientPose;
-    if (!pose) {
+  private applyLatestInputIntent(world: World): boolean {
+    const input = this.latestInputIntent;
+    if (!input) {
       return false;
     }
-    if (Date.now() - pose.receivedAtMs > Player.CLIENT_POSE_STALE_TIMEOUT_MS) {
+    if (
+      world.simulationTimeMs - input.receivedAtMs >
+      Player.INPUT_STALE_TIMEOUT_MS
+    ) {
       if (world.focusedTrace.matchesEntity(this)) {
-        world.focusedTrace.recordEntityEvent(world, "client_pose_stale", this, {
-          seq: pose.seq,
-          clientTimeMs: pose.clientTimeMs,
-          receivedAtMs: pose.receivedAtMs,
-        });
+        world.focusedTrace.recordEntityEvent(
+          world,
+          "input_intent_stale",
+          this,
+          {
+            seq: input.seq,
+            clientTimeMs: input.clientTimeMs ?? null,
+            receivedAtMs: input.receivedAtMs,
+            simulationTimeMs: world.simulationTimeMs,
+          },
+        );
       }
       return false;
     }
 
-    const clampedPose = this.clampPoseAgainstStaticBlockers(
-      world,
-      pose.x,
-      pose.y,
-    );
-    this.x = clampedPose.x;
-    this.y = clampedPose.y;
-    this.aimTheta = pose.theta;
-    this.rotation = pose.theta;
-    this.resetDriveVelocity();
+    this.aimTheta = input.theta;
+    this.rotation = input.theta;
+    const desiredVelocity = this.computeDesiredVelocity(input.movement);
+    this.setDesiredVelocity(desiredVelocity.x, desiredVelocity.y);
 
     if (world.focusedTrace.matchesEntity(this)) {
       world.focusedTrace.recordEntityEvent(
         world,
-        "client_pose_tick_applied",
+        "input_intent_tick_applied",
         this,
         {
-          seq: pose.seq,
-          clientTimeMs: pose.clientTimeMs,
-          heldMovement: { ...pose.heldMovement },
-          x: pose.x,
-          y: pose.y,
-          appliedX: clampedPose.x,
-          appliedY: clampedPose.y,
-          theta: pose.theta,
+          seq: input.seq,
+          clientTimeMs: input.clientTimeMs ?? null,
+          movement: { ...input.movement },
+          desiredVx: desiredVelocity.x,
+          desiredVy: desiredVelocity.y,
+          theta: input.theta,
         },
       );
     }
     return true;
   }
 
-  private clampPoseAgainstStaticBlockers(
-    world: World,
-    targetX: number,
-    targetY: number,
-  ): { x: number; y: number } {
-    const deltaX = targetX - this.x;
-    const deltaY = targetY - this.y;
-    if (deltaX === 0 && deltaY === 0) {
-      return { x: targetX, y: targetY };
+  private computeDesiredVelocity(movement: InputMovement): {
+    x: number;
+    y: number;
+  } {
+    if (this.isStunned()) {
+      return { x: 0, y: 0 };
     }
 
-    let nextX = this.x;
-    let nextY = this.y;
-    nextX += this.resolvePoseAxisDelta(world, nextX, nextY, deltaX, 0);
-    nextY += this.resolvePoseAxisDelta(world, nextX, nextY, 0, deltaY);
-    const diagonalClamped = this.resolvePoseDiagonalCornerClamp(
-      world,
-      this.x,
-      this.y,
-      nextX,
-      nextY,
-    );
-    nextX = diagonalClamped.x;
-    nextY = diagonalClamped.y;
-    return { x: nextX, y: nextY };
-  }
-
-  private resolvePoseDiagonalCornerClamp(
-    world: World,
-    fromX: number,
-    fromY: number,
-    targetX: number,
-    targetY: number,
-  ): { x: number; y: number } {
-    const deltaX = targetX - fromX;
-    const deltaY = targetY - fromY;
-    if (deltaX === 0 || deltaY === 0) {
-      return { x: targetX, y: targetY };
+    let moveX = 0;
+    let moveY = 0;
+    if (movement.left) {
+      moveX -= 1;
+    }
+    if (movement.right) {
+      moveX += 1;
+    }
+    if (movement.up) {
+      moveY -= 1;
+    }
+    if (movement.down) {
+      moveY += 1;
     }
 
-    const currentBounds = offsetHitboxBounds(
-      this.getHitboxBounds(),
-      fromX,
-      fromY,
-    );
-    const nextBounds = offsetHitboxBounds(
-      this.getHitboxBounds(),
-      targetX,
-      targetY,
-    );
-    const candidates = world.spatial
-      .queryBox(
-        Math.min(currentBounds.minX, nextBounds.minX),
-        Math.min(currentBounds.minY, nextBounds.minY),
-        Math.max(currentBounds.maxX, nextBounds.maxX),
-        Math.max(currentBounds.maxY, nextBounds.maxY),
-      )
-      .filter(
-        (candidate) =>
-          candidate.id !== this.id &&
-          candidate.alive &&
-          candidate.collisionMode === "static",
-      );
-    if (candidates.length === 0) {
-      return { x: targetX, y: targetY };
+    const magnitude = Math.hypot(moveX, moveY);
+    if (magnitude <= Number.EPSILON) {
+      return { x: 0, y: 0 };
     }
 
-    const movingHitboxes = resolveHitboxRects(fromX, fromY, this.hitboxes);
-    let earliestHitTime: number | null = null;
-    for (const candidate of candidates) {
-      const hitTime = getSweptResolvedRectSetIntersectionTime(
-        movingHitboxes,
-        deltaX,
-        deltaY,
-        candidate.getWorldHitboxes(),
-      );
-      if (hitTime === null) {
-        continue;
-      }
-      if (earliestHitTime === null || hitTime < earliestHitTime) {
-        earliestHitTime = hitTime;
-      }
-    }
-
-    if (earliestHitTime === null || earliestHitTime >= 1) {
-      return { x: targetX, y: targetY };
-    }
-
-    const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
+    const speed = this.moveSpeed * this.getMovementSpeedMultiplier();
     return {
-      x: fromX + deltaX * safeTime,
-      y: fromY + deltaY * safeTime,
+      x: (moveX / magnitude) * speed,
+      y: (moveY / magnitude) * speed,
     };
   }
 
-  private resolvePoseAxisDelta(
-    world: World,
-    fromX: number,
-    fromY: number,
-    deltaX: number,
-    deltaY: number,
-  ): number {
-    if (deltaX === 0 && deltaY === 0) {
-      return 0;
-    }
-
-    const currentBounds = offsetHitboxBounds(
-      this.getHitboxBounds(),
-      fromX,
-      fromY,
-    );
-    const nextBounds = offsetHitboxBounds(
-      this.getHitboxBounds(),
-      fromX + deltaX,
-      fromY + deltaY,
-    );
-    const minX = Math.min(currentBounds.minX, nextBounds.minX);
-    const minY = Math.min(currentBounds.minY, nextBounds.minY);
-    const maxX = Math.max(currentBounds.maxX, nextBounds.maxX);
-    const maxY = Math.max(currentBounds.maxY, nextBounds.maxY);
-
-    const candidates = world.spatial
-      .queryBox(minX, minY, maxX, maxY)
-      .filter(
-        (candidate) =>
-          candidate.id !== this.id &&
-          candidate.alive &&
-          candidate.collisionMode === "static",
-      );
-    if (candidates.length === 0) {
-      return deltaX !== 0 ? deltaX : deltaY;
-    }
-
-    const movingHitboxes = resolveHitboxRects(fromX, fromY, this.hitboxes);
-    let earliestHitTime: number | null = null;
-    for (const candidate of candidates) {
-      const hitTime = getSweptResolvedRectSetIntersectionTime(
-        movingHitboxes,
-        deltaX,
-        deltaY,
-        candidate.getWorldHitboxes(),
-      );
-      if (hitTime === null) {
-        continue;
-      }
-      if (earliestHitTime === null || hitTime < earliestHitTime) {
-        earliestHitTime = hitTime;
+  private getMovementSpeedMultiplier(): number {
+    let multiplier = 1;
+    for (const effect of this.activeEffects) {
+      if (effect.speedMultiplier !== undefined) {
+        multiplier *= effect.speedMultiplier;
       }
     }
-
-    if (earliestHitTime === null) {
-      return deltaX !== 0 ? deltaX : deltaY;
-    }
-
-    if (earliestHitTime <= 0.01) {
-      const endHitboxes = resolveHitboxRects(
-        fromX + deltaX,
-        fromY + deltaY,
-        this.hitboxes,
-      );
-      const overlaps = candidates.some((candidate) =>
-        doResolvedRectSetsOverlap(endHitboxes, candidate.getWorldHitboxes()),
-      );
-      if (!overlaps) {
-        return deltaX !== 0 ? deltaX : deltaY;
-      }
-    }
-
-    const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
-    return (deltaX !== 0 ? deltaX : deltaY) * safeTime;
+    return multiplier;
   }
 
   private isDebugCreativeEditor(): boolean {

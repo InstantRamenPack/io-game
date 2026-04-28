@@ -1,4 +1,7 @@
-import type { ActionMessage, PoseMessage } from "@shared/net/protocol.ts";
+import type {
+  ActionMessage,
+  InputIntentMessage,
+} from "@shared/net/protocol.ts";
 import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
@@ -8,8 +11,8 @@ import type { World } from "@server/world/World.ts";
  * The server stays authoritative even when validation remains lightweight.
  */
 export class AntiCheatValidator {
-  public validatePose(
-    _poseMessage: PoseMessage,
+  public validateInputIntent(
+    _inputMessage: InputIntentMessage,
     playerEntity: Player,
   ): boolean {
     return playerEntity.alive;
@@ -54,7 +57,6 @@ export class AntiCheatValidator {
       case "drop":
       case "pickup":
         return !isDebugCreativeEditor;
-
     }
 
     return false;

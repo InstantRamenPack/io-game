@@ -69,7 +69,10 @@ export class ProjectileImpactResolver {
       }
 
       if (isCombatOccluder(candidate)) {
-        if (nearestBlockingHitTime === null || hitTime < nearestBlockingHitTime) {
+        if (
+          nearestBlockingHitTime === null ||
+          hitTime < nearestBlockingHitTime
+        ) {
           nearestBlockingHitTime = hitTime;
         }
       }

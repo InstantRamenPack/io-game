@@ -21,12 +21,14 @@ const ThetaInputSchema = FiniteNumberSchema.transform((theta) =>
   normalizeAngle(theta),
 );
 
-const PoseHeldMovementSchema = z.object({
-  up: z.boolean(),
-  down: z.boolean(),
-  left: z.boolean(),
-  right: z.boolean(),
-});
+const InputMovementSchema = z
+  .object({
+    up: z.boolean(),
+    down: z.boolean(),
+    left: z.boolean(),
+    right: z.boolean(),
+  })
+  .strict();
 
 const CraftInputSchema = z.object({
   itemTypeId: ResourceIdSchema,
@@ -57,15 +59,15 @@ const HelloMessageSchema = z.object({
   playerName: z.string().optional(),
 });
 
-const PoseMessageSchema = z.object({
-  t: z.literal("pose"),
-  seq: NonNegativeIntSchema,
-  clientTimeMs: FiniteNumberSchema,
-  x: FiniteNumberSchema,
-  y: FiniteNumberSchema,
-  theta: ThetaInputSchema,
-  heldMovement: PoseHeldMovementSchema,
-});
+const InputIntentMessageSchema = z
+  .object({
+    t: z.literal("input"),
+    seq: NonNegativeIntSchema,
+    clientTimeMs: FiniteNumberSchema.optional(),
+    theta: ThetaInputSchema,
+    movement: InputMovementSchema,
+  })
+  .strict();
 
 const AttackActionMessageSchema = z.object({
   t: z.literal("action"),
@@ -267,7 +269,7 @@ function assertUniqueDescriptor(
 
 const ClientToServerMessageSchemaOptions = [
   HelloMessageSchema,
-  PoseMessageSchema,
+  InputIntentMessageSchema,
   ActionMessageSchema,
   RespawnMessageSchema,
   PingMessageSchema,
@@ -286,7 +288,7 @@ const ServerToClientMessageSchemaOptions = [
 
 export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
   clientToServer: Object.freeze([
-    ...literalTags([HelloMessageSchema, PoseMessageSchema], "t"),
+    ...literalTags([HelloMessageSchema, InputIntentMessageSchema], "t"),
     ...prefixedLiteralTags(ActionMessageSchemaOptions, "action", "action:"),
     ...literalTags(
       [RespawnMessageSchema, PingMessageSchema, ChatInputMessageSchema],
@@ -318,8 +320,8 @@ const ServerToClientMessageSchema = z.discriminatedUnion(
 
 export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
-export type PoseHeldMovement = z.infer<typeof PoseHeldMovementSchema>;
-export type PoseMessage = z.infer<typeof PoseMessageSchema>;
+export type InputMovement = z.infer<typeof InputMovementSchema>;
+export type InputIntentMessage = z.infer<typeof InputIntentMessageSchema>;
 export type ActionMessage = z.infer<typeof ActionMessageSchema>;
 type RespawnMessage = z.infer<typeof RespawnMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
@@ -333,7 +335,7 @@ export type LobbyActionMessage = z.infer<typeof LobbyActionMessageSchema>;
 export type LobbyStateMessage = z.infer<typeof LobbyStateMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
-  | PoseMessage
+  | InputIntentMessage
   | ActionMessage
   | RespawnMessage
   | PingMessage

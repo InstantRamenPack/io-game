@@ -4,7 +4,9 @@ import { Structure } from "@server/entities/Structure.ts";
 
 export const COMBAT_OCCLUSION_EPSILON = 1e-6;
 
-export function isCombatOccluder(entity: Entity): entity is Building | Structure {
+export function isCombatOccluder(
+  entity: Entity,
+): entity is Building | Structure {
   return entity instanceof Building || entity instanceof Structure;
 }
 
@@ -22,8 +24,7 @@ export function getEntityRayEntryDistance(
       (rect.centerX - originX) * directionX +
       (rect.centerY - originY) * directionY;
     const halfProjectionExtent =
-      (rect.width * Math.abs(directionX) +
-        rect.height * Math.abs(directionY)) /
+      (rect.width * Math.abs(directionX) + rect.height * Math.abs(directionY)) /
       2;
     const entryDistance = centerProjection - halfProjectionExtent;
     const exitDistance = centerProjection + halfProjectionExtent;

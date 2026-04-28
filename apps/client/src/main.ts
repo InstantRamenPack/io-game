@@ -18,6 +18,7 @@ import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
+import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 /**
@@ -33,6 +34,20 @@ const gameClient = new GameClient(gameConfig, {
   debugHitbox: DEBUG_HITBOX,
   debugInterpolationMode: DEBUG_INTERPOLATION_MODE,
 });
+const debugNetworkProfile = parseDebugNetworkProfileName(
+  new URLSearchParams(window.location.search).get("netProfile") ??
+    window.localStorage.getItem("io-game.netProfile"),
+);
+const autoStartSession =
+  new URLSearchParams(window.location.search).get("autoStart") === "1";
+if (debugNetworkProfile) {
+  const seed = Number(
+    new URLSearchParams(window.location.search).get("netSeed") ??
+      window.localStorage.getItem("io-game.netSeed") ??
+      1,
+  );
+  gameClient.setDebugNetworkProfile(debugNetworkProfile, seed);
+}
 const authController = new AuthController();
 const sessionUiController = createSessionUiController(elements);
 
@@ -160,6 +175,9 @@ deathController.sync();
 
 void authController.initialize((runtimeConfig) => {
   launchController.applyRuntimeConfig(runtimeConfig);
+  if (autoStartSession) {
+    window.setTimeout(() => elements.launchBtn?.click(), 0);
+  }
 });
 
 declare global {

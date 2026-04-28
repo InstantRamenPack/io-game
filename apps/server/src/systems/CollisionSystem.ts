@@ -229,7 +229,6 @@ class CollisionSystem implements System {
     }
     if (leftIsItemEntity && rightIsItemEntity) {
       return !leftEntity.canMergeStackableWith(rightEntity);
-
     }
     return false;
   }
@@ -303,8 +302,11 @@ class CollisionSystem implements System {
   ): void {
     const before = this.snapshotMotion(dynamicEntity);
     const resolvedSeparation =
-      this.getMovementAwareStaticSeparation(world, dynamicEntity, staticEntity) ??
-      separation;
+      this.getMovementAwareStaticSeparation(
+        world,
+        dynamicEntity,
+        staticEntity,
+      ) ?? separation;
     if (resolvedSeparation.axis === "x") {
       dynamicEntity.x += resolvedSeparation.translation;
     } else {
@@ -458,10 +460,14 @@ class CollisionSystem implements System {
     const preferredCandidates = candidates.filter(
       (candidate) => candidate.axis === preferredAxis,
     );
-    const search = preferredCandidates.length > 0 ? preferredCandidates : candidates;
+    const search =
+      preferredCandidates.length > 0 ? preferredCandidates : candidates;
     let best = search[0] ?? null;
     for (const candidate of search.slice(1)) {
-      if (!best || Math.abs(candidate.translation) < Math.abs(best.translation)) {
+      if (
+        !best ||
+        Math.abs(candidate.translation) < Math.abs(best.translation)
+      ) {
         best = candidate;
       }
     }

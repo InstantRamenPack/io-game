@@ -10,8 +10,6 @@ import {
 } from "@client/client/HeldAttackController.ts";
 import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
 import { PointerAimController } from "@client/client/input/PointerAimController.ts";
-import { LocalPlayerPredictionController } from "@client/client/movement/LocalPlayerPredictionController.ts";
-import type { HeldMovementState } from "@client/client/movement/LocalPlayerPredictionController.ts";
 import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
 import { ClientSessionLifecycle } from "@client/client/session/ClientSessionLifecycle.ts";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
@@ -29,10 +27,11 @@ import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { LobbyStateMessage } from "@shared/net/protocol.ts";
+import type { InputMovement, LobbyStateMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 
-const POSE_SEND_INTERVAL_MS = 1000 / 60;
+const INPUT_SEND_INTERVAL_MS = 1000 / 60;
 const SNIPER_WEAPON_TYPE_ID = "item:sniper";
 
 /**
@@ -58,7 +57,6 @@ export class GameClient {
   });
   private readonly sessionLifecycle = new ClientSessionLifecycle();
   private readonly pointerAimController = new PointerAimController();
-  private readonly predictionController = new LocalPlayerPredictionController();
   private readonly placementPreviewController =
     new PlacementPreviewController();
   private readonly inputBlocker = new InputBlocker();
@@ -68,12 +66,12 @@ export class GameClient {
   >();
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
-  private lastPoseSentAtMs = Number.NEGATIVE_INFINITY;
+  private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private lobbyState?: LobbyStateMessage;
-  private readonly heldMovement: HeldMovementState = {
+  private readonly heldMovement: InputMovement = {
     up: false,
     down: false,
     left: false,
@@ -102,7 +100,7 @@ export class GameClient {
       isTransportConnected: () => this.isTransportConnected(),
     });
     this.interpolator = new Interpolator({
-      snapDistance: this.gameConfig.interpolation.snapDistance,
+      ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
     });
 
@@ -112,6 +110,7 @@ export class GameClient {
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
+      this.sendInputIntentIfNeeded(performance.now(), true);
     });
     this.inputBlocker.onChange((blocked) => {
       this.inputManager.setMovementSuppressed(blocked);
@@ -179,15 +178,15 @@ export class GameClient {
     this.pointerAimController.bind({
       renderer: this.renderer,
       isStarted: () => this.sessionLifecycle.isStarted(),
-      getPlayerPose: () =>
-        this.predictionController.getVisualPose(this.getLocalPlayerEntity()),
+      getPlayerPose: () => this.getLocalPlayerVisualPose(),
       handlePointerInput: (pointer) =>
         this.pointerActionHandler?.(pointer) ?? false,
       startHoldFire: (x, y) => this.inputManager.startHoldFire(x, y),
       updateHoldFireTarget: (x, y) =>
         this.inputManager.updateHoldFireTarget(x, y),
       stopHoldFire: () => this.inputManager.stopHoldFire(),
-      onAimChanged: (force) => this.sendPoseIfNeeded(performance.now(), force),
+      onAimChanged: (force) =>
+        this.sendInputIntentIfNeeded(performance.now(), force),
     });
   }
 
@@ -379,28 +378,7 @@ export class GameClient {
       );
 
       const player = this.getLocalPlayerEntity();
-      const playerPose = this.predictionController.getVisualPose(player);
-      const aimTheta = this.pointerAimController.computeAimTheta(playerPose);
-      const presentation = this.predictionController.update({
-        deltaMs,
-        tickRate: this.gameConfig.tickRate,
-        player,
-        world,
-        heldMovement: this.heldMovement,
-        aimTheta,
-        worldSize: this.gameConfig.worldSize,
-      });
-
-      if (this.playerEntityId !== undefined) {
-        this.presentationSink.setPresentationOverride(
-          this.playerEntityId,
-          presentation,
-        );
-      }
-      if (player && presentation) {
-        player.updatePosition(presentation.x, presentation.y);
-        player.rotation = presentation.rotation;
-      }
+      const playerPose = this.getLocalPlayerVisualPose();
 
       this.presentationSink.update(deltaMs, world);
       this.placementPreviewController.sync({
@@ -422,14 +400,12 @@ export class GameClient {
   }
 
   public onSnapshot(snapshot: WorldSnapshot): void {
-    const applied = this.worldState?.pushSnapshot(snapshot) ?? false;
-    if (!applied) {
+    const applied = this.worldState?.pushSnapshot(snapshot) ?? {
+      applied: false,
+    };
+    if (!applied.applied) {
       return;
     }
-    this.predictionController.reconcileToAuthoritativeSnapshot({
-      player: this.getLocalPlayerEntity(),
-      lastProcessedSeq: snapshot.lastProcessedSeq,
-    });
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,
@@ -489,6 +465,74 @@ export class GameClient {
     this.interpolator.clearDebugLog();
   }
 
+  public setDebugNetworkProfile(
+    profileName: DebugNetworkProfileName,
+    seed = 1,
+  ): void {
+    this.networkClient.setDebugNetworkProfile(profileName, seed);
+  }
+
+  public disableDebugNetworkSimulation(): void {
+    this.networkClient.disableDebugNetworkSimulation();
+  }
+
+  public setDebugMovementIntent(movement: Partial<InputMovement>): void {
+    this.heldMovement.up = movement.up ?? false;
+    this.heldMovement.down = movement.down ?? false;
+    this.heldMovement.left = movement.left ?? false;
+    this.heldMovement.right = movement.right ?? false;
+    this.sendInputIntentIfNeeded(performance.now(), true);
+  }
+
+  public getNetcodeDebugMetrics(): Record<string, unknown> {
+    const interpolation = this.interpolator.getLatestDebugFrame();
+    const camera = this.renderer.getCameraDebugState();
+    const localPlayer = interpolation?.localPlayer ?? null;
+    const localPlayerScreenPosition = localPlayer
+      ? this.renderer.worldToScreen(
+          localPlayer.renderedX,
+          localPlayer.renderedY,
+        )
+      : null;
+    return {
+      serverTick: interpolation?.currentServerTick ?? null,
+      latestReceivedSnapshotTick:
+        interpolation?.latestReceivedSnapshotTick ?? null,
+      renderTick: interpolation?.renderTick ?? null,
+      snapshotArrivalIntervalMs:
+        interpolation?.snapshotArrivalIntervalMs ?? null,
+      jitterEstimateMs: interpolation?.jitterEstimateMs ?? null,
+      renderDelayTicks: interpolation?.renderDelayTicks ?? null,
+      interpolationMode: interpolation?.interpolationMode ?? "none",
+      localPlayer,
+      localPlayerScreenPosition,
+      camera,
+      cameraPosition: {
+        x: camera.x,
+        y: camera.y,
+      },
+      cameraDelta: {
+        x: camera.deltaX,
+        y: camera.deltaY,
+        screenX: camera.screenDeltaX,
+        screenY: camera.screenDeltaY,
+      },
+      correctionDistance: interpolation?.correctionDistance ?? 0,
+      correctionDirection: {
+        x: interpolation?.correctionDirectionX ?? 0,
+        y: interpolation?.correctionDirectionY ?? 0,
+      },
+      snapCount: interpolation?.snapCount ?? 0,
+      cameraSnapCount: camera.snapCount,
+      extrapolatedFrameCount: interpolation?.extrapolatedFrameCount ?? 0,
+      heldFrameCount: interpolation?.heldFrameCount ?? 0,
+      interpolatedFrameCount: interpolation?.interpolatedFrameCount ?? 0,
+      duplicateSnapshotCount: interpolation?.duplicateSnapshotCount ?? 0,
+      outOfOrderSnapshotCount: interpolation?.outOfOrderSnapshotCount ?? 0,
+      networkSimulation: this.networkClient.getDebugNetworkMetrics(),
+    };
+  }
+
   private startFrameLoop(): void {
     if (this.frameLoop.isRunning()) {
       return;
@@ -504,14 +548,14 @@ export class GameClient {
       this.refreshPointerTargetFromScreen();
       this.update(deltaMs, timestampMs);
       this.refreshPointerTargetFromScreen();
-      this.sendPoseIfNeeded(timestampMs);
+      this.sendInputIntentIfNeeded(timestampMs);
       this.updateHeldAttack(timestampMs);
     });
   }
 
   private syncInterpolatorConfig(): void {
     this.interpolator.setConfig({
-      snapDistance: this.gameConfig.interpolation.snapDistance,
+      ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
     });
   }
@@ -539,7 +583,6 @@ export class GameClient {
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
     this.pointerAimController.reset();
-    this.predictionController.reset();
     this.heldAttackController.reset();
     this.inputManager.stopHoldFire();
     this.renderer.invalidateViewRectCache();
@@ -553,7 +596,6 @@ export class GameClient {
   private resetSessionState(disconnectTransport: boolean): void {
     this.sessionLifecycle.reset();
     this.pointerAimController.reset();
-    this.predictionController.reset();
     this.heldAttackController.reset();
     this.rateMonitor.reset();
     this.stopFrameLoop();
@@ -565,7 +607,7 @@ export class GameClient {
     this.heldMovement.down = false;
     this.heldMovement.left = false;
     this.heldMovement.right = false;
-    this.lastPoseSentAtMs = Number.NEGATIVE_INFINITY;
+    this.lastInputSentAtMs = Number.NEGATIVE_INFINITY;
 
     if (disconnectTransport) {
       this.networkClient.disconnect();
@@ -586,6 +628,22 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private getLocalPlayerVisualPose(): {
+    x: number;
+    y: number;
+    rotation: number;
+  } | null {
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return null;
+    }
+    return {
+      x: player.x,
+      y: player.y,
+      rotation: player.rotation,
+    };
   }
 
   private refreshPointerTargetFromScreen(): void {
@@ -617,12 +675,12 @@ export class GameClient {
     return true;
   }
 
-  private sendPoseIfNeeded(now: number, force = false): void {
+  private sendInputIntentIfNeeded(now: number, force = false): void {
     if (!this.isSessionReady() || !this.isTransportConnected()) {
       return;
     }
 
-    if (!force && now - this.lastPoseSentAtMs < POSE_SEND_INTERVAL_MS) {
+    if (!force && now - this.lastInputSentAtMs < INPUT_SEND_INTERVAL_MS) {
       return;
     }
 
@@ -631,20 +689,17 @@ export class GameClient {
       return;
     }
 
-    const pose = this.predictionController.getPoseForSend(player);
-    if (!pose) {
-      return;
-    }
-
+    const visualPose = this.getLocalPlayerVisualPose();
     const theta =
-      this.pointerAimController.computeAimTheta(pose) ?? pose.rotation;
+      this.pointerAimController.computeAimTheta(visualPose) ??
+      visualPose?.rotation ??
+      player.rotation;
     const seq = this.inputManager.nextSequence();
     const clientTimeMs = performance.now();
-    this.networkClient.sendPose(seq, clientTimeMs, pose.x, pose.y, theta, {
+    this.networkClient.sendInputIntent(seq, clientTimeMs, theta, {
       ...this.heldMovement,
     });
-    this.predictionController.recordSentPose(seq, clientTimeMs);
-    this.lastPoseSentAtMs = now;
+    this.lastInputSentAtMs = now;
   }
 
   private updateHeldAttack(now: number): void {
@@ -667,7 +722,7 @@ export class GameClient {
     }
 
     const theta = this.pointerAimController.computeAimTheta(
-      this.predictionController.getVisualPose(localPlayer),
+      this.getLocalPlayerVisualPose(),
     );
     if (theta === null) {
       return;
@@ -709,9 +764,7 @@ export class GameClient {
   private computeThetaFromWorldPoint(
     x: number,
     y: number,
-    playerPose = this.predictionController.getVisualPose(
-      this.getLocalPlayerEntity(),
-    ),
+    playerPose = this.getLocalPlayerVisualPose(),
   ): number | null {
     if (!playerPose) {
       return null;

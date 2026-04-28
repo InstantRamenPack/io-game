@@ -27,6 +27,7 @@ import { SpatialIndex } from "@server/world/SpatialIndex.ts";
  */
 export class World {
   public tick = 0;
+  public simulationTimeMs = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
   public randomNumberGenerator: seedrandom.PRNG;
@@ -84,6 +85,7 @@ export class World {
   public step(): void {
     this.tick += 1;
     const deltaMs = 1000 / this.gameConfig.tickRate;
+    this.simulationTimeMs += deltaMs;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
@@ -214,14 +216,30 @@ export class World {
     }
 
     this.lastIntegratedPositions.set(entity.id, { x: entity.x, y: entity.y });
-    let nextX = entity.x;
-    let nextY = entity.y;
-    nextX += this.resolveSweptAxisDelta(entity, nextX, nextY, deltaX, 0);
-    nextY += this.resolveSweptAxisDelta(entity, nextX, nextY, 0, deltaY);
+    const fromX = entity.x;
+    const fromY = entity.y;
+    let nextX = fromX;
+    let nextY = fromY;
+    const resolvedDeltaX = this.resolveSweptAxisDelta(
+      entity,
+      nextX,
+      nextY,
+      deltaX,
+      0,
+    );
+    nextX += resolvedDeltaX;
+    const resolvedDeltaY = this.resolveSweptAxisDelta(
+      entity,
+      nextX,
+      nextY,
+      0,
+      deltaY,
+    );
+    nextY += resolvedDeltaY;
     const diagonalClamped = this.resolveDiagonalCornerClamp(
       entity,
-      entity.x,
-      entity.y,
+      fromX,
+      fromY,
       nextX,
       nextY,
     );
@@ -229,6 +247,12 @@ export class World {
     nextY = diagonalClamped.y;
     entity.x = nextX;
     entity.y = nextY;
+    if (resolvedDeltaX !== deltaX || nextX !== fromX + resolvedDeltaX) {
+      entity.clipVelocityAgainstNormal({ x: Math.sign(deltaX), y: 0 });
+    }
+    if (resolvedDeltaY !== deltaY || nextY !== fromY + resolvedDeltaY) {
+      entity.clipVelocityAgainstNormal({ x: 0, y: Math.sign(deltaY) });
+    }
   }
 
   private resolveDiagonalCornerClamp(

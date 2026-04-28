@@ -142,11 +142,11 @@ export class GameServer {
       );
       return;
     }
-    if (fastInputMessage.kind === "pose") {
+    if (fastInputMessage.kind === "input") {
       if (!this.requireReady(clientId)) {
         return;
       }
-      this.getActiveRuntime(clientId).handlePose(
+      this.getActiveRuntime(clientId).handleInputIntent(
         clientId,
         fastInputMessage.message,
       );
@@ -166,11 +166,14 @@ export class GameServer {
       case "hello":
         void this.handleHello(clientId, clientMessage);
         return;
-      case "pose":
+      case "input":
         if (!this.requireReady(clientId)) {
           return;
         }
-        this.getActiveRuntime(clientId).handlePose(clientId, clientMessage);
+        this.getActiveRuntime(clientId).handleInputIntent(
+          clientId,
+          clientMessage,
+        );
         return;
       case "action":
         if (!this.requireReady(clientId)) {

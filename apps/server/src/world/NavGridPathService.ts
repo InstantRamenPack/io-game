@@ -148,7 +148,10 @@ export class NavGridPathService {
     return this.tilePointToWorldCenter(next);
   }
 
-  public getClosestWalkableWorldPoint(x: number, y: number): {
+  public getClosestWalkableWorldPoint(
+    x: number,
+    y: number,
+  ): {
     x: number;
     y: number;
   } | null {
@@ -213,7 +216,10 @@ export class NavGridPathService {
     this.pushOpenHeap(startIndex, this.fScore[startIndex] ?? 0);
 
     let iterations = 0;
-    while (this.openHeapNodes.length > 0 && iterations < PATHFIND_MAX_ITERATIONS) {
+    while (
+      this.openHeapNodes.length > 0 &&
+      iterations < PATHFIND_MAX_ITERATIONS
+    ) {
       iterations += 1;
       const currentOpen = this.popOpenHeap();
       if (!currentOpen) {
@@ -226,7 +232,9 @@ export class NavGridPathService {
       ) {
         continue;
       }
-      if (currentOpen.score > (this.fScore[current] ?? Number.POSITIVE_INFINITY)) {
+      if (
+        currentOpen.score > (this.fScore[current] ?? Number.POSITIVE_INFINITY)
+      ) {
         continue;
       }
       this.nodeState[current] = NavGridPathService.NODE_STATE_CLOSED;
@@ -367,7 +375,8 @@ export class NavGridPathService {
 
       const smallestScore =
         this.openHeapScores[smallest] ?? Number.POSITIVE_INFINITY;
-      const leftScore = this.openHeapScores[leftChild] ?? Number.POSITIVE_INFINITY;
+      const leftScore =
+        this.openHeapScores[leftChild] ?? Number.POSITIVE_INFINITY;
       if (leftScore < smallestScore) {
         smallest = leftChild;
       }

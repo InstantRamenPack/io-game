@@ -45,7 +45,10 @@ export class GoToTargetGoal<
       return null;
     }
 
-    const distanceToTarget = Math.hypot(target.x - ctx.self.x, target.y - ctx.self.y);
+    const distanceToTarget = Math.hypot(
+      target.x - ctx.self.x,
+      target.y - ctx.self.y,
+    );
     const offsetScale = clamp01(
       (distanceToTarget - PURSUIT_OFFSET_ZERO_DISTANCE) /
         (PURSUIT_OFFSET_FULL_DISTANCE - PURSUIT_OFFSET_ZERO_DISTANCE),

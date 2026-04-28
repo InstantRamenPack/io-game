@@ -77,6 +77,7 @@ export class PixiRenderer {
     this.playerEntityId = entityId;
     if (entityId === undefined) {
       this.worldView.invalidateViewRectCache();
+      this.worldView.resetCamera();
     }
   }
 
@@ -189,6 +190,20 @@ export class PixiRenderer {
   public getViewportCenterWorld(): { x: number; y: number } | null {
     const app = this.app;
     return this.worldView.getViewportCenterWorld(app);
+  }
+
+  public getCameraDebugState(): ReturnType<
+    PixiWorldView["getCameraDebugState"]
+  > {
+    return this.worldView.getCameraDebugState(this.app);
+  }
+
+  public worldToScreen(
+    worldX: number,
+    worldY: number,
+  ): { x: number; y: number } | null {
+    const app = this.app;
+    return this.worldView.worldToScreen(app, worldX, worldY);
   }
 
   public clientToScreen(

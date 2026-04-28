@@ -120,7 +120,10 @@ export class GoToPositionGoal<
     ctx.self.setDesiredVelocity(0, 0);
   }
 
-  private shouldRepath(ctx: GoalContext<TSelf>, destinationTile: TilePoint): boolean {
+  private shouldRepath(
+    ctx: GoalContext<TSelf>,
+    destinationTile: TilePoint,
+  ): boolean {
     if (!this.hasPathSample) {
       return true;
     }
@@ -158,8 +161,7 @@ export class GoToPositionGoal<
     const phase = Math.floor(ctx.world.tick / STEERING_JITTER_TICKS);
     const seed = hashInt(ctx.self.id * 73856093 + phase * 19349663);
     const angle = ((seed & 0xffff) / 0x10000) * Math.PI * 2;
-    const radius =
-      (((seed >>> 16) & 0xff) / 0xff) * STEERING_JITTER_RADIUS;
+    const radius = (((seed >>> 16) & 0xff) / 0xff) * STEERING_JITTER_RADIUS;
     return {
       x: waypoint.x + Math.cos(angle) * radius,
       y: waypoint.y + Math.sin(angle) * radius,

@@ -325,7 +325,10 @@ export const createAdminCommandHandlers: ChatCommandHandlerFactory = (
           return;
         }
         if (resolvedEntry.kind === "structure") {
-          context.sendSystem(clientId, "Structures are immutable in this build.");
+          context.sendSystem(
+            clientId,
+            "Structures are immutable in this build.",
+          );
           return;
         }
 

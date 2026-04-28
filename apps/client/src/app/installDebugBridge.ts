@@ -2,6 +2,10 @@ import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
+import {
+  parseDebugNetworkProfileName,
+  type DebugNetworkProfileName,
+} from "@client/net/DebugNetworkSimulator.ts";
 import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
 import { isJsonValue, type JsonValue } from "@shared/json.ts";
 
@@ -21,8 +25,29 @@ export function installDebugBridge({
   hudController,
   sessionUiController,
 }: DebugBridgeOptions): void {
+  const rollingSamples: NetcodeDebugSample[] = [];
+
   function getInterpolationLog(): string {
     return JSON.stringify(gameClient.getInterpolationDebugLog(), null, 2);
+  }
+
+  function getNetcodeDebugMetrics(): Record<string, unknown> {
+    return gameClient.getNetcodeDebugMetrics();
+  }
+
+  function setNetworkProfile(profileName: string, seed = 1): void {
+    const parsedProfileName = parseDebugNetworkProfileName(profileName);
+    if (!parsedProfileName) {
+      throw new Error(`Unknown network profile: ${profileName}`);
+    }
+    gameClient.setDebugNetworkProfile(parsedProfileName, seed);
+  }
+
+  function setNetworkProfileTyped(
+    profileName: DebugNetworkProfileName,
+    seed = 1,
+  ): void {
+    gameClient.setDebugNetworkProfile(profileName, seed);
   }
 
   function clearInterpolationLog(): void {
@@ -73,6 +98,7 @@ export function installDebugBridge({
         generatedAtMs: Date.now(),
         client: {
           interpolation: gameClient.getInterpolationDebugLog(),
+          netcode: gameClient.getNetcodeDebugMetrics(),
         },
         server: await fetchServerLog(),
       },
@@ -214,6 +240,325 @@ export function installDebugBridge({
   window.get_interpolation_debug_log = getInterpolationLog;
   window.clear_interpolation_debug_log = clearInterpolationLog;
   window.download_interpolation_debug_log = downloadInterpolationLog;
+  window.get_netcode_debug_metrics = getNetcodeDebugMetrics;
+  window.__NETCODE_DEBUG__ = {
+    getMetrics: getNetcodeDebugMetrics,
+    setNetworkProfile,
+    setProfile: setNetworkProfileTyped,
+    disableNetworkSimulation: () => gameClient.disableDebugNetworkSimulation(),
+  };
+  installNetcodeDebugOverlay();
+
+  function installNetcodeDebugOverlay(): void {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("netDebug") !== "1") {
+      return;
+    }
+    const scenario = params.get("netScenario") ?? "idle";
+
+    const overlay = document.createElement("pre");
+    overlay.id = "netcode-debug-overlay";
+    overlay.style.position = "fixed";
+    overlay.style.left = "12px";
+    overlay.style.top = "12px";
+    overlay.style.zIndex = "10000";
+    overlay.style.margin = "0";
+    overlay.style.padding = "8px 10px";
+    overlay.style.maxWidth = "420px";
+    overlay.style.maxHeight = "260px";
+    overlay.style.overflow = "auto";
+    overlay.style.background = "rgba(0, 0, 0, 0.72)";
+    overlay.style.color = "#e8fff1";
+    overlay.style.font = "12px/1.35 ui-monospace, SFMono-Regular, monospace";
+    overlay.style.pointerEvents = "none";
+    overlay.textContent = "netcode debug initializing";
+    document.body.appendChild(overlay);
+    let logCounter = 0;
+
+    window.setInterval(() => {
+      const metrics = gameClient.getNetcodeDebugMetrics();
+      recordNetcodeSample(metrics, performance.now());
+      overlay.textContent = formatNetcodeOverlay(metrics, summarizeSamples());
+      logCounter += 1;
+      if (logCounter % 4 === 0) {
+        console.warn(`[netcode]\n${overlay.textContent}`);
+      }
+    }, 250);
+    installNetcodeScenario(scenario);
+  }
+
+  function installNetcodeScenario(scenario: string): void {
+    if (scenario === "idle") {
+      return;
+    }
+    const startedAtMs = performance.now();
+    let collisionSpawnSent = false;
+    let deathSent = false;
+    let respawnSent = false;
+    window.setInterval(() => {
+      const elapsedMs = performance.now() - startedAtMs;
+      switch (scenario) {
+        case "right":
+          gameClient.setDebugMovementIntent({ right: true });
+          break;
+        case "diagonal":
+          gameClient.setDebugMovementIntent({ right: true, down: true });
+          break;
+        case "startstop":
+          gameClient.setDebugMovementIntent(
+            Math.floor(elapsedMs / 1500) % 2 === 0 ? { right: true } : {},
+          );
+          break;
+        case "directions": {
+          const phase = Math.floor(elapsedMs / 750) % 4;
+          const movement =
+            phase === 0
+              ? { right: true }
+              : phase === 1
+                ? { down: true }
+                : phase === 2
+                  ? { left: true }
+                  : { up: true };
+          gameClient.setDebugMovementIntent(movement);
+          break;
+        }
+        case "collision":
+          if (!collisionSpawnSent && gameClient.isSessionReady()) {
+            gameClient.sendChat("/spawn building:wall 1 5064 3500 0");
+            collisionSpawnSent = true;
+          }
+          gameClient.setDebugMovementIntent({ right: true });
+          break;
+        case "deathrespawn":
+          if (!deathSent && elapsedMs > 1500 && gameClient.isSessionReady()) {
+            gameClient.sendChat("/kill @a");
+            deathSent = true;
+          }
+          if (!respawnSent && elapsedMs > 3500) {
+            gameClient.requestRespawn();
+            respawnSent = true;
+          }
+          break;
+      }
+    }, 50);
+  }
+
+  function recordNetcodeSample(
+    metrics: Record<string, unknown>,
+    nowMs: number,
+  ): void {
+    const camera = asRecord(metrics.camera);
+    const localPlayerScreenPosition = asRecord(
+      metrics.localPlayerScreenPosition,
+    );
+    const correctionDirection = asRecord(metrics.correctionDirection);
+    rollingSamples.push({
+      timeMs: nowMs,
+      cameraX: asNumber(camera.x),
+      cameraY: asNumber(camera.y),
+      localScreenX: asNumber(localPlayerScreenPosition.x),
+      localScreenY: asNumber(localPlayerScreenPosition.y),
+      correctionDirectionX: asNumber(correctionDirection.x),
+      correctionDirectionY: asNumber(correctionDirection.y),
+      snapCount: asNumber(metrics.snapCount),
+      extrapolatedFrameCount: asNumber(metrics.extrapolatedFrameCount),
+    });
+    const cutoff = nowMs - 3000;
+    while (rollingSamples.length > 0) {
+      const first = rollingSamples[0];
+      if (!first || first.timeMs >= cutoff) {
+        break;
+      }
+      rollingSamples.shift();
+    }
+  }
+
+  function summarizeSamples(): NetcodeDebugSummary {
+    if (rollingSamples.length < 2) {
+      return {
+        sampleCount: rollingSamples.length,
+        localScreenRmsCssPx: 0,
+        cameraResidualRmsCssPx: 0,
+        correctionFlipStreak: 0,
+        snapsInWindow: 0,
+        extrapolatedFramesInWindow: 0,
+      };
+    }
+
+    const first = rollingSamples[0];
+    const last = rollingSamples[rollingSamples.length - 1];
+    if (!first || !last) {
+      return {
+        sampleCount: 0,
+        localScreenRmsCssPx: 0,
+        cameraResidualRmsCssPx: 0,
+        correctionFlipStreak: 0,
+        snapsInWindow: 0,
+        extrapolatedFramesInWindow: 0,
+      };
+    }
+
+    return {
+      sampleCount: rollingSamples.length,
+      localScreenRmsCssPx: computePositionRms(
+        rollingSamples.map((sample) => ({
+          x: sample.localScreenX,
+          y: sample.localScreenY,
+        })),
+      ),
+      cameraResidualRmsCssPx: computeLinearPathResidualRms(
+        rollingSamples.map((sample) => ({
+          timeMs: sample.timeMs,
+          x: sample.cameraX,
+          y: sample.cameraY,
+        })),
+      ),
+      correctionFlipStreak: computeCorrectionFlipStreak(rollingSamples),
+      snapsInWindow: last.snapCount - first.snapCount,
+      extrapolatedFramesInWindow:
+        last.extrapolatedFrameCount - first.extrapolatedFrameCount,
+    };
+  }
+
+  function formatNetcodeOverlay(
+    metrics: Record<string, unknown>,
+    summary: NetcodeDebugSummary,
+  ): string {
+    const networkSimulation = asRecord(metrics.networkSimulation);
+    const inbound = asRecord(networkSimulation.inbound);
+    const profile = asRecord(inbound.profile);
+    const cameraPosition = asRecord(metrics.cameraPosition);
+    const cameraDelta = asRecord(metrics.cameraDelta);
+    const localPlayer = asRecord(metrics.localPlayer);
+    return [
+      `NET ${String(profile.name ?? "none")} seed=${String(inbound.seed ?? "")}`,
+      `tick=${String(metrics.serverTick)} latest=${String(metrics.latestReceivedSnapshotTick)} render=${formatNumber(metrics.renderTick)}`,
+      `mode=${String(metrics.interpolationMode)} delay=${formatNumber(metrics.renderDelayTicks)} jitterMs=${formatNumber(metrics.jitterEstimateMs)}`,
+      `server=(${formatNumber(localPlayer.authoritativeX)}, ${formatNumber(localPlayer.authoritativeY)}) render=(${formatNumber(localPlayer.renderedX)}, ${formatNumber(localPlayer.renderedY)})`,
+      `camera=(${formatNumber(cameraPosition.x)}, ${formatNumber(cameraPosition.y)}) d=(${formatNumber(cameraDelta.screenX)}, ${formatNumber(cameraDelta.screenY)})`,
+      `localScreenRmsCssPx=${summary.localScreenRmsCssPx.toFixed(3)} cameraResidualRmsCssPx=${summary.cameraResidualRmsCssPx.toFixed(3)}`,
+      `snaps3s=${summary.snapsInWindow} extrapFrames3s=${summary.extrapolatedFramesInWindow} flipStreak=${summary.correctionFlipStreak}`,
+      `dup=${String(metrics.duplicateSnapshotCount)} outOfOrder=${String(metrics.outOfOrderSnapshotCount)} samples=${summary.sampleCount}`,
+    ].join("\n");
+  }
+}
+
+type NetcodeDebugSample = {
+  timeMs: number;
+  cameraX: number;
+  cameraY: number;
+  localScreenX: number;
+  localScreenY: number;
+  correctionDirectionX: number;
+  correctionDirectionY: number;
+  snapCount: number;
+  extrapolatedFrameCount: number;
+};
+
+type NetcodeDebugSummary = {
+  sampleCount: number;
+  localScreenRmsCssPx: number;
+  cameraResidualRmsCssPx: number;
+  correctionFlipStreak: number;
+  snapsInWindow: number;
+  extrapolatedFramesInWindow: number;
+};
+
+function computePositionRms(points: Array<{ x: number; y: number }>): number {
+  if (points.length === 0) {
+    return 0;
+  }
+  const meanX =
+    points.reduce((total, point) => total + point.x, 0) / points.length;
+  const meanY =
+    points.reduce((total, point) => total + point.y, 0) / points.length;
+  return Math.sqrt(
+    points.reduce((total, point) => {
+      const dx = point.x - meanX;
+      const dy = point.y - meanY;
+      return total + dx * dx + dy * dy;
+    }, 0) / points.length,
+  );
+}
+
+function computeLinearPathResidualRms(
+  points: Array<{ timeMs: number; x: number; y: number }>,
+): number {
+  return Math.hypot(
+    computeLinearResidualRms(
+      points.map((point) => ({ timeMs: point.timeMs, value: point.x })),
+    ),
+    computeLinearResidualRms(
+      points.map((point) => ({ timeMs: point.timeMs, value: point.y })),
+    ),
+  );
+}
+
+function computeLinearResidualRms(
+  points: Array<{ timeMs: number; value: number }>,
+): number {
+  if (points.length < 2) {
+    return 0;
+  }
+  const meanTime =
+    points.reduce((total, point) => total + point.timeMs, 0) / points.length;
+  const meanValue =
+    points.reduce((total, point) => total + point.value, 0) / points.length;
+  let covariance = 0;
+  let variance = 0;
+  for (const point of points) {
+    const timeOffset = point.timeMs - meanTime;
+    covariance += timeOffset * (point.value - meanValue);
+    variance += timeOffset * timeOffset;
+  }
+  const slope = variance <= Number.EPSILON ? 0 : covariance / variance;
+  const intercept = meanValue - slope * meanTime;
+  return Math.sqrt(
+    points.reduce((total, point) => {
+      const residual = point.value - (slope * point.timeMs + intercept);
+      return total + residual * residual;
+    }, 0) / points.length,
+  );
+}
+
+function computeCorrectionFlipStreak(
+  samples: readonly NetcodeDebugSample[],
+): number {
+  let lastSign = 0;
+  let currentStreak = 0;
+  let maxStreak = 0;
+  for (const sample of samples) {
+    const dominantDirection =
+      Math.abs(sample.correctionDirectionX) >=
+      Math.abs(sample.correctionDirectionY)
+        ? sample.correctionDirectionX
+        : sample.correctionDirectionY;
+    const sign = Math.sign(dominantDirection);
+    if (sign !== 0 && lastSign !== 0 && sign !== lastSign) {
+      currentStreak += 1;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else if (sign !== 0) {
+      currentStreak = 0;
+    }
+    if (sign !== 0) {
+      lastSign = sign;
+    }
+  }
+  return maxStreak;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function formatNumber(value: unknown): string {
+  return asNumber(value).toFixed(2);
 }
 
 declare global {
@@ -226,5 +571,12 @@ declare global {
     get_interpolation_debug_log: () => string;
     clear_interpolation_debug_log: () => void;
     download_interpolation_debug_log: () => void;
+    get_netcode_debug_metrics: () => Record<string, unknown>;
+    __NETCODE_DEBUG__: {
+      getMetrics: () => Record<string, unknown>;
+      setNetworkProfile: (profileName: string, seed?: number) => void;
+      setProfile: (profileName: DebugNetworkProfileName, seed?: number) => void;
+      disableNetworkSimulation: () => void;
+    };
   }
 }

@@ -1,7 +1,7 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type {
   ActionMessage,
-  PoseMessage,
+  InputIntentMessage,
   ServerToClientMessage,
 } from "@shared/net/protocol.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
@@ -20,8 +20,6 @@ import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
 
-const POSE_DELTA_WARN_MULTIPLIER = 3.5;
-const POSE_DELTA_WARN_MIN = 64;
 const DEBUG_CREATIVE_STACK_COUNT = 9999;
 const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
   makeResourceId("item", "wall"),
@@ -44,7 +42,14 @@ export class GameInstanceRuntime {
   private readonly gameConfig: GameConfig;
   private readonly networkServer: NetworkServerLike;
   private readonly playerIdByClientId = new Map<string, number>();
-  private readonly lastProcessedSequenceByClientId = new Map<string, number>();
+  private readonly lastProcessedInputSequenceByClientId = new Map<
+    string,
+    number
+  >();
+  private readonly lastProcessedActionSequenceByClientId = new Map<
+    string,
+    number
+  >();
 
   constructor(gameConfig: GameConfig, networkServer: NetworkServerLike) {
     validatePlayerStarterLoadout();
@@ -83,8 +88,7 @@ export class GameInstanceRuntime {
         playerId,
         this.gameConfig.replication.interestRadius,
       );
-      snapshot.lastProcessedSeq =
-        this.lastProcessedSequenceByClientId.get(clientId) ?? -1;
+      snapshot.lastProcessedSeq = this.getLastProcessedSeq(clientId);
       const snapshotMessage: ServerToClientMessage = {
         t: "snapshot",
         snapshot,
@@ -118,13 +122,15 @@ export class GameInstanceRuntime {
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
-    this.lastProcessedSequenceByClientId.set(clientId, -1);
+    this.lastProcessedInputSequenceByClientId.set(clientId, -1);
+    this.lastProcessedActionSequenceByClientId.set(clientId, -1);
     return playerId;
   }
 
   public detachClient(clientId: string): string | undefined {
     const playerName = this.getPlayer(clientId)?.name;
-    this.lastProcessedSequenceByClientId.delete(clientId);
+    this.lastProcessedInputSequenceByClientId.delete(clientId);
+    this.lastProcessedActionSequenceByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
     if (playerId) {
       this.world.despawn(playerId);
@@ -141,52 +147,47 @@ export class GameInstanceRuntime {
     return this.playerIdByClientId.size;
   }
 
-  public handlePose(clientId: string, poseMessage: PoseMessage): void {
+  public handleInputIntent(
+    clientId: string,
+    inputMessage: InputIntentMessage,
+  ): void {
     const player = this.getPlayer(clientId);
     if (!player) {
       return;
     }
 
     const lastProcessedSeq =
-      this.lastProcessedSequenceByClientId.get(clientId) ?? -1;
-    if (poseMessage.seq <= lastProcessedSeq) {
-      this.rejectInput(clientId, player, "stale_input", poseMessage);
+      this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1;
+    if (inputMessage.seq <= lastProcessedSeq) {
+      this.ignoreInput(clientId, player, "stale_input", inputMessage);
       return;
     }
 
-    if (!this.antiCheatValidator.validatePose(poseMessage, player)) {
-      this.rejectInput(clientId, player, "invalid_input", poseMessage);
+    if (!this.antiCheatValidator.validateInputIntent(inputMessage, player)) {
+      this.rejectInput(clientId, player, "invalid_input", inputMessage);
       return;
     }
 
-    const sanitizedPose = this.sanitizePoseToWorldBounds(player, poseMessage);
-    this.warnOnSuspiciousPoseDelta(player, clientId, sanitizedPose);
-    player.applyClientPose({
-      seq: sanitizedPose.seq,
-      clientTimeMs: sanitizedPose.clientTimeMs,
-      x: sanitizedPose.x,
-      y: sanitizedPose.y,
-      theta: sanitizedPose.theta,
-      heldMovement: sanitizedPose.heldMovement,
-      receivedAtMs: Date.now(),
+    player.applyInputIntent({
+      seq: inputMessage.seq,
+      clientTimeMs: inputMessage.clientTimeMs,
+      theta: inputMessage.theta,
+      movement: inputMessage.movement,
+      receivedAtMs: this.world.simulationTimeMs,
     });
-    this.lastProcessedSequenceByClientId.set(clientId, poseMessage.seq);
+    this.lastProcessedInputSequenceByClientId.set(clientId, inputMessage.seq);
 
     if (this.world.focusedTrace.matchesEntity(player)) {
       this.world.focusedTrace.recordEntityEvent(
         this.world,
-        "pose_applied",
+        "input_intent_applied",
         player,
         {
           clientId,
-          seq: poseMessage.seq,
-          clientTimeMs: poseMessage.clientTimeMs,
-          rawX: poseMessage.x,
-          rawY: poseMessage.y,
-          sanitizedX: sanitizedPose.x,
-          sanitizedY: sanitizedPose.y,
-          theta: sanitizedPose.theta,
-          heldMovement: { ...poseMessage.heldMovement },
+          seq: inputMessage.seq,
+          clientTimeMs: inputMessage.clientTimeMs ?? null,
+          theta: inputMessage.theta,
+          movement: { ...inputMessage.movement },
         },
       );
     }
@@ -199,9 +200,9 @@ export class GameInstanceRuntime {
     }
 
     const lastProcessedSeq =
-      this.lastProcessedSequenceByClientId.get(clientId) ?? -1;
+      this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1;
     if (actionMessage.seq <= lastProcessedSeq) {
-      this.rejectInput(clientId, player, "stale_input", actionMessage);
+      this.ignoreInput(clientId, player, "stale_input", actionMessage);
       return;
     }
 
@@ -213,7 +214,7 @@ export class GameInstanceRuntime {
     }
 
     player.enqueueAction(actionMessage);
-    this.lastProcessedSequenceByClientId.set(clientId, actionMessage.seq);
+    this.lastProcessedActionSequenceByClientId.set(clientId, actionMessage.seq);
 
     if (this.world.focusedTrace.matchesEntity(player)) {
       this.world.focusedTrace.recordEntityEvent(
@@ -249,27 +250,11 @@ export class GameInstanceRuntime {
     return this.world.get<Player>(playerId);
   }
 
-  private sanitizePoseToWorldBounds(
-    player: Player,
-    poseMessage: PoseMessage,
-  ): PoseMessage {
-    const bounds = player.getHitboxBounds();
-    const minX = -bounds.minX;
-    const maxX = Math.max(minX, this.gameConfig.worldSize.w - bounds.maxX);
-    const minY = -bounds.minY;
-    const maxY = Math.max(minY, this.gameConfig.worldSize.h - bounds.maxY);
-    return {
-      ...poseMessage,
-      x: clamp(poseMessage.x, minX, maxX),
-      y: clamp(poseMessage.y, minY, maxY),
-    };
-  }
-
   private rejectInput(
     clientId: string,
     player: Player,
     reason: "stale_input" | "invalid_input",
-    payload: ActionMessage | PoseMessage,
+    payload: ActionMessage | InputIntentMessage,
   ): void {
     this.networkServer.send(
       clientId,
@@ -286,9 +271,37 @@ export class GameInstanceRuntime {
         reason,
         clientId,
         rawInput: structuredClone(payload),
-        lastAcceptedSequence:
-          this.lastProcessedSequenceByClientId.get(clientId) ?? -1,
+        lastAcceptedSequence: this.getLastProcessedSeq(clientId),
       },
+    );
+  }
+
+  private ignoreInput(
+    clientId: string,
+    player: Player,
+    reason: "stale_input",
+    payload: ActionMessage | InputIntentMessage,
+  ): void {
+    if (!this.world.focusedTrace.matchesEntity(player)) {
+      return;
+    }
+    this.world.focusedTrace.recordEntityEvent(
+      this.world,
+      "input_ignored",
+      player,
+      {
+        reason,
+        clientId,
+        rawInput: structuredClone(payload),
+        lastAcceptedSequence: this.getLastProcessedSeq(clientId),
+      },
+    );
+  }
+
+  private getLastProcessedSeq(clientId: string): number {
+    return Math.max(
+      this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1,
+      this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
   }
 
@@ -302,48 +315,6 @@ export class GameInstanceRuntime {
       .slice(0, 20);
     return sanitizedPlayerName || fallbackPlayerName;
   }
-
-  private warnOnSuspiciousPoseDelta(
-    player: Player,
-    clientId: string,
-    poseMessage: PoseMessage,
-  ): void {
-    const delta = Math.hypot(
-      poseMessage.x - player.x,
-      poseMessage.y - player.y,
-    );
-    const warnThreshold = Math.max(
-      POSE_DELTA_WARN_MIN,
-      player.moveSpeed * POSE_DELTA_WARN_MULTIPLIER,
-    );
-    if (delta <= warnThreshold) {
-      return;
-    }
-
-    console.warn(
-      `[pose_warn] client=${clientId} player=${player.name} id=${player.id} delta=${delta.toFixed(
-        2,
-      )} threshold=${warnThreshold.toFixed(2)} seq=${poseMessage.seq}`,
-    );
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "pose_delta_warn",
-        player,
-        {
-          clientId,
-          seq: poseMessage.seq,
-          delta,
-          threshold: warnThreshold,
-          fromX: player.x,
-          fromY: player.y,
-          toX: poseMessage.x,
-          toY: poseMessage.y,
-        },
-      );
-    }
-  }
 }
 
 function isDebugCreativeEditor(player: Player): boolean {
@@ -355,7 +326,11 @@ function isDebugCreativeEditor(player: Player): boolean {
 
 function applyDebugCreativeLoadout(player: Player): void {
   player.inventory.resources.clear();
-  for (let slotIndex = 0; slotIndex < player.inventory.hotbarSlots.length; slotIndex += 1) {
+  for (
+    let slotIndex = 0;
+    slotIndex < player.inventory.hotbarSlots.length;
+    slotIndex += 1
+  ) {
     player.inventory.hotbarSlots[slotIndex] = null;
   }
   player.inventory.setSelectedHotbarIndex(0);
@@ -375,8 +350,4 @@ function applyDebugCreativeLoadout(player: Player): void {
       throw new Error(`Could not grant debug creative item ${itemTypeId}`);
     }
   }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

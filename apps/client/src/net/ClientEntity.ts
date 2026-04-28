@@ -74,6 +74,7 @@ export class ClientEntity {
   public visualVersion = 1;
   public healthVersion = 1;
   public stateVersion = 1;
+  public lastDiscontinuityTick: number | null = null;
   private readonly serverFrameHistoryLimit: number;
   private readonly serverFrameHistory: EntityServerFrame[] = [];
 
@@ -140,6 +141,17 @@ export class ClientEntity {
     const previousMaxHp = this.maxHp;
     const previousFood = this.food;
     const previousMaxFood = this.maxFood;
+
+    const positionDiscontinuity =
+      Math.hypot(snapshot.x - this.serverX, snapshot.y - this.serverY) >
+      getDiscontinuityDistance(snapshot.kind);
+    const aliveDiscontinuity = previousAlive !== snapshot.alive;
+    if (positionDiscontinuity || aliveDiscontinuity) {
+      this.serverFrameHistory.length = 0;
+      this.x = snapshot.x;
+      this.y = snapshot.y;
+      this.lastDiscontinuityTick = tick;
+    }
 
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
@@ -262,6 +274,23 @@ export class ClientEntity {
     };
   }
 
+  public getServerFrameHistoryLength(): number {
+    return this.serverFrameHistory.length;
+  }
+
+  public pushServerHoldFrame(tick: number): void {
+    this.pushServerFrame(
+      {
+        x: this.serverX,
+        y: this.serverY,
+        vx: this.vx,
+        vy: this.vy,
+        rotation: this.rotation,
+      },
+      tick,
+    );
+  }
+
   private applyKindSpecificFields(snapshot: EntitySnapshot): boolean {
     const previousName = this.name;
     const previousLabel = this.label;
@@ -334,7 +363,10 @@ export class ClientEntity {
     );
   }
 
-  private pushServerFrame(snapshot: EntitySnapshot, tick: number): void {
+  private pushServerFrame(
+    snapshot: Pick<EntitySnapshot, "x" | "y" | "vx" | "vy" | "rotation">,
+    tick: number,
+  ): void {
     const latestFrame =
       this.serverFrameHistory[this.serverFrameHistory.length - 1];
     if (latestFrame && latestFrame.tick === tick) {
@@ -391,4 +423,18 @@ function areHitboxesEqual(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function getDiscontinuityDistance(kind: EntityKind): number {
+  switch (kind) {
+    case "projectile":
+      return 384;
+    case "building":
+    case "structure":
+    case "pickup":
+      return 96;
+    case "player":
+    case "enemy":
+      return 256;
+  }
 }

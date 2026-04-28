@@ -1,9 +1,12 @@
 import { isJsonObject, isJsonValue, parseJsonValue } from "@shared/json.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { MoveIntentKey, PoseMessage } from "@shared/net/protocol.ts";
+import type {
+  InputIntentMessage,
+  MoveIntentKey,
+} from "@shared/net/protocol.ts";
 
 type FastInputMessageParseResult =
-  | { kind: "pose"; message: PoseMessage }
+  | { kind: "input"; message: InputIntentMessage }
   | { kind: "other" }
   | { kind: "invalid" };
 
@@ -17,43 +20,43 @@ const MOVE_KEYS: ReadonlySet<MoveIntentKey> = new Set([
 export function parseFastInputMessage(
   rawMessage: string,
 ): FastInputMessageParseResult {
-  // Most inbound traffic is high-frequency pose updates.
-  if (!rawMessage.includes('"t":"pose"')) {
+  // Most inbound traffic is high-frequency movement/aim input.
+  if (!rawMessage.includes('"t":"input"')) {
     return { kind: "other" };
   }
 
   const parsed = parseJsonValue(rawMessage);
-  if (!parsed || !isJsonObject(parsed) || parsed.t !== "pose") {
+  if (!parsed || !isJsonObject(parsed) || parsed.t !== "input") {
+    return { kind: "invalid" };
+  }
+  if ("x" in parsed || "y" in parsed) {
     return { kind: "invalid" };
   }
 
   const seq = parseNonNegativeInt(parsed.seq);
-  const clientTimeMs = parseFiniteNumber(parsed.clientTimeMs);
-  const x = parseFiniteNumber(parsed.x);
-  const y = parseFiniteNumber(parsed.y);
+  const clientTimeMs =
+    parsed.clientTimeMs === undefined
+      ? undefined
+      : parseFiniteNumber(parsed.clientTimeMs);
   const theta = parseFiniteNumber(parsed.theta);
-  const heldMovement = parsed.heldMovement;
+  const movement = parsed.movement;
   if (
     seq === null ||
     clientTimeMs === null ||
-    x === null ||
-    y === null ||
     theta === null ||
-    !isHeldMovementState(heldMovement)
+    !isInputMovement(movement)
   ) {
     return { kind: "invalid" };
   }
 
   return {
-    kind: "pose",
+    kind: "input",
     message: {
-      t: "pose",
+      t: "input",
       seq,
-      clientTimeMs,
-      x,
-      y,
+      ...(clientTimeMs === undefined ? {} : { clientTimeMs }),
       theta: normalizeAngle(theta),
-      heldMovement,
+      movement,
     },
   };
 }
@@ -77,9 +80,9 @@ function parseFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function isHeldMovementState(
+function isInputMovement(
   value: unknown,
-): value is PoseMessage["heldMovement"] {
+): value is InputIntentMessage["movement"] {
   if (!value || !isJsonValue(value) || !isJsonObject(value)) {
     return false;
   }

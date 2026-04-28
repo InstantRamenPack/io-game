@@ -34,8 +34,8 @@ export class EntityRenderManager {
   }
 
   public update(deltaMs: number): void {
-    // Keep renderer transforms in lock-step with interpolated/predicted entity
-    // poses each frame; snapshot sync alone only updates at tick boundaries.
+    // Keep renderer transforms in lock-step with interpolated entity state each
+    // frame; snapshot sync alone only updates at tick boundaries.
     for (const [entityId, entity] of this.entitiesById) {
       const renderer = this.renderers.get(entityId);
       if (!renderer) {

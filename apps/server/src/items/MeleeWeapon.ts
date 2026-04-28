@@ -195,9 +195,7 @@ export abstract class MeleeWeapon extends Weapon {
         return left.entryDistance - right.entryDistance;
       }
       if (left.tieBreakerDistanceSquared !== right.tieBreakerDistanceSquared) {
-        return (
-          left.tieBreakerDistanceSquared - right.tieBreakerDistanceSquared
-        );
+        return left.tieBreakerDistanceSquared - right.tieBreakerDistanceSquared;
       }
 
       return left.target.id - right.target.id;
