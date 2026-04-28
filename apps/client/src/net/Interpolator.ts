@@ -6,6 +6,10 @@ import type {
 import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { lerpAngle } from "@shared/math/angle.ts";
 
+const SERVER_DELAYED_PROJECTILE_TYPE_IDS = new Set<string>([
+  "projectile:homing_drone",
+]);
+
 export type InterpolationMode =
   | "none"
   | "hold"
@@ -206,8 +210,11 @@ export class Interpolator {
     for (const entity of world.entities.values()) {
       const beforeX = entity.x;
       const beforeY = entity.y;
+      const sampleTick = shouldExtrapolateProjectile(entity)
+        ? estimatedServerTickNow
+        : renderTick;
       const sample = entity.samplePosition(
-        renderTick,
+        sampleTick,
         this.maxExtrapolationTicks,
       );
       if (!sample) {
@@ -531,6 +538,13 @@ function getReferenceFrame(sample: EntityPositionSample): EntityServerFrame {
     case "interpolate":
       return sample.next;
   }
+}
+
+function shouldExtrapolateProjectile(entity: ClientEntity): boolean {
+  return (
+    entity.kind === "projectile" &&
+    !SERVER_DELAYED_PROJECTILE_TYPE_IDS.has(entity.typeId)
+  );
 }
 
 function lerp(start: number, end: number, t: number): number {

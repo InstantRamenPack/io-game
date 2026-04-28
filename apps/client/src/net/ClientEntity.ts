@@ -212,6 +212,17 @@ export class ClientEntity {
     }
 
     if (this.serverFrameHistory.length === 1) {
+      if (this.kind === "projectile" && renderTick > latestFrame.tick) {
+        return {
+          mode: "extrapolate",
+          latest: latestFrame,
+          overrunTicks: clamp(
+            renderTick - latestFrame.tick,
+            0,
+            maxExtrapolationTicks,
+          ),
+        };
+      }
       return {
         mode: "hold",
         frame: latestFrame,

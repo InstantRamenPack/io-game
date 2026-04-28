@@ -380,6 +380,7 @@ export class GameClient {
       const player = this.getLocalPlayerEntity();
       const playerPose = this.getLocalPlayerVisualPose();
 
+      this.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
       this.placementPreviewController.sync({
         renderer: this.renderer,
@@ -644,6 +645,34 @@ export class GameClient {
       y: player.y,
       rotation: player.rotation,
     };
+  }
+
+  private syncLocalPlayerAimPresentation(
+    playerPose: { x: number; y: number; rotation: number } | null,
+  ): void {
+    if (this.playerEntityId === undefined) {
+      return;
+    }
+
+    if (!playerPose || !this.getLocalPlayerEntity()?.alive) {
+      this.presentationSink.setPresentationOverride(this.playerEntityId, null);
+      return;
+    }
+
+    const localAimTheta = this.pointerAimController.computeAimTheta(playerPose);
+    if (localAimTheta === null) {
+      this.presentationSink.setPresentationOverride(
+        this.playerEntityId,
+        null,
+      );
+      return;
+    }
+
+    this.presentationSink.setPresentationOverride(this.playerEntityId, {
+      x: playerPose.x,
+      y: playerPose.y,
+      rotation: localAimTheta,
+    });
   }
 
   private refreshPointerTargetFromScreen(): void {
