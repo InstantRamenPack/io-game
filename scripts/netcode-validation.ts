@@ -390,10 +390,7 @@ test("death and respawn discontinuities reset interpolation history", () => {
     "death should reset server-frame history",
   );
 
-  state.pushSnapshot(
-    makeSnapshot(3, [makePlayerSnapshot(1, 800, 600)]),
-    150,
-  );
+  state.pushSnapshot(makeSnapshot(3, [makePlayerSnapshot(1, 800, 600)]), 150);
   entity = state.clientWorld?.entities.get(1);
   assert(entity, "respawned player should exist");
   assert(
@@ -476,10 +473,7 @@ test("debug network simulation profiles are deterministic", () => {
     perfect.duplicated === 0,
     "perfect profile should not duplicate packets",
   );
-  assert(
-    perfect.reordered === 0,
-    "perfect profile should not reorder packets",
-  );
+  assert(perfect.reordered === 0, "perfect profile should not reorder packets");
   assert(
     perfect.delays.every((delay) => delay === 0),
     "perfect profile should deliver without added delay",
@@ -538,8 +532,10 @@ function simulateInterpolation(options: {
     snapDistance: 192,
     expectedSnapshotMs: 50,
     minRenderDelayTicks: 2,
-    maxRenderDelayTicks: 4,
+    maxRenderDelayTicks: 5,
     maxExtrapolationTicks: 0.35,
+    jitterBufferMultiplier: 3,
+    jitterBufferSafetyMs: 35,
   });
   let nextSnapshotIndex = 0;
   const samples: Array<{ time: number; x: number }> = [];

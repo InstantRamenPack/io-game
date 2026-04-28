@@ -78,14 +78,14 @@ export class Interpolator {
   private tickDurationSmoothing = 0.2;
   private renderDelaySmoothing = 0.15;
   private minRenderDelayTicks = 2;
-  private maxRenderDelayTicks = 4;
+  private maxRenderDelayTicks = 5;
   private maxExtrapolationTicks = 0.35;
   private tickDurationMinFactor = 0.7;
   private tickDurationMaxFactor = 1.4;
   private arrivalEwmaSmoothing = 0.12;
   private jitterEwmaSmoothing = 0.12;
-  private jitterBufferMultiplier = 2;
-  private jitterBufferSafetyMs = 20;
+  private jitterBufferMultiplier = 3;
+  private jitterBufferSafetyMs = 35;
   private maxDebugLogEntries = 600;
   private snapCount = 0;
   private extrapolatedFrameCount = 0;

@@ -64,7 +64,6 @@ const WorldMapSchema = z.object({
 type StaticSpawn = z.infer<typeof StaticSpawnSchema>;
 type DungeonConfig = z.infer<typeof DungeonConfigSchema>;
 type StaticZone = z.infer<typeof StaticZoneSchema>;
-type DungeonZone = z.infer<typeof DungeonZoneSchema>;
 type WorldMapConfig = z.infer<typeof WorldMapSchema>;
 
 type RoomRect = {
@@ -79,6 +78,13 @@ type RoomRect = {
 };
 
 type LeafRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+type TileRect = {
   minX: number;
   minY: number;
   maxX: number;
@@ -114,8 +120,12 @@ function snapToTileCenter(value: number): number {
   return tile * TILE_SIZE + TILE_SIZE / 2;
 }
 
-function tileCenter(worldOrigin: number, tileIndex: number): number {
-  return worldOrigin + tileIndex * TILE_SIZE + TILE_SIZE / 2;
+function tileRectCenter(
+  worldOrigin: number,
+  minTile: number,
+  maxTile: number,
+): number {
+  return worldOrigin + ((minTile + maxTile + 1) * TILE_SIZE) / 2;
 }
 
 function createFilledTileGrid(
@@ -330,8 +340,11 @@ function createRoomInLeaf(
   const roomMaxX = roomMinX + roomWidth - 1;
   const roomMaxY = roomMinY + roomHeight - 1;
 
+  const uniqueRoomTags = [...new Set(roomTagPool)];
   const roomType =
-    roomTagPool[Math.floor(rng() * roomTagPool.length)] ?? "danger";
+    uniqueRoomTags[roomId] ??
+    roomTagPool[Math.floor(rng() * roomTagPool.length)] ??
+    "danger";
 
   return {
     id: `room_${roomId}`,
@@ -399,6 +412,84 @@ function carveEntrances(
       heightTiles - 1,
     );
   }
+}
+
+function extractSolidTileRects(
+  tiles: Uint8Array,
+  widthTiles: number,
+  heightTiles: number,
+): TileRect[] {
+  const claimed = new Uint8Array(tiles.length);
+  const rects: TileRect[] = [];
+
+  for (let y = 0; y < heightTiles; y += 1) {
+    for (let x = 0; x < widthTiles; x += 1) {
+      const startIndex = tileIndex(widthTiles, x, y);
+      if (tiles[startIndex] === 0 || claimed[startIndex] === 1) {
+        continue;
+      }
+
+      let maxX = x;
+      while (
+        maxX + 1 < widthTiles &&
+        tiles[tileIndex(widthTiles, maxX + 1, y)] === 1 &&
+        claimed[tileIndex(widthTiles, maxX + 1, y)] === 0
+      ) {
+        maxX += 1;
+      }
+
+      let maxY = y;
+      let canExtend = true;
+      while (canExtend && maxY + 1 < heightTiles) {
+        for (let scanX = x; scanX <= maxX; scanX += 1) {
+          const scanIndex = tileIndex(widthTiles, scanX, maxY + 1);
+          if (tiles[scanIndex] === 0 || claimed[scanIndex] === 1) {
+            canExtend = false;
+            break;
+          }
+        }
+        if (canExtend) {
+          maxY += 1;
+        }
+      }
+
+      for (let claimY = y; claimY <= maxY; claimY += 1) {
+        for (let claimX = x; claimX <= maxX; claimX += 1) {
+          claimed[tileIndex(widthTiles, claimX, claimY)] = 1;
+        }
+      }
+
+      rects.push({ minX: x, minY: y, maxX, maxY });
+    }
+  }
+
+  return rects;
+}
+
+function spawnDungeonWallRect(
+  world: World,
+  zone: DungeonConfig,
+  rect: TileRect,
+): void {
+  const entry = entityTypeRegistry.require(
+    "structure:dungeon_wall" as ResourceId,
+  );
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error("Dungeon wall type is not spawnable.");
+  }
+
+  const entity = new entry.ctor(world.allocEntityId());
+  entity.x = tileRectCenter(zone.originX, rect.minX, rect.maxX);
+  entity.y = tileRectCenter(zone.originY, rect.minY, rect.maxY);
+  entity.setHitboxProfileRects("default", [
+    {
+      width: (rect.maxX - rect.minX + 1) * TILE_SIZE,
+      height: (rect.maxY - rect.minY + 1) * TILE_SIZE,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  ]);
+  world.spawn(entity);
 }
 
 function spawnDungeonZone(
@@ -492,18 +583,12 @@ function spawnDungeonZone(
 
   carveEntrances(tiles, zone.widthTiles, zone.heightTiles, zone.entrances);
 
-  for (let y = 0; y < zone.heightTiles; y += 1) {
-    for (let x = 0; x < zone.widthTiles; x += 1) {
-      if (tiles[tileIndex(zone.widthTiles, x, y)] === 0) {
-        continue;
-      }
-
-      spawnMapEntity(world, {
-        typeId: "structure:dungeon_wall" as ResourceId,
-        x: tileCenter(zone.originX, x),
-        y: tileCenter(zone.originY, y),
-      });
-    }
+  for (const rect of extractSolidTileRects(
+    tiles,
+    zone.widthTiles,
+    zone.heightTiles,
+  )) {
+    spawnDungeonWallRect(world, zone, rect);
   }
 
   world.registerDungeonRooms(

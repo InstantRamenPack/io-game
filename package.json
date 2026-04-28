@@ -12,6 +12,7 @@
     "build": "bun run typecheck && bun run build:client",
     "test": "bun run test:netcode",
     "test:netcode": "bun run scripts/netcode-validation.ts",
+    "test:optimization": "bun run scripts/optimization-validation.ts",
     "prod:server": "bun run apps/server/index.ts",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",

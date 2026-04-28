@@ -126,20 +126,20 @@
       "id": "dungeon_alpha",
       "kind": "dungeon",
       "dungeon": {
-        "originX": 8160,
-        "originY": 5520,
-        "widthTiles": 96,
-        "heightTiles": 88,
+        "originX": 6160,
+        "originY": 3900,
+        "widthTiles": 240,
+        "heightTiles": 190,
         "seedOffset": 41,
         "algorithm": "bsp",
-        "minLeafSizeTiles": 18,
-        "maxDepth": 4,
-        "minRoomSizeTiles": 8,
-        "maxRoomSizeTiles": 16,
-        "extraConnectionChance": 0.22,
+        "minLeafSizeTiles": 84,
+        "maxDepth": 3,
+        "minRoomSizeTiles": 80,
+        "maxRoomSizeTiles": 96,
+        "extraConnectionChance": 0.35,
         "entrances": [
-          { "side": "west", "tile": 40, "widthTiles": 2 },
-          { "side": "north", "tile": 52, "widthTiles": 2 }
+          { "side": "west", "tile": 92, "widthTiles": 10 },
+          { "side": "north", "tile": 116, "widthTiles": 10 }
         ],
         "roomTagPool": ["danger", "danger", "danger", "treasure", "rest"]
       }
