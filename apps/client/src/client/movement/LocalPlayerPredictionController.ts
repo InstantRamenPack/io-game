@@ -169,8 +169,7 @@ export class LocalPlayerPredictionController {
       y: current.y + nextVy * frameTicks,
       vx: nextVx,
       vy: nextVy,
-      rotation:
-        aimTheta ?? lerpAngle(current.rotation, player.rotation, 0.25),
+      rotation: aimTheta ?? lerpAngle(current.rotation, player.rotation, 0.25),
     };
 
     clampToWorldBounds(nextState, player, worldSize);

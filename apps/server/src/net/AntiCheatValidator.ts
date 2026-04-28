@@ -1,7 +1,4 @@
-import type {
-  ActionMessage,
-  PoseMessage,
-} from "@shared/net/protocol.ts";
+import type { ActionMessage, PoseMessage } from "@shared/net/protocol.ts";
 import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
@@ -64,11 +61,13 @@ export class AntiCheatValidator {
     }
 
     const { fromSlotIndex, toSlotIndex } = actionMessage.inventoryMove;
-    return !(fromSlotIndex < 0 ||
-        fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
-        toSlotIndex < 0 ||
-        toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
-        playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined);
+    return !(
+      fromSlotIndex < 0 ||
+      fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+      toSlotIndex < 0 ||
+      toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+      playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined
+    );
   }
 
   private isValidChestMove(

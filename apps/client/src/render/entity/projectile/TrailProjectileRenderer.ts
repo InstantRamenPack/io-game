@@ -56,6 +56,10 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
     super.destroy();
   }
 
+  public override hasTransientAnimation(): boolean {
+    return super.hasTransientAnimation() || this.trailPoints.length > 1;
+  }
+
   private pushTrailPoint(x: number, y: number): void {
     const lastPoint = this.trailPoints[this.trailPoints.length - 1];
     if (lastPoint) {

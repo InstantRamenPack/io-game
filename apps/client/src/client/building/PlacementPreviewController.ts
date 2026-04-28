@@ -175,10 +175,6 @@ export class PlacementPreviewController {
     if (valid) {
       const candidates = this.queryPlacementCandidates(previewBounds);
       for (const entity of candidates) {
-        if (entity.id === player.id) {
-          continue;
-        }
-
         const entityRects = resolveHitboxRects(
           entity.x,
           entity.y,

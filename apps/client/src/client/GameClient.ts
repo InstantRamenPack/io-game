@@ -636,7 +636,8 @@ export class GameClient {
       return;
     }
 
-    const theta = this.pointerAimController.computeAimTheta(pose) ?? pose.rotation;
+    const theta =
+      this.pointerAimController.computeAimTheta(pose) ?? pose.rotation;
     const seq = this.inputManager.nextSequence();
     const clientTimeMs = performance.now();
     this.networkClient.sendPose(seq, clientTimeMs, pose.x, pose.y, theta, {

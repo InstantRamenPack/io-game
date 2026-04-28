@@ -257,12 +257,17 @@ export class Player extends Entity {
     if (!world.focusedTrace.matchesEntity(this)) {
       return;
     }
-    world.focusedTrace.recordEntityEvent(world, "shadow_velocity_observed", this, {
-      observedVx: deltaX,
-      observedVy: deltaY,
-      latestClientPoseSeq: this.latestClientPose?.seq ?? null,
-      latestClientTimeMs: this.latestClientPose?.clientTimeMs ?? null,
-    });
+    world.focusedTrace.recordEntityEvent(
+      world,
+      "shadow_velocity_observed",
+      this,
+      {
+        observedVx: deltaX,
+        observedVy: deltaY,
+        latestClientPoseSeq: this.latestClientPose?.seq ?? null,
+        latestClientTimeMs: this.latestClientPose?.clientTimeMs ?? null,
+      },
+    );
   }
 
   public craft(world: World, itemTypeId: ResourceId): void {
@@ -419,6 +424,10 @@ export class Player extends Entity {
       return;
     }
 
+    if (this.doHitboxesOverlap(building, this)) {
+      return;
+    }
+
     for (const entity of world.spatial.queryBox(
       buildingBounds.minX,
       buildingBounds.minY,
@@ -447,16 +456,11 @@ export class Player extends Entity {
     }
     if (Date.now() - pose.receivedAtMs > Player.CLIENT_POSE_STALE_TIMEOUT_MS) {
       if (world.focusedTrace.matchesEntity(this)) {
-        world.focusedTrace.recordEntityEvent(
-          world,
-          "client_pose_stale",
-          this,
-          {
-            seq: pose.seq,
-            clientTimeMs: pose.clientTimeMs,
-            receivedAtMs: pose.receivedAtMs,
-          },
-        );
+        world.focusedTrace.recordEntityEvent(world, "client_pose_stale", this, {
+          seq: pose.seq,
+          clientTimeMs: pose.clientTimeMs,
+          receivedAtMs: pose.receivedAtMs,
+        });
       }
       return false;
     }
