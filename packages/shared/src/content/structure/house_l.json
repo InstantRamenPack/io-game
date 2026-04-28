@@ -1,0 +1,14 @@
+{
+  "label": "House",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      { "width": 560, "height": 16, "offsetX": 0, "offsetY": -192 },
+      { "width": 224, "height": 16, "offsetX": -160, "offsetY": 192 },
+      { "width": 224, "height": 16, "offsetX": 160, "offsetY": 192 },
+      { "width": 16, "height": 368, "offsetX": -272, "offsetY": 0 },
+      { "width": 16, "height": 368, "offsetX": 272, "offsetY": 0 }
+    ]
+  }
+}

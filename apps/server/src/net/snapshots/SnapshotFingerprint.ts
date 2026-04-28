@@ -13,6 +13,7 @@ import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Structure } from "@server/entities/Structure.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 
@@ -55,6 +56,9 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
         snapshot.tier,
         fingerprintOptionalChestSlots(snapshot.chestSlots),
       );
+      break;
+    case "structure":
+      parts.push(snapshot.label);
       break;
     case "pickup":
       parts.push(fingerprintInventory(snapshot.inventory));
@@ -114,6 +118,11 @@ export function getEntityRuntimeFingerprint(entity: Entity): string {
           : undefined,
       ),
     );
+    return parts.join("|");
+  }
+
+  if (entity instanceof Structure) {
+    parts.push(entity.label);
     return parts.join("|");
   }
 

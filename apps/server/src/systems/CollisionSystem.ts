@@ -5,6 +5,7 @@ import {
 import {
   type HitboxBounds,
   type ResolvedHitboxRect,
+  resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
@@ -12,6 +13,7 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
+type CollisionSide = "left" | "right" | "top" | "bottom";
 const MAX_COLLISION_PASSES = 3;
 
 /**
@@ -226,10 +228,8 @@ class CollisionSystem implements System {
       return true;
     }
     if (leftIsItemEntity && rightIsItemEntity) {
-      if (leftEntity.canMergeStackableWith(rightEntity)) {
-        return false;
-      }
-      return true;
+      return !leftEntity.canMergeStackableWith(rightEntity);
+
     }
     return false;
   }
@@ -258,9 +258,6 @@ class CollisionSystem implements System {
       rightEntity.y -= correction;
     }
 
-    const normal = this.getNormalFromTranslation(separation);
-    leftEntity.clipVelocityAgainstNormal(normal);
-    rightEntity.clipVelocityAgainstNormal(this.invertNormal(normal));
     world.focusedTrace.recordEntityEvent(
       world,
       "entity_collision_resolved",
@@ -305,14 +302,17 @@ class CollisionSystem implements System {
     separation: AxisSeparation,
   ): void {
     const before = this.snapshotMotion(dynamicEntity);
-    if (separation.axis === "x") {
-      dynamicEntity.x += separation.translation;
+    const resolvedSeparation =
+      this.getMovementAwareStaticSeparation(world, dynamicEntity, staticEntity) ??
+      separation;
+    if (resolvedSeparation.axis === "x") {
+      dynamicEntity.x += resolvedSeparation.translation;
     } else {
-      dynamicEntity.y += separation.translation;
+      dynamicEntity.y += resolvedSeparation.translation;
     }
 
     dynamicEntity.clipVelocityAgainstNormal(
-      this.getNormalFromTranslation(separation),
+      this.getNormalFromTranslation(resolvedSeparation),
     );
     world.focusedTrace.recordEntityEvent(
       world,
@@ -320,7 +320,7 @@ class CollisionSystem implements System {
       dynamicEntity,
       {
         mode: "dynamic_static",
-        separation,
+        separation: resolvedSeparation,
         before,
         after: this.snapshotMotion(dynamicEntity),
         counterpart: this.describeEntityRef(staticEntity),
@@ -352,6 +352,132 @@ class CollisionSystem implements System {
     const leftHitboxes = this.getCachedWorldHitboxes(leftEntity);
     const rightHitboxes = this.getCachedWorldHitboxes(rightEntity);
     return getResolvedRectSetSeparation(leftHitboxes, rightHitboxes);
+  }
+
+  private getMovementAwareStaticSeparation(
+    world: World,
+    dynamicEntity: Entity,
+    staticEntity: Entity,
+  ): AxisSeparation | null {
+    const previousPosition = world.getLastIntegratedPosition(dynamicEntity);
+    if (!previousPosition) {
+      return null;
+    }
+
+    const previousHitboxes = resolveHitboxRects(
+      previousPosition.x,
+      previousPosition.y,
+      dynamicEntity.hitboxes,
+    );
+    const currentHitboxes = this.getCachedWorldHitboxes(dynamicEntity);
+    const staticHitboxes = this.getCachedWorldHitboxes(staticEntity);
+    const enteredSides = new Map<CollisionSide, AxisSeparation>();
+
+    for (const currentRect of currentHitboxes) {
+      for (const staticRect of staticHitboxes) {
+        if (!this.doRectsOverlap(currentRect, staticRect)) {
+          continue;
+        }
+
+        const previousRect = previousHitboxes.find(
+          (candidate) =>
+            candidate.width === currentRect.width &&
+            candidate.height === currentRect.height &&
+            candidate.offsetX === currentRect.offsetX &&
+            candidate.offsetY === currentRect.offsetY,
+        );
+        if (!previousRect) {
+          continue;
+        }
+
+        this.recordEnteredSide(
+          enteredSides,
+          "left",
+          previousRect.maxX <= staticRect.minX,
+          { axis: "x", translation: staticRect.minX - currentRect.maxX },
+        );
+        this.recordEnteredSide(
+          enteredSides,
+          "right",
+          previousRect.minX >= staticRect.maxX,
+          { axis: "x", translation: staticRect.maxX - currentRect.minX },
+        );
+        this.recordEnteredSide(
+          enteredSides,
+          "top",
+          previousRect.maxY <= staticRect.minY,
+          { axis: "y", translation: staticRect.minY - currentRect.maxY },
+        );
+        this.recordEnteredSide(
+          enteredSides,
+          "bottom",
+          previousRect.minY >= staticRect.maxY,
+          { axis: "y", translation: staticRect.maxY - currentRect.minY },
+        );
+      }
+    }
+
+    return this.chooseMovementAwareSeparation(
+      enteredSides,
+      dynamicEntity.x - previousPosition.x,
+      dynamicEntity.y - previousPosition.y,
+    );
+  }
+
+  private recordEnteredSide(
+    enteredSides: Map<CollisionSide, AxisSeparation>,
+    side: CollisionSide,
+    didEnterFromSide: boolean,
+    separation: AxisSeparation,
+  ): void {
+    if (!didEnterFromSide || separation.translation === 0) {
+      return;
+    }
+
+    const existing = enteredSides.get(side);
+    if (
+      !existing ||
+      Math.abs(separation.translation) > Math.abs(existing.translation)
+    ) {
+      enteredSides.set(side, separation);
+    }
+  }
+
+  private chooseMovementAwareSeparation(
+    enteredSides: Map<CollisionSide, AxisSeparation>,
+    deltaX: number,
+    deltaY: number,
+  ): AxisSeparation | null {
+    if (enteredSides.size === 0) {
+      return null;
+    }
+
+    const preferredAxis =
+      Math.abs(deltaX) >= Math.abs(deltaY) && deltaX !== 0 ? "x" : "y";
+    const candidates = [...enteredSides.values()];
+    const preferredCandidates = candidates.filter(
+      (candidate) => candidate.axis === preferredAxis,
+    );
+    const search = preferredCandidates.length > 0 ? preferredCandidates : candidates;
+    let best = search[0] ?? null;
+    for (const candidate of search.slice(1)) {
+      if (!best || Math.abs(candidate.translation) < Math.abs(best.translation)) {
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  private doRectsOverlap(
+    leftRect: ResolvedHitboxRect,
+    rightRect: ResolvedHitboxRect,
+  ): boolean {
+    return (
+      leftRect.minX < rightRect.maxX &&
+      leftRect.maxX > rightRect.minX &&
+      leftRect.minY < rightRect.maxY &&
+      leftRect.maxY > rightRect.minY
+    );
   }
 
   private invertSeparation(separation: AxisSeparation): AxisSeparation {

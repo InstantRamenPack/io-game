@@ -7,6 +7,11 @@ import {
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
+const PURSUIT_OFFSET_MIN_RADIUS = 52;
+const PURSUIT_OFFSET_RADIUS_VARIANCE = 76;
+const PURSUIT_OFFSET_FULL_DISTANCE = 300;
+const PURSUIT_OFFSET_ZERO_DISTANCE = 90;
+
 /**
  * Straight-line chase goal that walks toward the current target entity.
  */
@@ -40,6 +45,55 @@ export class GoToTargetGoal<
       return null;
     }
 
-    return { x: target.x, y: target.y };
+    const distanceToTarget = Math.hypot(target.x - ctx.self.x, target.y - ctx.self.y);
+    const offsetScale = clamp01(
+      (distanceToTarget - PURSUIT_OFFSET_ZERO_DISTANCE) /
+        (PURSUIT_OFFSET_FULL_DISTANCE - PURSUIT_OFFSET_ZERO_DISTANCE),
+    );
+    const offset = getStablePursuitOffset(ctx.self.id, target.id, offsetScale);
+    const destination = {
+      x: target.x + offset.x,
+      y: target.y + offset.y,
+    };
+    return (
+      ctx.world.navPathService.getClosestWalkableWorldPoint(
+        destination.x,
+        destination.y,
+      ) ?? destination
+    );
   }
+}
+
+function getStablePursuitOffset(
+  selfId: number,
+  targetId: number,
+  scale: number,
+): {
+  x: number;
+  y: number;
+} {
+  const hash = hashInt(selfId * 73856093 + targetId * 19349663);
+  const angle = ((hash & 0xffff) / 0x10000) * Math.PI * 2;
+  const radius =
+    (PURSUIT_OFFSET_MIN_RADIUS +
+      (((hash >>> 16) & 0xff) / 0xff) * PURSUIT_OFFSET_RADIUS_VARIANCE) *
+    scale;
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius,
+  };
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function hashInt(value: number): number {
+  let hash = value | 0;
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x7feb352d);
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 0x846ca68b);
+  hash ^= hash >>> 16;
+  return hash >>> 0;
 }

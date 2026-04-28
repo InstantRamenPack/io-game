@@ -6,8 +6,11 @@ import {
   offsetHitboxBounds,
   resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
+import {
+  COMBAT_OCCLUSION_EPSILON,
+  isCombatOccluder,
+} from "@server/combat/CombatOcclusion.ts";
 import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
-import { Building } from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Projectile } from "@server/entities/Projectile.ts";
 import type { World } from "@server/world/World.ts";
@@ -51,7 +54,7 @@ export class ProjectileImpactResolver {
       projectile.hitboxes,
     );
     const impacts: ProjectileImpactTarget[] = [];
-    let nearestBlockingBuildingTime: number | null = null;
+    let nearestBlockingHitTime: number | null = null;
 
     for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
       const hitTime = this.resolveHitTime(
@@ -65,14 +68,10 @@ export class ProjectileImpactResolver {
         continue;
       }
 
-      if (candidate instanceof Building) {
-        if (
-          nearestBlockingBuildingTime === null ||
-          hitTime < nearestBlockingBuildingTime
-        ) {
-          nearestBlockingBuildingTime = hitTime;
+      if (isCombatOccluder(candidate)) {
+        if (nearestBlockingHitTime === null || hitTime < nearestBlockingHitTime) {
+          nearestBlockingHitTime = hitTime;
         }
-        continue;
       }
 
       if (
@@ -112,15 +111,17 @@ export class ProjectileImpactResolver {
       return left.target.id - right.target.id;
     });
 
+    const maxVisibleHitTime =
+      nearestBlockingHitTime === null
+        ? null
+        : nearestBlockingHitTime + COMBAT_OCCLUSION_EPSILON;
     const visibleTargets =
-      nearestBlockingBuildingTime === null
+      maxVisibleHitTime === null
         ? impacts
-        : impacts.filter(
-            (impact) => impact.hitTime < nearestBlockingBuildingTime,
-          );
+        : impacts.filter((impact) => impact.hitTime <= maxVisibleHitTime);
 
     return {
-      blockedByBuilding: nearestBlockingBuildingTime !== null,
+      blockedByBuilding: nearestBlockingHitTime !== null,
       targets: visibleTargets,
     };
   }

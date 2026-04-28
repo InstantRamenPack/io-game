@@ -1,4 +1,11 @@
-import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import {
+  doResolvedRectSetsOverlap,
+  getSweptResolvedRectSetIntersectionTime,
+} from "@shared/geometry/collision.ts";
+import {
+  offsetHitboxBounds,
+  resolveHitboxRects,
+} from "@shared/geometry/hitbox.ts";
 import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
@@ -27,7 +34,11 @@ import {
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
-import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import {
+  isBuildingCtor,
+  isStructureCtor,
+  isWeaponCtor,
+} from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
@@ -40,6 +51,8 @@ type ClientPoseState = {
   heldMovement: PoseHeldMovement;
   receivedAtMs: number;
 };
+
+const STRUCTURE_TILE_SIZE = 16;
 
 /**
  * Authoritative player entity driven by held movement state and queued actions.
@@ -388,8 +401,8 @@ export class Player extends Entity {
     }
 
     const itemEntry = itemTypeRegistry.get(itemTypeId);
-    const buildingTypeId = itemEntry?.content.buildsEntityTypeId;
-    if (!buildingTypeId) {
+    const targetEntityTypeId = itemEntry?.content.buildsEntityTypeId;
+    if (!targetEntityTypeId) {
       return;
     }
 
@@ -400,53 +413,67 @@ export class Player extends Entity {
       return;
     }
 
-    const buildingEntry = entityTypeRegistry.get(buildingTypeId);
-    if (!buildingEntry) {
+    const targetEntityEntry = entityTypeRegistry.get(targetEntityTypeId);
+    if (!targetEntityEntry) {
       return;
     }
 
-    if (!isBuildingCtor(buildingEntry.ctor)) {
+    const targetEntityCtor = targetEntityEntry.ctor;
+    const isBuilding = isBuildingCtor(targetEntityCtor);
+    const isStructure = isStructureCtor(targetEntityCtor);
+    if (!isBuilding && !isStructure) {
       return;
     }
 
-    const building = new buildingEntry.ctor(world.allocEntityId());
-    building.x = targetX;
-    building.y = targetY;
-    building.ownerId = this.id;
-    const buildingBounds = building.getWorldBounds();
+    const placedEntity = new targetEntityCtor(world.allocEntityId());
+    const snappedTargetX = isStructure
+      ? Math.floor(targetX / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+        STRUCTURE_TILE_SIZE / 2
+      : targetX;
+    const snappedTargetY = isStructure
+      ? Math.floor(targetY / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+        STRUCTURE_TILE_SIZE / 2
+      : targetY;
+    placedEntity.x = snappedTargetX;
+    placedEntity.y = snappedTargetY;
+    placedEntity.ownerId = this.id;
+    const placedBounds = placedEntity.getWorldBounds();
 
     if (
-      buildingBounds.minX < 0 ||
-      buildingBounds.minY < 0 ||
-      buildingBounds.maxX > world.gameConfig.worldSize.w ||
-      buildingBounds.maxY > world.gameConfig.worldSize.h
+      placedBounds.minX < 0 ||
+      placedBounds.minY < 0 ||
+      placedBounds.maxX > world.gameConfig.worldSize.w ||
+      placedBounds.maxY > world.gameConfig.worldSize.h
     ) {
       return;
     }
 
-    if (this.doHitboxesOverlap(building, this)) {
+    if (this.doHitboxesOverlap(placedEntity, this)) {
       return;
     }
 
     for (const entity of world.spatial.queryBox(
-      buildingBounds.minX,
-      buildingBounds.minY,
-      buildingBounds.maxX,
-      buildingBounds.maxY,
+      placedBounds.minX,
+      placedBounds.minY,
+      placedBounds.maxX,
+      placedBounds.maxY,
     )) {
       if (entity.id === this.id || entity.collisionMode === "none") {
         continue;
       }
-      if (this.doHitboxesOverlap(building, entity)) {
+      if (this.doHitboxesOverlap(placedEntity, entity)) {
         return;
       }
     }
 
-    if (!this.inventory.consumeSelectedBuildable(1)) {
+    if (
+      !this.isDebugCreativeEditor() &&
+      !this.inventory.consumeSelectedBuildable(1)
+    ) {
       return;
     }
 
-    world.spawn(building);
+    world.spawn(placedEntity);
   }
 
   private applyLatestClientPose(world: World): boolean {
@@ -465,8 +492,13 @@ export class Player extends Entity {
       return false;
     }
 
-    this.x = pose.x;
-    this.y = pose.y;
+    const clampedPose = this.clampPoseAgainstStaticBlockers(
+      world,
+      pose.x,
+      pose.y,
+    );
+    this.x = clampedPose.x;
+    this.y = clampedPose.y;
     this.aimTheta = pose.theta;
     this.rotation = pose.theta;
     this.resetDriveVelocity();
@@ -482,11 +514,192 @@ export class Player extends Entity {
           heldMovement: { ...pose.heldMovement },
           x: pose.x,
           y: pose.y,
+          appliedX: clampedPose.x,
+          appliedY: clampedPose.y,
           theta: pose.theta,
         },
       );
     }
     return true;
+  }
+
+  private clampPoseAgainstStaticBlockers(
+    world: World,
+    targetX: number,
+    targetY: number,
+  ): { x: number; y: number } {
+    const deltaX = targetX - this.x;
+    const deltaY = targetY - this.y;
+    if (deltaX === 0 && deltaY === 0) {
+      return { x: targetX, y: targetY };
+    }
+
+    let nextX = this.x;
+    let nextY = this.y;
+    nextX += this.resolvePoseAxisDelta(world, nextX, nextY, deltaX, 0);
+    nextY += this.resolvePoseAxisDelta(world, nextX, nextY, 0, deltaY);
+    const diagonalClamped = this.resolvePoseDiagonalCornerClamp(
+      world,
+      this.x,
+      this.y,
+      nextX,
+      nextY,
+    );
+    nextX = diagonalClamped.x;
+    nextY = diagonalClamped.y;
+    return { x: nextX, y: nextY };
+  }
+
+  private resolvePoseDiagonalCornerClamp(
+    world: World,
+    fromX: number,
+    fromY: number,
+    targetX: number,
+    targetY: number,
+  ): { x: number; y: number } {
+    const deltaX = targetX - fromX;
+    const deltaY = targetY - fromY;
+    if (deltaX === 0 || deltaY === 0) {
+      return { x: targetX, y: targetY };
+    }
+
+    const currentBounds = offsetHitboxBounds(
+      this.getHitboxBounds(),
+      fromX,
+      fromY,
+    );
+    const nextBounds = offsetHitboxBounds(
+      this.getHitboxBounds(),
+      targetX,
+      targetY,
+    );
+    const candidates = world.spatial
+      .queryBox(
+        Math.min(currentBounds.minX, nextBounds.minX),
+        Math.min(currentBounds.minY, nextBounds.minY),
+        Math.max(currentBounds.maxX, nextBounds.maxX),
+        Math.max(currentBounds.maxY, nextBounds.maxY),
+      )
+      .filter(
+        (candidate) =>
+          candidate.id !== this.id &&
+          candidate.alive &&
+          candidate.collisionMode === "static",
+      );
+    if (candidates.length === 0) {
+      return { x: targetX, y: targetY };
+    }
+
+    const movingHitboxes = resolveHitboxRects(fromX, fromY, this.hitboxes);
+    let earliestHitTime: number | null = null;
+    for (const candidate of candidates) {
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        candidate.getWorldHitboxes(),
+      );
+      if (hitTime === null) {
+        continue;
+      }
+      if (earliestHitTime === null || hitTime < earliestHitTime) {
+        earliestHitTime = hitTime;
+      }
+    }
+
+    if (earliestHitTime === null || earliestHitTime >= 1) {
+      return { x: targetX, y: targetY };
+    }
+
+    const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
+    return {
+      x: fromX + deltaX * safeTime,
+      y: fromY + deltaY * safeTime,
+    };
+  }
+
+  private resolvePoseAxisDelta(
+    world: World,
+    fromX: number,
+    fromY: number,
+    deltaX: number,
+    deltaY: number,
+  ): number {
+    if (deltaX === 0 && deltaY === 0) {
+      return 0;
+    }
+
+    const currentBounds = offsetHitboxBounds(
+      this.getHitboxBounds(),
+      fromX,
+      fromY,
+    );
+    const nextBounds = offsetHitboxBounds(
+      this.getHitboxBounds(),
+      fromX + deltaX,
+      fromY + deltaY,
+    );
+    const minX = Math.min(currentBounds.minX, nextBounds.minX);
+    const minY = Math.min(currentBounds.minY, nextBounds.minY);
+    const maxX = Math.max(currentBounds.maxX, nextBounds.maxX);
+    const maxY = Math.max(currentBounds.maxY, nextBounds.maxY);
+
+    const candidates = world.spatial
+      .queryBox(minX, minY, maxX, maxY)
+      .filter(
+        (candidate) =>
+          candidate.id !== this.id &&
+          candidate.alive &&
+          candidate.collisionMode === "static",
+      );
+    if (candidates.length === 0) {
+      return deltaX !== 0 ? deltaX : deltaY;
+    }
+
+    const movingHitboxes = resolveHitboxRects(fromX, fromY, this.hitboxes);
+    let earliestHitTime: number | null = null;
+    for (const candidate of candidates) {
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        candidate.getWorldHitboxes(),
+      );
+      if (hitTime === null) {
+        continue;
+      }
+      if (earliestHitTime === null || hitTime < earliestHitTime) {
+        earliestHitTime = hitTime;
+      }
+    }
+
+    if (earliestHitTime === null) {
+      return deltaX !== 0 ? deltaX : deltaY;
+    }
+
+    if (earliestHitTime <= 0.01) {
+      const endHitboxes = resolveHitboxRects(
+        fromX + deltaX,
+        fromY + deltaY,
+        this.hitboxes,
+      );
+      const overlaps = candidates.some((candidate) =>
+        doResolvedRectSetsOverlap(endHitboxes, candidate.getWorldHitboxes()),
+      );
+      if (!overlaps) {
+        return deltaX !== 0 ? deltaX : deltaY;
+      }
+    }
+
+    const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
+    return (deltaX !== 0 ? deltaX : deltaY) * safeTime;
+  }
+
+  private isDebugCreativeEditor(): boolean {
+    return (
+      process.env.NODE_ENV !== "production" &&
+      this.name.toLowerCase() === "debug"
+    );
   }
 
   private applyQueuedActions(world: World): void {

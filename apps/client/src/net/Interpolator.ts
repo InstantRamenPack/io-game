@@ -369,6 +369,7 @@ export class Interpolator {
       case "projectile":
         return Math.max(32, speed * 1.4) * frameScale;
       case "building":
+      case "structure":
       case "pickup":
         return 16 * frameScale;
       case "player":
@@ -503,6 +504,7 @@ function getKindSnapScale(entity: ClientEntity): number {
     case "projectile":
       return 2.5;
     case "building":
+    case "structure":
     case "pickup":
       return 0.65;
     case "player":

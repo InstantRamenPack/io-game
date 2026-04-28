@@ -306,6 +306,9 @@ export class ClientEntity {
         this.tier = snapshot.tier;
         this.chestSlots = snapshot.chestSlots;
         break;
+      case "structure":
+        this.label = snapshot.label;
+        break;
       case "pickup":
         this.inventory = snapshot.inventory;
         if (previousInventory !== this.inventory) {

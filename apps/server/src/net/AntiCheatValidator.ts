@@ -23,9 +23,13 @@ export class AntiCheatValidator {
     if (!playerEntity.alive) {
       return false;
     }
+    const isDebugCreativeEditor = this.isDebugCreativeEditor(playerEntity);
 
     switch (actionMessage.action) {
       case "attack":
+        if (isDebugCreativeEditor) {
+          return false;
+        }
         return playerEntity.getActiveWeapon() !== undefined;
       case "build":
         return (
@@ -42,14 +46,25 @@ export class AntiCheatValidator {
       case "inventoryMove":
         return this.isValidInventoryMove(actionMessage, playerEntity);
       case "chestMove":
+        if (isDebugCreativeEditor) {
+          return false;
+        }
         return this.isValidChestMove(actionMessage, playerEntity, world);
       case "craft":
       case "drop":
       case "pickup":
-        return true;
+        return !isDebugCreativeEditor;
+
     }
 
     return false;
+  }
+
+  private isDebugCreativeEditor(playerEntity: Player): boolean {
+    return (
+      process.env.NODE_ENV !== "production" &&
+      playerEntity.name.toLowerCase() === "debug"
+    );
   }
 
   private isValidInventoryMove(

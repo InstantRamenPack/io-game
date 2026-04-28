@@ -4,11 +4,14 @@ import type {
   PoseMessage,
   ServerToClientMessage,
 } from "@shared/net/protocol.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
 import {
   applyPlayerStarterLoadout,
   validatePlayerStarterLoadout,
@@ -16,6 +19,22 @@ import {
 import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
+
+const POSE_DELTA_WARN_MULTIPLIER = 3.5;
+const POSE_DELTA_WARN_MIN = 64;
+const DEBUG_CREATIVE_STACK_COUNT = 9999;
+const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
+  makeResourceId("item", "wall"),
+  makeResourceId("item", "chest"),
+  makeResourceId("item", "cannon"),
+  makeResourceId("item", "crafting_station"),
+  makeResourceId("item", "structure_fence_h"),
+  makeResourceId("item", "structure_fence_v"),
+  makeResourceId("item", "structure_house_m"),
+  makeResourceId("item", "structure_house_l"),
+  makeResourceId("item", "structure_tent"),
+  makeResourceId("item", "structure_tree"),
+]);
 
 export class GameInstanceRuntime {
   public readonly world: World;
@@ -93,6 +112,9 @@ export class GameInstanceRuntime {
     playerEntity.x = this.gameConfig.worldSize.w / 2;
     playerEntity.y = this.gameConfig.worldSize.h / 2;
     applyPlayerStarterLoadout(playerEntity);
+    if (isDebugCreativeEditor(playerEntity)) {
+      applyDebugCreativeLoadout(playerEntity);
+    }
 
     this.world.spawn(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
@@ -138,6 +160,7 @@ export class GameInstanceRuntime {
     }
 
     const sanitizedPose = this.sanitizePoseToWorldBounds(player, poseMessage);
+    this.warnOnSuspiciousPoseDelta(player, clientId, sanitizedPose);
     player.applyClientPose({
       seq: sanitizedPose.seq,
       clientTimeMs: sanitizedPose.clientTimeMs,
@@ -278,6 +301,79 @@ export class GameInstanceRuntime {
       .trim()
       .slice(0, 20);
     return sanitizedPlayerName || fallbackPlayerName;
+  }
+
+  private warnOnSuspiciousPoseDelta(
+    player: Player,
+    clientId: string,
+    poseMessage: PoseMessage,
+  ): void {
+    const delta = Math.hypot(
+      poseMessage.x - player.x,
+      poseMessage.y - player.y,
+    );
+    const warnThreshold = Math.max(
+      POSE_DELTA_WARN_MIN,
+      player.moveSpeed * POSE_DELTA_WARN_MULTIPLIER,
+    );
+    if (delta <= warnThreshold) {
+      return;
+    }
+
+    console.warn(
+      `[pose_warn] client=${clientId} player=${player.name} id=${player.id} delta=${delta.toFixed(
+        2,
+      )} threshold=${warnThreshold.toFixed(2)} seq=${poseMessage.seq}`,
+    );
+
+    if (this.world.focusedTrace.matchesEntity(player)) {
+      this.world.focusedTrace.recordEntityEvent(
+        this.world,
+        "pose_delta_warn",
+        player,
+        {
+          clientId,
+          seq: poseMessage.seq,
+          delta,
+          threshold: warnThreshold,
+          fromX: player.x,
+          fromY: player.y,
+          toX: poseMessage.x,
+          toY: poseMessage.y,
+        },
+      );
+    }
+  }
+}
+
+function isDebugCreativeEditor(player: Player): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    player.name.toLowerCase() === "debug"
+  );
+}
+
+function applyDebugCreativeLoadout(player: Player): void {
+  player.inventory.resources.clear();
+  for (let slotIndex = 0; slotIndex < player.inventory.hotbarSlots.length; slotIndex += 1) {
+    player.inventory.hotbarSlots[slotIndex] = null;
+  }
+  player.inventory.setSelectedHotbarIndex(0);
+
+  for (const itemTypeId of DEBUG_CREATIVE_ITEM_TYPE_IDS) {
+    const itemEntry = itemTypeRegistry.get(itemTypeId);
+    if (!itemEntry) {
+      throw new Error(`Missing debug creative item entry: ${itemTypeId}`);
+    }
+    if (
+      !grantItemEntryByAcquisitionRules(
+        player.inventory,
+        itemEntry,
+        DEBUG_CREATIVE_STACK_COUNT,
+      )
+    ) {
+      throw new Error(`Could not grant debug creative item ${itemTypeId}`);
+    }
   }
 }
 

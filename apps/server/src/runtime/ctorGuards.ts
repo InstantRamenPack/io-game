@@ -1,6 +1,7 @@
 import { Building } from "@server/entities/Building.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
+import { Structure } from "@server/entities/Structure.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type {
   RegistrableEntityCtor,
@@ -13,6 +14,7 @@ export type SpawnableEntityCtor = RegistrableEntityCtor &
 
 type BuildingCtor = RegistrableEntityCtor &
   (new (id: number, tier?: number, ownerId?: number) => Building);
+type StructureCtor = RegistrableEntityCtor & (new (id: number) => Structure);
 
 export function isWeaponCtor(
   ctor: RegistrableItemCtor,
@@ -36,4 +38,10 @@ export function isBuildingCtor(
   ctor: RegistrableEntityCtor,
 ): ctor is BuildingCtor {
   return ctor.prototype instanceof Building;
+}
+
+export function isStructureCtor(
+  ctor: RegistrableEntityCtor,
+): ctor is StructureCtor {
+  return ctor.prototype instanceof Structure;
 }

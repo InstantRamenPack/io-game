@@ -16,6 +16,12 @@ const CONTENT_CATEGORY_DEFINITIONS: readonly ContentCategoryDefinition[] = [
       `makeParsedEntityContentEntry("building", ${JSON.stringify(resourceName)}, ${importName})`,
   },
   {
+    directory: "structure",
+    exportName: "structureContentEntries",
+    parserExpression: (resourceName, importName) =>
+      `makeParsedEntityContentEntry("structure", ${JSON.stringify(resourceName)}, ${importName})`,
+  },
+  {
     directory: "effect",
     exportName: "effectContentEntries",
     parserExpression: (resourceName, importName) =>

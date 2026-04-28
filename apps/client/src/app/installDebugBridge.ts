@@ -168,6 +168,19 @@ export function installDebugBridge({
           typeId: entity.typeId,
           buildingType: selectors.getTypePath(entity.typeId),
         })),
+      structures: worldEntities
+        .filter((entity) => getResourceNamespace(entity.typeId) === "structure")
+        .map((entity) => ({
+          id: entity.id,
+          label:
+            entity.label ??
+            entity.name ??
+            selectors.formatTypeLabel(entity.typeId),
+          x: Math.round(entity.x),
+          y: Math.round(entity.y),
+          typeId: entity.typeId,
+          structureType: selectors.getTypePath(entity.typeId),
+        })),
       enemies: worldEntities
         .filter((entity) => getResourceNamespace(entity.typeId) === "enemy")
         .map((entity) => ({

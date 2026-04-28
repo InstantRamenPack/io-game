@@ -303,7 +303,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   private redrawHealthBar(entity: ClientEntity): void {
-    const canShow = entity.maxHp > 0;
+    const canShow = entity.kind !== "structure" && entity.maxHp > 0;
     this.healthBarContainer.visible = canShow;
     if (!canShow) {
       return;

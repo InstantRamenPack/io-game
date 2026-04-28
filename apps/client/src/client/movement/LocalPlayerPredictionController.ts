@@ -1,7 +1,10 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { ClientWorld } from "@client/net/ClientWorld.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
-import { getResolvedRectSetSeparation } from "@shared/geometry/collision.ts";
+import {
+  getResolvedRectSetSeparation,
+  getSweptResolvedRectSetIntersectionTime,
+} from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import { lerpAngle } from "@shared/math/angle.ts";
 
@@ -174,6 +177,7 @@ export class LocalPlayerPredictionController {
 
     clampToWorldBounds(nextState, player, worldSize);
     if (world) {
+      clampLocalSweptStaticCollisions(nextState, current, player, world);
       resolveLocalCollisions(nextState, player, world);
     }
 
@@ -324,10 +328,14 @@ function resolveLocalCollisions(
         : separation.translation;
       if (separation.axis === "x") {
         state.x += correction;
-        state.vx = 0;
+        if (state.vx * correction < 0) {
+          state.vx = 0;
+        }
       } else {
         state.y += correction;
-        state.vy = 0;
+        if (state.vy * correction < 0) {
+          state.vy = 0;
+        }
       }
 
       selfHitboxes = resolveHitboxRects(state.x, state.y, player.hitboxes);
@@ -338,6 +346,188 @@ function resolveLocalCollisions(
       return;
     }
   }
+}
+
+function clampLocalSweptStaticCollisions(
+  state: LocalPlayerTruthState,
+  previous: LocalPlayerTruthState,
+  player: ClientEntity,
+  world: ClientWorld,
+): void {
+  const clampedX = resolveLocalSweptAxisDelta(
+    player,
+    world,
+    previous.x,
+    previous.y,
+    state.x - previous.x,
+    0,
+  );
+  const nextX = previous.x + clampedX;
+  const clampedY = resolveLocalSweptAxisDelta(
+    player,
+    world,
+    nextX,
+    previous.y,
+    0,
+    state.y - previous.y,
+  );
+  let nextY = previous.y + clampedY;
+  const diagonalClamped = resolveLocalDiagonalCornerClamp(
+    player,
+    world,
+    previous.x,
+    previous.y,
+    nextX,
+    nextY,
+  );
+  state.x = diagonalClamped.x;
+  state.y = diagonalClamped.y;
+  if (clampedX !== state.x - previous.x) {
+    state.vx = 0;
+  }
+  if (clampedY !== nextY - previous.y || diagonalClamped.y !== nextY) {
+    state.vy = 0;
+  }
+}
+
+function resolveLocalSweptAxisDelta(
+  player: ClientEntity,
+  world: ClientWorld,
+  fromX: number,
+  fromY: number,
+  deltaX: number,
+  deltaY: number,
+): number {
+  if (deltaX === 0 && deltaY === 0) {
+    return 0;
+  }
+
+  const candidates = getLocalStaticCollisionCandidates(
+    player,
+    world,
+    fromX,
+    fromY,
+    fromX + deltaX,
+    fromY + deltaY,
+  );
+  if (candidates.length === 0) {
+    return deltaX !== 0 ? deltaX : deltaY;
+  }
+
+  const movingHitboxes = resolveHitboxRects(fromX, fromY, player.hitboxes);
+  let earliestHitTime: number | null = null;
+  for (const candidate of candidates) {
+    const hitTime = getSweptResolvedRectSetIntersectionTime(
+      movingHitboxes,
+      deltaX,
+      deltaY,
+      resolveHitboxRects(candidate.x, candidate.y, candidate.hitboxes),
+    );
+    if (hitTime === null) {
+      continue;
+    }
+    if (earliestHitTime === null || hitTime < earliestHitTime) {
+      earliestHitTime = hitTime;
+    }
+  }
+  if (earliestHitTime === null) {
+    return deltaX !== 0 ? deltaX : deltaY;
+  }
+
+  const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
+  return (deltaX !== 0 ? deltaX : deltaY) * safeTime;
+}
+
+function resolveLocalDiagonalCornerClamp(
+  player: ClientEntity,
+  world: ClientWorld,
+  fromX: number,
+  fromY: number,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const deltaX = targetX - fromX;
+  const deltaY = targetY - fromY;
+  if (deltaX === 0 || deltaY === 0) {
+    return { x: targetX, y: targetY };
+  }
+
+  const candidates = getLocalStaticCollisionCandidates(
+    player,
+    world,
+    fromX,
+    fromY,
+    targetX,
+    targetY,
+  );
+  if (candidates.length === 0) {
+    return { x: targetX, y: targetY };
+  }
+
+  const movingHitboxes = resolveHitboxRects(fromX, fromY, player.hitboxes);
+  let earliestHitTime: number | null = null;
+  for (const candidate of candidates) {
+    const hitTime = getSweptResolvedRectSetIntersectionTime(
+      movingHitboxes,
+      deltaX,
+      deltaY,
+      resolveHitboxRects(candidate.x, candidate.y, candidate.hitboxes),
+    );
+    if (hitTime === null) {
+      continue;
+    }
+    if (earliestHitTime === null || hitTime < earliestHitTime) {
+      earliestHitTime = hitTime;
+    }
+  }
+  if (earliestHitTime === null || earliestHitTime >= 1) {
+    return { x: targetX, y: targetY };
+  }
+
+  const safeTime = Math.max(0, Math.min(1, earliestHitTime - 0.001));
+  return {
+    x: fromX + deltaX * safeTime,
+    y: fromY + deltaY * safeTime,
+  };
+}
+
+function getLocalStaticCollisionCandidates(
+  player: ClientEntity,
+  world: ClientWorld,
+  fromX: number,
+  fromY: number,
+  targetX: number,
+  targetY: number,
+): ClientEntity[] {
+  const bounds = player.hitboxBounds;
+  const minX = Math.min(fromX + bounds.minX, targetX + bounds.minX);
+  const minY = Math.min(fromY + bounds.minY, targetY + bounds.minY);
+  const maxX = Math.max(fromX + bounds.maxX, targetX + bounds.maxX);
+  const maxY = Math.max(fromY + bounds.maxY, targetY + bounds.maxY);
+  const candidates: ClientEntity[] = [];
+  for (const candidate of world.entities.values()) {
+    if (
+      candidate.id === player.id ||
+      !candidate.alive ||
+      candidate.kind === "player" ||
+      candidate.kind === "enemy" ||
+      candidate.kind === "projectile" ||
+      candidate.kind === "pickup"
+    ) {
+      continue;
+    }
+    const candidateBounds = candidate.hitboxBounds;
+    if (
+      candidate.x + candidateBounds.maxX <= minX ||
+      candidate.x + candidateBounds.minX >= maxX ||
+      candidate.y + candidateBounds.maxY <= minY ||
+      candidate.y + candidateBounds.minY >= maxY
+    ) {
+      continue;
+    }
+    candidates.push(candidate);
+  }
+  return candidates;
 }
 
 function clampToWorldBounds(

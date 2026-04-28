@@ -1,6 +1,6 @@
 {
   "label": "Fence",
-  "maxHp": 99999,
+  "maxHp": 0,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [{ "width": 16, "height": 400, "offsetX": 0, "offsetY": 0 }]
