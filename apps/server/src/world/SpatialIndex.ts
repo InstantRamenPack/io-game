@@ -98,6 +98,27 @@ export class SpatialIndex {
     return result;
   }
 
+  public queryStaticBox(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+    result: Entity[] = [],
+  ): Entity[] {
+    const candidates = this.queryBox(minX, minY, maxX, maxY, result);
+    let writeIndex = 0;
+    for (const candidate of candidates) {
+      if (candidate.collisionMode !== "static" || !candidate.alive) {
+        continue;
+      }
+      candidates[writeIndex] = candidate;
+      writeIndex += 1;
+    }
+    candidates.length = writeIndex;
+    candidates.sort(compareEntitiesById);
+    return candidates;
+  }
+
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
     const nextSpan: CellSpan = {
@@ -201,3 +222,7 @@ function spansMatch(left: CellSpan, right: CellSpan): boolean {
 
 const CELL_KEY_OFFSET = 1 << 15;
 const CELL_KEY_STRIDE = 1 << 16;
+
+function compareEntitiesById(left: Entity, right: Entity): number {
+  return left.id - right.id;
+}

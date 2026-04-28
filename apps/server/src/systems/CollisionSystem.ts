@@ -1,8 +1,11 @@
 import {
   type AxisSeparation,
+  doResolvedRectSetsOverlap,
   getResolvedRectSetSeparation,
+  getSweptResolvedRectSetIntersectionTime,
 } from "@shared/geometry/collision.ts";
 import {
+  offsetHitboxBounds,
   type HitboxBounds,
   type ResolvedHitboxRect,
   resolveHitboxRects,
@@ -13,108 +16,326 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
-type CollisionSide = "left" | "right" | "top" | "bottom";
-const MAX_COLLISION_PASSES = 3;
+type AxisName = "x" | "y";
+type MotionSnapshot = { x: number; y: number; vx: number; vy: number };
+type StaticMoveResult = {
+  moved: boolean;
+  blockedX: boolean;
+  blockedY: boolean;
+  initialOverlapRecovered: boolean;
+  blockerIds: number[];
+  requestedDeltaX: number;
+  requestedDeltaY: number;
+  resolvedDeltaX: number;
+  resolvedDeltaY: number;
+};
+
+const STATIC_SWEEP_SKIN = 0.001;
+const STATIC_SWEEP_TOUCH_EPSILON = 0.01;
+const STATIC_RECOVERY_PADDING = 2;
+const MAX_STATIC_RECOVERY_STEPS = 8;
 
 /**
- * Resolves composite entity overlap and world-boundary clamping.
- * Collision is kept authoritative and axis-aligned on the server.
+ * Authoritative server collision pipeline.
+ *
+ * Dynamic entities are integrated through static blockers first, then remaining
+ * dynamic/dynamic overlaps use the legacy even-split behavior.
  */
 class CollisionSystem implements System {
   private readonly queryBuffer: Entity[] = [];
+  private readonly staticQueryBuffer: Entity[] = [];
   private readonly worldHitboxCache = new Map<number, ResolvedHitboxRect[]>();
   private readonly worldBoundsCache = new Map<number, HitboxBounds>();
 
-  /**
-   * Resolves nearby overlaps using the prebuilt broad-phase index, then clamps bodies to world bounds.
-   * @param world Authoritative world being simulated.
-   */
   public update(world: World): void {
+    this.integrateAndResolve(world, world.entities.all());
+  }
+
+  public integrateAndResolve(world: World, tickPhaseEntities: Entity[]): void {
     this.worldHitboxCache.clear();
     this.worldBoundsCache.clear();
-    let spatialDirty = false;
+    world.ensureSpatialIndex();
 
-    for (let pass = 0; pass < MAX_COLLISION_PASSES; pass += 1) {
-      const collidableEntities = world.entities.collidable();
-      let resolvedCollision = false;
-      let passChangedPositions = false;
-
-      for (const entity of collidableEntities) {
-        if (entity.collisionMode !== "dynamic") {
-          continue;
-        }
-
-        const bounds = this.getCachedWorldBounds(entity);
-        const candidates = world.spatial.queryBox(
-          bounds.minX,
-          bounds.minY,
-          bounds.maxX,
-          bounds.maxY,
-          this.queryBuffer,
-        );
-
-        for (const candidate of candidates) {
-          if (
-            candidate.id === entity.id ||
-            candidate.collisionMode === "none"
-          ) {
-            continue;
-          }
-          if (!this.shouldResolveCollisionPair(entity, candidate)) {
-            continue;
-          }
-          if (
-            candidate.collisionMode === "dynamic" &&
-            candidate.id < entity.id
-          ) {
-            continue;
-          }
-          const pairResolved = this.resolveEntityPair(world, entity, candidate);
-          if (pairResolved) {
-            resolvedCollision = true;
-            passChangedPositions = true;
-            this.invalidateEntityCaches(entity);
-            this.invalidateEntityCaches(candidate);
-          }
-        }
+    let movedEntity = false;
+    for (const entity of tickPhaseEntities) {
+      if (
+        !world.entities.has(entity.id) ||
+        entity.collisionMode !== "dynamic"
+      ) {
+        continue;
       }
 
-      if (!resolvedCollision) {
-        break;
-      }
-
-      if (passChangedPositions) {
-        spatialDirty = true;
-      }
-      if (pass < MAX_COLLISION_PASSES - 1) {
-        if (passChangedPositions) {
-          world.markSpatialDirty();
-          world.ensureSpatialIndex();
-          spatialDirty = false;
-        }
+      const result = this.integrateDynamicEntityAgainstStatic(world, entity);
+      movedEntity = movedEntity || result.moved;
+      if (result.moved) {
+        this.recordStaticMove(world, entity, result);
       }
     }
 
-    const collidableEntities = world.entities.collidable();
-    for (const entity of collidableEntities) {
-      if (this.resolveWorldBounds(entity, world)) {
-        spatialDirty = true;
-        this.invalidateEntityCaches(entity);
-      }
+    if (movedEntity) {
+      world.markSpatialDirty();
+      world.ensureSpatialIndex();
+      this.worldHitboxCache.clear();
+      this.worldBoundsCache.clear();
     }
 
-    if (spatialDirty) {
+    if (this.resolveDynamicPairs(world)) {
       world.markSpatialDirty();
       world.ensureSpatialIndex();
     }
   }
 
-  /**
-   * Clamps one collidable entity into the world rectangle and removes outward velocity.
-   * @param entity Entity being clamped.
-   * @param world World providing the authoritative bounds.
-   */
-  private resolveWorldBounds(entity: Entity, world: World): boolean {
+  private integrateDynamicEntityAgainstStatic(
+    world: World,
+    entity: Entity,
+  ): StaticMoveResult {
+    const startX = entity.x;
+    const startY = entity.y;
+    const requestedDeltaX = entity.vx;
+    const requestedDeltaY = entity.vy;
+    const blockerIds = new Set<number>();
+    let blockedX = false;
+    let blockedY = false;
+
+    const initialOverlapRecovered = this.recoverInitialStaticOverlap(
+      world,
+      entity,
+      blockerIds,
+    );
+
+    if (requestedDeltaX !== 0) {
+      const resolvedDeltaX = this.resolveStaticAxisDelta(
+        world,
+        entity,
+        "x",
+        requestedDeltaX,
+        blockerIds,
+      );
+      entity.x += resolvedDeltaX;
+      if (resolvedDeltaX !== requestedDeltaX) {
+        blockedX = true;
+        entity.clipVelocityAgainstNormal({
+          x: Math.sign(requestedDeltaX) as -1 | 0 | 1,
+          y: 0,
+        });
+      }
+      this.invalidateEntityCaches(entity);
+    }
+
+    if (requestedDeltaY !== 0) {
+      const resolvedDeltaY = this.resolveStaticAxisDelta(
+        world,
+        entity,
+        "y",
+        requestedDeltaY,
+        blockerIds,
+      );
+      entity.y += resolvedDeltaY;
+      if (resolvedDeltaY !== requestedDeltaY) {
+        blockedY = true;
+        entity.clipVelocityAgainstNormal({
+          x: 0,
+          y: Math.sign(requestedDeltaY) as -1 | 0 | 1,
+        });
+      }
+      this.invalidateEntityCaches(entity);
+    }
+
+    const clamped = this.resolveWorldBounds(entity, world);
+    if (clamped.clampedX) {
+      blockedX = true;
+    }
+    if (clamped.clampedY) {
+      blockedY = true;
+    }
+
+    return {
+      moved: entity.x !== startX || entity.y !== startY,
+      blockedX,
+      blockedY,
+      initialOverlapRecovered,
+      blockerIds: [...blockerIds].sort((left, right) => left - right),
+      requestedDeltaX,
+      requestedDeltaY,
+      resolvedDeltaX: entity.x - startX,
+      resolvedDeltaY: entity.y - startY,
+    };
+  }
+
+  private recoverInitialStaticOverlap(
+    world: World,
+    entity: Entity,
+    blockerIds: Set<number>,
+  ): boolean {
+    let recovered = false;
+    for (let step = 0; step < MAX_STATIC_RECOVERY_STEPS; step += 1) {
+      const staticHitboxes = this.getOverlappingStaticHitboxes(
+        world,
+        entity,
+        blockerIds,
+      );
+      if (staticHitboxes.length === 0) {
+        return recovered;
+      }
+
+      const separation = getResolvedRectSetSeparation(
+        this.getCachedWorldHitboxes(entity),
+        staticHitboxes,
+      );
+      if (!separation || separation.translation === 0) {
+        entity.clipVelocityAgainstNormal({ x: 1, y: 0 });
+        entity.clipVelocityAgainstNormal({ x: -1, y: 0 });
+        entity.clipVelocityAgainstNormal({ x: 0, y: 1 });
+        entity.clipVelocityAgainstNormal({ x: 0, y: -1 });
+        return recovered;
+      }
+
+      if (separation.axis === "x") {
+        entity.x += separation.translation;
+      } else {
+        entity.y += separation.translation;
+      }
+      entity.clipVelocityAgainstNormal(
+        this.getNormalFromTranslation(separation),
+      );
+      this.invalidateEntityCaches(entity);
+      recovered = true;
+    }
+
+    return recovered;
+  }
+
+  private resolveStaticAxisDelta(
+    world: World,
+    entity: Entity,
+    axis: AxisName,
+    delta: number,
+    blockerIds: Set<number>,
+  ): number {
+    if (delta === 0) {
+      return 0;
+    }
+
+    const deltaX = axis === "x" ? delta : 0;
+    const deltaY = axis === "y" ? delta : 0;
+    const startX = entity.x;
+    const startY = entity.y;
+    const bounds = this.getSweptBounds(entity, startX, startY, deltaX, deltaY);
+    const candidates = world.spatial.queryStaticBox(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+      this.staticQueryBuffer,
+    );
+    if (candidates.length === 0) {
+      return delta;
+    }
+
+    const movingHitboxes = resolveHitboxRects(startX, startY, entity.hitboxes);
+    let earliestHitTime: number | null = null;
+    for (const candidate of candidates) {
+      if (candidate.id === entity.id) {
+        continue;
+      }
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        candidate.getWorldHitboxes(),
+      );
+      if (hitTime === null) {
+        continue;
+      }
+      if (earliestHitTime === null || hitTime < earliestHitTime) {
+        earliestHitTime = hitTime;
+      }
+    }
+
+    if (earliestHitTime === null) {
+      return delta;
+    }
+
+    if (earliestHitTime <= STATIC_SWEEP_TOUCH_EPSILON) {
+      const endHitboxes = resolveHitboxRects(
+        startX + deltaX,
+        startY + deltaY,
+        entity.hitboxes,
+      );
+      const overlapsAtEnd = candidates.some((candidate) => {
+        if (candidate.id === entity.id) {
+          return false;
+        }
+        return doResolvedRectSetsOverlap(
+          endHitboxes,
+          candidate.getWorldHitboxes(),
+        );
+      });
+      if (!overlapsAtEnd) {
+        return delta;
+      }
+    }
+
+    const safeHitTime = Math.max(
+      0,
+      Math.min(1, earliestHitTime - STATIC_SWEEP_SKIN),
+    );
+    for (const candidate of candidates) {
+      if (candidate.id === entity.id) {
+        continue;
+      }
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        candidate.getWorldHitboxes(),
+      );
+      if (
+        hitTime !== null &&
+        Math.abs(hitTime - earliestHitTime) <= STATIC_SWEEP_TOUCH_EPSILON
+      ) {
+        blockerIds.add(candidate.id);
+      }
+    }
+    return delta * safeHitTime;
+  }
+
+  private getOverlappingStaticHitboxes(
+    world: World,
+    entity: Entity,
+    blockerIds: Set<number>,
+  ): ResolvedHitboxRect[] {
+    const bounds = this.expandBounds(
+      this.getCachedWorldBounds(entity),
+      STATIC_RECOVERY_PADDING,
+    );
+    const candidates = world.spatial.queryStaticBox(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+      this.staticQueryBuffer,
+    );
+    const entityHitboxes = this.getCachedWorldHitboxes(entity);
+    const staticHitboxes: ResolvedHitboxRect[] = [];
+    for (const candidate of candidates) {
+      if (candidate.id === entity.id) {
+        continue;
+      }
+      const candidateHitboxes = candidate.getWorldHitboxes();
+      if (!doResolvedRectSetsOverlap(entityHitboxes, candidateHitboxes)) {
+        continue;
+      }
+      blockerIds.add(candidate.id);
+      staticHitboxes.push(...candidateHitboxes);
+    }
+    return staticHitboxes;
+  }
+
+  private resolveWorldBounds(
+    entity: Entity,
+    world: World,
+  ): { clampedX: boolean; clampedY: boolean } {
     const bounds = entity.getHitboxBounds();
     const minX = -bounds.minX;
     const maxX = Math.max(minX, world.gameConfig.worldSize.w - bounds.maxX);
@@ -160,62 +381,51 @@ class CollisionSystem implements System {
           maxY,
         },
       );
+      this.invalidateEntityCaches(entity);
     }
 
-    return clampedX || clampedY;
+    return { clampedX, clampedY };
   }
 
-  /**
-   * Resolves one pair of potentially colliding composite bodies.
-   * @param world
-   * @param leftEntity First body.
-   * @param rightEntity Second body.
-   */
-  private resolveEntityPair(
-    world: World,
-    leftEntity: Entity,
-    rightEntity: Entity,
-  ): boolean {
-    if (!this.shouldResolveCollisionPair(leftEntity, rightEntity)) {
-      return false;
-    }
+  private resolveDynamicPairs(world: World): boolean {
+    let resolvedCollision = false;
+    for (const entity of world.entities.collidable()) {
+      if (entity.collisionMode !== "dynamic") {
+        continue;
+      }
 
-    if (
-      leftEntity.collisionMode === "static" &&
-      rightEntity.collisionMode === "static"
-    ) {
-      return false;
-    }
-
-    const separation = this.getSeparation(leftEntity, rightEntity);
-    if (!separation) {
-      return false;
-    }
-
-    if (
-      leftEntity.collisionMode === "dynamic" &&
-      rightEntity.collisionMode === "dynamic"
-    ) {
-      this.separateDynamicDynamic(world, leftEntity, rightEntity, separation);
-      return true;
-    }
-
-    if (leftEntity.collisionMode === "dynamic") {
-      this.separateDynamicStatic(world, leftEntity, rightEntity, separation);
-      return true;
-    }
-
-    if (rightEntity.collisionMode === "dynamic") {
-      this.separateDynamicStatic(
-        world,
-        rightEntity,
-        leftEntity,
-        this.invertSeparation(separation),
+      const bounds = this.getCachedWorldBounds(entity);
+      const candidates = world.spatial.queryBox(
+        bounds.minX,
+        bounds.minY,
+        bounds.maxX,
+        bounds.maxY,
+        this.queryBuffer,
       );
-      return true;
-    }
 
-    return false;
+      for (const candidate of candidates) {
+        if (
+          candidate.id === entity.id ||
+          candidate.collisionMode !== "dynamic" ||
+          candidate.id < entity.id
+        ) {
+          continue;
+        }
+        if (!this.shouldResolveCollisionPair(entity, candidate)) {
+          continue;
+        }
+
+        const separation = this.getSeparation(entity, candidate);
+        if (!separation) {
+          continue;
+        }
+        this.separateDynamicDynamic(world, entity, candidate, separation);
+        resolvedCollision = true;
+        this.invalidateEntityCaches(entity);
+        this.invalidateEntityCaches(candidate);
+      }
+    }
+    return resolvedCollision;
   }
 
   private shouldResolveCollisionPair(
@@ -233,13 +443,6 @@ class CollisionSystem implements System {
     return false;
   }
 
-  /**
-   * Separates two dynamic bodies evenly and removes inward velocity.
-   * @param world
-   * @param leftEntity First dynamic body.
-   * @param rightEntity Second dynamic body.
-   * @param separation Translation that would resolve the pair by moving the left body alone.
-   */
   private separateDynamicDynamic(
     world: World,
     leftEntity: Entity,
@@ -287,55 +490,6 @@ class CollisionSystem implements System {
     );
   }
 
-  /**
-   * Separates a dynamic body away from a static body and removes inward velocity.
-   * @param world
-   * @param dynamicEntity Dynamic body that should move.
-   * @param staticEntity Static body that shouldn't move.
-   * @param separation Translation required to resolve the overlap.
-   */
-  private separateDynamicStatic(
-    world: World,
-    dynamicEntity: Entity,
-    staticEntity: Entity,
-    separation: AxisSeparation,
-  ): void {
-    const before = this.snapshotMotion(dynamicEntity);
-    const resolvedSeparation =
-      this.getMovementAwareStaticSeparation(
-        world,
-        dynamicEntity,
-        staticEntity,
-      ) ?? separation;
-    if (resolvedSeparation.axis === "x") {
-      dynamicEntity.x += resolvedSeparation.translation;
-    } else {
-      dynamicEntity.y += resolvedSeparation.translation;
-    }
-
-    dynamicEntity.clipVelocityAgainstNormal(
-      this.getNormalFromTranslation(resolvedSeparation),
-    );
-    world.focusedTrace.recordEntityEvent(
-      world,
-      "entity_collision_resolved",
-      dynamicEntity,
-      {
-        mode: "dynamic_static",
-        separation: resolvedSeparation,
-        before,
-        after: this.snapshotMotion(dynamicEntity),
-        counterpart: this.describeEntityRef(staticEntity),
-      },
-    );
-  }
-
-  /**
-   * Chooses the smallest axis-aligned translation that clears all overlapping rect pairs.
-   * @param leftEntity First body.
-   * @param rightEntity Second body.
-   * @returns Translation for the left body, or null when the bodies do not overlap.
-   */
   private getSeparation(
     leftEntity: Entity,
     rightEntity: Entity,
@@ -351,139 +505,106 @@ class CollisionSystem implements System {
       return null;
     }
 
-    const leftHitboxes = this.getCachedWorldHitboxes(leftEntity);
-    const rightHitboxes = this.getCachedWorldHitboxes(rightEntity);
-    return getResolvedRectSetSeparation(leftHitboxes, rightHitboxes);
+    return getResolvedRectSetSeparation(
+      this.getCachedWorldHitboxes(leftEntity),
+      this.getCachedWorldHitboxes(rightEntity),
+    );
   }
 
-  private getMovementAwareStaticSeparation(
+  private recordStaticMove(
     world: World,
-    dynamicEntity: Entity,
-    staticEntity: Entity,
-  ): AxisSeparation | null {
-    const previousPosition = world.getLastIntegratedPosition(dynamicEntity);
-    if (!previousPosition) {
-      return null;
-    }
-
-    const previousHitboxes = resolveHitboxRects(
-      previousPosition.x,
-      previousPosition.y,
-      dynamicEntity.hitboxes,
-    );
-    const currentHitboxes = this.getCachedWorldHitboxes(dynamicEntity);
-    const staticHitboxes = this.getCachedWorldHitboxes(staticEntity);
-    const enteredSides = new Map<CollisionSide, AxisSeparation>();
-
-    for (const currentRect of currentHitboxes) {
-      for (const staticRect of staticHitboxes) {
-        if (!this.doRectsOverlap(currentRect, staticRect)) {
-          continue;
-        }
-
-        const previousRect = previousHitboxes.find(
-          (candidate) =>
-            candidate.width === currentRect.width &&
-            candidate.height === currentRect.height &&
-            candidate.offsetX === currentRect.offsetX &&
-            candidate.offsetY === currentRect.offsetY,
-        );
-        if (!previousRect) {
-          continue;
-        }
-
-        this.recordEnteredSide(
-          enteredSides,
-          "left",
-          previousRect.maxX <= staticRect.minX,
-          { axis: "x", translation: staticRect.minX - currentRect.maxX },
-        );
-        this.recordEnteredSide(
-          enteredSides,
-          "right",
-          previousRect.minX >= staticRect.maxX,
-          { axis: "x", translation: staticRect.maxX - currentRect.minX },
-        );
-        this.recordEnteredSide(
-          enteredSides,
-          "top",
-          previousRect.maxY <= staticRect.minY,
-          { axis: "y", translation: staticRect.minY - currentRect.maxY },
-        );
-        this.recordEnteredSide(
-          enteredSides,
-          "bottom",
-          previousRect.minY >= staticRect.maxY,
-          { axis: "y", translation: staticRect.maxY - currentRect.minY },
-        );
-      }
-    }
-
-    return this.chooseMovementAwareSeparation(
-      enteredSides,
-      dynamicEntity.x - previousPosition.x,
-      dynamicEntity.y - previousPosition.y,
-    );
-  }
-
-  private recordEnteredSide(
-    enteredSides: Map<CollisionSide, AxisSeparation>,
-    side: CollisionSide,
-    didEnterFromSide: boolean,
-    separation: AxisSeparation,
+    entity: Entity,
+    result: StaticMoveResult,
   ): void {
-    if (!didEnterFromSide || separation.translation === 0) {
+    if (
+      !result.blockedX &&
+      !result.blockedY &&
+      !result.initialOverlapRecovered &&
+      result.blockerIds.length === 0
+    ) {
       return;
     }
 
-    const existing = enteredSides.get(side);
-    if (
-      !existing ||
-      Math.abs(separation.translation) > Math.abs(existing.translation)
-    ) {
-      enteredSides.set(side, separation);
-    }
+    world.focusedTrace.recordEntityEvent(
+      world,
+      "entity_collision_resolved",
+      entity,
+      {
+        mode: "dynamic_static",
+        blockerIds: result.blockerIds,
+        requestedDelta: {
+          x: result.requestedDeltaX,
+          y: result.requestedDeltaY,
+        },
+        resolvedDelta: {
+          x: result.resolvedDeltaX,
+          y: result.resolvedDeltaY,
+        },
+        normal: {
+          x:
+            result.blockedX && result.requestedDeltaX !== 0
+              ? Math.sign(result.requestedDeltaX)
+              : 0,
+          y:
+            result.blockedY && result.requestedDeltaY !== 0
+              ? Math.sign(result.requestedDeltaY)
+              : 0,
+        },
+        initialOverlapRecovered: result.initialOverlapRecovered,
+      },
+    );
   }
 
-  private chooseMovementAwareSeparation(
-    enteredSides: Map<CollisionSide, AxisSeparation>,
+  private getSweptBounds(
+    entity: Entity,
+    fromX: number,
+    fromY: number,
     deltaX: number,
     deltaY: number,
-  ): AxisSeparation | null {
-    if (enteredSides.size === 0) {
-      return null;
-    }
-
-    const preferredAxis =
-      Math.abs(deltaX) >= Math.abs(deltaY) && deltaX !== 0 ? "x" : "y";
-    const candidates = [...enteredSides.values()];
-    const preferredCandidates = candidates.filter(
-      (candidate) => candidate.axis === preferredAxis,
+  ): HitboxBounds {
+    const currentBounds = offsetHitboxBounds(
+      entity.getHitboxBounds(),
+      fromX,
+      fromY,
     );
-    const search =
-      preferredCandidates.length > 0 ? preferredCandidates : candidates;
-    let best = search[0] ?? null;
-    for (const candidate of search.slice(1)) {
-      if (
-        !best ||
-        Math.abs(candidate.translation) < Math.abs(best.translation)
-      ) {
-        best = candidate;
-      }
-    }
-    return best;
+    const nextBounds = offsetHitboxBounds(
+      entity.getHitboxBounds(),
+      fromX + deltaX,
+      fromY + deltaY,
+    );
+    return this.makeBounds(
+      Math.min(currentBounds.minX, nextBounds.minX),
+      Math.min(currentBounds.minY, nextBounds.minY),
+      Math.max(currentBounds.maxX, nextBounds.maxX),
+      Math.max(currentBounds.maxY, nextBounds.maxY),
+    );
   }
 
-  private doRectsOverlap(
-    leftRect: ResolvedHitboxRect,
-    rightRect: ResolvedHitboxRect,
-  ): boolean {
-    return (
-      leftRect.minX < rightRect.maxX &&
-      leftRect.maxX > rightRect.minX &&
-      leftRect.minY < rightRect.maxY &&
-      leftRect.maxY > rightRect.minY
+  private expandBounds(bounds: HitboxBounds, padding: number): HitboxBounds {
+    return this.makeBounds(
+      bounds.minX - padding,
+      bounds.minY - padding,
+      bounds.maxX + padding,
+      bounds.maxY + padding,
     );
+  }
+
+  private makeBounds(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+  ): HitboxBounds {
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: maxX - minX,
+      height: maxY - minY,
+      centerX: minX + (maxX - minX) / 2,
+      centerY: minY + (maxY - minY) / 2,
+    };
   }
 
   private invertSeparation(separation: AxisSeparation): AxisSeparation {
@@ -507,19 +628,7 @@ class CollisionSystem implements System {
     };
   }
 
-  private invertNormal(normal: AxisNormal): AxisNormal {
-    return {
-      x: (normal.x * -1) as -1 | 0 | 1,
-      y: (normal.y * -1) as -1 | 0 | 1,
-    };
-  }
-
-  private snapshotMotion(entity: Entity): {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-  } {
+  private snapshotMotion(entity: Entity): MotionSnapshot {
     return {
       x: entity.x,
       y: entity.y,
