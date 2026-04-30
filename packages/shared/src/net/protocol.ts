@@ -115,6 +115,12 @@ const PickupActionMessageSchema = z.object({
   action: z.literal("pickup"),
 });
 
+const RecycleActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("recycle"),
+});
+
 const ActionMessageSchema = z.discriminatedUnion("action", [
   AttackActionMessageSchema,
   CraftActionMessageSchema,
@@ -124,6 +130,7 @@ const ActionMessageSchema = z.discriminatedUnion("action", [
   ChestMoveActionMessageSchema,
   DropActionMessageSchema,
   PickupActionMessageSchema,
+  RecycleActionMessageSchema,
 ]);
 
 const RespawnMessageSchema = z.object({
@@ -219,6 +226,7 @@ export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
     "action:chestMove",
     "action:drop",
     "action:pickup",
+    "action:recycle",
     "respawn",
     "ping",
     "chat",

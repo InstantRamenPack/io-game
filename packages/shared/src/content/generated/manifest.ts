@@ -8,6 +8,7 @@ import buildingcraftingStationJson from "@shared/content/building/crafting_stati
 import buildingfenceHJson from "@shared/content/building/fence_h.json";
 import buildingfenceVJson from "@shared/content/building/fence_v.json";
 import buildinglandmineJson from "@shared/content/building/landmine.json";
+import buildingrecyclerJson from "@shared/content/building/recycler.json";
 import buildingtentJson from "@shared/content/building/tent.json";
 import buildingtreeJson from "@shared/content/building/tree.json";
 import buildingwallJson from "@shared/content/building/wall.json";
@@ -90,6 +91,7 @@ export const buildingContentEntries = [
   makeParsedEntityContentEntry("building", "fence_h", buildingfenceHJson),
   makeParsedEntityContentEntry("building", "fence_v", buildingfenceVJson),
   makeParsedEntityContentEntry("building", "landmine", buildinglandmineJson),
+  makeParsedEntityContentEntry("building", "recycler", buildingrecyclerJson),
   makeParsedEntityContentEntry("building", "tent", buildingtentJson),
   makeParsedEntityContentEntry("building", "tree", buildingtreeJson),
   makeParsedEntityContentEntry("building", "wall", buildingwallJson),

@@ -18,6 +18,7 @@ import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
+import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 /**
@@ -101,6 +102,26 @@ if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
   window.gameClient = gameClient;
 }
 
+let recyclerHoldActive = false;
+
+function cancelRecyclerHold(): void {
+  recyclerHoldActive = false;
+  hudController.setRecyclerHoldStartMs(null);
+}
+
+gameClient.onWorldUpdated(() => {
+  if (
+    recyclerHoldActive &&
+    !isNearRecyclerWithItem(
+      selectors.getPlayerEntity(),
+      selectors.getRecyclers(),
+      selectors.getInventory(),
+    )
+  ) {
+    cancelRecyclerHold();
+  }
+});
+
 new GameInputRouter({
   getContext: () => ({
     sessionMode: sessionUiController.getState().mode,
@@ -109,6 +130,11 @@ new GameInputRouter({
     craftingOpen: hudController.isCraftingMenuOpen(),
     chestOpen: hudController.isChestOpen(),
     textEntryActive: isKeyboardTextEntryTarget(document.activeElement),
+    nearRecyclerWithItem: isNearRecyclerWithItem(
+      selectors.getPlayerEntity(),
+      selectors.getRecyclers(),
+      selectors.getInventory(),
+    ),
   }),
   dispatch: (command) => {
     switch (command.type) {
@@ -151,6 +177,18 @@ new GameInputRouter({
         return;
       case "pickupNearestItem":
         gameClient.queuePickupNearbyItem();
+        return;
+      case "startRecycleHold":
+        recyclerHoldActive = true;
+        hudController.setRecyclerHoldStartMs(performance.now());
+        return;
+      case "cancelRecycleHold":
+        cancelRecyclerHold();
+        return;
+      case "recycleItem":
+        gameClient.queueRecycle();
+        recyclerHoldActive = false;
+        hudController.setRecyclerHoldStartMs(null);
         return;
     }
   },

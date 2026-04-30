@@ -10,4 +10,7 @@ export type InputCommand =
   | { type: "queueSelectedCraft" }
   | { type: "selectHotbarOrdinal"; ordinal: number }
   | { type: "dropSelectedItem"; dropWholeStack: boolean }
-  | { type: "pickupNearestItem" };
+  | { type: "pickupNearestItem" }
+  | { type: "startRecycleHold" }
+  | { type: "cancelRecycleHold" }
+  | { type: "recycleItem" };

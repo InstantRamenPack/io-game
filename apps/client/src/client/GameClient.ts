@@ -300,6 +300,10 @@ export class GameClient {
     this.actionDispatcher.queuePickupNearbyItem();
   }
 
+  public queueRecycle(): void {
+    this.actionDispatcher.queueRecycle();
+  }
+
   public requestRespawn(): void {
     this.actionDispatcher.requestRespawn();
   }

@@ -6,11 +6,31 @@ type RouterOptions = {
   dispatch: (command: InputCommand) => void;
 };
 
+const RECYCLE_HOLD_DURATION_MS = 750;
+
 export class GameInputRouter {
+  private eHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private eHoldFired = false;
+
   constructor(private readonly options: RouterOptions) {}
 
   public bind(target: Window): void {
     target.addEventListener("keydown", (event) => this.onKeyDown(event));
+    target.addEventListener("keyup", (event) => this.onKeyUp(event));
+  }
+
+  private onKeyUp(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() !== "e") {
+      return;
+    }
+    if (this.eHoldTimer !== null) {
+      clearTimeout(this.eHoldTimer);
+      this.eHoldTimer = null;
+    }
+    if (!this.eHoldFired) {
+      this.options.dispatch({ type: "cancelRecycleHold" });
+    }
+    this.eHoldFired = false;
   }
 
   private onKeyDown(event: KeyboardEvent): void {
@@ -68,11 +88,26 @@ export class GameInputRouter {
       event.preventDefault();
       if (context.chestOpen) {
         this.options.dispatch({ type: "closeChest" });
-      } else if (context.inventoryOpen) {
-        this.options.dispatch({ type: "closeInventory" });
-      } else {
-        this.options.dispatch({ type: "pickupNearestItem" });
+        return;
       }
+      if (context.inventoryOpen) {
+        this.options.dispatch({ type: "closeInventory" });
+        return;
+      }
+      if (context.nearRecyclerWithItem) {
+        if (this.eHoldTimer !== null) {
+          clearTimeout(this.eHoldTimer);
+        }
+        this.eHoldFired = false;
+        this.options.dispatch({ type: "startRecycleHold" });
+        this.eHoldTimer = setTimeout(() => {
+          this.eHoldTimer = null;
+          this.eHoldFired = true;
+          this.options.dispatch({ type: "recycleItem" });
+        }, RECYCLE_HOLD_DURATION_MS);
+        return;
+      }
+      this.options.dispatch({ type: "pickupNearestItem" });
       return;
     }
 

@@ -3,6 +3,7 @@ import { BuildingM } from "@server/entities/buildings/BuildingM.ts";
 import { BuildingXl } from "@server/entities/buildings/BuildingXl.ts";
 import { FenceH } from "@server/entities/buildings/FenceH.ts";
 import { FenceV } from "@server/entities/buildings/FenceV.ts";
+import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Tent } from "@server/entities/buildings/Tent.ts";
 import { Tree } from "@server/entities/buildings/Tree.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
@@ -17,6 +18,7 @@ type BuildingSpec =
   | { type: "m"; x: number; y: number; label: string }
   | { type: "fence_h"; x: number; y: number }
   | { type: "fence_v"; x: number; y: number }
+  | { type: "recycler"; x: number; y: number }
   | { type: "tent"; x: number; y: number }
   | { type: "tree"; x: number; y: number };
 
@@ -117,6 +119,8 @@ const EXTRACTION_STRUCTURES: BuildingSpec[] = [
 // Abandoned Village  (zone: x 3200-6500, y 250-2500)
 // ---------------------------------------------------------------------------
 const VILLAGE_STRUCTURES: BuildingSpec[] = [
+  { type: "recycler", x: 5000, y: 1700 },
+
   { type: "m", x: 3600, y: 650, label: "House" },
   { type: "m", x: 4050, y: 900, label: "House" },
   { type: "m", x: 3700, y: 1400, label: "House" },
@@ -142,6 +146,8 @@ const VILLAGE_ENEMIES: EnemySpec[] = [
 // Outpost  (zone: x 3200-6100, y 4800-6700)
 // ---------------------------------------------------------------------------
 const OUTPOST_STRUCTURES: BuildingSpec[] = [
+  { type: "recycler", x: 5000, y: 5400 },
+
   { type: "tent", x: 3550, y: 5200 },
   { type: "tent", x: 3900, y: 5550 },
   { type: "tent", x: 4300, y: 5100 },
@@ -283,6 +289,9 @@ function spawnBuilding(world: World, spec: BuildingSpec): void {
     case "fence_v":
       building = new FenceV(id);
       break;
+    case "recycler":
+      building = new Recycler(id);
+      break;
     case "tent":
       building = new Tent(id);
       break;
@@ -323,7 +332,15 @@ function spawnEnemy(world: World, spec: EnemySpec): void {
  * Spawns all static map structures and initial enemies into the world.
  * Call once during server initialization after bootstrapTypeRegistries().
  */
+// Recycler at player spawn (world center, open land between village and outpost)
+const SPAWN_STRUCTURES: BuildingSpec[] = [
+  { type: "recycler", x: 5000, y: 3500 },
+];
+
 export function loadMap(world: World): void {
+  for (const spec of SPAWN_STRUCTURES) {
+    spawnBuilding(world, spec);
+  }
   for (const spec of MILITARY_STRUCTURES) {
     spawnBuilding(world, spec);
   }

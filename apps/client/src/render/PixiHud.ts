@@ -22,12 +22,14 @@ import { HotbarView } from "@client/render/hud/HotbarView.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
+import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
 } from "@client/render/hud/hotbarModel.ts";
+import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
@@ -71,6 +73,12 @@ export class PixiHud {
   private tooltipView?: HudTooltipView;
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
+  private recyclerPromptView?: RecyclerPromptView;
+  private recyclerHoldStartMs: number | null = null;
+  private hunkBadge?: PIXI.Container;
+  private hunkBadgeBg?: PIXI.Graphics;
+  private hunkBadgeIcon?: PIXI.Sprite;
+  private hunkBadgeText?: PIXI.Text;
   private visible = false;
   private dirty = true;
   private lastLayoutWidth = 0;
@@ -126,6 +134,11 @@ export class PixiHud {
     };
   }
 
+  public setRecyclerHoldStartMs(ms: number | null): void {
+    this.recyclerHoldStartMs = ms;
+    this.dirty = true;
+  }
+
   public attach(parent: PIXI.Container): void {
     if (!this.root) {
       this.root = new PIXI.Container();
@@ -174,6 +187,20 @@ export class PixiHud {
       this.tooltipView = new HudTooltipView();
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
+      this.recyclerPromptView = new RecyclerPromptView();
+
+      this.hunkBadge = new PIXI.Container();
+      this.hunkBadgeBg = new PIXI.Graphics();
+      this.hunkBadgeIcon = new PIXI.Sprite();
+      this.hunkBadgeIcon.anchor.set(0, 0.5);
+      this.hunkBadgeText = new PIXI.Text("0", new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 14,
+        fill: 0xe8f5e7,
+        fontWeight: "bold",
+      }));
+      this.hunkBadgeText.anchor.set(0, 0.5);
+      this.hunkBadge.addChild(this.hunkBadgeBg, this.hunkBadgeIcon, this.hunkBadgeText);
 
       this.root.addChild(
         this.statusPanel.container,
@@ -181,12 +208,14 @@ export class PixiHud {
         this.effectDetailPanel.container,
         this.combatHudView.container,
         this.hotbarView.container,
+        this.hunkBadge,
         this.resourceStackView.container,
         this.hotbarEditView.container,
         this.chestView.container,
         this.craftModalView.container,
         this.dayNightIndicator.container,
         this.selectedItemToastView.container,
+        this.recyclerPromptView.container,
         this.tooltipView.container,
       );
     }
@@ -522,7 +551,15 @@ export class PixiHud {
     const selectionToastVisible =
       this.gameplayHudCoordinator.isSelectionToastVisible(nowMs);
 
-    if (!this.dirty && !force && !sizeChanged && !selectionToastVisible) {
+    const recyclerActive =
+      this.recyclerHoldStartMs !== null ||
+      isNearRecyclerWithItem(
+        this.selectors.getPlayerEntity(),
+        this.selectors.getRecyclers(),
+        inventory,
+      );
+
+    if (!this.dirty && !force && !sizeChanged && !selectionToastVisible && !recyclerActive) {
       return;
     }
 
@@ -608,6 +645,8 @@ export class PixiHud {
     }
 
     this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
+    this.syncRecyclerPrompt(app.screen.width, app.screen.height, nowMs, inventory);
+    this.syncHunkBadge(inventory);
   }
 
   public markDirty(): void {
@@ -667,6 +706,79 @@ export class PixiHud {
       Math.max(12, screenHeight - this.tooltipView.height - 12),
     );
     this.tooltipView.setPosition(tooltipX, tooltipY);
+  }
+
+  private syncRecyclerPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    nowMs: number,
+    inventory: InventorySnapshot | undefined,
+  ): void {
+    if (!this.recyclerPromptView) {
+      return;
+    }
+
+    const player = this.selectors.getPlayerEntity();
+    const recyclers = this.selectors.getRecyclers();
+    const near = isNearRecyclerWithItem(player, recyclers, inventory);
+
+    let itemLabel = "";
+    if (near && inventory) {
+      const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+      if (slot && slot.kind !== "empty") {
+        itemLabel = this.selectors.formatTypeLabel(slot.typeId);
+      }
+    }
+
+    this.recyclerPromptView.sync({
+      visible: near,
+      itemLabel,
+      holdStartMs: this.recyclerHoldStartMs,
+      nowMs,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncHunkBadge(inventory: InventorySnapshot | undefined): void {
+    if (
+      !this.hunkBadge ||
+      !this.hunkBadgeBg ||
+      !this.hunkBadgeIcon ||
+      !this.hunkBadgeText ||
+      !this.hotbarView
+    ) {
+      return;
+    }
+
+    const hunkCount = inventory?.resources.find((r) => r.typeId === "item:hunk")?.amount ?? 0;
+    const iconSize = 22;
+    const padding = 8;
+    const gap = 6;
+
+    const hunkTexture = this.gameClient.renderer.getItemTexture("item:hunk" as ResourceId);
+    this.hunkBadgeIcon.texture = hunkTexture;
+    this.hunkBadgeIcon.width = iconSize;
+    this.hunkBadgeIcon.height = iconSize;
+
+    this.hunkBadgeText.text = String(hunkCount);
+
+    const badgeWidth = padding + iconSize + gap + this.hunkBadgeText.width + padding;
+    const badgeHeight = this.hotbarView.height;
+
+    this.hunkBadgeBg.clear();
+    this.hunkBadgeBg
+      .roundRect(0, 0, badgeWidth, badgeHeight, 6)
+      .fill({ color: 0x151515, alpha: 0.78 })
+      .roundRect(0, 0, badgeWidth, badgeHeight, 6)
+      .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 });
+
+    this.hunkBadgeIcon.position.set(padding, badgeHeight / 2);
+    this.hunkBadgeText.position.set(padding + iconSize + gap, badgeHeight / 2);
+
+    const hotbarX = this.hotbarView.container.x;
+    const hotbarY = this.hotbarView.container.y;
+    this.hunkBadge.position.set(hotbarX + this.hotbarView.width + 10, hotbarY);
   }
 
   private syncHotbarEditView(

@@ -70,6 +70,10 @@ export type HudRuntime = {
    * Shows or hides the in-game HUD shell.
    */
   setVisible(visible: boolean): void;
+  /**
+   * Updates the recycler hold-E start time for the progress bar (null to clear).
+   */
+  setRecyclerHoldStartMs(ms: number | null): void;
 };
 
 export type HudController = HudRuntime;

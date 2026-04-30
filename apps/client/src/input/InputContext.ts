@@ -7,4 +7,5 @@ export type InputContext = {
   craftingOpen: boolean;
   chestOpen: boolean;
   textEntryActive: boolean;
+  nearRecyclerWithItem: boolean;
 };

@@ -5,6 +5,7 @@ import { CraftingStationRenderer } from "@client/render/entity/building/Crafting
 import { FenceRenderer } from "@client/render/entity/building/FenceRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
 import { MapBuildingRenderer } from "@client/render/entity/building/MapBuildingRenderer.ts";
+import { RecyclerRenderer } from "@client/render/entity/building/RecyclerRenderer.ts";
 import { TentRenderer } from "@client/render/entity/building/TentRenderer.ts";
 import { TreeRenderer } from "@client/render/entity/building/TreeRenderer.ts";
 import { WallRenderer } from "@client/render/entity/building/WallRenderer.ts";
@@ -54,6 +55,7 @@ const rendererManifests = [
   ["chest", ChestRenderer],
   ["crafting_station", CraftingStationRenderer],
   ["landmine", LandmineRenderer],
+  ["recycler", RecyclerRenderer],
   ["basic_bullet", BasicBulletRenderer],
   ["rifle_bullet", BasicBulletRenderer],
   ["sniper_bullet", BasicBulletRenderer],

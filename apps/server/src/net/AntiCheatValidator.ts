@@ -54,6 +54,7 @@ export class AntiCheatValidator {
       case "craft":
       case "drop":
       case "pickup":
+      case "recycle":
         return true;
     }
 

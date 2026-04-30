@@ -100,6 +100,12 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueRecycle(): void {
+    this.sendAction({
+      action: "recycle",
+    });
+  }
+
   public requestRespawn(): void {
     if (!this.canSend()) {
       return;
@@ -135,7 +141,8 @@ export class ClientActionDispatcher {
           };
         }
       | { action: "drop"; dropWholeStack: boolean }
-      | { action: "pickup" },
+      | { action: "pickup" }
+      | { action: "recycle" },
   ): void {
     if (!this.canSend()) {
       return;

@@ -7,6 +7,7 @@ import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { FenceH } from "@server/entities/buildings/FenceH.ts";
+import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { FenceV } from "@server/entities/buildings/FenceV.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Tent } from "@server/entities/buildings/Tent.ts";
@@ -85,6 +86,7 @@ export const entityRuntimeCtors = [
   FenceH,
   FenceV,
   Landmine,
+  Recycler,
   Tent,
   Tree,
   Wall,

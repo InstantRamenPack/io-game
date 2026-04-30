@@ -10,6 +10,7 @@ import {
   CHEST_INTERACT_PADDING,
   CHEST_SLOT_COUNT,
   HOTBAR_SLOT_COUNT,
+  RECYCLER_INTERACT_PADDING,
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
@@ -31,9 +32,36 @@ import {
 import type { World } from "@server/world/World.ts";
 import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
+import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
 type HeldMovementState = Record<MoveIntentKey, boolean>;
+
+const RECYCLE_HUNK_BY_ITEM: Record<string, number> = {
+  "item:fists": 0,
+  "item:baseball_bat": 3,
+  "item:basic_dagger": 3,
+  "item:lead_pipe": 4,
+  "item:basic_spear": 5,
+  "item:basic_sword": 6,
+  "item:scissors": 6,
+  "item:zombie_sword": 7,
+  "item:saboteur_sword": 7,
+  "item:cleaver": 7,
+  "item:taser": 8,
+  "item:spiked_spear": 9,
+  "item:katana": 12,
+  "item:basic_gun": 10,
+  "item:basic_rifle": 12,
+  "item:crossbow": 14,
+  "item:drone_shooter": 14,
+  "item:sniper": 18,
+  "item:wall": 2,
+  "item:landmine": 4,
+  "item:chest": 6,
+  "item:crafting_station": 10,
+  "item:cannon": 12,
+};
 
 /**
  * Authoritative player entity driven by held movement state and queued actions.
@@ -496,6 +524,9 @@ export class Player extends Entity {
         case "pickup":
           this.pickupNearestOverlappingItem(world);
           break;
+        case "recycle":
+          this.recycleSelectedItem(world);
+          break;
       }
     }
 
@@ -607,6 +638,69 @@ export class Player extends Entity {
 
     this.unlockBlueprintPickupRecipes(nearestPickup.contents);
     world.despawn(nearestPickup.id);
+  }
+
+  private recycleSelectedItem(world: World): void {
+    if (!this.isNearRecycler(world)) {
+      return;
+    }
+
+    const selectedIndex = this.inventory.selectedHotbarIndex;
+    const slot = this.inventory.hotbarSlots[selectedIndex];
+    if (!slot) {
+      return;
+    }
+
+    let typeId: string;
+    if (slot.kind === "weapon") {
+      typeId = slot.weapon.typeId;
+      if (typeId === "item:fists") {
+        return;
+      }
+    } else {
+      typeId = slot.typeId;
+    }
+
+    const hunkAmount = RECYCLE_HUNK_BY_ITEM[typeId] ?? (slot.kind === "weapon" ? 5 : 3);
+    if (hunkAmount <= 0) {
+      return;
+    }
+
+    if (slot.kind === "weapon") {
+      this.inventory.hotbarSlots[selectedIndex] = null;
+    } else {
+      slot.count -= 1;
+      if (slot.count <= 0) {
+        this.inventory.hotbarSlots[selectedIndex] = null;
+      }
+    }
+
+    this.inventory.addStackable("item:hunk" as ResourceId, hunkAmount);
+  }
+
+  private isNearRecycler(world: World): boolean {
+    const bounds = this.getWorldBounds();
+    const pad = RECYCLER_INTERACT_PADDING;
+    for (const candidate of world.spatial.queryBox(
+      bounds.minX - pad,
+      bounds.minY - pad,
+      bounds.maxX + pad,
+      bounds.maxY + pad,
+    )) {
+      if (!(candidate instanceof Recycler)) {
+        continue;
+      }
+      const rb = candidate.getHitboxBounds();
+      if (
+        this.x >= candidate.x + rb.minX - pad &&
+        this.x <= candidate.x + rb.maxX + pad &&
+        this.y >= candidate.y + rb.minY - pad &&
+        this.y <= candidate.y + rb.maxY + pad
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private unlockBlueprintPickupRecipes(pickupInventory: Inventory): void {
