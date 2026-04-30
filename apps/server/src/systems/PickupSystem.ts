@@ -58,9 +58,14 @@ export class PickupSystem implements System {
   private blueprintAccumulatedMs = 0;
   private foodAccumulatedMs = 0;
   private readonly queryBuffer: Entity[] = [];
+  private readonly spawnQueryBuffer: Entity[] = [];
+  private readonly removedPickupIds = new Set<number>();
 
   public update(world: World, deltaMs: number): void {
-    this.mergeOverlappingStackablePickups(world);
+    this.mergeOverlappingStackablePickups(
+      world,
+      world.entities.queryInstances(ItemEntity),
+    );
 
     let activeMagPickupCount = 0;
     let activeWeaponPickupCount = 0;
@@ -78,7 +83,7 @@ export class PickupSystem implements System {
       }
     }
 
-    this.collectFoodPickups(world);
+    this.collectFoodPickups(world, world.entities.queryInstances(Player));
 
     this.magAccumulatedMs += deltaMs;
     while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
@@ -117,8 +122,7 @@ export class PickupSystem implements System {
     }
   }
 
-  private collectFoodPickups(world: World): void {
-    const players = world.entities.queryInstances(Player);
+  private collectFoodPickups(world: World, players: readonly Player[]): void {
     for (const player of players) {
       if (!player.alive) {
         continue;
@@ -164,12 +168,17 @@ export class PickupSystem implements System {
     }
   }
 
-  private mergeOverlappingStackablePickups(world: World): void {
-    const removedPickupIds = new Set<number>();
-    const pickups = world.entities.queryInstances(ItemEntity);
+  private mergeOverlappingStackablePickups(
+    world: World,
+    pickups: readonly ItemEntity[],
+  ): void {
+    this.removedPickupIds.clear();
 
     for (const pickup of pickups) {
-      if (removedPickupIds.has(pickup.id) || !world.entities.has(pickup.id)) {
+      if (
+        this.removedPickupIds.has(pickup.id) ||
+        !world.entities.has(pickup.id)
+      ) {
         continue;
       }
       if (!pickup.getSingleStackable()) {
@@ -189,7 +198,7 @@ export class PickupSystem implements System {
         if (
           !(candidate instanceof ItemEntity) ||
           candidate.id === pickup.id ||
-          removedPickupIds.has(candidate.id) ||
+          this.removedPickupIds.has(candidate.id) ||
           !world.entities.has(candidate.id)
         ) {
           continue;
@@ -210,7 +219,7 @@ export class PickupSystem implements System {
         }
 
         world.despawn(candidate.id);
-        removedPickupIds.add(candidate.id);
+        this.removedPickupIds.add(candidate.id);
       }
     }
   }
@@ -263,14 +272,25 @@ export class PickupSystem implements System {
         continue;
       }
 
-      const overlapsEntity = world.spatial
-        .queryBox(bounds.minX, bounds.minY, bounds.maxX, bounds.maxY)
-        .some((entity) =>
+      const overlapCandidates = world.spatial.queryBox(
+        bounds.minX,
+        bounds.minY,
+        bounds.maxX,
+        bounds.maxY,
+        this.spawnQueryBuffer,
+      );
+      let overlapsEntity = false;
+      for (const entity of overlapCandidates) {
+        if (
           doResolvedRectSetsOverlap(
             pickup.getWorldHitboxes(),
             entity.getWorldHitboxes(),
-          ),
-        );
+          )
+        ) {
+          overlapsEntity = true;
+          break;
+        }
+      }
       if (overlapsEntity) {
         continue;
       }

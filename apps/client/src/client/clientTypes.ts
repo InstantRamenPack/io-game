@@ -1,4 +1,5 @@
 import type { Texture } from "pixi.js";
+import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type PerformanceRateState = {
@@ -40,6 +41,9 @@ export type GameClientHudApi = {
     toIndex: number,
   ): void;
   stopHoldFire(): void;
-  setMovementSuppressed(suppressed: boolean): void;
+  setMovementSuppression(
+    reason: MovementSuppressionReason,
+    suppressed: boolean,
+  ): void;
   getMeasuredRates(): PerformanceRateState;
 };

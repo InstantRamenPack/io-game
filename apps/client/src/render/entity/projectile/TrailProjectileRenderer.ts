@@ -15,6 +15,7 @@ type TrailPoint = {
 
 const TRAIL_LIFETIME_MS = 120;
 const TRAIL_MIN_STEP_PX = 2;
+const INITIAL_TRAIL_VELOCITY_FRACTION = 0.25;
 
 export class TrailProjectileRenderer extends CircleEntityRenderer {
   private readonly trailGraphic: PIXI.Graphics;
@@ -35,10 +36,16 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
     presentation?: EntityPresentationState,
   ): void {
     super.sync(entity, presentation);
-    this.pushTrailPoint(
-      presentation?.x ?? entity.x,
-      presentation?.y ?? entity.y,
-    );
+    const x = presentation?.x ?? entity.x;
+    const y = presentation?.y ?? entity.y;
+    if (this.trailPoints.length === 0) {
+      const previousX = x - entity.vx * INITIAL_TRAIL_VELOCITY_FRACTION;
+      const previousY = y - entity.vy * INITIAL_TRAIL_VELOCITY_FRACTION;
+      if (previousX !== x || previousY !== y) {
+        this.pushTrailPoint(previousX, previousY);
+      }
+    }
+    this.pushTrailPoint(x, y);
   }
 
   public override update(
@@ -54,6 +61,10 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
   public override destroy(): void {
     this.trailGraphic.destroy();
     super.destroy();
+  }
+
+  public override hasTransientAnimation(): boolean {
+    return super.hasTransientAnimation() || this.trailPoints.length > 1;
   }
 
   private pushTrailPoint(x: number, y: number): void {

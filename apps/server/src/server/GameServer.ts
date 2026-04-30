@@ -1,31 +1,20 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
-  type ActionMessage,
-  type AimMessage,
   type HelloMessage,
   type LobbyActionMessage,
   type LobbyStateMessage,
-  type MoveIntentMessage,
   parseClientToServerMessage,
   type PingMessage,
   type ServerToClientMessage,
 } from "@shared/net/protocol.ts";
-import { ChatService } from "@server/chat/ChatService.ts";
-import { Player } from "@server/entities/Player.ts";
+import { parseFastInputMessage } from "@server/net/FastInputMessageParser.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { ScopedWsServer } from "@server/net/ScopedWsServer.ts";
-import { SnapshotManager } from "@server/net/SnapshotManager.ts";
-import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
-import {
-  applyPlayerStarterLoadout,
-  validatePlayerStarterLoadout,
-} from "@server/server/starterLoadout.ts";
 import { TickClock } from "@server/server/TickClock.ts";
+import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
+import { LobbyStateCache } from "@server/server/matchmaking/LobbyStateCache.ts";
 import type { AuthService } from "@server/services/AuthService.ts";
-import { loadMap } from "@server/systems/MapLoader.ts";
-import { WaveSystem } from "@server/systems/WaveSystem.ts";
-import { World } from "@server/world/World.ts";
 
 type MatchLobby = {
   code: string;
@@ -34,7 +23,7 @@ type MatchLobby = {
   countdownEndsAtMs: number | null;
   startedAtMs: number | null;
   scopedNetwork: ScopedWsServer;
-  gameServer: GameServer;
+  runtime: GameInstanceRuntime | null;
 };
 
 const MATCH_LOBBY_MAX_PLAYERS = 5;
@@ -43,29 +32,31 @@ const MATCH_LOBBY_CODE_LENGTH = 6;
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
- * This class coordinates the world, networking layer, and tick loop.
+ * This class owns transport/auth and orchestrates one playground instance plus lobby instances.
  */
 export class GameServer {
-  public world: World;
-  public networkServer: NetworkServerLike;
-  public snapshotManager: SnapshotManager;
-  public antiCheatValidator: AntiCheatValidator;
-  public chatService: ChatService;
+  public readonly world: GameInstanceRuntime["world"];
+  public readonly networkServer: NetworkServerLike;
+  public readonly snapshotManager: GameInstanceRuntime["snapshotManager"];
+  public readonly antiCheatValidator: GameInstanceRuntime["antiCheatValidator"];
+  public readonly chatService: GameInstanceRuntime["chatService"];
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
   private readonly authService: AuthService;
-  private readonly playerIdByClientId = new Map<string, number>();
+  private readonly enableMatchmaking: boolean;
+  private readonly playgroundRuntime: GameInstanceRuntime;
   private readonly clientStateById = new Map<
     string,
     "connected" | "hello_pending" | "ready"
   >();
-  private readonly lastInputSequenceByClientId = new Map<string, number>();
-  private readonly enableMatchmaking: boolean;
+  private readonly activeRuntimeByClientId = new Map<
+    string,
+    GameInstanceRuntime
+  >();
   private readonly matchLobbyByCode = new Map<string, MatchLobby>();
   private readonly matchLobbyCodeByClientId = new Map<string, string>();
-  private readonly lastSentLobbyStateByClientId = new Map<string, string>();
-  private readonly activeServerByClientId = new Map<string, GameServer>();
+  private readonly lobbyStateCache = new LobbyStateCache();
 
   constructor(
     gameConfig: GameConfig,
@@ -74,26 +65,15 @@ export class GameServer {
     options: { enableMatchmaking?: boolean } = {},
   ) {
     bootstrapTypeRegistries();
-    validatePlayerStarterLoadout();
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
     this.authService = authService;
     this.enableMatchmaking = options.enableMatchmaking ?? true;
-    this.world = new World(gameConfig);
-    this.snapshotManager = new SnapshotManager();
-    this.antiCheatValidator = new AntiCheatValidator();
-    this.chatService = new ChatService({
-      networkServer: this.networkServer,
-      world: this.world,
-      playerIdByClientId: this.playerIdByClientId,
-    });
-
-    // Initialize wave spawning system
-    this.initializeWaveSpawning();
-
-    // Spawn static map structures and initial enemies
-    loadMap(this.world);
-
+    this.playgroundRuntime = new GameInstanceRuntime(gameConfig, networkServer);
+    this.world = this.playgroundRuntime.world;
+    this.snapshotManager = this.playgroundRuntime.snapshotManager;
+    this.antiCheatValidator = this.playgroundRuntime.antiCheatValidator;
+    this.chatService = this.playgroundRuntime.chatService;
     this.clock = new TickClock(gameConfig.tickRate);
 
     this.networkServer.onOpen((clientId) => {
@@ -109,247 +89,68 @@ export class GameServer {
     });
   }
 
-  /**
-   * Initializes the wave spawning system.
-   */
-  private initializeWaveSpawning(): void {
-    this.world.waveSystem = WaveSystem.loadFromFile({
-      dayNightSystem: this.world.dayNightSystem,
-      configPath: "./apps/server/src/config/waves.json",
-      chatService: this.chatService,
-    });
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Wave spawning system initialized");
-    }
-  }
-
   public start(): void {
     this.clock.start(() => this.tick());
   }
 
   public stop(): void {
     this.clock.stop();
-    if (this.enableMatchmaking) {
-      for (const lobby of this.matchLobbyByCode.values()) {
-        lobby.gameServer.stop();
-      }
-      this.matchLobbyByCode.clear();
-      this.matchLobbyCodeByClientId.clear();
-      this.lastSentLobbyStateByClientId.clear();
-      this.activeServerByClientId.clear();
+    if (!this.enableMatchmaking) {
+      return;
     }
+
+    this.matchLobbyByCode.clear();
+    this.matchLobbyCodeByClientId.clear();
+    this.lobbyStateCache.clearAll();
+    this.activeRuntimeByClientId.clear();
   }
 
   public tick(): void {
-    this.world.step();
-    if (this.enableMatchmaking) {
-      this.updateMatchLobbies(Date.now());
-    }
-    const drainedEvents = this.world.events.toArray();
-    this.world.events.clear();
-    this.snapshotManager.prepareTick(this.world, drainedEvents);
+    this.playgroundRuntime.tick();
 
-    for (const [clientId, state] of this.clientStateById) {
-      if (state !== "ready") {
-        continue;
-      }
-      const playerId = this.playerIdByClientId.get(clientId);
-      if (!playerId) {
-        continue;
-      }
-      const snapshot = this.snapshotManager.makeSnapshotForPlayer(
-        this.world,
-        playerId,
-        this.gameConfig.replication.interestRadius,
-      );
-      const snapshotMessage: ServerToClientMessage = {
-        t: "snapshot",
-        snapshot,
-      };
-      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
-    }
-  }
-
-  public handleMoveIntent(
-    clientId: string,
-    moveIntent: MoveIntentMessage,
-  ): void {
-    const player = this.getReadyPlayer(clientId);
-    if (!player) {
+    if (!this.enableMatchmaking) {
       return;
     }
 
-    const lastInputSequence =
-      this.lastInputSequenceByClientId.get(clientId) ?? -1;
-    if (moveIntent.seq <= lastInputSequence) {
-      this.rejectInput(clientId, player, "stale_input", moveIntent);
-      return;
+    this.updateMatchLobbies(Date.now());
+    for (const lobby of this.matchLobbyByCode.values()) {
+      lobby.runtime?.tick();
     }
-
-    if (!this.antiCheatValidator.validateMoveIntent(moveIntent, player)) {
-      this.rejectInput(clientId, player, "invalid_input", moveIntent);
-      return;
-    }
-
-    player.setMoveIntent(moveIntent.key, moveIntent.pressed);
-    this.lastInputSequenceByClientId.set(clientId, moveIntent.seq);
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "move_intent_applied",
-        player,
-        {
-          clientId,
-          key: moveIntent.key,
-          pressed: moveIntent.pressed,
-          seq: moveIntent.seq,
-        },
-      );
-    }
-  }
-
-  public handleAim(clientId: string, aimMessage: AimMessage): void {
-    const player = this.getReadyPlayer(clientId);
-    if (!player) {
-      return;
-    }
-
-    const lastInputSequence =
-      this.lastInputSequenceByClientId.get(clientId) ?? -1;
-    if (aimMessage.seq <= lastInputSequence) {
-      this.rejectInput(clientId, player, "stale_input", aimMessage);
-      return;
-    }
-
-    if (!this.antiCheatValidator.validateAim(aimMessage, player)) {
-      this.rejectInput(clientId, player, "invalid_input", aimMessage);
-      return;
-    }
-
-    player.setAimTheta(aimMessage.theta);
-    this.lastInputSequenceByClientId.set(clientId, aimMessage.seq);
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "aim_applied",
-        player,
-        {
-          clientId,
-          theta: aimMessage.theta,
-          seq: aimMessage.seq,
-        },
-      );
-    }
-  }
-
-  public handleAction(clientId: string, actionMessage: ActionMessage): void {
-    const player = this.getReadyPlayer(clientId);
-    if (!player) {
-      return;
-    }
-
-    const lastInputSequence =
-      this.lastInputSequenceByClientId.get(clientId) ?? -1;
-    if (actionMessage.seq <= lastInputSequence) {
-      this.rejectInput(clientId, player, "stale_input", actionMessage);
-      return;
-    }
-
-    if (
-      !this.antiCheatValidator.validateAction(actionMessage, player, this.world)
-    ) {
-      this.rejectInput(clientId, player, "invalid_input", actionMessage);
-      return;
-    }
-
-    player.enqueueAction(actionMessage);
-    this.lastInputSequenceByClientId.set(clientId, actionMessage.seq);
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "action_enqueued",
-        player,
-        {
-          clientId,
-          normalizedInput: structuredClone(actionMessage),
-          queueLength: player.getQueuedActionCount(),
-        },
-      );
-    }
-  }
-
-  public handleRespawn(clientId: string): void {
-    const player = this.getReadyPlayer(clientId);
-    if (!player || player.alive) {
-      return;
-    }
-    player.respawn(this.world);
-  }
-
-  public onConnect(clientId: string, requestedPlayerName?: string): number {
-    const existingPlayerId = this.playerIdByClientId.get(clientId);
-    if (existingPlayerId) {
-      return existingPlayerId;
-    }
-
-    const playerId = this.world.allocEntityId();
-    const fallbackPlayerName = `player-${playerId}`;
-    const playerEntity = new Player(
-      playerId,
-      this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
-    );
-
-    playerEntity.x = this.gameConfig.worldSize.w / 2;
-    playerEntity.y = this.gameConfig.worldSize.h / 2;
-    applyPlayerStarterLoadout(playerEntity);
-
-    this.world.spawn(playerEntity);
-    this.playerIdByClientId.set(clientId, playerId);
-    this.lastInputSequenceByClientId.set(clientId, -1);
-    if (this.enableMatchmaking) {
-      this.activeServerByClientId.set(clientId, this);
-    }
-
-    return playerId;
   }
 
   public onDisconnect(clientId: string): void {
     if (this.enableMatchmaking) {
-      const activeServer = this.activeServerByClientId.get(clientId);
-      if (activeServer && activeServer !== this) {
-        this.removeClientFromMatchLobby(clientId, {
-          sendDepartureMessage: true,
-          migrateToPlayground: false,
-        });
-        activeServer.detachClient(clientId);
-        this.activeServerByClientId.delete(clientId);
-      } else {
-        this.removeClientFromMatchLobby(clientId, {
-          sendDepartureMessage: true,
-          migrateToPlayground: false,
-        });
-      }
-      this.lastSentLobbyStateByClientId.delete(clientId);
+      this.removeClientFromMatchLobby(clientId, {
+        sendDepartureMessage: true,
+        migrateToPlayground: false,
+      });
+      this.lobbyStateCache.clear(clientId);
     }
+
     this.clientStateById.delete(clientId);
-    this.lastInputSequenceByClientId.delete(clientId);
-    const playerId = this.playerIdByClientId.get(clientId);
-    if (playerId) {
-      this.world.despawn(playerId);
-      this.playerIdByClientId.delete(clientId);
-    }
+    const runtime = this.activeRuntimeByClientId.get(clientId);
+    runtime?.detachClient(clientId);
+    this.activeRuntimeByClientId.delete(clientId);
   }
 
   private handleRawMessage(clientId: string, rawMessage: string): void {
-    if (this.enableMatchmaking) {
-      const activeServer = this.activeServerByClientId.get(clientId);
-      if (activeServer && activeServer !== this) {
-        activeServer.handleRawMessage(clientId, rawMessage);
+    const fastInputMessage = parseFastInputMessage(rawMessage);
+    if (fastInputMessage.kind === "invalid") {
+      this.networkServer.send(
+        clientId,
+        JSON.stringify({ t: "error", message: "invalid_message" }),
+      );
+      return;
+    }
+    if (fastInputMessage.kind === "input") {
+      if (!this.requireReady(clientId)) {
         return;
       }
+      this.getActiveRuntime(clientId).handleInputIntent(
+        clientId,
+        fastInputMessage.message,
+      );
+      return;
     }
 
     const clientMessage = parseClientToServerMessage(rawMessage);
@@ -365,41 +166,44 @@ export class GameServer {
       case "hello":
         void this.handleHello(clientId, clientMessage);
         return;
-      case "move":
+      case "input":
         if (!this.requireReady(clientId)) {
           return;
         }
-        this.handleMoveIntent(clientId, clientMessage);
-        return;
-      case "aim":
-        if (!this.requireReady(clientId)) {
-          return;
-        }
-        this.handleAim(clientId, clientMessage);
+        this.getActiveRuntime(clientId).handleInputIntent(
+          clientId,
+          clientMessage,
+        );
         return;
       case "action":
         if (!this.requireReady(clientId)) {
           return;
         }
-        this.handleAction(clientId, clientMessage);
+        this.getActiveRuntime(clientId).handleAction(clientId, clientMessage);
         return;
       case "respawn":
         if (!this.requireReady(clientId)) {
           return;
         }
-        this.handleRespawn(clientId);
+        this.getActiveRuntime(clientId).handleRespawn(clientId);
         return;
       case "chat":
         if (!this.requireReady(clientId)) {
           return;
         }
-        this.chatService.handleChat(clientId, clientMessage.text);
+        this.getActiveRuntime(clientId).handleChat(
+          clientId,
+          clientMessage.text,
+        );
         return;
       case "lobby":
         if (!this.requireReady(clientId)) {
           return;
         }
-        if (!this.enableMatchmaking) {
+        if (
+          !this.enableMatchmaking ||
+          this.getActiveRuntime(clientId) !== this.playgroundRuntime
+        ) {
           return;
         }
         this.handleLobbyAction(clientId, clientMessage);
@@ -467,7 +271,10 @@ export class GameServer {
       }
     }
 
-    if (this.playerIdByClientId.size >= this.gameConfig.network.maxPlayers) {
+    if (
+      this.playgroundRuntime.getPlayerCount() >=
+      this.gameConfig.network.maxPlayers
+    ) {
       this.networkServer.send(
         clientId,
         JSON.stringify({ t: "error", message: "server_full" }),
@@ -476,7 +283,11 @@ export class GameServer {
       return;
     }
 
-    const playerId = this.onConnect(clientId, helloMessage.playerName);
+    const playerId = this.playgroundRuntime.connectReadyClient(
+      clientId,
+      helloMessage.playerName,
+    );
+    this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.clientStateById.set(clientId, "ready");
     this.networkServer.send(
       clientId,
@@ -500,14 +311,6 @@ export class GameServer {
       JSON.stringify({ t: "error", message: "hello_required" }),
     );
     return false;
-  }
-
-  private getReadyPlayer(clientId: string): Player | undefined {
-    const playerId = this.playerIdByClientId.get(clientId);
-    if (!playerId) {
-      return undefined;
-    }
-    return this.world.get<Player>(playerId);
   }
 
   private handleLobbyAction(
@@ -595,8 +398,9 @@ export class GameServer {
       lobby,
       `${this.getPlayerDisplayName(clientId)} joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${MATCH_LOBBY_MAX_PLAYERS}).`,
     );
+
     if (lobby.startedAtMs !== null) {
-      this.migrateClientToLobbyServer(clientId, lobby);
+      this.migrateClientToLobbyRuntime(clientId, lobby);
     } else {
       this.maybeStartLobbyCountdown(lobby, nowMs);
     }
@@ -623,6 +427,7 @@ export class GameServer {
     if (options.migrateToPlayground ?? true) {
       this.migrateClientToPlayground(clientId);
     }
+
     const playerCount = lobby.playerClientIds.size;
     if (options.sendDepartureMessage) {
       this.sendToClientSystem(clientId, `Left lobby ${lobby.code}.`);
@@ -633,8 +438,8 @@ export class GameServer {
     }
 
     if (playerCount === 0) {
-      lobby.gameServer.stop();
       this.matchLobbyByCode.delete(lobby.code);
+      lobby.runtime = null;
       return;
     }
 
@@ -660,11 +465,11 @@ export class GameServer {
         lobby.countdownEndsAtMs !== null &&
         nowMs >= lobby.countdownEndsAtMs
       ) {
-        this.resetLobbyGameServer(lobby);
+        this.resetLobbyRuntime(lobby);
         lobby.startedAtMs = nowMs;
         lobby.countdownEndsAtMs = null;
         for (const clientId of lobby.playerClientIds) {
-          this.migrateClientToLobbyServer(clientId, lobby);
+          this.migrateClientToLobbyRuntime(clientId, lobby);
         }
         this.broadcastLobbyMessage(
           lobby,
@@ -711,7 +516,7 @@ export class GameServer {
       countdownEndsAtMs: null,
       startedAtMs: null,
       scopedNetwork,
-      gameServer: this.makeLobbyGameServer(scopedNetwork),
+      runtime: null,
     };
     this.matchLobbyByCode.set(code, lobby);
     return lobby;
@@ -729,92 +534,68 @@ export class GameServer {
     return code;
   }
 
-  private makeLobbyGameServer(scopedNetwork: ScopedWsServer): GameServer {
-    const lobbyGameServer = new GameServer(
+  private resetLobbyRuntime(lobby: MatchLobby): void {
+    lobby.runtime = new GameInstanceRuntime(
       this.gameConfig,
-      scopedNetwork,
-      this.authService,
-      { enableMatchmaking: false },
+      lobby.scopedNetwork,
     );
-    lobbyGameServer.start();
-    return lobbyGameServer;
   }
 
-  private resetLobbyGameServer(lobby: MatchLobby): void {
-    lobby.gameServer.stop();
-    lobby.gameServer = this.makeLobbyGameServer(lobby.scopedNetwork);
-  }
-
-  private migrateClientToLobbyServer(
+  private migrateClientToLobbyRuntime(
     clientId: string,
     lobby: MatchLobby,
   ): void {
-    if (this.activeServerByClientId.get(clientId) === lobby.gameServer) {
+    if (!lobby.runtime) {
+      return;
+    }
+
+    if (this.activeRuntimeByClientId.get(clientId) === lobby.runtime) {
       lobby.scopedNetwork.addClient(clientId);
       return;
     }
-    const previousServer = this.activeServerByClientId.get(clientId) ?? this;
-    const playerName = previousServer.extractPlayerNameForClient(clientId);
-    previousServer.detachClient(clientId);
+
+    const previousRuntime = this.getActiveRuntime(clientId);
+    const playerName = previousRuntime.detachClient(clientId);
     lobby.scopedNetwork.addClient(clientId);
-    lobby.gameServer.attachMigratedClient(clientId, playerName);
-    this.activeServerByClientId.set(clientId, lobby.gameServer);
-  }
-
-  private migrateClientToPlayground(clientId: string): void {
-    const activeServer = this.activeServerByClientId.get(clientId);
-    if (!activeServer || activeServer === this) {
-      return;
-    }
-    const playerName = activeServer.extractPlayerNameForClient(clientId);
-    activeServer.detachClient(clientId);
-    for (const lobby of this.matchLobbyByCode.values()) {
-      lobby.scopedNetwork.removeClient(clientId);
-    }
-    this.attachMigratedClient(clientId, playerName);
-    this.activeServerByClientId.set(clientId, this);
-  }
-
-  private attachMigratedClient(
-    clientId: string,
-    requestedPlayerName?: string,
-  ): void {
-    if (this.playerIdByClientId.has(clientId)) {
-      return;
-    }
-    const playerId = this.onConnect(clientId, requestedPlayerName);
-    this.clientStateById.set(clientId, "ready");
+    const playerId = lobby.runtime.connectReadyClient(clientId, playerName);
+    this.activeRuntimeByClientId.set(clientId, lobby.runtime);
     this.networkServer.send(
       clientId,
       JSON.stringify({ t: "welcome", entityId: playerId }),
     );
   }
 
-  private detachClient(clientId: string): void {
-    this.clientStateById.delete(clientId);
-    this.lastInputSequenceByClientId.delete(clientId);
-    const playerId = this.playerIdByClientId.get(clientId);
-    if (playerId) {
-      this.world.despawn(playerId);
-      this.playerIdByClientId.delete(clientId);
+  private migrateClientToPlayground(clientId: string): void {
+    const activeRuntime = this.activeRuntimeByClientId.get(clientId);
+    if (!activeRuntime || activeRuntime === this.playgroundRuntime) {
+      return;
     }
+
+    const playerName = activeRuntime.detachClient(clientId);
+    for (const lobby of this.matchLobbyByCode.values()) {
+      lobby.scopedNetwork.removeClient(clientId);
+    }
+    const playerId = this.playgroundRuntime.connectReadyClient(
+      clientId,
+      playerName,
+    );
+    this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
+    this.networkServer.send(
+      clientId,
+      JSON.stringify({ t: "welcome", entityId: playerId }),
+    );
   }
 
-  private extractPlayerNameForClient(clientId: string): string | undefined {
-    return this.getReadyPlayer(clientId)?.name;
+  private getActiveRuntime(clientId: string): GameInstanceRuntime {
+    return this.activeRuntimeByClientId.get(clientId) ?? this.playgroundRuntime;
   }
 
   private sendLobbyState(clientId: string, force = false): void {
     const state = this.buildLobbyStateForClient(clientId);
-    const serialized = JSON.stringify(state);
-    if (
-      !force &&
-      this.lastSentLobbyStateByClientId.get(clientId) === serialized
-    ) {
+    if (!this.lobbyStateCache.shouldSend(clientId, state, force)) {
       return;
     }
-    this.lastSentLobbyStateByClientId.set(clientId, serialized);
-    this.networkServer.send(clientId, serialized);
+    this.networkServer.send(clientId, JSON.stringify(state));
   }
 
   private broadcastLobbyState(lobby: MatchLobby, force: boolean): void {
@@ -881,44 +662,6 @@ export class GameServer {
   }
 
   private getPlayerDisplayName(clientId: string): string {
-    return this.getReadyPlayer(clientId)?.name ?? "Player";
-  }
-
-  private rejectInput(
-    clientId: string,
-    player: Player,
-    reason: "stale_input" | "invalid_input",
-    payload: ActionMessage | AimMessage | MoveIntentMessage,
-  ): void {
-    this.networkServer.send(
-      clientId,
-      JSON.stringify({ t: "error", message: reason }),
-    );
-    if (!this.world.focusedTrace.matchesEntity(player)) {
-      return;
-    }
-    this.world.focusedTrace.recordEntityEvent(
-      this.world,
-      "input_rejected",
-      player,
-      {
-        reason,
-        clientId,
-        rawInput: structuredClone(payload),
-        lastAcceptedSequence:
-          this.lastInputSequenceByClientId.get(clientId) ?? -1,
-      },
-    );
-  }
-
-  private sanitizePlayerName(
-    requestedPlayerName: string | undefined,
-    fallbackPlayerName: string,
-  ): string {
-    const sanitizedPlayerName = (requestedPlayerName ?? "")
-      .replace(/[\x00-\x1F\x7F]/g, "")
-      .trim()
-      .slice(0, 20);
-    return sanitizedPlayerName || fallbackPlayerName;
+    return this.getActiveRuntime(clientId).getPlayerName(clientId) ?? "Player";
   }
 }

@@ -126,6 +126,16 @@ export class PixiWorldView {
     this.syncCullViewport(app);
   }
 
+  public resetCamera(): void {
+    this.viewportController.reset();
+  }
+
+  public getCameraDebugState(
+    app: Application | null,
+  ): ReturnType<PixiViewportController["getCameraDebugState"]> {
+    return this.viewportController.getCameraDebugState(app);
+  }
+
   public screenToWorld(
     app: Application | null,
     clientX: number,
@@ -167,6 +177,22 @@ export class PixiWorldView {
       return { x: clientX, y: clientY };
     }
     return this.viewportController.clientToScreen(app, clientX, clientY);
+  }
+
+  public worldToScreen(
+    app: Application | null,
+    worldX: number,
+    worldY: number,
+  ): { x: number; y: number } | null {
+    if (!app) {
+      return null;
+    }
+    return this.viewportController.worldToScreen(
+      app,
+      this.sceneGraph.worldRoot,
+      worldX,
+      worldY,
+    );
   }
 
   public invalidateViewRectCache(): void {

@@ -14,6 +14,10 @@ export class EntityStore {
   private dynamicCache?: Entity[];
   private collidableCache?: Entity[];
   private nonCollidableCache?: Entity[];
+  private readonly queryInstancesCache = new Map<
+    EntityInstanceCtor<Entity>,
+    Entity[]
+  >();
 
   /**
    * Inserts an entity into the primary id index.
@@ -53,13 +57,28 @@ export class EntityStore {
    * @returns Entities that are instances of the requested constructor.
    */
   public queryInstances<T extends Entity>(ctor: EntityInstanceCtor<T>): T[] {
+    const cached = this.queryInstancesCache.get(
+      ctor as EntityInstanceCtor<Entity>,
+    );
+    if (cached) {
+      return cached as T[];
+    }
+
     const matchingEntities: T[] = [];
     for (const entity of this.byId.values()) {
       if (entity instanceof ctor) {
         matchingEntities.push(entity);
       }
     }
+    this.queryInstancesCache.set(
+      ctor as EntityInstanceCtor<Entity>,
+      matchingEntities as Entity[],
+    );
     return matchingEntities;
+  }
+
+  public countInstances<T extends Entity>(ctor: EntityInstanceCtor<T>): number {
+    return this.queryInstances(ctor).length;
   }
 
   /**
@@ -105,5 +124,6 @@ export class EntityStore {
     this.dynamicCache = undefined;
     this.collidableCache = undefined;
     this.nonCollidableCache = undefined;
+    this.queryInstancesCache.clear();
   }
 }

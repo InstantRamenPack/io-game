@@ -1,13 +1,17 @@
 import type {
   ActionMessage,
-  AimMessage,
   ChatMessage,
+  InputIntentMessage,
   LobbyStateMessage,
-  MoveIntentKey,
 } from "@shared/net/protocol.ts";
 import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import {
+  DebugNetworkSimulator,
+  type DebugNetworkMetrics,
+  type DebugNetworkProfileName,
+} from "@client/net/DebugNetworkSimulator.ts";
 
 type ConnectOptions = {
   compatHash?: string;
@@ -29,6 +33,8 @@ export class WsClient {
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
+  private readonly outboundNetworkSimulator = new DebugNetworkSimulator();
+  private readonly inboundNetworkSimulator = new DebugNetworkSimulator();
   private readonly validateSnapshotMessages =
     (import.meta as { env?: { DEV?: boolean } }).env?.DEV ?? false;
 
@@ -46,13 +52,14 @@ export class WsClient {
     this.socket = socket;
 
     socket.addEventListener("open", () => {
-      socket.send(
+      this.sendRaw(
         JSON.stringify({
           t: "hello",
           compatHash,
           googleIdToken,
           playerName,
         }),
+        { bypassSimulation: true },
       );
       for (const openHandler of this.openHandlers) {
         openHandler();
@@ -75,111 +82,84 @@ export class WsClient {
     });
 
     socket.addEventListener("message", (messageEvent) => {
-      const serverMessage = parseServerToClientMessage(
-        String(messageEvent.data),
-        { validateSnapshots: this.validateSnapshotMessages },
+      this.inboundNetworkSimulator.deliver(String(messageEvent.data), (raw) =>
+        this.handleRawServerMessage(raw),
       );
-      if (!serverMessage) {
-        return;
-      }
-
-      if (serverMessage.t === "snapshot") {
-        for (const snapshotHandler of this.snapshotHandlers) {
-          snapshotHandler(serverMessage.snapshot);
-        }
-        return;
-      }
-
-      if (serverMessage.t === "welcome") {
-        for (const welcomeHandler of this.welcomeHandlers) {
-          welcomeHandler(serverMessage.entityId);
-        }
-        return;
-      }
-
-      if (serverMessage.t === "chat") {
-        for (const chatHandler of this.chatHandlers) {
-          chatHandler(serverMessage);
-        }
-        return;
-      }
-
-      if (serverMessage.t === "lobby_state") {
-        for (const lobbyStateHandler of this.lobbyStateHandlers) {
-          lobbyStateHandler(serverMessage);
-        }
-        return;
-      }
-
-      if (serverMessage.t === "error") {
-        for (const errorHandler of this.errorHandlers) {
-          errorHandler(serverMessage.message);
-        }
-      }
     });
   }
 
-  public sendMoveIntent(
+  public sendInputIntent(
     seq: number,
-    key: MoveIntentKey,
-    pressed: boolean,
+    clientTimeMs: number | undefined,
+    theta: number,
+    movement: InputIntentMessage["movement"],
   ): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ t: "move", seq, key, pressed }));
-  }
-
-  public sendAim(seq: number, theta: number): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    const message: AimMessage = { t: "aim", seq, theta };
-    this.socket.send(JSON.stringify(message));
+    this.sendRaw(
+      JSON.stringify({
+        t: "input",
+        seq,
+        ...(clientTimeMs === undefined ? {} : { clientTimeMs }),
+        theta,
+        movement,
+      }),
+    );
   }
 
   public sendAction(actionMessage: ActionMessage): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify(actionMessage));
+    this.sendRaw(JSON.stringify(actionMessage));
   }
 
   public sendRespawn(): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ t: "respawn" }));
+    this.sendRaw(JSON.stringify({ t: "respawn" }));
   }
 
   public sendChat(text: string): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ t: "chat", text }));
+    this.sendRaw(JSON.stringify({ t: "chat", text }));
   }
 
   public joinLobby(): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ t: "lobby", action: "join" }));
+    this.sendRaw(JSON.stringify({ t: "lobby", action: "join" }));
   }
 
   public joinLobbyByCode(lobbyCode: string): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(
+    this.sendRaw(
       JSON.stringify({ t: "lobby", action: "joinByCode", lobbyCode }),
     );
   }
 
   public leaveLobby(): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ t: "lobby", action: "leave" }));
+    this.sendRaw(JSON.stringify({ t: "lobby", action: "leave" }));
+  }
+
+  public setDebugNetworkProfile(
+    profileName: DebugNetworkProfileName,
+    seed = 1,
+  ): void {
+    this.outboundNetworkSimulator.configure({
+      profileName,
+      seed,
+      enabled: true,
+    });
+    this.inboundNetworkSimulator.configure({
+      profileName,
+      seed: seed + 1,
+      enabled: true,
+    });
+  }
+
+  public disableDebugNetworkSimulation(): void {
+    this.outboundNetworkSimulator.disable();
+    this.inboundNetworkSimulator.disable();
+  }
+
+  public getDebugNetworkMetrics(): {
+    outbound: DebugNetworkMetrics;
+    inbound: DebugNetworkMetrics;
+  } {
+    return {
+      outbound: this.outboundNetworkSimulator.getMetrics(),
+      inbound: this.inboundNetworkSimulator.getMetrics(),
+    };
   }
 
   public onSnapshot(snapshotHandler: (snapshot: WorldSnapshot) => void): void {
@@ -223,6 +203,69 @@ export class WsClient {
       socket.readyState === WebSocket.CONNECTING
     ) {
       socket.close(1000, reason);
+    }
+  }
+
+  private sendRaw(
+    payload: string,
+    options: { bypassSimulation?: boolean } = {},
+  ): void {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (options.bypassSimulation) {
+      socket.send(payload);
+      return;
+    }
+    this.outboundNetworkSimulator.deliver(payload, (delayedPayload) => {
+      if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      socket.send(delayedPayload);
+    });
+  }
+
+  private handleRawServerMessage(rawMessage: string): void {
+    const serverMessage = parseServerToClientMessage(rawMessage, {
+      validateSnapshots: this.validateSnapshotMessages,
+    });
+    if (!serverMessage) {
+      return;
+    }
+
+    if (serverMessage.t === "snapshot") {
+      for (const snapshotHandler of this.snapshotHandlers) {
+        snapshotHandler(serverMessage.snapshot);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "welcome") {
+      for (const welcomeHandler of this.welcomeHandlers) {
+        welcomeHandler(serverMessage.entityId);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "chat") {
+      for (const chatHandler of this.chatHandlers) {
+        chatHandler(serverMessage);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "lobby_state") {
+      for (const lobbyStateHandler of this.lobbyStateHandlers) {
+        lobbyStateHandler(serverMessage);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "error") {
+      for (const errorHandler of this.errorHandlers) {
+        errorHandler(serverMessage.message);
+      }
     }
   }
 }

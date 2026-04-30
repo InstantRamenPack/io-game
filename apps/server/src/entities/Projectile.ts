@@ -92,6 +92,12 @@ export abstract class Projectile extends GoalControlledEntity {
   public override tick(world: World): void {
     this.previousX = this.x;
     this.previousY = this.y;
+    if (!this.goalSelector.hasActiveControl("move")) {
+      this.setDesiredVelocity(
+        this.directionX * this.speed,
+        this.directionY * this.speed,
+      );
+    }
     super.tick(world);
     if (!this.goalSelector.hasActiveControl("move")) {
       this.setDesiredVelocity(
@@ -100,6 +106,8 @@ export abstract class Projectile extends GoalControlledEntity {
       );
     }
     this.updateHeadingFromVelocity();
+    this.x += this.vx;
+    this.y += this.vy;
   }
 
   public override getCombatInstigator(world: World): CombatEntity | null {

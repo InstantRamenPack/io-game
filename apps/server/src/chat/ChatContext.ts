@@ -1,10 +1,10 @@
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
-import { getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ServerToClientMessage } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { Structure } from "@server/entities/Structure.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import {
@@ -18,8 +18,9 @@ import {
   isBuildingCtor,
   isProjectileCtor,
   isSpawnableEntityCtor,
-  isWeaponCtor,
+  isStructureCtor,
 } from "@server/runtime/ctorGuards.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 
 type FilterResult = {
   text: string;
@@ -189,6 +190,9 @@ export class ChatContext {
   }
 
   public killEntity(entity: Entity): void {
+    if (entity instanceof Structure) {
+      return;
+    }
     entity.hp = 0;
     if (entity instanceof Player) {
       entity.handleDeath(this.world);
@@ -207,28 +211,11 @@ export class ChatContext {
     itemEntry: ItemTypeEntry,
     amount: number,
   ): boolean {
-    const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(
-      itemEntry.typeId,
+    return grantItemEntryByAcquisitionRules(
+      target.inventory,
+      itemEntry,
+      amount,
     );
-    if (unlockedRecipeTypeId) {
-      target.inventory.unlockRecipe(unlockedRecipeTypeId);
-      return true;
-    }
-
-    if (isWeaponCtor(itemEntry.ctor)) {
-      if (!target.inventory.canAddWeaponCount(amount)) {
-        return false;
-      }
-      for (let index = 0; index < amount; index += 1) {
-        target.inventory.addWeapon(new itemEntry.ctor());
-      }
-      return true;
-    }
-
-    if (!target.inventory.canAddStackable(itemEntry.typeId, amount)) {
-      return false;
-    }
-    return target.inventory.addStackable(itemEntry.typeId, amount);
   }
 
   public resolveSpawnTarget(
@@ -305,6 +292,13 @@ export class ChatContext {
       building.x = position.x;
       building.y = position.y;
       return building;
+    }
+
+    if (entry.kind === "structure" && isStructureCtor(ctor)) {
+      const structure = new ctor(entityId);
+      structure.x = position.x;
+      structure.y = position.y;
+      return structure;
     }
 
     if (entry.kind === "player" && isPlayerCtor(ctor)) {

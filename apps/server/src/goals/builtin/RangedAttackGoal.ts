@@ -89,10 +89,24 @@ export class RangedAttackGoal<
     const maxDistance = this.preferredDistance + this.distanceTolerance;
 
     if (distance > maxDistance) {
-      ctx.self.setDesiredVelocity(
-        directionX * ctx.self.moveSpeed,
-        directionY * ctx.self.moveSpeed,
-      );
+      const waypoint =
+        ctx.world.navPathService.getNextWaypoint(
+          ctx.self.x,
+          ctx.self.y,
+          target.x,
+          target.y,
+        ) ?? target;
+      const pathDx = waypoint.x - ctx.self.x;
+      const pathDy = waypoint.y - ctx.self.y;
+      const pathDist = Math.hypot(pathDx, pathDy);
+      if (pathDist > Number.EPSILON) {
+        ctx.self.setDesiredVelocity(
+          (pathDx / pathDist) * ctx.self.moveSpeed,
+          (pathDy / pathDist) * ctx.self.moveSpeed,
+        );
+      } else {
+        ctx.self.setDesiredVelocity(0, 0);
+      }
     } else if (distance < minDistance) {
       ctx.self.setDesiredVelocity(
         -directionX * ctx.self.moveSpeed,

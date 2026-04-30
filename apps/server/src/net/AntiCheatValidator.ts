@@ -1,7 +1,6 @@
 import type {
   ActionMessage,
-  AimMessage,
-  MoveIntentMessage,
+  InputIntentMessage,
 } from "@shared/net/protocol.ts";
 import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { Player } from "@server/entities/Player.ts";
@@ -12,14 +11,10 @@ import type { World } from "@server/world/World.ts";
  * The server stays authoritative even when validation remains lightweight.
  */
 export class AntiCheatValidator {
-  public validateMoveIntent(
-    _moveIntent: MoveIntentMessage,
+  public validateInputIntent(
+    _inputMessage: InputIntentMessage,
     playerEntity: Player,
   ): boolean {
-    return playerEntity.alive;
-  }
-
-  public validateAim(_aimMessage: AimMessage, playerEntity: Player): boolean {
     return playerEntity.alive;
   }
 
@@ -31,9 +26,13 @@ export class AntiCheatValidator {
     if (!playerEntity.alive) {
       return false;
     }
+    const isDebugCreativeEditor = this.isDebugCreativeEditor(playerEntity);
 
     switch (actionMessage.action) {
       case "attack":
+        if (isDebugCreativeEditor) {
+          return false;
+        }
         return playerEntity.getActiveWeapon() !== undefined;
       case "build":
         return (
@@ -50,15 +49,29 @@ export class AntiCheatValidator {
       case "inventoryMove":
         return this.isValidInventoryMove(actionMessage, playerEntity);
       case "chestMove":
+        if (isDebugCreativeEditor) {
+          return false;
+        }
         return this.isValidChestMove(actionMessage, playerEntity, world);
       case "craft":
       case "drop":
       case "pickup":
+<<<<<<< HEAD
       case "recycle":
         return true;
+=======
+        return !isDebugCreativeEditor;
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
     }
 
     return false;
+  }
+
+  private isDebugCreativeEditor(playerEntity: Player): boolean {
+    return (
+      process.env.NODE_ENV !== "production" &&
+      playerEntity.name.toLowerCase() === "debug"
+    );
   }
 
   private isValidInventoryMove(
@@ -70,13 +83,12 @@ export class AntiCheatValidator {
     }
 
     const { fromSlotIndex, toSlotIndex } = actionMessage.inventoryMove;
-    return (
-      (fromSlotIndex < 0 ||
-        fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
-        toSlotIndex < 0 ||
-        toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
-        playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined) ===
-      false
+    return !(
+      fromSlotIndex < 0 ||
+      fromSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+      toSlotIndex < 0 ||
+      toSlotIndex >= playerEntity.inventory.hotbarSlots.length ||
+      playerEntity.inventory.hotbarSlots[fromSlotIndex] === undefined
     );
   }
 

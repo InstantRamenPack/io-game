@@ -1,5 +1,10 @@
 import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
+import {
+  COMBAT_OCCLUSION_EPSILON,
+  getEntityRayEntryDistance,
+  isCombatOccluder,
+} from "@server/combat/CombatOcclusion.ts";
 import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
@@ -17,6 +22,12 @@ type QueryBounds = {
   minY: number;
   maxX: number;
   maxY: number;
+};
+
+type AttackHitCandidate = {
+  target: Entity;
+  entryDistance: number;
+  tieBreakerDistanceSquared: number;
 };
 
 /**
@@ -52,7 +63,13 @@ export abstract class MeleeWeapon extends Weapon {
       Math.atan2(target.y - owner.y, target.x - owner.x),
     );
 
-    return this.isTargetInAttackShape(owner, target, aim);
+    if (!this.isTargetInAttackShape(owner, target, aim)) {
+      return false;
+    }
+
+    return this.resolveTargetsInAttackShape(world, owner, aim).some(
+      (candidate) => candidate.id === target.id,
+    );
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {
@@ -110,17 +127,6 @@ export abstract class MeleeWeapon extends Weapon {
     );
   }
 
-  protected getDistanceAlongAim(
-    owner: Entity,
-    target: Entity,
-    aim: MeleeAim,
-  ): number {
-    return (
-      (target.x - owner.x) * aim.directionX +
-      (target.y - owner.y) * aim.directionY
-    );
-  }
-
   protected resolveAim(theta: number): MeleeAim {
     const angle = normalizeAngle(theta);
     return {
@@ -136,7 +142,9 @@ export abstract class MeleeWeapon extends Weapon {
     aim: MeleeAim,
   ): Entity[] {
     const bounds = this.getAttackQueryBounds(owner, aim);
-    const targets: Entity[] = [];
+    const attackReach = this.getAttackReach(owner, aim);
+    const targets: AttackHitCandidate[] = [];
+    let nearestBlockerDistance: number | null = null;
 
     for (const entity of world.spatial.queryBox(
       bounds.minX,
@@ -144,35 +152,66 @@ export abstract class MeleeWeapon extends Weapon {
       bounds.maxX,
       bounds.maxY,
     )) {
-      if (!combatEligibilityService.canAttackTarget(world, owner, entity)) {
-        continue;
-      }
       if (!this.isTargetInAttackShape(owner, entity, aim)) {
         continue;
       }
-      targets.push(entity);
+
+      const entryDistance = getEntityRayEntryDistance(
+        entity,
+        owner.x,
+        owner.y,
+        aim.directionX,
+        aim.directionY,
+      );
+      if (entryDistance === null || entryDistance > attackReach) {
+        continue;
+      }
+
+      if (isCombatOccluder(entity)) {
+        if (
+          nearestBlockerDistance === null ||
+          entryDistance < nearestBlockerDistance
+        ) {
+          nearestBlockerDistance = entryDistance;
+        }
+      }
+
+      if (!combatEligibilityService.canAttackTarget(world, owner, entity)) {
+        continue;
+      }
+
+      const tieBreakerDistanceSquared =
+        (entity.x - owner.x) * (entity.x - owner.x) +
+        (entity.y - owner.y) * (entity.y - owner.y);
+      targets.push({
+        target: entity,
+        entryDistance,
+        tieBreakerDistanceSquared,
+      });
     }
 
     targets.sort((left, right) => {
-      const leftDistance = this.getDistanceAlongAim(owner, left, aim);
-      const rightDistance = this.getDistanceAlongAim(owner, right, aim);
-      if (leftDistance !== rightDistance) {
-        return leftDistance - rightDistance;
+      if (left.entryDistance !== right.entryDistance) {
+        return left.entryDistance - right.entryDistance;
+      }
+      if (left.tieBreakerDistanceSquared !== right.tieBreakerDistanceSquared) {
+        return left.tieBreakerDistanceSquared - right.tieBreakerDistanceSquared;
       }
 
-      const leftDistanceSquared =
-        (left.x - owner.x) * (left.x - owner.x) +
-        (left.y - owner.y) * (left.y - owner.y);
-      const rightDistanceSquared =
-        (right.x - owner.x) * (right.x - owner.x) +
-        (right.y - owner.y) * (right.y - owner.y);
-      if (leftDistanceSquared !== rightDistanceSquared) {
-        return leftDistanceSquared - rightDistanceSquared;
-      }
-
-      return left.id - right.id;
+      return left.target.id - right.target.id;
     });
 
-    return targets;
+    const maxVisibleDistance =
+      nearestBlockerDistance === null
+        ? null
+        : nearestBlockerDistance + COMBAT_OCCLUSION_EPSILON;
+
+    return targets
+      .filter(
+        (candidate) =>
+          maxVisibleDistance === null ||
+          candidate.entryDistance <= maxVisibleDistance,
+      )
+      .map((candidate) => candidate.target);
   }
 }

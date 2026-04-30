@@ -10,5 +10,9 @@ export const MAX_CHAT_MESSAGE_LENGTH = 240;
 export const CHEST_INTERACT_PADDING = 48;
 export const CHEST_INTERACT_RADIUS = 160;
 export const CHEST_SLOT_COUNT = 27;
+<<<<<<< HEAD
 
 export const RECYCLER_INTERACT_PADDING = 80;
+=======
+export const MAX_CHEST_INDEX = CHEST_SLOT_COUNT - 1;
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0

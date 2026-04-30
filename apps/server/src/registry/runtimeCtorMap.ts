@@ -1,17 +1,15 @@
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
-import { BuildingL } from "@server/entities/buildings/BuildingL.ts";
-import { BuildingM } from "@server/entities/buildings/BuildingM.ts";
-import { BuildingXl } from "@server/entities/buildings/BuildingXl.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+<<<<<<< HEAD
 import { FenceH } from "@server/entities/buildings/FenceH.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { FenceV } from "@server/entities/buildings/FenceV.ts";
+=======
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
-import { Tent } from "@server/entities/buildings/Tent.ts";
-import { Tree } from "@server/entities/buildings/Tree.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
@@ -26,6 +24,14 @@ import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
 import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
 import { SniperBullet } from "@server/entities/projectiles/SniperBullet.ts";
+import { HouseL } from "@server/entities/structures/HouseL.ts";
+import { HouseM } from "@server/entities/structures/HouseM.ts";
+import { HouseXl } from "@server/entities/structures/HouseXl.ts";
+import { DungeonWall } from "@server/entities/structures/DungeonWall.ts";
+import { FenceH } from "@server/entities/structures/FenceH.ts";
+import { FenceV } from "@server/entities/structures/FenceV.ts";
+import { Tent } from "@server/entities/structures/Tent.ts";
+import { Tree } from "@server/entities/structures/Tree.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
@@ -47,6 +53,12 @@ import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
 import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
+import { StructureHouseLItem } from "@server/items/structures/StructureHouseLItem.ts";
+import { StructureHouseMItem } from "@server/items/structures/StructureHouseMItem.ts";
+import { StructureFenceHItem } from "@server/items/structures/StructureFenceHItem.ts";
+import { StructureFenceVItem } from "@server/items/structures/StructureFenceVItem.ts";
+import { StructureTentItem } from "@server/items/structures/StructureTentItem.ts";
+import { StructureTreeItem } from "@server/items/structures/StructureTreeItem.ts";
 import { WallItem } from "@server/items/structures/WallItem.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
@@ -77,14 +89,15 @@ export const entityRuntimeCtors = [
   Saboteur,
   Shoota,
   Wallbreaker,
-  BuildingL,
-  BuildingM,
-  BuildingXl,
+  HouseL,
+  HouseM,
+  HouseXl,
   Cannon,
   Chest,
   CraftingStation,
   FenceH,
   FenceV,
+  DungeonWall,
   Landmine,
   Recycler,
   Tent,
@@ -133,6 +146,12 @@ export const itemRuntimeCtors = [
   ChestItem,
   CraftingStationItem,
   LandmineItem,
+  StructureHouseLItem,
+  StructureHouseMItem,
+  StructureFenceHItem,
+  StructureFenceVItem,
+  StructureTentItem,
+  StructureTreeItem,
 ] as const;
 
 export const effectRuntimeCtors = [

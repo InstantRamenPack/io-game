@@ -8,6 +8,14 @@ export class PixiViewportController {
   private cameraTargetX = 0;
   private cameraTargetY = 0;
   private cameraInitialized = false;
+  private lastCameraDeltaX = 0;
+  private lastCameraDeltaY = 0;
+  private cameraSnapCount = 0;
+  private cameraMode: "uninitialized" | "snap" | "smooth" | "settled" =
+    "uninitialized";
+  private readonly cameraFollowSharpness = 22;
+  private readonly cameraSnapDistance = 320;
+  private readonly cameraSettleEpsilon = 0.001;
   private gameplayViewportWidth = 0;
   private gameplayViewportHeight = 0;
   private swimOffsetX = 0;
@@ -40,6 +48,7 @@ export class PixiViewportController {
       this.cameraPivotX = x;
       this.cameraPivotY = y;
       this.cameraInitialized = true;
+      this.cameraMode = "snap";
     }
   }
 
@@ -52,6 +61,10 @@ export class PixiViewportController {
     this.cameraInitialized = false;
     this.swimOffsetX = 0;
     this.swimOffsetY = 0;
+    this.lastCameraDeltaX = 0;
+    this.lastCameraDeltaY = 0;
+    this.cameraSnapCount = 0;
+    this.cameraMode = "uninitialized";
     this.viewRectCache = null;
   }
 
@@ -60,9 +73,31 @@ export class PixiViewportController {
       return;
     }
 
-    // Immediately lock camera pivot to target (no smoothing)
-    this.cameraPivotX = this.cameraTargetX;
-    this.cameraPivotY = this.cameraTargetY;
+    const beforeX = this.cameraPivotX;
+    const beforeY = this.cameraPivotY;
+    const targetDeltaX = this.cameraTargetX - this.cameraPivotX;
+    const targetDeltaY = this.cameraTargetY - this.cameraPivotY;
+    const targetDistance = Math.hypot(targetDeltaX, targetDeltaY);
+
+    if (targetDistance > this.cameraSnapDistance) {
+      this.cameraPivotX = this.cameraTargetX;
+      this.cameraPivotY = this.cameraTargetY;
+      this.cameraSnapCount += 1;
+      this.cameraMode = "snap";
+    } else if (targetDistance <= this.cameraSettleEpsilon) {
+      this.cameraPivotX = this.cameraTargetX;
+      this.cameraPivotY = this.cameraTargetY;
+      this.cameraMode = "settled";
+    } else {
+      const dtSeconds = Math.max(0, deltaMs) / 1000;
+      const follow = 1 - Math.exp(-this.cameraFollowSharpness * dtSeconds);
+      this.cameraPivotX += targetDeltaX * follow;
+      this.cameraPivotY += targetDeltaY * follow;
+      this.cameraMode = "smooth";
+    }
+
+    this.lastCameraDeltaX = this.cameraPivotX - beforeX;
+    this.lastCameraDeltaY = this.cameraPivotY - beforeY;
     this.sync(app, worldRoot);
   }
 
@@ -79,6 +114,33 @@ export class PixiViewportController {
 
   public getCameraPosition(): { x: number; y: number } {
     return { x: this.cameraPivotX, y: this.cameraPivotY };
+  }
+
+  public getCameraDebugState(app: Application | null): {
+    x: number;
+    y: number;
+    targetX: number;
+    targetY: number;
+    deltaX: number;
+    deltaY: number;
+    screenDeltaX: number;
+    screenDeltaY: number;
+    snapCount: number;
+    mode: "uninitialized" | "snap" | "smooth" | "settled";
+  } {
+    const scale = app ? this.getGameplayScale(app) : 1;
+    return {
+      x: this.cameraPivotX,
+      y: this.cameraPivotY,
+      targetX: this.cameraTargetX,
+      targetY: this.cameraTargetY,
+      deltaX: this.lastCameraDeltaX,
+      deltaY: this.lastCameraDeltaY,
+      screenDeltaX: this.lastCameraDeltaX * scale,
+      screenDeltaY: this.lastCameraDeltaY * scale,
+      snapCount: this.cameraSnapCount,
+      mode: this.cameraMode,
+    };
   }
 
   public getCurrentScale(app: Application): number {
@@ -115,6 +177,20 @@ export class PixiViewportController {
     return {
       x: ((clientX - rect.left) / rect.width) * app.screen.width,
       y: ((clientY - rect.top) / rect.height) * app.screen.height,
+    };
+  }
+
+  public worldToScreen(
+    app: Application,
+    worldRoot: Container,
+    worldX: number,
+    worldY: number,
+  ): { x: number; y: number } {
+    return {
+      x:
+        (worldX - worldRoot.pivot.x) * worldRoot.scale.x + worldRoot.position.x,
+      y:
+        (worldY - worldRoot.pivot.y) * worldRoot.scale.y + worldRoot.position.y,
     };
   }
 

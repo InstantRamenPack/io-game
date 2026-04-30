@@ -6,18 +6,19 @@ import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 
-const BUILDING_DAMAGE = 10;
-const PLAYER_DAMAGE = 3;
+const BUILDING_DAMAGE_MULTIPLIER = 1;
+const PLAYER_DAMAGE_MULTIPLIER = 0.5;
 
 /**
- * Sword used by the Saboteur. Deals double damage to buildings and half damage to players.
+ * Saboteur sword keeps all base combat stats in shared JSON and applies
+ * target-type multipliers only as runtime behavior.
  */
 export class SaboteurSword extends SweepMeleeWeapon {
   public static override readonly resourceName = "saboteur_sword";
 
-  private readonly buildingDamageEffect = new DamageEffect(BUILDING_DAMAGE);
-  private readonly playerDamageEffect = new DamageEffect(PLAYER_DAMAGE);
-  private readonly knockbackEffect = new KnockbackEffect();
+  private readonly buildingDamageEffect: DamageEffect;
+  private readonly playerDamageEffect: DamageEffect;
+  private readonly knockbackEffect: KnockbackEffect;
 
   constructor() {
     const weaponContent = requireSwingWeaponRuntime(SaboteurSword.typeId);
@@ -27,6 +28,13 @@ export class SaboteurSword extends SweepMeleeWeapon {
       [],
       weaponContent.sweepArcDeg,
     );
+    this.buildingDamageEffect = new DamageEffect(
+      weaponContent.damage * BUILDING_DAMAGE_MULTIPLIER,
+    );
+    this.playerDamageEffect = new DamageEffect(
+      weaponContent.damage * PLAYER_DAMAGE_MULTIPLIER,
+    );
+    this.knockbackEffect = new KnockbackEffect(weaponContent.knockback);
   }
 
   protected override applyHitEffects(

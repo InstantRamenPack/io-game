@@ -3,6 +3,7 @@ import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { Player } from "@server/entities/Player.ts";
 import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 
 const PLAYER_BASE_TYPE_ID = makeResourceId("player", "base");
 
@@ -16,7 +17,11 @@ export function applyPlayerStarterLoadout(player: Player): void {
         `Starter loadout weapon ${weaponTypeId} is not a weapon item type.`,
       );
     }
-    player.inventory.addWeapon(new weaponEntry.ctor());
+    if (!grantItemEntryByAcquisitionRules(player.inventory, weaponEntry, 1)) {
+      throw new Error(
+        `Starter loadout weapon ${weaponTypeId} could not be granted to inventory.`,
+      );
+    }
   }
 
   for (const stackable of starterLoadout.stackables) {
@@ -26,7 +31,17 @@ export function applyPlayerStarterLoadout(player: Player): void {
         `Starter loadout stackable ${stackable.typeId} cannot be a weapon item type.`,
       );
     }
-    player.inventory.addStackable(stackable.typeId, stackable.amount);
+    if (
+      !grantItemEntryByAcquisitionRules(
+        player.inventory,
+        itemEntry,
+        stackable.amount,
+      )
+    ) {
+      throw new Error(
+        `Starter loadout stackable ${stackable.typeId} could not be granted to inventory.`,
+      );
+    }
   }
 
   player.inventory.setSelectedHotbarIndex(starterLoadout.selectedHotbarIndex);

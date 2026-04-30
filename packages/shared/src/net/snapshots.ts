@@ -1,5 +1,6 @@
 import { HitboxRectSchema } from "@shared/geometry/hitbox.ts";
 import { AttackStyleSchema, ENTITY_KINDS } from "@shared/content/schema.ts";
+import { CHEST_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import { NetEventSchema } from "@shared/net/events.ts";
 import {
   EntityIdSchema,
@@ -11,6 +12,8 @@ import {
   makeFixedLengthArraySchema,
 } from "@shared/validation/schemas.ts";
 import { z } from "zod";
+
+export { CHEST_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 
 export const DayNightPhaseSchema = z.enum(["day", "night"]);
 export type DayNightPhase = z.infer<typeof DayNightPhaseSchema>;
@@ -75,6 +78,8 @@ export const InventorySnapshotSchema = z.object({
 export const ActiveEffectSnapshotSchema = z.object({
   typeId: ResourceIdSchema,
   ticksRemaining: PositiveIntSchema,
+  preventsAction: z.boolean().optional(),
+  speedMultiplier: z.number().finite().nonnegative().optional(),
 });
 
 export const EntitySnapshotBaseSchema = z.object({
@@ -110,8 +115,6 @@ export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   equippedItem: EquippedItemSnapshotSchema.optional(),
 });
 
-export const CHEST_SLOT_COUNT = 27;
-
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("building"),
   label: z.string(),
@@ -120,6 +123,11 @@ export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
     .array(InventorySlotSnapshotSchema)
     .length(CHEST_SLOT_COUNT)
     .optional(),
+});
+
+export const StructureSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("structure"),
+  label: z.string(),
 });
 
 export const ProjectileSnapshotSchema = EntitySnapshotBaseSchema.extend({
@@ -135,6 +143,7 @@ export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
   PlayerSnapshotSchema,
   EnemySnapshotSchema,
   BuildingSnapshotSchema,
+  StructureSnapshotSchema,
   ProjectileSnapshotSchema,
   PickupSnapshotSchema,
 ]);
@@ -149,6 +158,7 @@ export const DayNightSnapshotSchema = z.object({
 
 export const WorldSnapshotSchema = z.object({
   tick: NonNegativeIntSchema,
+  lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
@@ -156,38 +166,72 @@ export const WorldSnapshotSchema = z.object({
   events: z.array(NetEventSchema),
 });
 
+type ObjectSchema = z.ZodObject<z.ZodRawShape>;
+
+function schemaKeys(schema: ObjectSchema): readonly string[] {
+  return Object.freeze([...schema.keyof().options]);
+}
+
+function extensionSchemaKeys(
+  baseSchema: ObjectSchema,
+  extendedSchema: ObjectSchema,
+): readonly string[] {
+  const base = new Set(schemaKeys(baseSchema));
+  return Object.freeze(
+    schemaKeys(extendedSchema).filter((key) => !base.has(key)),
+  );
+}
+
+function assertDescriptorCoverage(
+  label: string,
+  descriptor: readonly string[],
+  schema: ObjectSchema,
+): void {
+  const descriptorSet = new Set(descriptor);
+  const schemaKeyList = schemaKeys(schema);
+  const schemaSet = new Set(schemaKeyList);
+  const missingKeys = schemaKeyList.filter((key) => !descriptorSet.has(key));
+  const unknownKeys = descriptor.filter((key) => !schemaSet.has(key));
+  if (missingKeys.length === 0 && unknownKeys.length === 0) {
+    return;
+  }
+  throw new Error(
+    `[compat] Snapshot descriptor mismatch for ${label}. missing=${missingKeys.join(",")} unknown=${unknownKeys.join(",")}`,
+  );
+}
+
 export const SNAPSHOT_COMPAT_DESCRIPTOR = Object.freeze({
-  entityBase: [
-    "id",
-    "kind",
-    "typeId",
-    "x",
-    "y",
-    "vx",
-    "vy",
-    "rotation",
-    "hitboxes",
-    "hp",
-    "maxHp",
-    "alive",
-    "ownerId",
-  ],
-  equippedItem: [
-    "typeId",
-    "attackStyle",
-    "cooldownTicksRemaining",
-    "ammoInMag",
-    "magSize",
-    "reserveMagCount",
-    "reloadTicks",
-    "reloadTicksRemaining",
-  ],
-  player: ["name", "inventory", "activeEffects", "moveSpeed", "equippedItem"],
-  enemy: ["targetId", "equippedItem"],
-  building: ["label", "tier", "chestSlots"],
-  pickup: ["inventory"],
-  world: ["tick", "dayNight", "entities", "events"],
+  entityBase: schemaKeys(EntitySnapshotBaseSchema),
+  equippedItem: schemaKeys(EquippedItemSnapshotSchema),
+  player: extensionSchemaKeys(EntitySnapshotBaseSchema, PlayerSnapshotSchema),
+  enemy: extensionSchemaKeys(EntitySnapshotBaseSchema, EnemySnapshotSchema),
+  building: extensionSchemaKeys(
+    EntitySnapshotBaseSchema,
+    BuildingSnapshotSchema,
+  ),
+  structure: extensionSchemaKeys(
+    EntitySnapshotBaseSchema,
+    StructureSnapshotSchema,
+  ),
+  pickup: extensionSchemaKeys(EntitySnapshotBaseSchema, PickupSnapshotSchema),
+  world: schemaKeys(WorldSnapshotSchema),
 });
+
+assertDescriptorCoverage(
+  "entityBase",
+  SNAPSHOT_COMPAT_DESCRIPTOR.entityBase,
+  EntitySnapshotBaseSchema,
+);
+assertDescriptorCoverage(
+  "equippedItem",
+  SNAPSHOT_COMPAT_DESCRIPTOR.equippedItem,
+  EquippedItemSnapshotSchema,
+);
+assertDescriptorCoverage(
+  "world",
+  SNAPSHOT_COMPAT_DESCRIPTOR.world,
+  WorldSnapshotSchema,
+);
 
 export type WeaponSnapshot = z.infer<typeof WeaponSnapshotSchema>;
 export type EquippedItemSnapshot = z.infer<typeof EquippedItemSnapshotSchema>;
@@ -198,6 +242,7 @@ export type EntitySnapshotBase = z.infer<typeof EntitySnapshotBaseSchema>;
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
 export type EnemySnapshot = z.infer<typeof EnemySnapshotSchema>;
 export type BuildingSnapshot = z.infer<typeof BuildingSnapshotSchema>;
+export type StructureSnapshot = z.infer<typeof StructureSnapshotSchema>;
 export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
 export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;
 export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;

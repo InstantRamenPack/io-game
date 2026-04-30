@@ -19,7 +19,7 @@ type FilterResult = {
  */
 export class ChatService {
   private readonly maxMessageLength = 240;
-  private readonly placeholderNsfwList = ["badword1", "badword2"];
+  private readonly blockedTerms: readonly string[];
   private readonly context: ChatContext;
   private readonly commandRouter: ChatCommandRouter;
 
@@ -28,6 +28,7 @@ export class ChatService {
     world,
     playerIdByClientId,
   }: ChatServiceOptions) {
+    this.blockedTerms = parseBlockedTermsFromEnv();
     this.context = new ChatContext({
       networkServer,
       world,
@@ -76,12 +77,13 @@ export class ChatService {
     return cleaned.slice(0, this.maxMessageLength);
   }
 
-  /**
-   * Placeholder NSFW filter. Swap this with a real moderation service.
-   */
   private applyNsfwFilter(text: string): FilterResult {
+    if (this.blockedTerms.length === 0) {
+      return { text, flagged: false };
+    }
+
     let filtered = text;
-    for (const term of this.placeholderNsfwList) {
+    for (const term of this.blockedTerms) {
       const matcher = new RegExp(`\\b${term}\\b`, "gi");
       filtered = filtered.replace(matcher, "****");
     }
@@ -90,4 +92,20 @@ export class ChatService {
       flagged: filtered !== text,
     };
   }
+}
+
+/**
+ * CHAT_FILTER_TERMS accepts a comma-separated list of exact blocked terms.
+ * Empty or missing config keeps chat unmodified.
+ */
+function parseBlockedTermsFromEnv(): readonly string[] {
+  const configured = process.env.CHAT_FILTER_TERMS;
+  if (!configured) {
+    return [];
+  }
+
+  return configured
+    .split(",")
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0);
 }

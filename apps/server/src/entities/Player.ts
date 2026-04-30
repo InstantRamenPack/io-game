@@ -1,8 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  getBlueprintUnlockedRecipeTypeId,
-  isRecipeBlueprintLocked,
-} from "@shared/content/catalog.ts";
+import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -14,7 +11,7 @@ import {
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { ActionMessage, MoveIntentKey } from "@shared/net/protocol.ts";
+import type { ActionMessage, InputMovement } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import {
@@ -23,6 +20,7 @@ import {
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import {
@@ -30,12 +28,24 @@ import {
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
 import type { World } from "@server/world/World.ts";
-import { isBuildingCtor, isWeaponCtor } from "@server/runtime/ctorGuards.ts";
+import {
+  isBuildingCtor,
+  isStructureCtor,
+  isWeaponCtor,
+} from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
-type HeldMovementState = Record<MoveIntentKey, boolean>;
+type PlayerInputIntentState = {
+  seq: number;
+  clientTimeMs?: number;
+  theta: number;
+  movement: InputMovement;
+  receivedAtMs: number;
+};
+
+const STRUCTURE_TILE_SIZE = 16;
 
 const RECYCLE_HUNK_BY_ITEM: Record<string, number> = {
   "item:fists": 0,
@@ -71,6 +81,7 @@ export class Player extends Entity {
   public static override readonly resourceName = "base";
 
   public static readonly MAX_FOOD = 100;
+  private static readonly INPUT_STALE_TIMEOUT_MS = 250;
   // Drains to zero in 3 minutes at 20 ticks/sec
   private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
 
@@ -84,13 +95,7 @@ export class Player extends Entity {
   public readonly queuedActions: ActionMessage[] = [];
   private queuedActionHead = 0;
   private aimTheta = 0;
-
-  private readonly heldMovement: HeldMovementState = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-  };
+  private latestInputIntent?: PlayerInputIntentState;
 
   constructor(id: number, name = "player") {
     const baseline = requireMovingEntityBaselineContent(Player.typeId);
@@ -110,10 +115,6 @@ export class Player extends Entity {
     });
   }
 
-  public setMoveIntent(key: MoveIntentKey, pressed: boolean): void {
-    this.heldMovement[key] = pressed;
-  }
-
   public enqueueAction(actionMessage: ActionMessage): void {
     this.queuedActions.push(actionMessage);
     if (this.queuedActions.length - this.queuedActionHead <= 64) {
@@ -131,13 +132,17 @@ export class Player extends Entity {
     this.aimTheta = normalizeAngle(theta);
   }
 
+  public applyInputIntent(input: PlayerInputIntentState): void {
+    this.latestInputIntent = {
+      ...input,
+      theta: normalizeAngle(input.theta),
+      movement: { ...input.movement },
+    };
+  }
+
   public clearQueuedInputState(): void {
     this.queuedActions.length = 0;
     this.queuedActionHead = 0;
-    this.heldMovement.up = false;
-    this.heldMovement.down = false;
-    this.heldMovement.left = false;
-    this.heldMovement.right = false;
   }
 
   public getQueuedActionCount(): number {
@@ -158,7 +163,10 @@ export class Player extends Entity {
     this.fists.tick(world);
 
     this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
-    this.applyHeldMovement(world);
+    const hasFreshInput = this.applyLatestInputIntent(world);
+    if (!hasFreshInput) {
+      this.resetDriveVelocity();
+    }
     this.rotation = this.aimTheta;
     this.applyQueuedActions(world);
   }
@@ -208,6 +216,7 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.rotation = 0;
+    this.latestInputIntent = undefined;
     this.collisionMode = "none";
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_died", this, {
@@ -231,6 +240,7 @@ export class Player extends Entity {
     this.activeEffects = [];
     this.clearQueuedInputState();
     this.aimTheta = 0;
+    this.latestInputIntent = undefined;
     this.x = world.gameConfig.worldSize.w / 2;
     this.y = world.gameConfig.worldSize.h / 2;
     this.rotation = 0;
@@ -367,8 +377,8 @@ export class Player extends Entity {
     }
 
     const itemEntry = itemTypeRegistry.get(itemTypeId);
-    const buildingTypeId = itemEntry?.content.buildsEntityTypeId;
-    if (!buildingTypeId) {
+    const targetEntityTypeId = itemEntry?.content.buildsEntityTypeId;
+    if (!targetEntityTypeId) {
       return;
     }
 
@@ -379,108 +389,167 @@ export class Player extends Entity {
       return;
     }
 
-    const buildingEntry = entityTypeRegistry.get(buildingTypeId);
-    if (!buildingEntry) {
+    const targetEntityEntry = entityTypeRegistry.get(targetEntityTypeId);
+    if (!targetEntityEntry) {
       return;
     }
 
-    if (!isBuildingCtor(buildingEntry.ctor)) {
+    const targetEntityCtor = targetEntityEntry.ctor;
+    const isBuilding = isBuildingCtor(targetEntityCtor);
+    const isStructure = isStructureCtor(targetEntityCtor);
+    if (!isBuilding && !isStructure) {
       return;
     }
 
-    const building = new buildingEntry.ctor(world.allocEntityId());
-    building.x = targetX;
-    building.y = targetY;
-    building.ownerId = this.id;
-    const buildingBounds = building.getWorldBounds();
+    const placedEntity = new targetEntityCtor(world.allocEntityId());
+    const snappedTargetX = isStructure
+      ? Math.floor(targetX / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+        STRUCTURE_TILE_SIZE / 2
+      : targetX;
+    const snappedTargetY = isStructure
+      ? Math.floor(targetY / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+        STRUCTURE_TILE_SIZE / 2
+      : targetY;
+    placedEntity.x = snappedTargetX;
+    placedEntity.y = snappedTargetY;
+    placedEntity.ownerId = this.id;
+    const placedBounds = placedEntity.getWorldBounds();
 
     if (
-      buildingBounds.minX < 0 ||
-      buildingBounds.minY < 0 ||
-      buildingBounds.maxX > world.gameConfig.worldSize.w ||
-      buildingBounds.maxY > world.gameConfig.worldSize.h
+      placedBounds.minX < 0 ||
+      placedBounds.minY < 0 ||
+      placedBounds.maxX > world.gameConfig.worldSize.w ||
+      placedBounds.maxY > world.gameConfig.worldSize.h
     ) {
       return;
     }
 
+    if (this.doHitboxesOverlap(placedEntity, this)) {
+      return;
+    }
+
     for (const entity of world.spatial.queryBox(
-      buildingBounds.minX,
-      buildingBounds.minY,
-      buildingBounds.maxX,
-      buildingBounds.maxY,
+      placedBounds.minX,
+      placedBounds.minY,
+      placedBounds.maxX,
+      placedBounds.maxY,
     )) {
       if (entity.id === this.id || entity.collisionMode === "none") {
         continue;
       }
-      if (this.doHitboxesOverlap(building, entity)) {
+      if (this.doHitboxesOverlap(placedEntity, entity)) {
         return;
       }
     }
 
-    if (!this.inventory.consumeSelectedBuildable(1)) {
+    if (
+      !this.isDebugCreativeEditor() &&
+      !this.inventory.consumeSelectedBuildable(1)
+    ) {
       return;
     }
 
-    world.spawn(building);
+    world.spawn(placedEntity);
   }
 
-  private applyHeldMovement(world: World): void {
-    const shouldTrace = world.focusedTrace.matchesEntity(this);
-    if (this.isStunned()) {
-      const clearedQueuedActions =
-        this.queuedActions.length - this.queuedActionHead;
-      this.queuedActions.length = 0;
-      this.queuedActionHead = 0;
-      this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
-      if (shouldTrace) {
+  private applyLatestInputIntent(world: World): boolean {
+    const input = this.latestInputIntent;
+    if (!input) {
+      return false;
+    }
+    if (
+      world.simulationTimeMs - input.receivedAtMs >
+      Player.INPUT_STALE_TIMEOUT_MS
+    ) {
+      if (world.focusedTrace.matchesEntity(this)) {
         world.focusedTrace.recordEntityEvent(
           world,
-          "movement_blocked_stunned",
+          "input_intent_stale",
           this,
           {
-            clearedQueuedActions,
+            seq: input.seq,
+            clientTimeMs: input.clientTimeMs ?? null,
+            receivedAtMs: input.receivedAtMs,
+            simulationTimeMs: world.simulationTimeMs,
           },
         );
       }
-      return;
+      return false;
     }
 
-    let moveX =
-      Number(this.heldMovement.right) - Number(this.heldMovement.left);
-    let moveY = Number(this.heldMovement.down) - Number(this.heldMovement.up);
-    const vectorLength = Math.hypot(moveX, moveY);
-    if (vectorLength > 1) {
-      moveX /= vectorLength;
-      moveY /= vectorLength;
+    this.aimTheta = input.theta;
+    this.rotation = input.theta;
+    const desiredVelocity = this.computeDesiredVelocity(input.movement);
+    this.setDesiredVelocity(desiredVelocity.x, desiredVelocity.y);
+
+    if (world.focusedTrace.matchesEntity(this)) {
+      world.focusedTrace.recordEntityEvent(
+        world,
+        "input_intent_tick_applied",
+        this,
+        {
+          seq: input.seq,
+          clientTimeMs: input.clientTimeMs ?? null,
+          movement: { ...input.movement },
+          desiredVx: desiredVelocity.x,
+          desiredVy: desiredVelocity.y,
+          theta: input.theta,
+        },
+      );
+    }
+    return true;
+  }
+
+  private computeDesiredVelocity(movement: InputMovement): {
+    x: number;
+    y: number;
+  } {
+    if (this.isStunned()) {
+      return { x: 0, y: 0 };
     }
 
-    const speedMultiplier = this.activeEffects.reduce(
-      (accumulator, effect) =>
-        effect.speedMultiplier !== undefined
-          ? accumulator * effect.speedMultiplier
-          : accumulator,
-      1,
+    let moveX = 0;
+    let moveY = 0;
+    if (movement.left) {
+      moveX -= 1;
+    }
+    if (movement.right) {
+      moveX += 1;
+    }
+    if (movement.up) {
+      moveY -= 1;
+    }
+    if (movement.down) {
+      moveY += 1;
+    }
+
+    const magnitude = Math.hypot(moveX, moveY);
+    if (magnitude <= Number.EPSILON) {
+      return { x: 0, y: 0 };
+    }
+
+    const speed = this.moveSpeed * this.getMovementSpeedMultiplier();
+    return {
+      x: (moveX / magnitude) * speed,
+      y: (moveY / magnitude) * speed,
+    };
+  }
+
+  private getMovementSpeedMultiplier(): number {
+    let multiplier = 1;
+    for (const effect of this.activeEffects) {
+      if (effect.speedMultiplier !== undefined) {
+        multiplier *= effect.speedMultiplier;
+      }
+    }
+    return multiplier;
+  }
+
+  private isDebugCreativeEditor(): boolean {
+    return (
+      process.env.NODE_ENV !== "production" &&
+      this.name.toLowerCase() === "debug"
     );
-
-    this.setDesiredVelocity(
-      moveX * this.moveSpeed * speedMultiplier,
-      moveY * this.moveSpeed * speedMultiplier,
-    );
-    if (shouldTrace) {
-      const velocityComponents = this.getDebugVelocityComponents();
-      world.focusedTrace.recordEntityEvent(world, "movement_resolved", this, {
-        heldMovement: { ...this.heldMovement },
-        moveX,
-        moveY,
-        speedMultiplier,
-        desiredVx: velocityComponents.desiredVx,
-        desiredVy: velocityComponents.desiredVy,
-        driveVx: velocityComponents.driveVx,
-        driveVy: velocityComponents.driveVy,
-        momentumVx: velocityComponents.momentumVx,
-        momentumVy: velocityComponents.momentumVy,
-      });
-    }
   }
 
   private applyQueuedActions(world: World): void {
@@ -632,14 +701,15 @@ export class Player extends Entity {
       return;
     }
 
-    if (!this.inventory.absorbInventory(nearestPickup.contents)) {
+    if (
+      !absorbInventoryByAcquisitionRules(this.inventory, nearestPickup.contents)
+    ) {
       return;
     }
-
-    this.unlockBlueprintPickupRecipes(nearestPickup.contents);
     world.despawn(nearestPickup.id);
   }
 
+<<<<<<< HEAD
   private recycleSelectedItem(world: World): void {
     if (!this.isNearRecycler(world)) {
       return;
@@ -728,6 +798,8 @@ export class Player extends Entity {
     }
   }
 
+=======
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   private applyChestMove(
     world: World,
     action: {

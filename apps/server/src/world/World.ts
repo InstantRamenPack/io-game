@@ -10,6 +10,7 @@ import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
+import { NavGridPathService } from "@server/world/NavGridPathService.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
 
 /**
@@ -18,6 +19,7 @@ import { SpatialIndex } from "@server/world/SpatialIndex.ts";
  */
 export class World {
   public tick = 0;
+  public simulationTimeMs = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
   public randomNumberGenerator: seedrandom.PRNG;
@@ -25,7 +27,19 @@ export class World {
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
+  public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
+  public readonly dungeonRoomsByZone = new Map<
+    string,
+    Array<{
+      id: string;
+      roomType: string;
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    }>
+  >();
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
   private readonly pickupSystem = new PickupSystem();
@@ -39,6 +53,7 @@ export class World {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
+    this.navPathService = new NavGridPathService(gameConfig.worldSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
     this.dayNightSystem = new DayNightSystem({
@@ -56,11 +71,13 @@ export class World {
   public step(): void {
     this.tick += 1;
     const deltaMs = 1000 / this.gameConfig.tickRate;
+    this.simulationTimeMs += deltaMs;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
 
     this.ensureSpatialIndex();
+    this.navPathService.updateDirty(this);
     const tickPhaseEntities = this.entities.all();
     for (const entity of tickPhaseEntities) {
       if (!this.entities.has(entity.id)) {
@@ -70,26 +87,7 @@ export class World {
     }
     this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
-    let movedEntity = false;
-    for (const entity of tickPhaseEntities) {
-      if (!this.entities.has(entity.id) || entity.collisionMode === "static") {
-        continue;
-      }
-      if (entity.vx !== 0 || entity.vy !== 0) {
-        movedEntity = true;
-      }
-      entity.x += entity.vx;
-      entity.y += entity.vy;
-    }
-    if (movedEntity) {
-      this.markSpatialDirty();
-    }
-    this.focusedTrace.recordWorldPhase(this, "after_integrate");
-
-    this.ensureSpatialIndex();
-
-    this.collisionSystem.update(this);
-    this.ensureSpatialIndex();
+    this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     for (const entity of this.entities.all()) {
@@ -111,6 +109,7 @@ export class World {
    */
   public spawn(entity: Entity): void {
     this.entities.add(entity);
+    this.navPathService.markEntityDirty(entity);
     this.markSpatialDirty();
   }
 
@@ -119,6 +118,10 @@ export class World {
    * @param id Entity id to despawn.
    */
   public despawn(id: number): void {
+    const entity = this.entities.get(id);
+    if (entity) {
+      this.navPathService.markEntityDirty(entity);
+    }
     this.entities.remove(id);
     this.entityIdGenerator.free(id);
     this.markSpatialDirty();
@@ -149,7 +152,21 @@ export class World {
     if (!this.spatialDirty) {
       return;
     }
-    this.spatial.rebuild(this.entities.all());
+    this.spatial.sync(this.entities.all());
     this.spatialDirty = false;
+  }
+
+  public registerDungeonRooms(
+    zoneId: string,
+    rooms: Array<{
+      id: string;
+      roomType: string;
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    }>,
+  ): void {
+    this.dungeonRoomsByZone.set(zoneId, rooms);
   }
 }

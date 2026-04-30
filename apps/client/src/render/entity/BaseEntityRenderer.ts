@@ -17,6 +17,12 @@ import type { WeaponContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import * as PIXI from "pixi.js";
 
+type EquippedContentCache = {
+  typeId: ResourceId;
+  weaponContent: WeaponContent;
+  texture: PIXI.Texture;
+};
+
 export abstract class BaseEntityRenderer implements EntityRenderer {
   protected readonly entityContainer: PIXI.Container;
   protected readonly entityGraphic: PIXI.Graphics;
@@ -43,6 +49,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   private lastAttackCooldownTicksRemaining = 0;
   private equippedRenderer: EquippedItemRenderer | null = null;
   private equippedRendererTypeId: ResourceId | null = null;
+  private equippedContentCache: EquippedContentCache | null = null;
 
   constructor(
     protected readonly pixiRenderer: PixiRenderer,
@@ -176,10 +183,15 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   public playAttackAnimation(entity: ClientEntity): void {
-    const weaponContent = entity.equippedItem
-      ? getWeaponContent(entity.equippedItem.typeId)
-      : undefined;
-    if (!entity.equippedItem || !weaponContent) {
+    const equippedItem = entity.equippedItem;
+    if (!equippedItem) {
+      return;
+    }
+
+    const weaponContent = this.getEquippedContent(
+      equippedItem.typeId,
+    )?.weaponContent;
+    if (!weaponContent) {
       return;
     }
 
@@ -198,13 +210,13 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
     this.attackAnimationRemainingMs = this.attackAnimationDurationMs;
     this.getEquippedItemRenderer(
-      entity.equippedItem.typeId,
+      equippedItem.typeId,
       weaponContent.attackStyle,
     ).onAttackStart?.(
       this.buildEquippedRenderContext(
         entity,
         entity.rotation,
-        entity.equippedItem.typeId,
+        equippedItem.typeId,
         weaponContent,
       ),
     );
@@ -215,6 +227,13 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.damageFlashDurationMs = Math.max(1, durationMs);
     this.damageFlashRemainingMs = this.damageFlashDurationMs;
     this.syncDamageFlashVisual();
+  }
+
+  public hasTransientAnimation(): boolean {
+    return (
+      this.damageFlashRemainingMs > 0.001 ||
+      this.attackAnimationRemainingMs > 0.001
+    );
   }
 
   public destroy(): void {
@@ -284,7 +303,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   private redrawHealthBar(entity: ClientEntity): void {
-    const canShow = entity.maxHp > 0;
+    const canShow = entity.kind !== "structure" && entity.maxHp > 0;
     this.healthBarContainer.visible = canShow;
     if (!canShow) {
       return;
@@ -330,20 +349,21 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.resetEquippedItemContainerChildren();
       this.equippedRenderer = null;
       this.equippedRendererTypeId = null;
+      this.equippedContentCache = null;
       return;
     }
 
-    const itemContent = getItemContent(equippedItem.typeId);
-    const weaponContent = getWeaponContent(equippedItem.typeId);
-    if (!itemContent || !weaponContent) {
+    const content = this.getEquippedContent(equippedItem.typeId);
+    if (!content) {
       this.equippedItemContainer.visible = false;
       this.resetEquippedItemContainerChildren();
       this.equippedRenderer = null;
       this.equippedRendererTypeId = null;
+      this.equippedContentCache = null;
       return;
     }
 
-    const renderManifest = weaponContent.equippedRender;
+    const { weaponContent } = content;
     const renderer = this.getEquippedItemRenderer(
       equippedItem.typeId,
       weaponContent.attackStyle,
@@ -356,15 +376,11 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       equippedItem.typeId,
       weaponContent,
     );
-    const textureTypeId =
-      renderManifest.textureTypeId ??
-      itemContent.iconTextureId ??
-      equippedItem.typeId;
     renderer.syncStatic({
       ...context,
       container: this.equippedItemContainer,
       sprite: this.equippedItemSprite,
-      texture: this.pixiRenderer.getItemSpriteTexture(textureTypeId),
+      texture: content.texture,
     });
     this.syncEquippedItemAnimation(entity, rotation);
   }
@@ -374,13 +390,18 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     rotation: number,
   ): void {
     const equippedItem = entity.equippedItem;
-    const weaponContent = equippedItem
-      ? getWeaponContent(equippedItem.typeId)
-      : undefined;
-    if (!equippedItem || !weaponContent) {
+    if (!equippedItem) {
       this.equippedItemContainer.visible = false;
       return;
     }
+
+    const content = this.getEquippedContent(equippedItem.typeId);
+    const weaponContent = content?.weaponContent;
+    if (!weaponContent) {
+      this.equippedItemContainer.visible = false;
+      return;
+    }
+
     const renderer = this.getEquippedItemRenderer(
       equippedItem.typeId,
       weaponContent.attackStyle,
@@ -410,7 +431,9 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     if (!equippedItem) {
       return;
     }
-    const weaponContent = getWeaponContent(equippedItem.typeId);
+    const weaponContent = this.getEquippedContent(
+      equippedItem.typeId,
+    )?.weaponContent;
     if (!weaponContent) {
       return;
     }
@@ -529,6 +552,32 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.equippedRenderer = renderer;
     this.equippedRendererTypeId = typeId;
     return renderer;
+  }
+
+  private getEquippedContent(
+    typeId: ResourceId,
+  ): EquippedContentCache | undefined {
+    if (this.equippedContentCache?.typeId === typeId) {
+      return this.equippedContentCache;
+    }
+
+    const itemContent = getItemContent(typeId);
+    const weaponContent = getWeaponContent(typeId);
+    if (!itemContent || !weaponContent) {
+      this.equippedContentCache = null;
+      return undefined;
+    }
+
+    const textureTypeId =
+      weaponContent.equippedRender.textureTypeId ??
+      itemContent.iconTextureId ??
+      typeId;
+    this.equippedContentCache = {
+      typeId,
+      weaponContent,
+      texture: this.pixiRenderer.getItemSpriteTexture(textureTypeId),
+    };
+    return this.equippedContentCache;
   }
 
   private resetEquippedItemContainerChildren(): void {

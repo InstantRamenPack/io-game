@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { BuildingL } from "@server/entities/buildings/BuildingL.ts";
 import { BuildingM } from "@server/entities/buildings/BuildingM.ts";
 import { BuildingXl } from "@server/entities/buildings/BuildingXl.ts";
@@ -21,94 +22,102 @@ type BuildingSpec =
   | { type: "recycler"; x: number; y: number }
   | { type: "tent"; x: number; y: number }
   | { type: "tree"; x: number; y: number };
+=======
+import seedrandom from "seedrandom";
+import { z } from "zod";
+import worldMapJson from "@server/config/world_map.json";
+import { Building } from "@server/entities/Building.ts";
+import type { Entity } from "@server/entities/Entity.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { ResourceIdSchema } from "@shared/validation/schemas.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
+import type { World } from "@server/world/World.ts";
 
-type EnemySpec =
-  | { kind: "drifter"; x: number; y: number }
-  | { kind: "shoota"; x: number; y: number }
-  | { kind: "police"; x: number; y: number };
+const TILE_SIZE = 16;
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 
-// ---------------------------------------------------------------------------
-// Military Base  (zone: x 300-2700, y 300-2700)
-// fence_h entities cover 400 units horizontally; fence_v cover 400 vertically
-// ---------------------------------------------------------------------------
-const MILITARY_STRUCTURES: BuildingSpec[] = [
-  // Perimeter — top row (y=300)
-  { type: "fence_h", x: 500, y: 300 },
-  { type: "fence_h", x: 900, y: 300 },
-  { type: "fence_h", x: 1300, y: 300 },
-  { type: "fence_h", x: 1700, y: 300 },
-  { type: "fence_h", x: 2100, y: 300 },
-  { type: "fence_h", x: 2500, y: 300 },
+const StaticSpawnSchema = z.object({
+  typeId: ResourceIdSchema,
+  x: z.number().finite(),
+  y: z.number().finite(),
+  label: z.string().optional(),
+});
 
-  // Perimeter — south row (y=2700), gate gap at x 1100-1900
-  { type: "fence_h", x: 500, y: 2700 },
-  { type: "fence_h", x: 900, y: 2700 },
-  { type: "fence_h", x: 2100, y: 2700 },
-  { type: "fence_h", x: 2500, y: 2700 },
+const DungeonEntranceSchema = z.object({
+  side: z.enum(["north", "south", "west", "east"]),
+  tile: z.number().int().nonnegative(),
+  widthTiles: z.number().int().positive().default(1),
+});
 
-  // Perimeter — left col (x=300)
-  { type: "fence_v", x: 300, y: 500 },
-  { type: "fence_v", x: 300, y: 900 },
-  { type: "fence_v", x: 300, y: 1300 },
-  { type: "fence_v", x: 300, y: 1700 },
-  { type: "fence_v", x: 300, y: 2100 },
-  { type: "fence_v", x: 300, y: 2500 },
+const DungeonConfigSchema = z.object({
+  originX: z.number().int().nonnegative(),
+  originY: z.number().int().nonnegative(),
+  widthTiles: z.number().int().positive(),
+  heightTiles: z.number().int().positive(),
+  seedOffset: z.number().int().default(0),
+  algorithm: z.literal("bsp"),
+  minLeafSizeTiles: z.number().int().positive().default(14),
+  maxDepth: z.number().int().positive().default(4),
+  minRoomSizeTiles: z.number().int().positive().default(6),
+  maxRoomSizeTiles: z.number().int().positive().default(14),
+  extraConnectionChance: z.number().min(0).max(1).default(0.2),
+  entrances: z.array(DungeonEntranceSchema).default([]),
+  roomTagPool: z.array(z.string().min(1)).default(["danger", "treasure"]),
+});
 
-  // Perimeter — right col (x=2700)
-  { type: "fence_v", x: 2700, y: 500 },
-  { type: "fence_v", x: 2700, y: 900 },
-  { type: "fence_v", x: 2700, y: 1300 },
-  { type: "fence_v", x: 2700, y: 1700 },
-  { type: "fence_v", x: 2700, y: 2100 },
-  { type: "fence_v", x: 2700, y: 2500 },
+const StaticZoneSchema = z.object({
+  id: z.string().min(1),
+  kind: z.literal("static"),
+  structures: z.array(StaticSpawnSchema).default([]),
+  enemies: z.array(StaticSpawnSchema).default([]),
+});
 
-  // Corner guard towers (moved inward enough that building edges clear the fence lines)
-  { type: "m", x: 530, y: 480, label: "Guard Tower" },
-  { type: "m", x: 2470, y: 480, label: "Guard Tower" },
-  { type: "m", x: 530, y: 2520, label: "Guard Tower" },
-  { type: "m", x: 2470, y: 2520, label: "Guard Tower" },
+const DungeonZoneSchema = z.object({
+  id: z.string().min(1),
+  kind: z.literal("dungeon"),
+  dungeon: DungeonConfigSchema,
+});
 
-  // Main buildings
-  { type: "xl", x: 1500, y: 1100, label: "Command Center" },
-  { type: "l", x: 700, y: 850, label: "Barracks" },
-  { type: "l", x: 2300, y: 850, label: "Barracks" },
-  { type: "l", x: 700, y: 1950, label: "Armory" },
-  { type: "l", x: 2300, y: 1950, label: "Vehicle Bay" },
+const WorldMapSchema = z.object({
+  seed: z.number().int().default(1337),
+  tileSize: z.number().int().positive().default(TILE_SIZE),
+  zones: z.array(
+    z.discriminatedUnion("kind", [StaticZoneSchema, DungeonZoneSchema]),
+  ),
+});
 
-  // Internal rocks / obstacles
-  { type: "m", x: 1500, y: 2200, label: "Watchtower" },
-];
+type StaticSpawn = z.infer<typeof StaticSpawnSchema>;
+type DungeonConfig = z.infer<typeof DungeonConfigSchema>;
+type StaticZone = z.infer<typeof StaticZoneSchema>;
+type WorldMapConfig = z.infer<typeof WorldMapSchema>;
 
-const MILITARY_ENEMIES: EnemySpec[] = [
-  { kind: "drifter", x: 1100, y: 1500 },
-  { kind: "drifter", x: 1900, y: 1500 },
-  { kind: "drifter", x: 1500, y: 700 },
-  { kind: "drifter", x: 800, y: 1400 },
-  { kind: "drifter", x: 2200, y: 1400 },
-  { kind: "drifter", x: 1500, y: 1800 },
-  { kind: "shoota", x: 1100, y: 800 },
-  { kind: "shoota", x: 1900, y: 800 },
-  { kind: "shoota", x: 700, y: 2200 },
-  { kind: "shoota", x: 2300, y: 2200 },
-  { kind: "police", x: 1500, y: 1500 },
-  { kind: "police", x: 900, y: 2000 },
-];
+type RoomRect = {
+  id: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  centerX: number;
+  centerY: number;
+  roomType: string;
+};
 
-// ---------------------------------------------------------------------------
-// Extraction Zone  (zone: x 350-1800, y 3300-4800)
-// ---------------------------------------------------------------------------
-const EXTRACTION_STRUCTURES: BuildingSpec[] = [
-  // Perimeter fences (loose, open feel)
-  { type: "fence_h", x: 750, y: 3350 },
-  { type: "fence_h", x: 1350, y: 3350 },
-  { type: "fence_h", x: 750, y: 4750 },
-  { type: "fence_h", x: 1350, y: 4750 },
-  { type: "fence_v", x: 400, y: 3750 },
-  { type: "fence_v", x: 400, y: 4300 },
-  // East side open (entrance from military side left unblocked)
-  { type: "fence_v", x: 1750, y: 3750 },
-  { type: "fence_v", x: 1750, y: 4300 },
+type LeafRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
 
+type TileRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+<<<<<<< HEAD
   // Control booth (moved left to clear fence_v at x=1750)
   { type: "m", x: 1400, y: 3600, label: "Control Booth" },
 ];
@@ -298,39 +307,537 @@ function spawnBuilding(world: World, spec: BuildingSpec): void {
     case "tree":
       building = new Tree(id);
       break;
+=======
+function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
+  const entry = entityTypeRegistry.require(spec.typeId);
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error(`Map spawn type ${spec.typeId} is not spawnable.`);
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   }
 
-  building.x = spec.x;
-  building.y = spec.y;
-  building.hp = 0;
-  building.maxHp = 0;
-  world.spawn(building);
+  const entity = new entry.ctor(world.allocEntityId());
+  if (entry.kind === "structure") {
+    entity.x = snapToTileCenter(spec.x);
+    entity.y = snapToTileCenter(spec.y);
+  } else {
+    entity.x = spec.x;
+    entity.y = spec.y;
+  }
+
+  if (entity instanceof Building) {
+    entity.hp = 0;
+    entity.maxHp = 0;
+  }
+
+  world.spawn(entity);
+  return entity;
 }
 
-function spawnEnemy(world: World, spec: EnemySpec): void {
-  const id = world.allocEntityId();
-  let enemy;
+function snapToTileCenter(value: number): number {
+  const tile = Math.floor(value / TILE_SIZE);
+  return tile * TILE_SIZE + TILE_SIZE / 2;
+}
 
-  switch (spec.kind) {
-    case "drifter":
-      enemy = new Drifter(id);
-      break;
-    case "shoota":
-      enemy = new Shoota(id);
-      break;
-    case "police":
-      enemy = new Police(id);
-      break;
+function tileRectCenter(
+  worldOrigin: number,
+  minTile: number,
+  maxTile: number,
+): number {
+  return worldOrigin + ((minTile + maxTile + 1) * TILE_SIZE) / 2;
+}
+
+function createFilledTileGrid(
+  widthTiles: number,
+  heightTiles: number,
+): Uint8Array {
+  return new Uint8Array(widthTiles * heightTiles).fill(1);
+}
+
+function tileIndex(widthTiles: number, x: number, y: number): number {
+  return y * widthTiles + x;
+}
+
+function clampTile(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function carveRect(
+  tiles: Uint8Array,
+  widthTiles: number,
+  heightTiles: number,
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): void {
+  const clampedMinX = clampTile(minX, 0, widthTiles - 1);
+  const clampedMaxX = clampTile(maxX, 0, widthTiles - 1);
+  const clampedMinY = clampTile(minY, 0, heightTiles - 1);
+  const clampedMaxY = clampTile(maxY, 0, heightTiles - 1);
+  for (let y = clampedMinY; y <= clampedMaxY; y += 1) {
+    for (let x = clampedMinX; x <= clampedMaxX; x += 1) {
+      tiles[tileIndex(widthTiles, x, y)] = 0;
+    }
+  }
+}
+
+function carveLine(
+  tiles: Uint8Array,
+  widthTiles: number,
+  heightTiles: number,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  halfWidth = 1,
+): void {
+  let x = fromX;
+  let y = fromY;
+
+  while (x !== toX) {
+    carveRect(
+      tiles,
+      widthTiles,
+      heightTiles,
+      x - halfWidth,
+      y - halfWidth,
+      x + halfWidth,
+      y + halfWidth,
+    );
+    x += toX > x ? 1 : -1;
   }
 
-  enemy.x = spec.x;
-  enemy.y = spec.y;
-  world.spawn(enemy);
+  while (y !== toY) {
+    carveRect(
+      tiles,
+      widthTiles,
+      heightTiles,
+      x - halfWidth,
+      y - halfWidth,
+      x + halfWidth,
+      y + halfWidth,
+    );
+    y += toY > y ? 1 : -1;
+  }
+
+  carveRect(
+    tiles,
+    widthTiles,
+    heightTiles,
+    x - halfWidth,
+    y - halfWidth,
+    x + halfWidth,
+    y + halfWidth,
+  );
+}
+
+function splitLeafBsp(
+  rng: seedrandom.PRNG,
+  root: LeafRect,
+  minLeafSizeTiles: number,
+  maxDepth: number,
+): LeafRect[] {
+  const leaves: LeafRect[] = [];
+  const stack: Array<{ leaf: LeafRect; depth: number }> = [
+    { leaf: root, depth: 0 },
+  ];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+
+    const { leaf, depth } = current;
+    const width = leaf.maxX - leaf.minX + 1;
+    const height = leaf.maxY - leaf.minY + 1;
+
+    const canSplitHoriz = height >= minLeafSizeTiles * 2;
+    const canSplitVert = width >= minLeafSizeTiles * 2;
+
+    if (depth >= maxDepth || (!canSplitHoriz && !canSplitVert)) {
+      leaves.push(leaf);
+      continue;
+    }
+
+    const splitVertical =
+      canSplitVert && (!canSplitHoriz || width >= height)
+        ? rng() >= 0.45
+        : false;
+
+    if (splitVertical && canSplitVert) {
+      const splitMin = leaf.minX + minLeafSizeTiles;
+      const splitMax = leaf.maxX - minLeafSizeTiles;
+      const splitX = Math.floor(
+        splitMin + rng() * Math.max(1, splitMax - splitMin + 1),
+      );
+      stack.push({
+        depth: depth + 1,
+        leaf: {
+          minX: leaf.minX,
+          maxX: splitX - 1,
+          minY: leaf.minY,
+          maxY: leaf.maxY,
+        },
+      });
+      stack.push({
+        depth: depth + 1,
+        leaf: {
+          minX: splitX,
+          maxX: leaf.maxX,
+          minY: leaf.minY,
+          maxY: leaf.maxY,
+        },
+      });
+      continue;
+    }
+
+    if (canSplitHoriz) {
+      const splitMin = leaf.minY + minLeafSizeTiles;
+      const splitMax = leaf.maxY - minLeafSizeTiles;
+      const splitY = Math.floor(
+        splitMin + rng() * Math.max(1, splitMax - splitMin + 1),
+      );
+      stack.push({
+        depth: depth + 1,
+        leaf: {
+          minX: leaf.minX,
+          maxX: leaf.maxX,
+          minY: leaf.minY,
+          maxY: splitY - 1,
+        },
+      });
+      stack.push({
+        depth: depth + 1,
+        leaf: {
+          minX: leaf.minX,
+          maxX: leaf.maxX,
+          minY: splitY,
+          maxY: leaf.maxY,
+        },
+      });
+      continue;
+    }
+
+    leaves.push(leaf);
+  }
+
+  return leaves;
+}
+
+function createRoomInLeaf(
+  rng: seedrandom.PRNG,
+  leaf: LeafRect,
+  minRoomSizeTiles: number,
+  maxRoomSizeTiles: number,
+  roomId: number,
+  roomTagPool: readonly string[],
+): RoomRect | null {
+  const leafWidth = leaf.maxX - leaf.minX + 1;
+  const leafHeight = leaf.maxY - leaf.minY + 1;
+  const maxRoomW = Math.min(maxRoomSizeTiles, leafWidth - 2);
+  const maxRoomH = Math.min(maxRoomSizeTiles, leafHeight - 2);
+
+  if (maxRoomW < minRoomSizeTiles || maxRoomH < minRoomSizeTiles) {
+    return null;
+  }
+
+  const roomWidth = Math.floor(
+    minRoomSizeTiles + rng() * (maxRoomW - minRoomSizeTiles + 1),
+  );
+  const roomHeight = Math.floor(
+    minRoomSizeTiles + rng() * (maxRoomH - minRoomSizeTiles + 1),
+  );
+
+  const roomMinX = Math.floor(
+    leaf.minX + 1 + rng() * Math.max(1, leafWidth - roomWidth - 1),
+  );
+  const roomMinY = Math.floor(
+    leaf.minY + 1 + rng() * Math.max(1, leafHeight - roomHeight - 1),
+  );
+  const roomMaxX = roomMinX + roomWidth - 1;
+  const roomMaxY = roomMinY + roomHeight - 1;
+
+  const uniqueRoomTags = [...new Set(roomTagPool)];
+  const roomType =
+    uniqueRoomTags[roomId] ??
+    roomTagPool[Math.floor(rng() * roomTagPool.length)] ??
+    "danger";
+
+  return {
+    id: `room_${roomId}`,
+    minX: roomMinX,
+    minY: roomMinY,
+    maxX: roomMaxX,
+    maxY: roomMaxY,
+    centerX: Math.floor((roomMinX + roomMaxX) / 2),
+    centerY: Math.floor((roomMinY + roomMaxY) / 2),
+    roomType,
+  };
+}
+
+function carveEntrances(
+  tiles: Uint8Array,
+  widthTiles: number,
+  heightTiles: number,
+  entrances: readonly z.infer<typeof DungeonEntranceSchema>[],
+): void {
+  for (const entrance of entrances) {
+    const width = Math.max(1, entrance.widthTiles);
+    if (entrance.side === "west") {
+      carveRect(
+        tiles,
+        widthTiles,
+        heightTiles,
+        0,
+        entrance.tile,
+        3,
+        entrance.tile + width - 1,
+      );
+      continue;
+    }
+    if (entrance.side === "east") {
+      carveRect(
+        tiles,
+        widthTiles,
+        heightTiles,
+        widthTiles - 4,
+        entrance.tile,
+        widthTiles - 1,
+        entrance.tile + width - 1,
+      );
+      continue;
+    }
+    if (entrance.side === "north") {
+      carveRect(
+        tiles,
+        widthTiles,
+        heightTiles,
+        entrance.tile,
+        0,
+        entrance.tile + width - 1,
+        3,
+      );
+      continue;
+    }
+    carveRect(
+      tiles,
+      widthTiles,
+      heightTiles,
+      entrance.tile,
+      heightTiles - 4,
+      entrance.tile + width - 1,
+      heightTiles - 1,
+    );
+  }
+}
+
+function extractSolidTileRects(
+  tiles: Uint8Array,
+  widthTiles: number,
+  heightTiles: number,
+): TileRect[] {
+  const claimed = new Uint8Array(tiles.length);
+  const rects: TileRect[] = [];
+
+  for (let y = 0; y < heightTiles; y += 1) {
+    for (let x = 0; x < widthTiles; x += 1) {
+      const startIndex = tileIndex(widthTiles, x, y);
+      if (tiles[startIndex] === 0 || claimed[startIndex] === 1) {
+        continue;
+      }
+
+      let maxX = x;
+      while (
+        maxX + 1 < widthTiles &&
+        tiles[tileIndex(widthTiles, maxX + 1, y)] === 1 &&
+        claimed[tileIndex(widthTiles, maxX + 1, y)] === 0
+      ) {
+        maxX += 1;
+      }
+
+      let maxY = y;
+      let canExtend = true;
+      while (canExtend && maxY + 1 < heightTiles) {
+        for (let scanX = x; scanX <= maxX; scanX += 1) {
+          const scanIndex = tileIndex(widthTiles, scanX, maxY + 1);
+          if (tiles[scanIndex] === 0 || claimed[scanIndex] === 1) {
+            canExtend = false;
+            break;
+          }
+        }
+        if (canExtend) {
+          maxY += 1;
+        }
+      }
+
+      for (let claimY = y; claimY <= maxY; claimY += 1) {
+        for (let claimX = x; claimX <= maxX; claimX += 1) {
+          claimed[tileIndex(widthTiles, claimX, claimY)] = 1;
+        }
+      }
+
+      rects.push({ minX: x, minY: y, maxX, maxY });
+    }
+  }
+
+  return rects;
+}
+
+function spawnDungeonWallRect(
+  world: World,
+  zone: DungeonConfig,
+  rect: TileRect,
+): void {
+  const entry = entityTypeRegistry.require(
+    "structure:dungeon_wall" as ResourceId,
+  );
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error("Dungeon wall type is not spawnable.");
+  }
+
+  const entity = new entry.ctor(world.allocEntityId());
+  entity.x = tileRectCenter(zone.originX, rect.minX, rect.maxX);
+  entity.y = tileRectCenter(zone.originY, rect.minY, rect.maxY);
+  entity.setHitboxProfileRects("default", [
+    {
+      width: (rect.maxX - rect.minX + 1) * TILE_SIZE,
+      height: (rect.maxY - rect.minY + 1) * TILE_SIZE,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  ]);
+  world.spawn(entity);
+}
+
+function spawnDungeonZone(
+  world: World,
+  zoneId: string,
+  zone: DungeonConfig,
+  mapSeed: number,
+): void {
+  const rng = seedrandom(`${mapSeed}:${zoneId}:${zone.seedOffset}`);
+  const tiles = createFilledTileGrid(zone.widthTiles, zone.heightTiles);
+  const rootLeaf: LeafRect = {
+    minX: 1,
+    minY: 1,
+    maxX: zone.widthTiles - 2,
+    maxY: zone.heightTiles - 2,
+  };
+  const leaves = splitLeafBsp(
+    rng,
+    rootLeaf,
+    zone.minLeafSizeTiles,
+    zone.maxDepth,
+  );
+
+  const rooms: RoomRect[] = [];
+  let roomCounter = 0;
+  for (const leaf of leaves) {
+    const room = createRoomInLeaf(
+      rng,
+      leaf,
+      zone.minRoomSizeTiles,
+      zone.maxRoomSizeTiles,
+      roomCounter,
+      zone.roomTagPool,
+    );
+    if (!room) {
+      continue;
+    }
+    roomCounter += 1;
+    rooms.push(room);
+    carveRect(
+      tiles,
+      zone.widthTiles,
+      zone.heightTiles,
+      room.minX,
+      room.minY,
+      room.maxX,
+      room.maxY,
+    );
+  }
+
+  const sortedRooms = [...rooms].sort((left, right) => {
+    if (left.centerX !== right.centerX) {
+      return left.centerX - right.centerX;
+    }
+    return left.centerY - right.centerY;
+  });
+
+  for (let index = 1; index < sortedRooms.length; index += 1) {
+    const previous = sortedRooms[index - 1];
+    const next = sortedRooms[index];
+    if (!previous || !next) {
+      continue;
+    }
+    carveLine(
+      tiles,
+      zone.widthTiles,
+      zone.heightTiles,
+      previous.centerX,
+      previous.centerY,
+      next.centerX,
+      next.centerY,
+      1,
+    );
+
+    if (rng() <= zone.extraConnectionChance) {
+      const randomRoom = sortedRooms[Math.floor(rng() * sortedRooms.length)];
+      if (randomRoom) {
+        carveLine(
+          tiles,
+          zone.widthTiles,
+          zone.heightTiles,
+          next.centerX,
+          next.centerY,
+          randomRoom.centerX,
+          randomRoom.centerY,
+          1,
+        );
+      }
+    }
+  }
+
+  carveEntrances(tiles, zone.widthTiles, zone.heightTiles, zone.entrances);
+
+  for (const rect of extractSolidTileRects(
+    tiles,
+    zone.widthTiles,
+    zone.heightTiles,
+  )) {
+    spawnDungeonWallRect(world, zone, rect);
+  }
+
+  world.registerDungeonRooms(
+    zoneId,
+    rooms.map((room) => ({
+      id: room.id,
+      roomType: room.roomType,
+      minX: zone.originX + room.minX * TILE_SIZE,
+      minY: zone.originY + room.minY * TILE_SIZE,
+      maxX: zone.originX + (room.maxX + 1) * TILE_SIZE,
+      maxY: zone.originY + (room.maxY + 1) * TILE_SIZE,
+    })),
+  );
+}
+
+function loadStaticZone(world: World, zone: StaticZone): void {
+  for (const spec of zone.structures) {
+    if (!spec.typeId.startsWith("structure:")) {
+      throw new Error(
+        `Static zone ${zone.id} contains non-structure map blocker ${spec.typeId}.`,
+      );
+    }
+    spawnMapEntity(world, spec);
+  }
+  for (const spec of zone.enemies) {
+    spawnMapEntity(world, spec);
+  }
 }
 
 /**
- * Spawns all static map structures and initial enemies into the world.
- * Call once during server initialization after bootstrapTypeRegistries().
+ * Spawns all map structures and initial enemies from data-backed zones.
  */
 // Recycler at player spawn (world center, open land between village and outpost)
 const SPAWN_STRUCTURES: BuildingSpec[] = [
@@ -338,31 +845,27 @@ const SPAWN_STRUCTURES: BuildingSpec[] = [
 ];
 
 export function loadMap(world: World): void {
+<<<<<<< HEAD
   for (const spec of SPAWN_STRUCTURES) {
     spawnBuilding(world, spec);
   }
   for (const spec of MILITARY_STRUCTURES) {
     spawnBuilding(world, spec);
+=======
+  const parsed = WorldMapSchema.parse(worldMapJson) as WorldMapConfig;
+  if (parsed.tileSize !== TILE_SIZE) {
+    throw new Error(
+      `Unsupported world_map tileSize=${parsed.tileSize}. Expected ${TILE_SIZE}.`,
+    );
+>>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   }
-  for (const spec of EXTRACTION_STRUCTURES) {
-    spawnBuilding(world, spec);
-  }
-  for (const spec of VILLAGE_STRUCTURES) {
-    spawnBuilding(world, spec);
-  }
-  for (const spec of OUTPOST_STRUCTURES) {
-    spawnBuilding(world, spec);
-  }
-  for (const pos of FOREST_TREES) {
-    spawnBuilding(world, { type: "tree", x: pos.x, y: pos.y });
-  }
-  for (const spec of MILITARY_ENEMIES) {
-    spawnEnemy(world, spec);
-  }
-  for (const spec of VILLAGE_ENEMIES) {
-    spawnEnemy(world, spec);
-  }
-  for (const spec of OUTPOST_ENEMIES) {
-    spawnEnemy(world, spec);
+
+  for (const zone of parsed.zones) {
+    if (zone.kind === "static") {
+      loadStaticZone(world, zone);
+      continue;
+    }
+
+    spawnDungeonZone(world, zone.id, zone.dungeon, parsed.seed);
   }
 }

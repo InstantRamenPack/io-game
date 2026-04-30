@@ -282,6 +282,17 @@ export abstract class Entity {
     this.syncVelocity();
   }
 
+  /**
+   * Clears desired/drive movement while preserving momentum impulses.
+   */
+  public resetDriveVelocity(): void {
+    this.desiredVx = 0;
+    this.desiredVy = 0;
+    this.driveVx = 0;
+    this.driveVy = 0;
+    this.syncVelocity();
+  }
+
   private syncVelocity(): void {
     this.vx = this.driveVx + this.momentumVx;
     this.vy = this.driveVy + this.momentumVy;
@@ -354,10 +365,14 @@ export abstract class Entity {
   public getActiveEffectSnapshots(): Array<{
     typeId: ResourceId;
     ticksRemaining: number;
+    preventsAction?: boolean;
+    speedMultiplier?: number;
   }> {
     return this.activeEffects.map((effect) => ({
       typeId: effect.typeId,
       ticksRemaining: effect.ticksRemaining,
+      preventsAction: effect.preventsAction,
+      speedMultiplier: effect.speedMultiplier,
     }));
   }
 

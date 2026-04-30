@@ -47,11 +47,13 @@ export class ClientWorld {
 
     const isFullSnapshot = snapshot.full !== false;
     let worldChanged = this.events.length > 0;
+    const touchedEntityIds = new Set<number>();
     if (isFullSnapshot) {
       this.dirtyEntityIds.clear();
     }
 
     for (const entitySnapshot of snapshot.entities) {
+      touchedEntityIds.add(entitySnapshot.id);
       if (isFullSnapshot) {
         this.dirtyEntityIds.add(entitySnapshot.id);
       }
@@ -85,11 +87,18 @@ export class ClientWorld {
       const removedEntityIds = snapshot.removedEntityIds;
       if (removedEntityIds) {
         for (const removedEntityId of removedEntityIds) {
+          touchedEntityIds.add(removedEntityId);
           if (!this.entities.has(removedEntityId)) {
             continue;
           }
           this.entities.delete(removedEntityId);
           worldChanged = true;
+        }
+      }
+
+      for (const entity of this.entities.values()) {
+        if (!touchedEntityIds.has(entity.id)) {
+          entity.pushServerHoldFrame(tick);
         }
       }
     }

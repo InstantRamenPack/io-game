@@ -6,6 +6,7 @@ import {
   pickupContentEntries,
   playerContentEntries,
   projectileContentEntries,
+  structureContentEntries,
 } from "@shared/content/generated/manifest.ts";
 import type {
   EffectContent,
@@ -28,6 +29,7 @@ const entityContents = new Map<ResourceId, EntityContent>([
   ...playerContentEntries,
   ...enemyContentEntries,
   ...buildingContentEntries,
+  ...structureContentEntries,
   ...projectileContentEntries,
   ...pickupContentEntries,
 ]);
@@ -212,6 +214,7 @@ export const CONTENT_COMPAT_DESCRIPTOR = Object.freeze({
     ...serializeEntries(sortResourceEntriesByTypeId(playerContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(enemyContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(buildingContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(structureContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(projectileContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(pickupContentEntries)),
   ],

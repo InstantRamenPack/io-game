@@ -10,8 +10,6 @@ import {
 } from "@client/client/HeldAttackController.ts";
 import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
 import { PointerAimController } from "@client/client/input/PointerAimController.ts";
-import { LocalPlayerPredictionController } from "@client/client/movement/LocalPlayerPredictionController.ts";
-import type { HeldMovementState } from "@client/client/movement/LocalPlayerPredictionController.ts";
 import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
 import { ClientSessionLifecycle } from "@client/client/session/ClientSessionLifecycle.ts";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
@@ -24,16 +22,16 @@ import {
   type InterpolationDebugFrame,
 } from "@client/net/Interpolator.ts";
 import { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
-import type { WorldPresentationSink } from "@client/net/presentation/WorldPresentationSink.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { LobbyStateMessage } from "@shared/net/protocol.ts";
+import type { InputMovement, LobbyStateMessage } from "@shared/net/protocol.ts";
 import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 
-const AIM_SEND_EPSILON = 0.0025;
+const INPUT_SEND_INTERVAL_MS = 1000 / 60;
 const SNIPER_WEAPON_TYPE_ID = "item:sniper";
 
 /**
@@ -59,18 +57,21 @@ export class GameClient {
   });
   private readonly sessionLifecycle = new ClientSessionLifecycle();
   private readonly pointerAimController = new PointerAimController();
-  private readonly predictionController = new LocalPlayerPredictionController();
   private readonly placementPreviewController =
     new PlacementPreviewController();
   private readonly inputBlocker = new InputBlocker();
+  private readonly suppressionReleaseByReason = new Map<
+    MovementSuppressionReason,
+    () => void
+  >();
   private readonly actionDispatcher: ClientActionDispatcher;
-  private readonly presentationSink: WorldPresentationSink;
+  private readonly presentationSink: PixiWorldPresentationSink;
+  private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private lobbyState?: LobbyStateMessage;
-  private releaseLegacyMovementSuppression?: () => void;
-  private readonly heldMovement: HeldMovementState = {
+  private readonly heldMovement: InputMovement = {
     up: false,
     down: false,
     left: false,
@@ -99,32 +100,8 @@ export class GameClient {
       isTransportConnected: () => this.isTransportConnected(),
     });
     this.interpolator = new Interpolator({
-      snapDistance: this.gameConfig.interpolation.snapDistance,
+      ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
-      tickDurationSmoothing:
-        this.gameConfig.interpolation.tickDurationSmoothing,
-      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
-      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
-      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
-      maxExtrapolationTicks:
-        this.gameConfig.interpolation.maxExtrapolationTicks,
-      tickDurationMinFactor:
-        this.gameConfig.interpolation.tickDurationMinFactor,
-      tickDurationMaxFactor:
-        this.gameConfig.interpolation.tickDurationMaxFactor,
-      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
-      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
-      jitterBufferMultiplier:
-        this.gameConfig.interpolation.jitterBufferMultiplier,
-      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
-      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
-      correctionFollowSharpness:
-        this.gameConfig.interpolation.correctionFollowSharpness,
-      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
-      correctionFrameScaleMin:
-        this.gameConfig.interpolation.correctionFrameScaleMin,
-      correctionFrameScaleMax:
-        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
@@ -133,7 +110,7 @@ export class GameClient {
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
-      this.actionDispatcher.sendMoveIntent(key, pressed);
+      this.sendInputIntentIfNeeded(performance.now(), true);
     });
     this.inputBlocker.onChange((blocked) => {
       this.inputManager.setMovementSuppressed(blocked);
@@ -201,22 +178,25 @@ export class GameClient {
     this.pointerAimController.bind({
       renderer: this.renderer,
       isStarted: () => this.sessionLifecycle.isStarted(),
-      getPlayerPose: () =>
-        this.predictionController.getVisualPose(this.getLocalPlayerEntity()),
+      getPlayerPose: () => this.getLocalPlayerVisualPose(),
       handlePointerInput: (pointer) =>
         this.pointerActionHandler?.(pointer) ?? false,
       startHoldFire: (x, y) => this.inputManager.startHoldFire(x, y),
       updateHoldFireTarget: (x, y) =>
         this.inputManager.updateHoldFireTarget(x, y),
       stopHoldFire: () => this.inputManager.stopHoldFire(),
-      onAimChanged: (force) => this.sendAimIfNeeded(performance.now(), force),
+      onAimChanged: (force) =>
+        this.sendInputIntentIfNeeded(performance.now(), force),
     });
   }
 
   public setWorldSize(worldSize: GameConfig["worldSize"]): void {
     this.gameConfig.worldSize = { ...worldSize };
     this.renderer.setWorldSize(this.gameConfig.worldSize);
-    this.placementPreviewController.invalidate();
+    this.placementPreviewController.invalidate({
+      spatialIndex: false,
+      preview: true,
+    });
   }
 
   public setTickRate(tickRate: number): void {
@@ -318,19 +298,34 @@ export class GameClient {
     return this.inputBlocker.acquire(reason);
   }
 
-  public setMovementSuppressed(suppressed: boolean): void {
+  public setMovementSuppression(
+    reason: MovementSuppressionReason,
+    suppressed: boolean,
+  ): void {
+    const release = this.suppressionReleaseByReason.get(reason);
     if (suppressed) {
-      this.releaseLegacyMovementSuppression ??=
-        this.inputBlocker.acquire("legacy");
+      if (release) {
+        return;
+      }
+      this.suppressionReleaseByReason.set(
+        reason,
+        this.inputBlocker.acquire(reason),
+      );
       return;
     }
 
-    this.releaseLegacyMovementSuppression?.();
-    this.releaseLegacyMovementSuppression = undefined;
+    if (!release) {
+      return;
+    }
+    release();
+    this.suppressionReleaseByReason.delete(reason);
   }
 
   public clearMovementSuppressions(): void {
-    this.releaseLegacyMovementSuppression = undefined;
+    for (const release of this.suppressionReleaseByReason.values()) {
+      release();
+    }
+    this.suppressionReleaseByReason.clear();
     this.inputBlocker.clear();
   }
 
@@ -387,23 +382,9 @@ export class GameClient {
       );
 
       const player = this.getLocalPlayerEntity();
-      const playerPose = this.predictionController.getVisualPose(player);
-      const aimTheta = this.pointerAimController.computeAimTheta(playerPose);
-      const presentation = this.predictionController.update({
-        deltaMs,
-        tickRate: this.gameConfig.tickRate,
-        player,
-        heldMovement: this.heldMovement,
-        aimTheta,
-      });
+      const playerPose = this.getLocalPlayerVisualPose();
 
-      if (this.playerEntityId !== undefined) {
-        this.presentationSink.setPresentationOverride(
-          this.playerEntityId,
-          presentation,
-        );
-      }
-
+      this.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
       this.placementPreviewController.sync({
         renderer: this.renderer,
@@ -424,12 +405,17 @@ export class GameClient {
   }
 
   public onSnapshot(snapshot: WorldSnapshot): void {
-    const applied = this.worldState?.pushSnapshot(snapshot) ?? false;
-    if (!applied) {
+    const applied = this.worldState?.pushSnapshot(snapshot) ?? {
+      applied: false,
+    };
+    if (!applied.applied) {
       return;
     }
 
-    this.placementPreviewController.invalidate();
+    this.placementPreviewController.invalidate({
+      spatialIndex: true,
+      preview: true,
+    });
     this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
     this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
 
@@ -484,6 +470,74 @@ export class GameClient {
     this.interpolator.clearDebugLog();
   }
 
+  public setDebugNetworkProfile(
+    profileName: DebugNetworkProfileName,
+    seed = 1,
+  ): void {
+    this.networkClient.setDebugNetworkProfile(profileName, seed);
+  }
+
+  public disableDebugNetworkSimulation(): void {
+    this.networkClient.disableDebugNetworkSimulation();
+  }
+
+  public setDebugMovementIntent(movement: Partial<InputMovement>): void {
+    this.heldMovement.up = movement.up ?? false;
+    this.heldMovement.down = movement.down ?? false;
+    this.heldMovement.left = movement.left ?? false;
+    this.heldMovement.right = movement.right ?? false;
+    this.sendInputIntentIfNeeded(performance.now(), true);
+  }
+
+  public getNetcodeDebugMetrics(): Record<string, unknown> {
+    const interpolation = this.interpolator.getLatestDebugFrame();
+    const camera = this.renderer.getCameraDebugState();
+    const localPlayer = interpolation?.localPlayer ?? null;
+    const localPlayerScreenPosition = localPlayer
+      ? this.renderer.worldToScreen(
+          localPlayer.renderedX,
+          localPlayer.renderedY,
+        )
+      : null;
+    return {
+      serverTick: interpolation?.currentServerTick ?? null,
+      latestReceivedSnapshotTick:
+        interpolation?.latestReceivedSnapshotTick ?? null,
+      renderTick: interpolation?.renderTick ?? null,
+      snapshotArrivalIntervalMs:
+        interpolation?.snapshotArrivalIntervalMs ?? null,
+      jitterEstimateMs: interpolation?.jitterEstimateMs ?? null,
+      renderDelayTicks: interpolation?.renderDelayTicks ?? null,
+      interpolationMode: interpolation?.interpolationMode ?? "none",
+      localPlayer,
+      localPlayerScreenPosition,
+      camera,
+      cameraPosition: {
+        x: camera.x,
+        y: camera.y,
+      },
+      cameraDelta: {
+        x: camera.deltaX,
+        y: camera.deltaY,
+        screenX: camera.screenDeltaX,
+        screenY: camera.screenDeltaY,
+      },
+      correctionDistance: interpolation?.correctionDistance ?? 0,
+      correctionDirection: {
+        x: interpolation?.correctionDirectionX ?? 0,
+        y: interpolation?.correctionDirectionY ?? 0,
+      },
+      snapCount: interpolation?.snapCount ?? 0,
+      cameraSnapCount: camera.snapCount,
+      extrapolatedFrameCount: interpolation?.extrapolatedFrameCount ?? 0,
+      heldFrameCount: interpolation?.heldFrameCount ?? 0,
+      interpolatedFrameCount: interpolation?.interpolatedFrameCount ?? 0,
+      duplicateSnapshotCount: interpolation?.duplicateSnapshotCount ?? 0,
+      outOfOrderSnapshotCount: interpolation?.outOfOrderSnapshotCount ?? 0,
+      networkSimulation: this.networkClient.getDebugNetworkMetrics(),
+    };
+  }
+
   private startFrameLoop(): void {
     if (this.frameLoop.isRunning()) {
       return;
@@ -499,39 +553,15 @@ export class GameClient {
       this.refreshPointerTargetFromScreen();
       this.update(deltaMs, timestampMs);
       this.refreshPointerTargetFromScreen();
-      this.sendAimIfNeeded(timestampMs);
+      this.sendInputIntentIfNeeded(timestampMs);
       this.updateHeldAttack(timestampMs);
     });
   }
 
   private syncInterpolatorConfig(): void {
     this.interpolator.setConfig({
-      snapDistance: this.gameConfig.interpolation.snapDistance,
+      ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
-      tickDurationSmoothing:
-        this.gameConfig.interpolation.tickDurationSmoothing,
-      renderDelaySmoothing: this.gameConfig.interpolation.renderDelaySmoothing,
-      minRenderDelayTicks: this.gameConfig.interpolation.minRenderDelayTicks,
-      maxRenderDelayTicks: this.gameConfig.interpolation.maxRenderDelayTicks,
-      maxExtrapolationTicks:
-        this.gameConfig.interpolation.maxExtrapolationTicks,
-      tickDurationMinFactor:
-        this.gameConfig.interpolation.tickDurationMinFactor,
-      tickDurationMaxFactor:
-        this.gameConfig.interpolation.tickDurationMaxFactor,
-      arrivalEwmaSmoothing: this.gameConfig.interpolation.arrivalEwmaSmoothing,
-      jitterEwmaSmoothing: this.gameConfig.interpolation.jitterEwmaSmoothing,
-      jitterBufferMultiplier:
-        this.gameConfig.interpolation.jitterBufferMultiplier,
-      jitterBufferSafetyMs: this.gameConfig.interpolation.jitterBufferSafetyMs,
-      maxDebugLogEntries: this.gameConfig.interpolation.maxDebugLogEntries,
-      correctionFollowSharpness:
-        this.gameConfig.interpolation.correctionFollowSharpness,
-      correctionEpsilon: this.gameConfig.interpolation.correctionEpsilon,
-      correctionFrameScaleMin:
-        this.gameConfig.interpolation.correctionFrameScaleMin,
-      correctionFrameScaleMax:
-        this.gameConfig.interpolation.correctionFrameScaleMax,
     });
   }
 
@@ -558,12 +588,12 @@ export class GameClient {
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
     this.pointerAimController.reset();
-    this.predictionController.reset();
     this.heldAttackController.reset();
     this.inputManager.stopHoldFire();
     this.renderer.invalidateViewRectCache();
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
+    this.clearMovementSuppressions();
     this.placementPreviewController.reset(this.renderer);
     this.renderer.setSniperAimGuide(null);
   }
@@ -571,19 +601,18 @@ export class GameClient {
   private resetSessionState(disconnectTransport: boolean): void {
     this.sessionLifecycle.reset();
     this.pointerAimController.reset();
-    this.predictionController.reset();
     this.heldAttackController.reset();
     this.rateMonitor.reset();
     this.stopFrameLoop();
     this.inputManager.stopHoldFire();
     this.renderer.invalidateViewRectCache();
-    this.releaseLegacyMovementSuppression?.();
-    this.releaseLegacyMovementSuppression = undefined;
+    this.clearMovementSuppressions();
     this.lobbyState = undefined;
     this.heldMovement.up = false;
     this.heldMovement.down = false;
     this.heldMovement.left = false;
     this.heldMovement.right = false;
+    this.lastInputSentAtMs = Number.NEGATIVE_INFINITY;
 
     if (disconnectTransport) {
       this.networkClient.disconnect();
@@ -604,6 +633,50 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private getLocalPlayerVisualPose(): {
+    x: number;
+    y: number;
+    rotation: number;
+  } | null {
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return null;
+    }
+    return {
+      x: player.x,
+      y: player.y,
+      rotation: player.rotation,
+    };
+  }
+
+  private syncLocalPlayerAimPresentation(
+    playerPose: { x: number; y: number; rotation: number } | null,
+  ): void {
+    if (this.playerEntityId === undefined) {
+      return;
+    }
+
+    if (!playerPose || !this.getLocalPlayerEntity()?.alive) {
+      this.presentationSink.setPresentationOverride(this.playerEntityId, null);
+      return;
+    }
+
+    const localAimTheta = this.pointerAimController.computeAimTheta(playerPose);
+    if (localAimTheta === null) {
+      this.presentationSink.setPresentationOverride(
+        this.playerEntityId,
+        null,
+      );
+      return;
+    }
+
+    this.presentationSink.setPresentationOverride(this.playerEntityId, {
+      x: playerPose.x,
+      y: playerPose.y,
+      rotation: localAimTheta,
+    });
   }
 
   private refreshPointerTargetFromScreen(): void {
@@ -635,6 +708,33 @@ export class GameClient {
     return true;
   }
 
+  private sendInputIntentIfNeeded(now: number, force = false): void {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
+      return;
+    }
+
+    if (!force && now - this.lastInputSentAtMs < INPUT_SEND_INTERVAL_MS) {
+      return;
+    }
+
+    const player = this.getLocalPlayerEntity();
+    if (!player?.alive) {
+      return;
+    }
+
+    const visualPose = this.getLocalPlayerVisualPose();
+    const theta =
+      this.pointerAimController.computeAimTheta(visualPose) ??
+      visualPose?.rotation ??
+      player.rotation;
+    const seq = this.inputManager.nextSequence();
+    const clientTimeMs = performance.now();
+    this.networkClient.sendInputIntent(seq, clientTimeMs, theta, {
+      ...this.heldMovement,
+    });
+    this.lastInputSentAtMs = now;
+  }
+
   private updateHeldAttack(now: number): void {
     const holdFireTarget = this.inputManager.getHoldFireTarget();
     if (
@@ -655,7 +755,7 @@ export class GameClient {
     }
 
     const theta = this.pointerAimController.computeAimTheta(
-      this.predictionController.getVisualPose(localPlayer),
+      this.getLocalPlayerVisualPose(),
     );
     if (theta === null) {
       return;
@@ -697,9 +797,7 @@ export class GameClient {
   private computeThetaFromWorldPoint(
     x: number,
     y: number,
-    playerPose = this.predictionController.getVisualPose(
-      this.getLocalPlayerEntity(),
-    ),
+    playerPose = this.getLocalPlayerVisualPose(),
   ): number | null {
     if (!playerPose) {
       return null;
@@ -712,27 +810,6 @@ export class GameClient {
     }
 
     return normalizeAngle(Math.atan2(deltaY, deltaX));
-  }
-
-  private sendAimIfNeeded(now: number, force = false): void {
-    if (!this.isSessionReady() || !this.isTransportConnected()) {
-      return;
-    }
-
-    const theta = this.pointerAimController.maybeGetAimToSend({
-      now,
-      intervalMs: 1000 / Math.max(1, this.gameConfig.tickRate),
-      epsilon: AIM_SEND_EPSILON,
-      force,
-      playerPose: this.predictionController.getVisualPose(
-        this.getLocalPlayerEntity(),
-      ),
-    });
-    if (theta === null) {
-      return;
-    }
-
-    this.actionDispatcher.sendAim(theta);
   }
 
   private syncSniperAimGuide(
