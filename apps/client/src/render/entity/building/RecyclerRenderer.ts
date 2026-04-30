@@ -40,7 +40,13 @@ export class RecyclerRenderer extends BaseEntityRenderer {
     // Inset panel to give the structure depth
     const inset = 6;
     graphics
-      .roundRect(minX + inset, minY + inset, width - inset * 2, height - inset * 2, 5)
+      .roundRect(
+        minX + inset,
+        minY + inset,
+        width - inset * 2,
+        height - inset * 2,
+        5,
+      )
       .fill({ color: 0x1b4d2a, alpha: alpha * 0.6 });
 
     // Label strip at the top

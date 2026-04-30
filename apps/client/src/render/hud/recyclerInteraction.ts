@@ -15,17 +15,13 @@ export function isPlayerNearRecycler(
   );
 }
 
-export function isHoldingRecyclableItem(
-  inventory: InventorySnapshot,
-): boolean {
+export function isHoldingRecyclableItem(inventory: InventorySnapshot): boolean {
   const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
   if (!slot || slot.kind === "empty") {
     return false;
   }
-  if (slot.kind === "weapon" && slot.typeId === "item:fists") {
-    return false;
-  }
-  return true;
+  return !(slot.kind === "weapon" && slot.typeId === "item:fists");
+
 }
 
 export function isNearRecyclerWithItem(

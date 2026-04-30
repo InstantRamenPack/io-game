@@ -14,6 +14,7 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
   public weapons: Weapon[] = [];
   public targetId?: number;
   public moveSpeed: number;
+  protected goalTickInterval = 1;
   private readonly goalContext = new GoalContext<this>();
 
   protected constructor(
@@ -48,6 +49,10 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
       return;
     }
 
+    if (!this.shouldTickGoals(world)) {
+      return;
+    }
+
     this.goalSelector.tick(this.goalContext.reset(world, this));
   }
 
@@ -55,5 +60,14 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
     for (const goal of goals) {
       this.goalSelector.add(goal);
     }
+  }
+
+  protected getGoalTickInterval(_world: World): number {
+    return this.goalTickInterval;
+  }
+
+  private shouldTickGoals(world: World): boolean {
+    const interval = this.getGoalTickInterval(world);
+    return interval <= 1 || (world.tick + this.id) % interval === 0;
   }
 }

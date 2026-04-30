@@ -1,14 +1,8 @@
-import { Building } from "@server/entities/Building.ts";
+import type { ResolvedHitboxRect } from "@shared/geometry/hitbox.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Structure } from "@server/entities/Structure.ts";
+import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 
 export const COMBAT_OCCLUSION_EPSILON = 1e-6;
-
-export function isCombatOccluder(
-  entity: Entity,
-): entity is Building | Structure {
-  return entity instanceof Building || entity instanceof Structure;
-}
 
 export function getEntityRayEntryDistance(
   entity: Entity,
@@ -17,9 +11,41 @@ export function getEntityRayEntryDistance(
   directionX: number,
   directionY: number,
 ): number | null {
+  return getRayEntryDistanceToHitboxes(
+    entity.getWorldHitboxes(),
+    originX,
+    originY,
+    directionX,
+    directionY,
+  );
+}
+
+export function getBlockerRayEntryDistance(
+  blocker: StaticGeometryBlocker,
+  originX: number,
+  originY: number,
+  directionX: number,
+  directionY: number,
+): number | null {
+  return getRayEntryDistanceToHitboxes(
+    blocker.hitboxes,
+    originX,
+    originY,
+    directionX,
+    directionY,
+  );
+}
+
+function getRayEntryDistanceToHitboxes(
+  hitboxes: readonly ResolvedHitboxRect[],
+  originX: number,
+  originY: number,
+  directionX: number,
+  directionY: number,
+): number | null {
   let nearestEntryDistance: number | null = null;
 
-  for (const rect of entity.getWorldHitboxes()) {
+  for (const rect of hitboxes) {
     const centerProjection =
       (rect.centerX - originX) * directionX +
       (rect.centerY - originY) * directionY;

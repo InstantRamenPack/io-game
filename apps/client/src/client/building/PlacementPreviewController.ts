@@ -265,7 +265,7 @@ export class PlacementPreviewController {
         continue;
       }
       const entityContent = getEntityContent(entity.typeId);
-      if (entityContent?.collisionMode === "none") {
+      if (entityContent?.collisionMode !== "static") {
         continue;
       }
 

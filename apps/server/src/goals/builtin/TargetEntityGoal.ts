@@ -5,6 +5,8 @@ import { Goal } from "@server/goals/Goal.ts";
 
 type TargetEntityCtor = abstract new (...args: never[]) => Entity;
 
+const INSTANCE_SCAN_TARGET_LIMIT = 64;
+
 /**
  * Maintains the nearest valid target instance for the acting goal-controlled entity.
  */
@@ -95,6 +97,31 @@ export class TargetEntityGoal<
   private findNearestTargetInRange(ctx: GoalContext<TSelf>): Entity | null {
     let bestTarget: Entity | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
+    const instanceTargets = ctx.world.entities.queryInstances(this.targetCtor);
+
+    if (instanceTargets.length <= INSTANCE_SCAN_TARGET_LIMIT) {
+      for (const target of instanceTargets) {
+        if (!target.alive) {
+          continue;
+        }
+        const distanceSquared = this.distanceSquared(
+          ctx.self.x,
+          ctx.self.y,
+          target.x,
+          target.y,
+        );
+        if (
+          distanceSquared > this.aggroRangeSquared ||
+          distanceSquared >= bestDistanceSquared
+        ) {
+          continue;
+        }
+
+        bestTarget = target;
+        bestDistanceSquared = distanceSquared;
+      }
+      return bestTarget;
+    }
 
     if (Number.isFinite(this.aggroRange)) {
       for (const target of ctx.world.spatial.queryBox(
@@ -127,7 +154,7 @@ export class TargetEntityGoal<
       return bestTarget;
     }
 
-    for (const target of ctx.world.entities.queryInstances(this.targetCtor)) {
+    for (const target of instanceTargets) {
       if (!target.alive) {
         continue;
       }

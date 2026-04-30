@@ -193,14 +193,21 @@ export class PixiHud {
       this.hunkBadgeBg = new PIXI.Graphics();
       this.hunkBadgeIcon = new PIXI.Sprite();
       this.hunkBadgeIcon.anchor.set(0, 0.5);
-      this.hunkBadgeText = new PIXI.Text("0", new PIXI.TextStyle({
-        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 14,
-        fill: 0xe8f5e7,
-        fontWeight: "bold",
-      }));
+      this.hunkBadgeText = new PIXI.Text(
+        "0",
+        new PIXI.TextStyle({
+          fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+          fontSize: 14,
+          fill: 0xe8f5e7,
+          fontWeight: "bold",
+        }),
+      );
       this.hunkBadgeText.anchor.set(0, 0.5);
-      this.hunkBadge.addChild(this.hunkBadgeBg, this.hunkBadgeIcon, this.hunkBadgeText);
+      this.hunkBadge.addChild(
+        this.hunkBadgeBg,
+        this.hunkBadgeIcon,
+        this.hunkBadgeText,
+      );
 
       this.root.addChild(
         this.statusPanel.container,
@@ -561,7 +568,13 @@ export class PixiHud {
         inventory,
       );
 
-    if (!this.dirty && !force && !sizeChanged && !selectionToastVisible && !recyclerActive) {
+    if (
+      !this.dirty &&
+      !force &&
+      !sizeChanged &&
+      !selectionToastVisible &&
+      !recyclerActive
+    ) {
       return;
     }
 
@@ -647,7 +660,12 @@ export class PixiHud {
     }
 
     this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
-    this.syncRecyclerPrompt(app.screen.width, app.screen.height, nowMs, inventory);
+    this.syncRecyclerPrompt(
+      app.screen.width,
+      app.screen.height,
+      nowMs,
+      inventory,
+    );
     this.syncHunkBadge(inventory);
   }
 
@@ -757,19 +775,23 @@ export class PixiHud {
       return;
     }
 
-    const hunkCount = inventory?.resources.find((r) => r.typeId === "item:hunk")?.amount ?? 0;
+    const hunkCount =
+      inventory?.resources.find((r) => r.typeId === "item:hunk")?.amount ?? 0;
     const iconSize = 22;
     const padding = 8;
     const gap = 6;
 
-    const hunkTexture = this.gameClient.renderer.getItemTexture("item:hunk" as ResourceId);
+    const hunkTexture = this.gameClient.renderer.getItemTexture(
+      "item:hunk" as ResourceId,
+    );
     this.hunkBadgeIcon.texture = hunkTexture;
     this.hunkBadgeIcon.width = iconSize;
     this.hunkBadgeIcon.height = iconSize;
 
     this.hunkBadgeText.text = String(hunkCount);
 
-    const badgeWidth = padding + iconSize + gap + this.hunkBadgeText.width + padding;
+    const badgeWidth =
+      padding + iconSize + gap + this.hunkBadgeText.width + padding;
     const badgeHeight = this.hotbarView.height;
 
     this.hunkBadgeBg.clear();

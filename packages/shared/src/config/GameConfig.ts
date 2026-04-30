@@ -27,7 +27,7 @@ export class GameConfig {
     spawnMultiplier: 1,
     focusedTrace: {
       entityId: null as number | null,
-      playerName: "debug",
+      playerName: "",
     },
   };
   public interpolation = {

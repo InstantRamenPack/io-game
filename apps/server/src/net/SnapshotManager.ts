@@ -8,7 +8,7 @@ import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
 import type { World } from "@server/world/World.ts";
 
 const MAX_DELTA_REMOVED_IDS = 96;
-const MAX_DELTA_ENTITY_UPDATES = 160;
+const MAX_DELTA_ENTITY_UPDATES = 1024;
 
 /**
  * Serializes authoritative world state after each completed server tick.

@@ -25,13 +25,11 @@ export class SweepMeleeWeapon extends MeleeWeapon {
     aim: {
       directionX: number;
       directionY: number;
+      angle?: number;
     },
   ): boolean {
-    const resolvedAim = {
-      ...aim,
-      angle: Math.atan2(aim.directionY, aim.directionX),
-    };
-    const maxDistance = this.getAttackReach(owner, resolvedAim);
+    const angle = aim.angle ?? Math.atan2(aim.directionY, aim.directionX);
+    const maxDistance = this.getAttackReach(owner, { ...aim, angle });
     const halfArcRadians = (this.sweepArcDegrees * Math.PI) / 360;
 
     for (const rect of target.getWorldHitboxes()) {
@@ -40,9 +38,9 @@ export class SweepMeleeWeapon extends MeleeWeapon {
           rect,
           owner.x,
           owner.y,
-          resolvedAim.angle,
-          resolvedAim.directionX,
-          resolvedAim.directionY,
+          angle,
+          aim.directionX,
+          aim.directionY,
           maxDistance,
           halfArcRadians,
         )

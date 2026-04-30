@@ -53,9 +53,7 @@
     {
       "id": "village",
       "kind": "static",
-      "buildings": [
-        { "typeId": "building:recycler", "x": 5000, "y": 1700 }
-      ],
+      "buildings": [{ "typeId": "building:recycler", "x": 5000, "y": 1700 }],
       "structures": [
         { "typeId": "structure:house_m", "x": 3600, "y": 650 },
         { "typeId": "structure:house_m", "x": 4050, "y": 900 },
@@ -78,9 +76,7 @@
     {
       "id": "outpost",
       "kind": "static",
-      "buildings": [
-        { "typeId": "building:recycler", "x": 5000, "y": 5400 }
-      ],
+      "buildings": [{ "typeId": "building:recycler", "x": 5000, "y": 5400 }],
       "structures": [
         { "typeId": "structure:tent", "x": 3550, "y": 5200 },
         { "typeId": "structure:tent", "x": 3900, "y": 5550 },
@@ -131,9 +127,7 @@
     {
       "id": "spawn",
       "kind": "static",
-      "buildings": [
-        { "typeId": "building:recycler", "x": 5000, "y": 3500 }
-      ],
+      "buildings": [{ "typeId": "building:recycler", "x": 5000, "y": 3500 }],
       "structures": [],
       "enemies": []
     },

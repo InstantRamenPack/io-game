@@ -12,6 +12,28 @@ import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { NavGridPathService } from "@server/world/NavGridPathService.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
+import { StaticGeometryIndex } from "@server/world/StaticGeometryIndex.ts";
+
+export type WorldBenchmarkTickStats = {
+  tick: number;
+  totalMs: number;
+  dayNightMs: number;
+  waveMs: number;
+  spatialBeforeMs: number;
+  navDirtyMs: number;
+  entityTickMs: number;
+  enemyTickMs: number;
+  collisionMs: number;
+  afterMovementMs: number;
+  pickupMs: number;
+  spatialAfterMs: number;
+  entityCount: number;
+  enemyCount: number;
+};
+
+export type WorldBenchmarkSink = {
+  recordWorldTick(stats: WorldBenchmarkTickStats): void;
+};
 
 /**
  * Authoritative world container for entities, events, time, and shared world services.
@@ -22,13 +44,16 @@ export class World {
   public simulationTimeMs = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
+  public staticGeometry: StaticGeometryIndex;
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
+  public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
+  public benchmarkSink?: WorldBenchmarkSink;
   public readonly dungeonRoomsByZone = new Map<
     string,
     Array<{
@@ -53,6 +78,9 @@ export class World {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
+    this.staticGeometry = new StaticGeometryIndex(
+      gameConfig.collision.spatialCellSize,
+    );
     this.navPathService = new NavGridPathService(gameConfig.worldSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
@@ -69,6 +97,89 @@ export class World {
    * Advances the world by one fixed simulation tick.
    */
   public step(): void {
+    if (!this.benchmarkSink) {
+      this.stepWithoutBenchmark();
+      return;
+    }
+
+    const stepStartedAt = performance.now();
+    this.tick += 1;
+    const deltaMs = 1000 / this.gameConfig.tickRate;
+    this.simulationTimeMs += deltaMs;
+    this.focusedTrace.recordWorldPhase(this, "tick_start");
+    const dayNightStartedAt = performance.now();
+    this.dayNightSystem.update(this, deltaMs);
+    const dayNightMs = performance.now() - dayNightStartedAt;
+    const waveStartedAt = performance.now();
+    this.waveSystem.update(this, deltaMs);
+    const waveMs = performance.now() - waveStartedAt;
+
+    const spatialBeforeStartedAt = performance.now();
+    this.ensureSpatialIndex();
+    const spatialBeforeMs = performance.now() - spatialBeforeStartedAt;
+    const navDirtyStartedAt = performance.now();
+    this.navPathService.updateDirty(this);
+    const navDirtyMs = performance.now() - navDirtyStartedAt;
+    const tickPhaseEntities = this.entities.all();
+    const entityTickStartedAt = performance.now();
+    let enemyTickMs = 0;
+    let enemyCount = 0;
+    for (const entity of tickPhaseEntities) {
+      if (!this.entities.has(entity.id)) {
+        continue;
+      }
+      const entityStartedAt = performance.now();
+      entity.tick(this);
+      const entityElapsedMs = performance.now() - entityStartedAt;
+      if (entity.typeId.startsWith("enemy:")) {
+        enemyCount += 1;
+        enemyTickMs += entityElapsedMs;
+      }
+    }
+    const entityTickMs = performance.now() - entityTickStartedAt;
+    this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
+
+    const collisionStartedAt = performance.now();
+    this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
+    const collisionMs = performance.now() - collisionStartedAt;
+    this.focusedTrace.recordWorldPhase(this, "after_collision");
+
+    const afterMovementStartedAt = performance.now();
+    for (const entity of this.entities.all()) {
+      if (!this.entities.has(entity.id)) {
+        continue;
+      }
+      entity.afterMovement(this);
+    }
+    const afterMovementMs = performance.now() - afterMovementStartedAt;
+    this.focusedTrace.recordWorldPhase(this, "after_after_movement");
+
+    const pickupStartedAt = performance.now();
+    this.pickupSystem.update(this, deltaMs);
+    const pickupMs = performance.now() - pickupStartedAt;
+    const spatialAfterStartedAt = performance.now();
+    this.ensureSpatialIndex();
+    const spatialAfterMs = performance.now() - spatialAfterStartedAt;
+    this.focusedTrace.recordWorldPhase(this, "tick_end");
+    this.benchmarkSink?.recordWorldTick({
+      tick: this.tick,
+      totalMs: performance.now() - stepStartedAt,
+      dayNightMs,
+      waveMs,
+      spatialBeforeMs,
+      navDirtyMs,
+      entityTickMs,
+      enemyTickMs,
+      collisionMs,
+      afterMovementMs,
+      pickupMs,
+      spatialAfterMs,
+      entityCount: tickPhaseEntities.length,
+      enemyCount,
+    });
+  }
+
+  private stepWithoutBenchmark(): void {
     this.tick += 1;
     const deltaMs = 1000 / this.gameConfig.tickRate;
     this.simulationTimeMs += deltaMs;
@@ -109,6 +220,9 @@ export class World {
    */
   public spawn(entity: Entity): void {
     this.entities.add(entity);
+    if (isEnemyEntity(entity)) {
+      this.enemyCount += 1;
+    }
     this.navPathService.markEntityDirty(entity);
     this.markSpatialDirty();
   }
@@ -121,6 +235,9 @@ export class World {
     const entity = this.entities.get(id);
     if (entity) {
       this.navPathService.markEntityDirty(entity);
+      if (isEnemyEntity(entity)) {
+        this.enemyCount = Math.max(0, this.enemyCount - 1);
+      }
     }
     this.entities.remove(id);
     this.entityIdGenerator.free(id);
@@ -153,6 +270,7 @@ export class World {
       return;
     }
     this.spatial.sync(this.entities.all());
+    this.staticGeometry.sync(this.entities.all());
     this.spatialDirty = false;
   }
 
@@ -169,4 +287,8 @@ export class World {
   ): void {
     this.dungeonRoomsByZone.set(zoneId, rooms);
   }
+}
+
+function isEnemyEntity(entity: Entity): boolean {
+  return entity.typeId.startsWith("enemy:");
 }

@@ -13,6 +13,7 @@ import {
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import type { System } from "@server/systems/System.ts";
+import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 import type { World } from "@server/world/World.ts";
 
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
@@ -43,7 +44,7 @@ const MAX_STATIC_RECOVERY_STEPS = 8;
  */
 class CollisionSystem implements System {
   private readonly queryBuffer: Entity[] = [];
-  private readonly staticQueryBuffer: Entity[] = [];
+  private readonly staticQueryBuffer: StaticGeometryBlocker[] = [];
   private readonly worldHitboxCache = new Map<number, ResolvedHitboxRect[]>();
   private readonly worldBoundsCache = new Map<number, HitboxBounds>();
 
@@ -93,15 +94,13 @@ class CollisionSystem implements System {
     const startY = entity.y;
     const requestedDeltaX = entity.vx;
     const requestedDeltaY = entity.vy;
-    const blockerIds = new Set<number>();
+    const blockerIds = world.focusedTrace.enabled ? new Set<number>() : null;
     let blockedX = false;
     let blockedY = false;
 
-    const initialOverlapRecovered = this.recoverInitialStaticOverlap(
-      world,
-      entity,
-      blockerIds,
-    );
+    const initialOverlapRecovered = isEnemyEntity(entity)
+      ? false
+      : this.recoverInitialStaticOverlap(world, entity, blockerIds);
 
     if (requestedDeltaX !== 0) {
       const resolvedDeltaX = this.resolveStaticAxisDelta(
@@ -154,7 +153,9 @@ class CollisionSystem implements System {
       blockedX,
       blockedY,
       initialOverlapRecovered,
-      blockerIds: [...blockerIds].sort((left, right) => left - right),
+      blockerIds: blockerIds
+        ? [...blockerIds].sort((left, right) => left - right)
+        : [],
       requestedDeltaX,
       requestedDeltaY,
       resolvedDeltaX: entity.x - startX,
@@ -165,7 +166,7 @@ class CollisionSystem implements System {
   private recoverInitialStaticOverlap(
     world: World,
     entity: Entity,
-    blockerIds: Set<number>,
+    blockerIds: Set<number> | null,
   ): boolean {
     let recovered = false;
     for (let step = 0; step < MAX_STATIC_RECOVERY_STEPS; step += 1) {
@@ -210,7 +211,7 @@ class CollisionSystem implements System {
     entity: Entity,
     axis: AxisName,
     delta: number,
-    blockerIds: Set<number>,
+    blockerIds: Set<number> | null,
   ): number {
     if (delta === 0) {
       return 0;
@@ -221,7 +222,7 @@ class CollisionSystem implements System {
     const startX = entity.x;
     const startY = entity.y;
     const bounds = this.getSweptBounds(entity, startX, startY, deltaX, deltaY);
-    const candidates = world.spatial.queryStaticBox(
+    const candidates = world.staticGeometry.queryBox(
       bounds.minX,
       bounds.minY,
       bounds.maxX,
@@ -235,14 +236,14 @@ class CollisionSystem implements System {
     const movingHitboxes = resolveHitboxRects(startX, startY, entity.hitboxes);
     let earliestHitTime: number | null = null;
     for (const candidate of candidates) {
-      if (candidate.id === entity.id) {
+      if (candidate.entityId === entity.id) {
         continue;
       }
       const hitTime = getSweptResolvedRectSetIntersectionTime(
         movingHitboxes,
         deltaX,
         deltaY,
-        candidate.getWorldHitboxes(),
+        candidate.hitboxes,
       );
       if (hitTime === null) {
         continue;
@@ -263,13 +264,10 @@ class CollisionSystem implements System {
         entity.hitboxes,
       );
       const overlapsAtEnd = candidates.some((candidate) => {
-        if (candidate.id === entity.id) {
+        if (candidate.entityId === entity.id) {
           return false;
         }
-        return doResolvedRectSetsOverlap(
-          endHitboxes,
-          candidate.getWorldHitboxes(),
-        );
+        return doResolvedRectSetsOverlap(endHitboxes, candidate.hitboxes);
       });
       if (!overlapsAtEnd) {
         return delta;
@@ -281,20 +279,20 @@ class CollisionSystem implements System {
       Math.min(1, earliestHitTime - STATIC_SWEEP_SKIN),
     );
     for (const candidate of candidates) {
-      if (candidate.id === entity.id) {
+      if (candidate.entityId === entity.id) {
         continue;
       }
       const hitTime = getSweptResolvedRectSetIntersectionTime(
         movingHitboxes,
         deltaX,
         deltaY,
-        candidate.getWorldHitboxes(),
+        candidate.hitboxes,
       );
       if (
         hitTime !== null &&
         Math.abs(hitTime - earliestHitTime) <= STATIC_SWEEP_TOUCH_EPSILON
       ) {
-        blockerIds.add(candidate.id);
+        blockerIds?.add(candidate.entityId);
       }
     }
     return delta * safeHitTime;
@@ -303,13 +301,13 @@ class CollisionSystem implements System {
   private getOverlappingStaticHitboxes(
     world: World,
     entity: Entity,
-    blockerIds: Set<number>,
+    blockerIds: Set<number> | null,
   ): ResolvedHitboxRect[] {
     const bounds = this.expandBounds(
       this.getCachedWorldBounds(entity),
       STATIC_RECOVERY_PADDING,
     );
-    const candidates = world.spatial.queryStaticBox(
+    const candidates = world.staticGeometry.queryBox(
       bounds.minX,
       bounds.minY,
       bounds.maxX,
@@ -319,14 +317,14 @@ class CollisionSystem implements System {
     const entityHitboxes = this.getCachedWorldHitboxes(entity);
     const staticHitboxes: ResolvedHitboxRect[] = [];
     for (const candidate of candidates) {
-      if (candidate.id === entity.id) {
+      if (candidate.entityId === entity.id) {
         continue;
       }
-      const candidateHitboxes = candidate.getWorldHitboxes();
+      const candidateHitboxes = candidate.hitboxes;
       if (!doResolvedRectSetsOverlap(entityHitboxes, candidateHitboxes)) {
         continue;
       }
-      blockerIds.add(candidate.id);
+      blockerIds?.add(candidate.entityId);
       staticHitboxes.push(...candidateHitboxes);
     }
     return staticHitboxes;
@@ -390,7 +388,7 @@ class CollisionSystem implements System {
   private resolveDynamicPairs(world: World): boolean {
     let resolvedCollision = false;
     for (const entity of world.entities.collidable()) {
-      if (entity.collisionMode !== "dynamic") {
+      if (entity.collisionMode !== "dynamic" || isEnemyEntity(entity)) {
         continue;
       }
 
@@ -406,9 +404,11 @@ class CollisionSystem implements System {
       for (const candidate of candidates) {
         if (
           candidate.id === entity.id ||
-          candidate.collisionMode !== "dynamic" ||
-          candidate.id < entity.id
+          candidate.collisionMode !== "dynamic"
         ) {
+          continue;
+        }
+        if (!isEnemyEntity(candidate) && candidate.id < entity.id) {
           continue;
         }
         if (!this.shouldResolveCollisionPair(entity, candidate)) {
@@ -434,6 +434,9 @@ class CollisionSystem implements System {
   ): boolean {
     const leftIsItemEntity = leftEntity instanceof ItemEntity;
     const rightIsItemEntity = rightEntity instanceof ItemEntity;
+    if (isEnemyEntity(leftEntity) && isEnemyEntity(rightEntity)) {
+      return false;
+    }
     if (!leftIsItemEntity && !rightIsItemEntity) {
       return true;
     }
@@ -516,6 +519,9 @@ class CollisionSystem implements System {
     entity: Entity,
     result: StaticMoveResult,
   ): void {
+    if (!world.focusedTrace.enabled) {
+      return;
+    }
     if (
       !result.blockedX &&
       !result.blockedY &&
@@ -680,6 +686,10 @@ class CollisionSystem implements System {
     this.worldHitboxCache.delete(entity.id);
     this.worldBoundsCache.delete(entity.id);
   }
+}
+
+function isEnemyEntity(entity: Entity): boolean {
+  return entity.typeId.startsWith("enemy:");
 }
 
 export default CollisionSystem;

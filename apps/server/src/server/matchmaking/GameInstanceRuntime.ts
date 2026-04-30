@@ -7,6 +7,7 @@ import type {
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
+import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
@@ -113,8 +114,9 @@ export class GameInstanceRuntime {
       this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
     );
 
-    playerEntity.x = this.gameConfig.worldSize.w / 2;
-    playerEntity.y = this.gameConfig.worldSize.h / 2;
+    const spawnPosition = getPlayerSpawnPosition(this.gameConfig.worldSize);
+    playerEntity.x = spawnPosition.x;
+    playerEntity.y = spawnPosition.y;
     applyPlayerStarterLoadout(playerEntity);
     if (isDebugCreativeEditor(playerEntity)) {
       applyDebugCreativeLoadout(playerEntity);

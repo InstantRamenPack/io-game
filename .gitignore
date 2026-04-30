@@ -5,6 +5,7 @@ node_modules
 out
 dist
 output/playwright
+benchmark-results
 *.tgz
 
 # code coverage

@@ -1,5 +1,8 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { isRecipeBlueprintLocked, getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
+import {
+  isRecipeBlueprintLocked,
+  getBlueprintUnlockedRecipeTypeId,
+} from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -19,6 +22,7 @@ import {
   requireMovingEntityBaselineContent,
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
@@ -241,8 +245,9 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.latestInputIntent = undefined;
-    this.x = world.gameConfig.worldSize.w / 2;
-    this.y = world.gameConfig.worldSize.h / 2;
+    const spawnPosition = getPlayerSpawnPosition(world.gameConfig.worldSize);
+    this.x = spawnPosition.x;
+    this.y = spawnPosition.y;
     this.rotation = 0;
     this.collisionMode = this.defaultCollisionMode;
     this.resetMovement();
@@ -428,16 +433,21 @@ export class Player extends Entity {
       return;
     }
 
-    for (const entity of world.spatial.queryBox(
+    for (const blocker of world.staticGeometry.queryBox(
       placedBounds.minX,
       placedBounds.minY,
       placedBounds.maxX,
       placedBounds.maxY,
     )) {
-      if (entity.id === this.id || entity.collisionMode === "none") {
+      if (blocker.entityId === this.id) {
         continue;
       }
-      if (this.doHitboxesOverlap(placedEntity, entity)) {
+      if (
+        doResolvedRectSetsOverlap(
+          placedEntity.getWorldHitboxes(),
+          blocker.hitboxes,
+        )
+      ) {
         return;
       }
     }
@@ -730,7 +740,8 @@ export class Player extends Entity {
       typeId = slot.typeId;
     }
 
-    const hunkAmount = RECYCLE_HUNK_BY_ITEM[typeId] ?? (slot.kind === "weapon" ? 5 : 3);
+    const hunkAmount =
+      RECYCLE_HUNK_BY_ITEM[typeId] ?? (slot.kind === "weapon" ? 5 : 3);
     if (hunkAmount <= 0) {
       return;
     }
