@@ -2,8 +2,8 @@ import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import {
   COMBAT_OCCLUSION_EPSILON,
+  getBlockerRayEntryDistance,
   getEntityRayEntryDistance,
-  isCombatOccluder,
 } from "@server/combat/CombatOcclusion.ts";
 import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import { Weapon } from "@server/items/Weapon.ts";
@@ -52,6 +52,20 @@ export abstract class MeleeWeapon extends Weapon {
     owner: Entity,
     target: Entity,
   ): boolean {
+    if (!this.canReachTarget(world, owner, target)) {
+      return false;
+    }
+
+    const aim = this.resolveAim(
+      Math.atan2(target.y - owner.y, target.x - owner.x),
+    );
+
+    return this.resolveTargetsInAttackShape(world, owner, aim).some(
+      (candidate) => candidate.id === target.id,
+    );
+  }
+
+  public canReachTarget(world: World, owner: Entity, target: Entity): boolean {
     if (
       !this.canHit() ||
       !combatEligibilityService.canAttackTarget(world, owner, target)
@@ -63,13 +77,7 @@ export abstract class MeleeWeapon extends Weapon {
       Math.atan2(target.y - owner.y, target.x - owner.x),
     );
 
-    if (!this.isTargetInAttackShape(owner, target, aim)) {
-      return false;
-    }
-
-    return this.resolveTargetsInAttackShape(world, owner, aim).some(
-      (candidate) => candidate.id === target.id,
-    );
+    return this.isTargetInAttackShape(owner, target, aim);
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {
@@ -146,6 +154,30 @@ export abstract class MeleeWeapon extends Weapon {
     const targets: AttackHitCandidate[] = [];
     let nearestBlockerDistance: number | null = null;
 
+    for (const blocker of world.staticGeometry.queryBox(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    )) {
+      const entryDistance = getBlockerRayEntryDistance(
+        blocker,
+        owner.x,
+        owner.y,
+        aim.directionX,
+        aim.directionY,
+      );
+      if (entryDistance === null || entryDistance > attackReach) {
+        continue;
+      }
+      if (
+        nearestBlockerDistance === null ||
+        entryDistance < nearestBlockerDistance
+      ) {
+        nearestBlockerDistance = entryDistance;
+      }
+    }
+
     for (const entity of world.spatial.queryBox(
       bounds.minX,
       bounds.minY,
@@ -165,15 +197,6 @@ export abstract class MeleeWeapon extends Weapon {
       );
       if (entryDistance === null || entryDistance > attackReach) {
         continue;
-      }
-
-      if (isCombatOccluder(entity)) {
-        if (
-          nearestBlockerDistance === null ||
-          entryDistance < nearestBlockerDistance
-        ) {
-          nearestBlockerDistance = entryDistance;
-        }
       }
 
       if (!combatEligibilityService.canAttackTarget(world, owner, entity)) {

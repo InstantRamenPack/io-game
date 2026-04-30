@@ -26,7 +26,7 @@ const ENEMIES = readPositiveInt("BENCH_SCALE_ENEMIES", 240);
 const WALLS = readPositiveInt("BENCH_SCALE_WALLS", 180);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 30);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 150);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
 
 const reports = [];
 const metrics: Record<string, number> = {};
@@ -47,6 +47,7 @@ for (const clientCount of CLIENT_COUNTS) {
   const net = summarizeSnapshots(network);
   const world = summarizeWorldTicks(sink.ticks);
   metrics[`${clientCount}.serverP95Ms`] = server.p95;
+  metrics[`${clientCount}.serverAverageMs`] = server.average;
   metrics[`${clientCount}.avgBytesPerClientTick`] =
     clientCount > 0 && SAMPLE_TICKS > 0
       ? net.totalBytes / clientCount / SAMPLE_TICKS
@@ -59,7 +60,11 @@ const maxClientCount = Math.max(...CLIENT_COUNTS);
 const thresholds = {
   [`${maxClientCount}.serverP95Ms`]: readPositiveNumber(
     "BENCH_SCALE_MAX_SERVER_P95_MS",
-    80,
+    (1000 / TARGET_TPS) * 2,
+  ),
+  [`${maxClientCount}.serverAverageMs`]: readPositiveNumber(
+    "BENCH_SCALE_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
   ),
   [`${maxClientCount}.avgBytesPerClientTick`]: readPositiveNumber(
     "BENCH_SCALE_MAX_AVG_BYTES_PER_CLIENT_TICK",

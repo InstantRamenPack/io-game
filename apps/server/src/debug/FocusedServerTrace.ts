@@ -1,7 +1,10 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { JsonObject } from "@shared/json.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getResourceNamespace,
+  type ResourceId,
+} from "@shared/ids/ResourceId.ts";
 
 type FocusedTracePhase =
   | "tick_start"
@@ -309,7 +312,7 @@ export class FocusedServerTrace {
   }
 
   private getEntityKind(entity: FocusedTraceEntityView): string {
-    return entity.toSnapshot().kind;
+    return getResourceNamespace(entity.typeId);
   }
 
   private isConfiguredPlayer(

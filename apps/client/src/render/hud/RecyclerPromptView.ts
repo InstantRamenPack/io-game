@@ -45,8 +45,14 @@ export class RecyclerPromptView {
     screenWidth: number;
     screenHeight: number;
   }): void {
-    const { visible, itemLabel, holdStartMs, nowMs, screenWidth, screenHeight } =
-      options;
+    const {
+      visible,
+      itemLabel,
+      holdStartMs,
+      nowMs,
+      screenWidth,
+      screenHeight,
+    } = options;
 
     this.container.visible = visible;
     if (!visible) {
@@ -70,7 +76,10 @@ export class RecyclerPromptView {
     this.container.position.set(panelX, panelY);
 
     this.promptText.text = `Hold E to recycle ${itemLabel}`;
-    this.promptText.position.set(PANEL_WIDTH / 2, isHolding ? 20 : panelHeight / 2);
+    this.promptText.position.set(
+      PANEL_WIDTH / 2,
+      isHolding ? 20 : panelHeight / 2,
+    );
 
     const barX = 12;
     const barY = 38;

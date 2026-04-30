@@ -59,7 +59,7 @@ export class AttackAtGoal<
       return null;
     }
 
-    return weapon.canHitTarget(ctx.world, ctx.self, target) ? target : null;
+    return weapon.canReachTarget(ctx.world, ctx.self, target) ? target : null;
   }
 
   private resolveWeapon(ctx: GoalContext<TSelf>): MeleeWeapon {

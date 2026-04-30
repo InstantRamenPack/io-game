@@ -1,34 +1,45 @@
+import type {
+  HitboxBounds,
+  ResolvedHitboxRect,
+} from "@shared/geometry/hitbox.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 
+export type StaticGeometryBlocker = {
+  entity: Entity;
+  entityId: number;
+  bounds: HitboxBounds;
+  hitboxes: readonly ResolvedHitboxRect[];
+};
+
+type CellSpan = {
+  minCellX: number;
+  maxCellX: number;
+  minCellY: number;
+  maxCellY: number;
+};
+
+const CELL_KEY_OFFSET = 1 << 15;
+const CELL_KEY_STRIDE = 1 << 16;
+
 /**
- * Uniform-grid spatial index for broad-phase proximity queries.
- * Entities are inserted into every cell touched by their composite hitbox bounds.
+ * Authoritative server-side index for solid static geometry.
+ *
+ * Movement collision, pathfinding, combat occlusion, and server placement all
+ * consume these blockers so they agree on the same solid rectangles.
  */
-export class SpatialIndex {
+export class StaticGeometryIndex {
   private readonly cellSize: number;
-  private readonly buckets = new Map<number, Entity[]>();
-  private readonly indexedEntityById = new Map<number, Entity>();
+  private readonly buckets = new Map<number, StaticGeometryBlocker[]>();
+  private readonly blockerByEntityId = new Map<number, StaticGeometryBlocker>();
   private readonly cellSpanByEntityId = new Map<number, CellSpan>();
   private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
-  private syncMarker = 0;
   private readonly visitedEntityIds = new Map<number, number>();
+  private syncMarker = 0;
   private queryMarker = 0;
 
-  /**
-   * Creates a grid with the provided cell size in world units.
-   * @param cellSize Uniform grid cell size.
-   */
   constructor(cellSize = 64) {
     this.cellSize = cellSize;
-  }
-
-  /**
-   * Rebuilds the index from the current authoritative entity list.
-   * @param entities Entities to index.
-   */
-  public rebuild(entities: Entity[]): void {
-    this.sync(entities);
   }
 
   public sync(entities: readonly Entity[]): void {
@@ -39,11 +50,14 @@ export class SpatialIndex {
     }
 
     for (const entity of entities) {
+      if (!isStaticGeometryEntity(entity)) {
+        continue;
+      }
       this.syncedEntityIds.set(entity.id, this.syncMarker);
       this.upsert(entity);
     }
 
-    for (const entityId of [...this.indexedEntityById.keys()]) {
+    for (const entityId of [...this.blockerByEntityId.keys()]) {
       if (this.syncedEntityIds.get(entityId) === this.syncMarker) {
         continue;
       }
@@ -51,22 +65,13 @@ export class SpatialIndex {
     }
   }
 
-  /**
-   * Returns entities whose indexed hitboxes touch cells overlapped by the query box.
-   * @param minX Left query edge.
-   * @param minY Top query edge.
-   * @param maxX Right query edge.
-   * @param maxY Bottom query edge.
-   * @param result Optional output buffer reused by caller.
-   * @returns Unique candidate entities from the covered cells.
-   */
   public queryBox(
     minX: number,
     minY: number,
     maxX: number,
     maxY: number,
-    result: Entity[] = [],
-  ): Entity[] {
+    result: StaticGeometryBlocker[] = [],
+  ): StaticGeometryBlocker[] {
     result.length = 0;
     this.queryMarker += 1;
     if (this.queryMarker >= Number.MAX_SAFE_INTEGER) {
@@ -85,17 +90,24 @@ export class SpatialIndex {
         if (!bucket) {
           continue;
         }
-        for (const entity of bucket) {
-          if (this.visitedEntityIds.get(entity.id) === this.queryMarker) {
+        for (const blocker of bucket) {
+          if (
+            this.visitedEntityIds.get(blocker.entityId) === this.queryMarker
+          ) {
             continue;
           }
-          this.visitedEntityIds.set(entity.id, this.queryMarker);
-          result.push(entity);
+          this.visitedEntityIds.set(blocker.entityId, this.queryMarker);
+          result.push(blocker);
         }
       }
     }
 
+    result.sort((left, right) => left.entityId - right.entityId);
     return result;
+  }
+
+  public isBlocker(entity: Entity): boolean {
+    return this.blockerByEntityId.has(entity.id);
   }
 
   private upsert(entity: Entity): void {
@@ -107,12 +119,14 @@ export class SpatialIndex {
       maxCellY: this.toCell(bounds.maxY),
     };
     const previousSpan = this.cellSpanByEntityId.get(entity.id);
-    const previousEntity = this.indexedEntityById.get(entity.id);
+    const previousBlocker = this.blockerByEntityId.get(entity.id);
     if (
-      previousEntity === entity &&
+      previousBlocker?.entity === entity &&
       previousSpan &&
       spansMatch(previousSpan, nextSpan)
     ) {
+      previousBlocker.bounds = bounds;
+      previousBlocker.hitboxes = entity.getWorldHitboxes();
       return;
     }
 
@@ -121,6 +135,12 @@ export class SpatialIndex {
       this.removeFromBuckets(entity.id, previousKeys);
     }
 
+    const blocker: StaticGeometryBlocker = {
+      entity,
+      entityId: entity.id,
+      bounds,
+      hitboxes: entity.getWorldHitboxes(),
+    };
     const nextKeys = this.makeCellKeys(nextSpan);
     for (const key of nextKeys) {
       let bucket = this.buckets.get(key);
@@ -128,10 +148,10 @@ export class SpatialIndex {
         bucket = [];
         this.buckets.set(key, bucket);
       }
-      bucket.push(entity);
+      bucket.push(blocker);
     }
 
-    this.indexedEntityById.set(entity.id, entity);
+    this.blockerByEntityId.set(entity.id, blocker);
     this.cellSpanByEntityId.set(entity.id, nextSpan);
     this.cellKeysByEntityId.set(entity.id, nextKeys);
   }
@@ -141,7 +161,7 @@ export class SpatialIndex {
     if (keys) {
       this.removeFromBuckets(entityId, keys);
     }
-    this.indexedEntityById.delete(entityId);
+    this.blockerByEntityId.delete(entityId);
     this.cellSpanByEntityId.delete(entityId);
     this.cellKeysByEntityId.delete(entityId);
   }
@@ -152,7 +172,9 @@ export class SpatialIndex {
       if (!bucket) {
         continue;
       }
-      const index = bucket.findIndex((entity) => entity.id === entityId);
+      const index = bucket.findIndex(
+        (blocker) => blocker.entityId === entityId,
+      );
       if (index >= 0) {
         bucket.splice(index, 1);
       }
@@ -183,12 +205,9 @@ export class SpatialIndex {
   }
 }
 
-type CellSpan = {
-  minCellX: number;
-  maxCellX: number;
-  minCellY: number;
-  maxCellY: number;
-};
+export function isStaticGeometryEntity(entity: Entity): boolean {
+  return entity.alive && entity.collisionMode === "static";
+}
 
 function spansMatch(left: CellSpan, right: CellSpan): boolean {
   return (
@@ -197,11 +216,4 @@ function spansMatch(left: CellSpan, right: CellSpan): boolean {
     left.minCellY === right.minCellY &&
     left.maxCellY === right.maxCellY
   );
-}
-
-const CELL_KEY_OFFSET = 1 << 15;
-const CELL_KEY_STRIDE = 1 << 16;
-
-function compareEntitiesById(left: Entity, right: Entity): number {
-  return left.id - right.id;
 }

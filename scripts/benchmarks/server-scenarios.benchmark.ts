@@ -23,7 +23,7 @@ bootstrapBenchmarks();
 
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 40);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
 
 type Scenario = {
   name: string;
@@ -94,6 +94,7 @@ for (const scenario of scenarios) {
   const net = summarizeSnapshots(network);
 
   metrics[`${scenario.name}.serverP95Ms`] = server.p95;
+  metrics[`${scenario.name}.serverAverageMs`] = server.average;
   metrics[`${scenario.name}.worldP95Ms`] = world.worldStep.p95;
   metrics[`${scenario.name}.collisionP95Ms`] = world.collision.p95;
   metrics[`${scenario.name}.enemyP95Ms`] = world.enemyTick.p95;
@@ -103,19 +104,35 @@ for (const scenario of scenarios) {
 const thresholds = {
   "dense-police.serverP95Ms": readPositiveNumber(
     "BENCH_SCENARIOS_DENSE_MAX_SERVER_P95_MS",
-    65,
+    (1000 / TARGET_TPS) * 2,
+  ),
+  "dense-police.serverAverageMs": readPositiveNumber(
+    "BENCH_SCENARIOS_DENSE_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
   ),
   "mixed-wave.serverP95Ms": readPositiveNumber(
     "BENCH_SCENARIOS_MIXED_MAX_SERVER_P95_MS",
-    65,
+    (1000 / TARGET_TPS) * 2,
+  ),
+  "mixed-wave.serverAverageMs": readPositiveNumber(
+    "BENCH_SCENARIOS_MIXED_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
   ),
   "static-heavy.serverP95Ms": readPositiveNumber(
     "BENCH_SCENARIOS_STATIC_MAX_SERVER_P95_MS",
-    55,
+    (1000 / TARGET_TPS) * 2,
+  ),
+  "static-heavy.serverAverageMs": readPositiveNumber(
+    "BENCH_SCENARIOS_STATIC_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
   ),
   "projectile-heavy.serverP95Ms": readPositiveNumber(
     "BENCH_SCENARIOS_PROJECTILE_MAX_SERVER_P95_MS",
-    60,
+    (1000 / TARGET_TPS) * 2,
+  ),
+  "projectile-heavy.serverAverageMs": readPositiveNumber(
+    "BENCH_SCENARIOS_PROJECTILE_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
   ),
   "dense-police.enemyP95Ms": readPositiveNumber(
     "BENCH_SCENARIOS_MAX_ENEMY_P95_MS",

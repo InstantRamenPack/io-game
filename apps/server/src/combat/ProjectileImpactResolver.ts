@@ -6,10 +6,7 @@ import {
   offsetHitboxBounds,
   resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
-import {
-  COMBAT_OCCLUSION_EPSILON,
-  isCombatOccluder,
-} from "@server/combat/CombatOcclusion.ts";
+import { COMBAT_OCCLUSION_EPSILON } from "@server/combat/CombatOcclusion.ts";
 import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Projectile } from "@server/entities/Projectile.ts";
@@ -56,6 +53,26 @@ export class ProjectileImpactResolver {
     const impacts: ProjectileImpactTarget[] = [];
     let nearestBlockingHitTime: number | null = null;
 
+    for (const blocker of world.staticGeometry.queryBox(
+      minX,
+      minY,
+      maxX,
+      maxY,
+    )) {
+      const hitTime = getSweptResolvedRectSetIntersectionTime(
+        movingHitboxes,
+        deltaX,
+        deltaY,
+        blocker.hitboxes,
+      );
+      if (
+        hitTime !== null &&
+        (nearestBlockingHitTime === null || hitTime < nearestBlockingHitTime)
+      ) {
+        nearestBlockingHitTime = hitTime;
+      }
+    }
+
     for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
       const hitTime = this.resolveHitTime(
         projectile,
@@ -66,15 +83,6 @@ export class ProjectileImpactResolver {
       );
       if (hitTime === null) {
         continue;
-      }
-
-      if (isCombatOccluder(candidate)) {
-        if (
-          nearestBlockingHitTime === null ||
-          hitTime < nearestBlockingHitTime
-        ) {
-          nearestBlockingHitTime = hitTime;
-        }
       }
 
       if (

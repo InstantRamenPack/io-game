@@ -1,11 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { GameConfig } from "@shared/config/GameConfig.ts";
-import type {
-  InputIntentMessage,
-  ServerToClientMessage,
-} from "@shared/net/protocol.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { InputIntentMessage } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
@@ -110,12 +106,13 @@ type ProjectileCtor = new (
 ) => Entity;
 
 export class CapturingNetworkServer implements NetworkServerLike {
-  public readonly snapshotsByClientId = new Map<string, WorldSnapshot[]>();
   public readonly bytesByClientId = new Map<string, number[]>();
-  public readonly messagesByClientId = new Map<
-    string,
-    ServerToClientMessage[]
-  >();
+  private readonly clientIds = new Set<string>();
+  private readonly entityCounts: number[] = [];
+  private readonly removedEntityCounts: number[] = [];
+  private snapshots = 0;
+  private fullSnapshots = 0;
+  private deltaSnapshots = 0;
 
   public onOpen(): void {}
   public onMessage(): void {}
@@ -127,35 +124,55 @@ export class CapturingNetworkServer implements NetworkServerLike {
     if (typeof data !== "string") {
       return;
     }
-    const message = JSON.parse(data) as ServerToClientMessage;
-    const messages = this.messagesByClientId.get(clientId) ?? [];
-    messages.push(message);
-    this.messagesByClientId.set(clientId, messages);
+    this.clientIds.add(clientId);
 
     const bytes = this.bytesByClientId.get(clientId) ?? [];
-    bytes.push(Buffer.byteLength(data, "utf8"));
+    bytes.push(data.length);
     this.bytesByClientId.set(clientId, bytes);
 
-    if (message.t !== "snapshot") {
+    if (!data.startsWith('{"t":"snapshot"')) {
       return;
     }
-    const snapshots = this.snapshotsByClientId.get(clientId) ?? [];
-    snapshots.push(message.snapshot);
-    this.snapshotsByClientId.set(clientId, snapshots);
+    this.snapshots += 1;
+    if (data.includes('"full":false')) {
+      this.deltaSnapshots += 1;
+    } else {
+      this.fullSnapshots += 1;
+    }
+    this.entityCounts.push(countJsonKey(data, '"id":'));
+    this.removedEntityCounts.push(countRemovedEntityIds(data));
   }
 
   public reset(): void {
-    this.snapshotsByClientId.clear();
     this.bytesByClientId.clear();
-    this.messagesByClientId.clear();
-  }
-
-  public allSnapshots(): WorldSnapshot[] {
-    return [...this.snapshotsByClientId.values()].flat();
+    this.clientIds.clear();
+    this.entityCounts.length = 0;
+    this.removedEntityCounts.length = 0;
+    this.snapshots = 0;
+    this.fullSnapshots = 0;
+    this.deltaSnapshots = 0;
   }
 
   public allBytes(): number[] {
     return [...this.bytesByClientId.values()].flat();
+  }
+
+  public summarize(): SnapshotSummary {
+    const bytes = this.allBytes();
+    return {
+      clients: this.clientIds.size,
+      snapshots: this.snapshots,
+      fullSnapshots: this.fullSnapshots,
+      deltaSnapshots: this.deltaSnapshots,
+      totalBytes: sum(bytes),
+      averageBytes: average(bytes),
+      p95Bytes: percentile(bytes, 0.95),
+      maxBytes: max(bytes),
+      averageEntities: average(this.entityCounts),
+      p95Entities: percentile(this.entityCounts, 0.95),
+      maxEntities: max(this.entityCounts),
+      totalRemovedEntityIds: sum(this.removedEntityCounts),
+    };
   }
 }
 
@@ -274,7 +291,7 @@ export function measureTicks(
   return summarizeRateSamples(
     samples,
     performance.now() - startedAt,
-    options.targetTps ?? 20,
+    options.targetTps ?? 100,
   );
 }
 
@@ -384,28 +401,7 @@ export function summarizeWorldTicks(
 export function summarizeSnapshots(
   network: CapturingNetworkServer,
 ): SnapshotSummary {
-  const snapshots = network.allSnapshots();
-  const bytes = network.allBytes();
-  const entityCounts = snapshots.map((snapshot) => snapshot.entities.length);
-  const removedCounts = snapshots.map(
-    (snapshot) => snapshot.removedEntityIds?.length ?? 0,
-  );
-  return {
-    clients: network.snapshotsByClientId.size,
-    snapshots: snapshots.length,
-    fullSnapshots: snapshots.filter((snapshot) => snapshot.full !== false)
-      .length,
-    deltaSnapshots: snapshots.filter((snapshot) => snapshot.full === false)
-      .length,
-    totalBytes: sum(bytes),
-    averageBytes: average(bytes),
-    p95Bytes: percentile(bytes, 0.95),
-    maxBytes: max(bytes),
-    averageEntities: average(entityCounts),
-    p95Entities: percentile(entityCounts, 0.95),
-    maxEntities: max(entityCounts),
-    totalRemovedEntityIds: sum(removedCounts),
-  };
+  return network.summarize();
 }
 
 export function summarizeRateSamples(
@@ -575,4 +571,34 @@ function percentile(values: readonly number[], quantile: number): number {
     Math.max(0, Math.ceil(sorted.length * quantile) - 1),
   );
   return sorted[index] ?? 0;
+}
+
+function countJsonKey(source: string, key: string): number {
+  let count = 0;
+  let index = source.indexOf(key);
+  while (index >= 0) {
+    count += 1;
+    index = source.indexOf(key, index + key.length);
+  }
+  return count;
+}
+
+function countRemovedEntityIds(source: string): number {
+  const key = '"removedEntityIds":[';
+  const start = source.indexOf(key);
+  if (start < 0) {
+    return 0;
+  }
+  const valueStart = start + key.length;
+  const valueEnd = source.indexOf("]", valueStart);
+  if (valueEnd <= valueStart) {
+    return 0;
+  }
+  let count = 1;
+  for (let index = valueStart; index < valueEnd; index += 1) {
+    if (source.charCodeAt(index) === 44) {
+      count += 1;
+    }
+  }
+  return count;
 }

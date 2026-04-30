@@ -12,6 +12,7 @@ import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { NavGridPathService } from "@server/world/NavGridPathService.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
+import { StaticGeometryIndex } from "@server/world/StaticGeometryIndex.ts";
 
 export type WorldBenchmarkTickStats = {
   tick: number;
@@ -43,11 +44,13 @@ export class World {
   public simulationTimeMs = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
+  public staticGeometry: StaticGeometryIndex;
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
+  public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
   public benchmarkSink?: WorldBenchmarkSink;
@@ -75,6 +78,9 @@ export class World {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
+    this.staticGeometry = new StaticGeometryIndex(
+      gameConfig.collision.spatialCellSize,
+    );
     this.navPathService = new NavGridPathService(gameConfig.worldSize);
     this.randomNumberGenerator = seedrandom("1337");
     this.events = new Denque<NetEvent>();
@@ -214,6 +220,9 @@ export class World {
    */
   public spawn(entity: Entity): void {
     this.entities.add(entity);
+    if (isEnemyEntity(entity)) {
+      this.enemyCount += 1;
+    }
     this.navPathService.markEntityDirty(entity);
     this.markSpatialDirty();
   }
@@ -226,6 +235,9 @@ export class World {
     const entity = this.entities.get(id);
     if (entity) {
       this.navPathService.markEntityDirty(entity);
+      if (isEnemyEntity(entity)) {
+        this.enemyCount = Math.max(0, this.enemyCount - 1);
+      }
     }
     this.entities.remove(id);
     this.entityIdGenerator.free(id);
@@ -258,6 +270,7 @@ export class World {
       return;
     }
     this.spatial.sync(this.entities.all());
+    this.staticGeometry.sync(this.entities.all());
     this.spatialDirty = false;
   }
 
@@ -274,4 +287,8 @@ export class World {
   ): void {
     this.dungeonRoomsByZone.set(zoneId, rooms);
   }
+}
+
+function isEnemyEntity(entity: Entity): boolean {
+  return entity.typeId.startsWith("enemy:");
 }

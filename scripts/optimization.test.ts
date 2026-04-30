@@ -67,6 +67,7 @@ type ServerTickMeasurement = {
 };
 
 type BenchmarkEntityCtor = new (id: number) => Entity;
+type BenchmarkEntityFactory = (id: number, index: number) => Entity;
 
 type BenchmarkReport = {
   schemaVersion: 1;
@@ -124,15 +125,20 @@ type ComparisonReport = {
 
 const ENTITY_COUNT = readPositiveInt(
   "OPT_ENTITY_COUNT",
-  readPositiveInt("OPT_POLICE_COUNT", 500),
+  readPositiveInt("OPT_POLICE_COUNT", 1000),
 );
-const ENTITY_NAME = readString("OPT_ENTITY", "police");
+const ENTITY_NAME = readString("OPT_ENTITY", "mixed-trio");
 const WARMUP_TICKS = readPositiveInt("OPT_WARMUP_TICKS", 60);
 const SAMPLE_TICKS = readPositiveInt("OPT_SAMPLE_TICKS", 300);
-const TARGET_TPS = readPositiveNumber("OPT_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("OPT_TARGET_TPS", 100);
 const TARGET_FPS = readPositiveNumber("OPT_TARGET_FPS", 60);
 const FRAME_HISTORY_LIMIT = readPositiveInt("OPT_FRAME_HISTORY_LIMIT", 8);
 const DEFAULT_REPORT_DIR = "benchmark-results";
+const MIXED_TRIO_ENTITY_CTORS: readonly BenchmarkEntityCtor[] = [
+  Saboteur,
+  Drifter,
+  Bomber,
+];
 const BENCHMARK_ENTITY_CTORS: ReadonlyMap<string, BenchmarkEntityCtor> =
   new Map<string, BenchmarkEntityCtor>([
     ["bomber", Bomber],
@@ -143,12 +149,14 @@ const BENCHMARK_ENTITY_CTORS: ReadonlyMap<string, BenchmarkEntityCtor> =
     ["shoota", Shoota],
     ["wallbreaker", Wallbreaker],
   ]);
-const ENTITY_CTOR = resolveBenchmarkEntityCtor(ENTITY_NAME);
-const BENCHMARK_NAME = `optimization-${ENTITY_COUNT}-${ENTITY_NAME}`;
+const ENTITY_RESOLUTION = resolveBenchmarkEntityFactory(ENTITY_NAME);
+const BENCHMARK_NAME = `optimization-${ENTITY_COUNT}-${ENTITY_RESOLUTION.label}`;
 
 class CapturingNetworkServer implements NetworkServerLike {
   public readonly snapshots: WorldSnapshot[] = [];
   public readonly snapshotBytes: number[] = [];
+  private readonly rawSnapshotMessages: string[] = [];
+  private parsedSnapshots = false;
 
   public onOpen(): void {}
   public onMessage(): void {}
@@ -158,15 +166,29 @@ class CapturingNetworkServer implements NetworkServerLike {
     if (typeof data !== "string") {
       return;
     }
-    const message = JSON.parse(data) as ServerToClientMessage;
-    if (message.t === "snapshot") {
-      this.snapshots.push(message.snapshot);
-      this.snapshotBytes.push(Buffer.byteLength(data, "utf8"));
+    this.snapshotBytes.push(data.length);
+    if (data.startsWith('{"t":"snapshot"')) {
+      this.rawSnapshotMessages.push(data);
+      this.parsedSnapshots = false;
     }
   }
 
   public broadcast(): void {}
   public disconnect(): void {}
+
+  public ensureSnapshotsParsed(): void {
+    if (this.parsedSnapshots) {
+      return;
+    }
+    this.snapshots.length = 0;
+    for (const data of this.rawSnapshotMessages) {
+      const message = JSON.parse(data) as ServerToClientMessage;
+      if (message.t === "snapshot") {
+        this.snapshots.push(message.snapshot);
+      }
+    }
+    this.parsedSnapshots = true;
+  }
 }
 
 class BenchmarkWorldSink implements WorldBenchmarkSink {
@@ -195,7 +217,7 @@ const playerId = runtime.connectReadyClient(
   "optimization-client",
   "optimization-test",
 );
-spawnBenchmarkEntities(runtime, ENTITY_CTOR, ENTITY_COUNT);
+spawnBenchmarkEntities(runtime, ENTITY_RESOLUTION.factory, ENTITY_COUNT);
 
 console.log(
   [
@@ -209,6 +231,7 @@ console.log(
 
 const serverTick = measureServerTicks(runtime, networkServer, worldSink);
 const navStats = runtime.world.navPathService.collectAndResetBenchmarkStats();
+networkServer.ensureSnapshotsParsed();
 const clientFrame = measureClientFrames(networkServer.snapshots);
 
 const report: BenchmarkReport = {
@@ -216,7 +239,7 @@ const report: BenchmarkReport = {
   name: BENCHMARK_NAME,
   createdAt: new Date().toISOString(),
   config: {
-    spawnedEntity: ENTITY_NAME,
+    spawnedEntity: ENTITY_RESOLUTION.label,
     spawnedEntityCount: ENTITY_COUNT,
     warmupTicks: WARMUP_TICKS,
     sampleTicks: SAMPLE_TICKS,
@@ -226,7 +249,7 @@ const report: BenchmarkReport = {
     worldSize: config.worldSize,
   },
   scenario: {
-    description: `One player at world center with ${ENTITY_COUNT} ${ENTITY_NAME} entities spawned on a deterministic grid, forcing dense enemy targeting, movement, collision, snapshot, and headless client interpolation pressure.`,
+    description: `One player at world center with ${ENTITY_COUNT} ${ENTITY_RESOLUTION.label} entities spawned on a deterministic grid, forcing dense enemy targeting, movement, collision, snapshot, and headless client interpolation pressure.`,
     playerId,
     entityCount: runtime.world.entities.all().length,
     enemyCount: runtime.world.entities
@@ -247,6 +270,7 @@ if (cli.comparePath) {
 }
 
 printReport(report);
+validateReport(report);
 
 const jsonPath = cli.jsonPath ?? defaultJsonPath(report);
 writeTextFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -270,7 +294,7 @@ function makeConfig(): GameConfig {
 
 function spawnBenchmarkEntities(
   runtime: GameInstanceRuntime,
-  EntityCtor: BenchmarkEntityCtor,
+  entityFactory: BenchmarkEntityFactory,
   count: number,
 ): void {
   const centerX = runtime.world.gameConfig.worldSize.w / 2;
@@ -279,7 +303,7 @@ function spawnBenchmarkEntities(
   const columns = Math.ceil(Math.sqrt(count));
 
   for (let index = 0; index < count; index += 1) {
-    const entity = new EntityCtor(runtime.world.allocEntityId());
+    const entity = entityFactory(runtime.world.allocEntityId(), index);
     const row = Math.floor(index / columns);
     const column = index % columns;
     entity.x = centerX + (column - (columns - 1) / 2) * spacing;
@@ -394,6 +418,7 @@ function summarizePathfinding(
 function summarizeNetwork(
   networkServer: CapturingNetworkServer,
 ): NetworkSummary {
+  networkServer.ensureSnapshotsParsed();
   const entityCounts = networkServer.snapshots.map(
     (snapshot) => snapshot.entities.length,
   );
@@ -616,16 +641,87 @@ function parseCliOptions(args: readonly string[]): CliOptions {
   return options;
 }
 
-function resolveBenchmarkEntityCtor(name: string): BenchmarkEntityCtor {
+function resolveBenchmarkEntityFactory(name: string): {
+  label: string;
+  factory: BenchmarkEntityFactory;
+} {
+  if (name === "mixed-trio" || name === "mixed") {
+    return {
+      label: "mixed-trio",
+      factory: (id, index) =>
+        new MIXED_TRIO_ENTITY_CTORS[index % MIXED_TRIO_ENTITY_CTORS.length]!(
+          id,
+        ),
+    };
+  }
+
   const ctor = BENCHMARK_ENTITY_CTORS.get(name);
   if (ctor) {
-    return ctor;
+    return {
+      label: name,
+      factory: (id) => new ctor(id),
+    };
   }
 
   throw new Error(
     `Unsupported OPT_ENTITY=${name}. Supported values: ${[
       ...BENCHMARK_ENTITY_CTORS.keys(),
-    ].join(", ")}`,
+    ].join(", ")}, mixed-trio`,
+  );
+}
+
+function validateReport(report: BenchmarkReport): void {
+  const thresholds = [
+    {
+      metric: "server.tick.averageMs",
+      value: report.server.tick.average,
+      threshold: readPositiveNumber("OPT_MAX_SERVER_AVG_MS", 1000 / TARGET_TPS),
+    },
+    {
+      metric: "server.tick.p95Ms",
+      value: report.server.tick.p95,
+      threshold: readPositiveNumber(
+        "OPT_MAX_SERVER_P95_MS",
+        (1000 / TARGET_TPS) * 2,
+      ),
+    },
+    {
+      metric: "server.worldStep.p95Ms",
+      value: report.server.worldStep.p95,
+      threshold: readPositiveNumber(
+        "OPT_MAX_WORLD_P95_MS",
+        (1000 / TARGET_TPS) * 2,
+      ),
+    },
+    {
+      metric: "client.frame.p95Ms",
+      value: report.client.frame.p95,
+      threshold: readPositiveNumber(
+        "OPT_MAX_CLIENT_FRAME_P95_MS",
+        1000 / TARGET_FPS,
+      ),
+    },
+  ];
+  const failures = thresholds.filter(
+    ({ value, threshold }) => value > threshold,
+  );
+  if (failures.length === 0) {
+    console.log(
+      `thresholds passed serverP95<=${formatMs(
+        thresholds[1]!.threshold,
+      )} serverAvg<=${formatMs(thresholds[0]!.threshold)} worldP95<=${formatMs(
+        thresholds[2]!.threshold,
+      )} clientP95<=${formatMs(thresholds[3]!.threshold)}`,
+    );
+    return;
+  }
+  throw new Error(
+    failures
+      .map(
+        ({ metric, value, threshold }) =>
+          `${metric}=${format(value)} threshold=${format(threshold)}`,
+      )
+      .join("; "),
   );
 }
 

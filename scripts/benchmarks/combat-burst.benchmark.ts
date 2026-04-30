@@ -25,7 +25,7 @@ const WALLS = readPositiveInt("BENCH_COMBAT_WALLS", 140);
 const BURST_SIZE = readPositiveInt("BENCH_COMBAT_BURST_SIZE", 80);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 30);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
 const projectileCycle: ProjectileName[] = [
   "basic",
   "rifle",
@@ -63,6 +63,7 @@ const server = measureTicks(runtime, SAMPLE_TICKS, {
 const world = summarizeWorldTicks(sink.ticks);
 const net = summarizeSnapshots(network);
 const metrics = {
+  serverAverageMs: server.average,
   serverP95Ms: server.p95,
   serverP99Ms: server.p99,
   entityTickP95Ms: world.entityTick.p95,
@@ -70,7 +71,14 @@ const metrics = {
   networkP95Bytes: net.p95Bytes,
 };
 const thresholds = {
-  serverP95Ms: readPositiveNumber("BENCH_COMBAT_MAX_SERVER_P95_MS", 75),
+  serverP95Ms: readPositiveNumber(
+    "BENCH_COMBAT_MAX_SERVER_P95_MS",
+    (1000 / TARGET_TPS) * 2,
+  ),
+  serverAverageMs: readPositiveNumber(
+    "BENCH_COMBAT_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
+  ),
   serverP99Ms: readPositiveNumber("BENCH_COMBAT_MAX_SERVER_P99_MS", 110),
   entityTickP95Ms: readPositiveNumber("BENCH_COMBAT_MAX_ENTITY_P95_MS", 45),
   collisionP95Ms: readPositiveNumber("BENCH_COMBAT_MAX_COLLISION_P95_MS", 24),

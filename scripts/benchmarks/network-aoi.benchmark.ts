@@ -24,7 +24,7 @@ const WALLS = readPositiveInt("BENCH_NETWORK_WALLS", 160);
 const INTEREST_RADIUS = readPositiveInt("BENCH_NETWORK_INTEREST_RADIUS", 520);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 40);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
 
 const { runtime, network, sink } = makeRuntime({
   interestRadius: INTEREST_RADIUS,
@@ -48,6 +48,7 @@ const networkSummary = summarizeSnapshots(network);
 const world = summarizeWorldTicks(sink.ticks);
 
 const metrics = {
+  serverAverageMs: server.average,
   serverP95Ms: server.p95,
   serverP99Ms: server.p99,
   networkP95Bytes: networkSummary.p95Bytes,
@@ -61,7 +62,14 @@ const metrics = {
   snapshotAndWorldP95Ms: world.worldStep.p95,
 };
 const thresholds = {
-  serverP95Ms: readPositiveNumber("BENCH_NETWORK_MAX_SERVER_P95_MS", 50),
+  serverAverageMs: readPositiveNumber(
+    "BENCH_NETWORK_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
+  ),
+  serverP95Ms: readPositiveNumber(
+    "BENCH_NETWORK_MAX_SERVER_P95_MS",
+    (1000 / TARGET_TPS) * 2,
+  ),
   serverP99Ms: readPositiveNumber("BENCH_NETWORK_MAX_SERVER_P99_MS", 75),
   networkP95Bytes: readPositiveNumber("BENCH_NETWORK_MAX_P95_BYTES", 90_000),
   networkMaxBytes: readPositiveNumber("BENCH_NETWORK_MAX_BYTES", 180_000),

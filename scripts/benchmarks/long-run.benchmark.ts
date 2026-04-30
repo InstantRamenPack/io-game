@@ -24,7 +24,7 @@ const ENEMIES = readPositiveInt("BENCH_LONG_ENEMIES", 300);
 const WALLS = readPositiveInt("BENCH_LONG_WALLS", 260);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 60);
 const SAMPLE_TICKS = readPositiveInt("BENCH_LONG_TICKS", 900);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 20);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
 
 const { runtime, network, sink } = makeRuntime({ interestRadius: 1000 });
 const clients = connectClients(runtime, CLIENTS, "spread");
@@ -57,6 +57,7 @@ const entityEnd = runtime.world.entities.all().length;
 const world = summarizeWorldTicks(sink.ticks);
 const net = summarizeSnapshots(network);
 const metrics = {
+  serverAverageMs: server.average,
   serverP95Ms: server.p95,
   serverP99Ms: server.p99,
   worldP99Ms: world.worldStep.p99,
@@ -65,7 +66,14 @@ const metrics = {
   networkMaxBytes: net.maxBytes,
 };
 const thresholds = {
-  serverP95Ms: readPositiveNumber("BENCH_LONG_MAX_SERVER_P95_MS", 70),
+  serverP95Ms: readPositiveNumber(
+    "BENCH_LONG_MAX_SERVER_P95_MS",
+    (1000 / TARGET_TPS) * 2,
+  ),
+  serverAverageMs: readPositiveNumber(
+    "BENCH_LONG_MAX_SERVER_AVG_MS",
+    1000 / TARGET_TPS,
+  ),
   serverP99Ms: readPositiveNumber("BENCH_LONG_MAX_SERVER_P99_MS", 110),
   worldP99Ms: readPositiveNumber("BENCH_LONG_MAX_WORLD_P99_MS", 95),
   heapGrowthMb: readPositiveNumber("BENCH_LONG_MAX_HEAP_GROWTH_MB", 96),

@@ -12,25 +12,21 @@ const commands = [
 ] as const;
 
 const startedAt = performance.now();
-const runs = commands.map(([name, command]) => ({
-  name,
-  process: Bun.spawn([...command], {
+
+const results = [];
+for (const [name, command] of commands) {
+  const childProcess = Bun.spawn([...command], {
     stdout: "pipe",
     stderr: "pipe",
     env: process.env,
-  }),
-}));
-
-const results = await Promise.all(
-  runs.map(async (run) => {
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(run.process.stdout).text(),
-      new Response(run.process.stderr).text(),
-      run.process.exited,
-    ]);
-    return { name: run.name, stdout, stderr, exitCode };
-  }),
-);
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(childProcess.stdout).text(),
+    new Response(childProcess.stderr).text(),
+    childProcess.exited,
+  ]);
+  results.push({ name, stdout, stderr, exitCode });
+}
 
 for (const result of results) {
   console.log(`\n=== ${result.name} exit=${result.exitCode} ===`);
