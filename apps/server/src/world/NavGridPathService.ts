@@ -7,6 +7,16 @@ type TilePoint = { x: number; y: number };
 type TileRect = { minX: number; minY: number; maxX: number; maxY: number };
 type CachedPath = { points: readonly TilePoint[]; bounds: TileRect };
 type OpenHeapEntry = { node: number; score: number };
+export type NavPathBenchmarkStats = {
+  requests: number;
+  cacheHits: number;
+  pathSearches: number;
+  failedSearches: number;
+  searchedNodes: number;
+  searchMs: number;
+  dirtyUpdateMs: number;
+  dirtyRectsProcessed: number;
+};
 
 const PATH_TILE_SIZE = 16;
 const PATHFIND_MAX_ITERATIONS = 50_000;
@@ -24,6 +34,7 @@ const NEIGHBORS: ReadonlyArray<{ dx: number; dy: number; cost: number }> = [
 ];
 
 export class NavGridPathService {
+  public benchmarkEnabled = false;
   private static readonly NODE_STATE_UNSEEN = 0;
   private static readonly NODE_STATE_OPEN = 1;
   private static readonly NODE_STATE_CLOSED = 2;
@@ -41,6 +52,16 @@ export class NavGridPathService {
   private readonly nodeState: Uint8Array;
   private readonly queryBuffer: Entity[] = [];
   private readonly pathCache = new Map<string, CachedPath>();
+  private readonly benchmarkStats: NavPathBenchmarkStats = {
+    requests: 0,
+    cacheHits: 0,
+    pathSearches: 0,
+    failedSearches: 0,
+    searchedNodes: 0,
+    searchMs: 0,
+    dirtyUpdateMs: 0,
+    dirtyRectsProcessed: 0,
+  };
   private searchEpoch = 1;
 
   constructor(worldSize: { w: number; h: number }) {
@@ -73,11 +94,15 @@ export class NavGridPathService {
       return;
     }
 
+    const startedAt = this.benchmarkEnabled ? performance.now() : 0;
     const merged = mergeTileRects(
       this.dirtyRects,
       this.widthTiles,
       this.heightTiles,
     );
+    if (this.benchmarkEnabled) {
+      this.benchmarkStats.dirtyRectsProcessed += merged.length;
+    }
     this.dirtyRects.length = 0;
 
     for (const rect of merged) {
@@ -100,6 +125,9 @@ export class NavGridPathService {
 
       this.invalidateCacheForRect(rect);
     }
+    if (this.benchmarkEnabled) {
+      this.benchmarkStats.dirtyUpdateMs += performance.now() - startedAt;
+    }
   }
 
   public getNextWaypoint(
@@ -108,6 +136,9 @@ export class NavGridPathService {
     targetX: number,
     targetY: number,
   ): { x: number; y: number } | null {
+    if (this.benchmarkEnabled) {
+      this.benchmarkStats.requests += 1;
+    }
     const requestedStart = this.worldPointToTile(fromX, fromY);
     const fromTile = this.findClosestWalkableTile(requestedStart);
     if (!fromTile) {
@@ -122,6 +153,9 @@ export class NavGridPathService {
     const cacheKey = this.makePathKey(fromTile, targetTile);
     const cached = this.pathCache.get(cacheKey);
     if (cached) {
+      if (this.benchmarkEnabled) {
+        this.benchmarkStats.cacheHits += 1;
+      }
       this.pathCache.delete(cacheKey);
       this.pathCache.set(cacheKey, cached);
     }
@@ -162,6 +196,19 @@ export class NavGridPathService {
     return this.tilePointToWorldCenter(tile);
   }
 
+  public collectAndResetBenchmarkStats(): NavPathBenchmarkStats {
+    const stats = { ...this.benchmarkStats };
+    this.benchmarkStats.requests = 0;
+    this.benchmarkStats.cacheHits = 0;
+    this.benchmarkStats.pathSearches = 0;
+    this.benchmarkStats.failedSearches = 0;
+    this.benchmarkStats.searchedNodes = 0;
+    this.benchmarkStats.searchMs = 0;
+    this.benchmarkStats.dirtyUpdateMs = 0;
+    this.benchmarkStats.dirtyRectsProcessed = 0;
+    return stats;
+  }
+
   private resolveLookaheadWaypoint(
     path: readonly TilePoint[],
     fromX: number,
@@ -199,6 +246,10 @@ export class NavGridPathService {
     start: TilePoint,
     goal: TilePoint,
   ): readonly TilePoint[] | null {
+    const startedAt = this.benchmarkEnabled ? performance.now() : 0;
+    if (this.benchmarkEnabled) {
+      this.benchmarkStats.pathSearches += 1;
+    }
     this.beginSearchEpoch();
     const epoch = this.searchEpoch;
     const startIndex = this.tileToIndex(start.x, start.y);
@@ -240,6 +291,10 @@ export class NavGridPathService {
       this.nodeState[current] = NavGridPathService.NODE_STATE_CLOSED;
 
       if (current === goalIndex) {
+        if (this.benchmarkEnabled) {
+          this.benchmarkStats.searchedNodes += iterations;
+          this.benchmarkStats.searchMs += performance.now() - startedAt;
+        }
         return reconstructPath(this.cameFrom, current, this.widthTiles);
       }
 
@@ -292,6 +347,11 @@ export class NavGridPathService {
       }
     }
 
+    if (this.benchmarkEnabled) {
+      this.benchmarkStats.failedSearches += 1;
+      this.benchmarkStats.searchedNodes += iterations;
+      this.benchmarkStats.searchMs += performance.now() - startedAt;
+    }
     return null;
   }
 
