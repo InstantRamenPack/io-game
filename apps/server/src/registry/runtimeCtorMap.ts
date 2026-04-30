@@ -3,12 +3,7 @@ import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-<<<<<<< HEAD
-import { FenceH } from "@server/entities/buildings/FenceH.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
-import { FenceV } from "@server/entities/buildings/FenceV.ts";
-=======
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";

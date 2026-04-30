@@ -56,12 +56,8 @@ export class AntiCheatValidator {
       case "craft":
       case "drop":
       case "pickup":
-<<<<<<< HEAD
       case "recycle":
-        return true;
-=======
         return !isDebugCreativeEditor;
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
     }
 
     return false;

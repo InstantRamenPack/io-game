@@ -1,5 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
+import { isRecipeBlueprintLocked, getBlueprintUnlockedRecipeTypeId } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -709,7 +709,6 @@ export class Player extends Entity {
     world.despawn(nearestPickup.id);
   }
 
-<<<<<<< HEAD
   private recycleSelectedItem(world: World): void {
     if (!this.isNearRecycler(world)) {
       return;
@@ -798,8 +797,6 @@ export class Player extends Entity {
     }
   }
 
-=======
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   private applyChestMove(
     world: World,
     action: {

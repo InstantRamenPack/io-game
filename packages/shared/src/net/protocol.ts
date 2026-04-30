@@ -124,17 +124,13 @@ const PickupActionMessageSchema = z.object({
   action: z.literal("pickup"),
 });
 
-<<<<<<< HEAD
 const RecycleActionMessageSchema = z.object({
   t: z.literal("action"),
   seq: NonNegativeIntSchema,
   action: z.literal("recycle"),
 });
 
-const ActionMessageSchema = z.discriminatedUnion("action", [
-=======
 const ActionMessageSchemaOptions = [
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   AttackActionMessageSchema,
   CraftActionMessageSchema,
   BuildActionMessageSchema,
@@ -143,17 +139,13 @@ const ActionMessageSchemaOptions = [
   ChestMoveActionMessageSchema,
   DropActionMessageSchema,
   PickupActionMessageSchema,
-<<<<<<< HEAD
   RecycleActionMessageSchema,
-]);
-=======
 ] as const;
 
 const ActionMessageSchema = z.discriminatedUnion(
   "action",
   ActionMessageSchemaOptions,
 );
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 
 const RespawnMessageSchema = z.object({
   t: z.literal("respawn"),
@@ -240,40 +232,7 @@ const LobbyStateMessageSchema = z.object({
   serverNowMs: z.number().int().nonnegative(),
 });
 
-<<<<<<< HEAD
-export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
-  clientToServer: [
-    "hello",
-    "move",
-    "aim",
-    "action:attack",
-    "action:craft",
-    "action:build",
-    "action:inventoryMove",
-    "action:selectHotbar",
-    "action:chestMove",
-    "action:drop",
-    "action:pickup",
-    "action:recycle",
-    "respawn",
-    "ping",
-    "chat",
-    "lobby:join",
-    "lobby:joinByCode",
-    "lobby:leave",
-  ],
-  serverToClient: [
-    "welcome",
-    "snapshot",
-    "pong",
-    "error",
-    "chat",
-    "lobby_state",
-  ],
-});
-=======
 type ObjectSchema = z.ZodObject<z.ZodRawShape>;
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 
 function literalField(schema: ObjectSchema, fieldName: string): string {
   const field = schema.shape[fieldName];

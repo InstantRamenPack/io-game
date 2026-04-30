@@ -18,11 +18,8 @@ import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
-<<<<<<< HEAD
 import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
-=======
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
 /**

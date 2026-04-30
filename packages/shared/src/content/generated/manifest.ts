@@ -3,12 +3,7 @@ import buildingcannonJson from "@shared/content/building/cannon.json";
 import buildingchestJson from "@shared/content/building/chest.json";
 import buildingcraftingStationJson from "@shared/content/building/crafting_station.json";
 import buildinglandmineJson from "@shared/content/building/landmine.json";
-<<<<<<< HEAD
 import buildingrecyclerJson from "@shared/content/building/recycler.json";
-import buildingtentJson from "@shared/content/building/tent.json";
-import buildingtreeJson from "@shared/content/building/tree.json";
-=======
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
 import buildingwallJson from "@shared/content/building/wall.json";
 import structuredungeonWallJson from "@shared/content/structure/dungeon_wall.json";
 import structurefenceHJson from "@shared/content/structure/fence_h.json";
@@ -94,12 +89,7 @@ export const buildingContentEntries = [
     buildingcraftingStationJson,
   ),
   makeParsedEntityContentEntry("building", "landmine", buildinglandmineJson),
-<<<<<<< HEAD
   makeParsedEntityContentEntry("building", "recycler", buildingrecyclerJson),
-  makeParsedEntityContentEntry("building", "tent", buildingtentJson),
-  makeParsedEntityContentEntry("building", "tree", buildingtreeJson),
-=======
->>>>>>> 483153507c54c96d22704d318cb6bf71301f5ef0
   makeParsedEntityContentEntry("building", "wall", buildingwallJson),
 ] as const;
 

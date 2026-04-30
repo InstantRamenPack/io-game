@@ -1,11 +1,13 @@
 {
   "__default__": "/placeholder.png",
+  "item:basic_dagger": "/sprites/dagger.png",
   "item:basic_gun": "/sprites/basic_gun.png",
   "item:basic_spear": "/sprites/basic_spear.png",
   "item:basic_sword": "/sprites/basic_sword.png",
   "item:cleaver": "/sprites/basic_sword.png",
   "item:katana": "/sprites/zombie_sword.png",
-  "item:scissors": "/sprites/basic_sword.png",
+  "item:scissors": "/sprites/scissors.png",
+  "item:crossbow": "/sprites/crossbow.png",
   "item:spiked_spear": "/sprites/spiked_spear.png",
   "item:zombie_sword": "/sprites/zombie_sword.png"
 }
