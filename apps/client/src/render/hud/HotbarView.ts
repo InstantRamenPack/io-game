@@ -96,8 +96,16 @@ class HotbarSlotView {
 
     this.icon.texture = this.iconProvider(item.typeId);
     const iconSize = this.slotSize - this.iconPadding * 2;
-    this.icon.width = iconSize;
-    this.icon.height = iconSize;
+    const texW = this.icon.texture.width;
+    const texH = this.icon.texture.height;
+    const aspect = texW > 0 && texH > 0 ? texW / texH : 1;
+    if (aspect >= 1) {
+      this.icon.width = iconSize;
+      this.icon.height = iconSize / aspect;
+    } else {
+      this.icon.height = iconSize;
+      this.icon.width = iconSize * aspect;
+    }
     this.icon.position.set(this.slotSize / 2, this.slotSize / 2 + 2);
     this.icon.visible = true;
 
@@ -193,10 +201,10 @@ export class HotbarView {
   public readonly container: PIXI.Container;
   private readonly background: PIXI.Graphics;
   private readonly slots: HotbarSlotView[] = [];
-  private readonly slotSize = 40;
+  private readonly slotSize = 52;
   private readonly slotGap = 6;
   private readonly padding = 8;
-  private readonly iconPadding = 5;
+  private readonly iconPadding = 4;
   private widthValue = 0;
   private heightValue = 0;
 
