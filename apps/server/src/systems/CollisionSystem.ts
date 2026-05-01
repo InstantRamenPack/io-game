@@ -98,9 +98,11 @@ class CollisionSystem implements System {
     let blockedX = false;
     let blockedY = false;
 
-    const initialOverlapRecovered = isEnemyEntity(entity)
-      ? false
-      : this.recoverInitialStaticOverlap(world, entity, blockerIds);
+    const initialOverlapRecovered = this.recoverInitialStaticOverlap(
+      world,
+      entity,
+      blockerIds,
+    );
 
     if (requestedDeltaX !== 0) {
       const resolvedDeltaX = this.resolveStaticAxisDelta(
@@ -388,7 +390,7 @@ class CollisionSystem implements System {
   private resolveDynamicPairs(world: World): boolean {
     let resolvedCollision = false;
     for (const entity of world.entities.collidable()) {
-      if (entity.collisionMode !== "dynamic" || isEnemyEntity(entity)) {
+      if (entity.collisionMode !== "dynamic") {
         continue;
       }
 
@@ -408,7 +410,7 @@ class CollisionSystem implements System {
         ) {
           continue;
         }
-        if (!isEnemyEntity(candidate) && candidate.id < entity.id) {
+        if (candidate.id < entity.id) {
           continue;
         }
         if (!this.shouldResolveCollisionPair(entity, candidate)) {
@@ -434,9 +436,6 @@ class CollisionSystem implements System {
   ): boolean {
     const leftIsItemEntity = leftEntity instanceof ItemEntity;
     const rightIsItemEntity = rightEntity instanceof ItemEntity;
-    if (isEnemyEntity(leftEntity) && isEnemyEntity(rightEntity)) {
-      return false;
-    }
     if (!leftIsItemEntity && !rightIsItemEntity) {
       return true;
     }
@@ -686,10 +685,6 @@ class CollisionSystem implements System {
     this.worldHitboxCache.delete(entity.id);
     this.worldBoundsCache.delete(entity.id);
   }
-}
-
-function isEnemyEntity(entity: Entity): boolean {
-  return entity.typeId.startsWith("enemy:");
 }
 
 export default CollisionSystem;

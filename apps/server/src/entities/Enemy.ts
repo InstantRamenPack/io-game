@@ -53,17 +53,4 @@ export class Enemy extends GoalControlledEntity {
     this.alive = false;
     world.despawn(this.id);
   }
-
-  protected override getGoalTickInterval(world: World): number {
-    if (world.enemyCount >= 300) {
-      return 8;
-    }
-    if (world.enemyCount >= 150) {
-      return 4;
-    }
-    if (world.enemyCount >= 60) {
-      return 2;
-    }
-    return 1;
-  }
 }

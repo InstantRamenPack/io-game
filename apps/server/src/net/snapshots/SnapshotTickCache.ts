@@ -1,5 +1,8 @@
 import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
-import { getEntityRuntimeFingerprint } from "@server/net/snapshots/SnapshotFingerprint.ts";
+import {
+  getEntityHitboxFingerprint,
+  getEntityRuntimeFingerprint,
+} from "@server/net/snapshots/SnapshotFingerprint.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -15,6 +18,11 @@ export class SnapshotTickCache {
     EntitySnapshot
   >();
   private readonly snapshotVersionByEntityId = new Map<number, number>();
+  private readonly previousHitboxFingerprintByEntityId = new Map<
+    number,
+    string
+  >();
+  private readonly hitboxVersionByEntityId = new Map<number, number>();
 
   public prepare(world: World): void {
     this.preparedTick = world.tick;
@@ -22,13 +30,32 @@ export class SnapshotTickCache {
     this.snapshotByEntityId.clear();
 
     for (const entity of world.entities.all()) {
-      const nextFingerprint = getEntityRuntimeFingerprint(entity);
+      const nextHitboxFingerprint = getEntityHitboxFingerprint(entity);
+      const nextFingerprint = getEntityRuntimeFingerprint(
+        entity,
+        nextHitboxFingerprint,
+      );
       const previousFingerprint = this.previousFingerprintByEntityId.get(
         entity.id,
       );
+      const previousHitboxFingerprint =
+        this.previousHitboxFingerprintByEntityId.get(entity.id);
       const previousSnapshot = this.previousSnapshotByEntityId.get(entity.id);
       const previousVersion =
         this.snapshotVersionByEntityId.get(entity.id) ?? 0;
+      const previousHitboxVersion =
+        this.hitboxVersionByEntityId.get(entity.id) ?? 0;
+
+      if (previousHitboxFingerprint !== nextHitboxFingerprint) {
+        this.hitboxVersionByEntityId.set(
+          entity.id,
+          previousHitboxVersion + 1,
+        );
+        this.previousHitboxFingerprintByEntityId.set(
+          entity.id,
+          nextHitboxFingerprint,
+        );
+      }
 
       if (previousFingerprint === nextFingerprint && previousSnapshot) {
         this.snapshotByEntityId.set(entity.id, previousSnapshot);
@@ -49,6 +76,8 @@ export class SnapshotTickCache {
       this.snapshotVersionByEntityId.delete(entityId);
       this.previousFingerprintByEntityId.delete(entityId);
       this.previousSnapshotByEntityId.delete(entityId);
+      this.previousHitboxFingerprintByEntityId.delete(entityId);
+      this.hitboxVersionByEntityId.delete(entityId);
     }
   }
 
@@ -66,5 +95,9 @@ export class SnapshotTickCache {
 
   public getSnapshotVersion(entityId: number): number {
     return this.snapshotVersionByEntityId.get(entityId) ?? 0;
+  }
+
+  public getHitboxVersion(entityId: number): number {
+    return this.hitboxVersionByEntityId.get(entityId) ?? 0;
   }
 }

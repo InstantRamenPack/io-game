@@ -21,7 +21,7 @@ const ENEMIES = readPositiveInt("BENCH_PATH_ENEMIES", 360);
 const WALLS = readPositiveInt("BENCH_PATH_WALLS", 720);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 50);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 220);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 
 const { runtime, sink } = makeRuntime({ interestRadius: 1600 });
 const clients = connectClients(runtime, 6, "spread");

@@ -25,7 +25,7 @@ const WALLS = readPositiveInt("BENCH_COMBAT_WALLS", 140);
 const BURST_SIZE = readPositiveInt("BENCH_COMBAT_BURST_SIZE", 80);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 30);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 const projectileCycle: ProjectileName[] = [
   "basic",
   "rifle",

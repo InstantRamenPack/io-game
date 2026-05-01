@@ -1,5 +1,9 @@
 import type { NetEvent } from "@shared/net/events.ts";
-import type { EntitySnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  EntitySnapshot,
+  EquippedItemSnapshot,
+  WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
 import { EventRelevanceFilter } from "@server/net/snapshots/EventRelevanceFilter.ts";
@@ -61,6 +65,10 @@ export class SnapshotManager {
     const maxY = player.y + interestRadius;
     const knownEntityVersions =
       this.replicationState.getKnownEntityVersions(playerId);
+    const knownEntityHitboxVersions =
+      this.replicationState.getKnownEntityHitboxVersions(playerId);
+    const knownEntitySnapshots =
+      this.replicationState.getKnownEntitySnapshots(playerId);
     const changedEntities: EntitySnapshot[] = [];
     const removedEntityIds: number[] = [];
 
@@ -68,6 +76,8 @@ export class SnapshotManager {
     this.recordVisibleEntityForPlayer(
       playerId,
       knownEntityVersions,
+      knownEntityHitboxVersions,
+      knownEntitySnapshots,
       changedEntities,
     );
 
@@ -84,6 +94,8 @@ export class SnapshotManager {
       this.recordVisibleEntityForPlayer(
         entity.id,
         knownEntityVersions,
+        knownEntityHitboxVersions,
+        knownEntitySnapshots,
         changedEntities,
       );
     }
@@ -93,6 +105,8 @@ export class SnapshotManager {
         continue;
       }
       knownEntityVersions.delete(knownEntityId);
+      knownEntityHitboxVersions.delete(knownEntityId);
+      knownEntitySnapshots.delete(knownEntityId);
       removedEntityIds.push(knownEntityId);
     }
 
@@ -112,11 +126,18 @@ export class SnapshotManager {
       );
 
       knownEntityVersions.clear();
+      knownEntityHitboxVersions.clear();
+      knownEntitySnapshots.clear();
       for (const entity of fullEntities) {
         knownEntityVersions.set(
           entity.id,
           this.tickCache.getSnapshotVersion(entity.id),
         );
+        knownEntityHitboxVersions.set(
+          entity.id,
+          this.tickCache.getHitboxVersion(entity.id),
+        );
+        knownEntitySnapshots.set(entity.id, entity);
       }
 
       return {
@@ -190,6 +211,8 @@ export class SnapshotManager {
   private recordVisibleEntityForPlayer(
     entityId: number,
     knownEntityVersions: Map<number, number>,
+    knownEntityHitboxVersions: Map<number, number>,
+    knownEntitySnapshots: Map<number, EntitySnapshot>,
     changedEntities: EntitySnapshot[],
   ): void {
     const snapshot = this.tickCache.getSnapshot(entityId);
@@ -198,12 +221,22 @@ export class SnapshotManager {
     }
 
     const snapshotVersion = this.tickCache.getSnapshotVersion(entityId);
+    const snapshotHitboxVersion = this.tickCache.getHitboxVersion(entityId);
     const knownVersion = knownEntityVersions.get(entityId);
     if (knownVersion !== snapshotVersion) {
-      changedEntities.push(snapshot);
+      const knownHitboxVersion = knownEntityHitboxVersions.get(entityId);
+      const knownSnapshot = knownEntitySnapshots.get(entityId);
+      changedEntities.push(
+        knownSnapshot &&
+          knownHitboxVersion === snapshotHitboxVersion
+          ? stripStableKnownFields(snapshot, knownSnapshot)
+          : snapshot,
+      );
     }
 
     knownEntityVersions.set(entityId, snapshotVersion);
+    knownEntityHitboxVersions.set(entityId, snapshotHitboxVersion);
+    knownEntitySnapshots.set(entityId, snapshot);
     this.markIncluded(entityId);
   }
 
@@ -222,4 +255,61 @@ export class SnapshotManager {
   private isIncluded(entityId: number): boolean {
     return this.includedEntityMarkers.get(entityId) === this.marker;
   }
+}
+
+function stripStableKnownFields(
+  snapshot: EntitySnapshot,
+  knownSnapshot: EntitySnapshot,
+): EntitySnapshot {
+  const deltaSnapshot = { ...snapshot };
+  delete deltaSnapshot.hitboxes;
+
+  if (deltaSnapshot.typeId === knownSnapshot.typeId) {
+    delete deltaSnapshot.typeId;
+  }
+  if (deltaSnapshot.maxHp === knownSnapshot.maxHp) {
+    delete deltaSnapshot.maxHp;
+  }
+  if (deltaSnapshot.hp === knownSnapshot.hp) {
+    delete deltaSnapshot.hp;
+  }
+  if (deltaSnapshot.alive === knownSnapshot.alive) {
+    delete deltaSnapshot.alive;
+  }
+  if (deltaSnapshot.ownerId === knownSnapshot.ownerId) {
+    delete deltaSnapshot.ownerId;
+  }
+
+  if (deltaSnapshot.kind === "enemy" && knownSnapshot.kind === "enemy") {
+    if (deltaSnapshot.targetId === knownSnapshot.targetId) {
+      delete deltaSnapshot.targetId;
+    }
+    if (equippedItemsMatch(deltaSnapshot.equippedItem, knownSnapshot.equippedItem)) {
+      delete deltaSnapshot.equippedItem;
+    }
+  }
+
+  return deltaSnapshot as EntitySnapshot;
+}
+
+function equippedItemsMatch(
+  left: EquippedItemSnapshot | undefined,
+  right: EquippedItemSnapshot | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.typeId === right.typeId &&
+    left.attackStyle === right.attackStyle &&
+    left.cooldownTicksRemaining === right.cooldownTicksRemaining &&
+    left.ammoInMag === right.ammoInMag &&
+    left.magSize === right.magSize &&
+    left.reserveMagCount === right.reserveMagCount &&
+    left.reloadTicks === right.reloadTicks &&
+    left.reloadTicksRemaining === right.reloadTicksRemaining
+  );
 }

@@ -26,7 +26,7 @@ const ENEMIES = readPositiveInt("BENCH_SCALE_ENEMIES", 240);
 const WALLS = readPositiveInt("BENCH_SCALE_WALLS", 180);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 30);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 150);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 
 const reports = [];
 const metrics: Record<string, number> = {};

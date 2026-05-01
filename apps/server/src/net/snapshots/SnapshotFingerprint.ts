@@ -21,17 +21,17 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
   const parts = [
     snapshot.id,
     snapshot.kind,
-    snapshot.typeId,
+    snapshot.typeId ?? "",
     snapshot.x,
     snapshot.y,
     snapshot.vx,
     snapshot.vy,
     snapshot.rotation,
-    snapshot.hp,
-    snapshot.maxHp,
-    snapshot.alive ? 1 : 0,
+    snapshot.hp ?? "",
+    snapshot.maxHp ?? "",
+    snapshot.alive === undefined ? "" : snapshot.alive ? 1 : 0,
     snapshot.ownerId ?? "",
-    fingerprintHitboxes(snapshot.hitboxes),
+    snapshot.hitboxes ? fingerprintHitboxes(snapshot.hitboxes) : "",
   ];
 
   switch (snapshot.kind) {
@@ -70,7 +70,10 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
   return parts.join("|");
 }
 
-export function getEntityRuntimeFingerprint(entity: Entity): string {
+export function getEntityRuntimeFingerprint(
+  entity: Entity,
+  hitboxFingerprint = getEntityHitboxFingerprint(entity),
+): string {
   const ctor = entity.constructor as typeof Entity & { readonly kind?: string };
   const parts: Array<number | string> = [
     entity.id,
@@ -85,7 +88,7 @@ export function getEntityRuntimeFingerprint(entity: Entity): string {
     entity.maxHp,
     entity.alive ? 1 : 0,
     entity.ownerId ?? "",
-    fingerprintHitboxes(entity.hitboxes),
+    hitboxFingerprint,
   ];
 
   if (entity instanceof Player) {
@@ -132,6 +135,10 @@ export function getEntityRuntimeFingerprint(entity: Entity): string {
   }
 
   return parts.join("|");
+}
+
+export function getEntityHitboxFingerprint(entity: Entity): string {
+  return fingerprintHitboxes(entity.hitboxes);
 }
 
 function fingerprintHitboxes(hitboxes: readonly HitboxRect[]): string {

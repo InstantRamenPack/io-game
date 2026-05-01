@@ -61,7 +61,7 @@ export class ClientWorld {
       const existingEntity = this.entities.get(entitySnapshot.id);
       if (existingEntity) {
         const previousStateVersion = existingEntity.stateVersion;
-        existingEntity.updateFromSnapshot(entitySnapshot, tick);
+        existingEntity.updateFromSnapshot(entitySnapshot, tick, isFullSnapshot);
         if (existingEntity.stateVersion !== previousStateVersion) {
           worldChanged = true;
         }

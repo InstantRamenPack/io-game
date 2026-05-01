@@ -13,7 +13,6 @@ export class PixiViewportController {
   private cameraSnapCount = 0;
   private cameraMode: "uninitialized" | "snap" | "smooth" | "settled" =
     "uninitialized";
-  private readonly cameraFollowSharpness = 22;
   private readonly cameraSnapDistance = 320;
   private readonly cameraSettleEpsilon = 0.001;
   private gameplayViewportWidth = 0;
@@ -79,21 +78,16 @@ export class PixiViewportController {
     const targetDeltaY = this.cameraTargetY - this.cameraPivotY;
     const targetDistance = Math.hypot(targetDeltaX, targetDeltaY);
 
+    this.cameraPivotX = this.cameraTargetX;
+    this.cameraPivotY = this.cameraTargetY;
+
     if (targetDistance > this.cameraSnapDistance) {
-      this.cameraPivotX = this.cameraTargetX;
-      this.cameraPivotY = this.cameraTargetY;
       this.cameraSnapCount += 1;
       this.cameraMode = "snap";
     } else if (targetDistance <= this.cameraSettleEpsilon) {
-      this.cameraPivotX = this.cameraTargetX;
-      this.cameraPivotY = this.cameraTargetY;
       this.cameraMode = "settled";
     } else {
-      const dtSeconds = Math.max(0, deltaMs) / 1000;
-      const follow = 1 - Math.exp(-this.cameraFollowSharpness * dtSeconds);
-      this.cameraPivotX += targetDeltaX * follow;
-      this.cameraPivotY += targetDeltaY * follow;
-      this.cameraMode = "smooth";
+      this.cameraMode = "settled";
     }
 
     this.lastCameraDeltaX = this.cameraPivotX - beforeX;

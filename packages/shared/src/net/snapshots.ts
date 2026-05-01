@@ -85,16 +85,16 @@ export const ActiveEffectSnapshotSchema = z.object({
 export const EntitySnapshotBaseSchema = z.object({
   id: EntityIdSchema,
   kind: z.enum(ENTITY_KINDS),
-  typeId: ResourceIdSchema,
+  typeId: ResourceIdSchema.optional(),
   x: z.number(),
   y: z.number(),
   vx: z.number(),
   vy: z.number(),
   rotation: z.number(),
-  hitboxes: z.array(HitboxRectSchema).min(1),
-  hp: z.number(),
-  maxHp: z.number(),
-  alive: z.boolean(),
+  hitboxes: z.array(HitboxRectSchema).min(1).optional(),
+  hp: z.number().optional(),
+  maxHp: z.number().optional(),
+  alive: z.boolean().optional(),
   ownerId: EntityIdSchema.optional(),
 });
 

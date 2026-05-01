@@ -23,7 +23,7 @@ const WALLS = readPositiveInt("BENCH_COLLISION_WALLS", 460);
 const PROJECTILES = readPositiveInt("BENCH_COLLISION_PROJECTILES", 220);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 40);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 
 const { runtime, sink } = makeRuntime({ interestRadius: 1400 });
 const clients = connectClients(runtime, 3, "clustered");

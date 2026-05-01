@@ -85,17 +85,17 @@ export class ClientEntity {
   ) {
     this.id = snapshot.id;
     this.kind = snapshot.kind;
-    this.typeId = snapshot.typeId;
+    this.typeId = requireSnapshotTypeId(snapshot);
     this.x = snapshot.x;
     this.y = snapshot.y;
     this.vx = snapshot.vx;
     this.vy = snapshot.vy;
     this.rotation = snapshot.rotation;
-    this.hitboxes = snapshot.hitboxes;
+    this.hitboxes = requireSnapshotHitboxes(snapshot);
     this.hitboxBounds = getHitboxBounds(this.hitboxes);
-    this.hp = snapshot.hp;
-    this.maxHp = snapshot.maxHp;
-    this.alive = snapshot.alive;
+    this.hp = requireSnapshotHp(snapshot);
+    this.maxHp = requireSnapshotMaxHp(snapshot);
+    this.alive = requireSnapshotAlive(snapshot);
     this.ownerId = snapshot.ownerId;
     this.serverX = snapshot.x;
     this.serverY = snapshot.y;
@@ -113,13 +113,17 @@ export class ClientEntity {
     this.y = y;
   }
 
-  public updateFromSnapshot(snapshot: EntitySnapshot, tick: number): void {
+  public updateFromSnapshot(
+    snapshot: EntitySnapshot,
+    tick: number,
+    isFullSnapshot = false,
+  ): void {
     if (snapshot.id !== this.id) {
       throw new Error(
         `Snapshot id (${snapshot.id}) does not match entity id (${this.id}).`,
       );
     }
-    if (snapshot.typeId !== this.typeId) {
+    if (snapshot.typeId !== undefined && snapshot.typeId !== this.typeId) {
       throw new Error(
         `Snapshot typeId (${snapshot.typeId}) does not match entity typeId (${this.typeId}).`,
       );
@@ -142,10 +146,16 @@ export class ClientEntity {
     const previousFood = this.food;
     const previousMaxFood = this.maxFood;
 
+    const nextHp = snapshot.hp ?? this.hp;
+    const nextMaxHp = snapshot.maxHp ?? this.maxHp;
+    const nextAlive = snapshot.alive ?? this.alive;
+    const nextOwnerId =
+      "ownerId" in snapshot ? snapshot.ownerId : this.ownerId;
+
     const positionDiscontinuity =
       Math.hypot(snapshot.x - this.serverX, snapshot.y - this.serverY) >
       getDiscontinuityDistance(snapshot.kind);
-    const aliveDiscontinuity = previousAlive !== snapshot.alive;
+    const aliveDiscontinuity = previousAlive !== nextAlive;
     if (positionDiscontinuity || aliveDiscontinuity) {
       this.serverFrameHistory.length = 0;
       this.x = snapshot.x;
@@ -166,28 +176,30 @@ export class ClientEntity {
       previousVx !== this.vx ||
       previousVy !== this.vy ||
       previousRotation !== this.rotation ||
-      previousAlive !== snapshot.alive ||
-      previousOwnerId !== snapshot.ownerId;
+      previousAlive !== nextAlive ||
+      previousOwnerId !== nextOwnerId;
 
-    if (!areHitboxesEqual(this.hitboxes, snapshot.hitboxes)) {
-      this.hitboxes = snapshot.hitboxes;
-      this.hitboxBounds = getHitboxBounds(this.hitboxes);
-      this.visualVersion += 1;
+    if (snapshot.hitboxes) {
+      if (!areHitboxesEqual(this.hitboxes, snapshot.hitboxes)) {
+        this.hitboxes = snapshot.hitboxes;
+        this.hitboxBounds = getHitboxBounds(this.hitboxes);
+        this.visualVersion += 1;
+        this.healthVersion += 1;
+        hasStateChange = true;
+      }
+    }
+
+    if (previousHp !== nextHp || previousMaxHp !== nextMaxHp) {
       this.healthVersion += 1;
       hasStateChange = true;
     }
 
-    if (previousHp !== snapshot.hp || previousMaxHp !== snapshot.maxHp) {
-      this.healthVersion += 1;
-      hasStateChange = true;
-    }
+    this.hp = nextHp;
+    this.maxHp = nextMaxHp;
+    this.alive = nextAlive;
+    this.ownerId = nextOwnerId;
 
-    this.hp = snapshot.hp;
-    this.maxHp = snapshot.maxHp;
-    this.alive = snapshot.alive;
-    this.ownerId = snapshot.ownerId;
-
-    if (this.applyKindSpecificFields(snapshot)) {
+    if (this.applyKindSpecificFields(snapshot, isFullSnapshot)) {
       hasStateChange = true;
     }
 
@@ -302,7 +314,10 @@ export class ClientEntity {
     );
   }
 
-  private applyKindSpecificFields(snapshot: EntitySnapshot): boolean {
+  private applyKindSpecificFields(
+    snapshot: EntitySnapshot,
+    isFullSnapshot = true,
+  ): boolean {
     const previousName = this.name;
     const previousLabel = this.label;
     const previousTier = this.tier;
@@ -333,18 +348,26 @@ export class ClientEntity {
         this.inventory = snapshot.inventory;
         this.activeEffects = snapshot.activeEffects;
         this.moveSpeed = snapshot.moveSpeed;
-        this.equippedItem = snapshot.equippedItem;
+        if (isFullSnapshot || "equippedItem" in snapshot) {
+          this.equippedItem = snapshot.equippedItem;
+        }
         this.food = snapshot.food;
         this.maxFood = snapshot.maxFood;
         break;
       case "enemy":
-        this.targetId = snapshot.targetId;
-        this.equippedItem = snapshot.equippedItem;
+        if (isFullSnapshot || "targetId" in snapshot) {
+          this.targetId = snapshot.targetId;
+        }
+        if (isFullSnapshot || "equippedItem" in snapshot) {
+          this.equippedItem = snapshot.equippedItem;
+        }
         break;
       case "building":
         this.label = snapshot.label;
         this.tier = snapshot.tier;
-        this.chestSlots = snapshot.chestSlots;
+        if (isFullSnapshot || "chestSlots" in snapshot) {
+          this.chestSlots = snapshot.chestSlots;
+        }
         break;
       case "structure":
         this.label = snapshot.label;
@@ -430,6 +453,49 @@ function areHitboxesEqual(
   }
 
   return true;
+}
+
+function requireSnapshotHitboxes(snapshot: EntitySnapshot): readonly HitboxRect[] {
+  if (!snapshot.hitboxes) {
+    throw new Error(
+      `Snapshot for new entity ${snapshot.id} (${snapshot.typeId}) is missing hitboxes.`,
+    );
+  }
+  return snapshot.hitboxes;
+}
+
+function requireSnapshotTypeId(snapshot: EntitySnapshot): ResourceId {
+  if (!snapshot.typeId) {
+    throw new Error(`Snapshot for new entity ${snapshot.id} is missing typeId.`);
+  }
+  return snapshot.typeId;
+}
+
+function requireSnapshotMaxHp(snapshot: EntitySnapshot): number {
+  if (snapshot.maxHp === undefined) {
+    throw new Error(
+      `Snapshot for new entity ${snapshot.id} (${snapshot.typeId}) is missing maxHp.`,
+    );
+  }
+  return snapshot.maxHp;
+}
+
+function requireSnapshotHp(snapshot: EntitySnapshot): number {
+  if (snapshot.hp === undefined) {
+    throw new Error(
+      `Snapshot for new entity ${snapshot.id} (${snapshot.typeId}) is missing hp.`,
+    );
+  }
+  return snapshot.hp;
+}
+
+function requireSnapshotAlive(snapshot: EntitySnapshot): boolean {
+  if (snapshot.alive === undefined) {
+    throw new Error(
+      `Snapshot for new entity ${snapshot.id} (${snapshot.typeId}) is missing alive.`,
+    );
+  }
+  return snapshot.alive;
 }
 
 function clamp(value: number, min: number, max: number): number {

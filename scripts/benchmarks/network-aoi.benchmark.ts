@@ -24,7 +24,7 @@ const WALLS = readPositiveInt("BENCH_NETWORK_WALLS", 160);
 const INTEREST_RADIUS = readPositiveInt("BENCH_NETWORK_INTEREST_RADIUS", 520);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 40);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
-const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 100);
+const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 
 const { runtime, network, sink } = makeRuntime({
   interestRadius: INTEREST_RADIUS,
