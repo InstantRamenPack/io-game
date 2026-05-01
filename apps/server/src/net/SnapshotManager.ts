@@ -13,6 +13,8 @@ import type { World } from "@server/world/World.ts";
 
 const MAX_DELTA_REMOVED_IDS = 96;
 const MAX_DELTA_ENTITY_UPDATES = 1024;
+const FULL_ENTITY_RELIABILITY_SENDS = 4;
+const FULL_ENTITY_REFRESH_TICKS = 40;
 
 /**
  * Serializes authoritative world state after each completed server tick.
@@ -69,6 +71,10 @@ export class SnapshotManager {
       this.replicationState.getKnownEntityHitboxVersions(playerId);
     const knownEntitySnapshots =
       this.replicationState.getKnownEntitySnapshots(playerId);
+    const fullEntitySnapshotCounts =
+      this.replicationState.getFullEntitySnapshotCounts(playerId);
+    const lastFullEntitySnapshotTicks =
+      this.replicationState.getLastFullEntitySnapshotTicks(playerId);
     const changedEntities: EntitySnapshot[] = [];
     const removedEntityIds: number[] = [];
 
@@ -78,7 +84,10 @@ export class SnapshotManager {
       knownEntityVersions,
       knownEntityHitboxVersions,
       knownEntitySnapshots,
+      fullEntitySnapshotCounts,
+      lastFullEntitySnapshotTicks,
       changedEntities,
+      world.tick,
     );
 
     for (const entity of world.spatial.queryBox(
@@ -96,7 +105,10 @@ export class SnapshotManager {
         knownEntityVersions,
         knownEntityHitboxVersions,
         knownEntitySnapshots,
+        fullEntitySnapshotCounts,
+        lastFullEntitySnapshotTicks,
         changedEntities,
+        world.tick,
       );
     }
 
@@ -107,6 +119,8 @@ export class SnapshotManager {
       knownEntityVersions.delete(knownEntityId);
       knownEntityHitboxVersions.delete(knownEntityId);
       knownEntitySnapshots.delete(knownEntityId);
+      fullEntitySnapshotCounts.delete(knownEntityId);
+      lastFullEntitySnapshotTicks.delete(knownEntityId);
       removedEntityIds.push(knownEntityId);
     }
 
@@ -128,6 +142,8 @@ export class SnapshotManager {
       knownEntityVersions.clear();
       knownEntityHitboxVersions.clear();
       knownEntitySnapshots.clear();
+      fullEntitySnapshotCounts.clear();
+      lastFullEntitySnapshotTicks.clear();
       for (const entity of fullEntities) {
         knownEntityVersions.set(
           entity.id,
@@ -138,6 +154,8 @@ export class SnapshotManager {
           this.tickCache.getHitboxVersion(entity.id),
         );
         knownEntitySnapshots.set(entity.id, entity);
+        fullEntitySnapshotCounts.set(entity.id, FULL_ENTITY_RELIABILITY_SENDS);
+        lastFullEntitySnapshotTicks.set(entity.id, world.tick);
       }
 
       return {
@@ -213,7 +231,10 @@ export class SnapshotManager {
     knownEntityVersions: Map<number, number>,
     knownEntityHitboxVersions: Map<number, number>,
     knownEntitySnapshots: Map<number, EntitySnapshot>,
+    fullEntitySnapshotCounts: Map<number, number>,
+    lastFullEntitySnapshotTicks: Map<number, number>,
     changedEntities: EntitySnapshot[],
+    tick: number,
   ): void {
     const snapshot = this.tickCache.getSnapshot(entityId);
     if (!snapshot) {
@@ -223,15 +244,33 @@ export class SnapshotManager {
     const snapshotVersion = this.tickCache.getSnapshotVersion(entityId);
     const snapshotHitboxVersion = this.tickCache.getHitboxVersion(entityId);
     const knownVersion = knownEntityVersions.get(entityId);
-    if (knownVersion !== snapshotVersion) {
-      const knownHitboxVersion = knownEntityHitboxVersions.get(entityId);
-      const knownSnapshot = knownEntitySnapshots.get(entityId);
+    const knownHitboxVersion = knownEntityHitboxVersions.get(entityId);
+    const knownSnapshot = knownEntitySnapshots.get(entityId);
+    const fullSnapshotCount =
+      knownHitboxVersion === snapshotHitboxVersion
+        ? (fullEntitySnapshotCounts.get(entityId) ?? 0)
+        : 0;
+    const lastFullSnapshotTick =
+      lastFullEntitySnapshotTicks.get(entityId) ?? Number.NEGATIVE_INFINITY;
+    const shouldSendFullEntity =
+      !knownSnapshot ||
+      knownHitboxVersion !== snapshotHitboxVersion ||
+      fullSnapshotCount < FULL_ENTITY_RELIABILITY_SENDS ||
+      tick - lastFullSnapshotTick >= FULL_ENTITY_REFRESH_TICKS;
+
+    if (knownVersion !== snapshotVersion || shouldSendFullEntity) {
       changedEntities.push(
-        knownSnapshot &&
-          knownHitboxVersion === snapshotHitboxVersion
-          ? stripStableKnownFields(snapshot, knownSnapshot)
-          : snapshot,
+        shouldSendFullEntity
+          ? snapshot
+          : stripStableKnownFields(snapshot, knownSnapshot),
       );
+      if (shouldSendFullEntity) {
+        fullEntitySnapshotCounts.set(
+          entityId,
+          Math.min(FULL_ENTITY_RELIABILITY_SENDS, fullSnapshotCount + 1),
+        );
+        lastFullEntitySnapshotTicks.set(entityId, tick);
+      }
     }
 
     knownEntityVersions.set(entityId, snapshotVersion);
@@ -284,7 +323,9 @@ function stripStableKnownFields(
     if (deltaSnapshot.targetId === knownSnapshot.targetId) {
       delete deltaSnapshot.targetId;
     }
-    if (equippedItemsMatch(deltaSnapshot.equippedItem, knownSnapshot.equippedItem)) {
+    if (
+      equippedItemsMatch(deltaSnapshot.equippedItem, knownSnapshot.equippedItem)
+    ) {
       delete deltaSnapshot.equippedItem;
     }
   }

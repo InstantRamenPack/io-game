@@ -367,6 +367,36 @@ test("entity spawn and despawn are handled during interpolation", () => {
   );
 });
 
+test("incomplete delta-only new entities wait for a complete keyframe", () => {
+  const state = new ClientWorldState(8);
+  const incompleteDelta = {
+    id: 2,
+    kind: "player",
+    x: 50,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    rotation: 0,
+  } as EntitySnapshot;
+
+  state.pushSnapshot(makeSnapshot(1, [incompleteDelta], false), 50);
+  assert(
+    !state.clientWorld?.entities.has(2),
+    "incomplete delta-only entity should be ignored until metadata arrives",
+  );
+
+  state.pushSnapshot(
+    makeSnapshot(2, [makePlayerSnapshot(2, 60, 0)], false),
+    100,
+  );
+  const entity = state.clientWorld?.entities.get(2);
+  assert(
+    entity,
+    "complete keyframe should create the previously missing entity",
+  );
+  assertNear(entity.serverX, 60, 0.001, "keyframe should apply server x");
+});
+
 test("death and respawn discontinuities reset interpolation history", () => {
   const state = new ClientWorldState(8);
   state.pushSnapshot(makeSnapshot(1, [makePlayerSnapshot(1, 100, 100)]), 50);

@@ -96,6 +96,10 @@ export class Interpolator {
   private heldFrameCount = 0;
   private interpolatedFrameCount = 0;
   private readonly renderedEntityIds = new Set<number>();
+  private readonly snappedDiscontinuityTickByEntityId = new Map<
+    number,
+    number
+  >();
   private readonly debugLog: InterpolationDebugFrame[] = [];
   private latestDebugFrame: InterpolationDebugFrame | null = null;
 
@@ -247,6 +251,7 @@ export class Interpolator {
       }
     }
 
+    this.pruneEntityRenderState(world.entities);
     this.recordDebugFrame(
       worldState,
       frameTimeMs,
@@ -370,9 +375,30 @@ export class Interpolator {
       this.renderedEntityIds.has(entity.id) &&
       entity.lastDiscontinuityTick === referenceFrame.tick
     ) {
-      return "snap";
+      const lastSnappedTick = this.snappedDiscontinuityTickByEntityId.get(
+        entity.id,
+      );
+      if (lastSnappedTick !== referenceFrame.tick) {
+        this.snappedDiscontinuityTickByEntityId.set(
+          entity.id,
+          referenceFrame.tick,
+        );
+        return "snap";
+      }
     }
     return sample.mode;
+  }
+
+  private pruneEntityRenderState(
+    entities: ReadonlyMap<number, ClientEntity>,
+  ): void {
+    for (const entityId of this.renderedEntityIds) {
+      if (entities.has(entityId)) {
+        continue;
+      }
+      this.renderedEntityIds.delete(entityId);
+      this.snappedDiscontinuityTickByEntityId.delete(entityId);
+    }
   }
 
   private countMode(mode: InterpolationMode): void {

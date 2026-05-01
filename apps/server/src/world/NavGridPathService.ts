@@ -149,6 +149,10 @@ export class NavGridPathService {
 
     const fromIndex = this.tileToIndex(fromTile.x, fromTile.y);
     const targetIndex = this.tileToIndex(targetTile.x, targetTile.y);
+    if (this.isDirectTilePathWalkable(fromTile, targetTile)) {
+      return { x: targetX, y: targetY };
+    }
+
     const cacheKey = this.makePathKey(fromIndex, targetIndex);
     const cached = this.pathCache.get(cacheKey);
     if (cached) {
@@ -596,6 +600,51 @@ export class NavGridPathService {
     return (
       this.isTileInBounds(x, y) && this.occupancy[this.tileToIndex(x, y)] === 0
     );
+  }
+
+  private isDirectTilePathWalkable(
+    from: TilePoint,
+    target: TilePoint,
+  ): boolean {
+    let x = from.x;
+    let y = from.y;
+    const deltaX = Math.abs(target.x - x);
+    const deltaY = Math.abs(target.y - y);
+    const stepX = x < target.x ? 1 : -1;
+    const stepY = y < target.y ? 1 : -1;
+    let error = deltaX - deltaY;
+
+    if (!this.isTileWalkable(x, y)) {
+      return false;
+    }
+
+    while (x !== target.x || y !== target.y) {
+      const previousX = x;
+      const previousY = y;
+      const doubledError = error * 2;
+      if (doubledError > -deltaY) {
+        error -= deltaY;
+        x += stepX;
+      }
+      if (doubledError < deltaX) {
+        error += deltaX;
+        y += stepY;
+      }
+
+      if (!this.isTileWalkable(x, y)) {
+        return false;
+      }
+      if (
+        x !== previousX &&
+        y !== previousY &&
+        (!this.isTileWalkable(x, previousY) ||
+          !this.isTileWalkable(previousX, y))
+      ) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private makePathKey(startIndex: number, goalIndex: number): PathCacheKey {

@@ -17,6 +17,14 @@ export class PerPlayerReplicationState {
     number,
     Map<number, EntitySnapshot>
   >();
+  private readonly fullEntitySnapshotCountsByPlayerId = new Map<
+    number,
+    Map<number, number>
+  >();
+  private readonly lastFullEntitySnapshotTicksByPlayerId = new Map<
+    number,
+    Map<number, number>
+  >();
 
   public getKnownEntityVersions(playerId: number): Map<number, number> {
     let knownEntityVersions = this.knownEntityVersionsByPlayerId.get(playerId);
@@ -52,10 +60,38 @@ export class PerPlayerReplicationState {
     return knownEntitySnapshots;
   }
 
+  public getFullEntitySnapshotCounts(playerId: number): Map<number, number> {
+    let fullEntitySnapshotCounts =
+      this.fullEntitySnapshotCountsByPlayerId.get(playerId);
+    if (!fullEntitySnapshotCounts) {
+      fullEntitySnapshotCounts = new Map<number, number>();
+      this.fullEntitySnapshotCountsByPlayerId.set(
+        playerId,
+        fullEntitySnapshotCounts,
+      );
+    }
+    return fullEntitySnapshotCounts;
+  }
+
+  public getLastFullEntitySnapshotTicks(playerId: number): Map<number, number> {
+    let lastFullEntitySnapshotTicks =
+      this.lastFullEntitySnapshotTicksByPlayerId.get(playerId);
+    if (!lastFullEntitySnapshotTicks) {
+      lastFullEntitySnapshotTicks = new Map<number, number>();
+      this.lastFullEntitySnapshotTicksByPlayerId.set(
+        playerId,
+        lastFullEntitySnapshotTicks,
+      );
+    }
+    return lastFullEntitySnapshotTicks;
+  }
+
   public forgetPlayer(playerId: number): void {
     this.knownEntityVersionsByPlayerId.delete(playerId);
     this.knownEntityHitboxVersionsByPlayerId.delete(playerId);
     this.knownEntitySnapshotsByPlayerId.delete(playerId);
+    this.fullEntitySnapshotCountsByPlayerId.delete(playerId);
+    this.lastFullEntitySnapshotTicksByPlayerId.delete(playerId);
   }
 
   public pruneMissingPlayers(world: World): void {
@@ -66,6 +102,8 @@ export class PerPlayerReplicationState {
       this.knownEntityVersionsByPlayerId.delete(playerId);
       this.knownEntityHitboxVersionsByPlayerId.delete(playerId);
       this.knownEntitySnapshotsByPlayerId.delete(playerId);
+      this.fullEntitySnapshotCountsByPlayerId.delete(playerId);
+      this.lastFullEntitySnapshotTicksByPlayerId.delete(playerId);
     }
     for (const playerId of [
       ...this.knownEntityHitboxVersionsByPlayerId.keys(),
@@ -80,6 +118,22 @@ export class PerPlayerReplicationState {
         continue;
       }
       this.knownEntitySnapshotsByPlayerId.delete(playerId);
+    }
+    for (const playerId of [
+      ...this.fullEntitySnapshotCountsByPlayerId.keys(),
+    ]) {
+      if (world.entities.has(playerId)) {
+        continue;
+      }
+      this.fullEntitySnapshotCountsByPlayerId.delete(playerId);
+    }
+    for (const playerId of [
+      ...this.lastFullEntitySnapshotTicksByPlayerId.keys(),
+    ]) {
+      if (world.entities.has(playerId)) {
+        continue;
+      }
+      this.lastFullEntitySnapshotTicksByPlayerId.delete(playerId);
     }
   }
 }

@@ -47,10 +47,7 @@ export class SnapshotTickCache {
         this.hitboxVersionByEntityId.get(entity.id) ?? 0;
 
       if (previousHitboxFingerprint !== nextHitboxFingerprint) {
-        this.hitboxVersionByEntityId.set(
-          entity.id,
-          previousHitboxVersion + 1,
-        );
+        this.hitboxVersionByEntityId.set(entity.id, previousHitboxVersion + 1);
         this.previousHitboxFingerprintByEntityId.set(
           entity.id,
           nextHitboxFingerprint,

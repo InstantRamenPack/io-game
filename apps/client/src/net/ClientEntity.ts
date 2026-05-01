@@ -149,8 +149,7 @@ export class ClientEntity {
     const nextHp = snapshot.hp ?? this.hp;
     const nextMaxHp = snapshot.maxHp ?? this.maxHp;
     const nextAlive = snapshot.alive ?? this.alive;
-    const nextOwnerId =
-      "ownerId" in snapshot ? snapshot.ownerId : this.ownerId;
+    const nextOwnerId = "ownerId" in snapshot ? snapshot.ownerId : this.ownerId;
 
     const positionDiscontinuity =
       Math.hypot(snapshot.x - this.serverX, snapshot.y - this.serverY) >
@@ -455,7 +454,9 @@ function areHitboxesEqual(
   return true;
 }
 
-function requireSnapshotHitboxes(snapshot: EntitySnapshot): readonly HitboxRect[] {
+function requireSnapshotHitboxes(
+  snapshot: EntitySnapshot,
+): readonly HitboxRect[] {
   if (!snapshot.hitboxes) {
     throw new Error(
       `Snapshot for new entity ${snapshot.id} (${snapshot.typeId}) is missing hitboxes.`,
@@ -466,7 +467,9 @@ function requireSnapshotHitboxes(snapshot: EntitySnapshot): readonly HitboxRect[
 
 function requireSnapshotTypeId(snapshot: EntitySnapshot): ResourceId {
   if (!snapshot.typeId) {
-    throw new Error(`Snapshot for new entity ${snapshot.id} is missing typeId.`);
+    throw new Error(
+      `Snapshot for new entity ${snapshot.id} is missing typeId.`,
+    );
   }
   return snapshot.typeId;
 }

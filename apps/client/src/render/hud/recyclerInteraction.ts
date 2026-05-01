@@ -21,7 +21,6 @@ export function isHoldingRecyclableItem(inventory: InventorySnapshot): boolean {
     return false;
   }
   return !(slot.kind === "weapon" && slot.typeId === "item:fists");
-
 }
 
 export function isNearRecyclerWithItem(

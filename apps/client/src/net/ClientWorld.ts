@@ -26,12 +26,19 @@ export class ClientWorld {
     );
     this.tick = tick;
     this.dayNight = snapshot.dayNight;
-    this.entities = new Map(
-      snapshot.entities.map((entitySnapshot) => [
+    this.entities = new Map();
+    for (const entitySnapshot of snapshot.entities) {
+      if (
+        snapshot.full === false &&
+        !isCompleteNewEntitySnapshot(entitySnapshot)
+      ) {
+        continue;
+      }
+      this.entities.set(
         entitySnapshot.id,
         new ClientEntity(entitySnapshot, tick, this.serverFrameHistoryLimit),
-      ]),
-    );
+      );
+    }
     this.events = [...snapshot.events];
   }
 
@@ -66,6 +73,9 @@ export class ClientWorld {
           worldChanged = true;
         }
       } else {
+        if (!isFullSnapshot && !isCompleteNewEntitySnapshot(entitySnapshot)) {
+          continue;
+        }
         const entity = new ClientEntity(
           entitySnapshot,
           tick,
@@ -107,4 +117,20 @@ export class ClientWorld {
       this.version += 1;
     }
   }
+}
+
+function isCompleteNewEntitySnapshot(snapshot: {
+  typeId?: unknown;
+  hitboxes?: unknown;
+  hp?: unknown;
+  maxHp?: unknown;
+  alive?: unknown;
+}): boolean {
+  return (
+    snapshot.typeId !== undefined &&
+    snapshot.hitboxes !== undefined &&
+    snapshot.hp !== undefined &&
+    snapshot.maxHp !== undefined &&
+    snapshot.alive !== undefined
+  );
 }
