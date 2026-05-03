@@ -153,11 +153,15 @@ export class LocalPlayerPrediction {
     }
 
     const cutoff = newest.clientTimeMs - maxAgeMs;
+    let removeCount = 0;
     while (
-      this.pendingInputs.length > 0 &&
-      (this.pendingInputs[0]?.clientTimeMs ?? 0) < cutoff
+      removeCount < this.pendingInputs.length &&
+      (this.pendingInputs[removeCount]?.clientTimeMs ?? 0) < cutoff
     ) {
-      this.pendingInputs.shift();
+      removeCount += 1;
+    }
+    if (removeCount > 0) {
+      this.pendingInputs.splice(0, removeCount);
     }
   }
 }
