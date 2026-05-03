@@ -15,6 +15,9 @@ export class GameConfig {
   };
   public collision = {
     spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE,
+    dynamicSolverIterations: 2,
+    dynamicPushScale: 0.5,
+    maxDynamicCorrectionPerTick: 8,
   };
   public network = {
     maxPlayers: 64,
@@ -65,6 +68,17 @@ export class GameConfig {
     const tickRate = Number(process.env.TICK_RATE ?? gameConfig.tickRate);
     const spatialCellSize = Number(
       process.env.SPATIAL_CELL_SIZE ?? gameConfig.collision.spatialCellSize,
+    );
+    const dynamicSolverIterations = Number(
+      process.env.DYNAMIC_SOLVER_ITERATIONS ??
+        gameConfig.collision.dynamicSolverIterations,
+    );
+    const dynamicPushScale = Number(
+      process.env.DYNAMIC_PUSH_SCALE ?? gameConfig.collision.dynamicPushScale,
+    );
+    const maxDynamicCorrectionPerTick = Number(
+      process.env.MAX_DYNAMIC_CORRECTION_PER_TICK ??
+        gameConfig.collision.maxDynamicCorrectionPerTick,
     );
     const interestRadius = Number(
       process.env.INTEREST_RADIUS ?? gameConfig.replication.interestRadius,
@@ -154,6 +168,28 @@ export class GameConfig {
     }
     if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
       gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);
+    }
+    if (
+      Number.isFinite(dynamicSolverIterations) &&
+      Number.isInteger(dynamicSolverIterations) &&
+      dynamicSolverIterations >= 1 &&
+      dynamicSolverIterations <= 8
+    ) {
+      gameConfig.collision.dynamicSolverIterations = dynamicSolverIterations;
+    }
+    if (
+      Number.isFinite(dynamicPushScale) &&
+      dynamicPushScale > 0 &&
+      dynamicPushScale <= 1
+    ) {
+      gameConfig.collision.dynamicPushScale = dynamicPushScale;
+    }
+    if (
+      Number.isFinite(maxDynamicCorrectionPerTick) &&
+      maxDynamicCorrectionPerTick > 0
+    ) {
+      gameConfig.collision.maxDynamicCorrectionPerTick =
+        maxDynamicCorrectionPerTick;
     }
     if (Number.isFinite(interestRadius) && interestRadius > 0) {
       gameConfig.replication.interestRadius = Math.floor(interestRadius);

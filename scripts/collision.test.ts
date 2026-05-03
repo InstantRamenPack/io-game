@@ -58,10 +58,13 @@ function assertNear(
   }
 }
 
-function makeWorld(): World {
+function makeWorld(
+  collisionOverrides: Partial<GameConfig["collision"]> = {},
+): World {
   const config = new GameConfig();
   config.worldSize = { w: 500, h: 500 };
   config.debug.spawnMultiplier = 0;
+  config.collision = { ...config.collision, ...collisionOverrides };
   return new World(config);
 }
 
@@ -177,16 +180,91 @@ test("high-speed movement cannot tunnel through thin static blockers", () => {
   );
 });
 
-test("dynamic-vs-dynamic still splits correction evenly", () => {
+test("dynamic-vs-dynamic softly separates", () => {
   const world = makeWorld();
   const left = makeEntity(world, "dynamic", 100, 100);
   const right = makeEntity(world, "dynamic", 110, 100);
 
   runCollision(world);
 
-  assert(!overlaps(left, right), "dynamic entities should separate");
-  assertNear(left.x, 95, 0.001, "left dynamic should move half correction");
-  assertNear(right.x, 115, 0.001, "right dynamic should move half correction");
+  assert(
+    left.x < 100 && right.x > 110,
+    "dynamic entities should move apart",
+  );
+  assertNear(left.x, 96.25, 0.001, "left dynamic should move scaled correction");
+  assertNear(
+    right.x,
+    113.75,
+    0.001,
+    "right dynamic should move scaled correction",
+  );
+  assert(
+    Math.abs(left.x - 100) <=
+      world.gameConfig.collision.maxDynamicCorrectionPerTick,
+    "left correction should stay within max per tick",
+  );
+  assert(
+    Math.abs(right.x - 110) <=
+      world.gameConfig.collision.maxDynamicCorrectionPerTick,
+    "right correction should stay within max per tick",
+  );
+});
+
+test("dynamic correction clamps per tick", () => {
+  const world = makeWorld({
+    dynamicSolverIterations: 1,
+    dynamicPushScale: 1,
+    maxDynamicCorrectionPerTick: 2,
+  });
+  const left = makeEntity(world, "dynamic", 100, 100);
+  const right = makeEntity(world, "dynamic", 108, 100);
+
+  runCollision(world);
+
+  assertNear(left.x, 98, 0.001, "left correction should clamp");
+  assertNear(right.x, 110, 0.001, "right correction should clamp");
+  assert(
+    Math.abs(left.x - 100) <=
+      world.gameConfig.collision.maxDynamicCorrectionPerTick,
+    "left correction should remain within max per tick",
+  );
+  assert(
+    Math.abs(right.x - 108) <=
+      world.gameConfig.collision.maxDynamicCorrectionPerTick,
+    "right correction should remain within max per tick",
+  );
+});
+
+test("dynamic overlap near wall stays wall-safe", () => {
+  const world = makeWorld();
+  const wall = makeEntity(world, "static", 80, 100);
+  const left = makeEntity(world, "dynamic", 100, 100);
+  const right = makeEntity(world, "dynamic", 110, 100);
+
+  runCollision(world);
+
+  assert(!overlaps(left, wall), "left dynamic should not overlap wall");
+  assertNear(left.x, 100, 0.001, "left dynamic should stay against wall");
+  assertNear(
+    right.x,
+    117.5,
+    0.001,
+    "right dynamic should receive leftover correction",
+  );
+});
+
+test("crowd near wall does not penetrate static geometry", () => {
+  const world = makeWorld();
+  const wall = makeEntity(world, "static", 80, 100);
+  const left = makeEntity(world, "dynamic", 100, 100);
+  const mid = makeEntity(world, "dynamic", 110, 100);
+  const right = makeEntity(world, "dynamic", 120, 100);
+
+  runCollision(world);
+
+  assert(!overlaps(left, wall), "left should not overlap wall");
+  assert(!overlaps(mid, wall), "mid should not overlap wall");
+  assert(!overlaps(right, wall), "right should not overlap wall");
 });
 
 test("mergeable item entities do not dynamically separate", () => {
