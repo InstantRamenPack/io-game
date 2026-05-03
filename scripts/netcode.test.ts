@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { LocalPlayerPrediction } from "@client/client/prediction/LocalPlayerPrediction.ts";
 import {
   parseClientToServerMessage,
   type InputIntentMessage,
@@ -15,6 +16,7 @@ import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRunt
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import type { Player } from "@server/entities/Player.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
+import { ClientEntity } from "@client/net/ClientEntity.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
@@ -197,6 +199,68 @@ test("movement stops cleanly when fresh input is missing", () => {
   assert(player.vx > 0, "player should be moving before timeout");
   tick(runtime, 6);
   assertNear(player.vx, 0, 0.001, "stale input timeout should stop drive");
+});
+
+test("local prediction drops acknowledged inputs", () => {
+  const config = makeConfig();
+  const prediction = new LocalPlayerPrediction(config);
+  const player = new ClientEntity(makePlayerSnapshot(1, 0, 0), 1, 8);
+  for (let seq = 1; seq <= 4; seq += 1) {
+    prediction.recordAndPredict(player, {
+      seq,
+      clientTimeMs: seq * 10,
+      frameDeltaMs: 50,
+      theta: 0,
+      movement: movingRight(),
+    });
+  }
+  prediction.reconcile(player, player.getAuthoritativePose(), 2);
+  assert(
+    prediction.getPendingInputCount() === 2,
+    "acknowledged inputs should be removed",
+  );
+  prediction.reconcile(player, player.getAuthoritativePose(), 3);
+  assert(
+    prediction.getPendingInputCount() === 1,
+    "oldest pending input should be acknowledged",
+  );
+});
+
+test("local prediction replays pending inputs after reconciliation", () => {
+  const config = makeConfig();
+  const prediction = new LocalPlayerPrediction(config);
+  const player = new ClientEntity(makePlayerSnapshot(1, 100, 0), 1, 8);
+  prediction.recordAndPredict(player, {
+    seq: 1,
+    clientTimeMs: 10,
+    frameDeltaMs: 50,
+    theta: 0,
+    movement: movingRight(),
+  });
+  prediction.recordAndPredict(player, {
+    seq: 2,
+    clientTimeMs: 20,
+    frameDeltaMs: 50,
+    theta: 0,
+    movement: movingRight(),
+  });
+
+  prediction.reconcile(
+    player,
+    { x: 100, y: 0, vx: 0, vy: 0, rotation: 0 },
+    1,
+  );
+
+  assert(
+    prediction.getPendingInputCount() === 1,
+    "reconcile should keep only unacknowledged inputs",
+  );
+  assertNear(
+    player.x,
+    115,
+    0.001,
+    "reconcile should replay remaining inputs",
+  );
 });
 
 test("diagonal movement is normalized", () => {
@@ -480,6 +544,42 @@ test("local and remote players render from authoritative snapshots", () => {
   assert(
     remote.x >= 100 && remote.x <= 110,
     "remote render should sample snapshots",
+  );
+});
+
+test("interpolator can skip local predicted player", () => {
+  const state = new ClientWorldState(8);
+  const interpolator = new Interpolator({
+    snapDistance: 192,
+    expectedSnapshotMs: 50,
+  });
+  state.pushSnapshot(
+    makeSnapshot(1, [
+      makePlayerSnapshot(1, 0, 0),
+      makePlayerSnapshot(2, 100, 0),
+    ]),
+    50,
+  );
+  state.pushSnapshot(
+    makeSnapshot(2, [
+      makePlayerSnapshot(1, 10, 0),
+      makePlayerSnapshot(2, 110, 0),
+    ]),
+    100,
+  );
+  const local = state.clientWorld?.entities.get(1);
+  const remote = state.clientWorld?.entities.get(2);
+  assert(local && remote, "local and remote entities should exist");
+  local.x = 999;
+  local.y = 999;
+  const remoteBeforeX = remote.x;
+  interpolator.updateInterpolation(state, 200, 16, 1, {
+    skipEntityIds: new Set([1]),
+  });
+  assert(local.x === 999 && local.y === 999, "local player should be skipped");
+  assert(
+    remote.x > remoteBeforeX,
+    "remote player should still be interpolated",
   );
 });
 

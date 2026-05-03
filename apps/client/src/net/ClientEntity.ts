@@ -212,6 +212,25 @@ export class ClientEntity {
     }
   }
 
+  public getAuthoritativePose(): {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    rotation: number;
+  } {
+    const latestFrame =
+      this.serverFrameHistory[this.serverFrameHistory.length - 1];
+
+    return {
+      x: this.serverX,
+      y: this.serverY,
+      vx: this.vx,
+      vy: this.vy,
+      rotation: latestFrame?.rotation ?? this.rotation,
+    };
+  }
+
   public samplePosition(
     renderTick: number,
     maxExtrapolationTicks: number,

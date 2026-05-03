@@ -11,6 +11,7 @@ import {
 import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
 import { PointerAimController } from "@client/client/input/PointerAimController.ts";
 import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
+import { LocalPlayerPrediction } from "@client/client/prediction/LocalPlayerPrediction.ts";
 import { ClientSessionLifecycle } from "@client/client/session/ClientSessionLifecycle.ts";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
 import { InputBlocker } from "@client/input/InputBlocker.ts";
@@ -66,7 +67,9 @@ export class GameClient {
   >();
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
+  private readonly localPrediction: LocalPlayerPrediction;
   private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
+  private lastFrameDeltaMs = 1000 / 60;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
@@ -103,6 +106,7 @@ export class GameClient {
       ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
     });
+    this.localPrediction = new LocalPlayerPrediction(this.gameConfig);
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
@@ -371,16 +375,26 @@ export class GameClient {
   }
 
   public update(deltaMs: number, frameTimeMs = performance.now()): void {
+    this.lastFrameDeltaMs = deltaMs;
     const worldState = this.worldState;
     const world = worldState?.clientWorld;
     if (worldState && world) {
+      const skipEntityIds =
+        this.playerEntityId !== undefined && this.gameConfig.prediction.enabled
+          ? new Set([this.playerEntityId])
+          : undefined;
       this.interpolator.updateInterpolation(
         worldState,
         frameTimeMs,
         deltaMs,
         this.playerEntityId,
+        { skipEntityIds },
       );
 
+      const localPlayer = this.getLocalPlayerEntity();
+      if (localPlayer) {
+        this.localPrediction.applyVisualCorrection(localPlayer, deltaMs);
+      }
       const player = this.getLocalPlayerEntity();
       const playerPose = this.getLocalPlayerVisualPose();
 
@@ -411,6 +425,7 @@ export class GameClient {
     if (!applied.applied) {
       return;
     }
+    this.reconcileLocalPlayerFromSnapshot(snapshot.lastProcessedSeq);
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,
@@ -534,6 +549,10 @@ export class GameClient {
       interpolatedFrameCount: interpolation?.interpolatedFrameCount ?? 0,
       duplicateSnapshotCount: interpolation?.duplicateSnapshotCount ?? 0,
       outOfOrderSnapshotCount: interpolation?.outOfOrderSnapshotCount ?? 0,
+      prediction: {
+        enabled: this.gameConfig.prediction.enabled,
+        pendingInputCount: this.localPrediction.getPendingInputCount(),
+      },
       networkSimulation: this.networkClient.getDebugNetworkMetrics(),
     };
   }
@@ -587,6 +606,7 @@ export class GameClient {
     );
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
+    this.localPrediction.reset();
     this.pointerAimController.reset();
     this.heldAttackController.reset();
     this.inputManager.stopHoldFire();
@@ -605,6 +625,7 @@ export class GameClient {
     this.rateMonitor.reset();
     this.stopFrameLoop();
     this.inputManager.stopHoldFire();
+    this.localPrediction.reset();
     this.renderer.invalidateViewRectCache();
     this.clearMovementSuppressions();
     this.lobbyState = undefined;
@@ -729,7 +750,30 @@ export class GameClient {
     this.networkClient.sendInputIntent(seq, clientTimeMs, theta, {
       ...this.heldMovement,
     });
+    const localPlayer = this.getLocalPlayerEntity();
+    if (localPlayer) {
+      this.localPrediction.recordAndPredict(localPlayer, {
+        seq,
+        clientTimeMs,
+        frameDeltaMs: this.lastFrameDeltaMs,
+        theta,
+        movement: { ...this.heldMovement },
+      });
+    }
     this.lastInputSentAtMs = now;
+  }
+
+  private reconcileLocalPlayerFromSnapshot(
+    lastProcessedSeq: number | undefined,
+  ): void {
+    const player = this.getLocalPlayerEntity();
+    if (!player) {
+      return;
+    }
+
+    const authoritative = player.getAuthoritativePose();
+
+    this.localPrediction.reconcile(player, authoritative, lastProcessedSeq);
   }
 
   private updateHeldAttack(now: number): void {

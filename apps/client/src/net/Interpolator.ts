@@ -172,6 +172,7 @@ export class Interpolator {
     frameTimeMs: number,
     deltaMs: number,
     focusEntityId?: number,
+    options: { skipEntityIds?: ReadonlySet<number> } = {},
   ): void {
     const world = worldState.clientWorld;
     if (!world) {
@@ -212,6 +213,9 @@ export class Interpolator {
     let focusCorrectionDirection = { x: 0, y: 0 };
 
     for (const entity of world.entities.values()) {
+      if (options.skipEntityIds?.has(entity.id)) {
+        continue;
+      }
       const beforeX = entity.x;
       const beforeY = entity.y;
       const sampleTick = shouldExtrapolateProjectile(entity)

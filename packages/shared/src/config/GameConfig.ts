@@ -53,6 +53,14 @@ export class GameConfig {
     correctionFrameScaleMin: 0.5,
     correctionFrameScaleMax: 2.5,
   };
+  public prediction = {
+    enabled: true,
+    maxPendingInputs: 180,
+    reconciliationSnapDistance: 96,
+    reconciliationSmoothDistance: 24,
+    reconciliationSmoothSharpness: 18,
+    maxClientPredictionMs: 250,
+  };
   public dayNight = {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
@@ -154,6 +162,27 @@ export class GameConfig {
     const interpolationCorrectionFrameScaleMax = Number(
       process.env.INTERPOLATION_CORRECTION_FRAME_SCALE_MAX ??
         gameConfig.interpolation.correctionFrameScaleMax,
+    );
+    const predictionEnabledRaw = process.env.CLIENT_PREDICTION_ENABLED;
+    const predictionMaxPendingInputs = Number(
+      process.env.CLIENT_PREDICTION_MAX_PENDING_INPUTS ??
+        gameConfig.prediction.maxPendingInputs,
+    );
+    const predictionReconciliationSnapDistance = Number(
+      process.env.CLIENT_RECONCILIATION_SNAP_DISTANCE ??
+        gameConfig.prediction.reconciliationSnapDistance,
+    );
+    const predictionReconciliationSmoothDistance = Number(
+      process.env.CLIENT_RECONCILIATION_SMOOTH_DISTANCE ??
+        gameConfig.prediction.reconciliationSmoothDistance,
+    );
+    const predictionReconciliationSmoothSharpness = Number(
+      process.env.CLIENT_RECONCILIATION_SMOOTH_SHARPNESS ??
+        gameConfig.prediction.reconciliationSmoothSharpness,
+    );
+    const maxClientPredictionMs = Number(
+      process.env.CLIENT_MAX_PREDICTION_MS ??
+        gameConfig.prediction.maxClientPredictionMs,
     );
     const debugSpawnMultiplier = Number(
       process.env.DEBUG_SPAWN_MULTIPLIER ?? gameConfig.debug.spawnMultiplier,
@@ -326,6 +355,50 @@ export class GameConfig {
     ) {
       gameConfig.interpolation.correctionFrameScaleMax =
         interpolationCorrectionFrameScaleMax;
+    }
+    if (predictionEnabledRaw !== undefined) {
+      const normalized = predictionEnabledRaw.trim().toLowerCase();
+      if (normalized === "true" || normalized === "1") {
+        gameConfig.prediction.enabled = true;
+      } else if (normalized === "false" || normalized === "0") {
+        gameConfig.prediction.enabled = false;
+      }
+    }
+    if (
+      Number.isFinite(predictionMaxPendingInputs) &&
+      Number.isInteger(predictionMaxPendingInputs) &&
+      predictionMaxPendingInputs >= 1 &&
+      predictionMaxPendingInputs <= 600
+    ) {
+      gameConfig.prediction.maxPendingInputs = predictionMaxPendingInputs;
+    }
+    if (
+      Number.isFinite(predictionReconciliationSnapDistance) &&
+      predictionReconciliationSnapDistance >= 0
+    ) {
+      gameConfig.prediction.reconciliationSnapDistance =
+        predictionReconciliationSnapDistance;
+    }
+    if (
+      Number.isFinite(predictionReconciliationSmoothDistance) &&
+      predictionReconciliationSmoothDistance >= 0
+    ) {
+      gameConfig.prediction.reconciliationSmoothDistance =
+        predictionReconciliationSmoothDistance;
+    }
+    if (
+      Number.isFinite(predictionReconciliationSmoothSharpness) &&
+      predictionReconciliationSmoothSharpness > 0
+    ) {
+      gameConfig.prediction.reconciliationSmoothSharpness =
+        predictionReconciliationSmoothSharpness;
+    }
+    if (
+      Number.isFinite(maxClientPredictionMs) &&
+      maxClientPredictionMs >= 0 &&
+      maxClientPredictionMs <= 1000
+    ) {
+      gameConfig.prediction.maxClientPredictionMs = maxClientPredictionMs;
     }
     gameConfig.interpolation.maxRenderDelayTicks = Math.max(
       gameConfig.interpolation.maxRenderDelayTicks,
