@@ -22,6 +22,7 @@ import { HotbarView } from "@client/render/hud/HotbarView.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
+import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
 import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
@@ -30,6 +31,10 @@ import {
   toHotbarSlotItems,
 } from "@client/render/hud/hotbarModel.ts";
 import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
+import {
+  getNearestPickup,
+  getPickupItemLabel,
+} from "@client/render/hud/pickupInteraction.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
@@ -74,6 +79,7 @@ export class PixiHud {
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
   private recyclerPromptView?: RecyclerPromptView;
+  private itemPickupPromptView?: ItemPickupPromptView;
   private recyclerHoldStartMs: number | null = null;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
@@ -188,6 +194,7 @@ export class PixiHud {
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
       this.recyclerPromptView = new RecyclerPromptView();
+      this.itemPickupPromptView = new ItemPickupPromptView();
 
       this.hunkBadge = new PIXI.Container();
       this.hunkBadgeBg = new PIXI.Graphics();
@@ -223,6 +230,7 @@ export class PixiHud {
         this.dayNightIndicator.container,
         this.selectedItemToastView.container,
         this.recyclerPromptView.container,
+        this.itemPickupPromptView.container,
         this.tooltipView.container,
       );
     }
@@ -560,13 +568,20 @@ export class PixiHud {
     const selectionToastVisible =
       this.gameplayHudCoordinator.isSelectionToastVisible(nowMs);
 
-    const recyclerActive =
-      this.recyclerHoldStartMs !== null ||
-      isNearRecyclerWithItem(
+    const nearPickup =
+      getNearestPickup(
         this.selectors.getPlayerEntity(),
-        this.selectors.getRecyclers(),
-        inventory,
-      );
+        this.selectors.getPickups(),
+      ) !== null;
+
+    const recyclerActive =
+      !nearPickup &&
+      (this.recyclerHoldStartMs !== null ||
+        isNearRecyclerWithItem(
+          this.selectors.getPlayerEntity(),
+          this.selectors.getRecyclers(),
+          inventory,
+        ));
 
     if (
       !this.dirty &&
@@ -665,6 +680,12 @@ export class PixiHud {
       app.screen.height,
       nowMs,
       inventory,
+      nearPickup,
+    );
+    this.syncItemPickupPrompt(
+      app.screen.width,
+      app.screen.height,
+      recyclerActive,
     );
     this.syncHunkBadge(inventory);
   }
@@ -737,6 +758,7 @@ export class PixiHud {
     screenHeight: number,
     nowMs: number,
     inventory: InventorySnapshot | undefined,
+    nearPickup: boolean,
   ): void {
     if (!this.recyclerPromptView) {
       return;
@@ -744,7 +766,7 @@ export class PixiHud {
 
     const player = this.selectors.getPlayerEntity();
     const recyclers = this.selectors.getRecyclers();
-    const near = isNearRecyclerWithItem(player, recyclers, inventory);
+    const near = !nearPickup && isNearRecyclerWithItem(player, recyclers, inventory);
 
     let itemLabel = "";
     if (near && inventory) {
@@ -759,6 +781,41 @@ export class PixiHud {
       itemLabel,
       holdStartMs: this.recyclerHoldStartMs,
       nowMs,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncItemPickupPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    recyclerActive: boolean,
+  ): void {
+    if (!this.itemPickupPromptView) {
+      return;
+    }
+
+    if (recyclerActive) {
+      this.itemPickupPromptView.sync({
+        visible: false,
+        itemLabel: "",
+        screenWidth,
+        screenHeight,
+      });
+      return;
+    }
+
+    const player = this.selectors.getPlayerEntity();
+    const pickups = this.selectors.getPickups();
+    const nearest = getNearestPickup(player, pickups);
+
+    const itemLabel = nearest
+      ? getPickupItemLabel(nearest, (id) => this.selectors.formatTypeLabel(id))
+      : "";
+
+    this.itemPickupPromptView.sync({
+      visible: nearest !== null,
+      itemLabel,
       screenWidth,
       screenHeight,
     });

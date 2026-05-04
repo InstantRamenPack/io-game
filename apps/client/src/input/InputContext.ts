@@ -8,4 +8,5 @@ export type InputContext = {
   chestOpen: boolean;
   textEntryActive: boolean;
   nearRecyclerWithItem: boolean;
+  nearPickup: boolean;
 };

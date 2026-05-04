@@ -86,15 +86,7 @@ export class GameInputRouter {
 
     if (key === "e") {
       event.preventDefault();
-      if (context.chestOpen) {
-        this.options.dispatch({ type: "closeChest" });
-        return;
-      }
-      if (context.inventoryOpen) {
-        this.options.dispatch({ type: "closeInventory" });
-        return;
-      }
-      if (context.nearRecyclerWithItem) {
+      if (!context.nearPickup && context.nearRecyclerWithItem) {
         if (this.eHoldTimer !== null) {
           clearTimeout(this.eHoldTimer);
         }
@@ -111,8 +103,12 @@ export class GameInputRouter {
       return;
     }
 
-    if (key === "i") {
+    if (key === "h") {
       event.preventDefault();
+      if (context.chestOpen) {
+        this.options.dispatch({ type: "closeChest" });
+        return;
+      }
       this.options.dispatch({
         type: context.inventoryOpen ? "closeInventory" : "toggleInventory",
       });

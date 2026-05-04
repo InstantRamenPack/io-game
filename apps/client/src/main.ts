@@ -20,6 +20,7 @@ import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
+import { getNearestPickup } from "@client/render/hud/pickupInteraction.ts";
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
@@ -155,6 +156,11 @@ new GameInputRouter({
       selectors.getRecyclers(),
       selectors.getInventory(),
     ),
+    nearPickup:
+      getNearestPickup(
+        selectors.getPlayerEntity(),
+        selectors.getPickups(),
+      ) !== null,
   }),
   dispatch: (command) => {
     switch (command.type) {

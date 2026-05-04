@@ -19,6 +19,7 @@ export type GameSelectors = {
   getCraftingStations(): ClientEntity[];
   getChests(): ClientEntity[];
   getRecyclers(): ClientEntity[];
+  getPickups(): ClientEntity[];
   getInventory(): InventorySnapshot | undefined;
   countInventoryType(typeId: string): number;
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
@@ -85,6 +86,10 @@ export function createGameSelectors(
     );
   }
 
+  function getPickups(): ClientEntity[] {
+    return getWorldEntities().filter((entity) => entity.kind === "pickup");
+  }
+
   function getInventory(): InventorySnapshot | undefined {
     return getPlayerEntity()?.inventory;
   }
@@ -136,6 +141,7 @@ export function createGameSelectors(
     getCraftingStations,
     getChests,
     getRecyclers,
+    getPickups,
     getInventory,
     countInventoryType,
     hasRecipeResources,
