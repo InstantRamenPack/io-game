@@ -156,10 +156,28 @@ export const DayNightSnapshotSchema = z.object({
   nightDurationMs: PositiveIntSchema,
 });
 
+export const ExtractionStageSchema = z.enum([
+  "locked",
+  "active",
+  "board_timer",
+  "chopper_incoming",
+  "complete",
+]);
+
+export const ExtractionSnapshotSchema = z.object({
+  stage: ExtractionStageSchema,
+  boardElapsedMs: NonNegativeIntSchema,
+  chopperElapsedMs: NonNegativeIntSchema,
+  playersOnPad: NonNegativeIntSchema,
+  totalAlivePlayers: NonNegativeIntSchema,
+  enemiesInRadius: NonNegativeIntSchema,
+});
+
 export const WorldSnapshotSchema = z.object({
   tick: NonNegativeIntSchema,
   lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
+  extraction: ExtractionSnapshotSchema,
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
   removedEntityIds: z.array(EntityIdSchema).optional(),
@@ -247,4 +265,6 @@ export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
 export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;
 export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
 export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
+export type ExtractionStage = z.infer<typeof ExtractionStageSchema>;
+export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

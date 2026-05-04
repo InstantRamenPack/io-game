@@ -7,6 +7,7 @@ import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
+import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
@@ -50,6 +51,7 @@ export class World {
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
+  public extractionSystem: ExtractionSystem | null = null;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
@@ -112,6 +114,7 @@ export class World {
     const dayNightMs = performance.now() - dayNightStartedAt;
     const waveStartedAt = performance.now();
     this.waveSystem.update(this, deltaMs);
+    this.extractionSystem?.update(this, deltaMs);
     const waveMs = performance.now() - waveStartedAt;
 
     const spatialBeforeStartedAt = performance.now();
@@ -186,6 +189,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
+    this.extractionSystem?.update(this, deltaMs);
 
     this.ensureSpatialIndex();
     this.navPathService.updateDirty(this);

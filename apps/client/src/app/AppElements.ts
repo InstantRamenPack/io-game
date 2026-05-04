@@ -37,6 +37,10 @@ export type AppElements = {
   playerNameInput: HTMLInputElement | null;
   deathOverlay: HTMLElement | null;
   respawnBtn: HTMLButtonElement | null;
+  gameOverOverlay: HTMLElement | null;
+  gameOverDuration: HTMLElement | null;
+  gameOverWaves: HTMLElement | null;
+  gameOverReturnBtn: HTMLButtonElement | null;
 };
 
 /**
@@ -84,6 +88,12 @@ export function getAppElements(): AppElements {
     deathOverlay: document.getElementById("death-overlay"),
     respawnBtn: document.getElementById(
       "respawn-btn",
+    ) as HTMLButtonElement | null,
+    gameOverOverlay: document.getElementById("game-over-overlay"),
+    gameOverDuration: document.getElementById("game-over-duration"),
+    gameOverWaves: document.getElementById("game-over-waves"),
+    gameOverReturnBtn: document.getElementById(
+      "game-over-return-btn",
     ) as HTMLButtonElement | null,
   };
 }

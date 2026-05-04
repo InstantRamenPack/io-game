@@ -1,6 +1,7 @@
 import type {
   ActionMessage,
   ChatMessage,
+  GameCompleteMessage,
   InputIntentMessage,
   LobbyStateMessage,
 } from "@shared/net/protocol.ts";
@@ -30,6 +31,9 @@ export class WsClient {
   private welcomeHandlers: Array<(entityId: number) => void> = [];
   private chatHandlers: Array<(message: ChatMessage) => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
+  private gameCompleteHandlers: Array<
+    (message: GameCompleteMessage) => void
+  > = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
@@ -180,6 +184,12 @@ export class WsClient {
     this.lobbyStateHandlers.push(lobbyStateHandler);
   }
 
+  public onGameComplete(
+    handler: (message: GameCompleteMessage) => void,
+  ): void {
+    this.gameCompleteHandlers.push(handler);
+  }
+
   public onOpen(openHandler: () => void): void {
     this.openHandlers.push(openHandler);
   }
@@ -258,6 +268,13 @@ export class WsClient {
     if (serverMessage.t === "lobby_state") {
       for (const lobbyStateHandler of this.lobbyStateHandlers) {
         lobbyStateHandler(serverMessage);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "game_complete") {
+      for (const handler of this.gameCompleteHandlers) {
+        handler(serverMessage);
       }
       return;
     }

@@ -2,6 +2,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type {
   EntitySnapshot,
   EquippedItemSnapshot,
+  ExtractionSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -12,6 +13,15 @@ import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
 import type { World } from "@server/world/World.ts";
 
 const MAX_DELTA_REMOVED_IDS = 96;
+
+const LOCKED_EXTRACTION: ExtractionSnapshot = {
+  stage: "locked",
+  boardElapsedMs: 0,
+  chopperElapsedMs: 0,
+  playersOnPad: 0,
+  totalAlivePlayers: 0,
+  enemiesInRadius: 0,
+};
 const MAX_DELTA_ENTITY_UPDATES = 1024;
 const FULL_ENTITY_RELIABILITY_SENDS = 4;
 const FULL_ENTITY_REFRESH_TICKS = 40;
@@ -49,11 +59,14 @@ export class SnapshotManager {
     const player = world.get<Player>(playerId);
     const dayNight =
       this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
+    const extraction =
+      this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
         tick: world.tick,
         dayNight,
+        extraction,
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -161,6 +174,7 @@ export class SnapshotManager {
       return {
         tick: world.tick,
         dayNight,
+        extraction,
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -176,6 +190,7 @@ export class SnapshotManager {
     return {
       tick: world.tick,
       dayNight,
+      extraction,
       full: false,
       entities: changedEntities,
       removedEntityIds,

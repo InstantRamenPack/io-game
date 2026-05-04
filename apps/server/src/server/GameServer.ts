@@ -22,6 +22,7 @@ type MatchLobby = {
   createdAtMs: number;
   countdownEndsAtMs: number | null;
   startedAtMs: number | null;
+  gameCompletedAtMs: number | null;
   scopedNetwork: ScopedWsServer;
   runtime: GameInstanceRuntime | null;
 };
@@ -112,9 +113,20 @@ export class GameServer {
       return;
     }
 
-    this.updateMatchLobbies(Date.now());
+    const nowMs = Date.now();
+    this.updateMatchLobbies(nowMs);
     for (const lobby of this.matchLobbyByCode.values()) {
       lobby.runtime?.tick();
+    }
+
+    for (const lobby of this.matchLobbyByCode.values()) {
+      if (
+        lobby.runtime?.isGameComplete() &&
+        lobby.gameCompletedAtMs === null
+      ) {
+        lobby.gameCompletedAtMs = nowMs;
+        this.broadcastGameComplete(lobby, nowMs);
+      }
     }
   }
 
@@ -515,11 +527,27 @@ export class GameServer {
       createdAtMs: nowMs,
       countdownEndsAtMs: null,
       startedAtMs: null,
+      gameCompletedAtMs: null,
       scopedNetwork,
       runtime: null,
     };
     this.matchLobbyByCode.set(code, lobby);
     return lobby;
+  }
+
+  private broadcastGameComplete(lobby: MatchLobby, nowMs: number): void {
+    const gameDurationMs =
+      lobby.startedAtMs !== null ? nowMs - lobby.startedAtMs : 0;
+    const wavesCompleted = lobby.runtime?.getWavesCompleted() ?? 0;
+    const message: ServerToClientMessage = {
+      t: "game_complete",
+      gameDurationMs,
+      wavesCompleted,
+    };
+    const payload = JSON.stringify(message);
+    for (const clientId of lobby.playerClientIds) {
+      this.networkServer.send(clientId, payload);
+    }
   }
 
   private generateLobbyCode(): string {

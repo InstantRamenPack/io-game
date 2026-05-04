@@ -232,6 +232,12 @@ const LobbyStateMessageSchema = z.object({
   serverNowMs: z.number().int().nonnegative(),
 });
 
+const GameCompleteMessageSchema = z.object({
+  t: z.literal("game_complete"),
+  gameDurationMs: z.number().nonnegative(),
+  wavesCompleted: z.number().int().nonnegative(),
+});
+
 type ObjectSchema = z.ZodObject<z.ZodRawShape>;
 
 function literalField(schema: ObjectSchema, fieldName: string): string {
@@ -291,6 +297,7 @@ const ServerToClientMessageSchemaOptions = [
   ErrorMessageSchema,
   ChatMessageSchema,
   LobbyStateMessageSchema,
+  GameCompleteMessageSchema,
 ] as const;
 
 export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
@@ -340,6 +347,7 @@ type ChatInputMessage = z.infer<typeof ChatInputMessageSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type LobbyActionMessage = z.infer<typeof LobbyActionMessageSchema>;
 export type LobbyStateMessage = z.infer<typeof LobbyStateMessageSchema>;
+export type GameCompleteMessage = z.infer<typeof GameCompleteMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
   | InputIntentMessage
@@ -354,7 +362,8 @@ export type ServerToClientMessage =
   | WelcomeMessage
   | ErrorMessage
   | ChatMessage
-  | LobbyStateMessage;
+  | LobbyStateMessage
+  | GameCompleteMessage;
 
 type ParseServerMessageOptions = {
   validateSnapshots?: boolean;

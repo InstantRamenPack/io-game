@@ -1,6 +1,10 @@
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { NetEvent } from "@shared/net/events.ts";
-import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  DayNightSnapshot,
+  ExtractionSnapshot,
+  WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 
 /**
  * Client-side world representation that owns authoritative replica state only.
@@ -10,6 +14,7 @@ export class ClientWorld {
   public entities: Map<number, ClientEntity>;
   public events: NetEvent[];
   public dayNight: DayNightSnapshot;
+  public extraction: ExtractionSnapshot;
   public version = 1;
 
   private readonly serverFrameHistoryLimit: number;
@@ -26,6 +31,7 @@ export class ClientWorld {
     );
     this.tick = tick;
     this.dayNight = snapshot.dayNight;
+    this.extraction = snapshot.extraction;
     this.entities = new Map();
     for (const entitySnapshot of snapshot.entities) {
       if (
@@ -51,6 +57,7 @@ export class ClientWorld {
     this.tick = tick;
     this.events = [...snapshot.events];
     this.dayNight = snapshot.dayNight;
+    this.extraction = snapshot.extraction;
 
     const isFullSnapshot = snapshot.full !== false;
     let worldChanged = this.events.length > 0;

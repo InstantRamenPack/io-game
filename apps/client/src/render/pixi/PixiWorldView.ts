@@ -1,5 +1,6 @@
 import { Graphics, type Application, type Container } from "pixi.js";
 import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import { HelipadOverlay } from "@client/render/pixi/HelipadOverlay.ts";
 import {
   PixiPlacementPreview,
   type PlacementPreviewState,
@@ -8,6 +9,7 @@ import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
+import type { ExtractionSnapshot } from "@shared/net/snapshots.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
@@ -30,6 +32,8 @@ export class PixiWorldView {
   private readonly cullingController = new PixiCullingController();
   private readonly placementPreview = new PixiPlacementPreview();
   private readonly sniperAimGuide = new Graphics();
+  private readonly helipadOverlay = new HelipadOverlay();
+  private pendingExtractionState: ExtractionSnapshot | null = null;
   private worldSize: WorldSize;
   private gridNightBlend = 0;
   private lastGridCameraX = Number.NaN;
@@ -43,6 +47,7 @@ export class PixiWorldView {
     this.viewportController = new PixiViewportController(worldSize);
     this.sniperAimGuide.visible = false;
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
+    this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
   }
 
   public get entityContainer(): Container {
@@ -106,6 +111,11 @@ export class PixiWorldView {
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
     this.redrawScreenGridLinesIfNeeded(app);
+    this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
+  }
+
+  public updateExtractionState(state: ExtractionSnapshot | null): void {
+    this.pendingExtractionState = state;
   }
 
   public setGridNightBlend(blend: number): void {

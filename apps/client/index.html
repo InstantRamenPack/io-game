@@ -132,6 +132,25 @@
         <button id="respawn-btn" type="button">Respawn</button>
       </div>
     </div>
+    <div id="game-over-overlay" class="game-over-overlay" hidden>
+      <div class="game-over-card">
+        <p class="game-over-kicker">Extraction Complete</p>
+        <h2 class="game-over-title">YOUR TEAM ESCAPED</h2>
+        <div id="game-over-stats" class="game-over-stats">
+          <div class="game-over-stat-row">
+            <span class="stat-label">GAME DURATION</span>
+            <span id="game-over-duration" class="stat-value">--:--</span>
+          </div>
+          <div class="game-over-stat-row">
+            <span class="stat-label">WAVES SURVIVED</span>
+            <span id="game-over-waves" class="stat-value">--</span>
+          </div>
+        </div>
+        <button id="game-over-return-btn" type="button" class="game-over-btn">
+          Return to Lobby
+        </button>
+      </div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

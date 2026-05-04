@@ -27,8 +27,16 @@ import { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { InputMovement, LobbyStateMessage } from "@shared/net/protocol.ts";
-import type { DayNightSnapshot, WorldSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  InputMovement,
+  LobbyStateMessage,
+  GameCompleteMessage,
+} from "@shared/net/protocol.ts";
+import type {
+  DayNightSnapshot,
+  ExtractionSnapshot,
+  WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 
 const INPUT_SEND_INTERVAL_MS = 1000 / 60;
@@ -70,7 +78,9 @@ export class GameClient {
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
+  private gameCompleteHandlers: Array<(msg: GameCompleteMessage) => void> = [];
   private lobbyState?: LobbyStateMessage;
+  private latestExtractionState: ExtractionSnapshot | null = null;
   private readonly heldMovement: InputMovement = {
     up: false,
     down: false,
@@ -107,6 +117,7 @@ export class GameClient {
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onLobbyState((state) => this.onLobbyState(state));
+    this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
@@ -145,6 +156,14 @@ export class GameClient {
     handler: (state: LobbyStateMessage) => void,
   ): void {
     this.lobbyStateHandlers.push(handler);
+  }
+
+  public onGameCompleted(handler: (msg: GameCompleteMessage) => void): void {
+    this.gameCompleteHandlers.push(handler);
+  }
+
+  public getLatestExtractionState(): ExtractionSnapshot | null {
+    return this.latestExtractionState;
   }
 
   public getLobbyState(): LobbyStateMessage | undefined {
@@ -412,6 +431,9 @@ export class GameClient {
       return;
     }
 
+    this.latestExtractionState = snapshot.extraction;
+    this.renderer.updateExtractionState(snapshot.extraction);
+
     this.placementPreviewController.invalidate({
       spatialIndex: true,
       preview: true,
@@ -577,6 +599,12 @@ export class GameClient {
     this.lobbyState = state;
     for (const handler of this.lobbyStateHandlers) {
       handler(state);
+    }
+  }
+
+  private handleGameComplete(msg: GameCompleteMessage): void {
+    for (const handler of this.gameCompleteHandlers) {
+      handler(msg);
     }
   }
 

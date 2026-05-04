@@ -28,6 +28,10 @@ export class WaveSystem implements System {
     }
   }
 
+  public getNightCycleCounter(): number {
+    return this.nightCycleCounter;
+  }
+
   public update(world: World, _deltaMs: number): void {
     if (!this.waveSpawner) {
       return;

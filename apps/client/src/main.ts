@@ -4,6 +4,7 @@ import { createGameSelectors } from "@client/app/gameSelectors.ts";
 import { createHudController } from "@client/app/HudController.ts";
 import { createChatController } from "@client/app/ChatController.ts";
 import { createDeathController } from "@client/app/DeathController.ts";
+import { createGameOverController } from "@client/app/GameOverController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
 import { createLobbyHudController } from "@client/app/LobbyHudController.ts";
 import { createMenuController } from "@client/app/MenuController.ts";
@@ -90,6 +91,12 @@ const launchController = createLaunchController({
   chatController,
   lobbyHudController,
   resolvePlayerName: () => resolvePlayerName(elements.playerNameInput),
+});
+
+createGameOverController({
+  elements,
+  gameClient,
+  sessionUiController,
 });
 
 gameClient.setPointerActionHandler((pointer) => {

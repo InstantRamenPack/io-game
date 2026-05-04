@@ -17,6 +17,7 @@ import {
   applyPlayerStarterLoadout,
   validatePlayerStarterLoadout,
 } from "@server/server/starterLoadout.ts";
+import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
@@ -70,6 +71,7 @@ export class GameInstanceRuntime {
       configPath: "./apps/server/src/config/waves.json",
       chatService: this.chatService,
     });
+    this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
     if (process.env.NODE_ENV !== "production") {
       console.log("Wave spawning system initialized");
     }
@@ -147,6 +149,14 @@ export class GameInstanceRuntime {
 
   public getPlayerCount(): number {
     return this.playerIdByClientId.size;
+  }
+
+  public isGameComplete(): boolean {
+    return this.world.extractionSystem?.isComplete() ?? false;
+  }
+
+  public getWavesCompleted(): number {
+    return this.world.waveSystem.getNightCycleCounter();
   }
 
   public handleInputIntent(
