@@ -20,9 +20,19 @@
     "benchmark:long-run": "bun run scripts/benchmarks/long-run.benchmark.ts",
     "benchmark:multiplayer-scale": "bun run scripts/benchmarks/multiplayer-scale.benchmark.ts",
     "benchmark:all": "bun run scripts/benchmarks/all.benchmark.ts",
+    "benchmark:smoke": "BENCH_WARMUP_TICKS=5 BENCH_SAMPLE_TICKS=20 BENCH_COLLISION_ENEMIES=50 BENCH_COLLISION_WALLS=50 BENCH_COLLISION_PROJECTILES=20 bun run scripts/benchmarks/collision.benchmark.ts",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test scripts/tests",
+    "test:netcode": "bun test scripts/tests/netcode",
+    "test:prediction": "bun test scripts/tests/prediction",
+    "test:collision": "bun test scripts/tests/collision",
+    "test:protocol": "bun test scripts/tests/protocol",
+    "test:snapshot": "bun test scripts/tests/snapshot",
+    "test:gameplay": "bun test scripts/tests/gameplay",
+    "test:coverage": "bun test --coverage scripts/tests",
+    "test:smoke": "bun run test && bun run benchmark:smoke"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
