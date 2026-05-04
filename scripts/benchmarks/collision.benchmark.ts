@@ -15,6 +15,11 @@ import {
   warmup,
   writeBenchmarkReport,
 } from "@benchmarks/common.ts";
+import {
+  assertAllEntityPositionsFinite,
+  assertNoDynamicEntityOutsideWorld,
+  assertNoDynamicStaticOverlap,
+} from "../tests/helpers/collisionInvariants.ts";
 
 bootstrapBenchmarks();
 
@@ -32,6 +37,9 @@ spawnEnemyGrid(runtime, ENEMIES, "police", { spacing: 18 });
 spawnProjectileBurst(runtime, clients[0]!.playerId, PROJECTILES, "basic");
 
 warmup(runtime, WARMUP_TICKS);
+assertAllEntityPositionsFinite(runtime.world);
+assertNoDynamicEntityOutsideWorld(runtime.world);
+assertNoDynamicStaticOverlap(runtime.world);
 sink.reset();
 
 const server = measureTicks(runtime, SAMPLE_TICKS, {
@@ -44,6 +52,9 @@ const server = measureTicks(runtime, SAMPLE_TICKS, {
   },
 });
 const world = summarizeWorldTicks(sink.ticks);
+assertAllEntityPositionsFinite(runtime.world);
+assertNoDynamicEntityOutsideWorld(runtime.world);
+assertNoDynamicStaticOverlap(runtime.world);
 const metrics = {
   serverAverageMs: server.average,
   serverP95Ms: server.p95,
