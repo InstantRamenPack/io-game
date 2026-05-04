@@ -205,6 +205,40 @@ export class PointerAimController {
     return normalizeAngle(Math.atan2(deltaY, deltaX));
   }
 
+  /**
+   * Computes aim theta purely from screen space: the angle from the viewport
+   * center (where the local player is always rendered) to the cursor. This
+   * avoids any dependency on the player's interpolated world position, so
+   * server corrections never cause the local player's weapon to jitter.
+   */
+  public computeAimThetaFromScreen(): number | null {
+    const renderer = this.renderer;
+    if (
+      renderer === undefined ||
+      this.pointerClientX === null ||
+      this.pointerClientY === null
+    ) {
+      return null;
+    }
+
+    const cursorWorld = renderer.screenToWorld(
+      this.pointerClientX,
+      this.pointerClientY,
+    );
+    const centerWorld = renderer.getViewportCenterWorld();
+    if (!centerWorld) {
+      return null;
+    }
+
+    const dx = cursorWorld.x - centerWorld.x;
+    const dy = cursorWorld.y - centerWorld.y;
+    if (Math.hypot(dx, dy) <= Number.EPSILON) {
+      return null;
+    }
+
+    return normalizeAngle(Math.atan2(dy, dx));
+  }
+
   public maybeGetAimToSend(options: {
     now: number;
     intervalMs: number;

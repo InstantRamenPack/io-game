@@ -18,7 +18,7 @@ export type EntityRenderer = {
     entity: ClientEntity,
     presentation?: EntityPresentationState,
   ): void;
-  playAttackAnimation(entity: ClientEntity): void;
+  playAttackAnimation(entity: ClientEntity, visualRotation?: number): void;
   triggerDamageFlash(durationMs?: number): void;
   destroy(): void;
 };

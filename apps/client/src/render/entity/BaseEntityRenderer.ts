@@ -141,7 +141,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     const visualChanged = this.lastVisualVersion !== entity.visualVersion;
     if (visualChanged) {
-      this.redrawPresentation(entity);
+      this.redrawPresentation(entity, visualRotation);
       this.lastVisualVersion = entity.visualVersion;
     }
 
@@ -157,7 +157,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       cooldownTicksRemaining > 0 &&
       this.lastAttackCooldownTicksRemaining <= 0
     ) {
-      this.playAttackAnimation(entity);
+      this.playAttackAnimation(entity, visualRotation);
     }
     this.lastAttackCooldownTicksRemaining = cooldownTicksRemaining;
   }
@@ -182,7 +182,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     );
   }
 
-  public playAttackAnimation(entity: ClientEntity): void {
+  public playAttackAnimation(
+    entity: ClientEntity,
+    visualRotation = entity.rotation,
+  ): void {
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       return;
@@ -215,12 +218,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     ).onAttackStart?.(
       this.buildEquippedRenderContext(
         entity,
-        entity.rotation,
+        visualRotation,
         equippedItem.typeId,
         weaponContent,
       ),
     );
-    this.syncEquippedItemAnimation(entity, entity.rotation);
+    this.syncEquippedItemAnimation(entity, visualRotation);
   }
 
   public triggerDamageFlash(durationMs = 150): void {
@@ -276,7 +279,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     return Math.max(entity.hitboxBounds.width, entity.hitboxBounds.height) / 2;
   }
 
-  protected redrawPresentation(entity: ClientEntity): void {
+  protected redrawPresentation(
+    entity: ClientEntity,
+    visualRotation = entity.rotation,
+  ): void {
     const fillColor = this.getFillColor(entity);
 
     this.drawEntityShape(this.entityGraphic, entity, fillColor, 1, 1);
@@ -299,7 +305,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       this.drawEntityShape(this.debugGraphic, entity, fillColor, 0.2, 0.35);
     }
     // Also update any equipped-weapon attack hitbox visuals (swing/jab).
-    this.redrawEquippedHitbox(entity, entity.rotation);
+    this.redrawEquippedHitbox(entity, visualRotation);
   }
 
   private redrawHealthBar(entity: ClientEntity): void {

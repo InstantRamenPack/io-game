@@ -663,7 +663,7 @@ export class GameClient {
       return;
     }
 
-    const localAimTheta = this.pointerAimController.computeAimTheta(playerPose);
+    const localAimTheta = this.pointerAimController.computeAimThetaFromScreen();
     if (localAimTheta === null) {
       this.presentationSink.setPresentationOverride(this.playerEntityId, null);
       return;

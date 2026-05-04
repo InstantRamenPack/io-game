@@ -111,7 +111,8 @@ export class EntityRenderManager {
   public triggerAttackAnimation(entity: ClientEntity): void {
     this.entitiesById.set(entity.id, entity);
     const renderer = this.requireRenderer(entity);
-    renderer.playAttackAnimation(entity);
+    const presentation = this.presentationByEntityId.get(entity.id);
+    renderer.playAttackAnimation(entity, presentation?.rotation);
     this.syncTransientActivity(entity.id, renderer);
   }
 
