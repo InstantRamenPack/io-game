@@ -214,12 +214,13 @@ export class Interpolator {
     for (const entity of world.entities.values()) {
       const beforeX = entity.x;
       const beforeY = entity.y;
-      const sampleTick = shouldExtrapolateProjectile(entity)
+      const isProjectileExtrapolation = shouldExtrapolateProjectile(entity);
+      const sampleTick = isProjectileExtrapolation
         ? estimatedServerTickNow
         : renderTick;
       const sample = entity.samplePosition(
         sampleTick,
-        this.maxExtrapolationTicks,
+        isProjectileExtrapolation ? Infinity : this.maxExtrapolationTicks,
       );
       if (!sample) {
         entity.updatePosition(entity.serverX, entity.serverY);
