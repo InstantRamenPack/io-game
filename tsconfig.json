@@ -21,7 +21,8 @@
       "@shared/*": ["packages/shared/src/*"],
       "@client/*": ["apps/client/src/*"],
       "@server/*": ["apps/server/src/*"],
-      "@benchmarks/*": ["scripts/benchmarks/*"]
+      "@benchmarks/*": ["scripts/benchmarks/*"],
+      "@tests/*": ["scripts/tests/*"]
     },
 
     "strict": true,

@@ -108,8 +108,27 @@ class CollisionSystem implements System {
     }
 
     if (resolvedDynamicCollision) {
+      this.enforceDynamicConstraints(world);
       world.markSpatialDirty();
       world.ensureSpatialIndex();
+    }
+  }
+
+  private enforceDynamicConstraints(world: World): void {
+    for (const entity of world.entities.all()) {
+      if (entity.collisionMode !== "dynamic") {
+        continue;
+      }
+      const clip = this.clipStaticDelta(world, entity, 0, 0, {
+        clipVelocity: true,
+        recoverInitialOverlap: true,
+      });
+      if (clip.deltaX !== 0 || clip.deltaY !== 0) {
+        entity.x += clip.deltaX;
+        entity.y += clip.deltaY;
+        this.invalidateEntityCaches(entity);
+      }
+      this.resolveWorldBounds(entity, world);
     }
   }
 
@@ -540,10 +559,7 @@ class CollisionSystem implements System {
   ): boolean {
     const leftBefore = this.snapshotMotion(leftEntity);
     const rightBefore = this.snapshotMotion(rightEntity);
-    const correction = this.getDynamicCorrection(
-      world,
-      separation.translation,
-    );
+    const correction = this.getDynamicCorrection(world, separation.translation);
     let leftRequestedX = 0;
     let leftRequestedY = 0;
     let rightRequestedX = 0;

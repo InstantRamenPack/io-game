@@ -120,10 +120,7 @@ export class GameServer {
     }
 
     for (const lobby of this.matchLobbyByCode.values()) {
-      if (
-        lobby.runtime?.isGameComplete() &&
-        lobby.gameCompletedAtMs === null
-      ) {
+      if (lobby.runtime?.isGameComplete() && lobby.gameCompletedAtMs === null) {
         lobby.gameCompletedAtMs = nowMs;
         this.broadcastGameComplete(lobby, nowMs);
       }

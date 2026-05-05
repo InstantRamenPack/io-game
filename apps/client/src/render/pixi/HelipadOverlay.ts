@@ -1,5 +1,8 @@
 import { Container, Graphics, Text } from "pixi.js";
-import type { ExtractionSnapshot, ExtractionStage } from "@shared/net/snapshots.ts";
+import type {
+  ExtractionSnapshot,
+  ExtractionStage,
+} from "@shared/net/snapshots.ts";
 
 const HELIPAD_X = 1000;
 const HELIPAD_Y = 4050;

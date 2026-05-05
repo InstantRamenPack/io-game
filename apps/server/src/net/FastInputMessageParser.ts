@@ -16,6 +16,13 @@ const MOVE_KEYS: ReadonlySet<MoveIntentKey> = new Set([
   "left",
   "right",
 ]);
+const INPUT_MESSAGE_KEYS = new Set([
+  "t",
+  "seq",
+  "clientTimeMs",
+  "theta",
+  "movement",
+]);
 
 export function parseFastInputMessage(
   rawMessage: string,
@@ -28,6 +35,11 @@ export function parseFastInputMessage(
   const parsed = parseJsonValue(rawMessage);
   if (!parsed || !isJsonObject(parsed) || parsed.t !== "input") {
     return { kind: "invalid" };
+  }
+  for (const key of Object.keys(parsed)) {
+    if (!INPUT_MESSAGE_KEYS.has(key)) {
+      return { kind: "invalid" };
+    }
   }
   if ("x" in parsed || "y" in parsed) {
     return { kind: "invalid" };
@@ -85,6 +97,11 @@ function isInputMovement(
 ): value is InputIntentMessage["movement"] {
   if (!value || !isJsonValue(value) || !isJsonObject(value)) {
     return false;
+  }
+  for (const key of Object.keys(value)) {
+    if (!MOVE_KEYS.has(key as MoveIntentKey)) {
+      return false;
+    }
   }
   for (const key of MOVE_KEYS) {
     if (typeof value[key] !== "boolean") {

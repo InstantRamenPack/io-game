@@ -95,6 +95,7 @@ export class Interpolator {
   private extrapolatedFrameCount = 0;
   private heldFrameCount = 0;
   private interpolatedFrameCount = 0;
+  private renderTickPlayhead: number | null = null;
   private readonly renderedEntityIds = new Set<number>();
   private readonly snappedDiscontinuityTickByEntityId = new Map<
     number,
@@ -205,8 +206,11 @@ export class Interpolator {
 
     const estimatedServerTickNow =
       latestSnapshot.tick +
-      (frameTimeMs - latestSnapshot.receivedAtMs) / this.observedTickMs;
-    const renderTick = estimatedServerTickNow - this.renderDelayTicks;
+      (frameTimeMs - latestSnapshot.receivedAtMs) / this.expectedSnapshotMs;
+    const renderTick = this.updateRenderTickPlayhead(
+      estimatedServerTickNow - this.renderDelayTicks,
+      deltaMs,
+    );
     let focusMode: InterpolationMode = "none";
     let focusCorrectionDistance = 0;
     let focusCorrectionDirection = { x: 0, y: 0 };
@@ -293,6 +297,29 @@ export class Interpolator {
     this.lastSnapshotTick = undefined;
     this.arrivalTickMsEwma = undefined;
     this.arrivalJitterMsEwma = 0;
+    this.renderTickPlayhead = null;
+  }
+
+  private updateRenderTickPlayhead(
+    targetRenderTick: number,
+    deltaMs: number,
+  ): number {
+    if (this.renderTickPlayhead === null) {
+      this.renderTickPlayhead = targetRenderTick;
+      return this.renderTickPlayhead;
+    }
+
+    const normalAdvanceTicks = Math.max(0, deltaMs / this.expectedSnapshotMs);
+    const nextTick = this.renderTickPlayhead + normalAdvanceTicks;
+    const driftTicks = targetRenderTick - nextTick;
+    const correctionLimit = Math.max(0.02, normalAdvanceTicks * 0.35);
+    const correctionTicks = clamp(
+      driftTicks * 0.08,
+      -correctionLimit,
+      correctionLimit,
+    );
+    this.renderTickPlayhead = nextTick + correctionTicks;
+    return this.renderTickPlayhead;
   }
 
   private updateTiming(
@@ -514,7 +541,7 @@ export class Interpolator {
       this.jitterBufferMultiplier * this.arrivalJitterMsEwma +
       this.jitterBufferSafetyMs;
     return clamp(
-      playoutDelayMs / Math.max(1, this.observedTickMs),
+      playoutDelayMs / this.expectedSnapshotMs,
       this.minRenderDelayTicks,
       this.maxRenderDelayTicks,
     );

@@ -1,4 +1,4 @@
-I used your pasted prompt as the base and rewrote it to require **Bun’s native `bun:test`** and the repo’s existing **`seedrandom`** dependency instead of custom assertions or a custom deterministic RNG. 
+I used your pasted prompt as the base and rewrote it to require **Bun’s native `bun:test`** and the repo’s existing **`seedrandom`** dependency instead of custom assertions or a custom deterministic RNG.
 
 ````md id="rewritten-testing-prompt"
 You are strengthening the entire test coverage of `InstantRamenPack/io-game`.
@@ -46,6 +46,7 @@ Before changing code, inspect these files:
 - `packages/shared/src/config/GameConfig.ts`
 
 Known current characteristics:
+
 - `package.json` has `build`, `typecheck`, `lint`, and benchmarks, but no canonical `test` script.
 - `scripts/netcode.test.ts` is a large hand-rolled test harness covering mixed concerns.
 - The client has `ClientWorldState`, `ClientEntity`, and `Interpolator` for snapshot buffering, frame history, interpolation, hold, extrapolation, jitter estimates, render delay, and debug frames.
@@ -79,34 +80,35 @@ import {
   spyOn,
   test,
 } from "bun:test";
+```
 ````
 
 Use Bun/Jest-style matchers for generic assertions:
 
-* `toBe`
-* `toEqual`
-* `toStrictEqual`
-* `toBeCloseTo`
-* `toBeGreaterThan`
-* `toBeGreaterThanOrEqual`
-* `toBeLessThan`
-* `toBeLessThanOrEqual`
-* `toContain`
-* `toHaveLength`
-* `toThrow`
-* `toHaveBeenCalled`
-* `toHaveBeenCalledTimes`
+- `toBe`
+- `toEqual`
+- `toStrictEqual`
+- `toBeCloseTo`
+- `toBeGreaterThan`
+- `toBeGreaterThanOrEqual`
+- `toBeLessThan`
+- `toBeLessThanOrEqual`
+- `toContain`
+- `toHaveLength`
+- `toThrow`
+- `toHaveBeenCalled`
+- `toHaveBeenCalledTimes`
 
 Use Bun test features where appropriate:
 
-* `describe(...)` for grouping
-* `test(...)` for individual cases
-* `test.each(...)` for scenario matrices
-* `test.todo(...)` for planned prediction tests that cannot pass yet
-* `test.skip(...)` only for tests that cannot run in the current environment
-* `beforeAll(...)` for registry bootstrap
-* `beforeEach(...)` for isolated world/client setup
-* `mock(...)` and `spyOn(...)` for fake transport/renderer behavior
+- `describe(...)` for grouping
+- `test(...)` for individual cases
+- `test.each(...)` for scenario matrices
+- `test.todo(...)` for planned prediction tests that cannot pass yet
+- `test.skip(...)` only for tests that cannot run in the current environment
+- `beforeAll(...)` for registry bootstrap
+- `beforeEach(...)` for isolated world/client setup
+- `mock(...)` and `spyOn(...)` for fake transport/renderer behavior
 
 Do not create `scripts/tests/helpers/assert.ts`.
 Do not create `scripts/tests/helpers/testRunner.ts`.
@@ -198,17 +200,11 @@ export function rngInt(
   return Math.floor(rngFloat(rng, minInclusive, maxInclusive + 1));
 }
 
-export function rngBool(
-  rng: seedrandom.PRNG,
-  probability = 0.5,
-): boolean {
+export function rngBool(rng: seedrandom.PRNG, probability = 0.5): boolean {
   return rng() < probability;
 }
 
-export function rngPick<T>(
-  rng: seedrandom.PRNG,
-  values: readonly T[],
-): T {
+export function rngPick<T>(rng: seedrandom.PRNG, values: readonly T[]): T {
   if (values.length === 0) {
     throw new Error("rngPick requires a non-empty array");
   }
@@ -218,11 +214,11 @@ export function rngPick<T>(
 
 Rules:
 
-* All fuzz/property-style tests must use `seedrandom`.
-* Every fuzz failure must print the failing seed and scenario description.
-* Use `world.randomNumberGenerator` when testing world behavior that already depends on the authoritative world RNG.
-* Use `makeTestRng(seed)` for standalone randomized test generation.
-* Never use `Math.random()` in tests.
+- All fuzz/property-style tests must use `seedrandom`.
+- Every fuzz failure must print the failing seed and scenario description.
+- Use `world.randomNumberGenerator` when testing world behavior that already depends on the authoritative world RNG.
+- Use `makeTestRng(seed)` for standalone randomized test generation.
+- Never use `Math.random()` in tests.
 
 ---
 
@@ -488,13 +484,13 @@ summarizeInterpolationModes(debugFrames, warmupMs)
 
 Smoothness rules:
 
-* Velocity is frame-to-frame displacement / dt seconds.
-* Project velocity onto expected direction.
-* Acceleration is change in projected velocity / dt seconds.
-* Jerk is change in acceleration / dt seconds.
-* Freeze frame means projected speed is below `freezeEpsilon` while expected movement continues.
-* Reverse frame means projected velocity is negative when expected direction is positive.
-* Large step means velocity delta exceeds `largeStepMultiplier * medianVelocityDelta`.
+- Velocity is frame-to-frame displacement / dt seconds.
+- Project velocity onto expected direction.
+- Acceleration is change in projected velocity / dt seconds.
+- Jerk is change in acceleration / dt seconds.
+- Freeze frame means projected speed is below `freezeEpsilon` while expected movement continues.
+- Reverse frame means projected velocity is negative when expected direction is positive.
+- Large step means velocity delta exceeds `largeStepMultiplier * medianVelocityDelta`.
 
 Do not let `computeLinearResidualRms()` be the only metric.
 
@@ -506,27 +502,27 @@ Do not let `computeLinearResidualRms()` be the only metric.
 
 Migrate or preserve tests that currently validate:
 
-* server-authoritative movement from input intent
-* input protocol rejects authoritative `x`/`y`
-* stale/duplicate input ignored
-* out-of-order input ignored
-* movement stops when input stops
-* movement stops when fresh input is missing
-* diagonal movement normalized
-* server collision blocks static wall traversal
-* snapshot receiver ignores duplicate and out-of-order snapshots
-* steady snapshots render smoothly at 60 FPS
-* jittered start/stop remains bounded
-* direction changes do not cause correction buzz
-* packet loss burst uses bounded extrapolation
-* variable latency stays bounded
-* entity spawn/despawn handled
-* incomplete delta-only new entities wait for complete keyframe
-* death/respawn discontinuities reset interpolation history
-* snapshot history remains bounded
-* local/remote players render from authoritative snapshots in current implementation
-* camera idle/movement stability
-* debug network simulator profiles are deterministic
+- server-authoritative movement from input intent
+- input protocol rejects authoritative `x`/`y`
+- stale/duplicate input ignored
+- out-of-order input ignored
+- movement stops when input stops
+- movement stops when fresh input is missing
+- diagonal movement normalized
+- server collision blocks static wall traversal
+- snapshot receiver ignores duplicate and out-of-order snapshots
+- steady snapshots render smoothly at 60 FPS
+- jittered start/stop remains bounded
+- direction changes do not cause correction buzz
+- packet loss burst uses bounded extrapolation
+- variable latency stays bounded
+- entity spawn/despawn handled
+- incomplete delta-only new entities wait for complete keyframe
+- death/respawn discontinuities reset interpolation history
+- snapshot history remains bounded
+- local/remote players render from authoritative snapshots in current implementation
+- camera idle/movement stability
+- debug network simulator profiles are deterministic
 
 Do not delete these. Upgrade weak assertions where necessary.
 
@@ -546,12 +542,12 @@ Each test must use `describe`, `test`, and `expect` from `bun:test`.
 
 Scenario:
 
-* One remote entity moves right at constant velocity.
-* Server snapshots every 50ms.
-* Render frames every 16.666ms.
-* Network profile: perfect.
-* Duration: 5 seconds.
-* Warmup: 500ms.
+- One remote entity moves right at constant velocity.
+- Server snapshots every 50ms.
+- Render frames every 16.666ms.
+- Network profile: perfect.
+- Duration: 5 seconds.
+- Warmup: 500ms.
 
 Expected:
 
@@ -569,10 +565,10 @@ interpolate ratio after warmup >= 0.95
 
 Scenario:
 
-* Same constant motion.
-* Debug profile: mild.
-* Seeds: 1, 2, 3, 42, 99.
-* Duration: 8 seconds.
+- Same constant motion.
+- Debug profile: mild.
+- Seeds: 1, 2, 3, 42, 99.
+- Duration: 8 seconds.
 
 Expected:
 
@@ -593,10 +589,10 @@ Use `test.each(...)` for the seed matrix.
 
 Scenario:
 
-* Same constant motion.
-* Debug profile: bad.
-* Seeds: 1, 2, 3, 42, 99, 12345.
-* Duration: 10 seconds.
+- Same constant motion.
+- Debug profile: bad.
+- Seeds: 1, 2, 3, 42, 99, 12345.
+- Duration: 10 seconds.
 
 Expected:
 
@@ -618,11 +614,11 @@ If this fails with current implementation and real gameplay is visibly jittery, 
 
 Scenario:
 
-* Run same bad network stream twice:
-
+- Run same bad network stream twice:
   1. adaptive delay enabled with normal defaults
   2. artificially fixed/minimal render delay, if configurable
-* Compare mode ratios.
+
+- Compare mode ratios.
 
 Expected:
 
@@ -636,9 +632,9 @@ adaptive run has lower jerkP95
 
 Scenario:
 
-* Drop snapshots for ticks 25-32.
-* Resume delivery after the burst.
-* Constant-motion entity.
+- Drop snapshots for ticks 25-32.
+- Resume delivery after the burst.
+- Constant-motion entity.
 
 Expected:
 
@@ -655,8 +651,8 @@ no repeated snaps
 
 Scenario:
 
-* Delay 5 consecutive snapshots and deliver them close together.
-* The client should reject stale/out-of-order as appropriate and render smoothly.
+- Delay 5 consecutive snapshots and deliver them close together.
+- The client should reject stale/out-of-order as appropriate and render smoothly.
 
 Expected:
 
@@ -813,11 +809,11 @@ Current local player movement is latency-bound without prediction. Add a test th
 
 Scenario:
 
-* Simulate user pressing right at t=0.
-* Network delay outbound + inbound using bad profile or fixed 150ms.
-* Server processes input only after it arrives.
-* Client sees local player move only after authoritative snapshot arrives.
-* Measure input-to-visible-motion latency.
+- Simulate user pressing right at t=0.
+- Network delay outbound + inbound using bad profile or fixed 150ms.
+- Server processes input only after it arrives.
+- Client sees local player move only after authoritative snapshot arrives.
+- Measure input-to-visible-motion latency.
 
 Expected current behavior:
 
@@ -847,11 +843,11 @@ Prepare this now. If the implementation does not support skipping local player y
 
 Scenario:
 
-* World has local player id 1 and remote entity id 2.
-* Local visual x is predicted to 500.
-* Server frames say local x is 100.
-* Remote frames move from 100 to 200.
-* Call interpolator with `skipEntityIds = new Set([1])`.
+- World has local player id 1 and remote entity id 2.
+- Local visual x is predicted to 500.
+- Server frames say local x is 100.
+- Remote frames move from 100 to 200.
+- Call interpolator with `skipEntityIds = new Set([1])`.
 
 Expected:
 
@@ -956,8 +952,8 @@ If client-side known-static collision is implemented:
 
 If client-side collision is not implemented:
 
-* Add a test documenting visual wall penetration under latency as a known limitation.
-* Do not mark it as passing correctness if the intended final goal is Minecraft-style feel.
+- Add a test documenting visual wall penetration under latency as a known limitation.
+- Do not mark it as passing correctness if the intended final goal is Minecraft-style feel.
 
 ## 8.5 No client prediction for authoritative actions
 
@@ -1057,12 +1053,11 @@ For seeds 1..250:
 4. Assign random velocities, including zero, tiny, normal, huge, diagonal, and opposing.
 5. Tick 60 times.
 6. After every tick assert:
-
-   * no NaN/Infinity
-   * dynamic entities inside world bounds
-   * no dynamic-static overlap
-   * collision tick terminates
-   * entity count stable unless scenario intentionally despawns
+   - no NaN/Infinity
+   - dynamic entities inside world bounds
+   - no dynamic-static overlap
+   - collision tick terminates
+   - entity count stable unless scenario intentionally despawns
 
 Use:
 
@@ -1073,13 +1068,13 @@ import { makeTestRng, rngFloat, rngInt, rngPick } from "../helpers/testRng.ts";
 
 On failure, print:
 
-* seed
-* tick
-* entity count
-* static blocker count
-* scenario parameters
-* failing entity id
-* positions and velocities
+- seed
+- tick
+- entity count
+- static blocker count
+- scenario parameters
+- failing entity id
+- positions and velocities
 
 Never use `Math.random()`.
 
@@ -1105,12 +1100,12 @@ In `spatial-index.test.ts`, add:
 
 Add analogous tests for static geometry:
 
-* static-only entities indexed
-* dynamic entities excluded
-* collisionMode changes update index
-* despawn removes blockers
-* query returns blockers once
-* hitbox version/position changes reflected after rebuild/sync
+- static-only entities indexed
+- dynamic entities excluded
+- collisionMode changes update index
+- despawn removes blockers
+- query returns blockers once
+- hitbox version/position changes reflected after rebuild/sync
 
 ---
 
@@ -1183,50 +1178,50 @@ In `protocol-parser.test.ts`, add valid/invalid matrices.
 
 Valid:
 
-* seq 0
-* large integer seq within safe integer if allowed
-* clientTimeMs omitted
-* clientTimeMs finite
-* theta 0, pi, -pi, huge finite angle normalized
-* all movement boolean combinations
+- seq 0
+- large integer seq within safe integer if allowed
+- clientTimeMs omitted
+- clientTimeMs finite
+- theta 0, pi, -pi, huge finite angle normalized
+- all movement boolean combinations
 
 Invalid:
 
-* negative seq
-* fractional seq
-* NaN/Infinity theta
-* missing movement
-* movement missing one key
-* movement has extra key
-* movement non-boolean
-* extra x/y fields
-* extra unknown fields
-* wrong `t`
-* malformed JSON
-* array JSON
-* null JSON
-* huge malicious payload if size checks exist
+- negative seq
+- fractional seq
+- NaN/Infinity theta
+- missing movement
+- movement missing one key
+- movement has extra key
+- movement non-boolean
+- extra x/y fields
+- extra unknown fields
+- wrong `t`
+- malformed JSON
+- array JSON
+- null JSON
+- huge malicious payload if size checks exist
 
 ### Action cases
 
 For each action type:
 
-* valid minimum payload
-* stale/duplicate sequence tested server-side
-* missing required field invalid
-* wrong type invalid
-* extra field invalid if schema is strict
-* boundary indices: min/max valid, below/above invalid
+- valid minimum payload
+- stale/duplicate sequence tested server-side
+- missing required field invalid
+- wrong type invalid
+- extra field invalid if schema is strict
+- boundary indices: min/max valid, below/above invalid
 
 ### Lobby/chat/ping/hello cases
 
-* valid hello with/without optional fields
-* empty compat hash invalid
-* playerName sanitization server-side
-* chat max length valid
-* chat over max invalid
-* lobby code valid patterns
-* lobby code invalid characters/length
+- valid hello with/without optional fields
+- empty compat hash invalid
+- playerName sanitization server-side
+- chat max length valid
+- chat over max invalid
+- lobby code valid patterns
+- lobby code invalid characters/length
 
 ## 11.2 Fast input parser equivalence
 
@@ -1241,11 +1236,11 @@ const fast = parseFastInputMessage(raw);
 
 Assert:
 
-* if full accepts input, fast accepts equivalent normalized fields
-* if full rejects input, fast rejects
-* theta normalization matches
-* strict extra fields rejected by both
-* malformed JSON rejected by both
+- if full accepts input, fast accepts equivalent normalized fields
+- if full rejects input, fast rejects
+- theta normalization matches
+- strict extra fields rejected by both
+- malformed JSON rejected by both
 
 Include deterministic fuzz payloads with `seedrandom`.
 
@@ -1389,14 +1384,14 @@ If benchmark code cannot import test helpers because it runs outside Bun test, c
 
 For smoke tests:
 
-* thresholds should catch catastrophic regressions only
-* avoid flaky strict p95 thresholds in CI
+- thresholds should catch catastrophic regressions only
+- avoid flaky strict p95 thresholds in CI
 
 For nightly/full benchmarks:
 
-* retain existing p95/p99 thresholds
-* write JSON reports
-* compare against baseline when provided
+- retain existing p95/p99 thresholds
+- write JSON reports
+- compare against baseline when provided
 
 ---
 
@@ -1456,111 +1451,111 @@ Make sure the final tests cover these categories.
 
 ## Numeric boundaries
 
-* zero
-* negative where invalid
-* very small epsilon values
-* exact boundary contact
-* huge finite values
-* NaN/Infinity rejection
-* integer max/min where applicable
-* fractional where integer required
-* repeated same tick/seq
-* off-by-one tick/seq
-* empty arrays
-* max-size arrays
-* missing optional fields
-* missing required fields
-* extra unknown fields
+- zero
+- negative where invalid
+- very small epsilon values
+- exact boundary contact
+- huge finite values
+- NaN/Infinity rejection
+- integer max/min where applicable
+- fractional where integer required
+- repeated same tick/seq
+- off-by-one tick/seq
+- empty arrays
+- max-size arrays
+- missing optional fields
+- missing required fields
+- extra unknown fields
 
 ## Time/network boundaries
 
-* perfect delivery
-* fixed latency
-* jitter
-* asymmetric latency
-* duplicate packets
-* packet loss
-* reordered delivery
-* delayed burst
-* loss burst
-* server tick gaps
-* snapshot duplicates
-* out-of-order snapshots
-* clock drift approximation
-* render FPS 30/60/144
-* tick rate 20 and non-default if supported
-* long stalls
-* reconnection/session migration
+- perfect delivery
+- fixed latency
+- jitter
+- asymmetric latency
+- duplicate packets
+- packet loss
+- reordered delivery
+- delayed burst
+- loss burst
+- server tick gaps
+- snapshot duplicates
+- out-of-order snapshots
+- clock drift approximation
+- render FPS 30/60/144
+- tick rate 20 and non-default if supported
+- long stalls
+- reconnection/session migration
 
 ## Movement/collision boundaries
 
-* no movement
-* cardinal movement
-* diagonal movement
-* opposing inputs
-* high speed
-* tiny speed
-* wall contact
-* wall overlap
-* corner contact
-* dynamic crowd
-* dynamic crowd near wall
-* impossible packing
-* world bounds
-* spawn inside blocker
-* item collision exceptions
-* dense broadphase cell occupancy
+- no movement
+- cardinal movement
+- diagonal movement
+- opposing inputs
+- high speed
+- tiny speed
+- wall contact
+- wall overlap
+- corner contact
+- dynamic crowd
+- dynamic crowd near wall
+- impossible packing
+- world bounds
+- spawn inside blocker
+- item collision exceptions
+- dense broadphase cell occupancy
 
 ## Snapshot/replication boundaries
 
-* full snapshots
-* delta snapshots
-* missing stable fields
-* complete new entity
-* incomplete new entity
-* removed entity
-* entity leaves AOI
-* entity re-enters AOI
-* hitbox changes
-* hp/alive changes
-* day/night changes
-* event relevance
-* too many removed ids
-* too many updates
-* periodic full refresh
+- full snapshots
+- delta snapshots
+- missing stable fields
+- complete new entity
+- incomplete new entity
+- removed entity
+- entity leaves AOI
+- entity re-enters AOI
+- hitbox changes
+- hp/alive changes
+- day/night changes
+- event relevance
+- too many removed ids
+- too many updates
+- periodic full refresh
 
 ## Client rendering boundaries
 
-* interpolation
-* hold
-* extrapolate
-* snap
-* discontinuity
-* one-frame history
-* max history
-* projectile special cases
-* camera idle
-* camera constant motion
-* camera teleports/snap
-* presentation overrides
-* local predicted player skipped by interpolator
+- interpolation
+- hold
+- extrapolate
+- snap
+- discontinuity
+- one-frame history
+- max history
+- projectile special cases
+- camera idle
+- camera constant motion
+- camera teleports/snap
+- presentation overrides
+- local predicted player skipped by interpolator
 
 ## Gameplay authority boundaries
 
-* input
-* attack
-* craft
-* build
-* inventory move
-* chest move
-* drop
-* pickup
-* recycle
-* respawn
-* invalid/stale/duplicate actions
-* distance/range checks
-* inventory capacity
-* dead/alive state
+- input
+- attack
+- craft
+- build
+- inventory move
+- chest move
+- drop
+- pickup
+- recycle
+- respawn
+- invalid/stale/duplicate actions
+- distance/range checks
+- inventory capacity
+- dead/alive state
 
 ---
 
@@ -1577,52 +1572,52 @@ The work is complete when:
 7. Netcode tests no longer rely on linear residual alone.
 8. Bad-network tests use `DebugNetworkSimulator` delivery plans.
 9. Bad-network tests measure:
+   - velocity variation
+   - acceleration
+   - jerk
+   - freeze frames
+   - reverse frames
+   - large steps
+   - interpolation mode ratios
+   - render delay adaptation
 
-   * velocity variation
-   * acceleration
-   * jerk
-   * freeze frames
-   * reverse frames
-   * large steps
-   * interpolation mode ratios
-   * render delay adaptation
 10. A visibly jittery bad-network stream can fail tests even if position residual is near zero.
 11. Collision tests explicitly protect:
 
-* no dynamic-static penetration
-* wall-safe dynamic-dynamic correction
-* correction clamp/scale
-* item collision exceptions
-* dense-crowd behavior
-* seeded fuzz invariants
+- no dynamic-static penetration
+- wall-safe dynamic-dynamic correction
+- correction clamp/scale
+- item collision exceptions
+- dense-crowd behavior
+- seeded fuzz invariants
 
 12. Snapshot tests protect:
 
-* AOI inclusion/removal
-* full/delta semantics
-* stable field stripping
-* incomplete delta entity handling
-* history bounds
+- AOI inclusion/removal
+- full/delta semantics
+- stable field stripping
+- incomplete delta entity handling
+- history bounds
 
 13. Protocol tests protect:
 
-* strict schemas
-* fast parser equivalence
-* invalid payload rejection
-* compat descriptor drift
+- strict schemas
+- fast parser equivalence
+- invalid payload rejection
+- compat descriptor drift
 
 14. Prediction tests either pass if prediction exists or are present as `test.todo(...)` cases describing the expected Minecraft-style behavior.
 15. Gameplay authority tests prove client-side prediction does not mutate combat/inventory/building authority.
 16. CI runs typecheck, lint, tests, and client build.
 17. Failure output includes enough diagnostic detail to reproduce and debug:
 
-* seed
-* profile
-* metrics
-* mode ratios
-* snapshot stats
-* latest debug frame
-* worst frames
+- seed
+- profile
+- metrics
+- mode ratios
+- snapshot stats
+- latest debug frame
+- worst frames
 
 18. Deterministic fuzz tests print the failing seed and scenario.
 19. No test uses `Math.random()`.
@@ -1631,4 +1626,5 @@ The work is complete when:
 Do not weaken tests to make bad behavior pass. If the current implementation is jittery under bad network, the strengthened tests should expose that.
 
 ```
+
 ```
