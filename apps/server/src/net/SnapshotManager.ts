@@ -51,6 +51,7 @@ export class SnapshotManager {
     world: World,
     playerId: number,
     interestRadius: number,
+    centerOverride?: { x: number; y: number },
   ): WorldSnapshot {
     if (this.tickCache.getPreparedTick() !== world.tick) {
       this.prepareTick(world, []);
@@ -74,10 +75,12 @@ export class SnapshotManager {
       };
     }
 
-    const minX = player.x - interestRadius;
-    const minY = player.y - interestRadius;
-    const maxX = player.x + interestRadius;
-    const maxY = player.y + interestRadius;
+    const centerX = centerOverride?.x ?? player.x;
+    const centerY = centerOverride?.y ?? player.y;
+    const minX = centerX - interestRadius;
+    const minY = centerY - interestRadius;
+    const maxX = centerX + interestRadius;
+    const maxY = centerY + interestRadius;
     const knownEntityVersions =
       this.replicationState.getKnownEntityVersions(playerId);
     const knownEntityHitboxVersions =
@@ -179,8 +182,8 @@ export class SnapshotManager {
         entities: fullEntities,
         removedEntityIds: [],
         events: this.eventRelevanceFilter.getRelevantEventsForPlayer(
-          player.x,
-          player.y,
+          centerX,
+          centerY,
           playerId,
           interestRadius,
         ),
@@ -195,8 +198,8 @@ export class SnapshotManager {
       entities: changedEntities,
       removedEntityIds,
       events: this.eventRelevanceFilter.getRelevantEventsForPlayer(
-        player.x,
-        player.y,
+        centerX,
+        centerY,
         playerId,
         interestRadius,
       ),

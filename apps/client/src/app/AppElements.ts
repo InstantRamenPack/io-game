@@ -32,15 +32,21 @@ export type AppElements = {
   lobbyLeaveBtn: HTMLButtonElement | null;
   lobbyCodeInput: HTMLInputElement | null;
   lobbyCodeJoinBtn: HTMLButtonElement | null;
+  trainingGroundBanner: HTMLElement | null;
   gameStartPrompt: HTMLElement | null;
   matchCoreHud: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
   deathOverlay: HTMLElement | null;
   respawnBtn: HTMLButtonElement | null;
+  spectateHud: HTMLElement | null;
+  spectateHudName: HTMLElement | null;
   gameOverOverlay: HTMLElement | null;
+  gameOverKicker: HTMLElement | null;
+  gameOverTitle: HTMLElement | null;
   gameOverDuration: HTMLElement | null;
   gameOverWaves: HTMLElement | null;
   gameOverReturnBtn: HTMLButtonElement | null;
+  gameOverPlayAgainBtn: HTMLButtonElement | null;
 };
 
 /**
@@ -80,6 +86,7 @@ export function getAppElements(): AppElements {
     lobbyCodeJoinBtn: document.getElementById(
       "lobby-code-join-btn",
     ) as HTMLButtonElement | null,
+    trainingGroundBanner: document.getElementById("training-ground-banner"),
     gameStartPrompt: document.getElementById("game-start-prompt"),
     matchCoreHud: document.getElementById("match-core-hud"),
     playerNameInput: document.getElementById(
@@ -89,11 +96,18 @@ export function getAppElements(): AppElements {
     respawnBtn: document.getElementById(
       "respawn-btn",
     ) as HTMLButtonElement | null,
+    spectateHud: document.getElementById("spectate-hud"),
+    spectateHudName: document.getElementById("spectate-hud-name"),
     gameOverOverlay: document.getElementById("game-over-overlay"),
+    gameOverKicker: document.getElementById("game-over-kicker"),
+    gameOverTitle: document.getElementById("game-over-title"),
     gameOverDuration: document.getElementById("game-over-duration"),
     gameOverWaves: document.getElementById("game-over-waves"),
     gameOverReturnBtn: document.getElementById(
       "game-over-return-btn",
+    ) as HTMLButtonElement | null,
+    gameOverPlayAgainBtn: document.getElementById(
+      "game-over-play-again-btn",
     ) as HTMLButtonElement | null,
   };
 }

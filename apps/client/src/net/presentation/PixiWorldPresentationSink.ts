@@ -85,6 +85,11 @@ export class PixiWorldPresentationSink {
         continue;
       }
 
+      if (event.type === "attack") {
+        this.renderManager.triggerAttackAnimationByEntityId(event.payload.sourceId);
+        continue;
+      }
+
       if (event.type !== "damage") {
         continue;
       }

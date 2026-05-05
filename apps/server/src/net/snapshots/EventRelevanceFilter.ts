@@ -70,6 +70,15 @@ function isEventRelevantForPlayer(
     return deltaX * deltaX + deltaY * deltaY <= eventRadiusSquared;
   }
 
+  if (event.type === "attack") {
+    if (event.payload.sourceId === playerId) {
+      return true;
+    }
+    const deltaX = event.payload.x - playerX;
+    const deltaY = event.payload.y - playerY;
+    return deltaX * deltaX + deltaY * deltaY <= eventRadiusSquared;
+  }
+
   if (event.payload.sourceId === playerId) {
     return true;
   }

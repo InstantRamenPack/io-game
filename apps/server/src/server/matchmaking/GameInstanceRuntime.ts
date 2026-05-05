@@ -3,6 +3,7 @@ import type {
   ActionMessage,
   InputIntentMessage,
   ServerToClientMessage,
+  SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
@@ -43,6 +44,7 @@ export class GameInstanceRuntime {
   public readonly chatService: ChatService;
   private readonly gameConfig: GameConfig;
   private readonly networkServer: NetworkServerLike;
+  private readonly isPlayground: boolean;
   private readonly playerIdByClientId = new Map<string, number>();
   private readonly lastProcessedInputSequenceByClientId = new Map<
     string,
@@ -52,8 +54,19 @@ export class GameInstanceRuntime {
     string,
     number
   >();
+  // clientId → world.tick when the player last became alive (cleared on death)
+  private readonly playerAliveSinceTick = new Map<string, number>();
+  // clientId → entity ID of the player being spectated (null = no target)
+  private readonly spectateTargetIdByClientId = new Map<string, number | null>();
+  private prevWasNight = false;
+  private gameFailed = false;
 
-  constructor(gameConfig: GameConfig, networkServer: NetworkServerLike) {
+  constructor(
+    gameConfig: GameConfig,
+    networkServer: NetworkServerLike,
+    options: { isPlayground?: boolean } = {},
+  ) {
+    this.isPlayground = options.isPlayground ?? false;
     validatePlayerStarterLoadout();
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
@@ -66,30 +79,52 @@ export class GameInstanceRuntime {
       playerIdByClientId: this.playerIdByClientId,
     });
 
-    this.world.waveSystem = WaveSystem.loadFromFile({
-      dayNightSystem: this.world.dayNightSystem,
-      configPath: "./apps/server/src/config/waves.json",
-      chatService: this.chatService,
-    });
-    this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Wave spawning system initialized");
+    if (options.isPlayground) {
+      this.world.waveSystem = new WaveSystem({
+        dayNightSystem: this.world.dayNightSystem,
+      });
+    } else {
+      this.world.waveSystem = WaveSystem.loadFromFile({
+        dayNightSystem: this.world.dayNightSystem,
+        configPath: "./apps/server/src/config/waves.json",
+        chatService: this.chatService,
+      });
+      this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Wave spawning system initialized");
+      }
     }
 
     loadMap(this.world);
   }
 
   public tick(): void {
+    const wasNightBeforeStep = this.world.dayNightSystem.isNight();
     this.world.step();
+    this.postStepProcessing(wasNightBeforeStep);
     const drainedEvents = this.world.events.toArray();
     this.world.events.clear();
     this.snapshotManager.prepareTick(this.world, drainedEvents);
 
     for (const [clientId, playerId] of this.playerIdByClientId) {
+      let centerOverride: { x: number; y: number } | undefined;
+      if (!this.isPlayground) {
+        const player = this.world.get<Player>(playerId);
+        if (player && !player.alive) {
+          const targetId = this.spectateTargetIdByClientId.get(clientId);
+          if (targetId != null) {
+            const target = this.world.get<Player>(targetId);
+            if (target?.alive) {
+              centerOverride = { x: target.x, y: target.y };
+            }
+          }
+        }
+      }
       const snapshot = this.snapshotManager.makeSnapshotForPlayer(
         this.world,
         playerId,
         this.gameConfig.replication.interestRadius,
+        centerOverride,
       );
       snapshot.lastProcessedSeq = this.getLastProcessedSeq(clientId);
       const snapshotMessage: ServerToClientMessage = {
@@ -128,6 +163,8 @@ export class GameInstanceRuntime {
     this.playerIdByClientId.set(clientId, playerId);
     this.lastProcessedInputSequenceByClientId.set(clientId, -1);
     this.lastProcessedActionSequenceByClientId.set(clientId, -1);
+    this.playerAliveSinceTick.set(clientId, this.world.tick);
+    this.spectateTargetIdByClientId.set(clientId, null);
     return playerId;
   }
 
@@ -135,6 +172,8 @@ export class GameInstanceRuntime {
     const playerName = this.getPlayer(clientId)?.name;
     this.lastProcessedInputSequenceByClientId.delete(clientId);
     this.lastProcessedActionSequenceByClientId.delete(clientId);
+    this.playerAliveSinceTick.delete(clientId);
+    this.spectateTargetIdByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
     if (playerId) {
       this.world.despawn(playerId);
@@ -157,6 +196,105 @@ export class GameInstanceRuntime {
 
   public getWavesCompleted(): number {
     return this.world.waveSystem.getNightCycleCounter();
+  }
+
+  public isGameFailed(): boolean {
+    return this.gameFailed;
+  }
+
+  private postStepProcessing(wasNightBeforeStep: boolean): void {
+    const isNightNow = this.world.dayNightSystem.isNight();
+    const isDawn = !this.isPlayground && wasNightBeforeStep && !isNightNow;
+
+    if (isDawn) {
+      // Respawn all dead players at the start of a new day
+      for (const [clientId, playerId] of this.playerIdByClientId) {
+        const player = this.world.get<Player>(playerId);
+        if (player && !player.alive) {
+          player.respawn(this.world);
+          this.playerAliveSinceTick.set(clientId, this.world.tick);
+          this.sendSpectateUpdate(clientId, null);
+        }
+      }
+    }
+
+    let deadCount = 0;
+
+    for (const [clientId, playerId] of this.playerIdByClientId) {
+      const player = this.world.get<Player>(playerId);
+      if (!player) {
+        continue;
+      }
+
+      if (player.alive) {
+        if (!this.playerAliveSinceTick.has(clientId)) {
+          this.playerAliveSinceTick.set(clientId, this.world.tick);
+        }
+      } else {
+        deadCount++;
+        if (this.playerAliveSinceTick.has(clientId)) {
+          // Player just died this tick
+          this.playerAliveSinceTick.delete(clientId);
+          if (this.isPlayground) {
+            // Instant respawn at spawn in playground
+            player.respawn(this.world);
+            this.playerAliveSinceTick.set(clientId, this.world.tick);
+            deadCount--;
+          }
+        }
+      }
+    }
+
+    // In match mode, continuously keep dead players spectating the
+    // longest-alive currently-alive player.
+    if (!this.isPlayground) {
+      const bestTargetId = this.getLongestAliveEntityId();
+      for (const [clientId, playerId] of this.playerIdByClientId) {
+        const player = this.world.get<Player>(playerId);
+        if (player && !player.alive) {
+          const currentTarget =
+            this.spectateTargetIdByClientId.get(clientId) ?? null;
+          if (currentTarget !== bestTargetId) {
+            this.sendSpectateUpdate(clientId, bestTargetId);
+          }
+        }
+      }
+    }
+
+
+    if (
+      !this.isPlayground &&
+      !this.gameFailed &&
+      this.playerIdByClientId.size > 0 &&
+      deadCount === this.playerIdByClientId.size
+    ) {
+      this.gameFailed = true;
+    }
+  }
+
+  private getLongestAliveEntityId(): number | null {
+    let minTick = Infinity;
+    let targetEntityId: number | null = null;
+    for (const [clientId, playerId] of this.playerIdByClientId) {
+      const aliveSince = this.playerAliveSinceTick.get(clientId);
+      if (aliveSince !== undefined && aliveSince < minTick) {
+        minTick = aliveSince;
+        targetEntityId = playerId;
+      }
+    }
+    return targetEntityId;
+  }
+
+  private sendSpectateUpdate(
+    clientId: string,
+    targetEntityId: number | null,
+  ): void {
+    this.spectateTargetIdByClientId.set(clientId, targetEntityId);
+    const message: SpectateUpdateMessage = {
+      t: "spectate_update",
+      targetEntityId,
+    };
+    this.networkServer.send(clientId, JSON.stringify(message));
   }
 
   public handleInputIntent(

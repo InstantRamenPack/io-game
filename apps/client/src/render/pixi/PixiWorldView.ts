@@ -22,6 +22,8 @@ const GRID_DAY_FILL_COLOR = 0xd7f3d2;
 const GRID_NIGHT_FILL_COLOR = 0x3f5f46;
 const GRID_DAY_LINE_COLOR = 0x2d4f37;
 const GRID_NIGHT_LINE_COLOR = 0x9fd69a;
+const GRID_LOBBY_FILL_COLOR = 0xf2e8d0;
+const GRID_LOBBY_LINE_COLOR = 0x9e8060;
 const SNIPER_AIM_LINE_COLOR = 0xff2d2d;
 const SNIPER_AIM_LINE_ALPHA = 0.35;
 const SNIPER_AIM_LINE_WIDTH = 2;
@@ -36,6 +38,7 @@ export class PixiWorldView {
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private worldSize: WorldSize;
   private gridNightBlend = 0;
+  private isPlayground = false;
   private lastGridCameraX = Number.NaN;
   private lastGridCameraY = Number.NaN;
   private lastGridScale = Number.NaN;
@@ -120,6 +123,14 @@ export class PixiWorldView {
 
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
+    this.updateGridColors();
+  }
+
+  public setPlaygroundMode(isPlayground: boolean): void {
+    if (this.isPlayground === isPlayground) {
+      return;
+    }
+    this.isPlayground = isPlayground;
     this.updateGridColors();
   }
 
@@ -347,21 +358,27 @@ export class PixiWorldView {
   private updateGridColors(): void {
     const bgGraphic = this.sceneGraph.gridBackgroundGraphic;
     const lineGraphic = this.sceneGraph.gridLinesGraphic;
-    bgGraphic.tint = lerpColor(
-      GRID_DAY_FILL_COLOR,
-      GRID_NIGHT_FILL_COLOR,
-      this.gridNightBlend,
-    );
-    lineGraphic.tint = lerpColor(
-      GRID_DAY_LINE_COLOR,
-      GRID_NIGHT_LINE_COLOR,
-      applyContrastLag(this.gridNightBlend),
-    );
-    const lineVisibility = Math.min(
-      1,
-      Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
-    );
-    lineGraphic.alpha = 0.4 * lineVisibility;
+    if (this.isPlayground) {
+      bgGraphic.tint = GRID_LOBBY_FILL_COLOR;
+      lineGraphic.tint = GRID_LOBBY_LINE_COLOR;
+      lineGraphic.alpha = 0.4;
+    } else {
+      bgGraphic.tint = lerpColor(
+        GRID_DAY_FILL_COLOR,
+        GRID_NIGHT_FILL_COLOR,
+        this.gridNightBlend,
+      );
+      lineGraphic.tint = lerpColor(
+        GRID_DAY_LINE_COLOR,
+        GRID_NIGHT_LINE_COLOR,
+        applyContrastLag(this.gridNightBlend),
+      );
+      const lineVisibility = Math.min(
+        1,
+        Math.max(0, 2 * Math.abs(this.gridNightBlend - 0.5)),
+      );
+      lineGraphic.alpha = 0.4 * lineVisibility;
+    }
   }
 
   private redrawScreenGridLinesIfNeeded(app: Application): void {

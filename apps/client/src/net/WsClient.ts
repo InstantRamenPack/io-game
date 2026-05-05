@@ -2,8 +2,10 @@ import type {
   ActionMessage,
   ChatMessage,
   GameCompleteMessage,
+  GameOverMessage,
   InputIntentMessage,
   LobbyStateMessage,
+  SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
@@ -33,6 +35,10 @@ export class WsClient {
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private gameCompleteHandlers: Array<(message: GameCompleteMessage) => void> =
     [];
+  private gameOverHandlers: Array<(message: GameOverMessage) => void> = [];
+  private spectateUpdateHandlers: Array<
+    (message: SpectateUpdateMessage) => void
+  > = [];
   private openHandlers: Array<() => void> = [];
   private closeHandlers: Array<() => void> = [];
   private errorHandlers: Array<(message: string) => void> = [];
@@ -187,6 +193,16 @@ export class WsClient {
     this.gameCompleteHandlers.push(handler);
   }
 
+  public onGameOver(handler: (message: GameOverMessage) => void): void {
+    this.gameOverHandlers.push(handler);
+  }
+
+  public onSpectateUpdate(
+    handler: (message: SpectateUpdateMessage) => void,
+  ): void {
+    this.spectateUpdateHandlers.push(handler);
+  }
+
   public onOpen(openHandler: () => void): void {
     this.openHandlers.push(openHandler);
   }
@@ -271,6 +287,20 @@ export class WsClient {
 
     if (serverMessage.t === "game_complete") {
       for (const handler of this.gameCompleteHandlers) {
+        handler(serverMessage);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "game_over") {
+      for (const handler of this.gameOverHandlers) {
+        handler(serverMessage);
+      }
+      return;
+    }
+
+    if (serverMessage.t === "spectate_update") {
+      for (const handler of this.spectateUpdateHandlers) {
         handler(serverMessage);
       }
       return;

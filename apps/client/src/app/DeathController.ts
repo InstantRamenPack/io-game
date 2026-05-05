@@ -18,35 +18,51 @@ export function createDeathController({
 }): DeathController {
   const overlay = elements.deathOverlay;
   const respawnBtn = elements.respawnBtn;
+  const spectateHud = elements.spectateHud;
+  const spectateHudName = elements.spectateHudName;
   let releaseDeathSuppression: (() => void) | undefined;
 
-  if (!overlay || !respawnBtn) {
-    return {
-      sync: () => undefined,
-      setVisible: () => undefined,
-    };
-  }
+  const setSuppressed = (suppressed: boolean): void => {
+    if (suppressed) {
+      releaseDeathSuppression ??= gameClient.acquireMovementSuppression("death");
+    } else {
+      releaseDeathSuppression?.();
+      releaseDeathSuppression = undefined;
+    }
+  };
 
   const setVisible = (visible: boolean): void => {
-    overlay.hidden = !visible;
-    if (visible) {
-      releaseDeathSuppression ??=
-        gameClient.acquireMovementSuppression("death");
-      return;
+    // Death overlay is only shown in playground/lobby — match mode uses spectate HUD
+    const inMatch = gameClient.isInActiveMatch();
+    if (overlay) {
+      overlay.hidden = !visible || inMatch;
     }
-    releaseDeathSuppression?.();
-    releaseDeathSuppression = undefined;
+    setSuppressed(visible);
+  };
+
+  const syncSpectateHud = (isDead: boolean): void => {
+    if (!spectateHud) return;
+    const inMatch = gameClient.isInActiveMatch();
+    const show = isDead && inMatch;
+    spectateHud.hidden = !show;
+    if (show && spectateHudName) {
+      const name = gameClient.getSpectateTargetName();
+      spectateHudName.textContent = name ?? "...";
+    }
   };
 
   const sync = (): void => {
     if (!gameClient.isSessionReady()) {
       setVisible(false);
+      syncSpectateHud(false);
       return;
     }
 
     const isAlive = gameClient.isLocalPlayerAlive();
     const dead = isAlive === false;
     setVisible(dead);
+    syncSpectateHud(dead);
+
     if (dead) {
       sessionUiController.showDead();
     } else {
@@ -54,14 +70,14 @@ export function createDeathController({
     }
   };
 
-  respawnBtn.addEventListener("click", (event) => {
+  // Playground respawn button — only functional outside active matches
+  respawnBtn?.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     respawnBtn.blur();
     gameClient.clearMovementSuppressions();
-    // Clear death-gate suppression immediately so controls can't stay stuck
-    // behind overlay state if the respawn snapshot arrives late.
     setVisible(false);
+    syncSpectateHud(false);
     sessionUiController.showPlaying();
     gameClient.requestRespawn();
   });

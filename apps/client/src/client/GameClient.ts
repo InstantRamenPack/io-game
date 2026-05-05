@@ -31,6 +31,7 @@ import type {
   InputMovement,
   LobbyStateMessage,
   GameCompleteMessage,
+  GameOverMessage,
 } from "@shared/net/protocol.ts";
 import type {
   DayNightSnapshot,
@@ -79,7 +80,9 @@ export class GameClient {
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private gameCompleteHandlers: Array<(msg: GameCompleteMessage) => void> = [];
+  private gameOverHandlers: Array<(msg: GameOverMessage) => void> = [];
   private lobbyState?: LobbyStateMessage;
+  private spectateEntityId: number | null = null;
   private latestExtractionState: ExtractionSnapshot | null = null;
   private readonly heldMovement: InputMovement = {
     up: false,
@@ -118,6 +121,10 @@ export class GameClient {
     this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
     this.networkClient.onLobbyState((state) => this.onLobbyState(state));
     this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
+    this.networkClient.onGameOver((msg) => this.handleGameOver(msg));
+    this.networkClient.onSpectateUpdate((msg) => {
+      this.spectateEntityId = msg.targetEntityId;
+    });
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputManager.onMoveIntent(({ key, pressed }) => {
       this.heldMovement[key] = pressed;
@@ -160,6 +167,30 @@ export class GameClient {
 
   public onGameCompleted(handler: (msg: GameCompleteMessage) => void): void {
     this.gameCompleteHandlers.push(handler);
+  }
+
+  public onGameOver(handler: (msg: GameOverMessage) => void): void {
+    this.gameOverHandlers.push(handler);
+  }
+
+  public isInActiveMatch(): boolean {
+    return (
+      this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null
+    );
+  }
+
+  public getSpectateTargetName(): string | null {
+    if (this.spectateEntityId === null) {
+      return null;
+    }
+    const entity = this.worldState?.clientWorld?.entities.get(
+      this.spectateEntityId,
+    );
+    return entity?.kind === "player" ? (entity.name ?? null) : null;
+  }
+
+  public getSpectateTargetEntityId(): number | null {
+    return this.spectateEntityId;
   }
 
   public getLatestExtractionState(): ExtractionSnapshot | null {
@@ -403,6 +434,16 @@ export class GameClient {
       const player = this.getLocalPlayerEntity();
       const playerPose = this.getLocalPlayerVisualPose();
 
+      // When dead and spectating, redirect the renderer camera to the spectate target
+      const isSpectating =
+        player?.alive === false && this.spectateEntityId !== null;
+      const cameraEntityId = isSpectating
+        ? this.spectateEntityId ?? this.playerEntityId
+        : this.playerEntityId;
+      if (this.renderer.playerEntityId !== cameraEntityId) {
+        this.renderer.playerEntityId = cameraEntityId;
+      }
+
       this.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
       this.placementPreviewController.sync({
@@ -458,6 +499,9 @@ export class GameClient {
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
     this.presentationSink.setPlayerEntityId(entityId);
+    const inActiveMatch =
+      this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null;
+    this.renderer.setPlaygroundMode(!inActiveMatch);
     for (const sessionReadyHandler of this.sessionReadyHandlers) {
       sessionReadyHandler();
     }
@@ -597,6 +641,9 @@ export class GameClient {
 
   private onLobbyState(state: LobbyStateMessage): void {
     this.lobbyState = state;
+    const inActiveMatch =
+      state.inLobby === true && state.startedAtMs != null;
+    this.renderer.setPlaygroundMode(!inActiveMatch);
     for (const handler of this.lobbyStateHandlers) {
       handler(state);
     }
@@ -604,6 +651,12 @@ export class GameClient {
 
   private handleGameComplete(msg: GameCompleteMessage): void {
     for (const handler of this.gameCompleteHandlers) {
+      handler(msg);
+    }
+  }
+
+  private handleGameOver(msg: GameOverMessage): void {
+    for (const handler of this.gameOverHandlers) {
       handler(msg);
     }
   }
@@ -649,6 +702,7 @@ export class GameClient {
     this.worldState?.clear();
     this.worldState = undefined;
     this.playerEntityId = undefined;
+    this.spectateEntityId = null;
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
     this.placementPreviewController.reset(this.renderer);

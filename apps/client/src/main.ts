@@ -104,13 +104,16 @@ gameClient.setPointerActionHandler((pointer) => {
   return hudController.handlePointerInput(pointer);
 });
 gameClient.onWorldUpdated(() => {
+  hudController.setVisible(true);
   hudController.refreshUi();
   deathController.sync();
 });
 gameClient.networkClient.onClose(() => {
+  hudController.setVisible(true);
   deathController.sync();
 });
 gameClient.networkClient.onError(() => {
+  hudController.setVisible(true);
   deathController.sync();
 });
 if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {

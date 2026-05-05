@@ -175,6 +175,11 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public setPlaygroundMode(isPlayground: boolean): void {
+    this.worldView.setPlaygroundMode(isPlayground);
+    this.renderScheduler.markDirty();
+  }
+
   public updateExtractionState(state: ExtractionSnapshot | null): void {
     this.worldView.updateExtractionState(state);
   }
