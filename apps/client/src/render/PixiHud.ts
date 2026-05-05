@@ -766,7 +766,8 @@ export class PixiHud {
 
     const player = this.selectors.getPlayerEntity();
     const recyclers = this.selectors.getRecyclers();
-    const near = !nearPickup && isNearRecyclerWithItem(player, recyclers, inventory);
+    const near =
+      !nearPickup && isNearRecyclerWithItem(player, recyclers, inventory);
 
     let itemLabel = "";
     if (near && inventory) {

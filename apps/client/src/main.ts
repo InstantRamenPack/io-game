@@ -157,10 +157,8 @@ new GameInputRouter({
       selectors.getInventory(),
     ),
     nearPickup:
-      getNearestPickup(
-        selectors.getPlayerEntity(),
-        selectors.getPickups(),
-      ) !== null,
+      getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
+      null,
   }),
   dispatch: (command) => {
     switch (command.type) {
