@@ -31,11 +31,12 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
     this.entityContainer.addChildAt(this.trailGraphic, 0);
   }
 
-  public override sync(
+  public override update(
+    deltaMs: number,
     entity: ClientEntity,
     presentation?: EntityPresentationState,
   ): void {
-    super.sync(entity, presentation);
+    super.update(deltaMs, entity, presentation);
     const x = presentation?.x ?? entity.x;
     const y = presentation?.y ?? entity.y;
     if (this.trailPoints.length === 0) {
@@ -46,14 +47,6 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
       }
     }
     this.pushTrailPoint(x, y);
-  }
-
-  public override update(
-    deltaMs: number,
-    entity: ClientEntity,
-    presentation?: EntityPresentationState,
-  ): void {
-    super.update(deltaMs, entity, presentation);
     this.ageTrail(deltaMs);
     this.redrawTrail();
   }
@@ -64,7 +57,7 @@ export class TrailProjectileRenderer extends CircleEntityRenderer {
   }
 
   public override hasTransientAnimation(): boolean {
-    return super.hasTransientAnimation() || this.trailPoints.length > 1;
+    return true;
   }
 
   private pushTrailPoint(x: number, y: number): void {
