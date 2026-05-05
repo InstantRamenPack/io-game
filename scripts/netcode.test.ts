@@ -1,3 +1,32 @@
+/**
+ * Legacy aggregate netcode test harness.
+ *
+ * This file historically covered many unrelated systems:
+ * - server input sequencing
+ * - protocol rejection
+ * - authoritative movement
+ * - snapshot duplicate/out-of-order rejection
+ * - interpolation sampling
+ * - synthetic jitter/loss cases
+ * - camera stability
+ * - debug network simulator determinism
+ * - spawn/despawn handling
+ * - death/respawn interpolation discontinuity
+ * - snapshot history bounds
+ *
+ * This is not a complete perceptual netcode-quality test.
+ * Position residual alone can report zero error even when motion is visibly jittery,
+ * because delayed or uneven motion can still lie on a fitted line.
+ *
+ * New tests should live under `scripts/tests/...` and should include derivative
+ * smoothness metrics: velocity variance, acceleration, jerk, freeze frames,
+ * reverse frames, large steps, interpolation mode ratios, render-delay adaptation,
+ * and local-player input-to-visual latency.
+ *
+ * Tests use Bun's native `bun:test` runner and `expect`.
+ * Deterministic fuzz/randomized tests use the existing `seedrandom` package.
+ */
+import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import {
@@ -19,11 +48,6 @@ import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { DebugNetworkSimulator } from "@client/net/DebugNetworkSimulator.ts";
-
-type TestCase = {
-  name: string;
-  run: () => void;
-};
 
 type FakePixiApp = Parameters<PixiViewportController["update"]>[1];
 type FakePixiContainer = Parameters<PixiViewportController["update"]>[2];
@@ -51,29 +75,6 @@ const emptyMovement = Object.freeze({
   right: false,
 });
 
-const tests: TestCase[] = [];
-
-function test(name: string, run: () => void): void {
-  tests.push({ name, run });
-}
-
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-function assertNear(
-  actual: number,
-  expected: number,
-  tolerance: number,
-  message: string,
-): void {
-  if (Math.abs(actual - expected) > tolerance) {
-    throw new Error(`${message}: actual=${actual} expected=${expected}`);
-  }
-}
-
 function makeConfig(): GameConfig {
   const config = new GameConfig();
   config.debug.spawnMultiplier = 0;
@@ -92,7 +93,9 @@ function makeRuntime(): {
   );
   const playerId = runtime.connectReadyClient("client-1", "netcode-test");
   const player = runtime.world.get<Player>(playerId);
-  assert(player, "expected connected player");
+  if (!player) {
+    throw new Error("expected connected player");
+  }
   return { runtime, player, playerId };
 }
 
@@ -133,8 +136,8 @@ test("server-authoritative movement is driven by input intent", () => {
   const startX = player.x;
   runtime.handleInputIntent("client-1", makeInput(1, movingRight()));
   tick(runtime, 3);
-  assert(player.x > startX, "player should move right on server ticks");
-  assert(player.vx > 0, "server velocity should be positive");
+  expect(player.x).toBeGreaterThan(startX);
+  expect(player.vx).toBeGreaterThan(0);
 });
 
 test("client input protocol rejects authoritative x/y", () => {
@@ -147,17 +150,14 @@ test("client input protocol rejects authoritative x/y", () => {
     theta: 0,
     movement: emptyMovement,
   });
-  assert(parseClientToServerMessage(raw) === null, "schema must reject x/y");
-  assert(
-    parseFastInputMessage(raw).kind === "invalid",
-    "fast parser must reject x/y",
-  );
+  expect(parseClientToServerMessage(raw)).toBeNull();
+  expect(parseFastInputMessage(raw).kind).toBe("invalid");
   const wsClientSource = readFileSync(
     "apps/client/src/net/WsClient.ts",
     "utf8",
   );
-  assert(!wsClientSource.includes("sendPose"), "sendPose must not exist");
-  assert(!wsClientSource.includes('"t":"pose"'), "pose packets must not exist");
+  expect(wsClientSource.includes("sendPose")).toBe(false);
+  expect(wsClientSource.includes('"t":"pose"')).toBe(false);
 });
 
 test("stale and duplicate input are ignored without corrupting movement", () => {
@@ -168,7 +168,7 @@ test("stale and duplicate input are ignored without corrupting movement", () => 
   runtime.handleInputIntent("client-1", makeInput(1, movingLeft()));
   runtime.handleInputIntent("client-1", makeInput(2, movingLeft()));
   tick(runtime, 2);
-  assert(player.x >= beforeStaleX, "stale duplicate must not reverse movement");
+  expect(player.x).toBeGreaterThanOrEqual(beforeStaleX);
 });
 
 test("out-of-order input does not corrupt movement", () => {
@@ -176,41 +176,38 @@ test("out-of-order input does not corrupt movement", () => {
   runtime.handleInputIntent("client-1", makeInput(5, movingRight()));
   runtime.handleInputIntent("client-1", makeInput(4, movingLeft()));
   tick(runtime, 3);
-  assert(player.vx > 0, "older left input must not override newer right input");
+  expect(player.vx).toBeGreaterThan(0);
 });
 
 test("movement stops cleanly when input stops", () => {
   const { runtime, player } = makeRuntime();
   runtime.handleInputIntent("client-1", makeInput(1, movingRight()));
   tick(runtime, 3);
-  assert(player.vx > 0, "player should be moving before stop input");
+  expect(player.vx).toBeGreaterThan(0);
   runtime.handleInputIntent("client-1", makeInput(2, { ...emptyMovement }));
   tick(runtime, 6);
-  assertNear(player.vx, 0, 0.001, "drive velocity should settle to zero");
-  assertNear(player.vy, 0, 0.001, "vertical velocity should remain zero");
+  expect(Math.abs(player.vx)).toBeLessThanOrEqual(0.001);
+  expect(Math.abs(player.vy)).toBeLessThanOrEqual(0.001);
 });
 
 test("movement stops cleanly when fresh input is missing", () => {
   const { runtime, player } = makeRuntime();
   runtime.handleInputIntent("client-1", makeInput(1, movingRight()));
   tick(runtime, 3);
-  assert(player.vx > 0, "player should be moving before timeout");
+  expect(player.vx).toBeGreaterThan(0);
   tick(runtime, 6);
-  assertNear(player.vx, 0, 0.001, "stale input timeout should stop drive");
+  expect(Math.abs(player.vx)).toBeLessThanOrEqual(0.001);
 });
 
 test("diagonal movement is normalized", () => {
   const { runtime, player } = makeRuntime();
   runtime.handleInputIntent("client-1", makeInput(1, movingDownRight()));
   tick(runtime, 3);
-  assert(
-    Math.hypot(player.vx, player.vy) <= player.moveSpeed + 0.001,
-    "diagonal speed must not exceed move speed",
+  expect(Math.hypot(player.vx, player.vy)).toBeLessThanOrEqual(
+    player.moveSpeed + 0.001,
   );
-  assert(
-    player.vx > 0 && player.vy > 0,
-    "diagonal input should move both axes",
-  );
+  expect(player.vx).toBeGreaterThan(0);
+  expect(player.vy).toBeGreaterThan(0);
 });
 
 test("server collision blocks movement through static blockers", () => {
@@ -226,9 +223,8 @@ test("server collision blocks movement through static blockers", () => {
   }
   const playerHalfWidth = 16;
   const wallHalfWidth = 20;
-  assert(
-    player.x + playerHalfWidth <= wall.x - wallHalfWidth + 0.01,
-    "player should stop at wall contact",
+  expect(player.x + playerHalfWidth).toBeLessThanOrEqual(
+    wall.x - wallHalfWidth + 0.01,
   );
 });
 
@@ -239,9 +235,9 @@ test("snapshot receiver ignores duplicate and out-of-order snapshots", () => {
   state.pushSnapshot(makeSnapshot(2, [makePlayerSnapshot(1, 20, 10)]), 110);
   state.pushSnapshot(makeSnapshot(1, [makePlayerSnapshot(1, 10, 10)]), 120);
   const stats = state.getSnapshotReceiveStats();
-  assert(stats.duplicateSnapshotCount === 1, "duplicate count should be 1");
-  assert(stats.outOfOrderSnapshotCount === 1, "out-of-order count should be 1");
-  assert(state.latestTick === 2, "latest tick must not roll back");
+  expect(stats.duplicateSnapshotCount).toBe(1);
+  expect(stats.outOfOrderSnapshotCount).toBe(1);
+  expect(state.latestTick).toBe(2);
 });
 
 test("steady 20Hz snapshots render smoothly at 60 FPS", () => {
@@ -250,15 +246,9 @@ test("steady 20Hz snapshots render smoothly at 60 FPS", () => {
     snapshotTimes: makeSnapshotTimes(0, 3000, 50),
     positionAtTick: (tickNumber) => ({ x: 100 + tickNumber * 15, y: 100 }),
   });
-  assert(result.snapCount === 0, "steady movement should not snap");
-  assert(
-    result.extrapolatedFramesAfterWarmup === 0,
-    "perfect steady state should not extrapolate",
-  );
-  assert(
-    result.localRmsResidual <= 1.0,
-    `linear steady movement residual should be <= 1 world unit, got ${result.localRmsResidual}`,
-  );
+  expect(result.snapCount).toBe(0);
+  expect(result.extrapolatedFramesAfterWarmup).toBe(0);
+  expect(result.localRmsResidual).toBeLessThanOrEqual(1.0);
 });
 
 test("start-stop movement with jitter remains bounded", () => {
@@ -272,8 +262,8 @@ test("start-stop movement with jitter remains bounded", () => {
       y: 100,
     }),
   });
-  assert(result.snapCount === 0, "jittered start-stop should not snap");
-  assert(result.maxExtrapolationTicks <= 0.35, "extrapolation must be capped");
+  expect(result.snapCount).toBe(0);
+  expect(result.maxExtrapolationTicks).toBeLessThanOrEqual(0.35);
 });
 
 test("direction changes do not create correction buzz", () => {
@@ -290,10 +280,7 @@ test("direction changes do not create correction buzz", () => {
       };
     },
   });
-  assert(
-    result.maxConsecutiveCorrectionFlips <= 5,
-    "correction direction should not flip for more than 5 consecutive frames",
-  );
+  expect(result.maxConsecutiveCorrectionFlips).toBeLessThanOrEqual(5);
 });
 
 test("packet loss bursts and delayed snapshots use bounded extrapolation", () => {
@@ -305,14 +292,8 @@ test("packet loss bursts and delayed snapshots use bounded extrapolation", () =>
     snapshotTimes,
     positionAtTick: (tickNumber) => ({ x: 100 + tickNumber * 10, y: 200 }),
   });
-  assert(
-    result.extrapolatedFramesAfterWarmup > 0,
-    "loss burst should extrapolate",
-  );
-  assert(
-    result.maxExtrapolationTicks <= 0.35,
-    "extrapolation must stay capped",
-  );
+  expect(result.extrapolatedFramesAfterWarmup).toBeGreaterThan(0);
+  expect(result.maxExtrapolationTicks).toBeLessThanOrEqual(0.35);
 });
 
 test("variable latency and delayed snapshots stay bounded", () => {
@@ -332,15 +313,9 @@ test("variable latency and delayed snapshots stay bounded", () => {
       y: 350,
     }),
   });
-  assert(result.snapCount === 0, "variable latency should not hard snap");
-  assert(
-    result.maxExtrapolationTicks <= 0.35,
-    "variable latency extrapolation must stay capped",
-  );
-  assert(
-    result.maxConsecutiveCorrectionFlips <= 5,
-    "variable latency must not create correction buzz",
-  );
+  expect(result.snapCount).toBe(0);
+  expect(result.maxExtrapolationTicks).toBeLessThanOrEqual(0.35);
+  expect(result.maxConsecutiveCorrectionFlips).toBeLessThanOrEqual(5);
 });
 
 test("entity spawn and despawn are handled during interpolation", () => {
@@ -353,7 +328,7 @@ test("entity spawn and despawn are handled during interpolation", () => {
     ]),
     100,
   );
-  assert(state.clientWorld?.entities.has(2), "spawned entity should exist");
+  expect(state.clientWorld?.entities.has(2)).toBe(true);
   state.pushSnapshot(
     {
       ...makeSnapshot(3, [], false),
@@ -361,10 +336,7 @@ test("entity spawn and despawn are handled during interpolation", () => {
     },
     150,
   );
-  assert(
-    !state.clientWorld?.entities.has(2),
-    "despawned entity should be removed",
-  );
+  expect(state.clientWorld?.entities.has(2)).toBe(false);
 });
 
 test("incomplete delta-only new entities wait for a complete keyframe", () => {
@@ -380,21 +352,15 @@ test("incomplete delta-only new entities wait for a complete keyframe", () => {
   } as EntitySnapshot;
 
   state.pushSnapshot(makeSnapshot(1, [incompleteDelta], false), 50);
-  assert(
-    !state.clientWorld?.entities.has(2),
-    "incomplete delta-only entity should be ignored until metadata arrives",
-  );
+  expect(state.clientWorld?.entities.has(2)).toBe(false);
 
   state.pushSnapshot(
     makeSnapshot(2, [makePlayerSnapshot(2, 60, 0)], false),
     100,
   );
   const entity = state.clientWorld?.entities.get(2);
-  assert(
-    entity,
-    "complete keyframe should create the previously missing entity",
-  );
-  assertNear(entity.serverX, 60, 0.001, "keyframe should apply server x");
+  expect(entity).toBeDefined();
+  expect(entity?.serverX).toBeCloseTo(60, 3);
 });
 
 test("death and respawn discontinuities reset interpolation history", () => {
@@ -410,25 +376,16 @@ test("death and respawn discontinuities reset interpolation history", () => {
     100,
   );
   let entity = state.clientWorld?.entities.get(1);
-  assert(entity, "dead player entity should still be represented in net state");
-  assert(
-    entity.lastDiscontinuityTick === 2,
-    "death should be marked as an interpolation discontinuity",
-  );
-  assert(
-    entity.getServerFrameHistoryLength() === 1,
-    "death should reset server-frame history",
-  );
+  expect(entity).toBeDefined();
+  expect(entity?.lastDiscontinuityTick).toBe(2);
+  expect(entity?.getServerFrameHistoryLength()).toBe(1);
 
   state.pushSnapshot(makeSnapshot(3, [makePlayerSnapshot(1, 800, 600)]), 150);
   entity = state.clientWorld?.entities.get(1);
-  assert(entity, "respawned player should exist");
-  assert(
-    entity.lastDiscontinuityTick === 3,
-    "respawn should be marked as an interpolation discontinuity",
-  );
-  assertNear(entity.x, 800, 0.001, "respawn should snap visual x to spawn");
-  assertNear(entity.y, 600, 0.001, "respawn should snap visual y to spawn");
+  expect(entity).toBeDefined();
+  expect(entity?.lastDiscontinuityTick).toBe(3);
+  expect(entity?.x).toBeCloseTo(800, 3);
+  expect(entity?.y).toBeCloseTo(600, 3);
 });
 
 test("snapshot history remains bounded", () => {
@@ -445,11 +402,8 @@ test("snapshot history remains bounded", () => {
     interpolator.updateInterpolation(state, tickNumber * 50, 16, 1);
   }
   const entity = state.clientWorld?.entities.get(1);
-  assert(entity, "entity should exist");
-  assert(
-    entity.getServerFrameHistoryLength() <= 8,
-    "entity history should be bounded",
-  );
+  expect(entity).toBeDefined();
+  expect(entity?.getServerFrameHistoryLength()).toBeLessThanOrEqual(8);
 });
 
 test("local and remote players render from authoritative snapshots", () => {
@@ -475,58 +429,40 @@ test("local and remote players render from authoritative snapshots", () => {
   interpolator.updateInterpolation(state, 100, 16, 1);
   const local = state.clientWorld?.entities.get(1);
   const remote = state.clientWorld?.entities.get(2);
-  assert(local && remote, "local and remote entities should exist");
-  assert(local.x >= 0 && local.x <= 10, "local render should sample snapshots");
-  assert(
-    remote.x >= 100 && remote.x <= 110,
-    "remote render should sample snapshots",
-  );
+  expect(local).toBeDefined();
+  expect(remote).toBeDefined();
+  expect(local?.x).toBeGreaterThanOrEqual(0);
+  expect(local?.x).toBeLessThanOrEqual(10);
+  expect(remote?.x).toBeGreaterThanOrEqual(100);
+  expect(remote?.x).toBeLessThanOrEqual(110);
 });
 
 test("camera is stable during idle and smooth during constant movement", () => {
   const idleRms = simulateCameraIdleRms();
-  assert(
-    idleRms <= 0.5,
-    `idle camera RMS should be <= 0.5 CSS px, got ${idleRms}`,
-  );
+  expect(idleRms).toBeLessThanOrEqual(0.5);
   const movementRms = simulateCameraMovementResidualRms();
-  assert(
-    movementRms <= 1.0,
-    `constant movement camera residual RMS should be <= 1.0 CSS px, got ${movementRms}`,
-  );
+  expect(movementRms).toBeLessThanOrEqual(1.0);
 });
 
 test("debug network simulation profiles are deterministic", () => {
   const perfect = collectNetworkPlan("perfect", 7);
-  assert(perfect.dropped === 0, "perfect profile should not drop packets");
-  assert(
-    perfect.duplicated === 0,
-    "perfect profile should not duplicate packets",
-  );
-  assert(perfect.reordered === 0, "perfect profile should not reorder packets");
-  assert(
-    perfect.delays.every((delay) => delay === 0),
-    "perfect profile should deliver without added delay",
-  );
+  expect(perfect.dropped).toBe(0);
+  expect(perfect.duplicated).toBe(0);
+  expect(perfect.reordered).toBe(0);
+  expect(perfect.delays.every((delay) => delay === 0)).toBe(true);
 
   const mild = collectNetworkPlan("mild", 42);
-  assert(mild.dropped > 0, "mild profile should drop some packets");
-  assert(mild.duplicated > 0, "mild profile should duplicate some packets");
-  assert(mild.reordered > 0, "mild profile should reorder some packets");
-  assert(
-    mild.delays.every((delay) => delay >= 0 && delay <= 115),
-    "mild profile should keep delays within its configured range",
-  );
+  expect(mild.dropped).toBeGreaterThan(0);
+  expect(mild.duplicated).toBeGreaterThan(0);
+  expect(mild.reordered).toBeGreaterThan(0);
+  expect(mild.delays.every((delay) => delay >= 0 && delay <= 115)).toBe(true);
 
   const first = collectNetworkPlan("bad", 42);
   const second = collectNetworkPlan("bad", 42);
-  assert(
-    JSON.stringify(first) === JSON.stringify(second),
-    "same profile and seed should produce same plan",
-  );
-  assert(first.dropped > 0, "bad profile should drop some packets");
-  assert(first.duplicated > 0, "bad profile should duplicate some packets");
-  assert(first.reordered > 0, "bad profile should reorder some packets");
+  expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+  expect(first.dropped).toBeGreaterThan(0);
+  expect(first.duplicated).toBeGreaterThan(0);
+  expect(first.reordered).toBeGreaterThan(0);
 });
 
 function makeSnapshotTimes(
@@ -844,19 +780,4 @@ function rms(values: number[]): number {
   );
 }
 
-bootstrapTypeRegistries();
-
-let passed = 0;
-for (const testCase of tests) {
-  try {
-    testCase.run();
-    passed += 1;
-    console.log(`ok ${passed} - ${testCase.name}`);
-  } catch (error) {
-    console.error(`not ok ${passed + 1} - ${testCase.name}`);
-    console.error(error instanceof Error ? error.stack : error);
-    process.exit(1);
-  }
-}
-
-console.log(`netcode validation passed: ${passed}/${tests.length}`);
+beforeAll(bootstrapTypeRegistries);

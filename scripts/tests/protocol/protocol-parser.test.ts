@@ -177,19 +177,10 @@ describe("protocol parser", () => {
         },
       },
       { t: "action", seq: 7, action: "drop" },
-      { t: "action", seq: 8, action: "pickup", extra: buildableId },
-      { t: "action", seq: 9, action: "recycle", unexpected: 123 },
     ];
 
     for (const payload of invalidPayloads) {
       const parsed = parseClientToServerMessage(JSON.stringify(payload));
-      if (
-        payload.action === "pickup" ||
-        payload.action === "recycle"
-      ) {
-        // These action schemas are permissive; keep coverage on other invalid payloads.
-        continue;
-      }
       expect(parsed).toBeNull();
     }
   });

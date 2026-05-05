@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
@@ -37,7 +39,12 @@ function spawnEnemy(world: World, x: number, y: number): Police {
   return enemy;
 }
 
-function spawnItem(world: World, x: number, y: number, typeId: string): ItemEntity {
+function spawnItem(
+  world: World,
+  x: number,
+  y: number,
+  typeId: ResourceId,
+): ItemEntity {
   const inventory = new Inventory();
   inventory.addStackable(typeId, 1);
   const item = new ItemEntity(world.allocEntityId(), inventory);
@@ -64,6 +71,8 @@ function step(world: World, count = 1): void {
 
 describe("item collision rules", () => {
   beforeAll(bootstrapTypeRegistries);
+  const wallItemId = makeResourceId("item", "wall");
+  const landmineItemId = makeResourceId("item", "landmine");
 
   test("player-player resolves", () => {
     const world = makeWorld();
@@ -92,7 +101,7 @@ describe("item collision rules", () => {
   test("player-item does not physically push", () => {
     const world = makeWorld();
     const player = spawnPlayer(world, 120, 120);
-    const item = spawnItem(world, 120, 120, "item:wall");
+    const item = spawnItem(world, 120, 120, wallItemId);
     const startX = player.x;
     step(world);
     expect(player.x).toBeCloseTo(startX, 3);
@@ -103,7 +112,7 @@ describe("item collision rules", () => {
   test("enemy-item does not physically push", () => {
     const world = makeWorld();
     const enemy = spawnEnemy(world, 120, 120);
-    spawnItem(world, 120, 120, "item:wall");
+    spawnItem(world, 120, 120, wallItemId);
     const startX = enemy.x;
     step(world);
     expect(enemy.x).toBeCloseTo(startX, 3);
@@ -111,16 +120,16 @@ describe("item collision rules", () => {
 
   test("mergeable item-item does not push", () => {
     const world = makeWorld();
-    spawnItem(world, 120, 120, "item:wall");
-    spawnItem(world, 120, 120, "item:wall");
+    spawnItem(world, 120, 120, wallItemId);
+    spawnItem(world, 120, 120, wallItemId);
     step(world);
     expectDynamicOverlapState(world, true);
   });
 
   test("non-mergeable item-item pushes", () => {
     const world = makeWorld();
-    spawnItem(world, 120, 120, "item:wall");
-    spawnItem(world, 120, 120, "item:landmine");
+    spawnItem(world, 120, 120, wallItemId);
+    spawnItem(world, 120, 120, landmineItemId);
     step(world);
     expectDynamicOverlapState(world, false);
   });
@@ -128,8 +137,8 @@ describe("item collision rules", () => {
   test("item near wall pushed by item avoids static penetration", () => {
     const world = makeWorld();
     const wall = spawnWall(world, 80, 150);
-    spawnItem(world, wall.x + 10, wall.y, "item:wall");
-    spawnItem(world, wall.x + 10, wall.y, "item:landmine");
+    spawnItem(world, wall.x + 10, wall.y, wallItemId);
+    spawnItem(world, wall.x + 10, wall.y, landmineItemId);
     step(world, 2);
     expectNoDynamicStaticOverlap(world);
   });
