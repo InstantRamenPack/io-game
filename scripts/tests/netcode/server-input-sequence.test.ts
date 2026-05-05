@@ -9,7 +9,7 @@ import {
   connectTestClient,
   makeRuntime,
   tick,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 const emptyMovement = Object.freeze({
   up: false,

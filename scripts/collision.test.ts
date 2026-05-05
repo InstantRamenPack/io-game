@@ -187,11 +187,13 @@ test("dynamic-vs-dynamic softly separates", () => {
 
   runCollision(world);
 
-  assert(
-    left.x < 100 && right.x > 110,
-    "dynamic entities should move apart",
+  assert(left.x < 100 && right.x > 110, "dynamic entities should move apart");
+  assertNear(
+    left.x,
+    96.25,
+    0.001,
+    "left dynamic should move scaled correction",
   );
-  assertNear(left.x, 96.25, 0.001, "left dynamic should move scaled correction");
   assertNear(
     right.x,
     113.75,

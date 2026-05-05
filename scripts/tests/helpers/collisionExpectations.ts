@@ -8,7 +8,7 @@ import {
   assertNoDynamicEntityOutsideWorld,
   assertNoDynamicStaticOverlap,
   findDynamicOverlapPairs,
-} from "./collisionInvariants.ts";
+} from "@tests/helpers/collisionInvariants.ts";
 
 export function expectAllEntityPositionsFinite(world: World): void {
   expect(() => assertAllEntityPositionsFinite(world)).not.toThrow();

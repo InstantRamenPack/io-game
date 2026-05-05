@@ -5,7 +5,7 @@ import {
   connectTestClient,
   makeRuntime,
   spawnWall,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 function stepAndSnapshot(
   runtime: ReturnType<typeof makeRuntime>["runtime"],

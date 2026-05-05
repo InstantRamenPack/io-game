@@ -83,8 +83,8 @@ export function computeSmoothnessMetrics(
   const positionSteps: number[] = [];
   const diagnostics: FrameMotionDiagnostics[] = [];
 
-  let previousVelocity = 0;
-  let previousAcceleration = 0;
+  let previousVelocity: number | null = null;
+  let previousAcceleration: number | null = null;
 
   for (let index = 0; index < samples.length; index += 1) {
     const sample = samples[index]!;
@@ -102,13 +102,17 @@ export function computeSmoothnessMetrics(
       positionSteps.push(Math.hypot(dx, dy));
       velocity = (dx * direction.x + dy * direction.y) / dtSeconds;
       velocities.push(velocity);
-      velocityDeltas.push(Math.abs(velocity - previousVelocity));
-      accel = (velocity - previousVelocity) / dtSeconds;
-      acceleration.push(accel);
-      jerkValue = (accel - previousAcceleration) / dtSeconds;
-      jerk.push(jerkValue);
+      if (previousVelocity !== null) {
+        velocityDeltas.push(Math.abs(velocity - previousVelocity));
+        accel = (velocity - previousVelocity) / dtSeconds;
+        acceleration.push(accel);
+        if (previousAcceleration !== null) {
+          jerkValue = (accel - previousAcceleration) / dtSeconds;
+          jerk.push(jerkValue);
+        }
+        previousAcceleration = accel;
+      }
       previousVelocity = velocity;
-      previousAcceleration = accel;
     }
 
     const debugFrame = options.debugFrames?.[index];
@@ -138,10 +142,17 @@ export function computeSmoothnessMetrics(
     velocityMean === 0 ? 0 : velocityStdDev / Math.abs(velocityMean);
 
   const medianVelocityDelta = median(velocityDeltas);
+  const minimumLargeStepVelocityDelta = Math.max(
+    5,
+    Math.abs(velocityMedian) * 0.45,
+  );
   const largeStepThreshold =
-    medianVelocityDelta === 0
+    medianVelocityDelta < 1e-6
       ? Number.POSITIVE_INFINITY
-      : medianVelocityDelta * largeStepMultiplier;
+      : Math.max(
+          minimumLargeStepVelocityDelta,
+          medianVelocityDelta * largeStepMultiplier,
+        );
 
   const freezeFrameCount = velocities.filter(
     (value) => Math.abs(value) < freezeEpsilon,
@@ -280,8 +291,7 @@ function rms(values: number[]): number {
     return 0;
   }
   return Math.sqrt(
-    values.reduce((total, value) => total + value * value, 0) /
-      values.length,
+    values.reduce((total, value) => total + value * value, 0) / values.length,
   );
 }
 

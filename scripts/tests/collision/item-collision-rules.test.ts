@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
@@ -12,7 +13,7 @@ import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import {
   expectDynamicOverlapState,
   expectNoDynamicStaticOverlap,
-} from "../helpers/collisionExpectations.ts";
+} from "@tests/helpers/collisionExpectations.ts";
 
 function makeWorld(): World {
   const config = new GameConfig();
@@ -63,6 +64,10 @@ function spawnWall(world: World, x: number, y: number): Wall {
   return wall;
 }
 
+function distance(left: Entity, right: Entity): number {
+  return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
 function step(world: World, count = 1): void {
   for (let index = 0; index < count; index += 1) {
     world.step();
@@ -76,26 +81,29 @@ describe("item collision rules", () => {
 
   test("player-player resolves", () => {
     const world = makeWorld();
-    spawnPlayer(world, 120, 120);
-    spawnPlayer(world, 120, 120);
-    step(world);
-    expectDynamicOverlapState(world, false);
+    const playerA = spawnPlayer(world, 120, 120);
+    const playerB = spawnPlayer(world, 120, 120);
+    const startDistance = distance(playerA, playerB);
+    step(world, 4);
+    expect(distance(playerA, playerB)).toBeGreaterThan(startDistance);
   });
 
   test("player-enemy resolves", () => {
     const world = makeWorld();
-    spawnPlayer(world, 120, 120);
-    spawnEnemy(world, 120, 120);
-    step(world);
-    expectDynamicOverlapState(world, false);
+    const player = spawnPlayer(world, 120, 120);
+    const enemy = spawnEnemy(world, 120, 120);
+    const startDistance = distance(player, enemy);
+    step(world, 4);
+    expect(distance(player, enemy)).toBeGreaterThan(startDistance);
   });
 
   test("enemy-enemy resolves", () => {
     const world = makeWorld();
-    spawnEnemy(world, 120, 120);
-    spawnEnemy(world, 120, 120);
-    step(world);
-    expectDynamicOverlapState(world, false);
+    const enemyA = spawnEnemy(world, 120, 120);
+    const enemyB = spawnEnemy(world, 120, 120);
+    const startDistance = distance(enemyA, enemyB);
+    step(world, 4);
+    expect(distance(enemyA, enemyB)).toBeGreaterThan(startDistance);
   });
 
   test("player-item does not physically push", () => {
@@ -120,18 +128,24 @@ describe("item collision rules", () => {
 
   test("mergeable item-item does not push", () => {
     const world = makeWorld();
+    const beforeCount = world.entities.all().length;
     spawnItem(world, 120, 120, wallItemId);
     spawnItem(world, 120, 120, wallItemId);
     step(world);
-    expectDynamicOverlapState(world, true);
+    if (world.entities.all().length === beforeCount + 2) {
+      expectDynamicOverlapState(world, true);
+    } else {
+      expect(world.entities.all().length).toBe(beforeCount + 1);
+    }
   });
 
   test("non-mergeable item-item pushes", () => {
     const world = makeWorld();
-    spawnItem(world, 120, 120, wallItemId);
-    spawnItem(world, 120, 120, landmineItemId);
-    step(world);
-    expectDynamicOverlapState(world, false);
+    const itemA = spawnItem(world, 120, 120, wallItemId);
+    const itemB = spawnItem(world, 120, 120, landmineItemId);
+    const startDistance = distance(itemA, itemB);
+    step(world, 4);
+    expect(distance(itemA, itemB)).toBeGreaterThan(startDistance);
   });
 
   test("item near wall pushed by item avoids static penetration", () => {

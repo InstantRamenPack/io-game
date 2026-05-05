@@ -11,7 +11,7 @@ import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { FakeNetworkServer } from "./fakeNetwork.ts";
+import { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
 
 export type TestConfigOverrides = {
   worldSize?: Partial<GameConfig["worldSize"]>;
@@ -26,7 +26,9 @@ export function bootstrapTestRegistries(): void {
   bootstrapTypeRegistries();
 }
 
-export function makeTestConfig(overrides: TestConfigOverrides = {}): GameConfig {
+export function makeTestConfig(
+  overrides: TestConfigOverrides = {},
+): GameConfig {
   const config = new GameConfig();
   config.debug.spawnMultiplier = 0;
   if (overrides.tickRate !== undefined) {
@@ -53,6 +55,14 @@ export function makeTestConfig(overrides: TestConfigOverrides = {}): GameConfig 
   return config;
 }
 
+export function makeRuntime(overrides?: {
+  config?: TestConfigOverrides;
+  network?: undefined;
+}): { runtime: GameInstanceRuntime; network: FakeNetworkServer };
+export function makeRuntime(overrides: {
+  config?: TestConfigOverrides;
+  network: NetworkServerLike;
+}): { runtime: GameInstanceRuntime; network: NetworkServerLike };
 export function makeRuntime(
   overrides: {
     config?: TestConfigOverrides;
@@ -86,7 +96,11 @@ export function spawnWall(
   y: number,
   options: { tier?: number; ownerId?: number } = {},
 ): Wall {
-  const wall = new Wall(runtime.world.allocEntityId(), options.tier ?? 1, options.ownerId);
+  const wall = new Wall(
+    runtime.world.allocEntityId(),
+    options.tier ?? 1,
+    options.ownerId,
+  );
   wall.x = x;
   wall.y = y;
   runtime.world.spawn(wall);

@@ -15,7 +15,7 @@ import {
   expectAllEntityPositionsFinite,
   expectNoDynamicEntityOutsideWorld,
   expectNoDynamicStaticOverlap,
-} from "../helpers/collisionExpectations.ts";
+} from "@tests/helpers/collisionExpectations.ts";
 
 describe("benchmark smoke", () => {
   beforeAll(bootstrapBenchmarks);

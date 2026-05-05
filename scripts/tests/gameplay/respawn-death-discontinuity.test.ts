@@ -4,7 +4,7 @@ import {
   connectTestClient,
   makeRuntime,
   tick,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 describe("respawn/death discontinuity", () => {
   beforeAll(bootstrapTestRegistries);

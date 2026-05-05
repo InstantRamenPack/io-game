@@ -2,8 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
-import { makePlayerSnapshot, makeSnapshot } from "../helpers/snapshotFixtures.ts";
-import { simulateNetworkedSnapshotStream } from "../helpers/interpolationFixtures.ts";
+import {
+  makePlayerSnapshot,
+  makeSnapshot,
+} from "@tests/helpers/snapshotFixtures.ts";
+import { simulateNetworkedSnapshotStream } from "@tests/helpers/interpolationFixtures.ts";
 
 describe("interpolator timing", () => {
   test("perfect network keeps render delay near min", () => {
@@ -23,15 +26,17 @@ describe("interpolator timing", () => {
       }),
     });
     const minDelay = config.interpolation.minRenderDelayTicks;
-    const renderDelays = result.debugFrames.map((frame) => frame.renderDelayTicks);
+    const renderDelays = result.debugFrames.map(
+      (frame) => frame.renderDelayTicks,
+    );
     const targets = result.debugFrames.map(
       (frame) => frame.targetRenderDelayTicks,
     );
     expect(Math.min(...renderDelays)).toBeGreaterThanOrEqual(minDelay - 0.5);
     expect(Math.max(...renderDelays)).toBeLessThanOrEqual(minDelay + 0.75);
-    expect(
-      targets.some((value) => Math.abs(value - minDelay) <= 0.5),
-    ).toBe(true);
+    expect(targets.some((value) => Math.abs(value - minDelay) <= 0.5)).toBe(
+      true,
+    );
   });
 
   test("bad network increases target render delay above min", () => {
@@ -56,9 +61,9 @@ describe("interpolator timing", () => {
         (frame) => frame.targetRenderDelayTicks > minDelay,
       ),
     ).toBe(true);
-    expect(
-      result.debugFrames.some((frame) => frame.jitterEstimateMs > 0),
-    ).toBe(true);
+    expect(result.debugFrames.some((frame) => frame.jitterEstimateMs > 0)).toBe(
+      true,
+    );
   });
 
   test("render delay clamps to max", () => {
@@ -106,8 +111,9 @@ describe("interpolator timing", () => {
     state.pushSnapshot(makeSnapshot(1, [makePlayerSnapshot(1, 0, 0)]), 0);
     state.pushSnapshot(makeSnapshot(2, [makePlayerSnapshot(1, 10, 0)]), 1);
     interpolator.updateInterpolation(state, 1, 16, 1);
-    const observedTickMs = (interpolator as unknown as { observedTickMs: number })
-      .observedTickMs;
+    const observedTickMs = (
+      interpolator as unknown as { observedTickMs: number }
+    ).observedTickMs;
     expect(observedTickMs).toBeGreaterThanOrEqual(
       50 * config.interpolation.tickDurationMinFactor,
     );
@@ -123,8 +129,9 @@ describe("interpolator timing", () => {
     state.pushSnapshot(makeSnapshot(1, [makePlayerSnapshot(1, 0, 0)]), 0);
     state.pushSnapshot(makeSnapshot(2, [makePlayerSnapshot(1, 10, 0)]), 1000);
     interpolator.updateInterpolation(state, 1000, 16, 1);
-    const observedTickMs = (interpolator as unknown as { observedTickMs: number })
-      .observedTickMs;
+    const observedTickMs = (
+      interpolator as unknown as { observedTickMs: number }
+    ).observedTickMs;
     expect(observedTickMs).toBeLessThanOrEqual(
       50 * config.interpolation.tickDurationMaxFactor,
     );

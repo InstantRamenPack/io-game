@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/constants.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import {
@@ -9,11 +10,24 @@ import {
   makeRuntime,
   spawnWall,
   tick,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 const wallItemId = makeResourceId("item", "wall");
 const fenceItemId = makeResourceId("item", "structure_fence_h");
 const STRUCTURE_TILE_SIZE = 16;
+
+function addAndSelectBuildable(
+  player: ReturnType<typeof connectTestClient>["player"],
+  typeId: ResourceId,
+  count: number,
+): void {
+  player.inventory.addStackable(typeId, count);
+  const slotIndex = player.inventory.hotbarSlots.findIndex(
+    (slot) => slot?.kind === "buildable" && slot.typeId === typeId,
+  );
+  expect(slotIndex).toBeGreaterThanOrEqual(0);
+  player.inventory.setSelectedHotbarIndex(slotIndex);
+}
 
 function enqueueAction(
   runtime: ReturnType<typeof makeRuntime>["runtime"],
@@ -33,7 +47,7 @@ describe("build placement authority", () => {
   test("build within range spawns structure", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
     enqueueAction(runtime, {
       t: "action",
@@ -48,7 +62,7 @@ describe("build placement authority", () => {
   test("build out of range does not spawn", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeCount = runtime.world.entities.all().length;
     enqueueAction(runtime, {
       t: "action",
@@ -65,7 +79,7 @@ describe("build placement authority", () => {
   test("build overlapping player is rejected", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeCount = runtime.world.entities.all().length;
     enqueueAction(runtime, {
       t: "action",
@@ -80,7 +94,7 @@ describe("build placement authority", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const blocker = spawnWall(runtime, player.x + 40, player.y);
-    player.inventory.addStackable(wallItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeCount = runtime.world.entities.all().length;
     enqueueAction(runtime, {
       t: "action",
@@ -94,7 +108,7 @@ describe("build placement authority", () => {
   test("build outside world bounds is rejected", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeCount = runtime.world.entities.all().length;
     enqueueAction(runtime, {
       t: "action",
@@ -121,7 +135,7 @@ describe("build placement authority", () => {
   test("structure placement snaps to grid", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(fenceItemId, 1);
+    addAndSelectBuildable(player, fenceItemId, 1);
     const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
     enqueueAction(runtime, {
       t: "action",
@@ -133,12 +147,10 @@ describe("build placement authority", () => {
     expect(spawned.length).toBeGreaterThan(0);
     const structure = spawned[0]!;
     const expectedX =
-      Math.floor((player.x + 33) / STRUCTURE_TILE_SIZE) *
-        STRUCTURE_TILE_SIZE +
+      Math.floor((player.x + 33) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
       STRUCTURE_TILE_SIZE / 2;
     const expectedY =
-      Math.floor((player.y + 17) / STRUCTURE_TILE_SIZE) *
-        STRUCTURE_TILE_SIZE +
+      Math.floor((player.y + 17) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
       STRUCTURE_TILE_SIZE / 2;
     expect(structure.x).toBeCloseTo(expectedX, 3);
     expect(structure.y).toBeCloseTo(expectedY, 3);
@@ -147,7 +159,7 @@ describe("build placement authority", () => {
   test("duplicate build action does not spawn twice", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 2);
+    addAndSelectBuildable(player, wallItemId, 2);
     const beforeCount = runtime.world.entities.all().length;
     const action: ActionMessage = {
       t: "action",

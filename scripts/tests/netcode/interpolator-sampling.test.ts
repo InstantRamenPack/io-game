@@ -7,7 +7,7 @@ import {
   makePlayerSnapshot,
   makeProjectileSnapshot,
   makeSnapshot,
-} from "../helpers/snapshotFixtures.ts";
+} from "@tests/helpers/snapshotFixtures.ts";
 
 const MAX_EXTRAPOLATION = 0.35;
 
@@ -22,8 +22,9 @@ function updateEntity(
 describe("interpolator sampling edge cases", () => {
   test("no server frame returns null", () => {
     const entity = new ClientEntity(makePlayerSnapshot(1, 0, 0), 1, 4);
-    (entity as unknown as { serverFrameHistory: unknown[] }).serverFrameHistory =
-      [];
+    (
+      entity as unknown as { serverFrameHistory: unknown[] }
+    ).serverFrameHistory = [];
     expect(entity.samplePosition(1, MAX_EXTRAPOLATION)).toBeNull();
   });
 
@@ -126,8 +127,9 @@ describe("interpolator sampling edge cases", () => {
     state.pushSnapshot(makeSnapshot(1, [makePlayerSnapshot(1, 0, 0)]), 50);
     state.pushSnapshot(makeSnapshot(2, [makePlayerSnapshot(1, 500, 0)]), 100);
     interpolator.updateInterpolation(state, 100, 16, 1);
-    const firstSnap = interpolator.getLatestDebugFrame()?.snapCount ?? 0;
     interpolator.updateInterpolation(state, 116, 16, 1);
+    const firstSnap = interpolator.getLatestDebugFrame()?.snapCount ?? 0;
+    interpolator.updateInterpolation(state, 132, 16, 1);
     const secondSnap = interpolator.getLatestDebugFrame()?.snapCount ?? 0;
     expect(secondSnap).toBe(firstSnap);
   });

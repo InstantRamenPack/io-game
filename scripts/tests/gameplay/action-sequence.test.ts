@@ -1,11 +1,15 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { ActionMessage, InputIntentMessage } from "@shared/net/protocol.ts";
+import type {
+  ActionMessage,
+  InputIntentMessage,
+} from "@shared/net/protocol.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
   makeRuntime,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 const emptyMovement = Object.freeze({
   up: false,
@@ -33,7 +37,7 @@ function makeAction(seq: number): ActionMessage {
   };
 }
 
-function latestSnapshot(network: ReturnType<typeof makeRuntime>["network"]): WorldSnapshot {
+function latestSnapshot(network: FakeNetworkServer): WorldSnapshot {
   for (let index = network.sent.length - 1; index >= 0; index -= 1) {
     const entry = network.sent[index];
     if (!entry || typeof entry.data !== "string") {

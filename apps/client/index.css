@@ -415,8 +415,14 @@ body {
   padding: 36px 32px;
   border-radius: 12px;
   border: 1px solid rgba(68, 221, 102, 0.3);
-  background: linear-gradient(160deg, rgba(10, 30, 14, 0.97) 0%, rgba(5, 14, 8, 0.99) 100%);
-  box-shadow: 0 0 60px rgba(68, 221, 102, 0.12), 0 24px 64px rgba(0,0,0,0.6);
+  background: linear-gradient(
+    160deg,
+    rgba(10, 30, 14, 0.97) 0%,
+    rgba(5, 14, 8, 0.99) 100%
+  );
+  box-shadow:
+    0 0 60px rgba(68, 221, 102, 0.12),
+    0 24px 64px rgba(0, 0, 0, 0.6);
   text-align: center;
 }
 

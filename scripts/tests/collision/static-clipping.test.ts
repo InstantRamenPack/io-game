@@ -8,7 +8,7 @@ import {
   expectAllEntityPositionsFinite,
   expectNoDynamicEntityOutsideWorld,
   expectNoDynamicStaticOverlap,
-} from "../helpers/collisionExpectations.ts";
+} from "@tests/helpers/collisionExpectations.ts";
 
 function makeWorld(): World {
   const config = new GameConfig();

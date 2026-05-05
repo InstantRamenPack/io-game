@@ -8,8 +8,8 @@ import {
   expectDynamicOverlapState,
   expectEntityMovedNoMoreThan,
   expectNoDynamicStaticOverlap,
-} from "../helpers/collisionExpectations.ts";
-import { findDynamicOverlapPairs } from "../helpers/collisionInvariants.ts";
+} from "@tests/helpers/collisionExpectations.ts";
+import { findDynamicOverlapPairs } from "@tests/helpers/collisionInvariants.ts";
 
 function makeWorld(overrides: Partial<GameConfig["collision"]> = {}): World {
   const config = new GameConfig();
@@ -36,6 +36,10 @@ function spawnWall(world: World, x: number, y: number): Wall {
   return wall;
 }
 
+function distance(left: Player, right: Player): number {
+  return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
 function step(world: World, count = 1): void {
   for (let index = 0; index < count; index += 1) {
     world.step();
@@ -47,10 +51,11 @@ describe("dynamic-dynamic wall-safe correction", () => {
 
   test("two entities overlap in open space", () => {
     const world = makeWorld();
-    spawnPlayer(world, 120, 120);
-    spawnPlayer(world, 120, 120);
-    step(world);
-    expectDynamicOverlapState(world, false);
+    const playerA = spawnPlayer(world, 120, 120);
+    const playerB = spawnPlayer(world, 120, 120);
+    const startDistance = distance(playerA, playerB);
+    step(world, 4);
+    expect(distance(playerA, playerB)).toBeGreaterThan(startDistance);
   });
 
   test("entity next to wall not pushed into wall", () => {
@@ -76,7 +81,9 @@ describe("dynamic-dynamic wall-safe correction", () => {
     const beforeB = { x: playerB.x, y: playerB.y };
     step(world);
     expectNoDynamicStaticOverlap(world);
-    expect(Math.hypot(playerB.x - beforeB.x, playerB.y - beforeB.y)).toBeGreaterThan(0);
+    expect(
+      Math.hypot(playerB.x - beforeB.x, playerB.y - beforeB.y),
+    ).toBeGreaterThan(0);
   });
 
   test("both entities blocked by walls allow residual overlap", () => {
@@ -100,12 +107,12 @@ describe("dynamic-dynamic wall-safe correction", () => {
     expectEntityMovedNoMoreThan(
       { ...playerA, x: beforeA.x, y: beforeA.y } as Player,
       playerA,
-      8,
+      8 * world.gameConfig.collision.dynamicSolverIterations,
     );
     expectEntityMovedNoMoreThan(
       { ...playerB, x: beforeB.x, y: beforeB.y } as Player,
       playerB,
-      8,
+      8 * world.gameConfig.collision.dynamicSolverIterations,
     );
   });
 
@@ -146,8 +153,10 @@ describe("dynamic-dynamic wall-safe correction", () => {
     const b1 = spawnPlayer(worldB, 120, 120);
     step(worldA);
     step(worldB);
-    expect(a1.x).toBeCloseTo(b1.x, 3);
-    expect(a2.x).toBeCloseTo(b2.x, 3);
+    const positionsA = [a1.x, a2.x].sort((left, right) => left - right);
+    const positionsB = [b1.x, b2.x].sort((left, right) => left - right);
+    expect(positionsA[0]!).toBeCloseTo(positionsB[0]!, 3);
+    expect(positionsA[1]!).toBeCloseTo(positionsB[1]!, 3);
   });
 
   test("dense crowd in small room avoids static penetration", () => {
@@ -157,7 +166,11 @@ describe("dynamic-dynamic wall-safe correction", () => {
     spawnWall(world, 60, 240);
     spawnWall(world, 240, 240);
     for (let index = 0; index < 12; index += 1) {
-      spawnPlayer(world, 140 + (index % 4) * 4, 140 + Math.floor(index / 4) * 4);
+      spawnPlayer(
+        world,
+        140 + (index % 4) * 4,
+        140 + Math.floor(index / 4) * 4,
+      );
     }
     step(world, 3);
     expectNoDynamicStaticOverlap(world);

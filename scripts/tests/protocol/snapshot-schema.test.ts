@@ -16,7 +16,7 @@ import {
   makeProjectileSnapshot,
   makeSnapshot,
   makeStructureSnapshot,
-} from "../helpers/snapshotFixtures.ts";
+} from "@tests/helpers/snapshotFixtures.ts";
 
 describe("snapshot schema", () => {
   test("valid entity snapshots parse", () => {

@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
-import { makePlayerSnapshot, makeSnapshot } from "../helpers/snapshotFixtures.ts";
+import {
+  makePlayerSnapshot,
+  makeSnapshot,
+} from "@tests/helpers/snapshotFixtures.ts";
 
 const SNAPSHOT_MS = 50;
 
@@ -42,12 +45,15 @@ function makePoint(initialX = 0, initialY = 0) {
   };
 }
 
-function computeLinearResidualRms(samples: Array<{ time: number; x: number }>): number {
+function computeLinearResidualRms(
+  samples: Array<{ time: number; x: number }>,
+): number {
   if (samples.length < 2) {
     return 0;
   }
   const n = samples.length;
-  const meanTime = samples.reduce((total, sample) => total + sample.time, 0) / n;
+  const meanTime =
+    samples.reduce((total, sample) => total + sample.time, 0) / n;
   const meanX = samples.reduce((total, sample) => total + sample.x, 0) / n;
   let covariance = 0;
   let variance = 0;

@@ -11,10 +11,29 @@ import {
   connectTestClient,
   makeRuntime,
   tick,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 const wallItemId = makeResourceId("item", "wall");
 const hunkItemId = makeResourceId("item", "hunk");
+
+function addWallAndFindSlot(
+  player: ReturnType<typeof connectTestClient>["player"],
+): number {
+  player.inventory.addStackable(wallItemId, 1);
+  const slotIndex = player.inventory.hotbarSlots.findIndex(
+    (slot) => slot?.kind === "buildable" && slot.typeId === wallItemId,
+  );
+  expect(slotIndex).toBeGreaterThanOrEqual(0);
+  return slotIndex;
+}
+
+function findEmptyHotbarSlot(
+  player: ReturnType<typeof connectTestClient>["player"],
+): number {
+  const slotIndex = player.inventory.hotbarSlots.findIndex((slot) => !slot);
+  expect(slotIndex).toBeGreaterThanOrEqual(0);
+  return slotIndex;
+}
 
 function enqueueAction(
   runtime: ReturnType<typeof makeRuntime>["runtime"],
@@ -30,29 +49,34 @@ describe("inventory authority", () => {
   test("valid inventory move updates hotbar", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
+    const targetSlotIndex = findEmptyHotbarSlot(player);
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
       action: "inventoryMove",
-      inventoryMove: { fromSlotIndex: 0, toSlotIndex: 1 },
+      inventoryMove: {
+        fromSlotIndex: wallSlotIndex,
+        toSlotIndex: targetSlotIndex,
+      },
     });
-    expect(player.inventory.hotbarSlots[0]).toBeNull();
-    expect(player.inventory.hotbarSlots[1]?.kind).toBe("buildable");
+    expect(player.inventory.hotbarSlots[wallSlotIndex]).toBeNull();
+    expect(player.inventory.hotbarSlots[targetSlotIndex]?.kind).toBe(
+      "buildable",
+    );
   });
 
   test("invalid inventory slot does not mutate", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
       action: "inventoryMove",
-      inventoryMove: { fromSlotIndex: 5, toSlotIndex: 1 },
+      inventoryMove: { fromSlotIndex: 99, toSlotIndex: 1 },
     });
-    expect(player.inventory.hotbarSlots[0]?.kind).toBe("buildable");
-    expect(player.inventory.hotbarSlots[1]).toBeNull();
+    expect(player.inventory.hotbarSlots[wallSlotIndex]?.kind).toBe("buildable");
   });
 
   test("chest move too far does not mutate", () => {
@@ -62,7 +86,7 @@ describe("inventory authority", () => {
     chest.x = player.x + 1000;
     chest.y = player.y;
     runtime.world.spawn(chest);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
@@ -70,12 +94,12 @@ describe("inventory authority", () => {
       chestMove: {
         chestEntityId: chest.id,
         fromSource: "hotbar",
-        fromIndex: 0,
+        fromIndex: wallSlotIndex,
         toSource: "chest",
         toIndex: 0,
       },
     });
-    expect(player.inventory.hotbarSlots[0]).not.toBeNull();
+    expect(player.inventory.hotbarSlots[wallSlotIndex]).not.toBeNull();
     expect(chest.getSlot(0)).toBeNull();
   });
 
@@ -86,7 +110,7 @@ describe("inventory authority", () => {
     chest.x = player.x + 20;
     chest.y = player.y;
     runtime.world.spawn(chest);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
@@ -94,12 +118,12 @@ describe("inventory authority", () => {
       chestMove: {
         chestEntityId: chest.id,
         fromSource: "hotbar",
-        fromIndex: 0,
+        fromIndex: wallSlotIndex,
         toSource: "chest",
         toIndex: 0,
       },
     });
-    expect(player.inventory.hotbarSlots[0]).toBeNull();
+    expect(player.inventory.hotbarSlots[wallSlotIndex]).toBeNull();
     expect(chest.getSlot(0)?.kind).toBe("buildable");
   });
 
@@ -124,7 +148,10 @@ describe("inventory authority", () => {
     const { player } = connectTestClient(runtime);
     const pickupInventory = new Inventory();
     pickupInventory.addStackable(wallItemId, 1);
-    const pickup = new ItemEntity(runtime.world.allocEntityId(), pickupInventory);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
     pickup.x = player.x;
     pickup.y = player.y;
     runtime.world.spawn(pickup);
@@ -137,12 +164,19 @@ describe("inventory authority", () => {
   test("pickup action fails when inventory is full", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    for (let index = 0; index < player.inventory.hotbarSlots.length; index += 1) {
+    for (
+      let index = 0;
+      index < player.inventory.hotbarSlots.length;
+      index += 1
+    ) {
       player.inventory.addWeapon(new Fists());
     }
     const pickupInventory = new Inventory();
     pickupInventory.addWeapon(new Fists());
-    const pickup = new ItemEntity(runtime.world.allocEntityId(), pickupInventory);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
     pickup.x = player.x;
     pickup.y = player.y;
     runtime.world.spawn(pickup);
@@ -158,7 +192,8 @@ describe("inventory authority", () => {
     recycler.x = player.x + 10;
     recycler.y = player.y;
     runtime.world.spawn(recycler);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
+    player.inventory.setSelectedHotbarIndex(wallSlotIndex);
     const before = player.inventory.getResourceCount(hunkItemId);
     enqueueAction(runtime, { t: "action", seq: 1, action: "recycle" });
     expect(player.inventory.getResourceCount(hunkItemId)).toBeGreaterThan(
@@ -169,11 +204,17 @@ describe("inventory authority", () => {
   test("recycle away from recycler does nothing", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
+    for (const entity of runtime.world.entities.all()) {
+      if (entity instanceof Recycler) {
+        runtime.world.despawn(entity.id);
+      }
+    }
     const recycler = new Recycler(runtime.world.allocEntityId());
-    recycler.x = player.x + 400;
+    recycler.x = player.x + 2000;
     recycler.y = player.y;
     runtime.world.spawn(recycler);
-    player.inventory.addStackable(wallItemId, 1);
+    const wallSlotIndex = addWallAndFindSlot(player);
+    player.inventory.setSelectedHotbarIndex(wallSlotIndex);
     const before = player.inventory.getResourceCount(hunkItemId);
     enqueueAction(runtime, { t: "action", seq: 1, action: "recycle" });
     expect(player.inventory.getResourceCount(hunkItemId)).toBe(before);

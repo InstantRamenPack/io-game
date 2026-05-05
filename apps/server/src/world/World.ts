@@ -7,7 +7,7 @@ import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
-import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
+import type { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";

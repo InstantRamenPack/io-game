@@ -23,14 +23,10 @@ function expectSameKeys(
   const rightSet = new Set(right);
   const missing = right.filter((key) => !leftSet.has(key));
   const extra = left.filter((key) => !rightSet.has(key));
-  expect(
-    missing,
-    `${label} missing keys: ${missing.join(",")}`,
-  ).toHaveLength(0);
-  expect(
-    extra,
-    `${label} extra keys: ${extra.join(",")}`,
-  ).toHaveLength(0);
+  expect(missing, `${label} missing keys: ${missing.join(",")}`).toHaveLength(
+    0,
+  );
+  expect(extra, `${label} extra keys: ${extra.join(",")}`).toHaveLength(0);
 }
 
 describe("compat descriptors", () => {

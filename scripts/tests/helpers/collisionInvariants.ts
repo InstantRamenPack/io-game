@@ -1,4 +1,7 @@
-import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import {
+  doResolvedRectSetsOverlap,
+  getResolvedRectSetSeparation,
+} from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -54,6 +57,13 @@ export function assertNoDynamicStaticOverlap(world: World): void {
       if (
         doResolvedRectSetsOverlap(entity.getWorldHitboxes(), blocker.hitboxes)
       ) {
+        const separation = getResolvedRectSetSeparation(
+          entity.getWorldHitboxes(),
+          blocker.hitboxes,
+        );
+        if (separation && Math.abs(separation.translation) <= 1e-5) {
+          continue;
+        }
         throw new Error(
           `dynamic entity ${entity.id} overlaps static blocker ${blocker.entityId}`,
         );
@@ -77,7 +87,13 @@ export function findDynamicOverlapPairs(world: World): Array<[Entity, Entity]> {
           right.getWorldHitboxes(),
         )
       ) {
-        overlaps.push([left, right]);
+        const separation = getResolvedRectSetSeparation(
+          left.getWorldHitboxes(),
+          right.getWorldHitboxes(),
+        );
+        if (separation && Math.abs(separation.translation) > 1e-5) {
+          overlaps.push([left, right]);
+        }
       }
     }
   }

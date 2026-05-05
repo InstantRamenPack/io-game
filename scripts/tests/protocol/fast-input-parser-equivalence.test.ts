@@ -7,7 +7,7 @@ import {
   rngFloat,
   rngInt,
   rngPick,
-} from "../helpers/testRng.ts";
+} from "@tests/helpers/testRng.ts";
 
 const movementKeys = ["up", "down", "left", "right"] as const;
 

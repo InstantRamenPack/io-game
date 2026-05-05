@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
-import { makePlayerSnapshot, makeSnapshot } from "../helpers/snapshotFixtures.ts";
+import {
+  makePlayerSnapshot,
+  makeSnapshot,
+} from "@tests/helpers/snapshotFixtures.ts";
 
 describe("local player latency", () => {
   test("current local player rendering is latency-bound without prediction", () => {
@@ -17,8 +20,15 @@ describe("local player latency", () => {
       expectedSnapshotMs: serverTickMs,
     });
 
-    const deliveries: Array<{ timeMs: number; snapshot: ReturnType<typeof makeSnapshot> }> = [];
-    for (let tick = 1, serverTimeMs = 0; serverTimeMs <= durationMs; tick += 1, serverTimeMs += serverTickMs) {
+    const deliveries: Array<{
+      timeMs: number;
+      snapshot: ReturnType<typeof makeSnapshot>;
+    }> = [];
+    for (
+      let tick = 1, serverTimeMs = 0;
+      serverTimeMs <= durationMs;
+      tick += 1, serverTimeMs += serverTickMs
+    ) {
       const x = tick >= startMoveTick ? (tick - startMoveTick + 1) * 10 : 0;
       const snapshot = makeSnapshot(tick, [
         makePlayerSnapshot(1, x, 0, { vx: 10, vy: 0 }),

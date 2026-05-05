@@ -5,7 +5,7 @@ import type { EntitySnapshot } from "@shared/net/snapshots.ts";
 import {
   makePlayerSnapshot,
   makeSnapshot,
-} from "../helpers/snapshotFixtures.ts";
+} from "@tests/helpers/snapshotFixtures.ts";
 
 const HISTORY_LIMIT = 8;
 

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { WsClient } from "@client/net/WsClient.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
-import { makeSnapshot, makePlayerSnapshot } from "../helpers/snapshotFixtures.ts";
-import { FakeWebSocket } from "../helpers/fakeNetwork.ts";
+import {
+  makeSnapshot,
+  makePlayerSnapshot,
+} from "@tests/helpers/snapshotFixtures.ts";
+import { FakeWebSocket } from "@tests/helpers/fakeNetwork.ts";
 
 const originalWebSocket = globalThis.WebSocket;
 
@@ -69,7 +72,12 @@ describe("websocket client", () => {
     socket.emitOpen();
     client.sendAction({ t: "action", seq: 1, action: "attack", theta: 0 });
     const payload = JSON.parse(socket.sent.at(-1)!);
-    expect(payload).toEqual({ t: "action", seq: 1, action: "attack", theta: 0 });
+    expect(payload).toEqual({
+      t: "action",
+      seq: 1,
+      action: "attack",
+      theta: 0,
+    });
   });
 
   test("disconnected send is no-op", () => {
@@ -115,12 +123,12 @@ describe("websocket client", () => {
     client.connect("ws://test");
     const socket = FakeWebSocket.instances[0]!;
     socket.emitOpen();
-    let errorMessage: string | null = null;
+    const errorMessages: string[] = [];
     client.onError((message) => {
-      errorMessage = message;
+      errorMessages.push(message);
     });
     socket.emitError();
-    expect(errorMessage).toBe("socket_error");
+    expect(errorMessages).toEqual(["socket_error"]);
   });
 
   test("close clears socket", () => {

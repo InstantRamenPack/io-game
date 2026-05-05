@@ -2,7 +2,10 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 import type { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { Player } from "@server/entities/Player.ts";
-import type { ExtractionSnapshot, ExtractionStage } from "@shared/net/snapshots.ts";
+import type {
+  ExtractionSnapshot,
+  ExtractionStage,
+} from "@shared/net/snapshots.ts";
 
 export const HELIPAD_X = 1000;
 export const HELIPAD_Y = 4050;
@@ -81,8 +84,7 @@ export class ExtractionSystem implements System {
       return;
     }
 
-    const allOnPad =
-      totalAlivePlayers > 0 && playersOnPad >= totalAlivePlayers;
+    const allOnPad = totalAlivePlayers > 0 && playersOnPad >= totalAlivePlayers;
 
     switch (this.stage) {
       case "locked":

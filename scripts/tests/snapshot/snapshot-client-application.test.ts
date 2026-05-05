@@ -7,7 +7,7 @@ import {
   makeEnemySnapshot,
   makePlayerSnapshot,
   makeSnapshot,
-} from "../helpers/snapshotFixtures.ts";
+} from "@tests/helpers/snapshotFixtures.ts";
 
 const HISTORY_LIMIT = 6;
 
@@ -76,10 +76,7 @@ describe("snapshot client application", () => {
       ]),
       50,
     );
-    state.pushSnapshot(
-      makeSnapshot(2, [makePlayerSnapshot(1, 0, 0)]),
-      100,
-    );
+    state.pushSnapshot(makeSnapshot(2, [makePlayerSnapshot(1, 0, 0)]), 100);
     expect(state.clientWorld?.entities.has(2)).toBe(false);
   });
 
@@ -96,7 +93,9 @@ describe("snapshot client application", () => {
       );
       interpolator.updateInterpolation(state, tick * 50, 16, 1);
     }
-    expect(state.getSnapshotHistory().length).toBeLessThanOrEqual(HISTORY_LIMIT);
+    expect(state.getSnapshotHistory().length).toBeLessThanOrEqual(
+      HISTORY_LIMIT,
+    );
     const entity = state.clientWorld?.entities.get(1);
     expect(entity?.getServerFrameHistoryLength()).toBeLessThanOrEqual(
       HISTORY_LIMIT,

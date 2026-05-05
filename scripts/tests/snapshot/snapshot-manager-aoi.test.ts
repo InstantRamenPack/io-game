@@ -5,7 +5,7 @@ import {
   connectTestClient,
   makeRuntime,
   spawnWall,
-} from "../helpers/worldFixtures.ts";
+} from "@tests/helpers/worldFixtures.ts";
 
 function stepAndSnapshot(
   runtime: ReturnType<typeof makeRuntime>["runtime"],
@@ -19,6 +19,16 @@ function stepAndSnapshot(
     playerId,
     interestRadius,
   );
+}
+
+function stepPastInitialFullSnapshots(
+  runtime: ReturnType<typeof makeRuntime>["runtime"],
+  playerId: number,
+  interestRadius: number,
+): void {
+  while (runtime.world.tick <= 2) {
+    stepAndSnapshot(runtime, playerId, interestRadius);
+  }
 }
 
 describe("snapshot manager AOI", () => {
@@ -38,7 +48,9 @@ describe("snapshot manager AOI", () => {
     const { player, playerId } = connectTestClient(runtime);
     const wall = spawnWall(runtime, player.x + 40, player.y);
     const snapshot = stepAndSnapshot(runtime, playerId, 120);
-    expect(snapshot.entities.some((entity) => entity.id === wall.id)).toBe(true);
+    expect(snapshot.entities.some((entity) => entity.id === wall.id)).toBe(
+      true,
+    );
   });
 
   test("entity outside interest radius is excluded", () => {
@@ -55,7 +67,7 @@ describe("snapshot manager AOI", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);
     const wall = spawnWall(runtime, player.x + 40, player.y);
-    stepAndSnapshot(runtime, playerId, 120);
+    stepPastInitialFullSnapshots(runtime, playerId, 120);
     wall.x = player.x + 1000;
     wall.y = player.y;
     runtime.world.markSpatialDirty();
@@ -67,7 +79,7 @@ describe("snapshot manager AOI", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);
     const wall = spawnWall(runtime, player.x + 40, player.y);
-    stepAndSnapshot(runtime, playerId, 120);
+    stepPastInitialFullSnapshots(runtime, playerId, 120);
     wall.x = player.x + 1000;
     runtime.world.markSpatialDirty();
     stepAndSnapshot(runtime, playerId, 120);
@@ -83,7 +95,7 @@ describe("snapshot manager AOI", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);
     const wall = spawnWall(runtime, player.x + 40, player.y);
-    stepAndSnapshot(runtime, playerId, 120);
+    stepPastInitialFullSnapshots(runtime, playerId, 120);
     runtime.world.despawn(wall.id);
     const snapshot = stepAndSnapshot(runtime, playerId, 120);
     expect(snapshot.removedEntityIds).toEqual([wall.id]);
@@ -92,7 +104,7 @@ describe("snapshot manager AOI", () => {
   test("interest radius of zero includes only the player", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);
-    spawnWall(runtime, player.x + 10, player.y);
+    spawnWall(runtime, player.x + 100, player.y);
     const snapshot = stepAndSnapshot(runtime, playerId, 0);
     expect(snapshot.entities).toHaveLength(1);
     expect(snapshot.entities[0]?.id).toBe(playerId);

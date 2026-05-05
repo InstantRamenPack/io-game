@@ -10,13 +10,13 @@ import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import {
   makePlayerSnapshot,
   makeSnapshot,
-} from "./snapshotFixtures.ts";
+} from "@tests/helpers/snapshotFixtures.ts";
 import {
   computeSmoothnessMetrics,
   summarizeInterpolationModes,
   type MotionSample,
   type SmoothnessMetrics,
-} from "./smoothnessMetrics.ts";
+} from "@tests/helpers/smoothnessMetrics.ts";
 
 export function simulateNetworkedSnapshotStream(options: {
   profileName: "perfect" | "mild" | "bad";
@@ -112,9 +112,13 @@ export function simulateNetworkedSnapshotStream(options: {
     }
   }
 
-  const metrics = computeSmoothnessMetrics(samples, { x: 1, y: 0 }, {
-    debugFrames,
-  });
+  const metrics = computeSmoothnessMetrics(
+    samples,
+    { x: 1, y: 0 },
+    {
+      debugFrames,
+    },
+  );
   const modeSummary = summarizeInterpolationModes(debugFrames, warmupMs);
 
   return {

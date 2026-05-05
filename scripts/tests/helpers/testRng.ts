@@ -20,10 +20,7 @@ export function rngInt(
   return Math.floor(rngFloat(rng, minInclusive, maxInclusive + 1));
 }
 
-export function rngBool(
-  rng: seedrandom.PRNG,
-  probability = 0.5,
-): boolean {
+export function rngBool(rng: seedrandom.PRNG, probability = 0.5): boolean {
   return rng() < probability;
 }
 
