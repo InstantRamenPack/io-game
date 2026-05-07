@@ -6,6 +6,8 @@ import type { EntityPresentationState } from "@client/render/entity/EntityRender
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 
+const TREE_VISIBILITY_RADIUS_SCALE = 0.7;
+
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
@@ -175,7 +177,7 @@ function toVisibilityBlocker(entity: ClientEntity): VisibilityBlockerShape | nul
 
   if (isCircularVisibilityBlocker(entity)) {
     const radius =
-      Math.max(bounds.width, bounds.height) * 0.5 * 0.7;
+      Math.max(bounds.width, bounds.height) * 0.5 * TREE_VISIBILITY_RADIUS_SCALE;
     return {
       kind: "circle",
       centerX: entity.x + bounds.centerX,
