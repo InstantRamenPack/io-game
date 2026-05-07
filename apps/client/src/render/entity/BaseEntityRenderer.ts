@@ -151,11 +151,25 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     this.syncEquippedItem(entity, visualRotation);
-    const cooldownTicksRemaining =
-      entity.equippedItem?.cooldownTicksRemaining ?? 0;
+    const equippedItem = entity.equippedItem;
+    const cooldownTicksRemaining = equippedItem?.cooldownTicksRemaining ?? 0;
+    const equippedWeaponContent = equippedItem
+      ? this.getEquippedContent(equippedItem.typeId)?.weaponContent
+      : undefined;
+    const cooldownResetObserved =
+      cooldownTicksRemaining > this.lastAttackCooldownTicksRemaining;
+    const meleeMissedEdgeRecovery =
+      (equippedItem?.attackStyle === "swing" ||
+        equippedItem?.attackStyle === "jab") &&
+      equippedWeaponContent !== undefined &&
+      cooldownTicksRemaining === equippedWeaponContent.cooldownTicks &&
+      this.lastAttackCooldownTicksRemaining === cooldownTicksRemaining &&
+      this.attackAnimationRemainingMs <= 0;
     if (
       cooldownTicksRemaining > 0 &&
-      this.lastAttackCooldownTicksRemaining <= 0
+      (this.lastAttackCooldownTicksRemaining <= 0 ||
+        cooldownResetObserved ||
+        meleeMissedEdgeRecovery)
     ) {
       this.playAttackAnimation(entity, visualRotation);
     }
@@ -230,6 +244,17 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.damageFlashDurationMs = Math.max(1, durationMs);
     this.damageFlashRemainingMs = this.damageFlashDurationMs;
     this.syncDamageFlashVisual();
+  }
+
+  public setVisibilityAlpha(alpha: number): void {
+    const clampedAlpha = Math.max(0, Math.min(1, alpha));
+    this.entityContainer.alpha = clampedAlpha;
+    if (this.hitboxContainer) {
+      this.hitboxContainer.alpha = clampedAlpha;
+    }
+    if (this.debugContainer) {
+      this.debugContainer.alpha = clampedAlpha;
+    }
   }
 
   public hasTransientAnimation(): boolean {

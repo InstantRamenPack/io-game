@@ -412,14 +412,12 @@ export class Player extends Entity {
     }
 
     const placedEntity = new targetEntityCtor(world.allocEntityId());
-    const snappedTargetX = isStructure
-      ? Math.floor(targetX / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-        STRUCTURE_TILE_SIZE / 2
-      : targetX;
-    const snappedTargetY = isStructure
-      ? Math.floor(targetY / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-        STRUCTURE_TILE_SIZE / 2
-      : targetY;
+    const snappedTargetX =
+      Math.floor(targetX / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+      STRUCTURE_TILE_SIZE / 2;
+    const snappedTargetY =
+      Math.floor(targetY / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+      STRUCTURE_TILE_SIZE / 2;
     placedEntity.x = snappedTargetX;
     placedEntity.y = snappedTargetY;
     placedEntity.ownerId = this.id;

@@ -246,6 +246,17 @@ const GameCompleteMessageSchema = z.object({
   wavesCompleted: z.number().int().nonnegative(),
 });
 
+const GameOverMessageSchema = z.object({
+  t: z.literal("game_over"),
+  gameDurationMs: z.number().nonnegative(),
+  wavesCompleted: z.number().int().nonnegative(),
+});
+
+const SpectateUpdateMessageSchema = z.object({
+  t: z.literal("spectate_update"),
+  targetEntityId: z.number().int().nonnegative().nullable(),
+});
+
 type ObjectSchema = z.ZodObject<z.ZodRawShape>;
 
 function literalField(schema: ObjectSchema, fieldName: string): string {
@@ -306,6 +317,8 @@ const ServerToClientMessageSchemaOptions = [
   ChatMessageSchema,
   LobbyStateMessageSchema,
   GameCompleteMessageSchema,
+  GameOverMessageSchema,
+  SpectateUpdateMessageSchema,
 ] as const;
 
 export const PROTOCOL_COMPAT_DESCRIPTOR = Object.freeze({
@@ -356,6 +369,8 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type LobbyActionMessage = z.infer<typeof LobbyActionMessageSchema>;
 export type LobbyStateMessage = z.infer<typeof LobbyStateMessageSchema>;
 export type GameCompleteMessage = z.infer<typeof GameCompleteMessageSchema>;
+export type GameOverMessage = z.infer<typeof GameOverMessageSchema>;
+export type SpectateUpdateMessage = z.infer<typeof SpectateUpdateMessageSchema>;
 type ClientToServerMessage =
   | HelloMessage
   | InputIntentMessage
@@ -371,7 +386,9 @@ export type ServerToClientMessage =
   | ErrorMessage
   | ChatMessage
   | LobbyStateMessage
-  | GameCompleteMessage;
+  | GameCompleteMessage
+  | GameOverMessage
+  | SpectateUpdateMessage;
 
 type ParseServerMessageOptions = {
   validateSnapshots?: boolean;

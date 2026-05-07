@@ -1,0 +1,12 @@
+{
+  "label": "Stalker",
+  "maxHp": 95,
+  "moveSpeed": 13,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "default": [
+      { "width": 18, "height": 12, "offsetX": 0, "offsetY": -6 },
+      { "width": 22, "height": 14, "offsetX": 0, "offsetY": 8 }
+    ]
+  }
+}

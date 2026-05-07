@@ -19,10 +19,13 @@ import { ShootaRenderer } from "@client/render/entity/enemy/ShootaRenderer.ts";
 import { ThanosRenderer } from "@client/render/entity/enemy/ThanosRenderer.ts";
 import { WallbreakerRenderer } from "@client/render/entity/enemy/WallbreakerRenderer.ts";
 import { BomberRenderer } from "@client/render/entity/enemy/BomberRenderer.ts";
+import { CommanderRenderer } from "@client/render/entity/enemy/CommanderRenderer.ts";
 import type {
   EntityRenderer,
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
+import { SniperEnemyRenderer } from "@client/render/entity/enemy/SniperEnemyRenderer.ts";
+import { StalkerRenderer } from "@client/render/entity/enemy/StalkerRenderer.ts";
 import { PickupRenderer } from "@client/render/entity/pickup/PickupRenderer.ts";
 import { PlayerRenderer } from "@client/render/entity/player/PlayerRenderer.ts";
 import { BasicBulletRenderer } from "@client/render/entity/projectile/BasicBulletRenderer.ts";
@@ -41,10 +44,13 @@ type EntityRendererCtor = new (
 
 const rendererManifests = [
   ["base", PlayerRenderer],
+  ["commander", CommanderRenderer],
   ["drifter", DrifterRenderer],
   ["megaknight", MegaknightRenderer],
   ["saboteur", SaboteurRenderer],
   ["shoota", ShootaRenderer],
+  ["sniper", SniperEnemyRenderer],
+  ["stalker", StalkerRenderer],
   ["police", PoliceRenderer],
   ["thanos", ThanosRenderer],
   ["wallbreaker", WallbreakerRenderer],

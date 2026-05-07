@@ -31,6 +31,9 @@ export type GameSelectors = {
 
 type GameClientSelectorsSource = {
   playerEntityId?: number;
+  isInActiveMatch?: () => boolean;
+  isLocalPlayerAlive?: () => boolean | null;
+  getSpectateTargetEntityId?: () => number | null;
   worldState?: {
     clientWorld?: {
       entities: Map<number, ClientEntity>;
@@ -55,12 +58,21 @@ export function createGameSelectors(
   }
 
   function getPlayerEntity(): ClientEntity | undefined {
-    if (gameClient.playerEntityId === undefined) {
+    const localPlayerId = gameClient.playerEntityId;
+    if (localPlayerId === undefined) {
       return undefined;
     }
 
+    const inMatch = gameClient.isInActiveMatch?.() === true;
+    const localAlive = gameClient.isLocalPlayerAlive?.() === true;
+    const spectateTargetId = gameClient.getSpectateTargetEntityId?.() ?? null;
+    const viewedPlayerId =
+      inMatch && !localAlive && spectateTargetId !== null
+        ? spectateTargetId
+        : localPlayerId;
+
     return gameClient.worldState?.clientWorld?.entities.get(
-      gameClient.playerEntityId,
+      viewedPlayerId,
     );
   }
 

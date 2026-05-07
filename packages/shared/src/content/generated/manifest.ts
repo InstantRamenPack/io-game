@@ -22,12 +22,18 @@ import effectfracturedJson from "@shared/content/effect/fractured.json";
 import effectknockbackJson from "@shared/content/effect/knockback.json";
 import effectstunnedJson from "@shared/content/effect/stunned.json";
 import enemybomberJson from "@shared/content/enemy/bomber.json";
+import enemycommanderJson from "@shared/content/enemy/commander.json";
 import enemydrifterJson from "@shared/content/enemy/drifter.json";
 import enemymegaknightJson from "@shared/content/enemy/megaknight.json";
 import enemypoliceJson from "@shared/content/enemy/police.json";
 import enemysaboteurJson from "@shared/content/enemy/saboteur.json";
 import enemyshootaJson from "@shared/content/enemy/shoota.json";
+<<<<<<< HEAD
 import enemythanosJson from "@shared/content/enemy/thanos.json";
+=======
+import enemysniperJson from "@shared/content/enemy/sniper.json";
+import enemystalkerJson from "@shared/content/enemy/stalker.json";
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 import enemywallbreakerJson from "@shared/content/enemy/wallbreaker.json";
 import itembaseballBatJson from "@shared/content/item/baseball_bat.json";
 import itembasicDaggerJson from "@shared/content/item/basic_dagger.json";
@@ -137,12 +143,18 @@ export const effectContentEntries = [
 
 export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "bomber", enemybomberJson),
+  makeParsedEntityContentEntry("enemy", "commander", enemycommanderJson),
   makeParsedEntityContentEntry("enemy", "drifter", enemydrifterJson),
   makeParsedEntityContentEntry("enemy", "megaknight", enemymegaknightJson),
   makeParsedEntityContentEntry("enemy", "police", enemypoliceJson),
   makeParsedEntityContentEntry("enemy", "saboteur", enemysaboteurJson),
   makeParsedEntityContentEntry("enemy", "shoota", enemyshootaJson),
+<<<<<<< HEAD
   makeParsedEntityContentEntry("enemy", "thanos", enemythanosJson),
+=======
+  makeParsedEntityContentEntry("enemy", "sniper", enemysniperJson),
+  makeParsedEntityContentEntry("enemy", "stalker", enemystalkerJson),
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   makeParsedEntityContentEntry("enemy", "wallbreaker", enemywallbreakerJson),
 ] as const;
 

@@ -8,8 +8,10 @@ import {
 import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
+import type { NetEvent } from "@shared/net/events.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { requireWeaponContent } from "@shared/content/catalog.ts";
 
 type MeleeAim = {
   directionX: number;
@@ -90,14 +92,26 @@ export abstract class MeleeWeapon extends Weapon {
     owner.rotation = aim.angle;
 
     const targets = this.resolveTargetsInAttackShape(world, owner, aim);
-    if (targets.length === 0) {
-      return false;
+    if (targets.length > 0) {
+      for (const target of targets) {
+        this.applyHitEffects(world, owner, target);
+      }
     }
 
-    for (const target of targets) {
-      this.applyHitEffects(world, owner, target);
-    }
+    const instigator = owner.getCombatInstigator(world);
+    const attackEvent: NetEvent = {
+      type: "attack",
+      payload: {
+        sourceId: instigator?.id ?? owner.id,
+        x: owner.x,
+        y: owner.y,
+        attackStyle: requireWeaponContent(this.typeId).attackStyle,
+      },
+    };
+    world.events.push(attackEvent);
 
+    // Consume cooldown on swing attempt so melee behavior matches client
+    // expectations and remote spectators can observe attack animations even on whiff.
     this.resetCooldown();
     return true;
   }

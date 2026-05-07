@@ -1,7 +1,10 @@
 import type { AppElements } from "@client/app/AppElements.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
-import type { GameCompleteMessage } from "@shared/net/protocol.ts";
+import type {
+  GameCompleteMessage,
+  GameOverMessage,
+} from "@shared/net/protocol.ts";
 
 type GameOverControllerOptions = {
   elements: AppElements;
@@ -15,42 +18,69 @@ export function createGameOverController({
   sessionUiController,
 }: GameOverControllerOptions): void {
   const overlay = elements.gameOverOverlay;
+  const kickerEl = elements.gameOverKicker;
+  const titleEl = elements.gameOverTitle;
   const durationEl = elements.gameOverDuration;
   const wavesEl = elements.gameOverWaves;
   const returnBtn = elements.gameOverReturnBtn;
+  const playAgainBtn = elements.gameOverPlayAgainBtn;
 
   let suppressNextClose = false;
 
-  function show(msg: GameCompleteMessage): void {
+  function showWin(msg: GameCompleteMessage): void {
+    if (kickerEl) kickerEl.textContent = "Extraction Complete";
+    if (titleEl) {
+      titleEl.textContent = "YOUR TEAM ESCAPED";
+      titleEl.className = "game-over-title game-over-title--win";
+    }
     if (durationEl) {
       durationEl.textContent = formatClock(
         Math.floor(msg.gameDurationMs / 1000),
       );
     }
-    if (wavesEl) {
-      wavesEl.textContent = String(msg.wavesCompleted);
+    if (wavesEl) wavesEl.textContent = String(msg.wavesCompleted);
+    if (playAgainBtn) playAgainBtn.hidden = false;
+    if (overlay) overlay.hidden = false;
+  }
+
+  function showLose(msg: GameOverMessage): void {
+    if (kickerEl) kickerEl.textContent = "All Players Down";
+    if (titleEl) {
+      titleEl.textContent = "YOU WERE OVERWHELMED";
+      titleEl.className = "game-over-title game-over-title--lose";
     }
-    if (overlay) {
-      overlay.hidden = false;
+    if (durationEl) {
+      durationEl.textContent = formatClock(
+        Math.floor(msg.gameDurationMs / 1000),
+      );
     }
+    if (wavesEl) wavesEl.textContent = String(msg.wavesCompleted);
+    if (playAgainBtn) playAgainBtn.hidden = false;
+    if (overlay) overlay.hidden = false;
   }
 
   function hide(): void {
-    if (overlay) {
-      overlay.hidden = true;
-    }
+    if (overlay) overlay.hidden = true;
   }
 
-  returnBtn?.addEventListener("click", () => {
+  function returnToMenu(): void {
     hide();
     suppressNextClose = true;
     gameClient.stop();
     sessionUiController.showMenu();
-  });
+  }
+
+  returnBtn?.addEventListener("click", returnToMenu);
+  playAgainBtn?.addEventListener("click", returnToMenu);
 
   gameClient.onGameCompleted((msg) => {
     suppressNextClose = true;
-    show(msg);
+    showWin(msg);
+  });
+
+  gameClient.onGameOver((msg) => {
+    suppressNextClose = true;
+    showLose(msg);
   });
 
   gameClient.networkClient.onClose(() => {

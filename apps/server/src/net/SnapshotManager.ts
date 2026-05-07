@@ -3,7 +3,11 @@ import type {
   EntitySnapshot,
   EquippedItemSnapshot,
   ExtractionSnapshot,
+<<<<<<< HEAD
   InfrastructureSnapshot,
+=======
+  MapSnapshot,
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -57,6 +61,7 @@ export class SnapshotManager {
     world: World,
     playerId: number,
     interestRadius: number,
+    centerOverride?: { x: number; y: number },
   ): WorldSnapshot {
     if (this.tickCache.getPreparedTick() !== world.tick) {
       this.prepareTick(world, []);
@@ -67,15 +72,23 @@ export class SnapshotManager {
       this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
+<<<<<<< HEAD
     const infrastructure =
       this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
+=======
+    const map = makeMapSnapshot(world);
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
         tick: world.tick,
         dayNight,
         extraction,
+<<<<<<< HEAD
         infrastructure,
+=======
+        map,
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -83,10 +96,12 @@ export class SnapshotManager {
       };
     }
 
-    const minX = player.x - interestRadius;
-    const minY = player.y - interestRadius;
-    const maxX = player.x + interestRadius;
-    const maxY = player.y + interestRadius;
+    const centerX = centerOverride?.x ?? player.x;
+    const centerY = centerOverride?.y ?? player.y;
+    const minX = centerX - interestRadius;
+    const minY = centerY - interestRadius;
+    const maxX = centerX + interestRadius;
+    const maxY = centerY + interestRadius;
     const knownEntityVersions =
       this.replicationState.getKnownEntityVersions(playerId);
     const knownEntityHitboxVersions =
@@ -184,13 +199,17 @@ export class SnapshotManager {
         tick: world.tick,
         dayNight,
         extraction,
+<<<<<<< HEAD
         infrastructure,
+=======
+        map,
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
         events: this.eventRelevanceFilter.getRelevantEventsForPlayer(
-          player.x,
-          player.y,
+          centerX,
+          centerY,
           playerId,
           interestRadius,
         ),
@@ -201,13 +220,17 @@ export class SnapshotManager {
       tick: world.tick,
       dayNight,
       extraction,
+<<<<<<< HEAD
       infrastructure,
+=======
+      map,
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
       full: false,
       entities: changedEntities,
       removedEntityIds,
       events: this.eventRelevanceFilter.getRelevantEventsForPlayer(
-        player.x,
-        player.y,
+        centerX,
+        centerY,
         playerId,
         interestRadius,
       ),
@@ -320,6 +343,58 @@ export class SnapshotManager {
   private isIncluded(entityId: number): boolean {
     return this.includedEntityMarkers.get(entityId) === this.marker;
   }
+}
+
+function makeMapSnapshot(world: World): MapSnapshot | undefined {
+  const layout = world.proceduralLayout;
+  if (!layout) {
+    return undefined;
+  }
+  return {
+    seed: layout.seed,
+    sectorSize: layout.sectorSize,
+    centerSectorId: layout.centerSectorId,
+    extractionSectorId: layout.extractionSectorId,
+    dungeonSectorId: layout.dungeonSectorId,
+    militarySectorId: layout.militarySectorId,
+    forestSectorId: layout.forestSectorId,
+    sectors: layout.sectors.map((sector) => ({
+      id: sector.id,
+      label: sector.label,
+      archetype: sector.archetype,
+      row: sector.row,
+      col: sector.col,
+      minX: sector.minX,
+      minY: sector.minY,
+      maxX: sector.maxX,
+      maxY: sector.maxY,
+      hasLightsOut: sector.hasLightsOut,
+    })),
+    features: layout.sectors.flatMap((sector) =>
+      sector.features.map((feature) => ({
+        id: feature.id,
+        label: feature.label,
+        role: feature.role,
+        risk: feature.risk,
+        hasReward: feature.hasReward,
+        minX: feature.minX,
+        minY: feature.minY,
+        maxX: feature.maxX,
+        maxY: feature.maxY,
+        centerX: feature.center.x,
+        centerY: feature.center.y,
+      })),
+    ),
+    markers: layout.minimapMarkers.map((marker) => ({
+      id: marker.id,
+      label: marker.label,
+      archetype: marker.archetype,
+      importance: marker.importance,
+      discoveredByDefault: marker.discoveredByDefault,
+      x: marker.x,
+      y: marker.y,
+    })),
+  };
 }
 
 function stripStableKnownFields(

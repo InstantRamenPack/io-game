@@ -399,6 +399,46 @@ body {
   line-height: 1.5;
 }
 
+.spectate-hud {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(5, 10, 7, 0.82);
+  border: 1px solid rgba(175, 255, 144, 0.18);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.spectate-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffb5a7;
+}
+
+.spectate-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8f5e7;
+}
+
+.spectate-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.spectate-hint::before {
+  content: "·";
+  margin-right: 10px;
+}
+
 .game-over-overlay {
   position: fixed;
   inset: 0;
@@ -472,6 +512,16 @@ body {
   color: #e8f5e7;
 }
 
+.game-over-title--lose {
+  color: #ffb5a7;
+}
+
+.game-over-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .game-over-btn {
   padding: 14px 32px;
   border: 0;
@@ -484,6 +534,12 @@ body {
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: opacity 0.15s;
+}
+
+.game-over-btn--secondary {
+  background: rgba(175, 255, 144, 0.12);
+  color: #e8f5e7;
+  border: 1px solid rgba(175, 255, 144, 0.25);
 }
 
 .game-over-btn:hover {
@@ -844,6 +900,40 @@ body {
   text-transform: uppercase;
   box-shadow: var(--shadow);
   pointer-events: none;
+}
+
+.training-ground-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 33;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 185, 60, 0.38);
+  background: rgba(28, 18, 4, 0.84);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.training-ground-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f0c040;
+}
+
+.training-ground-sub {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(240, 190, 80, 0.58);
 }
 
 .match-core-hud {

@@ -24,6 +24,7 @@ export function createLobbyHudController({
   const joinCodeBtn = elements.lobbyCodeJoinBtn;
   const gameStartPrompt = elements.gameStartPrompt;
   const matchCoreHud = elements.matchCoreHud;
+  const trainingGroundBanner = elements.trainingGroundBanner;
 
   if (
     !root ||
@@ -71,6 +72,9 @@ export function createLobbyHudController({
       if (matchCoreHud) {
         matchCoreHud.hidden = true;
       }
+      if (trainingGroundBanner) {
+        trainingGroundBanner.hidden = !isVisible;
+      }
       lastStartedAtMs = null;
       return;
     }
@@ -83,6 +87,10 @@ export function createLobbyHudController({
         : Math.max(0, Math.floor((nowMs - state.createdAtMs) / 1000));
     const inStartedMatch =
       state.startedAtMs !== null && state.startedAtMs !== undefined;
+
+    if (trainingGroundBanner) {
+      trainingGroundBanner.hidden = !isVisible || inStartedMatch;
+    }
 
     if (inStartedMatch) {
       root.hidden = true;
@@ -172,6 +180,9 @@ export function createLobbyHudController({
       }
       if (!visible && gameStartPrompt) {
         gameStartPrompt.hidden = true;
+      }
+      if (!visible && trainingGroundBanner) {
+        trainingGroundBanner.hidden = true;
       }
       if (!visible && promptHideTimeout !== undefined) {
         window.clearTimeout(promptHideTimeout);

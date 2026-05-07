@@ -78,6 +78,10 @@
       </footer>
     </main>
     <div id="game-root" hidden></div>
+    <div id="training-ground-banner" class="training-ground-banner" hidden>
+      <span class="training-ground-label">Training Ground</span>
+      <span class="training-ground-sub">Friendly fire on &middot; No waves &middot; Practice freely</span>
+    </div>
     <div id="game-start-prompt" class="game-start-prompt" hidden>
       Game started
     </div>
@@ -123,19 +127,21 @@
     </div>
     <div id="death-overlay" class="death-overlay" hidden>
       <div class="death-card">
-        <p class="death-kicker">Authoritative Death State</p>
-        <h2>You Died</h2>
-        <p>
-          Respawn when you’re ready. Movement and actions stay locked until
-          then.
-        </p>
+        <p class="death-kicker">You Died</p>
+        <h2>Down</h2>
+        <p>Respawn when you’re ready.</p>
         <button id="respawn-btn" type="button">Respawn</button>
       </div>
     </div>
+    <div id="spectate-hud" class="spectate-hud" hidden>
+      <span class="spectate-label">SPECTATING</span>
+      <strong id="spectate-hud-name" class="spectate-name">Player</strong>
+      <span class="spectate-hint">Respawns at dawn</span>
+    </div>
     <div id="game-over-overlay" class="game-over-overlay" hidden>
       <div class="game-over-card">
-        <p class="game-over-kicker">Extraction Complete</p>
-        <h2 class="game-over-title">YOUR TEAM ESCAPED</h2>
+        <p id="game-over-kicker" class="game-over-kicker">Extraction Complete</p>
+        <h2 id="game-over-title" class="game-over-title">YOUR TEAM ESCAPED</h2>
         <div id="game-over-stats" class="game-over-stats">
           <div class="game-over-stat-row">
             <span class="stat-label">GAME DURATION</span>
@@ -146,9 +152,14 @@
             <span id="game-over-waves" class="stat-value">--</span>
           </div>
         </div>
-        <button id="game-over-return-btn" type="button" class="game-over-btn">
-          Return to Lobby
-        </button>
+        <div class="game-over-actions">
+          <button id="game-over-play-again-btn" type="button" class="game-over-btn game-over-btn--secondary" hidden>
+            Play Again
+          </button>
+          <button id="game-over-return-btn" type="button" class="game-over-btn">
+            Return to Lobby
+          </button>
+        </div>
       </div>
     </div>
     <script type="module" src="./src/main.ts"></script>

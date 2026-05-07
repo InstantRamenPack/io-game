@@ -1,0 +1,9 @@
+{
+  "label": "Sniper",
+  "maxHp": 70,
+  "moveSpeed": 7,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "default": [{ "width": 22, "height": 22, "offsetX": 0, "offsetY": 0 }]
+  }
+}

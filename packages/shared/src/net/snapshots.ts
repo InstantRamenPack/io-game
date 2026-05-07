@@ -173,9 +173,67 @@ export const ExtractionSnapshotSchema = z.object({
   enemiesInRadius: NonNegativeIntSchema,
 });
 
+<<<<<<< HEAD
 export const InfrastructureSnapshotSchema = z.object({
   energyActive: z.boolean(),
   commsActive: z.boolean(),
+=======
+export const MapMarkerSnapshotSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  archetype: z.string().min(1),
+  importance: z.enum(["sector", "major", "reward", "route"]),
+  discoveredByDefault: z.boolean(),
+  x: z.number().finite(),
+  y: z.number().finite(),
+});
+
+export const MapSectorSnapshotSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  archetype: z.string().min(1),
+  row: NonNegativeIntSchema,
+  col: NonNegativeIntSchema,
+  minX: z.number().finite(),
+  minY: z.number().finite(),
+  maxX: z.number().finite(),
+  maxY: z.number().finite(),
+  hasLightsOut: z.boolean(),
+});
+
+export const MapFeatureSnapshotSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  role: z.string().min(1),
+  risk: z.enum(["low", "medium", "high", "boss"]),
+  hasReward: z.boolean(),
+  minX: z.number().finite(),
+  minY: z.number().finite(),
+  maxX: z.number().finite(),
+  maxY: z.number().finite(),
+  centerX: z.number().finite(),
+  centerY: z.number().finite(),
+});
+
+export const MapSnapshotSchema = z.object({
+  seed: z.number().int(),
+  sectorSize: PositiveIntSchema,
+  centerSectorId: z.string().min(1),
+  extractionSectorId: z.string().min(1),
+  dungeonSectorId: z.string().min(1),
+  militarySectorId: z.string().min(1),
+  forestSectorId: z.string().min(1),
+  sectors: z.array(MapSectorSnapshotSchema),
+  features: z.array(MapFeatureSnapshotSchema),
+  markers: z.array(MapMarkerSnapshotSchema),
+});
+
+export const VisibilitySnapshotSchema = z.object({
+  restricted: z.boolean(),
+  radius: z.number().finite().positive(),
+  centerX: z.number().finite(),
+  centerY: z.number().finite(),
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 });
 
 export const WorldSnapshotSchema = z.object({
@@ -183,7 +241,12 @@ export const WorldSnapshotSchema = z.object({
   lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
   extraction: ExtractionSnapshotSchema,
+<<<<<<< HEAD
   infrastructure: InfrastructureSnapshotSchema,
+=======
+  map: MapSnapshotSchema.optional(),
+  visibility: VisibilitySnapshotSchema.optional(),
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
   removedEntityIds: z.array(EntityIdSchema).optional(),
@@ -273,5 +336,12 @@ export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
 export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
 export type ExtractionStage = z.infer<typeof ExtractionStageSchema>;
 export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
+<<<<<<< HEAD
 export type InfrastructureSnapshot = z.infer<typeof InfrastructureSnapshotSchema>;
+=======
+export type MapMarkerSnapshot = z.infer<typeof MapMarkerSnapshotSchema>;
+export type MapSectorSnapshot = z.infer<typeof MapSectorSnapshotSchema>;
+export type MapSnapshot = z.infer<typeof MapSnapshotSchema>;
+export type VisibilitySnapshot = z.infer<typeof VisibilitySnapshotSchema>;
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

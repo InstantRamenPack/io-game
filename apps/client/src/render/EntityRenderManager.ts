@@ -116,6 +116,14 @@ export class EntityRenderManager {
     this.syncTransientActivity(entity.id, renderer);
   }
 
+  public triggerAttackAnimationByEntityId(entityId: number): void {
+    const entity = this.entitiesById.get(entityId);
+    if (!entity) {
+      return;
+    }
+    this.triggerAttackAnimation(entity);
+  }
+
   public destroy(): void {
     for (const renderer of this.renderers.values()) {
       renderer.destroy();

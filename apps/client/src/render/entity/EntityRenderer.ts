@@ -18,6 +18,7 @@ export type EntityRenderer = {
     entity: ClientEntity,
     presentation?: EntityPresentationState,
   ): void;
+  setVisibilityAlpha(alpha: number): void;
   playAttackAnimation(entity: ClientEntity, visualRotation?: number): void;
   triggerDamageFlash(durationMs?: number): void;
   destroy(): void;

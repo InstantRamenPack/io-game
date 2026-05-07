@@ -23,6 +23,7 @@ type MatchLobby = {
   countdownEndsAtMs: number | null;
   startedAtMs: number | null;
   gameCompletedAtMs: number | null;
+  gameFailedAtMs: number | null;
   scopedNetwork: ScopedWsServer;
   runtime: GameInstanceRuntime | null;
 };
@@ -70,7 +71,9 @@ export class GameServer {
     this.networkServer = networkServer;
     this.authService = authService;
     this.enableMatchmaking = options.enableMatchmaking ?? true;
-    this.playgroundRuntime = new GameInstanceRuntime(gameConfig, networkServer);
+    this.playgroundRuntime = new GameInstanceRuntime(gameConfig, networkServer, {
+      isPlayground: true,
+    });
     this.world = this.playgroundRuntime.world;
     this.snapshotManager = this.playgroundRuntime.snapshotManager;
     this.antiCheatValidator = this.playgroundRuntime.antiCheatValidator;
@@ -123,6 +126,10 @@ export class GameServer {
       if (lobby.runtime?.isGameComplete() && lobby.gameCompletedAtMs === null) {
         lobby.gameCompletedAtMs = nowMs;
         this.broadcastGameComplete(lobby, nowMs);
+      }
+      if (lobby.runtime?.isGameFailed() && lobby.gameFailedAtMs === null) {
+        lobby.gameFailedAtMs = nowMs;
+        this.broadcastGameFailed(lobby, nowMs);
       }
     }
   }
@@ -525,6 +532,7 @@ export class GameServer {
       countdownEndsAtMs: null,
       startedAtMs: null,
       gameCompletedAtMs: null,
+      gameFailedAtMs: null,
       scopedNetwork,
       runtime: null,
     };
@@ -545,6 +553,23 @@ export class GameServer {
     for (const clientId of lobby.playerClientIds) {
       this.networkServer.send(clientId, payload);
     }
+  }
+
+  private broadcastGameFailed(lobby: MatchLobby, nowMs: number): void {
+    const gameDurationMs =
+      lobby.startedAtMs !== null ? nowMs - lobby.startedAtMs : 0;
+    const wavesCompleted = lobby.runtime?.getWavesCompleted() ?? 0;
+    const message: ServerToClientMessage = {
+      t: "game_over",
+      gameDurationMs,
+      wavesCompleted,
+    };
+    const payload = JSON.stringify(message);
+    for (const clientId of lobby.playerClientIds) {
+      this.networkServer.send(clientId, payload);
+    }
+    // Destroy the runtime so the old world is cleaned up
+    lobby.runtime = null;
   }
 
   private generateLobbyCode(): string {

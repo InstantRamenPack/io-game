@@ -9,12 +9,18 @@ import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
+import { Commander } from "@server/entities/enemies/Commander.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
+<<<<<<< HEAD
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
+=======
+import { SniperEnemy } from "@server/entities/enemies/SniperEnemy.ts";
+import { Stalker } from "@server/entities/enemies/Stalker.ts";
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
@@ -86,12 +92,18 @@ export const entityRuntimeCtors = [
   Player,
   ItemEntity,
   Bomber,
+  Commander,
   Drifter,
   Megaknight,
   Police,
   Saboteur,
   Shoota,
+<<<<<<< HEAD
   Thanos,
+=======
+  SniperEnemy,
+  Stalker,
+>>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   Wallbreaker,
   HouseL,
   HouseM,

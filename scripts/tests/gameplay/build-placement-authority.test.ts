@@ -13,7 +13,7 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 const wallItemId = makeResourceId("item", "wall");
-const fenceItemId = makeResourceId("item", "structure_fence_h");
+const treeItemId = makeResourceId("item", "structure_tree");
 const STRUCTURE_TILE_SIZE = 16;
 
 function addAndSelectBuildable(
@@ -135,26 +135,102 @@ describe("build placement authority", () => {
   test("structure placement snaps to grid", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    addAndSelectBuildable(player, fenceItemId, 1);
+    const homeBounds = runtime.world.proceduralLayout?.homeBounds;
+    expect(homeBounds).toBeDefined();
+    player.x = homeBounds!.minX + 512;
+    player.y = homeBounds!.minY + 512;
+    addAndSelectBuildable(player, treeItemId, 1);
     const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
       action: "build",
-      build: { x: player.x + 33, y: player.y + 17 },
+      build: { x: player.x + 128, y: player.y },
     });
     const spawned = getNewEntities(beforeIds, runtime.world.entities.all());
     expect(spawned.length).toBeGreaterThan(0);
     const structure = spawned[0]!;
     const expectedX =
-      Math.floor((player.x + 33) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+      Math.floor((player.x + 128) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
       STRUCTURE_TILE_SIZE / 2;
     const expectedY =
-      Math.floor((player.y + 17) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
+      Math.floor(player.y / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
       STRUCTURE_TILE_SIZE / 2;
     expect(structure.x).toBeCloseTo(expectedX, 3);
     expect(structure.y).toBeCloseTo(expectedY, 3);
   });
+
+  test("player building placement snaps to grid", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    addAndSelectBuildable(player, wallItemId, 1);
+    const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "build",
+      build: { x: player.x + 47, y: player.y + 19 },
+    });
+    const spawned = getNewEntities(beforeIds, runtime.world.entities.all());
+    expect(spawned.length).toBeGreaterThan(0);
+    const building = spawned[0]!;
+    expect(
+      (building.x - STRUCTURE_TILE_SIZE / 2) % STRUCTURE_TILE_SIZE,
+    ).toBeCloseTo(0, 3);
+    expect(
+      (building.y - STRUCTURE_TILE_SIZE / 2) % STRUCTURE_TILE_SIZE,
+    ).toBeCloseTo(0, 3);
+  });
+
+  test("outer-sector player buildings decay quickly while center buildings persist", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const layout = runtime.world.proceduralLayout;
+    expect(layout).not.toBeNull();
+    if (!layout) {
+      throw new Error("expected procedural layout");
+    }
+
+    addAndSelectBuildable(player, wallItemId, 2);
+    const beforeCenterIds = new Set(
+      runtime.world.entities.all().map((e) => e.id),
+    );
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "build",
+      build: { x: player.x + 48, y: player.y },
+    });
+    const centerBuilding = getNewEntities(
+      beforeCenterIds,
+      runtime.world.entities.all(),
+    )[0];
+    expect(centerBuilding).toBeDefined();
+
+    const hostileSector = layout.sectors.find(
+      (sector) => sector.archetype !== "home",
+    )!;
+    player.x = hostileSector.minX + 512;
+    player.y = hostileSector.minY + 512;
+    const beforeOuterIds = new Set(
+      runtime.world.entities.all().map((e) => e.id),
+    );
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 2,
+      action: "build",
+      build: { x: player.x + 48, y: player.y },
+    });
+    const outerBuilding = getNewEntities(
+      beforeOuterIds,
+      runtime.world.entities.all(),
+    )[0];
+    expect(outerBuilding).toBeDefined();
+
+    tick(runtime, runtime.world.gameConfig.tickRate * 6);
+    expect(runtime.world.entities.has(centerBuilding!.id)).toBe(true);
+    expect(runtime.world.entities.has(outerBuilding!.id)).toBe(false);
+  }, 10_000);
 
   test("duplicate build action does not spawn twice", () => {
     const { runtime } = makeRuntime();

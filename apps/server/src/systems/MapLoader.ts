@@ -3,11 +3,24 @@ import { z } from "zod";
 import worldMapJson from "@server/config/world_map.json";
 import { Building } from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import {
+  entityTypeRegistry,
+  itemTypeRegistry,
+} from "@server/registry/registries.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { World } from "@server/world/World.ts";
+import {
+  generateProceduralWorldLayout,
+  type ProceduralDungeonRoom,
+  type ProceduralLootSpec,
+  type ProceduralSpawnSpec,
+  type ProceduralWorldLayout,
+} from "@shared/world/ProceduralWorld.ts";
 
 const TILE_SIZE = 16;
 
@@ -16,6 +29,16 @@ const StaticSpawnSchema = z.object({
   x: z.number().finite(),
   y: z.number().finite(),
   label: z.string().optional(),
+  hitboxRects: z
+    .array(
+      z.object({
+        width: z.number().positive(),
+        height: z.number().positive(),
+        offsetX: z.number().finite(),
+        offsetY: z.number().finite(),
+      }),
+    )
+    .optional(),
 });
 
 const DungeonEntranceSchema = z.object({
@@ -110,6 +133,9 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
   if (entity instanceof Building) {
     entity.hp = 0;
     entity.maxHp = 0;
+  }
+  if (spec.hitboxRects) {
+    entity.setHitboxProfileRects("default", spec.hitboxRects);
   }
 
   world.spawn(entity);
@@ -622,23 +648,77 @@ function loadStaticZone(world: World, zone: StaticZone): void {
   }
 }
 
+function spawnProceduralEntity(
+  world: World,
+  spec: ProceduralSpawnSpec,
+): Entity {
+  return spawnMapEntity(world, spec);
+}
+
+function spawnProceduralLoot(world: World, spec: ProceduralLootSpec): void {
+  const itemEntry = itemTypeRegistry.require(spec.typeId);
+  const inventory = new Inventory();
+  if (
+    !grantItemEntryByAcquisitionRules(inventory, itemEntry, spec.amount ?? 1)
+  ) {
+    throw new Error(`Could not create procedural loot ${spec.typeId}.`);
+  }
+
+  const pickup = new ItemEntity(world.allocEntityId(), inventory);
+  pickup.x = spec.x;
+  pickup.y = spec.y;
+  world.spawn(pickup);
+}
+
+function loadProceduralLayout(
+  world: World,
+  layout: ProceduralWorldLayout,
+): void {
+  world.proceduralLayout = layout;
+  world.gameConfig.worldSize = { ...layout.worldSize };
+
+  for (const sector of layout.sectors) {
+    for (const spec of sector.structures) {
+      spawnProceduralEntity(world, spec);
+    }
+    for (const spec of sector.buildings) {
+      spawnProceduralEntity(world, spec);
+    }
+    for (const spec of sector.enemies) {
+      spawnProceduralEntity(world, spec);
+    }
+    for (const spec of sector.loot) {
+      spawnProceduralLoot(world, spec);
+    }
+  }
+
+  world.registerDungeonRooms(
+    layout.dungeon.id,
+    layout.dungeon.rooms.map(mapProceduralDungeonRoom),
+  );
+}
+
+function mapProceduralDungeonRoom(room: ProceduralDungeonRoom): {
+  id: string;
+  roomType: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  return {
+    id: room.id,
+    roomType: room.role,
+    minX: room.minX,
+    minY: room.minY,
+    maxX: room.maxX,
+    maxY: room.maxY,
+  };
+}
+
 /**
  * Spawns all map structures and initial enemies from data-backed zones.
  */
 export function loadMap(world: World): void {
-  const parsed = WorldMapSchema.parse(worldMapJson) as WorldMapConfig;
-  if (parsed.tileSize !== TILE_SIZE) {
-    throw new Error(
-      `Unsupported world_map tileSize=${parsed.tileSize}. Expected ${TILE_SIZE}.`,
-    );
-  }
-
-  for (const zone of parsed.zones) {
-    if (zone.kind === "static") {
-      loadStaticZone(world, zone);
-      continue;
-    }
-
-    spawnDungeonZone(world, zone.id, zone.dungeon, parsed.seed);
-  }
+  loadProceduralLayout(world, generateProceduralWorldLayout());
 }

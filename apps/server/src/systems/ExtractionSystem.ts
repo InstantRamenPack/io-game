@@ -9,7 +9,7 @@ import type {
 
 export const HELIPAD_X = 1000;
 export const HELIPAD_Y = 4050;
-export const HELIPAD_RADIUS = 130;
+export const HELIPAD_RADIUS = 160;
 
 const ENEMY_DANGER_RADIUS = 400;
 const BOARD_TIMER_GOAL_MS = 45_000;
@@ -39,6 +39,11 @@ export class ExtractionSystem implements System {
     if (this.completed) {
       return;
     }
+    const helipad = world.proceduralLayout?.extraction ?? {
+      x: HELIPAD_X,
+      y: HELIPAD_Y,
+      radius: HELIPAD_RADIUS,
+    };
 
     const finalWaveActive =
       this.waveSystem.getNightCycleCounter() >= FINAL_WAVE_CYCLE;
@@ -50,9 +55,9 @@ export class ExtractionSystem implements System {
         continue;
       }
       totalAlivePlayers += 1;
-      const dx = entity.x - HELIPAD_X;
-      const dy = entity.y - HELIPAD_Y;
-      if (Math.sqrt(dx * dx + dy * dy) <= HELIPAD_RADIUS) {
+      const dx = entity.x - helipad.x;
+      const dy = entity.y - helipad.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= helipad.radius) {
         playersOnPad += 1;
       }
     }
@@ -60,16 +65,16 @@ export class ExtractionSystem implements System {
     let enemiesInRadius = 0;
     world.ensureSpatialIndex();
     for (const entity of world.spatial.queryBox(
-      HELIPAD_X - ENEMY_DANGER_RADIUS,
-      HELIPAD_Y - ENEMY_DANGER_RADIUS,
-      HELIPAD_X + ENEMY_DANGER_RADIUS,
-      HELIPAD_Y + ENEMY_DANGER_RADIUS,
+      helipad.x - ENEMY_DANGER_RADIUS,
+      helipad.y - ENEMY_DANGER_RADIUS,
+      helipad.x + ENEMY_DANGER_RADIUS,
+      helipad.y + ENEMY_DANGER_RADIUS,
     )) {
       if (!entity.typeId.startsWith("enemy:") || !entity.alive) {
         continue;
       }
-      const dx = entity.x - HELIPAD_X;
-      const dy = entity.y - HELIPAD_Y;
+      const dx = entity.x - helipad.x;
+      const dy = entity.y - helipad.y;
       if (Math.sqrt(dx * dx + dy * dy) <= ENEMY_DANGER_RADIUS) {
         enemiesInRadius += 1;
       }
