@@ -1,22 +1,17 @@
 import { Container, Graphics } from "pixi.js";
 
-const BASE_X = 4200;
-const BASE_Y = 2900;
 const BASE_W = 1600;
 const BASE_H = 1200;
 const BASE_DARK_ALPHA = 0.65;
 const FLICKER_RANGE = 0.08;
 
-/**
- * Darkness fog over the base area when the Energy Tower is offline.
- * Covers the entire base with a dark overlay that flickers slightly,
- * simulating a power outage.
- */
 export class BaseVisionOverlay {
   public readonly container: Container;
   private readonly graphics: Graphics;
   private energyActive = true;
   private flickerTime = 0;
+  private worldW = 12288;
+  private worldH = 12288;
 
   constructor() {
     this.container = new Container();
@@ -24,10 +19,13 @@ export class BaseVisionOverlay {
     this.container.zIndex = 30;
 
     this.graphics = new Graphics();
-    this.graphics
-      .rect(BASE_X, BASE_Y, BASE_W, BASE_H)
-      .fill({ color: 0x000000, alpha: 1 });
     this.container.addChild(this.graphics);
+  }
+
+  public setWorldSize(w: number, h: number): void {
+    this.worldW = w;
+    this.worldH = h;
+    this.redraw();
   }
 
   public setEnergyActive(active: boolean): void {
@@ -48,5 +46,14 @@ export class BaseVisionOverlay {
       Math.sin(this.flickerTime * 13.7) * 0.3;
     const alpha = BASE_DARK_ALPHA + flicker * FLICKER_RANGE;
     this.graphics.alpha = Math.max(0.5, Math.min(0.82, alpha));
+  }
+
+  private redraw(): void {
+    const baseX = (this.worldW - BASE_W) / 2;
+    const baseY = (this.worldH - BASE_H) / 2;
+    this.graphics.clear();
+    this.graphics
+      .rect(baseX, baseY, BASE_W, BASE_H)
+      .fill({ color: 0x000000, alpha: 1 });
   }
 }

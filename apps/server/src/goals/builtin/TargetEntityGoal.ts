@@ -16,6 +16,7 @@ export class TargetEntityGoal<
   private readonly targetCtor: TargetEntityCtor;
   private readonly aggroRange: number;
   private readonly aggroRangeSquared: number;
+  private readonly filter: ((entity: Entity) => boolean) | undefined;
   private readonly queryBuffer: Entity[] = [];
   private cachedResolutionTick = -1;
   private cachedTarget: Entity | null = null;
@@ -25,11 +26,13 @@ export class TargetEntityGoal<
    * @param priority Lower values run first.
    * @param targetCtor Runtime class to target.
    * @param aggroRange Maximum chase/target acquisition distance.
+   * @param filter Optional predicate to exclude specific candidates.
    */
   constructor(
     priority: number,
     targetCtor: TargetEntityCtor,
     aggroRange: number,
+    filter?: (entity: Entity) => boolean,
   ) {
     super(priority, ["target"]);
     this.targetCtor = targetCtor;
@@ -37,6 +40,7 @@ export class TargetEntityGoal<
     this.aggroRangeSquared = Number.isFinite(aggroRange)
       ? aggroRange * aggroRange
       : Number.POSITIVE_INFINITY;
+    this.filter = filter;
   }
 
   public override canStart(_ctx: GoalContext<TSelf>): boolean {
@@ -71,6 +75,9 @@ export class TargetEntityGoal<
     if (!(target instanceof this.targetCtor) || !target.alive) {
       return null;
     }
+    if (this.filter && !this.filter(target)) {
+      return null;
+    }
 
     const distanceSquared = this.distanceSquared(
       ctx.self.x,
@@ -101,7 +108,7 @@ export class TargetEntityGoal<
 
     if (instanceTargets.length <= INSTANCE_SCAN_TARGET_LIMIT) {
       for (const target of instanceTargets) {
-        if (!target.alive) {
+        if (!target.alive || (this.filter && !this.filter(target))) {
           continue;
         }
         const distanceSquared = this.distanceSquared(
@@ -131,7 +138,11 @@ export class TargetEntityGoal<
         ctx.self.y + this.aggroRange,
         this.queryBuffer,
       )) {
-        if (!(target instanceof this.targetCtor) || !target.alive) {
+        if (
+          !(target instanceof this.targetCtor) ||
+          !target.alive ||
+          (this.filter && !this.filter(target))
+        ) {
           continue;
         }
 
@@ -155,7 +166,7 @@ export class TargetEntityGoal<
     }
 
     for (const target of instanceTargets) {
-      if (!target.alive) {
+      if (!target.alive || (this.filter && !this.filter(target))) {
         continue;
       }
       const distanceSquared = this.distanceSquared(

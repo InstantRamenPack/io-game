@@ -1,11 +1,13 @@
 {
   "__default__": "/placeholder.png",
+  "item:baseball_bat": "/icons/basic_sword.png",
   "item:basic_dagger": "/icons/dagger.png",
   "item:basic_gun": "/icons/basic_gun.png",
   "item:basic_spear": "/icons/basic_spear.png",
   "item:basic_sword": "/icons/basic_sword.png",
   "item:cleaver": "/icons/basic_sword.png",
   "item:katana": "/icons/zombie_sword.png",
+  "item:lead_pipe": "/icons/basic_sword.png",
   "item:scissors": "/icons/scissors.png",
   "item:crossbow": "/icons/crossbow.png",
   "item:spiked_spear": "/icons/spiked_spear.png",

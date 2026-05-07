@@ -4,10 +4,8 @@ import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import type { InfrastructureSnapshot } from "@shared/net/snapshots.ts";
 
-export const ENERGY_TOWER_X = 4520;
-export const ENERGY_TOWER_Y = 3500;
-export const COMMS_TOWER_X = 5480;
-export const COMMS_TOWER_Y = 3500;
+// Horizontal offset from world center — matches the base artwork width (800) minus a ~300 unit inset
+const TOWER_X_OFFSET = 500;
 
 export class InfrastructureSystem implements System {
   private energyTowerId: number | null = null;
@@ -16,15 +14,19 @@ export class InfrastructureSystem implements System {
   private cachedCommsActive = true;
 
   public spawnTowers(world: World): void {
+    const { w, h } = world.gameConfig.worldSize;
+    const cx = w / 2;
+    const cy = h / 2;
+
     const energyTower = new EnergyTower(world.allocEntityId());
-    energyTower.x = ENERGY_TOWER_X;
-    energyTower.y = ENERGY_TOWER_Y;
+    energyTower.x = cx - TOWER_X_OFFSET;
+    energyTower.y = cy;
     world.spawn(energyTower);
     this.energyTowerId = energyTower.id;
 
     const commsTower = new CommsTower(world.allocEntityId());
-    commsTower.x = COMMS_TOWER_X;
-    commsTower.y = COMMS_TOWER_Y;
+    commsTower.x = cx + TOWER_X_OFFSET;
+    commsTower.y = cy;
     world.spawn(commsTower);
     this.commsTowerId = commsTower.id;
   }

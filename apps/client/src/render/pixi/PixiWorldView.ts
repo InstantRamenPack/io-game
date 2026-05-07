@@ -88,6 +88,7 @@ export class PixiWorldView {
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
     this.viewportController = new PixiViewportController(worldSize);
+    this.baseVisionOverlay.setWorldSize(worldSize.w, worldSize.h);
     this.sniperAimGuide.visible = false;
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
@@ -136,6 +137,7 @@ export class PixiWorldView {
     this.worldSize = { ...worldSize };
     this.viewportController.setWorldSize(this.worldSize);
     this.cullingController.updateWorldSize(this.worldSize);
+    this.baseVisionOverlay.setWorldSize(worldSize.w, worldSize.h);
     this.invalidateGridLineCache();
     this.drawGridGeometry();
   }

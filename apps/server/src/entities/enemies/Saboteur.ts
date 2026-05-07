@@ -4,6 +4,7 @@ import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { Building } from "@server/entities/Building.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
+import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Player } from "@server/entities/Player.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
@@ -18,7 +19,7 @@ export class Saboteur extends Enemy {
       goals: [
         new TargetEntityGoal<Enemy>(0, EnergyTower, Infinity),
         new TargetEntityGoal<Enemy>(1, CommsTower, Infinity),
-        new TargetEntityGoal<Enemy>(2, Building, Infinity),
+        new TargetEntityGoal<Enemy>(2, Building, Infinity, (e) => !(e instanceof Recycler)),
         new TargetEntityGoal<Enemy>(3, Player, Infinity),
         new LookAtTargetGoal<Enemy>(4),
         new GoToTargetGoal<Enemy>(5, 22),
