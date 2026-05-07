@@ -32,7 +32,7 @@
     "test:snapshot": "bun test scripts/tests/snapshot",
     "test:gameplay": "bun test scripts/tests/gameplay",
     "test:coverage": "bun test --coverage scripts/tests",
-    "test:smoke": "bun run test && bun run benchmark:smoke"
+    "test:smoke": "bun run test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

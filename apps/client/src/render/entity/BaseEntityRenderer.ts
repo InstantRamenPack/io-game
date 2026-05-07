@@ -246,6 +246,17 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.syncDamageFlashVisual();
   }
 
+  public setVisibilityAlpha(alpha: number): void {
+    const clampedAlpha = Math.max(0, Math.min(1, alpha));
+    this.entityContainer.alpha = clampedAlpha;
+    if (this.hitboxContainer) {
+      this.hitboxContainer.alpha = clampedAlpha;
+    }
+    if (this.debugContainer) {
+      this.debugContainer.alpha = clampedAlpha;
+    }
+  }
+
   public hasTransientAnimation(): boolean {
     return (
       this.damageFlashRemainingMs > 0.001 ||

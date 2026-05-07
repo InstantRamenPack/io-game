@@ -31,9 +31,23 @@ const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
 const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);
 
 const { runtime, sink } = makeRuntime({ interestRadius: 1400 });
+for (const entity of runtime.world.entities.all()) {
+  if (
+    entity.typeId.startsWith("enemy:") ||
+    entity.typeId === "pickup:item_entity"
+  ) {
+    runtime.world.despawn(entity.id);
+  }
+}
 const clients = connectClients(runtime, 3, "clustered");
-spawnWalls(runtime, WALLS, { spacing: 18 });
-spawnEnemyGrid(runtime, ENEMIES, "police", { spacing: 18 });
+const centerX = runtime.world.gameConfig.worldSize.w / 2;
+const centerY = runtime.world.gameConfig.worldSize.h / 2;
+spawnWalls(runtime, WALLS, { centerX, centerY: centerY - 420, spacing: 18 });
+spawnEnemyGrid(runtime, ENEMIES, "police", {
+  centerX,
+  centerY: centerY + 1800,
+  spacing: 18,
+});
 spawnProjectileBurst(runtime, clients[0]!.playerId, PROJECTILES, "basic");
 
 warmup(runtime, WARMUP_TICKS);

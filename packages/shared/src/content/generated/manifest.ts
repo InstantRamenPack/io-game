@@ -20,11 +20,14 @@ import effectfracturedJson from "@shared/content/effect/fractured.json";
 import effectknockbackJson from "@shared/content/effect/knockback.json";
 import effectstunnedJson from "@shared/content/effect/stunned.json";
 import enemybomberJson from "@shared/content/enemy/bomber.json";
+import enemycommanderJson from "@shared/content/enemy/commander.json";
 import enemydrifterJson from "@shared/content/enemy/drifter.json";
 import enemymegaknightJson from "@shared/content/enemy/megaknight.json";
 import enemypoliceJson from "@shared/content/enemy/police.json";
 import enemysaboteurJson from "@shared/content/enemy/saboteur.json";
 import enemyshootaJson from "@shared/content/enemy/shoota.json";
+import enemysniperJson from "@shared/content/enemy/sniper.json";
+import enemystalkerJson from "@shared/content/enemy/stalker.json";
 import enemywallbreakerJson from "@shared/content/enemy/wallbreaker.json";
 import itembaseballBatJson from "@shared/content/item/baseball_bat.json";
 import itembasicDaggerJson from "@shared/content/item/basic_dagger.json";
@@ -119,11 +122,14 @@ export const effectContentEntries = [
 
 export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "bomber", enemybomberJson),
+  makeParsedEntityContentEntry("enemy", "commander", enemycommanderJson),
   makeParsedEntityContentEntry("enemy", "drifter", enemydrifterJson),
   makeParsedEntityContentEntry("enemy", "megaknight", enemymegaknightJson),
   makeParsedEntityContentEntry("enemy", "police", enemypoliceJson),
   makeParsedEntityContentEntry("enemy", "saboteur", enemysaboteurJson),
   makeParsedEntityContentEntry("enemy", "shoota", enemyshootaJson),
+  makeParsedEntityContentEntry("enemy", "sniper", enemysniperJson),
+  makeParsedEntityContentEntry("enemy", "stalker", enemystalkerJson),
   makeParsedEntityContentEntry("enemy", "wallbreaker", enemywallbreakerJson),
 ] as const;
 

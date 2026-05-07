@@ -3,6 +3,10 @@ import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
+import {
+  getSectorForPoint,
+  type ProceduralWorldLayout,
+} from "@shared/world/ProceduralWorld.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
@@ -36,6 +40,8 @@ export type WorldBenchmarkSink = {
   recordWorldTick(stats: WorldBenchmarkTickStats): void;
 };
 
+const OUTER_PLAYER_BUILDING_LIFETIME_SECONDS = 5;
+
 /**
  * Authoritative world container for entities, events, time, and shared world services.
  * This is the main state holder stepped by the server loop.
@@ -52,6 +58,7 @@ export class World {
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
   public extractionSystem: ExtractionSystem | null = null;
+  public proceduralLayout: ProceduralWorldLayout | null = null;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
@@ -70,6 +77,7 @@ export class World {
   private readonly entityIdGenerator = new IdGenerator();
   private readonly collisionSystem = new CollisionSystem();
   private readonly pickupSystem = new PickupSystem();
+  private readonly playerBuildingSpawnTickById = new Map<number, number>();
   private spatialDirty = true;
 
   /**
@@ -160,6 +168,7 @@ export class World {
     const pickupStartedAt = performance.now();
     this.pickupSystem.update(this, deltaMs);
     const pickupMs = performance.now() - pickupStartedAt;
+    this.expireOuterPlayerBuildings();
     const spatialAfterStartedAt = performance.now();
     this.ensureSpatialIndex();
     const spatialAfterMs = performance.now() - spatialAfterStartedAt;
@@ -214,6 +223,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     this.pickupSystem.update(this, deltaMs);
+    this.expireOuterPlayerBuildings();
     this.ensureSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
@@ -226,6 +236,9 @@ export class World {
     this.entities.add(entity);
     if (isEnemyEntity(entity)) {
       this.enemyCount += 1;
+    }
+    if (isPlayerOwnedBuilding(entity)) {
+      this.playerBuildingSpawnTickById.set(entity.id, this.tick);
     }
     this.navPathService.markEntityDirty(entity);
     this.markSpatialDirty();
@@ -244,6 +257,7 @@ export class World {
       }
     }
     this.entities.remove(id);
+    this.playerBuildingSpawnTickById.delete(id);
     this.entityIdGenerator.free(id);
     this.markSpatialDirty();
   }
@@ -291,8 +305,37 @@ export class World {
   ): void {
     this.dungeonRoomsByZone.set(zoneId, rooms);
   }
+
+  private expireOuterPlayerBuildings(): void {
+    if (!this.proceduralLayout || this.playerBuildingSpawnTickById.size === 0) {
+      return;
+    }
+    for (const [entityId, spawnTick] of [
+      ...this.playerBuildingSpawnTickById.entries(),
+    ]) {
+      if (
+        this.tick - spawnTick <
+        OUTER_PLAYER_BUILDING_LIFETIME_SECONDS * this.gameConfig.tickRate
+      ) {
+        continue;
+      }
+      const entity = this.entities.get(entityId);
+      if (!entity) {
+        this.playerBuildingSpawnTickById.delete(entityId);
+        continue;
+      }
+      const sector = getSectorForPoint(this.proceduralLayout, entity);
+      if (sector?.allowsFastBuildingDecay) {
+        this.despawn(entityId);
+      }
+    }
+  }
 }
 
 function isEnemyEntity(entity: Entity): boolean {
   return entity.typeId.startsWith("enemy:");
+}
+
+function isPlayerOwnedBuilding(entity: Entity): boolean {
+  return entity.typeId.startsWith("building:") && entity.ownerId !== undefined;
 }

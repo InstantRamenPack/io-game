@@ -1,4 +1,5 @@
 import { COMPAT_HASH } from "@shared/config/compat.ts";
+import { PROCEDURAL_WORLD_SIZE } from "@shared/world/ProceduralWorld.ts";
 
 /**
  * Shared runtime configuration used by both server and client.
@@ -10,8 +11,8 @@ export class GameConfig {
 
   public tickRate = GameConfig.DEFAULT_TICK_RATE;
   public worldSize = {
-    w: 10000,
-    h: 7000,
+    w: PROCEDURAL_WORLD_SIZE.w,
+    h: PROCEDURAL_WORLD_SIZE.h,
   };
   public collision = {
     spatialCellSize: GameConfig.DEFAULT_SPATIAL_CELL_SIZE,

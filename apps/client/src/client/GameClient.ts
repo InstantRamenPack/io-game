@@ -438,7 +438,7 @@ export class GameClient {
       const isSpectating =
         player?.alive === false && this.spectateEntityId !== null;
       const cameraEntityId = isSpectating
-        ? this.spectateEntityId ?? this.playerEntityId
+        ? (this.spectateEntityId ?? this.playerEntityId)
         : this.playerEntityId;
       if (this.renderer.playerEntityId !== cameraEntityId) {
         this.renderer.playerEntityId = cameraEntityId;
@@ -474,6 +474,7 @@ export class GameClient {
 
     this.latestExtractionState = snapshot.extraction;
     this.renderer.updateExtractionState(snapshot.extraction);
+    this.renderer.updateMapState(snapshot.map ?? null);
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,
@@ -641,8 +642,7 @@ export class GameClient {
 
   private onLobbyState(state: LobbyStateMessage): void {
     this.lobbyState = state;
-    const inActiveMatch =
-      state.inLobby === true && state.startedAtMs != null;
+    const inActiveMatch = state.inLobby === true && state.startedAtMs != null;
     this.renderer.setPlaygroundMode(!inActiveMatch);
     for (const handler of this.lobbyStateHandlers) {
       handler(state);

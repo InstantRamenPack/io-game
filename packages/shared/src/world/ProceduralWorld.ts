@@ -1,0 +1,1862 @@
+import seedrandom from "seedrandom";
+import { getEntityContent } from "@shared/content/catalog.ts";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
+import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
+export const PROCEDURAL_WORLD_SEED = 1337;
+export const PROCEDURAL_GRID_SIZE = 3;
+export const PROCEDURAL_SECTOR_SIZE = 4096;
+export const PROCEDURAL_WORLD_SIZE = {
+  w: PROCEDURAL_GRID_SIZE * PROCEDURAL_SECTOR_SIZE,
+  h: PROCEDURAL_GRID_SIZE * PROCEDURAL_SECTOR_SIZE,
+} as const;
+export const PROCEDURAL_TILE_SIZE = 16;
+
+export const REQUIRED_DUNGEON_ROOM_ROLES = [
+  "entrance",
+  "combat",
+  "treasure",
+  "rest",
+  "armory",
+  "objective",
+  "hazard",
+  "crossroads",
+  "mini_boss",
+  "boss",
+] as const;
+
+export type DungeonRoomRole = (typeof REQUIRED_DUNGEON_ROOM_ROLES)[number];
+
+export type SectorArchetype =
+  | "home"
+  | "extraction"
+  | "dungeon"
+  | "military"
+  | "forest"
+  | "ruined_town"
+  | "abandoned_suburb"
+  | "industrial_yard"
+  | "lake_district"
+  | "farmstead"
+  | "quarry"
+  | "swamp"
+  | "bunker_edge"
+  | "wreckage_field"
+  | "roadside_village";
+
+export type ProceduralRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+export type ProceduralPoint = {
+  x: number;
+  y: number;
+};
+
+export type ProceduralSpawnSpec = ProceduralPoint & {
+  typeId: ResourceId;
+  label?: string;
+  hitboxRects?: Array<{
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+  }>;
+};
+
+export type ProceduralLootSpec = ProceduralPoint & {
+  typeId: ResourceId;
+  amount?: number;
+  kind: "stackable" | "weapon";
+  rewardTier: "common" | "uncommon" | "rare" | "epic";
+};
+
+export type ProceduralMapMarker = ProceduralPoint & {
+  id: string;
+  label: string;
+  archetype: SectorArchetype;
+  importance: "sector" | "major" | "reward" | "route";
+  discoveredByDefault: boolean;
+};
+
+export type ProceduralPoiFeature = ProceduralRect & {
+  id: string;
+  label: string;
+  role:
+    | "spawn_core"
+    | "defense_ring"
+    | "facility"
+    | "checkpoint"
+    | "barracks"
+    | "command_center"
+    | "armory_vault"
+    | "motor_pool"
+    | "comms"
+    | "training_yard"
+    | "watch_tower"
+    | "trail"
+    | "cabin"
+    | "camp"
+    | "pond"
+    | "bridge"
+    | "shrine"
+    | "hidden_cache"
+    | "predator_clearing"
+    | "residential_block"
+    | "ruin_cluster"
+    | "industrial_yard"
+    | "resource_pit"
+    | "helipad"
+    | "approach_route"
+    | "danger_perimeter"
+    | "reward_cache"
+    | `dungeon_${DungeonRoomRole}`;
+  center: ProceduralPoint;
+  risk: "low" | "medium" | "high" | "boss";
+  hasReward: boolean;
+};
+
+export type ProceduralDungeonRoom = ProceduralRect & {
+  id: string;
+  role: DungeonRoomRole;
+  centerX: number;
+  centerY: number;
+};
+
+export type ProceduralDungeonPlan = ProceduralRect & {
+  id: string;
+  rooms: ProceduralDungeonRoom[];
+  entrances: ProceduralPoint[];
+};
+
+export type ProceduralSector = ProceduralRect & {
+  id: string;
+  row: number;
+  col: number;
+  archetype: SectorArchetype;
+  label: string;
+  center: ProceduralPoint;
+  landmark: ProceduralMapMarker;
+  rewardArea: ProceduralRect;
+  traversalConnections: string[];
+  structures: ProceduralSpawnSpec[];
+  buildings: ProceduralSpawnSpec[];
+  enemies: ProceduralSpawnSpec[];
+  loot: ProceduralLootSpec[];
+  features: ProceduralPoiFeature[];
+  minimapMarkers: ProceduralMapMarker[];
+  hasLightsOut: boolean;
+  allowsFastBuildingDecay: boolean;
+};
+
+export type ProceduralWorldLayout = {
+  seed: number;
+  tileSize: number;
+  worldSize: { w: number; h: number };
+  sectorSize: number;
+  sectors: ProceduralSector[];
+  centerSectorId: string;
+  extractionSectorId: string;
+  dungeonSectorId: string;
+  militarySectorId: string;
+  forestSectorId: string;
+  homeBounds: ProceduralRect;
+  extraction: ProceduralPoint & { radius: number };
+  dungeon: ProceduralDungeonPlan;
+  minimapMarkers: ProceduralMapMarker[];
+};
+
+const EDGE_COORDS = [
+  { row: 0, col: 1 },
+  { row: 1, col: 0 },
+  { row: 1, col: 2 },
+  { row: 2, col: 1 },
+] as const;
+
+const CORNER_COORDS = [
+  { row: 0, col: 0 },
+  { row: 0, col: 2 },
+  { row: 2, col: 0 },
+  { row: 2, col: 2 },
+] as const;
+
+const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
+  "ruined_town",
+  "abandoned_suburb",
+  "industrial_yard",
+  "lake_district",
+  "farmstead",
+  "quarry",
+  "swamp",
+  "bunker_edge",
+  "wreckage_field",
+  "roadside_village",
+];
+
+const ENEMY_BY_ARCHETYPE: Record<SectorArchetype, readonly ResourceId[]> = {
+  home: ["enemy:drifter" as ResourceId],
+  extraction: [
+    "enemy:police" as ResourceId,
+    "enemy:shoota" as ResourceId,
+    "enemy:bomber" as ResourceId,
+    "enemy:commander" as ResourceId,
+  ],
+  dungeon: [
+    "enemy:drifter" as ResourceId,
+    "enemy:shoota" as ResourceId,
+    "enemy:megaknight" as ResourceId,
+  ],
+  military: [
+    "enemy:police" as ResourceId,
+    "enemy:shoota" as ResourceId,
+    "enemy:sniper" as ResourceId,
+    "enemy:saboteur" as ResourceId,
+    "enemy:wallbreaker" as ResourceId,
+    "enemy:commander" as ResourceId,
+  ],
+  forest: [
+    "enemy:drifter" as ResourceId,
+    "enemy:stalker" as ResourceId,
+    "enemy:bomber" as ResourceId,
+    "enemy:wallbreaker" as ResourceId,
+  ],
+  ruined_town: ["enemy:drifter" as ResourceId, "enemy:shoota" as ResourceId],
+  abandoned_suburb: [
+    "enemy:drifter" as ResourceId,
+    "enemy:police" as ResourceId,
+  ],
+  industrial_yard: [
+    "enemy:saboteur" as ResourceId,
+    "enemy:wallbreaker" as ResourceId,
+  ],
+  lake_district: ["enemy:drifter" as ResourceId, "enemy:bomber" as ResourceId],
+  farmstead: ["enemy:drifter" as ResourceId, "enemy:wallbreaker" as ResourceId],
+  quarry: ["enemy:wallbreaker" as ResourceId, "enemy:megaknight" as ResourceId],
+  swamp: ["enemy:bomber" as ResourceId, "enemy:drifter" as ResourceId],
+  bunker_edge: ["enemy:police" as ResourceId, "enemy:saboteur" as ResourceId],
+  wreckage_field: [
+    "enemy:drifter" as ResourceId,
+    "enemy:saboteur" as ResourceId,
+  ],
+  roadside_village: [
+    "enemy:drifter" as ResourceId,
+    "enemy:shoota" as ResourceId,
+  ],
+};
+
+const LOOT_BY_TIER: Record<
+  ProceduralLootSpec["rewardTier"],
+  readonly ResourceId[]
+> = {
+  common: [
+    "item:hunk" as ResourceId,
+    "item:junk_food" as ResourceId,
+    "item:gun_mag" as ResourceId,
+  ],
+  uncommon: [
+    "item:basic_spear" as ResourceId,
+    "item:lead_pipe" as ResourceId,
+    "item:quality_food" as ResourceId,
+    "item:crossbow_mag" as ResourceId,
+  ],
+  rare: [
+    "item:basic_rifle" as ResourceId,
+    "item:crossbow" as ResourceId,
+    "item:blueprint_katana" as ResourceId,
+    "item:sniper_mag" as ResourceId,
+  ],
+  epic: [
+    "item:sniper" as ResourceId,
+    "item:drone_shooter" as ResourceId,
+    "item:blueprint_sniper" as ResourceId,
+    "item:blueprint_spiked_spear" as ResourceId,
+  ],
+};
+
+export function generateProceduralWorldLayout(
+  seed = PROCEDURAL_WORLD_SEED,
+): ProceduralWorldLayout {
+  const rng = seedrandom(String(seed));
+  const sectorSize = PROCEDURAL_SECTOR_SIZE;
+  const assigned = new Map<string, SectorArchetype>();
+
+  assigned.set(sectorKey(1, 1), "home");
+  const extractionCoord = pickAndRemove(rng, [...CORNER_COORDS]);
+  assigned.set(
+    sectorKey(extractionCoord.row, extractionCoord.col),
+    "extraction",
+  );
+
+  const availableEdges = shuffle(rng, [...EDGE_COORDS]);
+  const dungeonCoord = availableEdges.shift();
+  const militaryCoord = availableEdges.shift();
+  const forestCoord = availableEdges.shift();
+  if (!dungeonCoord || !militaryCoord || !forestCoord) {
+    throw new Error("Expected enough edge sectors for required POIs.");
+  }
+  assigned.set(sectorKey(dungeonCoord.row, dungeonCoord.col), "dungeon");
+  assigned.set(sectorKey(militaryCoord.row, militaryCoord.col), "military");
+  assigned.set(sectorKey(forestCoord.row, forestCoord.col), "forest");
+
+  const fillers = shuffle(rng, [...FILLER_ARCHETYPES]);
+  for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
+    for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
+      const key = sectorKey(row, col);
+      if (!assigned.has(key)) {
+        assigned.set(key, fillers.shift() ?? "ruined_town");
+      }
+    }
+  }
+
+  const dungeonSectorRect = sectorRect(dungeonCoord.row, dungeonCoord.col);
+  const dungeon = createDungeonPlan(dungeonSectorRect);
+  const sectors: ProceduralSector[] = [];
+  for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
+    for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
+      const archetype = assigned.get(sectorKey(row, col));
+      if (!archetype) {
+        throw new Error(`Missing sector archetype for ${row}:${col}`);
+      }
+      sectors.push(createSector(seed, rng, row, col, archetype, dungeon));
+    }
+  }
+
+  const homeBounds = insetRect(sectorRect(1, 1), 280);
+  const extractionSector = requireSector(sectors, "extraction");
+  const extraction = {
+    x: extractionSector.center.x,
+    y: extractionSector.center.y,
+    radius: 160,
+  };
+  const minimapMarkers = sectors.flatMap((sector) => sector.minimapMarkers);
+
+  return {
+    seed,
+    tileSize: PROCEDURAL_TILE_SIZE,
+    worldSize: PROCEDURAL_WORLD_SIZE,
+    sectorSize,
+    sectors,
+    centerSectorId: sectorKey(1, 1),
+    extractionSectorId: extractionSector.id,
+    dungeonSectorId: sectorKey(dungeonCoord.row, dungeonCoord.col),
+    militarySectorId: sectorKey(militaryCoord.row, militaryCoord.col),
+    forestSectorId: sectorKey(forestCoord.row, forestCoord.col),
+    homeBounds,
+    extraction,
+    dungeon,
+    minimapMarkers,
+  };
+}
+
+export function sectorKey(row: number, col: number): string {
+  return `sector_${row}_${col}`;
+}
+
+export function pointInRect(
+  point: ProceduralPoint,
+  rect: ProceduralRect,
+): boolean {
+  return (
+    point.x >= rect.minX &&
+    point.x <= rect.maxX &&
+    point.y >= rect.minY &&
+    point.y <= rect.maxY
+  );
+}
+
+export function getSectorForPoint(
+  layout: ProceduralWorldLayout,
+  point: ProceduralPoint,
+): ProceduralSector | undefined {
+  return layout.sectors.find((sector) => pointInRect(point, sector));
+}
+
+function createSector(
+  seed: number,
+  worldRng: seedrandom.PRNG,
+  row: number,
+  col: number,
+  archetype: SectorArchetype,
+  dungeon: ProceduralDungeonPlan,
+): ProceduralSector {
+  const rect = sectorRect(row, col);
+  const center = snapPoint({
+    x: (rect.minX + rect.maxX) / 2,
+    y: (rect.minY + rect.maxY) / 2,
+  });
+  const rng = seedrandom(`${seed}:${row}:${col}:${archetype}`);
+  const structures: ProceduralSpawnSpec[] = [];
+  const buildings: ProceduralSpawnSpec[] = [];
+  const enemies: ProceduralSpawnSpec[] = [];
+  const loot: ProceduralLootSpec[] = [];
+  const features: ProceduralPoiFeature[] = [];
+  const markers: ProceduralMapMarker[] = [];
+  const rewardArea = insetRect(
+    {
+      minX: center.x - 320,
+      minY: center.y - 240,
+      maxX: center.x + 320,
+      maxY: center.y + 240,
+    },
+    0,
+  );
+  const landmark = marker(
+    `${sectorKey(row, col)}_landmark`,
+    labelForArchetype(archetype),
+    archetype,
+    center.x,
+    center.y,
+    archetype === "home" ? "major" : "sector",
+    archetype === "home",
+  );
+  markers.push(landmark);
+
+  if (archetype !== "home" && archetype !== "dungeon") {
+    addPerimeterRoutes(structures, rect);
+  }
+  addArchetypeContent(
+    rng,
+    archetype,
+    rect,
+    center,
+    structures,
+    buildings,
+    features,
+    markers,
+  );
+  addEncounterGroups(rng, archetype, rect, center, enemies);
+  if (archetype !== "dungeon") {
+    addSectorLoot(rng, archetype, center, loot);
+  }
+
+  if (archetype === "home") {
+    buildings.push(spawn("building:recycler", center.x, center.y - 160));
+    buildings.push(
+      spawn("building:crafting_station", center.x - 224, center.y),
+    );
+    buildings.push(spawn("building:chest", center.x + 224, center.y));
+    addFeature(
+      features,
+      markers,
+      "home_spawn_core",
+      "Home Spawn Core",
+      "spawn_core",
+      archetype,
+      center.x,
+      center.y,
+      760,
+      520,
+      "low",
+      true,
+      "major",
+      true,
+    );
+    addFeature(
+      features,
+      markers,
+      "home_defense_ring",
+      "Home Defense Ring",
+      "defense_ring",
+      archetype,
+      center.x,
+      center.y,
+      1280,
+      960,
+      "medium",
+      false,
+      "route",
+      true,
+    );
+    loot.push(
+      lootSpec(
+        "item:hunk",
+        center.x - 128,
+        center.y + 192,
+        "stackable",
+        "common",
+        5,
+      ),
+    );
+  } else if (archetype === "extraction") {
+    markers.push(
+      marker(
+        "extraction_helipad",
+        "Extraction Helipad",
+        archetype,
+        center.x,
+        center.y,
+        "major",
+        true,
+      ),
+    );
+    addMilitaryFence(structures, center, 960, 720);
+    enemies.push(
+      spawn("enemy:commander", center.x, center.y - 360),
+      spawn("enemy:sniper", center.x - 420, center.y - 240),
+      spawn("enemy:sniper", center.x + 420, center.y - 240),
+    );
+    addFeature(
+      features,
+      markers,
+      "extraction_pad",
+      "Extraction Pad",
+      "helipad",
+      archetype,
+      center.x,
+      center.y,
+      420,
+      420,
+      "boss",
+      true,
+      "major",
+      true,
+    );
+    addFeature(
+      features,
+      markers,
+      "extraction_north_approach",
+      "North Approach",
+      "approach_route",
+      archetype,
+      center.x,
+      center.y - 720,
+      360,
+      900,
+      "high",
+      false,
+      "route",
+      true,
+    );
+    addFeature(
+      features,
+      markers,
+      "extraction_danger_perimeter",
+      "Extraction Perimeter",
+      "danger_perimeter",
+      archetype,
+      center.x,
+      center.y,
+      1200,
+      900,
+      "boss",
+      false,
+      "major",
+      false,
+    );
+    loot.push(
+      lootSpec(
+        "item:sniper_mag",
+        center.x + 320,
+        center.y - 192,
+        "stackable",
+        "rare",
+        2,
+      ),
+    );
+  } else if (archetype === "dungeon") {
+    addDungeonArchitecture(structures, dungeon);
+    addFeature(
+      features,
+      markers,
+      "dungeon_gate",
+      "Dungeon Gate",
+      "checkpoint",
+      archetype,
+      dungeon.entrances[0]?.x ?? center.x,
+      dungeon.entrances[0]?.y ?? center.y,
+      520,
+      260,
+      "high",
+      false,
+      "major",
+      true,
+    );
+    addFeature(
+      features,
+      markers,
+      "dungeon_final_reward",
+      "Dungeon Final Reward",
+      "reward_cache",
+      archetype,
+      dungeon.rooms.at(-1)?.centerX ?? center.x,
+      dungeon.rooms.at(-1)?.centerY ?? center.y,
+      520,
+      360,
+      "boss",
+      true,
+      "reward",
+      false,
+    );
+    markers.push(
+      marker(
+        "dungeon_gate",
+        "Dungeon Gate",
+        archetype,
+        dungeon.entrances[0]?.x ?? center.x,
+        dungeon.entrances[0]?.y ?? center.y,
+        "major",
+        true,
+      ),
+    );
+    for (const room of dungeon.rooms) {
+      addFeature(
+        features,
+        markers,
+        room.id,
+        dungeonRoomLabel(room.role),
+        `dungeon_${room.role}`,
+        archetype,
+        room.centerX,
+        room.centerY,
+        room.maxX - room.minX,
+        room.maxY - room.minY,
+        dungeonRoomRisk(room.role),
+        [
+          "treasure",
+          "rest",
+          "armory",
+          "objective",
+          "mini_boss",
+          "boss",
+        ].includes(room.role),
+        room.role === "boss" || room.role === "mini_boss" ? "major" : "route",
+        room.role === "entrance" || room.role === "crossroads",
+      );
+      addDungeonRoomContent(room, enemies, loot, structures);
+    }
+  } else if (archetype === "military") {
+    markers.push(
+      marker(
+        "military_command",
+        "Military Command",
+        archetype,
+        center.x,
+        center.y - 320,
+        "major",
+        true,
+      ),
+    );
+    addMilitaryFence(structures, center, 1400, 1100);
+    addMilitaryBaseFeatures(features, markers, archetype, center);
+    enemies.push(
+      spawn("enemy:commander", center.x, center.y - 340),
+      spawn("enemy:sniper", center.x - 760, center.y - 760),
+      spawn("enemy:sniper", center.x + 760, center.y + 760),
+    );
+    loot.push(
+      lootSpec(
+        "item:drone_shooter",
+        center.x,
+        center.y - 384,
+        "weapon",
+        "epic",
+        1,
+      ),
+    );
+  } else if (archetype === "forest") {
+    markers.push(
+      marker(
+        "forest_shrine",
+        "Forest Shrine",
+        archetype,
+        center.x + 420,
+        center.y - 260,
+        "major",
+        true,
+      ),
+    );
+    addForestFeatures(features, markers, archetype, center);
+    enemies.push(
+      spawn("enemy:stalker", center.x + 720, center.y - 580),
+      spawn("enemy:stalker", center.x - 650, center.y - 420),
+    );
+    loot.push(
+      lootSpec(
+        "item:blueprint_spiked_spear",
+        center.x + 420,
+        center.y - 228,
+        "stackable",
+        "rare",
+        1,
+      ),
+    );
+  }
+
+  markers.push(
+    marker(
+      `${sectorKey(row, col)}_reward`,
+      `${labelForArchetype(archetype)} Cache`,
+      archetype,
+      (rewardArea.minX + rewardArea.maxX) / 2,
+      (rewardArea.minY + rewardArea.maxY) / 2,
+      "reward",
+      archetype === "home",
+    ),
+  );
+
+  const staticSpawns = pruneOverlappingStaticSpawns([
+    ...structures,
+    ...buildings,
+  ]);
+  const structureTypeIds = new Set(
+    structures.map((structure) => structure.typeId),
+  );
+
+  return {
+    id: sectorKey(row, col),
+    row,
+    col,
+    archetype,
+    label: labelForArchetype(archetype),
+    ...rect,
+    center,
+    landmark,
+    rewardArea,
+    traversalConnections: adjacentSectorIds(row, col),
+    structures: staticSpawns.filter((spec) =>
+      structureTypeIds.has(spec.typeId),
+    ),
+    buildings: staticSpawns.filter(
+      (spec) => !structureTypeIds.has(spec.typeId),
+    ),
+    enemies,
+    loot,
+    features,
+    minimapMarkers: markers,
+    hasLightsOut: archetype !== "home",
+    allowsFastBuildingDecay: archetype !== "home",
+  };
+}
+
+function pruneOverlappingStaticSpawns(
+  specs: readonly ProceduralSpawnSpec[],
+): ProceduralSpawnSpec[] {
+  const accepted: ProceduralSpawnSpec[] = [];
+  const acceptedHitboxes: NonNullable<
+    ReturnType<typeof resolveSpawnHitboxes>
+  >[] = [];
+
+  for (const spec of specs) {
+    const hitboxes = resolveSpawnHitboxes(spec);
+    if (!hitboxes) {
+      accepted.push(spec);
+      continue;
+    }
+    if (
+      acceptedHitboxes.some((candidate) =>
+        doResolvedRectSetsOverlap(hitboxes, candidate),
+      )
+    ) {
+      continue;
+    }
+    accepted.push(spec);
+    acceptedHitboxes.push(hitboxes);
+  }
+
+  return accepted;
+}
+
+function resolveSpawnHitboxes(spec: ProceduralSpawnSpec) {
+  const content = getEntityContent(spec.typeId);
+  const hitboxProfiles = content?.hitboxProfiles;
+  if (!hitboxProfiles) {
+    return null;
+  }
+  const activeProfile =
+    (content.activeHitboxProfile &&
+      hitboxProfiles[content.activeHitboxProfile]) ??
+    Object.values(hitboxProfiles)[0];
+  if (!activeProfile) {
+    return null;
+  }
+  return resolveHitboxRects(spec.x, spec.y, activeProfile);
+}
+
+function createDungeonPlan(sector: ProceduralRect): ProceduralDungeonPlan {
+  const minX = snap(sector.minX + 480);
+  const minY = snap(sector.minY + 448);
+  const maxX = snap(sector.maxX - 480);
+  const maxY = snap(sector.maxY - 448);
+  const roomW = 560;
+  const roomH = 448;
+  const gapX = 240;
+  const gapY = 224;
+  const startX = minX + 192;
+  const startY = minY + 144;
+  const roles = REQUIRED_DUNGEON_ROOM_ROLES;
+  const positions = [
+    [0, 1],
+    [0, 0],
+    [0, 2],
+    [1, 0],
+    [1, 1],
+    [1, 2],
+    [2, 0],
+    [2, 1],
+    [2, 2],
+    [3, 1],
+  ] as const;
+  const rooms = roles.map((role, index) => {
+    const position = positions[index] ?? [index, 1];
+    const roomMinX = snap(startX + position[1] * (roomW + gapX));
+    const roomMinY = snap(startY + position[0] * (roomH + gapY));
+    return {
+      id: `dungeon_${role}`,
+      role,
+      minX: roomMinX,
+      minY: roomMinY,
+      maxX: roomMinX + roomW,
+      maxY: roomMinY + roomH,
+      centerX: snap(roomMinX + roomW / 2),
+      centerY: snap(roomMinY + roomH / 2),
+    };
+  });
+  const entrance = rooms[0];
+  if (!entrance) {
+    throw new Error("Dungeon requires an entrance room.");
+  }
+  return {
+    id: "dungeon_alpha",
+    minX,
+    minY,
+    maxX,
+    maxY,
+    rooms,
+    entrances: [{ x: entrance.centerX, y: entrance.centerY }],
+  };
+}
+
+function addArchetypeContent(
+  rng: seedrandom.PRNG,
+  archetype: SectorArchetype,
+  rect: ProceduralRect,
+  center: ProceduralPoint,
+  structures: ProceduralSpawnSpec[],
+  buildings: ProceduralSpawnSpec[],
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+): void {
+  switch (archetype) {
+    case "home":
+      break;
+    case "military":
+      addHouseCluster(structures, center.x - 320, center.y, 5);
+      addTentCamp(structures, center.x + 420, center.y + 260, 6);
+      break;
+    case "forest":
+      addForest(structures, rng, rect, 46);
+      addTentCamp(structures, center.x - 360, center.y + 280, 3);
+      break;
+    case "extraction":
+      addTentCamp(structures, center.x - 420, center.y + 320, 4);
+      addHouseCluster(structures, center.x + 420, center.y - 320, 2);
+      break;
+    case "dungeon":
+      break;
+    case "industrial_yard":
+    case "quarry":
+    case "bunker_edge":
+      addMilitaryFence(structures, center, 960, 760);
+      addTentCamp(structures, center.x + 260, center.y - 240, 4);
+      buildings.push(
+        spawn("building:recycler", center.x - 320, center.y + 260),
+      );
+      addIndustrialFeatures(features, markers, archetype, center);
+      break;
+    case "lake_district":
+    case "swamp":
+      addForest(structures, rng, rect, 30);
+      addTentCamp(structures, center.x - 280, center.y - 260, 3);
+      addWildlandFeatures(features, markers, archetype, center);
+      break;
+    case "farmstead":
+    case "abandoned_suburb":
+    case "roadside_village":
+    case "ruined_town":
+    case "wreckage_field":
+      addHouseCluster(structures, center.x, center.y, 6);
+      addForest(structures, rng, rect, 12);
+      addResidentialFeatures(features, markers, archetype, center);
+      break;
+  }
+}
+
+function addEncounterGroups(
+  rng: seedrandom.PRNG,
+  archetype: SectorArchetype,
+  rect: ProceduralRect,
+  center: ProceduralPoint,
+  enemies: ProceduralSpawnSpec[],
+): void {
+  if (archetype === "home") {
+    return;
+  }
+  if (archetype === "dungeon") {
+    return;
+  }
+  const pool = ENEMY_BY_ARCHETYPE[archetype];
+  const count = archetype === "military" ? 14 : 9;
+  for (let index = 0; index < count; index += 1) {
+    const typeId = pool[index % pool.length] ?? "enemy:drifter";
+    const angle = rng() * Math.PI * 2;
+    const radius = 340 + rng() * 980;
+    enemies.push(
+      spawn(
+        typeId,
+        clamp(
+          snap(center.x + Math.cos(angle) * radius),
+          rect.minX + 160,
+          rect.maxX - 160,
+        ),
+        clamp(
+          snap(center.y + Math.sin(angle) * radius),
+          rect.minY + 160,
+          rect.maxY - 160,
+        ),
+      ),
+    );
+  }
+}
+
+function addSectorLoot(
+  rng: seedrandom.PRNG,
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+  loot: ProceduralLootSpec[],
+): void {
+  const tiers: ProceduralLootSpec["rewardTier"][] =
+    archetype === "home"
+      ? ["common", "common"]
+      : ["common", "uncommon", "rare"];
+  for (let index = 0; index < tiers.length; index += 1) {
+    const tier = tiers[index] ?? "common";
+    const pool = LOOT_BY_TIER[tier];
+    const typeId = pool[Math.floor(rng() * pool.length)] ?? pool[0]!;
+    loot.push(
+      lootSpec(
+        typeId,
+        center.x - 180 + index * 180,
+        center.y + 260 + index * 48,
+        isWeaponLoot(typeId) ? "weapon" : "stackable",
+        tier,
+        tier === "common" ? 3 : 1,
+      ),
+    );
+  }
+}
+
+function addDungeonRoomContent(
+  room: ProceduralDungeonRoom,
+  enemies: ProceduralSpawnSpec[],
+  loot: ProceduralLootSpec[],
+  structures: ProceduralSpawnSpec[],
+): void {
+  const x = room.centerX;
+  const y = room.centerY;
+  switch (room.role) {
+    case "entrance":
+      structures.push(spawn("structure:tent", x - 160, y));
+      loot.push(
+        lootSpec("item:quality_food", x + 160, y, "stackable", "common", 2),
+      );
+      break;
+    case "combat":
+      enemies.push(
+        spawn("enemy:drifter", x - 120, y),
+        spawn("enemy:shoota", x + 120, y),
+        spawn("enemy:police", x, y + 112),
+      );
+      loot.push(lootSpec("item:gun_mag", x, y + 120, "stackable", "common", 2));
+      break;
+    case "treasure":
+      loot.push(
+        lootSpec("item:blueprint_katana", x - 80, y, "stackable", "rare", 1),
+      );
+      loot.push(lootSpec("item:hunk", x + 80, y, "stackable", "uncommon", 8));
+      break;
+    case "rest":
+      structures.push(spawn("structure:tent", x, y - 96));
+      loot.push(
+        lootSpec("item:quality_food", x, y + 96, "stackable", "uncommon", 3),
+      );
+      break;
+    case "armory":
+      enemies.push(spawn("enemy:police", x, y - 120));
+      loot.push(
+        lootSpec("item:basic_rifle", x - 96, y + 96, "weapon", "rare", 1),
+      );
+      loot.push(
+        lootSpec("item:sniper_mag", x + 96, y + 96, "stackable", "rare", 2),
+      );
+      break;
+    case "objective":
+      enemies.push(spawn("enemy:saboteur", x, y));
+      loot.push(
+        lootSpec(
+          "item:blueprint_basic_rifle",
+          x,
+          y + 128,
+          "stackable",
+          "rare",
+          1,
+        ),
+      );
+      break;
+    case "hazard":
+      enemies.push(
+        spawn("enemy:bomber", x - 96, y),
+        spawn("enemy:bomber", x + 96, y),
+      );
+      loot.push(
+        lootSpec("item:landmine", x, y + 128, "stackable", "uncommon", 2),
+      );
+      break;
+    case "crossroads":
+      loot.push(
+        lootSpec("item:crossbow_mag", x, y + 112, "stackable", "uncommon", 2),
+      );
+      break;
+    case "mini_boss":
+      enemies.push(spawn("enemy:commander", x, y));
+      loot.push(lootSpec("item:crossbow", x, y + 160, "weapon", "rare", 1));
+      break;
+    case "boss":
+      enemies.push(
+        spawn("enemy:megaknight", x - 96, y),
+        spawn("enemy:sniper", x + 96, y),
+      );
+      loot.push(lootSpec("item:sniper", x - 80, y + 160, "weapon", "epic", 1));
+      loot.push(
+        lootSpec(
+          "item:blueprint_sniper",
+          x + 80,
+          y + 160,
+          "stackable",
+          "epic",
+          1,
+        ),
+      );
+      break;
+  }
+}
+
+function dungeonRoomLabel(role: DungeonRoomRole): string {
+  return role
+    .split("_")
+    .map((word) => word[0]!.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function dungeonRoomRisk(role: DungeonRoomRole): ProceduralPoiFeature["risk"] {
+  switch (role) {
+    case "entrance":
+    case "rest":
+    case "crossroads":
+      return "medium";
+    case "mini_boss":
+      return "high";
+    case "boss":
+      return "boss";
+    default:
+      return "high";
+  }
+}
+
+function addDungeonArchitecture(
+  structures: ProceduralSpawnSpec[],
+  dungeon: ProceduralDungeonPlan,
+): void {
+  for (const room of dungeon.rooms) {
+    addDungeonRoomPerimeter(structures, room);
+  }
+}
+
+function addDungeonRoomPerimeter(
+  structures: ProceduralSpawnSpec[],
+  room: ProceduralDungeonRoom,
+): void {
+  const doorHalfWidth = 56;
+  const thickness = PROCEDURAL_TILE_SIZE;
+  const cornerGap = 4;
+  const doorMinX = room.centerX - doorHalfWidth;
+  const doorMaxX = room.centerX + doorHalfWidth;
+  const doorMinY = room.centerY - doorHalfWidth;
+  const doorMaxY = room.centerY + doorHalfWidth;
+
+  addDungeonWallSegment(
+    structures,
+    room.minX,
+    room.minY,
+    doorMinX,
+    room.minY + thickness,
+  );
+  addDungeonWallSegment(
+    structures,
+    doorMaxX,
+    room.minY,
+    room.maxX,
+    room.minY + thickness,
+  );
+  addDungeonWallSegment(
+    structures,
+    room.minX,
+    room.maxY - thickness,
+    doorMinX,
+    room.maxY,
+  );
+  addDungeonWallSegment(
+    structures,
+    doorMaxX,
+    room.maxY - thickness,
+    room.maxX,
+    room.maxY,
+  );
+  addDungeonWallSegment(
+    structures,
+    room.minX,
+    room.minY + thickness + cornerGap,
+    room.minX + thickness,
+    doorMinY,
+  );
+  addDungeonWallSegment(
+    structures,
+    room.minX,
+    doorMaxY,
+    room.minX + thickness,
+    room.maxY - thickness - cornerGap,
+  );
+  addDungeonWallSegment(
+    structures,
+    room.maxX - thickness,
+    room.minY + thickness + cornerGap,
+    room.maxX,
+    doorMinY,
+  );
+  addDungeonWallSegment(
+    structures,
+    room.maxX - thickness,
+    doorMaxY,
+    room.maxX,
+    room.maxY - thickness - cornerGap,
+  );
+}
+
+function addDungeonWallSegment(
+  structures: ProceduralSpawnSpec[],
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): void {
+  const width = maxX - minX;
+  const height = maxY - minY;
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  structures.push({
+    typeId: "structure:dungeon_wall" as ResourceId,
+    x: minX + width / 2,
+    y: minY + height / 2,
+    hitboxRects: [{ width, height, offsetX: 0, offsetY: 0 }],
+  });
+}
+
+function addMilitaryBaseFeatures(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+): void {
+  const specs = [
+    [
+      "military_checkpoint",
+      "Main Checkpoint",
+      "checkpoint",
+      -680,
+      -520,
+      420,
+      260,
+      "medium",
+      false,
+      "route",
+    ],
+    [
+      "military_barracks",
+      "Barracks",
+      "barracks",
+      -420,
+      160,
+      520,
+      360,
+      "medium",
+      false,
+      "major",
+    ],
+    [
+      "military_command",
+      "Command Center",
+      "command_center",
+      0,
+      -340,
+      520,
+      420,
+      "high",
+      true,
+      "major",
+    ],
+    [
+      "military_armory_vault",
+      "Armory Vault",
+      "armory_vault",
+      420,
+      -120,
+      420,
+      320,
+      "boss",
+      true,
+      "reward",
+    ],
+    [
+      "military_motor_pool",
+      "Motor Pool",
+      "motor_pool",
+      520,
+      360,
+      520,
+      300,
+      "medium",
+      true,
+      "major",
+    ],
+    [
+      "military_comms",
+      "Radar Comms",
+      "comms",
+      0,
+      420,
+      380,
+      320,
+      "high",
+      true,
+      "major",
+    ],
+    [
+      "military_training_yard",
+      "Training Yard",
+      "training_yard",
+      -620,
+      470,
+      520,
+      320,
+      "medium",
+      false,
+      "major",
+    ],
+    [
+      "military_watch_tower_nw",
+      "Northwest Watch Tower",
+      "watch_tower",
+      -760,
+      -760,
+      220,
+      220,
+      "high",
+      false,
+      "major",
+    ],
+    [
+      "military_watch_tower_se",
+      "Southeast Watch Tower",
+      "watch_tower",
+      760,
+      760,
+      220,
+      220,
+      "high",
+      false,
+      "major",
+    ],
+  ] as const;
+  for (const [
+    id,
+    label,
+    role,
+    dx,
+    dy,
+    width,
+    height,
+    risk,
+    hasReward,
+    importance,
+  ] of specs) {
+    addFeature(
+      features,
+      markers,
+      id,
+      label,
+      role,
+      archetype,
+      center.x + dx,
+      center.y + dy,
+      width,
+      height,
+      risk,
+      hasReward,
+      importance,
+      true,
+    );
+  }
+}
+
+function addForestFeatures(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+): void {
+  const specs = [
+    [
+      "forest_main_trail",
+      "Main Trail",
+      "trail",
+      -520,
+      0,
+      1000,
+      160,
+      "medium",
+      false,
+      "route",
+    ],
+    [
+      "forest_hunter_cabin",
+      "Hunter Cabin",
+      "cabin",
+      -440,
+      360,
+      360,
+      280,
+      "medium",
+      true,
+      "major",
+    ],
+    [
+      "forest_south_camp",
+      "South Camp",
+      "camp",
+      180,
+      520,
+      420,
+      280,
+      "medium",
+      true,
+      "major",
+    ],
+    [
+      "forest_pond",
+      "Pond",
+      "pond",
+      520,
+      120,
+      420,
+      340,
+      "medium",
+      false,
+      "major",
+    ],
+    [
+      "forest_bridge",
+      "Old Bridge",
+      "bridge",
+      260,
+      -260,
+      460,
+      160,
+      "high",
+      false,
+      "route",
+    ],
+    [
+      "forest_shrine",
+      "Forest Shrine",
+      "shrine",
+      420,
+      -260,
+      360,
+      300,
+      "high",
+      true,
+      "major",
+    ],
+    [
+      "forest_hidden_cache",
+      "Hidden Cache",
+      "hidden_cache",
+      -650,
+      -420,
+      300,
+      220,
+      "high",
+      true,
+      "reward",
+    ],
+    [
+      "forest_predator_clearing",
+      "Predator Clearing",
+      "predator_clearing",
+      720,
+      -580,
+      460,
+      360,
+      "boss",
+      true,
+      "major",
+    ],
+  ] as const;
+  for (const [
+    id,
+    label,
+    role,
+    dx,
+    dy,
+    width,
+    height,
+    risk,
+    hasReward,
+    importance,
+  ] of specs) {
+    addFeature(
+      features,
+      markers,
+      id,
+      label,
+      role,
+      archetype,
+      center.x + dx,
+      center.y + dy,
+      width,
+      height,
+      risk,
+      hasReward,
+      importance,
+      true,
+    );
+  }
+}
+
+function addResidentialFeatures(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+): void {
+  addFeature(
+    features,
+    markers,
+    `${archetype}_residential_block`,
+    "Residential Block",
+    "residential_block",
+    archetype,
+    center.x,
+    center.y + 640,
+    1280,
+    860,
+    "medium",
+    true,
+    "major",
+    true,
+  );
+  addFeature(
+    features,
+    markers,
+    `${archetype}_ruin_cluster`,
+    "Ruin Cluster",
+    "ruin_cluster",
+    archetype,
+    center.x + 520,
+    center.y + 480,
+    640,
+    440,
+    "high",
+    true,
+    "reward",
+    false,
+  );
+}
+
+function addWildlandFeatures(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+): void {
+  addFeature(
+    features,
+    markers,
+    `${archetype}_shore_trail`,
+    "Shore Trail",
+    "trail",
+    archetype,
+    center.x - 420,
+    center.y,
+    980,
+    160,
+    "medium",
+    false,
+    "route",
+    true,
+  );
+  addFeature(
+    features,
+    markers,
+    `${archetype}_pond_crossing`,
+    "Water Crossing",
+    "bridge",
+    archetype,
+    center.x + 420,
+    center.y - 160,
+    520,
+    260,
+    "high",
+    true,
+    "major",
+    true,
+  );
+  addFeature(
+    features,
+    markers,
+    `${archetype}_hidden_cache`,
+    "Hidden Cache",
+    "hidden_cache",
+    archetype,
+    center.x - 540,
+    center.y + 420,
+    320,
+    240,
+    "high",
+    true,
+    "reward",
+    false,
+  );
+}
+
+function addIndustrialFeatures(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+): void {
+  addFeature(
+    features,
+    markers,
+    `${archetype}_industrial_yard`,
+    "Industrial Yard",
+    "industrial_yard",
+    archetype,
+    center.x,
+    center.y,
+    1100,
+    840,
+    "high",
+    true,
+    "major",
+    true,
+  );
+  addFeature(
+    features,
+    markers,
+    `${archetype}_resource_pit`,
+    "Resource Pit",
+    "resource_pit",
+    archetype,
+    center.x - 520,
+    center.y + 480,
+    560,
+    420,
+    "high",
+    true,
+    "reward",
+    false,
+  );
+}
+
+function addFeature(
+  features: ProceduralPoiFeature[],
+  markers: ProceduralMapMarker[],
+  id: string,
+  label: string,
+  role: ProceduralPoiFeature["role"],
+  archetype: SectorArchetype,
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  risk: ProceduralPoiFeature["risk"],
+  hasReward: boolean,
+  importance: ProceduralMapMarker["importance"],
+  discoveredByDefault: boolean,
+): void {
+  const center = snapPoint({ x: centerX, y: centerY });
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  features.push({
+    id,
+    label,
+    role,
+    center,
+    minX: snap(center.x - halfWidth),
+    minY: snap(center.y - halfHeight),
+    maxX: snap(center.x + halfWidth),
+    maxY: snap(center.y + halfHeight),
+    risk,
+    hasReward,
+  });
+  markers.push(
+    marker(
+      id,
+      label,
+      archetype,
+      center.x,
+      center.y,
+      importance,
+      discoveredByDefault,
+    ),
+  );
+}
+
+function addMilitaryFence(
+  structures: ProceduralSpawnSpec[],
+  center: ProceduralPoint,
+  width: number,
+  height: number,
+): void {
+  const gateHalfSpan = 260;
+  for (let x = center.x - width / 2; x <= center.x + width / 2; x += 384) {
+    if (Math.abs(x - center.x) > gateHalfSpan) {
+      structures.push(spawn("structure:fence_h", x, center.y - height / 2));
+      structures.push(spawn("structure:fence_h", x, center.y + height / 2));
+    }
+  }
+  for (let y = center.y - height / 2; y <= center.y + height / 2; y += 384) {
+    if (Math.abs(y - center.y) > gateHalfSpan) {
+      structures.push(spawn("structure:fence_v", center.x - width / 2, y));
+      structures.push(spawn("structure:fence_v", center.x + width / 2, y));
+    }
+  }
+}
+
+function addHouseCluster(
+  structures: ProceduralSpawnSpec[],
+  centerX: number,
+  centerY: number,
+  count: number,
+): void {
+  const offsets = [
+    [-420, -300, "structure:house_l"],
+    [0, -280, "structure:house_xl"],
+    [420, -260, "structure:house_l"],
+    [-360, 220, "structure:house_m"],
+    [120, 280, "structure:house_l"],
+    [520, 220, "structure:house_m"],
+  ] as const;
+  for (const [dx, dy, typeId] of offsets.slice(0, count)) {
+    structures.push(spawn(typeId, centerX + dx, centerY + dy));
+  }
+}
+
+function addTentCamp(
+  structures: ProceduralSpawnSpec[],
+  centerX: number,
+  centerY: number,
+  count: number,
+): void {
+  for (let index = 0; index < count; index += 1) {
+    const angle = (index / count) * Math.PI * 2;
+    structures.push(
+      spawn(
+        "structure:tent",
+        centerX + Math.cos(angle) * 260,
+        centerY + Math.sin(angle) * 210,
+      ),
+    );
+  }
+}
+
+function addForest(
+  structures: ProceduralSpawnSpec[],
+  rng: seedrandom.PRNG,
+  rect: ProceduralRect,
+  count: number,
+): void {
+  for (let index = 0; index < count; index += 1) {
+    structures.push(
+      spawn(
+        "structure:tree",
+        rect.minX + 180 + rng() * (rect.maxX - rect.minX - 360),
+        rect.minY + 180 + rng() * (rect.maxY - rect.minY - 360),
+      ),
+    );
+  }
+}
+
+function addPerimeterRoutes(
+  structures: ProceduralSpawnSpec[],
+  rect: ProceduralRect,
+): void {
+  const midX = (rect.minX + rect.maxX) / 2;
+  const midY = (rect.minY + rect.maxY) / 2;
+  structures.push(
+    spawn("structure:fence_h", midX - 640, midY - 64),
+    spawn("structure:fence_h", midX + 640, midY + 64),
+    spawn("structure:fence_v", midX - 64, midY + 640),
+    spawn("structure:fence_v", midX + 64, midY - 640),
+  );
+}
+
+function sectorRect(row: number, col: number): ProceduralRect {
+  return {
+    minX: col * PROCEDURAL_SECTOR_SIZE,
+    minY: row * PROCEDURAL_SECTOR_SIZE,
+    maxX: (col + 1) * PROCEDURAL_SECTOR_SIZE,
+    maxY: (row + 1) * PROCEDURAL_SECTOR_SIZE,
+  };
+}
+
+function insetRect(rect: ProceduralRect, inset: number): ProceduralRect {
+  return {
+    minX: rect.minX + inset,
+    minY: rect.minY + inset,
+    maxX: rect.maxX - inset,
+    maxY: rect.maxY - inset,
+  };
+}
+
+function requireSector(
+  sectors: readonly ProceduralSector[],
+  archetype: SectorArchetype,
+): ProceduralSector {
+  const sector = sectors.find((candidate) => candidate.archetype === archetype);
+  if (!sector) {
+    throw new Error(`Missing sector archetype ${archetype}.`);
+  }
+  return sector;
+}
+
+function adjacentSectorIds(row: number, col: number): string[] {
+  const ids: string[] = [];
+  for (const [dr, dc] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ] as const) {
+    const nextRow = row + dr;
+    const nextCol = col + dc;
+    if (
+      nextRow >= 0 &&
+      nextRow < PROCEDURAL_GRID_SIZE &&
+      nextCol >= 0 &&
+      nextCol < PROCEDURAL_GRID_SIZE
+    ) {
+      ids.push(sectorKey(nextRow, nextCol));
+    }
+  }
+  return ids;
+}
+
+function pickAndRemove<T>(rng: seedrandom.PRNG, values: T[]): T {
+  const index = Math.floor(rng() * values.length);
+  const [value] = values.splice(index, 1);
+  if (value === undefined) {
+    throw new Error("Cannot pick from an empty array.");
+  }
+  return value;
+}
+
+function shuffle<T>(rng: seedrandom.PRNG, values: T[]): T[] {
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(rng() * (index + 1));
+    const current = values[index]!;
+    values[index] = values[other]!;
+    values[other] = current;
+  }
+  return values;
+}
+
+function marker(
+  id: string,
+  label: string,
+  archetype: SectorArchetype,
+  x: number,
+  y: number,
+  importance: ProceduralMapMarker["importance"],
+  discoveredByDefault: boolean,
+): ProceduralMapMarker {
+  return {
+    id,
+    label,
+    archetype,
+    x: snap(x),
+    y: snap(y),
+    importance,
+    discoveredByDefault,
+  };
+}
+
+function spawn(typeId: string, x: number, y: number): ProceduralSpawnSpec {
+  return { typeId: typeId as ResourceId, x: snap(x), y: snap(y) };
+}
+
+function lootSpec(
+  typeId: string,
+  x: number,
+  y: number,
+  kind: ProceduralLootSpec["kind"],
+  rewardTier: ProceduralLootSpec["rewardTier"],
+  amount = 1,
+): ProceduralLootSpec {
+  return {
+    typeId: typeId as ResourceId,
+    x: snap(x),
+    y: snap(y),
+    kind,
+    rewardTier,
+    amount,
+  };
+}
+
+function snapPoint(point: ProceduralPoint): ProceduralPoint {
+  return { x: snap(point.x), y: snap(point.y) };
+}
+
+function snap(value: number): number {
+  return (
+    Math.floor(value / PROCEDURAL_TILE_SIZE) * PROCEDURAL_TILE_SIZE +
+    PROCEDURAL_TILE_SIZE / 2
+  );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function labelForArchetype(archetype: SectorArchetype): string {
+  return archetype
+    .split("_")
+    .map((word) => word[0]!.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function isWeaponLoot(typeId: ResourceId): boolean {
+  return [
+    "item:basic_spear",
+    "item:lead_pipe",
+    "item:basic_rifle",
+    "item:crossbow",
+    "item:sniper",
+    "item:drone_shooter",
+  ].includes(typeId);
+}

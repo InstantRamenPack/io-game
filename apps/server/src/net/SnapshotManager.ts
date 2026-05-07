@@ -3,6 +3,7 @@ import type {
   EntitySnapshot,
   EquippedItemSnapshot,
   ExtractionSnapshot,
+  MapSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -62,12 +63,14 @@ export class SnapshotManager {
       this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
+    const map = makeMapSnapshot(world);
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
         tick: world.tick,
         dayNight,
         extraction,
+        map,
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -178,6 +181,7 @@ export class SnapshotManager {
         tick: world.tick,
         dayNight,
         extraction,
+        map,
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -194,6 +198,7 @@ export class SnapshotManager {
       tick: world.tick,
       dayNight,
       extraction,
+      map,
       full: false,
       entities: changedEntities,
       removedEntityIds,
@@ -312,6 +317,58 @@ export class SnapshotManager {
   private isIncluded(entityId: number): boolean {
     return this.includedEntityMarkers.get(entityId) === this.marker;
   }
+}
+
+function makeMapSnapshot(world: World): MapSnapshot | undefined {
+  const layout = world.proceduralLayout;
+  if (!layout) {
+    return undefined;
+  }
+  return {
+    seed: layout.seed,
+    sectorSize: layout.sectorSize,
+    centerSectorId: layout.centerSectorId,
+    extractionSectorId: layout.extractionSectorId,
+    dungeonSectorId: layout.dungeonSectorId,
+    militarySectorId: layout.militarySectorId,
+    forestSectorId: layout.forestSectorId,
+    sectors: layout.sectors.map((sector) => ({
+      id: sector.id,
+      label: sector.label,
+      archetype: sector.archetype,
+      row: sector.row,
+      col: sector.col,
+      minX: sector.minX,
+      minY: sector.minY,
+      maxX: sector.maxX,
+      maxY: sector.maxY,
+      hasLightsOut: sector.hasLightsOut,
+    })),
+    features: layout.sectors.flatMap((sector) =>
+      sector.features.map((feature) => ({
+        id: feature.id,
+        label: feature.label,
+        role: feature.role,
+        risk: feature.risk,
+        hasReward: feature.hasReward,
+        minX: feature.minX,
+        minY: feature.minY,
+        maxX: feature.maxX,
+        maxY: feature.maxY,
+        centerX: feature.center.x,
+        centerY: feature.center.y,
+      })),
+    ),
+    markers: layout.minimapMarkers.map((marker) => ({
+      id: marker.id,
+      label: marker.label,
+      archetype: marker.archetype,
+      importance: marker.importance,
+      discoveredByDefault: marker.discoveredByDefault,
+      x: marker.x,
+      y: marker.y,
+    })),
+  };
 }
 
 function stripStableKnownFields(
