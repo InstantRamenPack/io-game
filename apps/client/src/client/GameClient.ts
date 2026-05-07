@@ -951,6 +951,10 @@ export class GameClient {
   }
 }
 
+/**
+ * Mirrors server-side sanitization for player names to match welcome fallback.
+ * Removes control characters, trims whitespace, and caps the length to 20 chars.
+ */
 function sanitizePlayerName(rawName: string): string {
   return rawName.replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, 20);
 }
