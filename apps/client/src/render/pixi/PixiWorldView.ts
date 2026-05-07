@@ -68,6 +68,8 @@ const VIGNETTE_MIN_BLUR_PADDING = 120;
 const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
 // Overscan the vignette rect beyond screen bounds to prevent edge artifacts.
 const VIGNETTE_RECT_PADDING = 512;
+const DARKNESS_OVERLAY_COLOR = 0x030507;
+const VIGNETTE_OVERLAY_COLOR = 0x000000;
 
 type MinimapPlayerMarker = {
   x: number;
@@ -811,7 +813,7 @@ export class PixiWorldView {
     if (!visiblePolygon) {
       return;
     }
-    g.rect(0, 0, sw, sh).fill({ color: 0x030507, alpha: 0.9 });
+    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 0.9 });
     g.poly(visiblePolygon).cut();
 
     this.drawVisibilityVignette(app);
@@ -1038,7 +1040,7 @@ export class PixiWorldView {
       sw + VIGNETTE_RECT_PADDING * 2,
       sh + VIGNETTE_RECT_PADDING * 2,
     ).fill({
-      color: 0x000000,
+      color: VIGNETTE_OVERLAY_COLOR,
       alpha: 0.3,
     });
     g.ellipse(cx, cy, holeR, holeR * VIGNETTE_ELLIPSE_RATIO).cut();

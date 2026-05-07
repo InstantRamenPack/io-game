@@ -982,6 +982,11 @@ export class GameClient {
  * Mirrors server-side sanitization for player names to match welcome fallback.
  * Removes control characters, trims whitespace, and caps the length to 20 chars.
  */
+const MAX_PLAYER_NAME_LENGTH = 20;
+
 function sanitizePlayerName(rawName: string): string {
-  return rawName.replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, 20);
+  return rawName
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .trim()
+    .slice(0, MAX_PLAYER_NAME_LENGTH);
 }
