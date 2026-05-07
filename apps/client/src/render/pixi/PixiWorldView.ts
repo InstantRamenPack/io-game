@@ -819,9 +819,6 @@ export class PixiWorldView {
       centerY,
       visibility.radius,
     );
-    if (angles.length < 3) {
-      return null;
-    }
     angles.sort((left, right) => left - right);
 
     const points: number[] = [];
@@ -896,7 +893,7 @@ export class PixiWorldView {
       const dx = blocker.centerX - originX;
       const dy = blocker.centerY - originY;
       const distance = Math.hypot(dx, dy);
-      if (distance <= blocker.radius + Number.EPSILON) {
+      if (distance <= blocker.radius + MIN_DISTANCE_EPSILON) {
         continue;
       }
       if (distance - blocker.radius > radius) {
@@ -959,7 +956,7 @@ export class PixiWorldView {
     let tMin = Number.NEGATIVE_INFINITY;
     let tMax = Number.POSITIVE_INFINITY;
 
-    if (Math.abs(dirX) < Number.EPSILON) {
+    if (Math.abs(dirX) < MIN_DISTANCE_EPSILON) {
       if (originX < rect.minX || originX > rect.maxX) {
         return null;
       }
@@ -970,7 +967,7 @@ export class PixiWorldView {
       tMax = Math.min(tMax, Math.max(tx1, tx2));
     }
 
-    if (Math.abs(dirY) < Number.EPSILON) {
+    if (Math.abs(dirY) < MIN_DISTANCE_EPSILON) {
       if (originY < rect.minY || originY > rect.maxY) {
         return null;
       }
@@ -1152,7 +1149,7 @@ function clipRayToWorldBounds(
   worldSize: WorldSize,
 ): { x: number; y: number } | null {
   const rayLength = Math.hypot(directionX, directionY);
-  if (rayLength <= Number.EPSILON) {
+  if (rayLength <= MIN_DISTANCE_EPSILON) {
     return null;
   }
 
@@ -1164,10 +1161,10 @@ function clipRayToWorldBounds(
   const maxX = worldSize.w;
   const maxY = worldSize.h;
 
-  if (Math.abs(dx) > Number.EPSILON) {
+  if (Math.abs(dx) > MIN_DISTANCE_EPSILON) {
     ts.push((minX - originX) / dx, (maxX - originX) / dx);
   }
-  if (Math.abs(dy) > Number.EPSILON) {
+  if (Math.abs(dy) > MIN_DISTANCE_EPSILON) {
     ts.push((minY - originY) / dy, (maxY - originY) / dy);
   }
 

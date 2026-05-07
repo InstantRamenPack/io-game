@@ -8,6 +8,7 @@ import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const TREE_VISIBILITY_RADIUS_SCALE = 0.7;
+const VISIBILITY_RECALC_DISTANCE_SQ = 1;
 const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
   "structure:tree",
   "building:tree",
@@ -16,6 +17,11 @@ const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
+  private lastVisibilitySample: {
+    x: number;
+    y: number;
+    worldVersion: number;
+  } | null = null;
 
   constructor(
     private readonly renderer: PixiRenderer,
@@ -140,7 +146,17 @@ export class PixiWorldPresentationSink {
     const playerY = this.renderer.playerY;
     if (playerX === undefined || playerY === undefined) {
       this.renderer.setVisibilityBlockers([]);
+      this.lastVisibilitySample = null;
       return;
+    }
+
+    const lastSample = this.lastVisibilitySample;
+    if (lastSample && lastSample.worldVersion === world.version) {
+      const dx = playerX - lastSample.x;
+      const dy = playerY - lastSample.y;
+      if (dx * dx + dy * dy <= VISIBILITY_RECALC_DISTANCE_SQ) {
+        return;
+      }
     }
 
     const candidates: Array<{
@@ -164,6 +180,11 @@ export class PixiWorldPresentationSink {
 
     candidates.sort((left, right) => left.distanceSq - right.distanceSq);
     this.renderer.setVisibilityBlockers(candidates.map(({ blocker }) => blocker));
+    this.lastVisibilitySample = {
+      x: playerX,
+      y: playerY,
+      worldVersion: world.version,
+    };
   }
 }
 
