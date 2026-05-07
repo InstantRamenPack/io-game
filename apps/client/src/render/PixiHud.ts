@@ -12,6 +12,7 @@ import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
 import { ChestView } from "@client/render/hud/ChestView.ts";
 import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
+import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
 import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
 import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
 import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
@@ -24,6 +25,7 @@ import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordi
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
 import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
 import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
+import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
 import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
@@ -35,6 +37,7 @@ import {
   getNearestPickup,
   getPickupItemLabel,
 } from "@client/render/hud/pickupInteraction.ts";
+import { getTowerRepairCost } from "@client/render/hud/towerRepairInteraction.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
@@ -79,8 +82,11 @@ export class PixiHud {
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
   private recyclerPromptView?: RecyclerPromptView;
+  private towerRepairPromptView?: TowerRepairPromptView;
   private itemPickupPromptView?: ItemPickupPromptView;
   private recyclerHoldStartMs: number | null = null;
+  private repairHoldStartMs: number | null = null;
+  private bossHealthBar?: BossHealthBar;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
   private hunkBadgeIcon?: PIXI.Sprite;
@@ -145,6 +151,11 @@ export class PixiHud {
     this.dirty = true;
   }
 
+  public setRepairHoldStartMs(ms: number | null): void {
+    this.repairHoldStartMs = ms;
+    this.dirty = true;
+  }
+
   public attach(parent: PIXI.Container): void {
     if (!this.root) {
       this.root = new PIXI.Container();
@@ -194,7 +205,9 @@ export class PixiHud {
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
       this.recyclerPromptView = new RecyclerPromptView();
+      this.towerRepairPromptView = new TowerRepairPromptView();
       this.itemPickupPromptView = new ItemPickupPromptView();
+      this.bossHealthBar = new BossHealthBar();
 
       this.hunkBadge = new PIXI.Container();
       this.hunkBadgeBg = new PIXI.Graphics();
@@ -230,7 +243,9 @@ export class PixiHud {
         this.dayNightIndicator.container,
         this.selectedItemToastView.container,
         this.recyclerPromptView.container,
+        this.towerRepairPromptView.container,
         this.itemPickupPromptView.container,
+        this.bossHealthBar.container,
         this.tooltipView.container,
       );
     }
@@ -583,12 +598,21 @@ export class PixiHud {
           inventory,
         ));
 
+    const bossAlive =
+      this.selectors.getWorldEntities().some((e) => e.typeId === "enemy:thanos" && e.alive);
+
+    const repairActive =
+      this.repairHoldStartMs !== null ||
+      this.selectors.getNearDamagedTower() !== null;
+
     if (
       !this.dirty &&
       !force &&
       !sizeChanged &&
       !selectionToastVisible &&
-      !recyclerActive
+      !recyclerActive &&
+      !repairActive &&
+      !bossAlive
     ) {
       return;
     }
@@ -674,6 +698,7 @@ export class PixiHud {
       });
     }
 
+    this.syncBossHealthBar(app.screen.width, app.screen.height);
     this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
     this.syncRecyclerPrompt(
       app.screen.width,
@@ -682,6 +707,7 @@ export class PixiHud {
       inventory,
       nearPickup,
     );
+    this.syncRepairPrompt(app.screen.width, app.screen.height, nowMs);
     this.syncItemPickupPrompt(
       app.screen.width,
       app.screen.height,
@@ -787,6 +813,43 @@ export class PixiHud {
     });
   }
 
+  private syncRepairPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    nowMs: number,
+  ): void {
+    if (!this.towerRepairPromptView) {
+      return;
+    }
+
+    const tower = this.selectors.getNearDamagedTower();
+    if (!tower) {
+      this.towerRepairPromptView.sync({
+        visible: false,
+        towerLabel: "",
+        repairCost: 0,
+        holdStartMs: null,
+        nowMs,
+        screenWidth,
+        screenHeight,
+      });
+      return;
+    }
+
+    const towerLabel = this.selectors.formatTypeLabel(tower.typeId);
+    const repairCost = getTowerRepairCost(tower);
+
+    this.towerRepairPromptView.sync({
+      visible: true,
+      towerLabel,
+      repairCost,
+      holdStartMs: this.repairHoldStartMs,
+      nowMs,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
   private syncItemPickupPrompt(
     screenWidth: number,
     screenHeight: number,
@@ -817,6 +880,20 @@ export class PixiHud {
     this.itemPickupPromptView.sync({
       visible: nearest !== null,
       itemLabel,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncBossHealthBar(screenWidth: number, screenHeight: number): void {
+    if (!this.bossHealthBar) return;
+    const boss = this.selectors
+      .getWorldEntities()
+      .find((e) => e.typeId === "enemy:thanos" && e.alive);
+    this.bossHealthBar.sync({
+      visible: boss !== undefined,
+      hp: boss?.hp ?? 0,
+      maxHp: boss?.maxHp ?? 2000,
       screenWidth,
       screenHeight,
     });

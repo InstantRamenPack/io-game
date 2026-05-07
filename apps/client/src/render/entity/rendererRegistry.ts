@@ -1,7 +1,9 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts";
 import { ChestRenderer } from "@client/render/entity/building/ChestRenderer.ts";
+import { CommsTowerRenderer } from "@client/render/entity/building/CommsTowerRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
+import { EnergyTowerRenderer } from "@client/render/entity/building/EnergyTowerRenderer.ts";
 import { FenceRenderer } from "@client/render/entity/building/FenceRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
 import { MapBuildingRenderer } from "@client/render/entity/building/MapBuildingRenderer.ts";
@@ -14,6 +16,7 @@ import { MegaknightRenderer } from "@client/render/entity/enemy/MegaknightRender
 import { PoliceRenderer } from "@client/render/entity/enemy/PoliceRenderer.ts";
 import { SaboteurRenderer } from "@client/render/entity/enemy/SaboteurRenderer.ts";
 import { ShootaRenderer } from "@client/render/entity/enemy/ShootaRenderer.ts";
+import { ThanosRenderer } from "@client/render/entity/enemy/ThanosRenderer.ts";
 import { WallbreakerRenderer } from "@client/render/entity/enemy/WallbreakerRenderer.ts";
 import { BomberRenderer } from "@client/render/entity/enemy/BomberRenderer.ts";
 import type {
@@ -26,6 +29,8 @@ import { BasicBulletRenderer } from "@client/render/entity/projectile/BasicBulle
 import { CannonBulletRenderer } from "@client/render/entity/projectile/CannonBulletRenderer.ts";
 import { CrossbowArrowRenderer } from "@client/render/entity/projectile/CrossbowArrowRenderer.ts";
 import { HomingDroneRenderer } from "@client/render/entity/projectile/HomingDroneRenderer.ts";
+import { ThanosBulletRenderer } from "@client/render/entity/projectile/ThanosBulletRenderer.ts";
+import { ThanosRocketRenderer } from "@client/render/entity/projectile/ThanosRocketRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import { getResourcePath } from "@shared/ids/ResourceId.ts";
 
@@ -41,6 +46,7 @@ const rendererManifests = [
   ["saboteur", SaboteurRenderer],
   ["shoota", ShootaRenderer],
   ["police", PoliceRenderer],
+  ["thanos", ThanosRenderer],
   ["wallbreaker", WallbreakerRenderer],
   ["bomber", BomberRenderer],
   ["tree", TreeRenderer],
@@ -54,7 +60,9 @@ const rendererManifests = [
   ["dungeon_wall", WallRenderer],
   ["cannon", CannonRenderer],
   ["chest", ChestRenderer],
+  ["comms_tower", CommsTowerRenderer],
   ["crafting_station", CraftingStationRenderer],
+  ["energy_tower", EnergyTowerRenderer],
   ["landmine", LandmineRenderer],
   ["recycler", RecyclerRenderer],
   ["basic_bullet", BasicBulletRenderer],
@@ -63,6 +71,8 @@ const rendererManifests = [
   ["cannon_bullet", CannonBulletRenderer],
   ["crossbow_arrow", CrossbowArrowRenderer],
   ["homing_drone", HomingDroneRenderer],
+  ["thanos_bullet", ThanosBulletRenderer],
+  ["thanos_rocket", ThanosRocketRenderer],
   ["item_entity", PickupRenderer],
 ] as const satisfies ReadonlyArray<readonly [string, EntityRendererCtor]>;
 

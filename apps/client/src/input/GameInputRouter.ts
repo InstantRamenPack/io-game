@@ -7,10 +7,14 @@ type RouterOptions = {
 };
 
 const RECYCLE_HOLD_DURATION_MS = 750;
+const REPAIR_HOLD_DURATION_MS = 750;
 
 export class GameInputRouter {
   private eHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private eHoldFired = false;
+  private fHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private fHoldFired = false;
+  private fHoldTowerId: number | null = null;
 
   constructor(private readonly options: RouterOptions) {}
 
@@ -20,17 +24,31 @@ export class GameInputRouter {
   }
 
   private onKeyUp(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() !== "e") {
+    const key = event.key.toLowerCase();
+
+    if (key === "e") {
+      if (this.eHoldTimer !== null) {
+        clearTimeout(this.eHoldTimer);
+        this.eHoldTimer = null;
+      }
+      if (!this.eHoldFired) {
+        this.options.dispatch({ type: "cancelRecycleHold" });
+      }
+      this.eHoldFired = false;
       return;
     }
-    if (this.eHoldTimer !== null) {
-      clearTimeout(this.eHoldTimer);
-      this.eHoldTimer = null;
+
+    if (key === "f") {
+      if (this.fHoldTimer !== null) {
+        clearTimeout(this.fHoldTimer);
+        this.fHoldTimer = null;
+      }
+      if (!this.fHoldFired) {
+        this.options.dispatch({ type: "cancelRepairHold" });
+      }
+      this.fHoldFired = false;
+      this.fHoldTowerId = null;
     }
-    if (!this.eHoldFired) {
-      this.options.dispatch({ type: "cancelRecycleHold" });
-    }
-    this.eHoldFired = false;
   }
 
   private onKeyDown(event: KeyboardEvent): void {
@@ -100,6 +118,31 @@ export class GameInputRouter {
         return;
       }
       this.options.dispatch({ type: "pickupNearestItem" });
+      return;
+    }
+
+    if (key === "f") {
+      const towerId = context.nearDamagedTower;
+      if (towerId !== null) {
+        event.preventDefault();
+        if (this.fHoldTimer !== null) {
+          clearTimeout(this.fHoldTimer);
+        }
+        this.fHoldFired = false;
+        this.fHoldTowerId = towerId;
+        this.options.dispatch({ type: "startRepairHold" });
+        this.fHoldTimer = setTimeout(() => {
+          this.fHoldTimer = null;
+          this.fHoldFired = true;
+          if (this.fHoldTowerId !== null) {
+            this.options.dispatch({
+              type: "repairTower",
+              towerId: this.fHoldTowerId,
+            });
+          }
+          this.fHoldTowerId = null;
+        }, REPAIR_HOLD_DURATION_MS);
+      }
       return;
     }
 

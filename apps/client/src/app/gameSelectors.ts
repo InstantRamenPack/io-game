@@ -1,4 +1,5 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
+import { getNearDamagedTower as findNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
 import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import {
@@ -25,6 +26,7 @@ export type GameSelectors = {
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
   getDayNight(): DayNightSnapshot | undefined;
+  getNearDamagedTower(): ClientEntity | null;
 };
 
 type GameClientSelectorsSource = {
@@ -147,5 +149,7 @@ export function createGameSelectors(
     hasRecipeResources,
     formatCosts,
     getDayNight: () => gameClient.worldState?.clientWorld?.dayNight,
+    getNearDamagedTower: () =>
+      findNearDamagedTower(getPlayerEntity(), getTrackedBuildings()),
   };
 }

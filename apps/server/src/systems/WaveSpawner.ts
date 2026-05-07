@@ -35,6 +35,8 @@ type NightWaveConfig = {
   nightCycle: number;
   /** All spawns that occur during this night */
   spawns: WaveSpawnConfig[];
+  /** Optional override for the wave arrival chat broadcast */
+  message?: string;
 };
 
 /**
@@ -55,6 +57,7 @@ const WaveSpawnConfigSchema = z.object({
 const NightWaveConfigSchema = z.object({
   nightCycle: z.number().int().positive(),
   spawns: z.array(WaveSpawnConfigSchema),
+  message: z.string().optional(),
 });
 
 const WavesConfigFileSchema = z.object({
@@ -162,7 +165,7 @@ export class WaveSpawner {
 
     if (this.chatService?.broadcastSystemMessage) {
       this.chatService.broadcastSystemMessage(
-        `🌙 Wave ${nightCycle} approaching! Enemies incoming!`,
+        waveConfig.message ?? `🌙 Wave ${nightCycle} approaching! Enemies incoming!`,
       );
     }
   }

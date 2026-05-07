@@ -154,6 +154,54 @@
           "count": 2
         }
       ]
+    },
+    {
+      "nightCycle": 4,
+      "message": "☠️ THANOS HAS ARRIVED! THE FINAL WAVE IS UPON YOU!",
+      "spawns": [
+        {
+          "entityType": "thanos",
+          "x": 3000,
+          "y": 3000,
+          "delayTicks": 0,
+          "count": 1
+        },
+        {
+          "entityType": "drifter",
+          "x": 2400,
+          "y": 3000,
+          "delayTicks": 20,
+          "count": 5
+        },
+        {
+          "entityType": "shoota",
+          "x": 3600,
+          "y": 3000,
+          "delayTicks": 20,
+          "count": 4
+        },
+        {
+          "entityType": "megaknight",
+          "x": 3000,
+          "y": 2400,
+          "delayTicks": 60,
+          "count": 2
+        },
+        {
+          "entityType": "police",
+          "x": 3000,
+          "y": 3600,
+          "delayTicks": 60,
+          "count": 3
+        },
+        {
+          "entityType": "bomber",
+          "x": 2600,
+          "y": 2600,
+          "delayTicks": 90,
+          "count": 3
+        }
+      ]
     }
   ]
 }

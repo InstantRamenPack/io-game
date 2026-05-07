@@ -303,6 +303,10 @@ export class GameClient {
     this.actionDispatcher.queueRecycle();
   }
 
+  public queueRepairTower(towerId: number): void {
+    this.actionDispatcher.queueRepairTower(towerId);
+  }
+
   public requestRespawn(): void {
     this.actionDispatcher.requestRespawn();
   }
@@ -433,6 +437,7 @@ export class GameClient {
 
     this.latestExtractionState = snapshot.extraction;
     this.renderer.updateExtractionState(snapshot.extraction);
+    this.renderer.updateInfrastructureState(snapshot.infrastructure);
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,

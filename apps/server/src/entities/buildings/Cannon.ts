@@ -26,6 +26,10 @@ export class Cannon extends Building {
       return null;
     }
 
+    if (world.infrastructureSystem && !world.infrastructureSystem.isEnergyActive()) {
+      return null;
+    }
+
     const owner = world.get(this.ownerId);
     return owner instanceof Player && owner.alive ? owner : null;
   }

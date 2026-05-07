@@ -1,0 +1,20 @@
+{
+  "label": "Thanos Rifle",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 14,
+    "projectileTypeId": "projectile:thanos_bullet",
+    "magSize": 8,
+    "reloadTicks": 80,
+    "spreadDeg": 4,
+    "equippedRender": {
+      "holdOffset": { "x": 20, "y": 4 },
+      "holdRotationDeg": -8,
+      "scale": 1.2,
+      "handedness": "right",
+      "recoilDistance": 12,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  }
+}

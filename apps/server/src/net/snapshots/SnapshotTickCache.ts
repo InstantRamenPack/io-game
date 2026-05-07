@@ -1,6 +1,7 @@
 import type {
   EntitySnapshot,
   ExtractionSnapshot,
+  InfrastructureSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import {
@@ -16,6 +17,7 @@ export class SnapshotTickCache {
   private preparedTick = -1;
   private preparedDayNight: WorldSnapshot["dayNight"] | null = null;
   private preparedExtraction: ExtractionSnapshot | null = null;
+  private preparedInfrastructure: InfrastructureSnapshot | null = null;
   private readonly snapshotByEntityId = new Map<number, EntitySnapshot>();
   private readonly previousFingerprintByEntityId = new Map<number, string>();
   private readonly previousSnapshotByEntityId = new Map<
@@ -33,6 +35,7 @@ export class SnapshotTickCache {
     this.preparedTick = world.tick;
     this.preparedDayNight = world.dayNightSystem.toSnapshot();
     this.preparedExtraction = world.extractionSystem?.toSnapshot() ?? null;
+    this.preparedInfrastructure = world.infrastructureSystem?.toSnapshot() ?? null;
     this.snapshotByEntityId.clear();
 
     for (const entity of world.entities.all()) {
@@ -94,6 +97,10 @@ export class SnapshotTickCache {
 
   public getExtractionSnapshot(): ExtractionSnapshot | null {
     return this.preparedExtraction;
+  }
+
+  public getInfrastructureSnapshot(): InfrastructureSnapshot | null {
+    return this.preparedInfrastructure;
   }
 
   public getSnapshot(entityId: number): EntitySnapshot | undefined {

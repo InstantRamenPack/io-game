@@ -13,4 +13,7 @@ export type InputCommand =
   | { type: "pickupNearestItem" }
   | { type: "startRecycleHold" }
   | { type: "cancelRecycleHold" }
-  | { type: "recycleItem" };
+  | { type: "recycleItem" }
+  | { type: "startRepairHold" }
+  | { type: "cancelRepairHold" }
+  | { type: "repairTower"; towerId: number };

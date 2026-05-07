@@ -11,6 +11,7 @@ import {
   CHEST_SLOT_COUNT,
   HOTBAR_SLOT_COUNT,
   RECYCLER_INTERACT_PADDING,
+  TOWER_INTERACT_PADDING,
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
@@ -39,7 +40,11 @@ import {
 } from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
+import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
+import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
+
+const TOWER_REPAIR_HP_DIVISOR = 50;
 
 type PlayerInputIntentState = {
   seq: number;
@@ -606,6 +611,9 @@ export class Player extends Entity {
         case "recycle":
           this.recycleSelectedItem(world);
           break;
+        case "repair_tower":
+          this.repairTower(world, actionMessage.towerId);
+          break;
       }
     }
 
@@ -781,6 +789,44 @@ export class Player extends Entity {
       }
     }
     return false;
+  }
+
+  private repairTower(world: World, towerId: number): void {
+    const tower = world.entities.get(towerId);
+    if (!(tower instanceof EnergyTower) && !(tower instanceof CommsTower)) {
+      return;
+    }
+
+    const missingHp = tower.maxHp - tower.hp;
+    if (missingHp <= 0 && tower.alive) {
+      return;
+    }
+
+    const rb = tower.getHitboxBounds();
+    const pad = TOWER_INTERACT_PADDING;
+    if (
+      this.x < tower.x + rb.minX - pad ||
+      this.x > tower.x + rb.maxX + pad ||
+      this.y < tower.y + rb.minY - pad ||
+      this.y > tower.y + rb.maxY + pad
+    ) {
+      return;
+    }
+
+    const totalMissing = tower.alive ? missingHp : tower.maxHp;
+    const repairCost = Math.ceil(totalMissing / TOWER_REPAIR_HP_DIVISOR);
+    if (repairCost <= 0) {
+      return;
+    }
+
+    const hunkTypeId = "item:hunk" as ResourceId;
+    if (this.inventory.countType(hunkTypeId) < repairCost) {
+      return;
+    }
+
+    this.inventory.consumeTypes([{ typeId: hunkTypeId, amount: repairCost }]);
+    tower.hp = tower.maxHp;
+    tower.alive = true;
   }
 
   private unlockBlueprintPickupRecipes(pickupInventory: Inventory): void {

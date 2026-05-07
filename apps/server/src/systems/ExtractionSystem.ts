@@ -84,6 +84,11 @@ export class ExtractionSystem implements System {
       return;
     }
 
+    if (world.infrastructureSystem && !world.infrastructureSystem.isCommsActive()) {
+      this.stage = "locked";
+      return;
+    }
+
     const allOnPad = totalAlivePlayers > 0 && playersOnPad >= totalAlivePlayers;
 
     switch (this.stage) {

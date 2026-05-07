@@ -74,6 +74,10 @@ export type HudRuntime = {
    * Updates the recycler hold-E start time for the progress bar (null to clear).
    */
   setRecyclerHoldStartMs(ms: number | null): void;
+  /**
+   * Updates the tower repair hold-F start time for the progress bar (null to clear).
+   */
+  setRepairHoldStartMs(ms: number | null): void;
 };
 
 export type HudController = HudRuntime;

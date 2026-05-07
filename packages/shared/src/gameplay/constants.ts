@@ -13,3 +13,4 @@ export const CHEST_SLOT_COUNT = 27;
 export const MAX_CHEST_INDEX = CHEST_SLOT_COUNT - 1;
 
 export const RECYCLER_INTERACT_PADDING = 80;
+export const TOWER_INTERACT_PADDING = 80;

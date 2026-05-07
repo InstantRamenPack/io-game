@@ -1,0 +1,15 @@
+{
+  "label": "Thanos Rocket",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 22,
+    "range": 1400,
+    "damage": 120,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 22,
+      "height": 22
+    }
+  }
+}

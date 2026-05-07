@@ -173,11 +173,17 @@ export const ExtractionSnapshotSchema = z.object({
   enemiesInRadius: NonNegativeIntSchema,
 });
 
+export const InfrastructureSnapshotSchema = z.object({
+  energyActive: z.boolean(),
+  commsActive: z.boolean(),
+});
+
 export const WorldSnapshotSchema = z.object({
   tick: NonNegativeIntSchema,
   lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
   extraction: ExtractionSnapshotSchema,
+  infrastructure: InfrastructureSnapshotSchema,
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
   removedEntityIds: z.array(EntityIdSchema).optional(),
@@ -267,4 +273,5 @@ export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
 export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
 export type ExtractionStage = z.infer<typeof ExtractionStageSchema>;
 export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
+export type InfrastructureSnapshot = z.infer<typeof InfrastructureSnapshotSchema>;
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

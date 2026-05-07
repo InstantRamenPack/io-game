@@ -82,6 +82,13 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueRepairTower(towerId: number): void {
+    this.sendAction({
+      action: "repair_tower",
+      towerId,
+    });
+  }
+
   public requestRespawn(): void {
     if (!this.canSend()) {
       return;
@@ -118,7 +125,8 @@ export class ClientActionDispatcher {
         }
       | { action: "drop"; dropWholeStack: boolean }
       | { action: "pickup" }
-      | { action: "recycle" },
+      | { action: "recycle" }
+      | { action: "repair_tower"; towerId: number },
   ): void {
     if (!this.canSend()) {
       return;

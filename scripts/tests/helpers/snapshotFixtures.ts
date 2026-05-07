@@ -207,6 +207,7 @@ export function makeSnapshot(
         totalAlivePlayers: 0,
         enemiesInRadius: 0,
       } satisfies WorldSnapshot["extraction"]),
+    infrastructure: { energyActive: true, commsActive: true },
     full: options.full ?? true,
     entities,
     removedEntityIds: options.removedEntityIds ?? [],

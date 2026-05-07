@@ -1,5 +1,6 @@
 import { Graphics, type Application, type Container } from "pixi.js";
 import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import { BaseVisionOverlay } from "@client/render/pixi/BaseVisionOverlay.ts";
 import { HelipadOverlay } from "@client/render/pixi/HelipadOverlay.ts";
 import {
   PixiPlacementPreview,
@@ -9,7 +10,7 @@ import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
-import type { ExtractionSnapshot } from "@shared/net/snapshots.ts";
+import type { ExtractionSnapshot, InfrastructureSnapshot } from "@shared/net/snapshots.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
@@ -33,6 +34,7 @@ export class PixiWorldView {
   private readonly placementPreview = new PixiPlacementPreview();
   private readonly sniperAimGuide = new Graphics();
   private readonly helipadOverlay = new HelipadOverlay();
+  private readonly baseVisionOverlay = new BaseVisionOverlay();
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private worldSize: WorldSize;
   private gridNightBlend = 0;
@@ -48,6 +50,7 @@ export class PixiWorldView {
     this.sniperAimGuide.visible = false;
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
+    this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
   }
 
   public get entityContainer(): Container {
@@ -112,10 +115,15 @@ export class PixiWorldView {
     this.syncCullViewport(app);
     this.redrawScreenGridLinesIfNeeded(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
+    this.baseVisionOverlay.update(deltaMs);
   }
 
   public updateExtractionState(state: ExtractionSnapshot | null): void {
     this.pendingExtractionState = state;
+  }
+
+  public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
+    this.baseVisionOverlay.setEnergyActive(state?.energyActive ?? true);
   }
 
   public setGridNightBlend(blend: number): void {

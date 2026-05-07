@@ -9,4 +9,5 @@ export type InputContext = {
   textEntryActive: boolean;
   nearRecyclerWithItem: boolean;
   nearPickup: boolean;
+  nearDamagedTower: number | null;
 };

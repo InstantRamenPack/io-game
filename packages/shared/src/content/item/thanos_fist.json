@@ -1,0 +1,20 @@
+{
+  "label": "Infinity Fist",
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 30,
+    "range": 90,
+    "damage": 60,
+    "knockback": 45,
+    "sweepArcDeg": 130,
+    "equippedRender": {
+      "holdOffset": { "x": 20, "y": 6 },
+      "holdRotationDeg": 0,
+      "scale": 1.5,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 130,
+      "jabDistance": 0
+    }
+  }
+}

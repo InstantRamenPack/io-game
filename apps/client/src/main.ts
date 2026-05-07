@@ -21,6 +21,7 @@ import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import { getNearestPickup } from "@client/render/hud/pickupInteraction.ts";
+import { getNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 
@@ -130,6 +131,13 @@ function cancelRecyclerHold(): void {
   hudController.setRecyclerHoldStartMs(null);
 }
 
+let repairHoldActive = false;
+
+function cancelRepairHold(): void {
+  repairHoldActive = false;
+  hudController.setRepairHoldStartMs(null);
+}
+
 gameClient.onWorldUpdated(() => {
   if (
     recyclerHoldActive &&
@@ -140,6 +148,16 @@ gameClient.onWorldUpdated(() => {
     )
   ) {
     cancelRecyclerHold();
+  }
+
+  if (
+    repairHoldActive &&
+    getNearDamagedTower(
+      selectors.getPlayerEntity(),
+      selectors.getTrackedBuildings(),
+    ) === null
+  ) {
+    cancelRepairHold();
   }
 });
 
@@ -159,6 +177,11 @@ new GameInputRouter({
     nearPickup:
       getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
       null,
+    nearDamagedTower:
+      getNearDamagedTower(
+        selectors.getPlayerEntity(),
+        selectors.getTrackedBuildings(),
+      )?.id ?? null,
   }),
   dispatch: (command) => {
     switch (command.type) {
@@ -213,6 +236,18 @@ new GameInputRouter({
         gameClient.queueRecycle();
         recyclerHoldActive = false;
         hudController.setRecyclerHoldStartMs(null);
+        return;
+      case "startRepairHold":
+        repairHoldActive = true;
+        hudController.setRepairHoldStartMs(performance.now());
+        return;
+      case "cancelRepairHold":
+        cancelRepairHold();
+        return;
+      case "repairTower":
+        gameClient.queueRepairTower(command.towerId);
+        repairHoldActive = false;
+        hudController.setRepairHoldStartMs(null);
         return;
     }
   },

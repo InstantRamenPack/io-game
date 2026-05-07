@@ -1,0 +1,8 @@
+{
+  "label": "Comms Tower",
+  "maxHp": 1200,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [{ "width": 100, "height": 165, "offsetX": 0, "offsetY": 0 }]
+  }
+}

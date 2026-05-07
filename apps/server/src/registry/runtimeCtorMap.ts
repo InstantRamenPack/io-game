@@ -2,7 +2,9 @@ import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
+import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
@@ -12,6 +14,7 @@ import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
+import { Thanos } from "@server/entities/enemies/Thanos.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
@@ -19,6 +22,8 @@ import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
 import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
 import { SniperBullet } from "@server/entities/projectiles/SniperBullet.ts";
+import { ThanosBullet } from "@server/entities/projectiles/ThanosBullet.ts";
+import { ThanosRocket } from "@server/entities/projectiles/ThanosRocket.ts";
 import { HouseL } from "@server/entities/structures/HouseL.ts";
 import { HouseM } from "@server/entities/structures/HouseM.ts";
 import { HouseXl } from "@server/entities/structures/HouseXl.ts";
@@ -73,6 +78,9 @@ import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 import { Sniper } from "@server/items/weapons/Sniper.ts";
+import { ThanosFist } from "@server/items/weapons/ThanosFist.ts";
+import { ThanosRifle } from "@server/items/weapons/ThanosRifle.ts";
+import { ThanosRocketLauncher } from "@server/items/weapons/ThanosRocketLauncher.ts";
 
 export const entityRuntimeCtors = [
   Player,
@@ -83,13 +91,16 @@ export const entityRuntimeCtors = [
   Police,
   Saboteur,
   Shoota,
+  Thanos,
   Wallbreaker,
   HouseL,
   HouseM,
   HouseXl,
   Cannon,
   Chest,
+  CommsTower,
   CraftingStation,
+  EnergyTower,
   FenceH,
   FenceV,
   DungeonWall,
@@ -104,6 +115,8 @@ export const entityRuntimeCtors = [
   HomingDrone,
   RifleBullet,
   SniperBullet,
+  ThanosBullet,
+  ThanosRocket,
 ] as const;
 
 export const itemRuntimeCtors = [
@@ -125,6 +138,9 @@ export const itemRuntimeCtors = [
   DroneShooter,
   ZombieSword,
   SaboteurSword,
+  ThanosFist,
+  ThanosRifle,
+  ThanosRocketLauncher,
   HunkItem,
   JunkFoodItem,
   QualityFoodItem,

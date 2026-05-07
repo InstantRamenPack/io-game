@@ -10,7 +10,7 @@ import { type PlacementPreviewState } from "@client/render/pixi/PixiPlacementPre
 import { PixiWorldView } from "@client/render/pixi/PixiWorldView.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
-import type { ExtractionSnapshot } from "@shared/net/snapshots.ts";
+import type { ExtractionSnapshot, InfrastructureSnapshot } from "@shared/net/snapshots.ts";
 
 /**
  * Rendering facade for visible entity state.
@@ -177,6 +177,10 @@ export class PixiRenderer {
 
   public updateExtractionState(state: ExtractionSnapshot | null): void {
     this.worldView.updateExtractionState(state);
+  }
+
+  public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
+    this.worldView.updateInfrastructureState(state);
   }
 
   public setCameraToPlayer(x: number, y: number): void {

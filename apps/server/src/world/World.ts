@@ -8,6 +8,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import type { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
+import type { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
@@ -52,6 +53,7 @@ export class World {
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
   public extractionSystem: ExtractionSystem | null = null;
+  public infrastructureSystem: InfrastructureSystem | null = null;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
@@ -115,6 +117,7 @@ export class World {
     const waveStartedAt = performance.now();
     this.waveSystem.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
+    this.infrastructureSystem?.update(this, deltaMs);
     const waveMs = performance.now() - waveStartedAt;
 
     const spatialBeforeStartedAt = performance.now();
@@ -190,6 +193,7 @@ export class World {
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
+    this.infrastructureSystem?.update(this, deltaMs);
 
     this.ensureSpatialIndex();
     this.navPathService.updateDirty(this);

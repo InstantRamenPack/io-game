@@ -3,6 +3,7 @@ import type {
   EntitySnapshot,
   EquippedItemSnapshot,
   ExtractionSnapshot,
+  InfrastructureSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -21,6 +22,11 @@ const LOCKED_EXTRACTION: ExtractionSnapshot = {
   playersOnPad: 0,
   totalAlivePlayers: 0,
   enemiesInRadius: 0,
+};
+
+const FULL_INFRASTRUCTURE: InfrastructureSnapshot = {
+  energyActive: true,
+  commsActive: true,
 };
 const MAX_DELTA_ENTITY_UPDATES = 1024;
 const FULL_ENTITY_RELIABILITY_SENDS = 4;
@@ -61,12 +67,15 @@ export class SnapshotManager {
       this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
+    const infrastructure =
+      this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
         tick: world.tick,
         dayNight,
         extraction,
+        infrastructure,
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -175,6 +184,7 @@ export class SnapshotManager {
         tick: world.tick,
         dayNight,
         extraction,
+        infrastructure,
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -191,6 +201,7 @@ export class SnapshotManager {
       tick: world.tick,
       dayNight,
       extraction,
+      infrastructure,
       full: false,
       entities: changedEntities,
       removedEntityIds,

@@ -18,6 +18,7 @@ import {
   validatePlayerStarterLoadout,
 } from "@server/server/starterLoadout.ts";
 import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
+import { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
 import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
@@ -72,11 +73,14 @@ export class GameInstanceRuntime {
       chatService: this.chatService,
     });
     this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
+    const infraSystem = new InfrastructureSystem();
+    this.world.infrastructureSystem = infraSystem;
     if (process.env.NODE_ENV !== "production") {
       console.log("Wave spawning system initialized");
     }
 
     loadMap(this.world);
+    infraSystem.spawnTowers(this.world);
   }
 
   public tick(): void {

@@ -639,6 +639,7 @@ function makeSnapshot(
       totalAlivePlayers: 0,
       enemiesInRadius: 0,
     },
+    infrastructure: { energyActive: true, commsActive: true },
     full,
     entities,
     removedEntityIds: [],
