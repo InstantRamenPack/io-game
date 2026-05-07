@@ -80,18 +80,8 @@ export class GameInstanceRuntime {
       playerIdByClientId: this.playerIdByClientId,
     });
 
-<<<<<<< HEAD
-    this.world.waveSystem = WaveSystem.loadFromFile({
-      dayNightSystem: this.world.dayNightSystem,
-      configPath: "./apps/server/src/config/waves.json",
-      chatService: this.chatService,
-    });
-    this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
     const infraSystem = new InfrastructureSystem();
     this.world.infrastructureSystem = infraSystem;
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Wave spawning system initialized");
-=======
     if (options.isPlayground) {
       this.world.waveSystem = new WaveSystem({
         dayNightSystem: this.world.dayNightSystem,
@@ -106,7 +96,6 @@ export class GameInstanceRuntime {
       if (process.env.NODE_ENV !== "production") {
         console.log("Wave spawning system initialized");
       }
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
     }
 
     loadMap(this.world);

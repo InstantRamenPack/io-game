@@ -3,11 +3,8 @@ import type {
   EntitySnapshot,
   EquippedItemSnapshot,
   ExtractionSnapshot,
-<<<<<<< HEAD
   InfrastructureSnapshot,
-=======
   MapSnapshot,
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -72,23 +69,17 @@ export class SnapshotManager {
       this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
-<<<<<<< HEAD
     const infrastructure =
       this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
-=======
     const map = makeMapSnapshot(world);
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
         tick: world.tick,
         dayNight,
         extraction,
-<<<<<<< HEAD
         infrastructure,
-=======
         map,
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -199,11 +190,8 @@ export class SnapshotManager {
         tick: world.tick,
         dayNight,
         extraction,
-<<<<<<< HEAD
         infrastructure,
-=======
         map,
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -220,11 +208,8 @@ export class SnapshotManager {
       tick: world.tick,
       dayNight,
       extraction,
-<<<<<<< HEAD
       infrastructure,
-=======
       map,
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
       full: false,
       entities: changedEntities,
       removedEntityIds,

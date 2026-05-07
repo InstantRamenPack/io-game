@@ -59,11 +59,8 @@ export class World {
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
   public extractionSystem: ExtractionSystem | null = null;
-<<<<<<< HEAD
   public infrastructureSystem: InfrastructureSystem | null = null;
-=======
   public proceduralLayout: ProceduralWorldLayout | null = null;
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;

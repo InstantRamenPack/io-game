@@ -478,11 +478,8 @@ export class GameClient {
 
     this.latestExtractionState = snapshot.extraction;
     this.renderer.updateExtractionState(snapshot.extraction);
-<<<<<<< HEAD
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
-=======
     this.renderer.updateMapState(snapshot.map ?? null);
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,

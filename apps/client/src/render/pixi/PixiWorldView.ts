@@ -16,16 +16,16 @@ import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
-<<<<<<< HEAD
-import type { ExtractionSnapshot, InfrastructureSnapshot } from "@shared/net/snapshots.ts";
-=======
-import type { ExtractionSnapshot, MapSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  ExtractionSnapshot,
+  InfrastructureSnapshot,
+  MapSnapshot,
+} from "@shared/net/snapshots.ts";
 import type { VisibilityContext } from "@shared/world/Visibility.ts";
 import {
   getVisibilityContextForMap,
   isPointVisible,
 } from "@shared/world/Visibility.ts";
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
@@ -61,9 +61,7 @@ export class PixiWorldView {
   private readonly placementPreview = new PixiPlacementPreview();
   private readonly sniperAimGuide = new Graphics();
   private readonly helipadOverlay = new HelipadOverlay();
-<<<<<<< HEAD
   private readonly baseVisionOverlay = new BaseVisionOverlay();
-=======
   private readonly minimapGraphic = new Graphics();
   private readonly minimapLabel = new Text(
     "",
@@ -74,7 +72,6 @@ export class PixiWorldView {
     }),
   );
   private readonly darknessOverlay = new Graphics();
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private mapState: MapSnapshot | null = null;
   private visibilityState: VisibilityContext | null = null;
@@ -94,12 +91,9 @@ export class PixiWorldView {
     this.sniperAimGuide.visible = false;
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
-<<<<<<< HEAD
     this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
-=======
     this.sceneGraph.overlayLayer.addChild(this.darknessOverlay);
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   }
 
   public get entityContainer(): Container {
@@ -173,10 +167,10 @@ export class PixiWorldView {
     this.pendingExtractionState = state;
   }
 
-<<<<<<< HEAD
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
     this.baseVisionOverlay.setEnergyActive(state?.energyActive ?? true);
-=======
+  }
+
   public updateMapState(map: MapSnapshot | null): void {
     this.mapState = map;
     this.drawGridGeometry();
@@ -215,7 +209,6 @@ export class PixiWorldView {
       return 0.18;
     }
     return 0;
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   }
 
   public setGridNightBlend(blend: number): void {

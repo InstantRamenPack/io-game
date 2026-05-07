@@ -28,12 +28,9 @@ import enemymegaknightJson from "@shared/content/enemy/megaknight.json";
 import enemypoliceJson from "@shared/content/enemy/police.json";
 import enemysaboteurJson from "@shared/content/enemy/saboteur.json";
 import enemyshootaJson from "@shared/content/enemy/shoota.json";
-<<<<<<< HEAD
-import enemythanosJson from "@shared/content/enemy/thanos.json";
-=======
 import enemysniperJson from "@shared/content/enemy/sniper.json";
 import enemystalkerJson from "@shared/content/enemy/stalker.json";
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
+import enemythanosJson from "@shared/content/enemy/thanos.json";
 import enemywallbreakerJson from "@shared/content/enemy/wallbreaker.json";
 import itembaseballBatJson from "@shared/content/item/baseball_bat.json";
 import itembasicDaggerJson from "@shared/content/item/basic_dagger.json";
@@ -149,12 +146,9 @@ export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "police", enemypoliceJson),
   makeParsedEntityContentEntry("enemy", "saboteur", enemysaboteurJson),
   makeParsedEntityContentEntry("enemy", "shoota", enemyshootaJson),
-<<<<<<< HEAD
-  makeParsedEntityContentEntry("enemy", "thanos", enemythanosJson),
-=======
   makeParsedEntityContentEntry("enemy", "sniper", enemysniperJson),
   makeParsedEntityContentEntry("enemy", "stalker", enemystalkerJson),
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
+  makeParsedEntityContentEntry("enemy", "thanos", enemythanosJson),
   makeParsedEntityContentEntry("enemy", "wallbreaker", enemywallbreakerJson),
 ] as const;
 

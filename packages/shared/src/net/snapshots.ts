@@ -173,11 +173,11 @@ export const ExtractionSnapshotSchema = z.object({
   enemiesInRadius: NonNegativeIntSchema,
 });
 
-<<<<<<< HEAD
 export const InfrastructureSnapshotSchema = z.object({
   energyActive: z.boolean(),
   commsActive: z.boolean(),
-=======
+});
+
 export const MapMarkerSnapshotSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -233,7 +233,6 @@ export const VisibilitySnapshotSchema = z.object({
   radius: z.number().finite().positive(),
   centerX: z.number().finite(),
   centerY: z.number().finite(),
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 });
 
 export const WorldSnapshotSchema = z.object({
@@ -241,12 +240,9 @@ export const WorldSnapshotSchema = z.object({
   lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
   extraction: ExtractionSnapshotSchema,
-<<<<<<< HEAD
   infrastructure: InfrastructureSnapshotSchema,
-=======
   map: MapSnapshotSchema.optional(),
   visibility: VisibilitySnapshotSchema.optional(),
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
   removedEntityIds: z.array(EntityIdSchema).optional(),
@@ -336,12 +332,10 @@ export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
 export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
 export type ExtractionStage = z.infer<typeof ExtractionStageSchema>;
 export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
-<<<<<<< HEAD
 export type InfrastructureSnapshot = z.infer<typeof InfrastructureSnapshotSchema>;
-=======
 export type MapMarkerSnapshot = z.infer<typeof MapMarkerSnapshotSchema>;
 export type MapSectorSnapshot = z.infer<typeof MapSectorSnapshotSchema>;
+export type MapFeatureSnapshot = z.infer<typeof MapFeatureSnapshotSchema>;
 export type MapSnapshot = z.infer<typeof MapSnapshotSchema>;
 export type VisibilitySnapshot = z.infer<typeof VisibilitySnapshotSchema>;
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

@@ -10,11 +10,11 @@ import { type PlacementPreviewState } from "@client/render/pixi/PixiPlacementPre
 import { PixiWorldView } from "@client/render/pixi/PixiWorldView.ts";
 import type { WorldSize } from "@client/render/renderTypes.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
-<<<<<<< HEAD
-import type { ExtractionSnapshot, InfrastructureSnapshot } from "@shared/net/snapshots.ts";
-=======
-import type { ExtractionSnapshot, MapSnapshot } from "@shared/net/snapshots.ts";
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
+import type {
+  ExtractionSnapshot,
+  InfrastructureSnapshot,
+  MapSnapshot,
+} from "@shared/net/snapshots.ts";
 
 /**
  * Rendering facade for visible entity state.
@@ -81,6 +81,7 @@ export class PixiRenderer {
   public setPlayerEntityId(entityId: number | undefined): void {
     this.playerEntityId = entityId;
     if (entityId === undefined) {
+      this.worldView.updatePlayerVisibility(null);
       this.worldView.invalidateViewRectCache();
       this.worldView.resetCamera();
     }
@@ -89,6 +90,8 @@ export class PixiRenderer {
   public setPlayerPosition(x: number, y: number): void {
     this.playerX = x;
     this.playerY = y;
+    this.worldView.updatePlayerVisibility({ x, y });
+    this.renderScheduler.markDirty();
   }
 
   public setTickRate(tickRate: number): void {
@@ -188,14 +191,14 @@ export class PixiRenderer {
     this.worldView.updateExtractionState(state);
   }
 
-<<<<<<< HEAD
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
     this.worldView.updateInfrastructureState(state);
-=======
+    this.renderScheduler.markDirty();
+  }
+
   public updateMapState(state: MapSnapshot | null): void {
     this.worldView.updateMapState(state);
     this.renderScheduler.markDirty();
->>>>>>> 2b43b8d89ff4001c099dd6fe2311a8ce33e51699
   }
 
   public setCameraToPlayer(x: number, y: number): void {
