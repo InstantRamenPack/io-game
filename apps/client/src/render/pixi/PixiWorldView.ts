@@ -53,7 +53,9 @@ const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 48;
 const VISIBILITY_SAMPLE_COUNT = 96;
 const VISIBILITY_ANGLE_EPSILON = 0.0005;
+// Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
+const MIN_POLYGON_COORDINATES = 6;
 const VIGNETTE_HOLE_RATIO = 0.58;
 const VIGNETTE_ELLIPSE_RATIO = 0.88;
 const VIGNETTE_MIN_BLUR_PADDING = 120;
@@ -841,7 +843,7 @@ export class PixiWorldView {
       points.push(screen.x, screen.y);
     }
 
-    if (points.length < 6) {
+    if (points.length < MIN_POLYGON_COORDINATES) {
       return null;
     }
     return points;
