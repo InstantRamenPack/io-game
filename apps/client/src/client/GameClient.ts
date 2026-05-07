@@ -73,6 +73,7 @@ export class GameClient {
     MovementSuppressionReason,
     () => void
   >();
+  private pendingPlayerName: string | null = null;
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
   private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
@@ -411,6 +412,7 @@ export class GameClient {
     this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
+    this.pendingPlayerName = connectOptions.playerName;
     this.startFrameLoop();
 
     this.networkClient.connect(url, {
@@ -472,6 +474,7 @@ export class GameClient {
       return;
     }
 
+    this.resolveWelcomeFromSnapshot();
     this.latestExtractionState = snapshot.extraction;
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateMapState(snapshot.map ?? null);
@@ -499,6 +502,7 @@ export class GameClient {
     }
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
+    this.pendingPlayerName = null;
     this.presentationSink.setPlayerEntityId(entityId);
     const inActiveMatch =
       this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null;
@@ -702,6 +706,7 @@ export class GameClient {
     this.worldState?.clear();
     this.worldState = undefined;
     this.playerEntityId = undefined;
+    this.pendingPlayerName = null;
     this.spectateEntityId = null;
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
@@ -715,6 +720,31 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private resolveWelcomeFromSnapshot(): void {
+    if (this.isSessionReady()) {
+      return;
+    }
+    const pendingName = this.pendingPlayerName;
+    if (!pendingName) {
+      return;
+    }
+    const world = this.worldState?.clientWorld;
+    if (!world) {
+      return;
+    }
+    const normalizedName = sanitizePlayerName(pendingName);
+    if (!normalizedName) {
+      return;
+    }
+    const matches = [...world.entities.values()].filter(
+      (entity) => entity.kind === "player" && entity.name === normalizedName,
+    );
+    if (matches.length !== 1) {
+      return;
+    }
+    this.onWelcome(matches[0].id);
   }
 
   private getLocalPlayerVisualPose(): {
@@ -919,4 +949,8 @@ export class GameClient {
       directionY,
     });
   }
+}
+
+function sanitizePlayerName(rawName: string): string {
+  return rawName.replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, 20);
 }
