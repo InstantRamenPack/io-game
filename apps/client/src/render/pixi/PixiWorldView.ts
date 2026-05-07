@@ -44,10 +44,12 @@ const MINIMAP_PADDING = 16;
 const MAX_VISIBILITY_BLOCKERS = 48;
 const VISIBILITY_SAMPLE_COUNT = 96;
 const VISIBILITY_ANGLE_EPSILON = 0.0005;
+const MIN_DISTANCE_EPSILON = 1e-6;
 const VIGNETTE_HOLE_RATIO = 0.58;
 const VIGNETTE_ELLIPSE_RATIO = 0.88;
 const VIGNETTE_MIN_BLUR_PADDING = 120;
 const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
+const VIGNETTE_RECT_PADDING = 512;
 
 export class PixiWorldView {
   private readonly sceneGraph = new PixiSceneGraph();
@@ -850,7 +852,7 @@ export class PixiWorldView {
       }
       const centerAngle = Math.atan2(dy, dx);
       const offset = Math.asin(
-        Math.min(1, blocker.radius / Math.max(distance, 1e-6)),
+        Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
       );
       for (const sign of [-1, 1]) {
         const baseAngle = centerAngle + sign * offset;
@@ -972,7 +974,12 @@ export class PixiWorldView {
     const minDim = Math.min(sw, sh);
     const holeR = minDim * VIGNETTE_HOLE_RATIO;
 
-    g.rect(-512, -512, sw + 1024, sh + 1024).fill({
+    g.rect(
+      -VIGNETTE_RECT_PADDING,
+      -VIGNETTE_RECT_PADDING,
+      sw + VIGNETTE_RECT_PADDING * 2,
+      sh + VIGNETTE_RECT_PADDING * 2,
+    ).fill({
       color: 0x000000,
       alpha: 0.3,
     });
