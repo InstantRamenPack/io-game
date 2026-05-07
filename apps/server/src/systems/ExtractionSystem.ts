@@ -14,7 +14,7 @@ export const HELIPAD_RADIUS = 160;
 const ENEMY_DANGER_RADIUS = 400;
 const BOARD_TIMER_GOAL_MS = 45_000;
 const CHOPPER_TIMER_GOAL_MS = 20_000;
-const FINAL_WAVE_CYCLE = 3;
+const FINAL_WAVE_CYCLE = 7;
 
 export class ExtractionSystem implements System {
   private readonly waveSystem: WaveSystem;
