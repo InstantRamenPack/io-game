@@ -44,6 +44,10 @@ const MINIMAP_PADDING = 16;
 const MAX_VISIBILITY_BLOCKERS = 48;
 const VISIBILITY_SAMPLE_COUNT = 96;
 const VISIBILITY_ANGLE_EPSILON = 0.0005;
+const VIGNETTE_HOLE_RATIO = 0.58;
+const VIGNETTE_ELLIPSE_RATIO = 0.88;
+const VIGNETTE_MIN_BLUR_PADDING = 120;
+const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
 
 export class PixiWorldView {
   private readonly sceneGraph = new PixiSceneGraph();
@@ -966,15 +970,18 @@ export class PixiWorldView {
     const cx = sw / 2;
     const cy = sh / 2;
     const minDim = Math.min(sw, sh);
-    const holeR = minDim * 0.58;
+    const holeR = minDim * VIGNETTE_HOLE_RATIO;
 
     g.rect(-512, -512, sw + 1024, sh + 1024).fill({
       color: 0x000000,
       alpha: 0.3,
     });
-    g.ellipse(cx, cy, holeR, holeR * 0.88).cut();
+    g.ellipse(cx, cy, holeR, holeR * VIGNETTE_ELLIPSE_RATIO).cut();
 
-    this.darknessVignetteBlur.padding = Math.max(120, holeR * 0.35);
+    this.darknessVignetteBlur.padding = Math.max(
+      VIGNETTE_MIN_BLUR_PADDING,
+      holeR * VIGNETTE_BLUR_PADDING_RATIO,
+    );
     g.filterArea = app.screen;
   }
 
