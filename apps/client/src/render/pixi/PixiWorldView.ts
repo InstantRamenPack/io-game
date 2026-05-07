@@ -52,14 +52,21 @@ const MINIMAP_PADDING = 16;
 const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 48;
 const VISIBILITY_SAMPLE_COUNT = 96;
+// Offset rays slightly around edges/corners to avoid precision gaps in LOS cuts.
 const VISIBILITY_ANGLE_EPSILON = 0.0005;
 // Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
+// Minimum 3 points (triangle) => 6 coordinate entries in the polygon array.
 const MIN_POLYGON_COORDINATES = 6;
+// Fraction of the screen's min dimension to keep clear at the vignette center.
 const VIGNETTE_HOLE_RATIO = 0.58;
+// Vertical scaling for the vignette ellipse (squash on Y axis).
 const VIGNETTE_ELLIPSE_RATIO = 0.88;
+// Minimum blur padding in pixels for the vignette edge.
 const VIGNETTE_MIN_BLUR_PADDING = 120;
+// Extra blur padding derived from the vignette hole radius.
 const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
+// Overscan the vignette rect beyond screen bounds to prevent edge artifacts.
 const VIGNETTE_RECT_PADDING = 512;
 
 type MinimapPlayerMarker = {
