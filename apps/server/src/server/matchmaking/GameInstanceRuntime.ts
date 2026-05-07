@@ -8,7 +8,10 @@ import type {
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
-import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
+import {
+  getMatchPlayerSpawnPosition,
+  getPlayerSpawnPosition,
+} from "@server/entities/playerSpawn.ts";
 import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
@@ -47,6 +50,7 @@ export class GameInstanceRuntime {
   private readonly networkServer: NetworkServerLike;
   private readonly isPlayground: boolean;
   private readonly playerIdByClientId = new Map<string, number>();
+  private readonly spawnSlotByClientId = new Map<string, number>();
   private readonly lastProcessedInputSequenceByClientId = new Map<
     string,
     number
@@ -155,7 +159,7 @@ export class GameInstanceRuntime {
       this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
     );
 
-    const spawnPosition = getPlayerSpawnPosition(this.gameConfig.worldSize);
+    const spawnPosition = this.getSpawnPositionForClient(clientId);
     playerEntity.x = spawnPosition.x;
     playerEntity.y = spawnPosition.y;
     applyPlayerStarterLoadout(playerEntity);
@@ -178,6 +182,7 @@ export class GameInstanceRuntime {
     this.lastProcessedActionSequenceByClientId.delete(clientId);
     this.playerAliveSinceTick.delete(clientId);
     this.spectateTargetIdByClientId.delete(clientId);
+    this.spawnSlotByClientId.delete(clientId);
     const playerId = this.playerIdByClientId.get(clientId);
     if (playerId) {
       this.world.despawn(playerId);
@@ -215,7 +220,7 @@ export class GameInstanceRuntime {
       for (const [clientId, playerId] of this.playerIdByClientId) {
         const player = this.world.get<Player>(playerId);
         if (player && !player.alive) {
-          player.respawn(this.world);
+          player.respawn(this.world, this.getSpawnPositionForClient(clientId));
           this.playerAliveSinceTick.set(clientId, this.world.tick);
           this.sendSpectateUpdate(clientId, null);
         }
@@ -241,7 +246,7 @@ export class GameInstanceRuntime {
           this.playerAliveSinceTick.delete(clientId);
           if (this.isPlayground) {
             // Instant respawn at spawn in playground
-            player.respawn(this.world);
+            player.respawn(this.world, this.getSpawnPositionForClient(clientId));
             this.playerAliveSinceTick.set(clientId, this.world.tick);
             deadCount--;
           }
@@ -389,7 +394,7 @@ export class GameInstanceRuntime {
     if (!player || player.alive) {
       return;
     }
-    player.respawn(this.world);
+    player.respawn(this.world, this.getSpawnPositionForClient(clientId));
   }
 
   public handleChat(clientId: string, text: string): void {
@@ -402,6 +407,32 @@ export class GameInstanceRuntime {
       return undefined;
     }
     return this.world.get<Player>(playerId);
+  }
+
+  private getSpawnPositionForClient(clientId: string): { x: number; y: number } {
+    if (this.isPlayground) {
+      return getPlayerSpawnPosition(this.gameConfig.worldSize);
+    }
+    return getMatchPlayerSpawnPosition(
+      this.gameConfig.worldSize,
+      this.world.proceduralLayout,
+      this.getOrAssignSpawnSlot(clientId),
+    );
+  }
+
+  private getOrAssignSpawnSlot(clientId: string): number {
+    const existingSlot = this.spawnSlotByClientId.get(clientId);
+    if (existingSlot !== undefined) {
+      return existingSlot;
+    }
+
+    const usedSlots = new Set(this.spawnSlotByClientId.values());
+    let slot = 0;
+    while (usedSlots.has(slot)) {
+      slot += 1;
+    }
+    this.spawnSlotByClientId.set(clientId, slot);
+    return slot;
   }
 
   private rejectInput(

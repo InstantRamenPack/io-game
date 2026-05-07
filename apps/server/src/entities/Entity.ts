@@ -232,6 +232,39 @@ export abstract class Entity {
     };
   }
 
+  public applyDamage(world: World, amount: number, sourceId = 0): void {
+    if (!Number.isFinite(amount) || amount <= 0 || !this.alive) {
+      return;
+    }
+
+    const effectiveAmount = amount * this.getDamageReductionMultiplier();
+    const nextHp = Math.max(0, Math.min(this.maxHp, this.hp - effectiveAmount));
+    if (nextHp === this.hp) {
+      return;
+    }
+
+    this.hp = nextHp;
+    const isFatal = nextHp <= 0;
+    const damageEvent: NetEvent = {
+      type: "damage",
+      payload: {
+        sourceId,
+        targetId: this.id,
+        amount: effectiveAmount,
+        remainingHp: nextHp,
+        maxHp: this.maxHp,
+        x: this.x,
+        y: this.y,
+        isFatal,
+      },
+    };
+    world.events.push(damageEvent);
+
+    if (isFatal) {
+      this.handleDeath(world);
+    }
+  }
+
   public clipVelocityAgainstNormal(normal: MovementNormal): void {
     const totalInwardSpeed = this.vx * normal.x + this.vy * normal.y;
     if (totalInwardSpeed <= 0) {
@@ -485,35 +518,6 @@ export abstract class Entity {
     sourceId: number,
     amount: number,
   ): void {
-    if (!Number.isFinite(amount) || amount <= 0 || !this.alive) {
-      return;
-    }
-
-    const effectiveAmount = amount * this.getDamageReductionMultiplier();
-    const nextHp = Math.max(0, Math.min(this.maxHp, this.hp - effectiveAmount));
-    if (nextHp === this.hp) {
-      return;
-    }
-
-    this.hp = nextHp;
-    const isFatal = nextHp <= 0;
-    const damageEvent: NetEvent = {
-      type: "damage",
-      payload: {
-        sourceId,
-        targetId: this.id,
-        amount: effectiveAmount,
-        remainingHp: nextHp,
-        maxHp: this.maxHp,
-        x: this.x,
-        y: this.y,
-        isFatal,
-      },
-    };
-    world.events.push(damageEvent);
-
-    if (isFatal) {
-      this.handleDeath(world);
-    }
+    this.applyDamage(world, amount, sourceId);
   }
 }

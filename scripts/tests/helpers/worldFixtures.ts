@@ -19,6 +19,7 @@ export type TestConfigOverrides = {
   interpolation?: Partial<GameConfig["interpolation"]>;
   replication?: Partial<GameConfig["replication"]>;
   debug?: Partial<GameConfig["debug"]>;
+  dayNight?: Partial<GameConfig["dayNight"]>;
   tickRate?: GameConfig["tickRate"];
 };
 
@@ -51,6 +52,9 @@ export function makeTestConfig(
   }
   if (overrides.debug) {
     config.debug = { ...config.debug, ...overrides.debug };
+  }
+  if (overrides.dayNight) {
+    config.dayNight = { ...config.dayNight, ...overrides.dayNight };
   }
   return config;
 }

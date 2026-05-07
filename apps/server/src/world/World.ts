@@ -13,6 +13,7 @@ import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import type { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import type { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
+import { NightStormSystem } from "@server/systems/NightStormSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
@@ -58,6 +59,7 @@ export class World {
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
+  public nightStormSystem: NightStormSystem;
   public extractionSystem: ExtractionSystem | null = null;
   public infrastructureSystem: InfrastructureSystem | null = null;
   public proceduralLayout: ProceduralWorldLayout | null = null;
@@ -101,6 +103,11 @@ export class World {
       dayDurationMs: gameConfig.dayNight.dayDurationMs,
       nightDurationMs: gameConfig.dayNight.nightDurationMs,
     });
+    this.nightStormSystem = new NightStormSystem({
+      tickRate: gameConfig.tickRate,
+      damage: gameConfig.dayNight.stormDamage.damage,
+      intervalMs: gameConfig.dayNight.stormDamage.intervalMs,
+    });
     this.waveSystem = new WaveSystem({ dayNightSystem: this.dayNightSystem });
     this.focusedTrace = new FocusedServerTrace(gameConfig);
   }
@@ -124,6 +131,7 @@ export class World {
     const dayNightMs = performance.now() - dayNightStartedAt;
     const waveStartedAt = performance.now();
     this.waveSystem.update(this, deltaMs);
+    this.nightStormSystem.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
     this.infrastructureSystem?.update(this, deltaMs);
     const waveMs = performance.now() - waveStartedAt;
@@ -201,6 +209,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "tick_start");
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
+    this.nightStormSystem.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
     this.infrastructureSystem?.update(this, deltaMs);
 

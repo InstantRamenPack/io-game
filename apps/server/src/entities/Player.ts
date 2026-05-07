@@ -234,7 +234,7 @@ export class Player extends Entity {
     });
   }
 
-  public respawn(world: World): void {
+  public respawn(world: World, position?: { x: number; y: number }): void {
     const before = {
       x: this.x,
       y: this.y,
@@ -250,7 +250,8 @@ export class Player extends Entity {
     this.clearQueuedInputState();
     this.aimTheta = 0;
     this.latestInputIntent = undefined;
-    const spawnPosition = getPlayerSpawnPosition(world.gameConfig.worldSize);
+    const spawnPosition =
+      position ?? getPlayerSpawnPosition(world.gameConfig.worldSize);
     this.x = spawnPosition.x;
     this.y = spawnPosition.y;
     this.rotation = 0;

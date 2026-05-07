@@ -57,6 +57,10 @@ export class GameConfig {
   public dayNight = {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
+    stormDamage: {
+      damage: 5,
+      intervalMs: 2000,
+    },
   };
   public compatHash = COMPAT_HASH;
 
