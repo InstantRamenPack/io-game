@@ -5,8 +5,13 @@ import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const TREE_VISIBILITY_RADIUS_SCALE = 0.7;
+const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
+  "structure:tree",
+  "building:tree",
+]);
 
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
@@ -196,7 +201,7 @@ function toVisibilityBlocker(entity: ClientEntity): VisibilityBlockerShape | nul
 }
 
 function isCircularVisibilityBlocker(entity: ClientEntity): boolean {
-  return entity.typeId.endsWith(":tree");
+  return CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId);
 }
 
 function getVisibilityBlockerCenter(
