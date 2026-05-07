@@ -202,6 +202,7 @@ function toVisibilityBlocker(entity: ClientEntity): VisibilityBlockerShape | nul
   }
 
   if (isCircularVisibilityBlocker(entity)) {
+    // Use the larger hitbox dimension so tree canopies fully occlude LOS.
     const radius =
       Math.max(bounds.width, bounds.height) * 0.5 * TREE_VISIBILITY_RADIUS_SCALE;
     return {

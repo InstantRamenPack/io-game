@@ -1045,6 +1045,7 @@ export class PixiWorldView {
     });
     g.ellipse(cx, cy, holeR, holeR * VIGNETTE_ELLIPSE_RATIO).cut();
 
+    // Minimum padding keeps blur coverage on very small screens.
     this.darknessVignetteBlur.padding = Math.max(
       VIGNETTE_MIN_BLUR_PADDING,
       holeR * VIGNETTE_BLUR_PADDING_RATIO,
