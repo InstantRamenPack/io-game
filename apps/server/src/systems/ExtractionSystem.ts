@@ -3,6 +3,7 @@ import type { World } from "@server/world/World.ts";
 import type { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { Player } from "@server/entities/Player.ts";
 import type {
+  ExtractionLockedReason,
   ExtractionSnapshot,
   ExtractionStage,
 } from "@shared/net/snapshots.ts";
@@ -19,6 +20,7 @@ const FINAL_WAVE_CYCLE = 7;
 export class ExtractionSystem implements System {
   private readonly waveSystem: WaveSystem;
   private stage: ExtractionStage = "locked";
+  private lockedReason: ExtractionLockedReason | undefined = "final_wave";
   private boardElapsedMs = 0;
   private chopperElapsedMs = 0;
   private completed = false;
@@ -86,14 +88,24 @@ export class ExtractionSystem implements System {
 
     if (!finalWaveActive) {
       this.stage = "locked";
+      this.lockedReason = "final_wave";
+      this.boardElapsedMs = 0;
+      this.chopperElapsedMs = 0;
       return;
     }
 
-    if (world.infrastructureSystem && !world.infrastructureSystem.isCommsActive()) {
+    if (
+      world.infrastructureSystem &&
+      !world.infrastructureSystem.isCommsActive()
+    ) {
       this.stage = "locked";
+      this.lockedReason = "comms_offline";
+      this.boardElapsedMs = 0;
+      this.chopperElapsedMs = 0;
       return;
     }
 
+    this.lockedReason = undefined;
     const allOnPad = totalAlivePlayers > 0 && playersOnPad >= totalAlivePlayers;
 
     switch (this.stage) {
@@ -143,6 +155,7 @@ export class ExtractionSystem implements System {
   public toSnapshot(): ExtractionSnapshot {
     return {
       stage: this.stage,
+      lockedReason: this.lockedReason,
       boardElapsedMs: Math.round(this.boardElapsedMs),
       chopperElapsedMs: Math.round(this.chopperElapsedMs),
       playersOnPad: this.cachedPlayersOnPad,

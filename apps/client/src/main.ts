@@ -183,8 +183,8 @@ new GameInputRouter({
       getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
       null,
     nearChest:
-      findNearestChest(selectors.getPlayerEntity(), selectors.getChests())?.id ??
-      null,
+      findNearestChest(selectors.getPlayerEntity(), selectors.getChests())
+        ?.id ?? null,
     nearCraftingStation: hasNearbyCraftingStation(
       selectors.getPlayerEntity(),
       selectors.getCraftingStations(),

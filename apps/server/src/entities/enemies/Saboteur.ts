@@ -19,7 +19,12 @@ export class Saboteur extends Enemy {
       goals: [
         new TargetEntityGoal<Enemy>(0, EnergyTower, 800),
         new TargetEntityGoal<Enemy>(1, CommsTower, 800),
-        new TargetEntityGoal<Enemy>(2, Building, 600, (e) => !(e instanceof Recycler)),
+        new TargetEntityGoal<Enemy>(
+          2,
+          Building,
+          600,
+          (e) => !(e instanceof Recycler),
+        ),
         new TargetEntityGoal<Enemy>(3, Player, 400),
         new LookAtTargetGoal<Enemy>(4),
         new GoToTargetGoal<Enemy>(5, 22),

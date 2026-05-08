@@ -1,4 +1,5 @@
 import {
+  BlurFilter,
   Graphics,
   Text,
   TextStyle,
@@ -15,7 +16,10 @@ import {
 import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
-import type { WorldSize } from "@client/render/renderTypes.ts";
+import type {
+  VisibilityBlockerShape,
+  WorldSize,
+} from "@client/render/renderTypes.ts";
 import type {
   ExtractionSnapshot,
   InfrastructureSnapshot,
@@ -47,17 +51,30 @@ const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
 const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 48;
+const VISIBILITY_SAMPLE_COUNT = 96;
+// Offset rays slightly around edges/corners to avoid precision gaps in LOS cuts.
+const VISIBILITY_ANGLE_EPSILON = 0.0005;
+// Use a game-scale epsilon to avoid precision issues with large world coords.
+const MIN_DISTANCE_EPSILON = 1e-6;
+// Minimum 3 points (triangle) => 6 coordinate entries in the polygon array.
+const MIN_POLYGON_COORDINATES = 6;
+// Fraction of the screen's min dimension to keep clear at the vignette center.
+const VIGNETTE_HOLE_RATIO = 0.58;
+// Vertical scaling for the vignette ellipse (squash on Y axis).
+const VIGNETTE_ELLIPSE_RATIO = 0.88;
+// Minimum blur padding in pixels for the vignette edge.
+const VIGNETTE_MIN_BLUR_PADDING = 120;
+// Extra blur padding derived from the vignette hole radius.
+const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
+// Overscan the vignette rect beyond screen bounds to prevent edge artifacts.
+const VIGNETTE_RECT_PADDING = 512;
+const DARKNESS_OVERLAY_COLOR = 0x030507;
+const VIGNETTE_OVERLAY_COLOR = 0x000000;
+
 type MinimapPlayerMarker = {
   x: number;
   y: number;
   isSelf: boolean;
-};
-
-export type VisibilityBlockerViewRect = {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
 };
 
 export class PixiWorldView {
@@ -78,11 +95,20 @@ export class PixiWorldView {
     }),
   );
   private readonly darknessOverlay = new Graphics();
+  private readonly darknessVignette = new Graphics();
+  private readonly darknessVignetteBlur = new BlurFilter({
+    strength: 18,
+    quality: 1,
+  });
   private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
+  private infrastructureState: InfrastructureSnapshot = {
+    energyActive: true,
+    commsActive: true,
+  };
   private mapState: MapSnapshot | null = null;
   private visibilityState: VisibilityContext | null = null;
-  private visibilityBlockers: VisibilityBlockerViewRect[] = [];
+  private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
   private gridNightBlend = 0;
   private isPlayground = false;
@@ -100,7 +126,11 @@ export class PixiWorldView {
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
     this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
-    this.sceneGraph.overlayLayer.addChild(this.darknessOverlay);
+    this.sceneGraph.overlayLayer.addChild(
+      this.darknessOverlay,
+      this.darknessVignette,
+    );
+    this.darknessVignette.filters = [this.darknessVignetteBlur];
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
   }
 
@@ -177,7 +207,20 @@ export class PixiWorldView {
   }
 
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
-    this.baseVisionOverlay.setEnergyActive(state?.energyActive ?? true);
+    this.infrastructureState = state ?? {
+      energyActive: true,
+      commsActive: true,
+    };
+    this.baseVisionOverlay.setEnergyActive(
+      this.infrastructureState.energyActive,
+    );
+    if (this.visibilityState) {
+      this.visibilityState = getVisibilityContextForMap(
+        this.mapState,
+        this.visibilityState.center,
+        { outdoorLightsActive: this.infrastructureState.energyActive },
+      );
+    }
   }
 
   public updateMapState(map: MapSnapshot | null): void {
@@ -187,12 +230,14 @@ export class PixiWorldView {
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {
     this.visibilityState = player
-      ? getVisibilityContextForMap(this.mapState, player)
+      ? getVisibilityContextForMap(this.mapState, player, {
+          outdoorLightsActive: this.infrastructureState.energyActive,
+        })
       : null;
   }
 
   public updateVisibilityBlockers(
-    blockers: readonly VisibilityBlockerViewRect[],
+    blockers: readonly VisibilityBlockerShape[],
   ): void {
     this.visibilityBlockers = blockers.slice(0, MAX_VISIBILITY_BLOCKERS);
   }
@@ -214,7 +259,11 @@ export class PixiWorldView {
     if (entity.id === undefined || entity.kind === "player") {
       return 1;
     }
-    const visible = isPointVisible(visibility, entity, this.visibilityBlockers);
+    const visible = isPointVisible(
+      visibility,
+      entity,
+      this.visibilityBlockers.filter((blocker) => blocker.kind === "rect"),
+    );
     if (visible) {
       return 1;
     }
@@ -223,7 +272,6 @@ export class PixiWorldView {
     }
     return 0;
   }
-
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
     this.updateGridColors();
@@ -770,104 +818,262 @@ export class PixiWorldView {
 
   private redrawLightsOutOverlay(app: Application): void {
     const g = this.darknessOverlay;
+    const vignette = this.darknessVignette;
     g.clear();
+    vignette.clear();
     const visibility = this.visibilityState;
     if (!visibility?.restricted) {
+      g.visible = false;
+      vignette.visible = false;
       return;
     }
-    const center = this.worldToScreen(
-      app,
-      visibility.center.x,
-      visibility.center.y,
-    );
-    if (!center) {
-      return;
-    }
-    const scale = this.viewportController.getCurrentScale(app);
-    const radiusPx = Math.max(64, visibility.radius * scale);
+    g.visible = true;
+    vignette.visible = true;
     const sw = app.screen.width;
     const sh = app.screen.height;
-    const left = Math.max(0, center.x - radiusPx);
-    const right = Math.min(sw, center.x + radiusPx);
-    const top = Math.max(0, center.y - radiusPx);
-    const bottom = Math.min(sh, center.y + radiusPx);
+    const visiblePolygon = this.buildVisibilityPolygon(app, visibility);
+    if (!visiblePolygon) {
+      return;
+    }
+    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 0.9 });
+    g.poly(visiblePolygon).cut();
 
-    g.rect(0, 0, sw, top).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(0, bottom, sw, sh - bottom).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(0, top, left, bottom - top).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(right, top, sw - right, bottom - top).fill({
-      color: 0x030507,
-      alpha: 0.82,
-    });
-    g.rect(left, top, right - left, bottom - top).stroke({
-      width: 2,
-      color: 0xa9d4ff,
-      alpha: 0.22,
-    });
-    this.drawBlockerShadows(app, g, visibility);
+    this.drawVisibilityVignette(app);
   }
 
-  private drawBlockerShadows(
+  private buildVisibilityPolygon(
     app: Application,
-    g: Graphics,
     visibility: VisibilityContext,
-  ): void {
-    if (this.visibilityBlockers.length === 0) {
-      return;
-    }
-    const playerScreen = this.worldToScreen(
-      app,
-      visibility.center.x,
-      visibility.center.y,
+  ): number[] | null {
+    const centerX = visibility.center.x;
+    const centerY = visibility.center.y;
+    const angles = this.collectVisibilityAngles(
+      centerX,
+      centerY,
+      visibility.radius,
     );
-    if (!playerScreen) {
-      return;
-    }
-    const sw = app.screen.width;
-    const sh = app.screen.height;
-    for (const blocker of this.visibilityBlockers) {
-      const topLeft = this.worldToScreen(app, blocker.minX, blocker.minY);
-      const bottomRight = this.worldToScreen(app, blocker.maxX, blocker.maxY);
-      if (!topLeft || !bottomRight) {
+    angles.sort((left, right) => left - right);
+
+    const points: number[] = [];
+    for (const angle of angles) {
+      const dirX = Math.cos(angle);
+      const dirY = Math.sin(angle);
+      const distance = this.getVisibilityRayDistance(
+        centerX,
+        centerY,
+        dirX,
+        dirY,
+        visibility.radius,
+      );
+      const worldX = centerX + dirX * distance;
+      const worldY = centerY + dirY * distance;
+      const screen = this.worldToScreen(app, worldX, worldY);
+      if (!screen) {
         continue;
       }
-      const minX = Math.min(topLeft.x, bottomRight.x);
-      const maxX = Math.max(topLeft.x, bottomRight.x);
-      const minY = Math.min(topLeft.y, bottomRight.y);
-      const maxY = Math.max(topLeft.y, bottomRight.y);
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const shadowPad = 10;
-      if (
-        Math.abs(centerX - playerScreen.x) >= Math.abs(centerY - playerScreen.y)
-      ) {
-        if (centerX >= playerScreen.x) {
-          g.rect(
-            maxX,
-            minY - shadowPad,
-            sw - maxX,
-            maxY - minY + shadowPad * 2,
-          ).fill({ color: 0x030507, alpha: 0.72 });
-        } else {
-          g.rect(0, minY - shadowPad, minX, maxY - minY + shadowPad * 2).fill({
-            color: 0x030507,
-            alpha: 0.72,
-          });
+      points.push(screen.x, screen.y);
+    }
+
+    if (points.length < MIN_POLYGON_COORDINATES) {
+      return null;
+    }
+    return points;
+  }
+
+  private collectVisibilityAngles(
+    originX: number,
+    originY: number,
+    radius: number,
+  ): number[] {
+    const angles: number[] = [];
+    const twoPi = Math.PI * 2;
+
+    for (let i = 0; i < VISIBILITY_SAMPLE_COUNT; i += 1) {
+      angles.push((i / VISIBILITY_SAMPLE_COUNT) * twoPi);
+    }
+
+    for (const blocker of this.visibilityBlockers) {
+      if (blocker.kind === "rect") {
+        const minX = blocker.minX;
+        const minY = blocker.minY;
+        const maxX = blocker.maxX;
+        const maxY = blocker.maxY;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const maxExtent = Math.hypot(maxX - minX, maxY - minY) / 2;
+        if (
+          Math.hypot(centerX - originX, centerY - originY) >
+          radius + maxExtent
+        ) {
+          continue;
         }
-      } else if (centerY >= playerScreen.y) {
-        g.rect(
-          minX - shadowPad,
-          maxY,
-          maxX - minX + shadowPad * 2,
-          sh - maxY,
-        ).fill({ color: 0x030507, alpha: 0.72 });
-      } else {
-        g.rect(minX - shadowPad, 0, maxX - minX + shadowPad * 2, minY).fill({
-          color: 0x030507,
-          alpha: 0.72,
-        });
+        const corners: Array<readonly [number, number]> = [
+          [minX, minY],
+          [maxX, minY],
+          [maxX, maxY],
+          [minX, maxY],
+        ];
+        for (const [x, y] of corners) {
+          const baseAngle = Math.atan2(y - originY, x - originX);
+          angles.push(
+            baseAngle - VISIBILITY_ANGLE_EPSILON,
+            baseAngle,
+            baseAngle + VISIBILITY_ANGLE_EPSILON,
+          );
+        }
+        continue;
+      }
+
+      const dx = blocker.centerX - originX;
+      const dy = blocker.centerY - originY;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= blocker.radius + MIN_DISTANCE_EPSILON) {
+        continue;
+      }
+      if (distance - blocker.radius > radius) {
+        continue;
+      }
+      const centerAngle = Math.atan2(dy, dx);
+      const offset = Math.asin(
+        Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
+      );
+      for (const sign of [-1, 1]) {
+        const baseAngle = centerAngle + sign * offset;
+        angles.push(
+          baseAngle - VISIBILITY_ANGLE_EPSILON,
+          baseAngle,
+          baseAngle + VISIBILITY_ANGLE_EPSILON,
+        );
       }
     }
+
+    return angles;
+  }
+
+  private getVisibilityRayDistance(
+    originX: number,
+    originY: number,
+    dirX: number,
+    dirY: number,
+    maxDistance: number,
+  ): number {
+    let nearest = maxDistance;
+    for (const blocker of this.visibilityBlockers) {
+      const distance =
+        blocker.kind === "rect"
+          ? this.rayIntersectRect(originX, originY, dirX, dirY, blocker)
+          : this.rayIntersectCircle(originX, originY, dirX, dirY, blocker);
+      if (distance === null || distance >= nearest) {
+        continue;
+      }
+      nearest = distance;
+    }
+    return nearest;
+  }
+
+  private rayIntersectRect(
+    originX: number,
+    originY: number,
+    dirX: number,
+    dirY: number,
+    rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  ): number | null {
+    if (
+      originX >= rect.minX &&
+      originX <= rect.maxX &&
+      originY >= rect.minY &&
+      originY <= rect.maxY
+    ) {
+      return null;
+    }
+
+    let tMin = Number.NEGATIVE_INFINITY;
+    let tMax = Number.POSITIVE_INFINITY;
+
+    if (Math.abs(dirX) < MIN_DISTANCE_EPSILON) {
+      if (originX < rect.minX || originX > rect.maxX) {
+        return null;
+      }
+    } else {
+      const tx1 = (rect.minX - originX) / dirX;
+      const tx2 = (rect.maxX - originX) / dirX;
+      tMin = Math.max(tMin, Math.min(tx1, tx2));
+      tMax = Math.min(tMax, Math.max(tx1, tx2));
+    }
+
+    if (Math.abs(dirY) < MIN_DISTANCE_EPSILON) {
+      if (originY < rect.minY || originY > rect.maxY) {
+        return null;
+      }
+    } else {
+      const ty1 = (rect.minY - originY) / dirY;
+      const ty2 = (rect.maxY - originY) / dirY;
+      tMin = Math.max(tMin, Math.min(ty1, ty2));
+      tMax = Math.min(tMax, Math.max(ty1, ty2));
+    }
+
+    if (tMax < Math.max(tMin, 0)) {
+      return null;
+    }
+    return Math.max(tMin, 0);
+  }
+
+  private rayIntersectCircle(
+    originX: number,
+    originY: number,
+    dirX: number,
+    dirY: number,
+    circle: Extract<VisibilityBlockerShape, { kind: "circle" }>,
+  ): number | null {
+    const ocX = originX - circle.centerX;
+    const ocY = originY - circle.centerY;
+    const distanceSq = ocX * ocX + ocY * ocY;
+    const radiusSq = circle.radius * circle.radius;
+    if (distanceSq <= radiusSq) {
+      return null;
+    }
+
+    const b = ocX * dirX + ocY * dirY;
+    const c = distanceSq - radiusSq;
+    const discriminant = b * b - c;
+    if (discriminant < 0) {
+      return null;
+    }
+    const sqrt = Math.sqrt(discriminant);
+    const t = -b - sqrt;
+    if (t >= 0) {
+      return t;
+    }
+    const tFar = -b + sqrt;
+    return tFar >= 0 ? tFar : null;
+  }
+
+  private drawVisibilityVignette(app: Application): void {
+    const g = this.darknessVignette;
+    const sw = app.screen.width;
+    const sh = app.screen.height;
+    const cx = sw / 2;
+    const cy = sh / 2;
+    const minDim = Math.min(sw, sh);
+    const holeR = minDim * VIGNETTE_HOLE_RATIO;
+
+    g.rect(
+      -VIGNETTE_RECT_PADDING,
+      -VIGNETTE_RECT_PADDING,
+      sw + VIGNETTE_RECT_PADDING * 2,
+      sh + VIGNETTE_RECT_PADDING * 2,
+    ).fill({
+      color: VIGNETTE_OVERLAY_COLOR,
+      alpha: 0.3,
+    });
+    g.ellipse(cx, cy, holeR, holeR * VIGNETTE_ELLIPSE_RATIO).cut();
+
+    // Minimum padding keeps blur coverage on very small screens.
+    this.darknessVignetteBlur.padding = Math.max(
+      VIGNETTE_MIN_BLUR_PADDING,
+      holeR * VIGNETTE_BLUR_PADDING_RATIO,
+    );
+    g.filterArea = app.screen;
   }
 
   private redrawMinimap(app: Application): void {
@@ -882,6 +1088,16 @@ export class PixiWorldView {
     const size = MINIMAP_SIZE;
     const x = app.screen.width - size - MINIMAP_PADDING;
     const y = MINIMAP_PADDING + MINIMAP_TOP_OFFSET;
+    if (!this.infrastructureState.commsActive) {
+      g.roundRect(x, y, size, 46, 6)
+        .fill({ color: 0x111820, alpha: 0.84 })
+        .stroke({ width: 1, color: 0xff775c, alpha: 0.55 });
+      this.minimapLabel.text = "COMMS OFFLINE";
+      this.minimapLabel.x = x + 8;
+      this.minimapLabel.y = y + 16;
+      return;
+    }
+
     const scaleX = size / this.worldSize.w;
     const scaleY = size / this.worldSize.h;
     g.roundRect(x, y, size, size, 6)
@@ -978,7 +1194,7 @@ function clipRayToWorldBounds(
   worldSize: WorldSize,
 ): { x: number; y: number } | null {
   const rayLength = Math.hypot(directionX, directionY);
-  if (rayLength <= Number.EPSILON) {
+  if (rayLength <= MIN_DISTANCE_EPSILON) {
     return null;
   }
 
@@ -990,10 +1206,10 @@ function clipRayToWorldBounds(
   const maxX = worldSize.w;
   const maxY = worldSize.h;
 
-  if (Math.abs(dx) > Number.EPSILON) {
+  if (Math.abs(dx) > MIN_DISTANCE_EPSILON) {
     ts.push((minX - originX) / dx, (maxX - originX) / dx);
   }
-  if (Math.abs(dy) > Number.EPSILON) {
+  if (Math.abs(dy) > MIN_DISTANCE_EPSILON) {
     ts.push((minY - originY) / dy, (maxY - originY) / dy);
   }
 

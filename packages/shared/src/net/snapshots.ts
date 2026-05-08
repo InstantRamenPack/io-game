@@ -164,8 +164,14 @@ export const ExtractionStageSchema = z.enum([
   "complete",
 ]);
 
+export const ExtractionLockedReasonSchema = z.enum([
+  "final_wave",
+  "comms_offline",
+]);
+
 export const ExtractionSnapshotSchema = z.object({
   stage: ExtractionStageSchema,
+  lockedReason: ExtractionLockedReasonSchema.optional(),
   boardElapsedMs: NonNegativeIntSchema,
   chopperElapsedMs: NonNegativeIntSchema,
   playersOnPad: NonNegativeIntSchema,
@@ -339,8 +345,13 @@ export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;
 export type EntitySnapshot = z.infer<typeof EntitySnapshotSchema>;
 export type DayNightSnapshot = z.infer<typeof DayNightSnapshotSchema>;
 export type ExtractionStage = z.infer<typeof ExtractionStageSchema>;
+export type ExtractionLockedReason = z.infer<
+  typeof ExtractionLockedReasonSchema
+>;
 export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
-export type InfrastructureSnapshot = z.infer<typeof InfrastructureSnapshotSchema>;
+export type InfrastructureSnapshot = z.infer<
+  typeof InfrastructureSnapshotSchema
+>;
 export type MapMarkerSnapshot = z.infer<typeof MapMarkerSnapshotSchema>;
 export type MapSectorSnapshot = z.infer<typeof MapSectorSnapshotSchema>;
 export type MapFeatureSnapshot = z.infer<typeof MapFeatureSnapshotSchema>;

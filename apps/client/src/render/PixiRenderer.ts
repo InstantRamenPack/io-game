@@ -8,7 +8,10 @@ import { PixiEffectSystem } from "@client/render/pixi/PixiEffectSystem.ts";
 import { PixiRenderScheduler } from "@client/render/pixi/PixiRenderScheduler.ts";
 import { type PlacementPreviewState } from "@client/render/pixi/PixiPlacementPreview.ts";
 import { PixiWorldView } from "@client/render/pixi/PixiWorldView.ts";
-import type { WorldSize } from "@client/render/renderTypes.ts";
+import type {
+  VisibilityBlockerShape,
+  WorldSize,
+} from "@client/render/renderTypes.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
 import type {
   ExtractionSnapshot,
@@ -81,6 +84,8 @@ export class PixiRenderer {
   public setPlayerEntityId(entityId: number | undefined): void {
     this.playerEntityId = entityId;
     if (entityId === undefined) {
+      this.playerX = undefined;
+      this.playerY = undefined;
       this.worldView.updatePlayerVisibility(null);
       this.worldView.invalidateViewRectCache();
       this.worldView.resetCamera();
@@ -205,6 +210,12 @@ export class PixiRenderer {
 
   public updateMapState(state: MapSnapshot | null): void {
     this.worldView.updateMapState(state);
+    if (this.playerX !== undefined && this.playerY !== undefined) {
+      this.worldView.updatePlayerVisibility({
+        x: this.playerX,
+        y: this.playerY,
+      });
+    }
     this.renderScheduler.markDirty();
   }
 
@@ -275,6 +286,13 @@ export class PixiRenderer {
     } | null,
   ): void {
     this.worldView.setSniperAimGuide(state);
+    this.renderScheduler.markDirty();
+  }
+
+  public setVisibilityBlockers(
+    blockers: readonly VisibilityBlockerShape[],
+  ): void {
+    this.worldView.updateVisibilityBlockers(blockers);
     this.renderScheduler.markDirty();
   }
 

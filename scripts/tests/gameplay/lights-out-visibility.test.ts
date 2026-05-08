@@ -114,6 +114,7 @@ describe("lights-out visibility", () => {
     const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
     const map = {
       sectors: layout.sectors.map((sector) => ({
+        archetype: sector.archetype,
         minX: sector.minX,
         minY: sector.minY,
         maxX: sector.maxX,
@@ -142,5 +143,47 @@ describe("lights-out visibility", () => {
         [blocker],
       ),
     ).toBe(true);
+  });
+
+  test("energy failure restricts outdoor client visibility without changing home visibility", () => {
+    const map = {
+      sectors: [
+        {
+          archetype: "home",
+          minX: 0,
+          minY: 0,
+          maxX: 100,
+          maxY: 100,
+          hasLightsOut: false,
+        },
+        {
+          archetype: "forest",
+          minX: 100,
+          minY: 0,
+          maxX: 200,
+          maxY: 100,
+          hasLightsOut: false,
+        },
+      ],
+    };
+
+    expect(
+      getVisibilityContextForMap(
+        map,
+        { x: 50, y: 50 },
+        {
+          outdoorLightsActive: false,
+        },
+      ).restricted,
+    ).toBe(false);
+    const outerContext = getVisibilityContextForMap(
+      map,
+      { x: 150, y: 50 },
+      {
+        outdoorLightsActive: false,
+      },
+    );
+    expect(outerContext.restricted).toBe(true);
+    expect(outerContext.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
   });
 });

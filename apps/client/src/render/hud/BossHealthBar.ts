@@ -33,7 +33,13 @@ export class BossHealthBar {
     this.label.anchor.set(0.5, 1);
     this.hpText.anchor.set(0.5, 0);
 
-    this.container.addChild(this.bg, this.track, this.fill, this.label, this.hpText);
+    this.container.addChild(
+      this.bg,
+      this.track,
+      this.fill,
+      this.label,
+      this.hpText,
+    );
     this.container.visible = false;
   }
 

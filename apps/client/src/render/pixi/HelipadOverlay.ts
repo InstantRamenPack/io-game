@@ -89,7 +89,10 @@ export class HelipadOverlay {
 
     switch (state.stage) {
       case "locked":
-        this.labelText.text = "FINAL WAVE REQUIRED";
+        this.labelText.text =
+          state.lockedReason === "comms_offline"
+            ? "COMMS OFFLINE"
+            : "FINAL WAVE REQUIRED";
         this.labelText.style.fill = 0xff6644;
         this.timerText.text = "";
         break;

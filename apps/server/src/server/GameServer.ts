@@ -71,9 +71,13 @@ export class GameServer {
     this.networkServer = networkServer;
     this.authService = authService;
     this.enableMatchmaking = options.enableMatchmaking ?? true;
-    this.playgroundRuntime = new GameInstanceRuntime(gameConfig, networkServer, {
-      isPlayground: true,
-    });
+    this.playgroundRuntime = new GameInstanceRuntime(
+      gameConfig,
+      networkServer,
+      {
+        isPlayground: true,
+      },
+    );
     this.world = this.playgroundRuntime.world;
     this.snapshotManager = this.playgroundRuntime.snapshotManager;
     this.antiCheatValidator = this.playgroundRuntime.antiCheatValidator;
@@ -212,25 +216,23 @@ export class GameServer {
           clientMessage.text,
         );
         return;
-      case "lobby":
+      case "lobby": {
         if (!this.requireReady(clientId)) {
           return;
         }
         if (!this.enableMatchmaking) {
           return;
         }
-        if (clientMessage.action !== "leave") {
-          const activeRuntime = this.getActiveRuntime(clientId);
-          const inPlayground = activeRuntime === this.playgroundRuntime;
-          const canJoinFromEndedRuntime =
-            clientMessage.action !== "leave" &&
-            this.canRejoinLobbyFromEndedRuntime(clientId);
-          if (!inPlayground && !canJoinFromEndedRuntime) {
-            return;
-          }
+        const activeRuntime = this.getActiveRuntime(clientId);
+        const inPlayground = activeRuntime === this.playgroundRuntime;
+        const canJoinFromEndedRuntime =
+          this.canRejoinLobbyFromEndedRuntime(clientId);
+        if (!inPlayground && !canJoinFromEndedRuntime) {
+          return;
         }
         this.handleLobbyAction(clientId, clientMessage);
         return;
+      }
       case "ping": {
         const pingMessage = clientMessage as PingMessage;
         const pongMessage: ServerToClientMessage = {

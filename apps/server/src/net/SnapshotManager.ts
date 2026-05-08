@@ -18,6 +18,7 @@ const MAX_DELTA_REMOVED_IDS = 96;
 
 const LOCKED_EXTRACTION: ExtractionSnapshot = {
   stage: "locked",
+  lockedReason: "final_wave",
   boardElapsedMs: 0,
   chopperElapsedMs: 0,
   playersOnPad: 0,

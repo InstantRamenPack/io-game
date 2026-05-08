@@ -18,6 +18,7 @@ export type VisibilityContext = {
 };
 
 export type VisibilityMapSector = ProceduralRect & {
+  archetype: string;
   hasLightsOut: boolean;
 };
 
@@ -49,6 +50,7 @@ export function getVisibilityContext(
 export function getVisibilityContextForMap(
   map: VisibilityMap | null,
   viewer: ProceduralPoint,
+  options: { outdoorLightsActive?: boolean } = {},
 ): VisibilityContext {
   if (!map) {
     return {
@@ -60,12 +62,16 @@ export function getVisibilityContextForMap(
   const sector = map.sectors.find((candidate) =>
     pointInRect(viewer, candidate),
   );
+  const outdoorLightsActive = options.outdoorLightsActive ?? true;
+  const restricted =
+    Boolean(sector?.hasLightsOut) ||
+    (!outdoorLightsActive &&
+      sector !== undefined &&
+      sector.archetype !== "home");
   return {
     center: viewer,
-    radius: sector?.hasLightsOut
-      ? OUTER_LIGHTS_OUT_RADIUS
-      : Number.POSITIVE_INFINITY,
-    restricted: Boolean(sector?.hasLightsOut),
+    radius: restricted ? OUTER_LIGHTS_OUT_RADIUS : Number.POSITIVE_INFINITY,
+    restricted,
   };
 }
 
