@@ -272,7 +272,6 @@ export class PixiWorldView {
     }
     return 0;
   }
-
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
     this.updateGridColors();
