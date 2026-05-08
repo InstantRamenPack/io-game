@@ -16,7 +16,7 @@ export class Bomber extends Enemy {
     super(id, {
       weapons: [],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, Infinity),
+        new TargetEntityGoal<Enemy>(0, Player, 550),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
       ],

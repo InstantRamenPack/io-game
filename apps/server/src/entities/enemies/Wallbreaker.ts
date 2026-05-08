@@ -18,9 +18,9 @@ export class Wallbreaker extends Enemy {
     super(id, {
       weapons: [],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Wall, Infinity),
-        new TargetEntityGoal<Enemy>(1, Building, Infinity),
-        new TargetEntityGoal<Enemy>(2, Player, Infinity),
+        new TargetEntityGoal<Enemy>(0, Wall, 700),
+        new TargetEntityGoal<Enemy>(1, Building, 700),
+        new TargetEntityGoal<Enemy>(2, Player, 400),
         new LookAtTargetGoal<Enemy>(3),
         new GoToTargetGoal<Enemy>(4, 20),
       ],
