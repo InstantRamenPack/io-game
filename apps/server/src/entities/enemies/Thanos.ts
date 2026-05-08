@@ -16,8 +16,8 @@ export class Thanos extends Enemy {
   constructor(id: number) {
     super(id, {
       weapons: [
-        new ThanosFist(),           // slot 0 — melee
-        new ThanosRifle(),          // slot 1 — rifle
+        new ThanosFist(), // slot 0 — melee
+        new ThanosRifle(), // slot 1 — rifle
         new ThanosRocketLauncher(), // slot 2 — rocket launcher
       ],
       goals: [

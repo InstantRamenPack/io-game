@@ -102,7 +102,9 @@ export class PixiWorldPresentationSink {
       }
 
       if (event.type === "attack") {
-        this.renderManager.triggerAttackAnimationByEntityId(event.payload.sourceId);
+        this.renderManager.triggerAttackAnimationByEntityId(
+          event.payload.sourceId,
+        );
         continue;
       }
 
@@ -179,7 +181,9 @@ export class PixiWorldPresentationSink {
     }
 
     candidates.sort((left, right) => left.distanceSq - right.distanceSq);
-    this.renderer.setVisibilityBlockers(candidates.map(({ blocker }) => blocker));
+    this.renderer.setVisibilityBlockers(
+      candidates.map(({ blocker }) => blocker),
+    );
     this.lastVisibilitySample = {
       x: playerX,
       y: playerY,
@@ -195,7 +199,9 @@ function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
   return entity.kind === "building" || entity.kind === "structure";
 }
 
-function toVisibilityBlocker(entity: ClientEntity): VisibilityBlockerShape | null {
+function toVisibilityBlocker(
+  entity: ClientEntity,
+): VisibilityBlockerShape | null {
   const bounds = entity.hitboxBounds;
   if (bounds.width <= 0 || bounds.height <= 0) {
     return null;
@@ -204,7 +210,9 @@ function toVisibilityBlocker(entity: ClientEntity): VisibilityBlockerShape | nul
   if (isCircularVisibilityBlocker(entity)) {
     // Use the larger hitbox dimension so tree canopies fully occlude LOS.
     const radius =
-      Math.max(bounds.width, bounds.height) * 0.5 * TREE_VISIBILITY_RADIUS_SCALE;
+      Math.max(bounds.width, bounds.height) *
+      0.5 *
+      TREE_VISIBILITY_RADIUS_SCALE;
     return {
       kind: "circle",
       centerX: entity.x + bounds.centerX,
@@ -226,9 +234,10 @@ function isCircularVisibilityBlocker(entity: ClientEntity): boolean {
   return CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId);
 }
 
-function getVisibilityBlockerCenter(
-  blocker: VisibilityBlockerShape,
-): { x: number; y: number } {
+function getVisibilityBlockerCenter(blocker: VisibilityBlockerShape): {
+  x: number;
+  y: number;
+} {
   if (blocker.kind === "circle") {
     return { x: blocker.centerX, y: blocker.centerY };
   }

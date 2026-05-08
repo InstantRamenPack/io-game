@@ -102,6 +102,10 @@ export class PixiWorldView {
   });
   private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
+  private infrastructureState: InfrastructureSnapshot = {
+    energyActive: true,
+    commsActive: true,
+  };
   private mapState: MapSnapshot | null = null;
   private visibilityState: VisibilityContext | null = null;
   private visibilityBlockers: VisibilityBlockerShape[] = [];
@@ -203,7 +207,20 @@ export class PixiWorldView {
   }
 
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
-    this.baseVisionOverlay.setEnergyActive(state?.energyActive ?? true);
+    this.infrastructureState = state ?? {
+      energyActive: true,
+      commsActive: true,
+    };
+    this.baseVisionOverlay.setEnergyActive(
+      this.infrastructureState.energyActive,
+    );
+    if (this.visibilityState) {
+      this.visibilityState = getVisibilityContextForMap(
+        this.mapState,
+        this.visibilityState.center,
+        { outdoorLightsActive: this.infrastructureState.energyActive },
+      );
+    }
   }
 
   public updateMapState(map: MapSnapshot | null): void {
@@ -213,7 +230,9 @@ export class PixiWorldView {
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {
     this.visibilityState = player
-      ? getVisibilityContextForMap(this.mapState, player)
+      ? getVisibilityContextForMap(this.mapState, player, {
+          outdoorLightsActive: this.infrastructureState.energyActive,
+        })
       : null;
   }
 
@@ -240,7 +259,11 @@ export class PixiWorldView {
     if (entity.id === undefined || entity.kind === "player") {
       return 1;
     }
-    const visible = isPointVisible(visibility, entity, this.visibilityBlockers);
+    const visible = isPointVisible(
+      visibility,
+      entity,
+      this.visibilityBlockers.filter((blocker) => blocker.kind === "rect"),
+    );
     if (visible) {
       return 1;
     }
@@ -885,12 +908,13 @@ export class PixiWorldView {
         ) {
           continue;
         }
-        for (const [x, y] of [
+        const corners: Array<readonly [number, number]> = [
           [minX, minY],
           [maxX, minY],
           [maxX, maxY],
           [minX, maxY],
-        ]) {
+        ];
+        for (const [x, y] of corners) {
           const baseAngle = Math.atan2(y - originY, x - originX);
           angles.push(
             baseAngle - VISIBILITY_ANGLE_EPSILON,
@@ -1065,6 +1089,16 @@ export class PixiWorldView {
     const size = MINIMAP_SIZE;
     const x = app.screen.width - size - MINIMAP_PADDING;
     const y = MINIMAP_PADDING + MINIMAP_TOP_OFFSET;
+    if (!this.infrastructureState.commsActive) {
+      g.roundRect(x, y, size, 46, 6)
+        .fill({ color: 0x111820, alpha: 0.84 })
+        .stroke({ width: 1, color: 0xff775c, alpha: 0.55 });
+      this.minimapLabel.text = "COMMS OFFLINE";
+      this.minimapLabel.x = x + 8;
+      this.minimapLabel.y = y + 16;
+      return;
+    }
+
     const scaleX = size / this.worldSize.w;
     const scaleY = size / this.worldSize.h;
     g.roundRect(x, y, size, size, 6)

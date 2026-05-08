@@ -23,6 +23,7 @@ import type { ScreenRect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
+  InfrastructureSnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
 
@@ -86,6 +87,7 @@ export class GameplayHudCoordinator {
     worldEntities: ClientEntity[];
     trackedBuildings: ClientEntity[];
     latestTick: number;
+    infrastructure: InfrastructureSnapshot | undefined;
     performanceRates: PerformanceRates;
     tickRate: number;
     inventoryOpen: boolean;
@@ -104,6 +106,7 @@ export class GameplayHudCoordinator {
       worldEntities,
       trackedBuildings,
       latestTick,
+      infrastructure,
       performanceRates,
       tickRate,
       inventoryOpen,
@@ -119,6 +122,7 @@ export class GameplayHudCoordinator {
     const statusContent = buildStatusPanelContent({
       playerEntity,
       latestTick,
+      infrastructure,
       structureCount: trackedBuildings.length,
       entityCount: worldEntities.length,
       tickRate: performanceRates.tickRate,

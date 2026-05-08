@@ -8,6 +8,7 @@ import {
 } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
+  InfrastructureSnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
 
@@ -26,6 +27,7 @@ export type GameSelectors = {
   hasRecipeResources(recipe: ItemRecipeContent): boolean;
   formatCosts(costs: Array<{ typeId: string; amount: number }>): string;
   getDayNight(): DayNightSnapshot | undefined;
+  getInfrastructure(): InfrastructureSnapshot | undefined;
   getNearDamagedTower(): ClientEntity | null;
 };
 
@@ -38,6 +40,7 @@ type GameClientSelectorsSource = {
     clientWorld?: {
       entities: Map<number, ClientEntity>;
       dayNight: DayNightSnapshot;
+      infrastructure: InfrastructureSnapshot;
     };
   };
 };
@@ -71,9 +74,7 @@ export function createGameSelectors(
         ? spectateTargetId
         : localPlayerId;
 
-    return gameClient.worldState?.clientWorld?.entities.get(
-      viewedPlayerId,
-    );
+    return gameClient.worldState?.clientWorld?.entities.get(viewedPlayerId);
   }
 
   function getTrackedBuildings(): ClientEntity[] {
@@ -161,6 +162,7 @@ export function createGameSelectors(
     hasRecipeResources,
     formatCosts,
     getDayNight: () => gameClient.worldState?.clientWorld?.dayNight,
+    getInfrastructure: () => gameClient.worldState?.clientWorld?.infrastructure,
     getNearDamagedTower: () =>
       findNearDamagedTower(getPlayerEntity(), getTrackedBuildings()),
   };

@@ -6,6 +6,12 @@ export class ThanosRocketLauncher extends RangedWeapon {
 
   constructor() {
     const w = requireShootWeaponRuntime(ThanosRocketLauncher.typeId);
-    super(w.cooldownTicks, w.projectileTypeId, w.magSize, w.reloadTicks, w.spreadDeg);
+    super(
+      w.cooldownTicks,
+      w.projectileTypeId,
+      w.magSize,
+      w.reloadTicks,
+      w.spreadDeg,
+    );
   }
 }

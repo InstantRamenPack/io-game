@@ -62,7 +62,10 @@ export class GameInstanceRuntime {
   // clientId → world.tick when the player last became alive (cleared on death)
   private readonly playerAliveSinceTick = new Map<string, number>();
   // clientId → entity ID of the player being spectated (null = no target)
-  private readonly spectateTargetIdByClientId = new Map<string, number | null>();
+  private readonly spectateTargetIdByClientId = new Map<
+    string,
+    number | null
+  >();
   private prevWasNight = false;
   private gameFailed = false;
 
@@ -246,7 +249,10 @@ export class GameInstanceRuntime {
           this.playerAliveSinceTick.delete(clientId);
           if (this.isPlayground) {
             // Instant respawn at spawn in playground
-            player.respawn(this.world, this.getSpawnPositionForClient(clientId));
+            player.respawn(
+              this.world,
+              this.getSpawnPositionForClient(clientId),
+            );
             this.playerAliveSinceTick.set(clientId, this.world.tick);
             deadCount--;
           }
@@ -269,7 +275,6 @@ export class GameInstanceRuntime {
         }
       }
     }
-
 
     if (
       !this.isPlayground &&
@@ -409,7 +414,10 @@ export class GameInstanceRuntime {
     return this.world.get<Player>(playerId);
   }
 
-  private getSpawnPositionForClient(clientId: string): { x: number; y: number } {
+  private getSpawnPositionForClient(clientId: string): {
+    x: number;
+    y: number;
+  } {
     if (this.isPlayground) {
       return getPlayerSpawnPosition(this.gameConfig.worldSize);
     }

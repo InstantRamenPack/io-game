@@ -637,8 +637,9 @@ export class PixiHud {
           inventory,
         ));
 
-    const bossAlive =
-      this.selectors.getWorldEntities().some((e) => e.typeId === "enemy:thanos" && e.alive);
+    const bossAlive = this.selectors
+      .getWorldEntities()
+      .some((e) => e.typeId === "enemy:thanos" && e.alive);
 
     const repairActive =
       this.repairHoldStartMs !== null ||
@@ -686,6 +687,7 @@ export class PixiHud {
         worldEntities: this.selectors.getWorldEntities(),
         trackedBuildings: this.selectors.getTrackedBuildings(),
         latestTick: this.gameClient.worldState?.latestTick ?? 0,
+        infrastructure: this.selectors.getInfrastructure(),
         performanceRates: this.gameClient.getMeasuredRates(),
         tickRate: this.gameClient.gameConfig.tickRate,
         inventoryOpen: this.state.inventoryOpen,
@@ -754,8 +756,17 @@ export class PixiHud {
       app.screen.height,
       recyclerActive,
     );
-    this.syncChestPrompt(app.screen.width, app.screen.height, nearPickup, nearChest);
-    this.syncCraftingStationPrompt(app.screen.width, app.screen.height, nearCraftingStation);
+    this.syncChestPrompt(
+      app.screen.width,
+      app.screen.height,
+      nearPickup,
+      nearChest,
+    );
+    this.syncCraftingStationPrompt(
+      app.screen.width,
+      app.screen.height,
+      nearCraftingStation,
+    );
     this.syncHunkBadge(inventory);
   }
 

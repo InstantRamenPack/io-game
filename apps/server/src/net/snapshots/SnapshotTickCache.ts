@@ -35,7 +35,8 @@ export class SnapshotTickCache {
     this.preparedTick = world.tick;
     this.preparedDayNight = world.dayNightSystem.toSnapshot();
     this.preparedExtraction = world.extractionSystem?.toSnapshot() ?? null;
-    this.preparedInfrastructure = world.infrastructureSystem?.toSnapshot() ?? null;
+    this.preparedInfrastructure =
+      world.infrastructureSystem?.toSnapshot() ?? null;
     this.snapshotByEntityId.clear();
 
     for (const entity of world.entities.all()) {

@@ -6,6 +6,12 @@ export class ThanosRifle extends RangedWeapon {
 
   constructor() {
     const w = requireShootWeaponRuntime(ThanosRifle.typeId);
-    super(w.cooldownTicks, w.projectileTypeId, w.magSize, w.reloadTicks, w.spreadDeg);
+    super(
+      w.cooldownTicks,
+      w.projectileTypeId,
+      w.magSize,
+      w.reloadTicks,
+      w.spreadDeg,
+    );
   }
 }

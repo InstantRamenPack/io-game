@@ -24,7 +24,8 @@ export function createDeathController({
 
   const setSuppressed = (suppressed: boolean): void => {
     if (suppressed) {
-      releaseDeathSuppression ??= gameClient.acquireMovementSuppression("death");
+      releaseDeathSuppression ??=
+        gameClient.acquireMovementSuppression("death");
     } else {
       releaseDeathSuppression?.();
       releaseDeathSuppression = undefined;

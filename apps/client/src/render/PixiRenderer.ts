@@ -289,7 +289,9 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
-  public setVisibilityBlockers(blockers: readonly VisibilityBlockerShape[]): void {
+  public setVisibilityBlockers(
+    blockers: readonly VisibilityBlockerShape[],
+  ): void {
     this.worldView.updateVisibilityBlockers(blockers);
     this.renderScheduler.markDirty();
   }
