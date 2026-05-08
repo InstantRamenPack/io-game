@@ -94,6 +94,13 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public setMinimapPlayers(
+    players: ReadonlyArray<{ x: number; y: number; isSelf: boolean }>,
+  ): void {
+    this.worldView.setMinimapPlayers(players);
+    this.renderScheduler.markDirty();
+  }
+
   public setTickRate(tickRate: number): void {
     if (Number.isFinite(tickRate) && tickRate > 0) {
       this.tickRate = Math.floor(tickRate);

@@ -10,8 +10,10 @@ const RECYCLE_HOLD_DURATION_MS = 750;
 const REPAIR_HOLD_DURATION_MS = 750;
 
 export class GameInputRouter {
-  private eHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private eHoldInterval: ReturnType<typeof setInterval> | null = null;
   private eHoldFired = false;
+  private eKeyHeld = false;
+  private eNextRecycleAtMs: number | null = null;
   private fHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private fHoldFired = false;
   private fHoldTowerId: number | null = null;
@@ -27,14 +29,11 @@ export class GameInputRouter {
     const key = event.key.toLowerCase();
 
     if (key === "e") {
-      if (this.eHoldTimer !== null) {
-        clearTimeout(this.eHoldTimer);
-        this.eHoldTimer = null;
-      }
-      if (!this.eHoldFired) {
-        this.options.dispatch({ type: "cancelRecycleHold" });
-      }
+      this.eKeyHeld = false;
+      this.stopRecycleLoop();
+      this.options.dispatch({ type: "cancelRecycleHold" });
       this.eHoldFired = false;
+      this.eNextRecycleAtMs = null;
       return;
     }
 
@@ -104,17 +103,29 @@ export class GameInputRouter {
 
     if (key === "e") {
       event.preventDefault();
-      if (!context.nearPickup && context.nearRecyclerWithItem) {
-        if (this.eHoldTimer !== null) {
-          clearTimeout(this.eHoldTimer);
-        }
-        this.eHoldFired = false;
-        this.options.dispatch({ type: "startRecycleHold" });
-        this.eHoldTimer = setTimeout(() => {
-          this.eHoldTimer = null;
-          this.eHoldFired = true;
-          this.options.dispatch({ type: "recycleItem" });
-        }, RECYCLE_HOLD_DURATION_MS);
+      if (context.chestOpen) {
+        this.options.dispatch({ type: "closeChest" });
+        return;
+      }
+      if (context.craftingOpen) {
+        this.options.dispatch({ type: "closeCraftingMenu" });
+        return;
+      }
+      if (context.nearPickup) {
+        this.options.dispatch({ type: "pickupNearestItem" });
+        return;
+      }
+      if (context.nearChest !== null) {
+        this.options.dispatch({ type: "openChest", chestEntityId: context.nearChest });
+        return;
+      }
+      if (context.nearCraftingStation && !context.craftingOpen) {
+        this.options.dispatch({ type: "openCraftingMenu" });
+        return;
+      }
+      if (context.nearRecyclerWithItem) {
+        this.eKeyHeld = true;
+        this.startRecycleLoop();
         return;
       }
       this.options.dispatch({ type: "pickupNearestItem" });
@@ -212,5 +223,62 @@ export class GameInputRouter {
     const ordinal = rawDigit === 0 ? 10 : rawDigit;
     event.preventDefault();
     this.options.dispatch({ type: "selectHotbarOrdinal", ordinal });
+  }
+
+  private startRecycleLoop(): void {
+    const context = this.options.getContext();
+    const nowMs = performance.now();
+    if (!context.nearRecyclerWithItem) {
+      this.options.dispatch({ type: "cancelRecycleHold" });
+      this.eNextRecycleAtMs = null;
+      return;
+    }
+    if (this.eNextRecycleAtMs === null) {
+      this.eNextRecycleAtMs = nowMs + RECYCLE_HOLD_DURATION_MS;
+      this.eHoldFired = false;
+      this.options.dispatch({ type: "startRecycleHold" });
+    }
+    if (this.eHoldInterval !== null) {
+      return;
+    }
+
+    this.eHoldInterval = setInterval(() => {
+      if (!this.eKeyHeld) {
+        this.stopRecycleLoop();
+        return;
+      }
+
+      const tickContext = this.options.getContext();
+      if (!tickContext.nearRecyclerWithItem) {
+        this.options.dispatch({ type: "cancelRecycleHold" });
+        this.stopRecycleLoop();
+        return;
+      }
+
+      const tickNowMs = performance.now();
+      if (this.eNextRecycleAtMs === null || tickNowMs < this.eNextRecycleAtMs) {
+        return;
+      }
+
+      this.eHoldFired = true;
+      this.options.dispatch({ type: "recycleItem" });
+
+      if (!this.eKeyHeld) {
+        this.stopRecycleLoop();
+        return;
+      }
+
+      this.eNextRecycleAtMs += RECYCLE_HOLD_DURATION_MS;
+      this.eHoldFired = false;
+      this.options.dispatch({ type: "startRecycleHold" });
+    }, 16);
+  }
+
+  private stopRecycleLoop(): void {
+    if (this.eHoldInterval !== null) {
+      clearInterval(this.eHoldInterval);
+      this.eHoldInterval = null;
+    }
+    this.eNextRecycleAtMs = null;
   }
 }

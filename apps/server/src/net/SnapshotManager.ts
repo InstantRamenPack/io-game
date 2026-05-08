@@ -8,7 +8,7 @@ import type {
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import type { Player } from "@server/entities/Player.ts";
+import { Player } from "@server/entities/Player.ts";
 import { EventRelevanceFilter } from "@server/net/snapshots/EventRelevanceFilter.ts";
 import { PerPlayerReplicationState } from "@server/net/snapshots/PerPlayerReplicationState.ts";
 import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
@@ -80,6 +80,7 @@ export class SnapshotManager {
         extraction,
         infrastructure,
         map,
+        minimapPlayers: [],
         full: true,
         entities: [],
         removedEntityIds: [],
@@ -192,6 +193,7 @@ export class SnapshotManager {
         extraction,
         infrastructure,
         map,
+        minimapPlayers: this.collectMinimapPlayers(world),
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -210,6 +212,7 @@ export class SnapshotManager {
       extraction,
       infrastructure,
       map,
+      minimapPlayers: this.collectMinimapPlayers(world),
       full: false,
       entities: changedEntities,
       removedEntityIds,
@@ -327,6 +330,17 @@ export class SnapshotManager {
 
   private isIncluded(entityId: number): boolean {
     return this.includedEntityMarkers.get(entityId) === this.marker;
+  }
+
+  private collectMinimapPlayers(
+    world: World,
+  ): Array<{ id: number; x: number; y: number; alive: boolean }> {
+    return world.entities.queryInstances(Player).map((player) => ({
+      id: player.id,
+      x: player.x,
+      y: player.y,
+      alive: player.alive,
+    }));
   }
 }
 

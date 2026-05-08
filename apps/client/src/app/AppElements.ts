@@ -47,6 +47,7 @@ export type AppElements = {
   gameOverWaves: HTMLElement | null;
   gameOverReturnBtn: HTMLButtonElement | null;
   gameOverPlayAgainBtn: HTMLButtonElement | null;
+  gameOverHomeBtn: HTMLButtonElement | null;
 };
 
 /**
@@ -108,6 +109,9 @@ export function getAppElements(): AppElements {
     ) as HTMLButtonElement | null,
     gameOverPlayAgainBtn: document.getElementById(
       "game-over-play-again-btn",
+    ) as HTMLButtonElement | null,
+    gameOverHomeBtn: document.getElementById(
+      "game-over-home-btn",
     ) as HTMLButtonElement | null,
   };
 }

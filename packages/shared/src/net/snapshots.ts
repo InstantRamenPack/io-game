@@ -235,6 +235,13 @@ export const VisibilitySnapshotSchema = z.object({
   centerY: z.number().finite(),
 });
 
+export const MinimapPlayerSnapshotSchema = z.object({
+  id: EntityIdSchema,
+  x: z.number().finite(),
+  y: z.number().finite(),
+  alive: z.boolean(),
+});
+
 export const WorldSnapshotSchema = z.object({
   tick: NonNegativeIntSchema,
   lastProcessedSeq: z.number().int().min(-1).optional(),
@@ -243,6 +250,7 @@ export const WorldSnapshotSchema = z.object({
   infrastructure: InfrastructureSnapshotSchema,
   map: MapSnapshotSchema.optional(),
   visibility: VisibilitySnapshotSchema.optional(),
+  minimapPlayers: z.array(MinimapPlayerSnapshotSchema).optional(),
   full: z.boolean().optional(),
   entities: z.array(EntitySnapshotSchema),
   removedEntityIds: z.array(EntityIdSchema).optional(),

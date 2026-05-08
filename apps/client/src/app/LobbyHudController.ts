@@ -66,6 +66,7 @@ export function createLobbyHudController({
     }
     const state = gameClient.getLobbyState() ?? lastState;
     if (!state || !state.inLobby) {
+      root.hidden = !isVisible;
       statusEl.textContent = "No lobby queue selected";
       metaEl.textContent = "Join an open lobby or enter a code.";
       leaveBtn.disabled = true;

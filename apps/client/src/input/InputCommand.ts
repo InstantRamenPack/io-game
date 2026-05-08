@@ -16,4 +16,6 @@ export type InputCommand =
   | { type: "recycleItem" }
   | { type: "startRepairHold" }
   | { type: "cancelRepairHold" }
-  | { type: "repairTower"; towerId: number };
+  | { type: "repairTower"; towerId: number }
+  | { type: "openChest"; chestEntityId: number }
+  | { type: "openCraftingMenu" };

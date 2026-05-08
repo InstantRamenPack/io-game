@@ -84,6 +84,12 @@ export class GameClient {
   private lobbyState?: LobbyStateMessage;
   private spectateEntityId: number | null = null;
   private latestExtractionState: ExtractionSnapshot | null = null;
+  private latestMinimapPlayers: ReadonlyArray<{
+    id: number;
+    x: number;
+    y: number;
+    alive: boolean;
+  }> = [];
   private readonly heldMovement: InputMovement = {
     up: false,
     down: false,
@@ -450,6 +456,18 @@ export class GameClient {
 
       this.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
+      const minimapPlayers: Array<{ x: number; y: number; isSelf: boolean }> = [];
+      for (const player of this.latestMinimapPlayers) {
+        if (!player.alive) {
+          continue;
+        }
+        minimapPlayers.push({
+          x: player.x,
+          y: player.y,
+          isSelf: player.id === this.playerEntityId,
+        });
+      }
+      this.renderer.setMinimapPlayers(minimapPlayers);
       this.placementPreviewController.sync({
         renderer: this.renderer,
         world,
@@ -463,6 +481,7 @@ export class GameClient {
       );
     } else {
       this.renderer.setSniperAimGuide(null);
+      this.renderer.setMinimapPlayers([]);
     }
 
     this.renderer.update(deltaMs);
@@ -477,6 +496,7 @@ export class GameClient {
     }
 
     this.latestExtractionState = snapshot.extraction;
+    this.latestMinimapPlayers = snapshot.minimapPlayers ?? [];
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
     this.renderer.updateMapState(snapshot.map ?? null);
@@ -671,6 +691,7 @@ export class GameClient {
     this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
+    this.latestMinimapPlayers = [];
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
     this.pointerAimController.reset();
@@ -708,6 +729,7 @@ export class GameClient {
     this.worldState = undefined;
     this.playerEntityId = undefined;
     this.spectateEntityId = null;
+    this.latestMinimapPlayers = [];
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
     this.placementPreviewController.reset(this.renderer);

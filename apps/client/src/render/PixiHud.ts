@@ -23,6 +23,8 @@ import { HotbarView } from "@client/render/hud/HotbarView.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
+import { ChestPromptView } from "@client/render/hud/ChestPromptView.ts";
+import { CraftingStationPromptView } from "@client/render/hud/CraftingStationPromptView.ts";
 import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
 import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
@@ -37,6 +39,8 @@ import {
   getNearestPickup,
   getPickupItemLabel,
 } from "@client/render/hud/pickupInteraction.ts";
+import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
+import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInteraction.ts";
 import { getTowerRepairCost } from "@client/render/hud/towerRepairInteraction.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
@@ -84,6 +88,8 @@ export class PixiHud {
   private recyclerPromptView?: RecyclerPromptView;
   private towerRepairPromptView?: TowerRepairPromptView;
   private itemPickupPromptView?: ItemPickupPromptView;
+  private chestPromptView?: ChestPromptView;
+  private craftingStationPromptView?: CraftingStationPromptView;
   private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
   private bossHealthBar?: BossHealthBar;
@@ -207,6 +213,8 @@ export class PixiHud {
       this.recyclerPromptView = new RecyclerPromptView();
       this.towerRepairPromptView = new TowerRepairPromptView();
       this.itemPickupPromptView = new ItemPickupPromptView();
+      this.chestPromptView = new ChestPromptView();
+      this.craftingStationPromptView = new CraftingStationPromptView();
       this.bossHealthBar = new BossHealthBar();
 
       this.hunkBadge = new PIXI.Container();
@@ -245,6 +253,8 @@ export class PixiHud {
         this.recyclerPromptView.container,
         this.towerRepairPromptView.container,
         this.itemPickupPromptView.container,
+        this.chestPromptView.container,
+        this.craftingStationPromptView.container,
         this.bossHealthBar.container,
         this.tooltipView.container,
       );
@@ -521,6 +531,18 @@ export class PixiHud {
     this.markDirty();
   }
 
+  public openChest(chestEntityId: number): void {
+    if (this.state.craftingMenuOpen) {
+      this.craftingHudCoordinator.close(this.state);
+    }
+    if (this.state.inventoryOpen) {
+      this.inventoryEditCoordinator.close(this.state);
+    }
+    this.chestHudCoordinator.open(this.state, chestEntityId);
+    this.syncOverlaySuppression();
+    this.markDirty();
+  }
+
   public setVisible(visible: boolean): void {
     this.visible = visible;
     if (this.root) {
@@ -583,14 +605,31 @@ export class PixiHud {
     const selectionToastVisible =
       this.gameplayHudCoordinator.isSelectionToastVisible(nowMs);
 
-    const nearPickup =
-      getNearestPickup(
+    const nearestPickup = getNearestPickup(
+      this.selectors.getPlayerEntity(),
+      this.selectors.getPickups(),
+    );
+    const nearPickup = nearestPickup !== null;
+
+    const nearestChest = findNearestChest(
+      this.selectors.getPlayerEntity(),
+      this.selectors.getChests(),
+    );
+    const nearChest = nearestChest !== null && !this.state.chestOpen;
+
+    const nearCraftingStation =
+      !nearPickup &&
+      !nearChest &&
+      !this.state.craftingMenuOpen &&
+      hasNearbyCraftingStation(
         this.selectors.getPlayerEntity(),
-        this.selectors.getPickups(),
-      ) !== null;
+        this.selectors.getCraftingStations(),
+      );
 
     const recyclerActive =
       !nearPickup &&
+      !nearChest &&
+      !nearCraftingStation &&
       (this.recyclerHoldStartMs !== null ||
         isNearRecyclerWithItem(
           this.selectors.getPlayerEntity(),
@@ -706,6 +745,8 @@ export class PixiHud {
       nowMs,
       inventory,
       nearPickup,
+      nearChest,
+      nearCraftingStation,
     );
     this.syncRepairPrompt(app.screen.width, app.screen.height, nowMs);
     this.syncItemPickupPrompt(
@@ -713,6 +754,8 @@ export class PixiHud {
       app.screen.height,
       recyclerActive,
     );
+    this.syncChestPrompt(app.screen.width, app.screen.height, nearPickup, nearChest);
+    this.syncCraftingStationPrompt(app.screen.width, app.screen.height, nearCraftingStation);
     this.syncHunkBadge(inventory);
   }
 
@@ -785,6 +828,8 @@ export class PixiHud {
     nowMs: number,
     inventory: InventorySnapshot | undefined,
     nearPickup: boolean,
+    nearChest: boolean,
+    nearCraftingStation: boolean,
   ): void {
     if (!this.recyclerPromptView) {
       return;
@@ -793,7 +838,10 @@ export class PixiHud {
     const player = this.selectors.getPlayerEntity();
     const recyclers = this.selectors.getRecyclers();
     const near =
-      !nearPickup && isNearRecyclerWithItem(player, recyclers, inventory);
+      !nearPickup &&
+      !nearChest &&
+      !nearCraftingStation &&
+      isNearRecyclerWithItem(player, recyclers, inventory);
 
     let itemLabel = "";
     if (near && inventory) {
@@ -880,6 +928,37 @@ export class PixiHud {
     this.itemPickupPromptView.sync({
       visible: nearest !== null,
       itemLabel,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncChestPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    nearPickup: boolean,
+    nearChest: boolean,
+  ): void {
+    if (!this.chestPromptView) {
+      return;
+    }
+    this.chestPromptView.sync({
+      visible: nearChest && !nearPickup,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncCraftingStationPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    nearCraftingStation: boolean,
+  ): void {
+    if (!this.craftingStationPromptView) {
+      return;
+    }
+    this.craftingStationPromptView.sync({
+      visible: nearCraftingStation,
       screenWidth,
       screenHeight,
     });

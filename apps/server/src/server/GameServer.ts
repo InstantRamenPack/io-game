@@ -216,11 +216,18 @@ export class GameServer {
         if (!this.requireReady(clientId)) {
           return;
         }
-        if (
-          !this.enableMatchmaking ||
-          this.getActiveRuntime(clientId) !== this.playgroundRuntime
-        ) {
+        if (!this.enableMatchmaking) {
           return;
+        }
+        if (clientMessage.action !== "leave") {
+          const activeRuntime = this.getActiveRuntime(clientId);
+          const inPlayground = activeRuntime === this.playgroundRuntime;
+          const canJoinFromEndedRuntime =
+            clientMessage.action !== "leave" &&
+            this.canRejoinLobbyFromEndedRuntime(clientId);
+          if (!inPlayground && !canJoinFromEndedRuntime) {
+            return;
+          }
         }
         this.handleLobbyAction(clientId, clientMessage);
         return;
@@ -341,9 +348,13 @@ export class GameServer {
         this.joinLobbyByCode(clientId, message.lobbyCode);
         return;
       case "leave":
-        this.removeClientFromMatchLobby(clientId, {
-          sendDepartureMessage: true,
-        });
+        if (!this.matchLobbyCodeByClientId.has(clientId)) {
+          this.migrateClientToPlayground(clientId);
+        } else {
+          this.removeClientFromMatchLobby(clientId, {
+            sendDepartureMessage: true,
+          });
+        }
         this.sendLobbyState(clientId, true);
         return;
       default:
@@ -418,6 +429,8 @@ export class GameServer {
     if (lobby.startedAtMs !== null) {
       this.migrateClientToLobbyRuntime(clientId, lobby);
     } else {
+      // While queued (pre-match), keep clients in playground/main lobby runtime.
+      this.migrateClientToPlayground(clientId);
       this.maybeStartLobbyCountdown(lobby, nowMs);
     }
     this.broadcastLobbyState(lobby, true);
@@ -565,11 +578,48 @@ export class GameServer {
       wavesCompleted,
     };
     const payload = JSON.stringify(message);
-    for (const clientId of lobby.playerClientIds) {
+    const participantClientIds = [...lobby.playerClientIds];
+    for (const clientId of participantClientIds) {
       this.networkServer.send(clientId, payload);
     }
-    // Destroy the runtime so the old world is cleaned up
+
+    // Reset lobby back to pre-match state and destroy the finished runtime.
+    lobby.startedAtMs = null;
+    lobby.gameCompletedAtMs = null;
+    lobby.gameFailedAtMs = null;
     lobby.runtime = null;
+
+    // A failed run should not keep players queued; each player must opt in again.
+    lobby.playerClientIds.clear();
+    for (const clientId of participantClientIds) {
+      this.matchLobbyCodeByClientId.delete(clientId);
+      this.sendLobbyState(clientId, true);
+    }
+
+    if (lobby.playerClientIds.size === 0) {
+      this.matchLobbyByCode.delete(lobby.code);
+      return;
+    }
+    this.maybeStartLobbyCountdown(lobby, nowMs);
+    this.broadcastLobbyState(lobby, true);
+  }
+
+  private canRejoinLobbyFromEndedRuntime(clientId: string): boolean {
+    if (this.matchLobbyCodeByClientId.has(clientId)) {
+      return false;
+    }
+
+    const activeRuntime = this.activeRuntimeByClientId.get(clientId);
+    if (!activeRuntime || activeRuntime === this.playgroundRuntime) {
+      return false;
+    }
+
+    for (const lobby of this.matchLobbyByCode.values()) {
+      if (lobby.runtime === activeRuntime) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private generateLobbyCode(): string {
@@ -589,6 +639,8 @@ export class GameServer {
       this.gameConfig,
       lobby.scopedNetwork,
     );
+    lobby.gameCompletedAtMs = null;
+    lobby.gameFailedAtMs = null;
   }
 
   private migrateClientToLobbyRuntime(

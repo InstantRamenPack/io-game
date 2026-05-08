@@ -67,6 +67,10 @@ export type HudRuntime = {
    */
   closeChest(): void;
   /**
+   * Opens the chest panel for the given chest entity.
+   */
+  openChest(chestEntityId: number): void;
+  /**
    * Shows or hides the in-game HUD shell.
    */
   setVisible(visible: boolean): void;

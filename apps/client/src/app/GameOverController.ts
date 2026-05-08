@@ -24,6 +24,7 @@ export function createGameOverController({
   const wavesEl = elements.gameOverWaves;
   const returnBtn = elements.gameOverReturnBtn;
   const playAgainBtn = elements.gameOverPlayAgainBtn;
+  const homeBtn = elements.gameOverHomeBtn;
 
   let suppressNextClose = false;
 
@@ -70,8 +71,23 @@ export function createGameOverController({
     sessionUiController.showMenu();
   }
 
-  returnBtn?.addEventListener("click", returnToMenu);
-  playAgainBtn?.addEventListener("click", returnToMenu);
+  function returnToLobby(): void {
+    hide();
+    sessionUiController.showPlaying();
+    gameClient.clearMovementSuppressions();
+    gameClient.requestLeaveLobby();
+  }
+
+  function playAgain(): void {
+    hide();
+    sessionUiController.showPlaying();
+    gameClient.clearMovementSuppressions();
+    gameClient.requestJoinLobby();
+  }
+
+  returnBtn?.addEventListener("click", returnToLobby);
+  playAgainBtn?.addEventListener("click", playAgain);
+  homeBtn?.addEventListener("click", returnToMenu);
 
   gameClient.onGameCompleted((msg) => {
     suppressNextClose = true;

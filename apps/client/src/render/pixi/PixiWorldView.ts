@@ -45,7 +45,13 @@ const SNIPER_AIM_LINE_ALPHA = 0.35;
 const SNIPER_AIM_LINE_WIDTH = 2;
 const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
+const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 48;
+type MinimapPlayerMarker = {
+  x: number;
+  y: number;
+  isSelf: boolean;
+};
 
 export type VisibilityBlockerViewRect = {
   minX: number;
@@ -72,6 +78,7 @@ export class PixiWorldView {
     }),
   );
   private readonly darknessOverlay = new Graphics();
+  private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private mapState: MapSnapshot | null = null;
   private visibilityState: VisibilityContext | null = null;
@@ -188,6 +195,10 @@ export class PixiWorldView {
     blockers: readonly VisibilityBlockerViewRect[],
   ): void {
     this.visibilityBlockers = blockers.slice(0, MAX_VISIBILITY_BLOCKERS);
+  }
+
+  public setMinimapPlayers(players: readonly MinimapPlayerMarker[]): void {
+    this.minimapPlayers = players;
   }
 
   public getEntityVisibilityAlpha(entity: {
@@ -870,7 +881,7 @@ export class PixiWorldView {
 
     const size = MINIMAP_SIZE;
     const x = app.screen.width - size - MINIMAP_PADDING;
-    const y = MINIMAP_PADDING;
+    const y = MINIMAP_PADDING + MINIMAP_TOP_OFFSET;
     const scaleX = size / this.worldSize.w;
     const scaleY = size / this.worldSize.h;
     g.roundRect(x, y, size, size, 6)
@@ -917,12 +928,29 @@ export class PixiWorldView {
       });
     }
 
-    const playerX = this.visibilityState?.center.x;
-    const playerY = this.visibilityState?.center.y;
-    if (playerX !== undefined && playerY !== undefined) {
-      g.circle(x + playerX * scaleX, y + playerY * scaleY, 3).fill({
+    for (const player of this.minimapPlayers) {
+      const px = x + player.x * scaleX;
+      const py = y + player.y * scaleY;
+      if (player.isSelf) {
+        g.circle(px, py, 3.5).fill({
+          color: 0xffffff,
+          alpha: 0.98,
+        });
+        g.circle(px, py, 5.5).stroke({
+          width: 2,
+          color: 0x53e8ff,
+          alpha: 0.9,
+        });
+        continue;
+      }
+      g.circle(px, py, 3.5).fill({
         color: 0xffffff,
-        alpha: 1,
+        alpha: 0.96,
+      });
+      g.circle(px, py, 5.5).stroke({
+        width: 2,
+        color: 0x56e86b,
+        alpha: 0.9,
       });
     }
 

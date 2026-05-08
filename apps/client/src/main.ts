@@ -21,6 +21,8 @@ import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
 import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import { getNearestPickup } from "@client/render/hud/pickupInteraction.ts";
+import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
+import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInteraction.ts";
 import { getNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
@@ -180,6 +182,13 @@ new GameInputRouter({
     nearPickup:
       getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
       null,
+    nearChest:
+      findNearestChest(selectors.getPlayerEntity(), selectors.getChests())?.id ??
+      null,
+    nearCraftingStation: hasNearbyCraftingStation(
+      selectors.getPlayerEntity(),
+      selectors.getCraftingStations(),
+    ),
     nearDamagedTower:
       getNearDamagedTower(
         selectors.getPlayerEntity(),
@@ -227,6 +236,12 @@ new GameInputRouter({
         return;
       case "pickupNearestItem":
         gameClient.queuePickupNearbyItem();
+        return;
+      case "openChest":
+        hudController.openChest(command.chestEntityId);
+        return;
+      case "openCraftingMenu":
+        hudController.toggleCraftingMenu();
         return;
       case "startRecycleHold":
         recyclerHoldActive = true;
