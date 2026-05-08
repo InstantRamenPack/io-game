@@ -39,7 +39,9 @@ export class PixiWorldPresentationSink {
   public reset(): void {
     this.renderManager.destroy();
     this.syncedEntityIds.clear();
+    this.lastVisibilitySample = null;
     this.renderer.setConfusionState(false, 0);
+    this.renderer.setVisibilityBlockers([]);
   }
 
   public setPlayerEntityId(entityId: number | undefined): void {

@@ -6,6 +6,7 @@ import type {
   SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
 import {
@@ -159,7 +160,7 @@ export class GameInstanceRuntime {
     const fallbackPlayerName = `player-${playerId}`;
     const playerEntity = new Player(
       playerId,
-      this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
+      normalizePlayerName(requestedPlayerName, fallbackPlayerName),
     );
 
     const spawnPosition = this.getSpawnPositionForClient(clientId);
@@ -496,17 +497,6 @@ export class GameInstanceRuntime {
       this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1,
       this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
-  }
-
-  private sanitizePlayerName(
-    requestedPlayerName: string | undefined,
-    fallbackPlayerName: string,
-  ): string {
-    const sanitizedPlayerName = (requestedPlayerName ?? "")
-      .replace(/[\x00-\x1F\x7F]/g, "")
-      .trim()
-      .slice(0, 20);
-    return sanitizedPlayerName || fallbackPlayerName;
   }
 }
 

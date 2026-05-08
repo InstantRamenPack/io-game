@@ -40,6 +40,7 @@ import type {
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
 
 const INPUT_SEND_INTERVAL_MS = 1000 / 60;
 const SNIPER_WEAPON_TYPE_ID = "item:sniper";
@@ -785,13 +786,16 @@ export class GameClient {
     if (!world) {
       return;
     }
-    const normalizedName = sanitizePlayerName(pendingName);
-    if (!normalizedName) {
-      return;
-    }
-    const matches = [...world.entities.values()].filter(
-      (entity) => entity.kind === "player" && entity.name === normalizedName,
-    );
+    const normalizedName = normalizePlayerName(pendingName, "");
+    const matches = [...world.entities.values()].filter((entity) => {
+      if (entity.kind !== "player") {
+        return false;
+      }
+      if (normalizedName) {
+        return entity.name === normalizedName;
+      }
+      return entity.name === `player-${entity.id}`;
+    });
     if (matches.length !== 1) {
       return;
     }
@@ -1004,17 +1008,4 @@ export class GameClient {
       directionY,
     });
   }
-}
-
-/**
- * Mirrors server-side sanitization for player names to match welcome fallback.
- * Removes control characters, trims whitespace, and caps the length to 20 chars.
- */
-const MAX_PLAYER_NAME_LENGTH = 20;
-
-function sanitizePlayerName(rawName: string): string {
-  return rawName
-    .replace(/[\x00-\x1F\x7F]/g, "")
-    .trim()
-    .slice(0, MAX_PLAYER_NAME_LENGTH);
 }
