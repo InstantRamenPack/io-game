@@ -50,7 +50,7 @@ const SNIPER_AIM_LINE_WIDTH = 2;
 const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
 const MINIMAP_TOP_OFFSET = 56;
-const MAX_VISIBILITY_BLOCKERS = 48;
+const MAX_VISIBILITY_BLOCKERS = 128;
 const VISIBILITY_SAMPLE_COUNT = 96;
 // Offset rays slightly around edges/corners to avoid precision gaps in LOS cuts.
 const VISIBILITY_ANGLE_EPSILON = 0.0005;
@@ -107,6 +107,7 @@ export class PixiWorldView {
     commsActive: true,
   };
   private mapState: MapSnapshot | null = null;
+  private lastMapSeed: number | null = null;
   private visibilityState: VisibilityContext | null = null;
   private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
@@ -224,6 +225,12 @@ export class PixiWorldView {
   }
 
   public updateMapState(map: MapSnapshot | null): void {
+    const seed = map?.seed ?? null;
+    if (seed === this.lastMapSeed) {
+      this.mapState = map;
+      return;
+    }
+    this.lastMapSeed = seed;
     this.mapState = map;
     this.drawGridGeometry();
   }
@@ -852,6 +859,10 @@ export class PixiWorldView {
       centerY,
       visibility.radius,
     );
+    const twoPi = Math.PI * 2;
+    for (let i = 0; i < angles.length; i++) {
+      angles[i] = (((angles[i] ?? 0) % twoPi) + twoPi) % twoPi;
+    }
     angles.sort((left, right) => left - right);
 
     const points: number[] = [];

@@ -320,7 +320,11 @@ export class GameServer {
     );
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: this.playgroundRuntime.worldId,
+      }),
     );
     if (this.enableMatchmaking) {
       this.sendLobbyState(clientId);
@@ -665,7 +669,11 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, lobby.runtime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: lobby.runtime.worldId,
+      }),
     );
   }
 
@@ -686,7 +694,11 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: this.playgroundRuntime.worldId,
+      }),
     );
   }
 

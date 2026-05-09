@@ -91,6 +91,7 @@ export class GameClient {
     energyActive: true,
     commsActive: true,
   };
+  private currentWorldId: string | undefined = undefined;
   private latestMinimapPlayers: ReadonlyArray<{
     id: number;
     x: number;
@@ -131,7 +132,9 @@ export class GameClient {
     });
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
-    this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
+    this.networkClient.onWelcome((entityId, worldId) =>
+      this.onWelcome(entityId, worldId),
+    );
     this.networkClient.onLobbyState((state) => this.onLobbyState(state));
     this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
     this.networkClient.onGameOver((msg) => this.handleGameOver(msg));
@@ -533,13 +536,18 @@ export class GameClient {
     }
   }
 
-  public onWelcome(entityId: number): void {
+  public onWelcome(entityId: number, worldId?: string): void {
     if (this.isSessionReady()) {
-      if (this.playerEntityId === entityId) {
+      const worldChanged =
+        worldId !== undefined
+          ? worldId !== this.currentWorldId
+          : this.playerEntityId !== entityId;
+      if (!worldChanged) {
         return;
       }
       this.resetForInstanceMigration();
     }
+    this.currentWorldId = worldId;
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
     this.pendingPlayerName = null;

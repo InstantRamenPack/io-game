@@ -43,6 +43,8 @@ const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
 ]);
 
 export class GameInstanceRuntime {
+  private static nextWorldId = 0;
+  public readonly worldId = String(GameInstanceRuntime.nextWorldId++);
   public readonly world: World;
   public readonly snapshotManager: SnapshotManager;
   public readonly antiCheatValidator: AntiCheatValidator;
