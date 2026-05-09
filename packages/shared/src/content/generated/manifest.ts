@@ -13,7 +13,6 @@ import structurefenceVJson from "@shared/content/structure/fence_v.json";
 import structurehouseLJson from "@shared/content/structure/house_l.json";
 import structurehouseMJson from "@shared/content/structure/house_m.json";
 import structurehouseXlJson from "@shared/content/structure/house_xl.json";
-import structuretentJson from "@shared/content/structure/tent.json";
 import structuretreeJson from "@shared/content/structure/tree.json";
 import effectbleedingJson from "@shared/content/effect/bleeding.json";
 import effectconfusionJson from "@shared/content/effect/confusion.json";
@@ -67,7 +66,6 @@ import itemstructureFenceHJson from "@shared/content/item/structure_fence_h.json
 import itemstructureFenceVJson from "@shared/content/item/structure_fence_v.json";
 import itemstructureHouseLJson from "@shared/content/item/structure_house_l.json";
 import itemstructureHouseMJson from "@shared/content/item/structure_house_m.json";
-import itemstructureTentJson from "@shared/content/item/structure_tent.json";
 import itemstructureTreeJson from "@shared/content/item/structure_tree.json";
 import itemtaserJson from "@shared/content/item/taser.json";
 import itemthanosFistJson from "@shared/content/item/thanos_fist.json";
@@ -125,7 +123,6 @@ export const structureContentEntries = [
   makeParsedEntityContentEntry("structure", "house_l", structurehouseLJson),
   makeParsedEntityContentEntry("structure", "house_m", structurehouseMJson),
   makeParsedEntityContentEntry("structure", "house_xl", structurehouseXlJson),
-  makeParsedEntityContentEntry("structure", "tent", structuretentJson),
   makeParsedEntityContentEntry("structure", "tree", structuretreeJson),
 ] as const;
 
@@ -194,7 +191,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("structure_fence_v", itemstructureFenceVJson),
   makeParsedItemContentEntry("structure_house_l", itemstructureHouseLJson),
   makeParsedItemContentEntry("structure_house_m", itemstructureHouseMJson),
-  makeParsedItemContentEntry("structure_tent", itemstructureTentJson),
   makeParsedItemContentEntry("structure_tree", itemstructureTreeJson),
   makeParsedItemContentEntry("taser", itemtaserJson),
   makeParsedItemContentEntry("thanos_fist", itemthanosFistJson),

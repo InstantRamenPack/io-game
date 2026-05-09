@@ -1,8 +1,10 @@
 import {
   BlurFilter,
   Graphics,
+  Sprite,
   Text,
   TextStyle,
+  Texture,
   type Application,
   type Container,
 } from "pixi.js";
@@ -51,13 +53,12 @@ const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
 const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 128;
-const VISIBILITY_SAMPLE_COUNT = 96;
-// Offset rays slightly around edges/corners to avoid precision gaps in LOS cuts.
-const VISIBILITY_ANGLE_EPSILON = 0.0005;
 // Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
-// Minimum 3 points (triangle) => 6 coordinate entries in the polygon array.
-const MIN_POLYGON_COORDINATES = 6;
+const SHADOW_EXTENSION_RATIO = 1.6;
+const LIGHTS_OUT_FADE_START_RADIUS = 480;
+const LIGHTS_OUT_FADE_END_RADIUS = 600;
+const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 512;
 // Fraction of the screen's min dimension to keep clear at the vignette center.
 const VIGNETTE_HOLE_RATIO = 0.58;
 // Vertical scaling for the vignette ellipse (squash on Y axis).
@@ -68,7 +69,7 @@ const VIGNETTE_MIN_BLUR_PADDING = 120;
 const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
 // Overscan the vignette rect beyond screen bounds to prevent edge artifacts.
 const VIGNETTE_RECT_PADDING = 512;
-const DARKNESS_OVERLAY_COLOR = 0x030507;
+const DARKNESS_OVERLAY_COLOR = 0x000000;
 const VIGNETTE_OVERLAY_COLOR = 0x000000;
 
 type MinimapPlayerMarker = {
@@ -95,6 +96,9 @@ export class PixiWorldView {
     }),
   );
   private readonly darknessOverlay = new Graphics();
+  private readonly lightsOutRadiusFalloff = new Sprite(
+    createLightsOutRadiusFalloffTexture(),
+  );
   private readonly darknessVignette = new Graphics();
   private readonly darknessVignetteBlur = new BlurFilter({
     strength: 18,
@@ -129,8 +133,11 @@ export class PixiWorldView {
     this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
     this.sceneGraph.overlayLayer.addChild(
       this.darknessOverlay,
+      this.lightsOutRadiusFalloff,
       this.darknessVignette,
     );
+    this.lightsOutRadiusFalloff.anchor.set(0.5);
+    this.lightsOutRadiusFalloff.visible = false;
     this.darknessVignette.filters = [this.darknessVignetteBlur];
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
   }
@@ -270,6 +277,7 @@ export class PixiWorldView {
       visibility,
       entity,
       this.visibilityBlockers.filter((blocker) => blocker.kind === "rect"),
+      { targetSourceEntityId: entity.id },
     );
     if (visible) {
       return 1;
@@ -831,232 +839,209 @@ export class PixiWorldView {
     const visibility = this.visibilityState;
     if (!visibility?.restricted) {
       g.visible = false;
+      this.lightsOutRadiusFalloff.visible = false;
       vignette.visible = false;
       return;
     }
     g.visible = true;
+    this.lightsOutRadiusFalloff.visible = true;
     vignette.visible = true;
     const sw = app.screen.width;
     const sh = app.screen.height;
-    const visiblePolygon = this.buildVisibilityPolygon(app, visibility);
-    if (!visiblePolygon) {
+    const visibleRadius = this.getVisibilityRadiusScreen(app, visibility);
+    if (!visibleRadius) {
+      this.lightsOutRadiusFalloff.visible = false;
       return;
     }
-    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 0.9 });
-    g.poly(visiblePolygon).cut();
+    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 1 });
+    g.circle(visibleRadius.x, visibleRadius.y, visibleRadius.radius).cut();
+    this.updateLightsOutRadiusFalloff(visibleRadius);
+    this.drawVisibilityBlockerShadows(app, g, visibility);
 
     this.drawVisibilityVignette(app);
   }
 
-  private buildVisibilityPolygon(
+  private updateLightsOutRadiusFalloff(visibleRadius: {
+    x: number;
+    y: number;
+    radius: number;
+  }): void {
+    this.lightsOutRadiusFalloff.position.set(visibleRadius.x, visibleRadius.y);
+    this.lightsOutRadiusFalloff.width = visibleRadius.radius * 2;
+    this.lightsOutRadiusFalloff.height = visibleRadius.radius * 2;
+  }
+
+  private getVisibilityRadiusScreen(
     app: Application,
     visibility: VisibilityContext,
-  ): number[] | null {
-    const centerX = visibility.center.x;
-    const centerY = visibility.center.y;
-    const angles = this.collectVisibilityAngles(
-      centerX,
-      centerY,
-      visibility.radius,
+  ): { x: number; y: number; radius: number } | null {
+    const center = this.worldToScreen(
+      app,
+      visibility.center.x,
+      visibility.center.y,
     );
-    const twoPi = Math.PI * 2;
-    for (let i = 0; i < angles.length; i++) {
-      angles[i] = (((angles[i] ?? 0) % twoPi) + twoPi) % twoPi;
-    }
-    angles.sort((left, right) => left - right);
-
-    const points: number[] = [];
-    for (const angle of angles) {
-      const dirX = Math.cos(angle);
-      const dirY = Math.sin(angle);
-      const distance = this.getVisibilityRayDistance(
-        centerX,
-        centerY,
-        dirX,
-        dirY,
-        visibility.radius,
-      );
-      const worldX = centerX + dirX * distance;
-      const worldY = centerY + dirY * distance;
-      const screen = this.worldToScreen(app, worldX, worldY);
-      if (!screen) {
-        continue;
-      }
-      points.push(screen.x, screen.y);
-    }
-
-    if (points.length < MIN_POLYGON_COORDINATES) {
+    const edge = this.worldToScreen(
+      app,
+      visibility.center.x + visibility.radius,
+      visibility.center.y,
+    );
+    if (!center || !edge) {
       return null;
     }
-    return points;
+    return {
+      x: center.x,
+      y: center.y,
+      radius: Math.hypot(edge.x - center.x, edge.y - center.y),
+    };
   }
 
-  private collectVisibilityAngles(
-    originX: number,
-    originY: number,
-    radius: number,
-  ): number[] {
-    const angles: number[] = [];
-    const twoPi = Math.PI * 2;
-
-    for (let i = 0; i < VISIBILITY_SAMPLE_COUNT; i += 1) {
-      angles.push((i / VISIBILITY_SAMPLE_COUNT) * twoPi);
-    }
-
+  private drawVisibilityBlockerShadows(
+    app: Application,
+    graphic: Graphics,
+    visibility: VisibilityContext,
+  ): void {
     for (const blocker of this.visibilityBlockers) {
-      if (blocker.kind === "rect") {
-        const minX = blocker.minX;
-        const minY = blocker.minY;
-        const maxX = blocker.maxX;
-        const maxY = blocker.maxY;
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const maxExtent = Math.hypot(maxX - minX, maxY - minY) / 2;
-        if (
-          Math.hypot(centerX - originX, centerY - originY) >
-          radius + maxExtent
-        ) {
-          continue;
-        }
-        const corners: Array<readonly [number, number]> = [
-          [minX, minY],
-          [maxX, minY],
-          [maxX, maxY],
-          [minX, maxY],
-        ];
-        for (const [x, y] of corners) {
-          const baseAngle = Math.atan2(y - originY, x - originX);
-          angles.push(
-            baseAngle - VISIBILITY_ANGLE_EPSILON,
-            baseAngle,
-            baseAngle + VISIBILITY_ANGLE_EPSILON,
-          );
-        }
-        continue;
-      }
-
-      const dx = blocker.centerX - originX;
-      const dy = blocker.centerY - originY;
-      const distance = Math.hypot(dx, dy);
-      if (distance <= blocker.radius + MIN_DISTANCE_EPSILON) {
-        continue;
-      }
-      if (distance - blocker.radius > radius) {
-        continue;
-      }
-      const centerAngle = Math.atan2(dy, dx);
-      const offset = Math.asin(
-        Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
-      );
-      for (const sign of [-1, 1]) {
-        const baseAngle = centerAngle + sign * offset;
-        angles.push(
-          baseAngle - VISIBILITY_ANGLE_EPSILON,
-          baseAngle,
-          baseAngle + VISIBILITY_ANGLE_EPSILON,
-        );
-      }
-    }
-
-    return angles;
-  }
-
-  private getVisibilityRayDistance(
-    originX: number,
-    originY: number,
-    dirX: number,
-    dirY: number,
-    maxDistance: number,
-  ): number {
-    let nearest = maxDistance;
-    for (const blocker of this.visibilityBlockers) {
-      const distance =
+      const shadow =
         blocker.kind === "rect"
-          ? this.rayIntersectRect(originX, originY, dirX, dirY, blocker)
-          : this.rayIntersectCircle(originX, originY, dirX, dirY, blocker);
-      if (distance === null || distance >= nearest) {
+          ? this.buildRectBlockerShadow(visibility, blocker)
+          : this.buildCircleBlockerShadow(visibility, blocker);
+      if (!shadow) {
         continue;
       }
-      nearest = distance;
+      const screenPoints = shadow
+        .map((point) => this.worldToScreen(app, point.x, point.y))
+        .filter((point): point is { x: number; y: number } => point !== null);
+      if (screenPoints.length < 4) {
+        continue;
+      }
+      graphic.poly(screenPoints.flatMap((point) => [point.x, point.y])).fill({
+        color: DARKNESS_OVERLAY_COLOR,
+        alpha: 1,
+      });
+      this.cutVisibilityBlockerFromShadow(app, graphic, blocker);
     }
-    return nearest;
   }
 
-  private rayIntersectRect(
-    originX: number,
-    originY: number,
-    dirX: number,
-    dirY: number,
-    rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
-  ): number | null {
+  private cutVisibilityBlockerFromShadow(
+    app: Application,
+    graphic: Graphics,
+    blocker: VisibilityBlockerShape,
+  ): void {
+    if (blocker.kind === "rect") {
+      const corners = [
+        this.worldToScreen(app, blocker.minX, blocker.minY),
+        this.worldToScreen(app, blocker.maxX, blocker.minY),
+        this.worldToScreen(app, blocker.maxX, blocker.maxY),
+        this.worldToScreen(app, blocker.minX, blocker.maxY),
+      ];
+      if (corners.some((corner) => corner === null)) {
+        return;
+      }
+      graphic.poly(corners.flatMap((corner) => [corner!.x, corner!.y])).cut();
+      return;
+    }
+
+    const center = this.worldToScreen(app, blocker.centerX, blocker.centerY);
+    const edgeX = this.worldToScreen(
+      app,
+      blocker.centerX + blocker.radius,
+      blocker.centerY,
+    );
+    const edgeY = this.worldToScreen(
+      app,
+      blocker.centerX,
+      blocker.centerY + blocker.radius,
+    );
+    if (!center || !edgeX || !edgeY) {
+      return;
+    }
+    graphic
+      .ellipse(
+        center.x,
+        center.y,
+        Math.abs(edgeX.x - center.x),
+        Math.abs(edgeY.y - center.y),
+      )
+      .cut();
+  }
+
+  private buildRectBlockerShadow(
+    visibility: VisibilityContext,
+    blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  ): Array<{ x: number; y: number }> | null {
+    const origin = visibility.center;
+    const blockerCenter = {
+      x: (blocker.minX + blocker.maxX) / 2,
+      y: (blocker.minY + blocker.maxY) / 2,
+    };
+    const distanceToBlocker = Math.hypot(
+      blockerCenter.x - origin.x,
+      blockerCenter.y - origin.y,
+    );
+    if (distanceToBlocker > visibility.radius || distanceToBlocker <= 0) {
+      return null;
+    }
+    const baseAngle = Math.atan2(
+      blockerCenter.y - origin.y,
+      blockerCenter.x - origin.x,
+    );
+    const silhouette = [
+      { x: blocker.minX, y: blocker.minY },
+      { x: blocker.maxX, y: blocker.minY },
+      { x: blocker.maxX, y: blocker.maxY },
+      { x: blocker.minX, y: blocker.maxY },
+    ]
+      .map((point) => ({
+        point,
+        offset: unwrapAngle(
+          Math.atan2(point.y - origin.y, point.x - origin.x),
+          baseAngle,
+        ),
+      }))
+      .sort((left, right) => left.offset - right.offset);
+    const left = silhouette[0]?.point;
+    const right = silhouette.at(-1)?.point;
+    if (!left || !right) {
+      return null;
+    }
+    return buildShadowQuad(origin, visibility.radius, left, right);
+  }
+
+  private buildCircleBlockerShadow(
+    visibility: VisibilityContext,
+    blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
+  ): Array<{ x: number; y: number }> | null {
+    const origin = visibility.center;
+    const dx = blocker.centerX - origin.x;
+    const dy = blocker.centerY - origin.y;
+    const distance = Math.hypot(dx, dy);
     if (
-      originX >= rect.minX &&
-      originX <= rect.maxX &&
-      originY >= rect.minY &&
-      originY <= rect.maxY
+      distance > visibility.radius ||
+      distance <= blocker.radius + MIN_DISTANCE_EPSILON
     ) {
       return null;
     }
-
-    let tMin = Number.NEGATIVE_INFINITY;
-    let tMax = Number.POSITIVE_INFINITY;
-
-    if (Math.abs(dirX) < MIN_DISTANCE_EPSILON) {
-      if (originX < rect.minX || originX > rect.maxX) {
-        return null;
-      }
-    } else {
-      const tx1 = (rect.minX - originX) / dirX;
-      const tx2 = (rect.maxX - originX) / dirX;
-      tMin = Math.max(tMin, Math.min(tx1, tx2));
-      tMax = Math.min(tMax, Math.max(tx1, tx2));
-    }
-
-    if (Math.abs(dirY) < MIN_DISTANCE_EPSILON) {
-      if (originY < rect.minY || originY > rect.maxY) {
-        return null;
-      }
-    } else {
-      const ty1 = (rect.minY - originY) / dirY;
-      const ty2 = (rect.maxY - originY) / dirY;
-      tMin = Math.max(tMin, Math.min(ty1, ty2));
-      tMax = Math.min(tMax, Math.max(ty1, ty2));
-    }
-
-    if (tMax < Math.max(tMin, 0)) {
-      return null;
-    }
-    return Math.max(tMin, 0);
-  }
-
-  private rayIntersectCircle(
-    originX: number,
-    originY: number,
-    dirX: number,
-    dirY: number,
-    circle: Extract<VisibilityBlockerShape, { kind: "circle" }>,
-  ): number | null {
-    const ocX = originX - circle.centerX;
-    const ocY = originY - circle.centerY;
-    const distanceSq = ocX * ocX + ocY * ocY;
-    const radiusSq = circle.radius * circle.radius;
-    if (distanceSq <= radiusSq) {
-      return null;
-    }
-
-    const b = ocX * dirX + ocY * dirY;
-    const c = distanceSq - radiusSq;
-    const discriminant = b * b - c;
-    if (discriminant < 0) {
-      return null;
-    }
-    const sqrt = Math.sqrt(discriminant);
-    const t = -b - sqrt;
-    if (t >= 0) {
-      return t;
-    }
-    const tFar = -b + sqrt;
-    return tFar >= 0 ? tFar : null;
+    const centerAngle = Math.atan2(dy, dx);
+    const tangentOffset = Math.acos(
+      Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
+    );
+    const left = {
+      x:
+        blocker.centerX +
+        Math.cos(centerAngle + Math.PI - tangentOffset) * blocker.radius,
+      y:
+        blocker.centerY +
+        Math.sin(centerAngle + Math.PI - tangentOffset) * blocker.radius,
+    };
+    const right = {
+      x:
+        blocker.centerX +
+        Math.cos(centerAngle + Math.PI + tangentOffset) * blocker.radius,
+      y:
+        blocker.centerY +
+        Math.sin(centerAngle + Math.PI + tangentOffset) * blocker.radius,
+    };
+    return buildShadowQuad(origin, visibility.radius, left, right);
   }
 
   private drawVisibilityVignette(app: Application): void {
@@ -1423,6 +1408,92 @@ function drawWorldHelipad(
     hCrossW + hBarW * 2,
     hCrossH,
   ).fill({ color: 0x6b5500, alpha: 0.85 });
+}
+
+function buildShadowQuad(
+  origin: { x: number; y: number },
+  radius: number,
+  left: { x: number; y: number },
+  right: { x: number; y: number },
+): Array<{ x: number; y: number }> | null {
+  const leftFar = extendPointFromOrigin(
+    origin,
+    left,
+    radius * SHADOW_EXTENSION_RATIO,
+  );
+  const rightFar = extendPointFromOrigin(
+    origin,
+    right,
+    radius * SHADOW_EXTENSION_RATIO,
+  );
+  if (!leftFar || !rightFar) {
+    return null;
+  }
+  return [left, leftFar, rightFar, right];
+}
+
+function extendPointFromOrigin(
+  origin: { x: number; y: number },
+  point: { x: number; y: number },
+  distance: number,
+): { x: number; y: number } | null {
+  const dx = point.x - origin.x;
+  const dy = point.y - origin.y;
+  const length = Math.hypot(dx, dy);
+  if (length <= MIN_DISTANCE_EPSILON) {
+    return null;
+  }
+  return {
+    x: origin.x + (dx / length) * distance,
+    y: origin.y + (dy / length) * distance,
+  };
+}
+
+function unwrapAngle(angle: number, center: number): number {
+  let unwrapped = angle;
+  while (unwrapped - center > Math.PI) {
+    unwrapped -= Math.PI * 2;
+  }
+  while (unwrapped - center < -Math.PI) {
+    unwrapped += Math.PI * 2;
+  }
+  return unwrapped;
+}
+
+function smootherstep(t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  return clamped * clamped * clamped * (clamped * (clamped * 6 - 15) + 10);
+}
+
+function createLightsOutRadiusFalloffTexture(): Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
+  canvas.height = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return Texture.EMPTY;
+  }
+  const image = context.createImageData(canvas.width, canvas.height);
+  const center = (LIGHTS_OUT_FALLOFF_TEXTURE_SIZE - 1) / 2;
+  const outerRadius = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE / 2;
+  const fadeStartRatio =
+    LIGHTS_OUT_FADE_START_RADIUS / LIGHTS_OUT_FADE_END_RADIUS;
+  for (let y = 0; y < canvas.height; y += 1) {
+    for (let x = 0; x < canvas.width; x += 1) {
+      const dx = x - center;
+      const dy = y - center;
+      const distanceRatio = Math.hypot(dx, dy) / outerRadius;
+      const fadeRatio = (distanceRatio - fadeStartRatio) / (1 - fadeStartRatio);
+      const alpha = smootherstep(fadeRatio);
+      const index = (y * canvas.width + x) * 4;
+      image.data[index] = 0;
+      image.data[index + 1] = 0;
+      image.data[index + 2] = 0;
+      image.data[index + 3] = Math.round(alpha * 255);
+    }
+  }
+  context.putImageData(image, 0, 0);
+  return Texture.from(canvas);
 }
 
 function seededUnit(key: string): number {

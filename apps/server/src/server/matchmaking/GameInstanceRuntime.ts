@@ -38,7 +38,6 @@ const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
   makeResourceId("item", "structure_fence_v"),
   makeResourceId("item", "structure_house_m"),
   makeResourceId("item", "structure_house_l"),
-  makeResourceId("item", "structure_tent"),
   makeResourceId("item", "structure_tree"),
 ]);
 

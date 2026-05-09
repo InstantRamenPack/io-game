@@ -69,6 +69,47 @@ describe("lights-out visibility", () => {
     ).toBe(true);
   });
 
+  test("outer visibility keeps the casting blocker visible but hides blockers behind it", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
+    const context = getVisibilityContext(layout, outer.center);
+    const nearWall = {
+      sourceEntityId: 101,
+      minX: outer.center.x + 96,
+      minY: outer.center.y - 64,
+      maxX: outer.center.x + 128,
+      maxY: outer.center.y + 64,
+    };
+    const farWall = {
+      sourceEntityId: 202,
+      minX: outer.center.x + 220,
+      minY: outer.center.y - 64,
+      maxX: outer.center.x + 252,
+      maxY: outer.center.y + 64,
+    };
+
+    expect(
+      isPointVisible(
+        context,
+        { x: outer.center.x + 112, y: outer.center.y },
+        [nearWall, farWall],
+        {
+          targetSourceEntityId: nearWall.sourceEntityId,
+        },
+      ),
+    ).toBe(true);
+    expect(
+      isPointVisible(
+        context,
+        { x: outer.center.x + 236, y: outer.center.y },
+        [nearWall, farWall],
+        {
+          targetSourceEntityId: farWall.sourceEntityId,
+        },
+      ),
+    ).toBe(false);
+  });
+
   test("server snapshots keep lights-out replication authoritative-agnostic", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);

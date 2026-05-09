@@ -845,14 +845,11 @@ function addArchetypeContent(
       break;
     case "military":
       addHouseCluster(structures, center.x - 320, center.y, 5);
-      addTentCamp(structures, center.x + 420, center.y + 260, 6);
       break;
     case "forest":
       addForest(structures, rng, rect, 46);
-      addTentCamp(structures, center.x - 360, center.y + 280, 3);
       break;
     case "extraction":
-      addTentCamp(structures, center.x - 420, center.y + 320, 4);
       addHouseCluster(structures, center.x + 420, center.y - 320, 2);
       break;
     case "dungeon":
@@ -861,7 +858,6 @@ function addArchetypeContent(
     case "quarry":
     case "bunker_edge":
       addMilitaryFence(structures, center, 960, 760);
-      addTentCamp(structures, center.x + 260, center.y - 240, 4);
       buildings.push(
         spawn("building:recycler", center.x - 320, center.y + 260),
       );
@@ -870,7 +866,6 @@ function addArchetypeContent(
     case "lake_district":
     case "swamp":
       addForest(structures, rng, rect, 30);
-      addTentCamp(structures, center.x - 280, center.y - 260, 3);
       addWildlandFeatures(features, markers, archetype, center);
       break;
     case "farmstead":
@@ -959,7 +954,6 @@ function addDungeonRoomContent(
   const y = room.centerY;
   switch (room.role) {
     case "entrance":
-      structures.push(spawn("structure:tent", x - 160, y));
       loot.push(
         lootSpec("item:quality_food", x + 160, y, "stackable", "common", 2),
       );
@@ -979,7 +973,6 @@ function addDungeonRoomContent(
       loot.push(lootSpec("item:hunk", x + 80, y, "stackable", "uncommon", 8));
       break;
     case "rest":
-      structures.push(spawn("structure:tent", x, y - 96));
       loot.push(
         lootSpec("item:quality_food", x, y + 96, "stackable", "uncommon", 3),
       );
@@ -1664,24 +1657,6 @@ function addHouseCluster(
   ] as const;
   for (const [dx, dy, typeId] of offsets.slice(0, count)) {
     structures.push(spawn(typeId, centerX + dx, centerY + dy));
-  }
-}
-
-function addTentCamp(
-  structures: ProceduralSpawnSpec[],
-  centerX: number,
-  centerY: number,
-  count: number,
-): void {
-  for (let index = 0; index < count; index += 1) {
-    const angle = (index / count) * Math.PI * 2;
-    structures.push(
-      spawn(
-        "structure:tent",
-        centerX + Math.cos(angle) * 260,
-        centerY + Math.sin(angle) * 210,
-      ),
-    );
   }
 }
 

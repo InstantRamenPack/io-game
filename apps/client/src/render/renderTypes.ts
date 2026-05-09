@@ -25,6 +25,7 @@ export type ResourceStackEntry = {
 export type VisibilityBlockerShape =
   | {
       kind: "rect";
+      sourceEntityId: number;
       minX: number;
       minY: number;
       maxX: number;
@@ -32,6 +33,7 @@ export type VisibilityBlockerShape =
     }
   | {
       kind: "circle";
+      sourceEntityId: number;
       centerX: number;
       centerY: number;
       radius: number;

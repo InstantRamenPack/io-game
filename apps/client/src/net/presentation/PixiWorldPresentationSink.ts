@@ -13,6 +13,9 @@ const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
   "structure:tree",
   "building:tree",
 ]);
+const NON_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
+  "building:landmine",
+]);
 
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
@@ -198,6 +201,9 @@ function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
   if (!entity.alive) {
     return false;
   }
+  if (NON_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId)) {
+    return false;
+  }
   return entity.kind === "building" || entity.kind === "structure";
 }
 
@@ -217,6 +223,7 @@ function toVisibilityBlocker(
       TREE_VISIBILITY_RADIUS_SCALE;
     return {
       kind: "circle",
+      sourceEntityId: entity.id,
       centerX: entity.x + bounds.centerX,
       centerY: entity.y + bounds.centerY,
       radius,
@@ -225,6 +232,7 @@ function toVisibilityBlocker(
 
   return {
     kind: "rect",
+    sourceEntityId: entity.id,
     minX: entity.x + bounds.minX,
     minY: entity.y + bounds.minY,
     maxX: entity.x + bounds.maxX,

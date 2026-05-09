@@ -9,7 +9,7 @@ import {
   pointInRect,
 } from "@shared/world/ProceduralWorld.ts";
 
-export const OUTER_LIGHTS_OUT_RADIUS = 560;
+export const OUTER_LIGHTS_OUT_RADIUS = 600;
 
 export type VisibilityContext = {
   center: ProceduralPoint;
@@ -24,6 +24,10 @@ export type VisibilityMapSector = ProceduralRect & {
 
 export type VisibilityMap = {
   sectors: readonly VisibilityMapSector[];
+};
+
+export type VisibilityBlocker = ProceduralRect & {
+  sourceEntityId?: number;
 };
 
 export function getVisibilityContext(
@@ -78,7 +82,8 @@ export function getVisibilityContextForMap(
 export function isPointVisible(
   context: VisibilityContext,
   target: ProceduralPoint,
-  blockers: readonly ProceduralRect[],
+  blockers: readonly VisibilityBlocker[],
+  options: { targetSourceEntityId?: number } = {},
 ): boolean {
   if (!context.restricted) {
     return true;
@@ -89,8 +94,17 @@ export function isPointVisible(
     return false;
   }
   for (const blocker of blockers) {
-    if (pointInRect(context.center, blocker) || pointInRect(target, blocker)) {
+    if (
+      options.targetSourceEntityId !== undefined &&
+      blocker.sourceEntityId === options.targetSourceEntityId
+    ) {
       continue;
+    }
+    if (pointInRect(context.center, blocker)) {
+      continue;
+    }
+    if (pointInRect(target, blocker)) {
+      return false;
     }
     if (segmentIntersectsRect(context.center, target, blocker)) {
       return false;
