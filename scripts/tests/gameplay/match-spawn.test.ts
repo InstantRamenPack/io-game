@@ -41,6 +41,16 @@ describe("match spawn placement", () => {
     }
   });
 
+  test("match clients start with an empty hotbar", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime, "client-1", "match-loadout");
+
+    expect(player.inventory.hotbarSlots.every((slot) => slot === null)).toBe(
+      true,
+    );
+    expect(player.inventory.selectedHotbarIndex).toBe(0);
+  });
+
   test("match respawns return players to their assigned base slot", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime, "client-1", "respawn-test");
@@ -64,6 +74,9 @@ describe("match spawn placement", () => {
 
     expect({ x: player.x, y: player.y }).toEqual(
       getPlayerSpawnPosition(runtime.world.gameConfig.worldSize),
+    );
+    expect(player.inventory.hotbarSlots.some((slot) => slot !== null)).toBe(
+      true,
     );
   });
 });

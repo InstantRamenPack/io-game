@@ -163,6 +163,9 @@ export class GameInstanceRuntime {
     playerEntity.x = spawnPosition.x;
     playerEntity.y = spawnPosition.y;
     applyPlayerStarterLoadout(playerEntity);
+    if (!this.isPlayground) {
+      playerEntity.inventory.clearHotbar();
+    }
     if (isDebugCreativeEditor(playerEntity)) {
       applyDebugCreativeLoadout(playerEntity);
     }
@@ -511,14 +514,7 @@ function isDebugCreativeEditor(player: Player): boolean {
 
 function applyDebugCreativeLoadout(player: Player): void {
   player.inventory.resources.clear();
-  for (
-    let slotIndex = 0;
-    slotIndex < player.inventory.hotbarSlots.length;
-    slotIndex += 1
-  ) {
-    player.inventory.hotbarSlots[slotIndex] = null;
-  }
-  player.inventory.setSelectedHotbarIndex(0);
+  player.inventory.clearHotbar();
 
   for (const itemTypeId of DEBUG_CREATIVE_ITEM_TYPE_IDS) {
     const itemEntry = itemTypeRegistry.get(itemTypeId);

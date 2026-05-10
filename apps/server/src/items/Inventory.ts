@@ -352,6 +352,13 @@ export class Inventory {
     return true;
   }
 
+  public clearHotbar(): void {
+    for (let slotIndex = 0; slotIndex < this.hotbarSlots.length; slotIndex += 1) {
+      this.hotbarSlots[slotIndex] = null;
+    }
+    this.selectedHotbarIndex = 0;
+  }
+
   public iterateWeaponSlots(): Weapon[] {
     const weapons: Weapon[] = [];
     for (const slot of this.hotbarSlots) {
