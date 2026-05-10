@@ -186,7 +186,7 @@ describe("lights-out visibility", () => {
     ).toBe(true);
   });
 
-  test("energy failure restricts outdoor client visibility without changing home visibility", () => {
+  test("energy failure restricts client visibility even in home base", () => {
     const map = {
       sectors: [
         {
@@ -216,7 +216,16 @@ describe("lights-out visibility", () => {
           outdoorLightsActive: false,
         },
       ).restricted,
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      getVisibilityContextForMap(
+        map,
+        { x: 50, y: 50 },
+        {
+          outdoorLightsActive: false,
+        },
+      ).radius,
+    ).toBe(OUTER_LIGHTS_OUT_RADIUS);
     const outerContext = getVisibilityContextForMap(
       map,
       { x: 150, y: 50 },

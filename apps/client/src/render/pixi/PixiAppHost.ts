@@ -19,6 +19,7 @@ export class PixiAppHost {
     if (!this.app) {
       this.app = new Application();
       await this.app.init({
+        preference: "webgpu",
         resizeTo: window,
         background: options.backgroundColor,
         antialias: options.antialias,

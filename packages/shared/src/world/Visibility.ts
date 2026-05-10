@@ -69,9 +69,7 @@ export function getVisibilityContextForMap(
   const outdoorLightsActive = options.outdoorLightsActive ?? true;
   const restricted =
     Boolean(sector?.hasLightsOut) ||
-    (!outdoorLightsActive &&
-      sector !== undefined &&
-      sector.archetype !== "home");
+    (!outdoorLightsActive && sector !== undefined);
   return {
     center: viewer,
     radius: restricted ? OUTER_LIGHTS_OUT_RADIUS : Number.POSITIVE_INFINITY,
