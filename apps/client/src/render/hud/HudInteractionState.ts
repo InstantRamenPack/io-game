@@ -5,6 +5,7 @@ export type HudInteractionState = {
   craftingMenuOpen: boolean;
   inventoryOpen: boolean;
   chestOpen: boolean;
+  sectorFeedOpen: boolean;
   openChestEntityId: number | null;
   selectedCraft: ResourceId;
   previewedCraft: ResourceId;

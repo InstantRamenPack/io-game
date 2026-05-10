@@ -30,6 +30,10 @@ export type HudRuntime = {
    */
   toggleInventory(): void;
   /**
+   * Shows or hides the in-game sector feed panel.
+   */
+  toggleSectorFeed(): boolean;
+  /**
    * Updates the active hotbar slot from a one-based hotkey ordinal.
    * Returns `true` when a matching item existed and was selected.
    */

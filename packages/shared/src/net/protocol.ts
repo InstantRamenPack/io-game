@@ -209,6 +209,7 @@ const PongMessageSchema = z.object({
 const WelcomeMessageSchema = z.object({
   t: z.literal("welcome"),
   entityId: NonNegativeIntSchema,
+  worldId: z.string().optional(),
 });
 
 const SnapshotMessageSchema = z.object({

@@ -30,7 +30,8 @@ export class WsClient {
   public socket?: WebSocket;
 
   private snapshotHandlers: Array<(snapshot: WorldSnapshot) => void> = [];
-  private welcomeHandlers: Array<(entityId: number) => void> = [];
+  private welcomeHandlers: Array<(entityId: number, worldId?: string) => void> =
+    [];
   private chatHandlers: Array<(message: ChatMessage) => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private gameCompleteHandlers: Array<(message: GameCompleteMessage) => void> =
@@ -175,7 +176,9 @@ export class WsClient {
     this.snapshotHandlers.push(snapshotHandler);
   }
 
-  public onWelcome(welcomeHandler: (entityId: number) => void): void {
+  public onWelcome(
+    welcomeHandler: (entityId: number, worldId?: string) => void,
+  ): void {
     this.welcomeHandlers.push(welcomeHandler);
   }
 
@@ -266,7 +269,7 @@ export class WsClient {
 
     if (serverMessage.t === "welcome") {
       for (const welcomeHandler of this.welcomeHandlers) {
-        welcomeHandler(serverMessage.entityId);
+        welcomeHandler(serverMessage.entityId, serverMessage.worldId);
       }
       return;
     }

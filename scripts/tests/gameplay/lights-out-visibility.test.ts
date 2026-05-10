@@ -3,7 +3,6 @@ import {
   OUTER_LIGHTS_OUT_RADIUS,
   getVisibilityContext,
   getVisibilityContextForMap,
-  isPointVisible,
 } from "@shared/world/Visibility.ts";
 import { generateProceduralWorldLayout } from "@shared/world/ProceduralWorld.ts";
 import {
@@ -17,56 +16,18 @@ import {
 describe("lights-out visibility", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("outer sectors restrict radius and center sector is broadly visible", () => {
+  test("outer sectors restrict radius and center sector is unrestricted", () => {
     const layout = generateProceduralWorldLayout(1337);
     const home = layout.sectors.find((sector) => sector.archetype === "home")!;
     const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
 
     const homeContext = getVisibilityContext(layout, home.center);
     expect(homeContext.restricted).toBe(false);
-    expect(isPointVisible(homeContext, { x: 0, y: 0 }, [])).toBe(true);
+    expect(homeContext.radius).toBe(Number.POSITIVE_INFINITY);
 
     const outerContext = getVisibilityContext(layout, outer.center);
     expect(outerContext.restricted).toBe(true);
     expect(outerContext.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
-    expect(
-      isPointVisible(
-        outerContext,
-        { x: outer.center.x + OUTER_LIGHTS_OUT_RADIUS + 16, y: outer.center.y },
-        [],
-      ),
-    ).toBe(false);
-  });
-
-  test("outer visibility respects line of sight blockers and open corridors", () => {
-    const layout = generateProceduralWorldLayout(1337);
-    const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
-    const context = getVisibilityContext(layout, outer.center);
-    const blocker = {
-      minX: outer.center.x + 96,
-      minY: outer.center.y - 64,
-      maxX: outer.center.x + 128,
-      maxY: outer.center.y + 64,
-      centerX: outer.center.x + 112,
-      centerY: outer.center.y,
-      offsetX: 0,
-      offsetY: 0,
-      width: 32,
-      height: 128,
-    };
-
-    expect(
-      isPointVisible(context, { x: outer.center.x + 220, y: outer.center.y }, [
-        blocker,
-      ]),
-    ).toBe(false);
-    expect(
-      isPointVisible(
-        context,
-        { x: outer.center.x + 220, y: outer.center.y + 160 },
-        [blocker],
-      ),
-    ).toBe(true);
   });
 
   test("server snapshots keep lights-out replication authoritative-agnostic", () => {
@@ -109,11 +70,12 @@ describe("lights-out visibility", () => {
     expect(ids.has(hiddenEnemy.id)).toBe(true);
   });
 
-  test("client-side map visibility hides blocked outer-sector entities", () => {
+  test("client-side map visibility restricts outer-sector radius", () => {
     const layout = generateProceduralWorldLayout(1337);
     const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
     const map = {
       sectors: layout.sectors.map((sector) => ({
+        archetype: sector.archetype,
         minX: sector.minX,
         minY: sector.minY,
         maxX: sector.maxX,
@@ -122,25 +84,59 @@ describe("lights-out visibility", () => {
       })),
     };
     const context = getVisibilityContextForMap(map, outer.center);
-    const blocker = {
-      minX: outer.center.x + 96,
-      minY: outer.center.y - 64,
-      maxX: outer.center.x + 128,
-      maxY: outer.center.y + 64,
-    };
 
     expect(context.restricted).toBe(true);
+    expect(context.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
+  });
+
+  test("energy failure restricts client visibility even in home base", () => {
+    const map = {
+      sectors: [
+        {
+          archetype: "home",
+          minX: 0,
+          minY: 0,
+          maxX: 100,
+          maxY: 100,
+          hasLightsOut: false,
+        },
+        {
+          archetype: "forest",
+          minX: 100,
+          minY: 0,
+          maxX: 200,
+          maxY: 100,
+          hasLightsOut: false,
+        },
+      ],
+    };
+
     expect(
-      isPointVisible(context, { x: outer.center.x + 220, y: outer.center.y }, [
-        blocker,
-      ]),
-    ).toBe(false);
-    expect(
-      isPointVisible(
-        context,
-        { x: outer.center.x + 220, y: outer.center.y + 160 },
-        [blocker],
-      ),
+      getVisibilityContextForMap(
+        map,
+        { x: 50, y: 50 },
+        {
+          outdoorLightsActive: false,
+        },
+      ).restricted,
     ).toBe(true);
+    expect(
+      getVisibilityContextForMap(
+        map,
+        { x: 50, y: 50 },
+        {
+          outdoorLightsActive: false,
+        },
+      ).radius,
+    ).toBe(OUTER_LIGHTS_OUT_RADIUS);
+    const outerContext = getVisibilityContextForMap(
+      map,
+      { x: 150, y: 50 },
+      {
+        outdoorLightsActive: false,
+      },
+    );
+    expect(outerContext.restricted).toBe(true);
+    expect(outerContext.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
   });
 });

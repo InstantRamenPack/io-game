@@ -77,8 +77,11 @@ function drawWifiArcs(
 
   for (let i = 0; i < arcCount; i++) {
     const r = maxR * ((i + 1) / arcCount);
-    g.arc(cx, cy, r, startAngle, endAngle)
-      .stroke({ width: 2.5, color, alpha: alpha * (0.5 + 0.5 * ((i + 1) / arcCount)) });
+    g.arc(cx, cy, r, startAngle, endAngle).stroke({
+      width: 2.5,
+      color,
+      alpha: alpha * (0.5 + 0.5 * ((i + 1) / arcCount)),
+    });
   }
 
   // Center dot

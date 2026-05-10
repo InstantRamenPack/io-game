@@ -36,10 +36,9 @@ export function getMatchPlayerSpawnPosition(
     (proceduralLayout.homeBounds.minX + proceduralLayout.homeBounds.maxX) / 2;
   const centerY =
     (proceduralLayout.homeBounds.minY + proceduralLayout.homeBounds.maxY) / 2;
-  const slot =
-    MATCH_BASE_SPAWN_OFFSETS[
-      Math.max(0, spawnSlot) % MATCH_BASE_SPAWN_OFFSETS.length
-    ] ?? MATCH_BASE_SPAWN_OFFSETS[0];
+  const slot = MATCH_BASE_SPAWN_OFFSETS[
+    Math.max(0, spawnSlot) % MATCH_BASE_SPAWN_OFFSETS.length
+  ] ?? { x: 0, y: 0 };
   return {
     x: centerX + slot.x,
     y: centerY + slot.y,

@@ -36,9 +36,11 @@ import type {
 import type {
   DayNightSnapshot,
   ExtractionSnapshot,
+  InfrastructureSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
 
 const INPUT_SEND_INTERVAL_MS = 1000 / 60;
 const SNIPER_WEAPON_TYPE_ID = "item:sniper";
@@ -73,6 +75,7 @@ export class GameClient {
     MovementSuppressionReason,
     () => void
   >();
+  private pendingPlayerName: string | null = null;
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
   private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
@@ -84,6 +87,11 @@ export class GameClient {
   private lobbyState?: LobbyStateMessage;
   private spectateEntityId: number | null = null;
   private latestExtractionState: ExtractionSnapshot | null = null;
+  private latestInfrastructureState: InfrastructureSnapshot = {
+    energyActive: true,
+    commsActive: true,
+  };
+  private currentWorldId: string | undefined = undefined;
   private latestMinimapPlayers: ReadonlyArray<{
     id: number;
     x: number;
@@ -124,7 +132,9 @@ export class GameClient {
     });
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
-    this.networkClient.onWelcome((entityId) => this.onWelcome(entityId));
+    this.networkClient.onWelcome((entityId, worldId) =>
+      this.onWelcome(entityId, worldId),
+    );
     this.networkClient.onLobbyState((state) => this.onLobbyState(state));
     this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
     this.networkClient.onGameOver((msg) => this.handleGameOver(msg));
@@ -201,6 +211,10 @@ export class GameClient {
 
   public getLatestExtractionState(): ExtractionSnapshot | null {
     return this.latestExtractionState;
+  }
+
+  public getLatestInfrastructureState(): InfrastructureSnapshot {
+    return this.latestInfrastructureState;
   }
 
   public getLobbyState(): LobbyStateMessage | undefined {
@@ -421,6 +435,7 @@ export class GameClient {
     this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
+    this.pendingPlayerName = connectOptions.playerName;
     this.startFrameLoop();
 
     this.networkClient.connect(url, {
@@ -456,7 +471,8 @@ export class GameClient {
 
       this.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
-      const minimapPlayers: Array<{ x: number; y: number; isSelf: boolean }> = [];
+      const minimapPlayers: Array<{ x: number; y: number; isSelf: boolean }> =
+        [];
       for (const player of this.latestMinimapPlayers) {
         if (!player.alive) {
           continue;
@@ -495,7 +511,9 @@ export class GameClient {
       return;
     }
 
+    this.resolveWelcomeFromSnapshot();
     this.latestExtractionState = snapshot.extraction;
+    this.latestInfrastructureState = snapshot.infrastructure;
     this.latestMinimapPlayers = snapshot.minimapPlayers ?? [];
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
@@ -518,12 +536,27 @@ export class GameClient {
     }
   }
 
-  public onWelcome(entityId: number): void {
+  public onWelcome(entityId: number, worldId?: string): void {
     if (this.isSessionReady()) {
+      const samePlayer = this.playerEntityId === entityId;
+      const worldChanged =
+        worldId !== undefined && this.currentWorldId !== undefined
+          ? worldId !== this.currentWorldId
+          : !samePlayer;
+      if (!worldChanged) {
+        if (worldId !== undefined) {
+          this.currentWorldId = worldId;
+        }
+        return;
+      }
       this.resetForInstanceMigration();
+    }
+    if (worldId !== undefined) {
+      this.currentWorldId = worldId;
     }
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
+    this.pendingPlayerName = null;
     this.presentationSink.setPlayerEntityId(entityId);
     const inActiveMatch =
       this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null;
@@ -667,7 +700,7 @@ export class GameClient {
 
   private onLobbyState(state: LobbyStateMessage): void {
     this.lobbyState = state;
-    const inActiveMatch = state.inLobby === true && state.startedAtMs != null;
+    const inActiveMatch = state.inLobby && state.startedAtMs != null;
     this.renderer.setPlaygroundMode(!inActiveMatch);
     for (const handler of this.lobbyStateHandlers) {
       handler(state);
@@ -692,6 +725,8 @@ export class GameClient {
       this.gameConfig.interpolation.historySize,
     );
     this.latestMinimapPlayers = [];
+    this.latestInfrastructureState = { energyActive: true, commsActive: true };
+    this.latestExtractionState = null;
     this.rateMonitor.reset();
     this.syncInterpolatorConfig();
     this.pointerAimController.reset();
@@ -702,6 +737,9 @@ export class GameClient {
     this.presentationSink.reset();
     this.clearMovementSuppressions();
     this.placementPreviewController.reset(this.renderer);
+    this.renderer.updateExtractionState(null);
+    this.renderer.updateInfrastructureState(this.latestInfrastructureState);
+    this.renderer.updateMapState(null);
     this.renderer.setSniperAimGuide(null);
   }
 
@@ -728,11 +766,17 @@ export class GameClient {
     this.worldState?.clear();
     this.worldState = undefined;
     this.playerEntityId = undefined;
+    this.pendingPlayerName = null;
     this.spectateEntityId = null;
     this.latestMinimapPlayers = [];
+    this.latestInfrastructureState = { energyActive: true, commsActive: true };
+    this.latestExtractionState = null;
     this.presentationSink.setPlayerEntityId(undefined);
     this.presentationSink.reset();
     this.placementPreviewController.reset(this.renderer);
+    this.renderer.updateExtractionState(null);
+    this.renderer.updateInfrastructureState(this.latestInfrastructureState);
+    this.renderer.updateMapState(null);
     this.renderer.setSniperAimGuide(null);
   }
 
@@ -742,6 +786,38 @@ export class GameClient {
     }
 
     return this.worldState?.clientWorld?.entities.get(this.playerEntityId);
+  }
+
+  private resolveWelcomeFromSnapshot(): void {
+    if (this.isSessionReady()) {
+      return;
+    }
+    const pendingName = this.pendingPlayerName;
+    if (!pendingName) {
+      return;
+    }
+    const world = this.worldState?.clientWorld;
+    if (!world) {
+      return;
+    }
+    const normalizedName = normalizePlayerName(pendingName, "");
+    const matches = [...world.entities.values()].filter((entity) => {
+      if (entity.kind !== "player") {
+        return false;
+      }
+      if (normalizedName) {
+        return entity.name === normalizedName;
+      }
+      return entity.name === `player-${entity.id}`;
+    });
+    if (matches.length !== 1) {
+      return;
+    }
+    const [matchedPlayer] = matches;
+    if (!matchedPlayer) {
+      return;
+    }
+    this.onWelcome(matchedPlayer.id);
   }
 
   private getLocalPlayerVisualPose(): {

@@ -163,7 +163,9 @@ export class WaveSpawner {
     } else if (nightCycle > 7) {
       resolvedConfig = this.generateRandomWave(nightCycle);
     } else {
-      console.warn(`Wave spawner: no config found for night cycle ${nightCycle}`);
+      console.warn(
+        `Wave spawner: no config found for night cycle ${nightCycle}`,
+      );
       return;
     }
 
@@ -292,9 +294,7 @@ export class WaveSpawner {
       // 6000px covers the full home sector from any perimeter spawn point (~4950px max),
       // ensuring wave enemies always find players without affecting non-wave enemies.
       if (entity instanceof Enemy) {
-        entity.goalSelector.add(
-          new TargetEntityGoal<Enemy>(-1, Player, 6000),
-        );
+        entity.goalSelector.add(new TargetEntityGoal<Enemy>(-1, Player, 6000));
       }
     }
   }
@@ -310,20 +310,35 @@ export class WaveSpawner {
 
     type EnemyEntry = { entityType: string; count: number };
     const pool: EnemyEntry[] = [
-      { entityType: "drifter",     count: Math.round(10 * scale) },
-      { entityType: "shoota",      count: Math.round(6 * scale)  },
-      { entityType: "bomber",      count: Math.round(3 * scale)  },
-      { entityType: "police",      count: Math.round(3 * scale)  },
-      { entityType: "saboteur",    count: Math.round(4 * scale)  },
-      { entityType: "wallbreaker", count: Math.round(2 * scale)  },
+      { entityType: "drifter", count: Math.round(10 * scale) },
+      { entityType: "shoota", count: Math.round(6 * scale) },
+      { entityType: "bomber", count: Math.round(3 * scale) },
+      { entityType: "police", count: Math.round(3 * scale) },
+      { entityType: "saboteur", count: Math.round(4 * scale) },
+      { entityType: "wallbreaker", count: Math.round(2 * scale) },
       ...(nightCycle >= 9
-        ? [{ entityType: "commander", count: Math.round((nightCycle - 8) * 0.5) }]
+        ? [
+            {
+              entityType: "commander",
+              count: Math.round((nightCycle - 8) * 0.5),
+            },
+          ]
         : []),
       ...(nightCycle >= 10
-        ? [{ entityType: "megaknight", count: Math.round((nightCycle - 9) * 0.8) }]
+        ? [
+            {
+              entityType: "megaknight",
+              count: Math.round((nightCycle - 9) * 0.8),
+            },
+          ]
         : []),
       ...(nightCycle >= 12
-        ? [{ entityType: "stalker", count: Math.round((nightCycle - 11) * 0.6) }]
+        ? [
+            {
+              entityType: "stalker",
+              count: Math.round((nightCycle - 11) * 0.6),
+            },
+          ]
         : []),
       ...(nightCycle >= 13
         ? [{ entityType: "sniper", count: Math.round((nightCycle - 12) * 0.5) }]

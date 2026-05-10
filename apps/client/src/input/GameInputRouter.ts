@@ -93,6 +93,13 @@ export class GameInputRouter {
       return;
     }
 
+    if (event.code === "Backquote") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.options.dispatch({ type: "toggleSectorFeed" });
+      return;
+    }
+
     if (key === "c") {
       event.preventDefault();
       this.options.dispatch({
@@ -116,7 +123,10 @@ export class GameInputRouter {
         return;
       }
       if (context.nearChest !== null) {
-        this.options.dispatch({ type: "openChest", chestEntityId: context.nearChest });
+        this.options.dispatch({
+          type: "openChest",
+          chestEntityId: context.nearChest,
+        });
         return;
       }
       if (context.nearCraftingStation && !context.craftingOpen) {

@@ -6,6 +6,7 @@ import type {
   SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
 import {
@@ -37,11 +38,12 @@ const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
   makeResourceId("item", "structure_fence_v"),
   makeResourceId("item", "structure_house_m"),
   makeResourceId("item", "structure_house_l"),
-  makeResourceId("item", "structure_tent"),
   makeResourceId("item", "structure_tree"),
 ]);
 
 export class GameInstanceRuntime {
+  private static nextWorldId = 0;
+  public readonly worldId = String(GameInstanceRuntime.nextWorldId++);
   public readonly world: World;
   public readonly snapshotManager: SnapshotManager;
   public readonly antiCheatValidator: AntiCheatValidator;
@@ -62,7 +64,10 @@ export class GameInstanceRuntime {
   // clientId → world.tick when the player last became alive (cleared on death)
   private readonly playerAliveSinceTick = new Map<string, number>();
   // clientId → entity ID of the player being spectated (null = no target)
-  private readonly spectateTargetIdByClientId = new Map<string, number | null>();
+  private readonly spectateTargetIdByClientId = new Map<
+    string,
+    number | null
+  >();
   private prevWasNight = false;
   private gameFailed = false;
 
@@ -156,7 +161,7 @@ export class GameInstanceRuntime {
     const fallbackPlayerName = `player-${playerId}`;
     const playerEntity = new Player(
       playerId,
-      this.sanitizePlayerName(requestedPlayerName, fallbackPlayerName),
+      normalizePlayerName(requestedPlayerName, fallbackPlayerName),
     );
 
     const spawnPosition = this.getSpawnPositionForClient(clientId);
@@ -249,7 +254,10 @@ export class GameInstanceRuntime {
           this.playerAliveSinceTick.delete(clientId);
           if (this.isPlayground) {
             // Instant respawn at spawn in playground
-            player.respawn(this.world, this.getSpawnPositionForClient(clientId));
+            player.respawn(
+              this.world,
+              this.getSpawnPositionForClient(clientId),
+            );
             this.playerAliveSinceTick.set(clientId, this.world.tick);
             deadCount--;
           }
@@ -272,7 +280,6 @@ export class GameInstanceRuntime {
         }
       }
     }
-
 
     if (
       !this.isPlayground &&
@@ -412,7 +419,10 @@ export class GameInstanceRuntime {
     return this.world.get<Player>(playerId);
   }
 
-  private getSpawnPositionForClient(clientId: string): { x: number; y: number } {
+  private getSpawnPositionForClient(clientId: string): {
+    x: number;
+    y: number;
+  } {
     if (this.isPlayground) {
       return getPlayerSpawnPosition(this.gameConfig.worldSize);
     }
@@ -491,17 +501,6 @@ export class GameInstanceRuntime {
       this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1,
       this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
-  }
-
-  private sanitizePlayerName(
-    requestedPlayerName: string | undefined,
-    fallbackPlayerName: string,
-  ): string {
-    const sanitizedPlayerName = (requestedPlayerName ?? "")
-      .replace(/[\x00-\x1F\x7F]/g, "")
-      .trim()
-      .slice(0, 20);
-    return sanitizedPlayerName || fallbackPlayerName;
   }
 }
 

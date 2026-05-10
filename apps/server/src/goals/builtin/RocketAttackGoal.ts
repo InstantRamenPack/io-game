@@ -32,7 +32,11 @@ export class RocketAttackGoal<
     if (!target) return false;
     const weapon = this.resolveWeapon(ctx);
     const dist = Math.hypot(target.x - ctx.self.x, target.y - ctx.self.y);
-    return dist <= this.maxRange && weapon.canHit() && this.isTargetBehindBuilding(ctx, target);
+    return (
+      dist <= this.maxRange &&
+      weapon.canHit() &&
+      this.isTargetBehindBuilding(ctx, target)
+    );
   }
 
   public override start(_ctx: GoalContext<TSelf>): void {}
@@ -82,7 +86,10 @@ export class RocketAttackGoal<
     );
   }
 
-  private isTargetBehindBuilding(ctx: GoalContext<TSelf>, target: Entity): boolean {
+  private isTargetBehindBuilding(
+    ctx: GoalContext<TSelf>,
+    target: Entity,
+  ): boolean {
     const sx = ctx.self.x;
     const sy = ctx.self.y;
     const tx = target.x;
@@ -92,7 +99,12 @@ export class RocketAttackGoal<
     const maxX = Math.max(sx, tx) + 10;
     const maxY = Math.max(sy, ty) + 10;
 
-    for (const blocker of ctx.world.staticGeometry.queryBox(minX, minY, maxX, maxY)) {
+    for (const blocker of ctx.world.staticGeometry.queryBox(
+      minX,
+      minY,
+      maxX,
+      maxY,
+    )) {
       const entity = blocker.entity;
       if (!entity.typeId.startsWith("building:")) continue;
       if (KEY_BUILDING_TYPE_IDS.has(entity.typeId)) continue;
@@ -107,9 +119,12 @@ export class RocketAttackGoal<
 }
 
 function isPointBetween(
-  ax: number, ay: number,
-  bx: number, by: number,
-  px: number, py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  px: number,
+  py: number,
 ): boolean {
   const abx = bx - ax;
   const aby = by - ay;

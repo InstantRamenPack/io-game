@@ -716,9 +716,16 @@ function mapProceduralDungeonRoom(room: ProceduralDungeonRoom): {
   };
 }
 
+let cachedProceduralLayout: ReturnType<
+  typeof generateProceduralWorldLayout
+> | null = null;
+
 /**
  * Spawns all map structures and initial enemies from data-backed zones.
  */
 export function loadMap(world: World): void {
-  loadProceduralLayout(world, generateProceduralWorldLayout());
+  if (!cachedProceduralLayout) {
+    cachedProceduralLayout = generateProceduralWorldLayout();
+  }
+  loadProceduralLayout(world, cachedProceduralLayout);
 }

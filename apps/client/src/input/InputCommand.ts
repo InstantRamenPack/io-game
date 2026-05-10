@@ -1,6 +1,7 @@
 export type InputCommand =
   | { type: "openChat" }
   | { type: "openChatSlash" }
+  | { type: "toggleSectorFeed" }
   | { type: "toggleCraftingMenu" }
   | { type: "toggleInventory" }
   | { type: "closeCraftingMenu" }

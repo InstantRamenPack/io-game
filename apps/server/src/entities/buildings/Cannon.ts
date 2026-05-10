@@ -26,7 +26,10 @@ export class Cannon extends Building {
       return null;
     }
 
-    if (world.infrastructureSystem && !world.infrastructureSystem.isEnergyActive()) {
+    if (
+      world.infrastructureSystem &&
+      !world.infrastructureSystem.isEnergyActive()
+    ) {
       return null;
     }
 

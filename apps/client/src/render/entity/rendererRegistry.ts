@@ -8,7 +8,6 @@ import { FenceRenderer } from "@client/render/entity/building/FenceRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
 import { MapBuildingRenderer } from "@client/render/entity/building/MapBuildingRenderer.ts";
 import { RecyclerRenderer } from "@client/render/entity/building/RecyclerRenderer.ts";
-import { TentRenderer } from "@client/render/entity/building/TentRenderer.ts";
 import { TreeRenderer } from "@client/render/entity/building/TreeRenderer.ts";
 import { WallRenderer } from "@client/render/entity/building/WallRenderer.ts";
 import { DrifterRenderer } from "@client/render/entity/enemy/DrifterRenderer.ts";
@@ -61,7 +60,6 @@ const rendererManifests = [
   ["house_m", MapBuildingRenderer],
   ["fence_h", FenceRenderer],
   ["fence_v", FenceRenderer],
-  ["tent", TentRenderer],
   ["wall", WallRenderer],
   ["dungeon_wall", WallRenderer],
   ["cannon", CannonRenderer],

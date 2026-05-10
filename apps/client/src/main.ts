@@ -183,8 +183,8 @@ new GameInputRouter({
       getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
       null,
     nearChest:
-      findNearestChest(selectors.getPlayerEntity(), selectors.getChests())?.id ??
-      null,
+      findNearestChest(selectors.getPlayerEntity(), selectors.getChests())
+        ?.id ?? null,
     nearCraftingStation: hasNearbyCraftingStation(
       selectors.getPlayerEntity(),
       selectors.getCraftingStations(),
@@ -203,6 +203,11 @@ new GameInputRouter({
       case "openChatSlash":
         chatController.open("/");
         return;
+      case "toggleSectorFeed": {
+        const sectorFeedVisible = hudController.toggleSectorFeed();
+        lobbyHudController.setSectorFeedVisible(sectorFeedVisible);
+        return;
+      }
       case "toggleCraftingMenu":
         hudController.toggleCraftingMenu();
         return;

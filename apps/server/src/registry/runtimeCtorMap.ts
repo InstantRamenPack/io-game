@@ -33,7 +33,6 @@ import { HouseXl } from "@server/entities/structures/HouseXl.ts";
 import { DungeonWall } from "@server/entities/structures/DungeonWall.ts";
 import { FenceH } from "@server/entities/structures/FenceH.ts";
 import { FenceV } from "@server/entities/structures/FenceV.ts";
-import { Tent } from "@server/entities/structures/Tent.ts";
 import { Tree } from "@server/entities/structures/Tree.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
@@ -60,7 +59,6 @@ import { StructureHouseLItem } from "@server/items/structures/StructureHouseLIte
 import { StructureHouseMItem } from "@server/items/structures/StructureHouseMItem.ts";
 import { StructureFenceHItem } from "@server/items/structures/StructureFenceHItem.ts";
 import { StructureFenceVItem } from "@server/items/structures/StructureFenceVItem.ts";
-import { StructureTentItem } from "@server/items/structures/StructureTentItem.ts";
 import { StructureTreeItem } from "@server/items/structures/StructureTreeItem.ts";
 import { WallItem } from "@server/items/structures/WallItem.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
@@ -112,7 +110,6 @@ export const entityRuntimeCtors = [
   DungeonWall,
   Landmine,
   Recycler,
-  Tent,
   Tree,
   Wall,
   BasicBullet,
@@ -167,7 +164,6 @@ export const itemRuntimeCtors = [
   StructureHouseMItem,
   StructureFenceHItem,
   StructureFenceVItem,
-  StructureTentItem,
   StructureTreeItem,
 ] as const;
 

@@ -132,8 +132,8 @@ export class World {
     const waveStartedAt = performance.now();
     this.waveSystem.update(this, deltaMs);
     this.nightStormSystem.update(this, deltaMs);
-    this.extractionSystem?.update(this, deltaMs);
     this.infrastructureSystem?.update(this, deltaMs);
+    this.extractionSystem?.update(this, deltaMs);
     const waveMs = performance.now() - waveStartedAt;
 
     const spatialBeforeStartedAt = performance.now();
@@ -210,8 +210,8 @@ export class World {
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
     this.nightStormSystem.update(this, deltaMs);
-    this.extractionSystem?.update(this, deltaMs);
     this.infrastructureSystem?.update(this, deltaMs);
+    this.extractionSystem?.update(this, deltaMs);
 
     this.ensureSpatialIndex();
     this.navPathService.updateDirty(this);

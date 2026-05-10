@@ -71,9 +71,13 @@ export class GameServer {
     this.networkServer = networkServer;
     this.authService = authService;
     this.enableMatchmaking = options.enableMatchmaking ?? true;
-    this.playgroundRuntime = new GameInstanceRuntime(gameConfig, networkServer, {
-      isPlayground: true,
-    });
+    this.playgroundRuntime = new GameInstanceRuntime(
+      gameConfig,
+      networkServer,
+      {
+        isPlayground: true,
+      },
+    );
     this.world = this.playgroundRuntime.world;
     this.snapshotManager = this.playgroundRuntime.snapshotManager;
     this.antiCheatValidator = this.playgroundRuntime.antiCheatValidator;
@@ -212,25 +216,23 @@ export class GameServer {
           clientMessage.text,
         );
         return;
-      case "lobby":
+      case "lobby": {
         if (!this.requireReady(clientId)) {
           return;
         }
         if (!this.enableMatchmaking) {
           return;
         }
-        if (clientMessage.action !== "leave") {
-          const activeRuntime = this.getActiveRuntime(clientId);
-          const inPlayground = activeRuntime === this.playgroundRuntime;
-          const canJoinFromEndedRuntime =
-            clientMessage.action !== "leave" &&
-            this.canRejoinLobbyFromEndedRuntime(clientId);
-          if (!inPlayground && !canJoinFromEndedRuntime) {
-            return;
-          }
+        const activeRuntime = this.getActiveRuntime(clientId);
+        const inPlayground = activeRuntime === this.playgroundRuntime;
+        const canJoinFromEndedRuntime =
+          this.canRejoinLobbyFromEndedRuntime(clientId);
+        if (!inPlayground && !canJoinFromEndedRuntime) {
+          return;
         }
         this.handleLobbyAction(clientId, clientMessage);
         return;
+      }
       case "ping": {
         const pingMessage = clientMessage as PingMessage;
         const pongMessage: ServerToClientMessage = {
@@ -318,7 +320,11 @@ export class GameServer {
     );
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: this.playgroundRuntime.worldId,
+      }),
     );
     if (this.enableMatchmaking) {
       this.sendLobbyState(clientId);
@@ -663,7 +669,11 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, lobby.runtime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: lobby.runtime.worldId,
+      }),
     );
   }
 
@@ -684,7 +694,11 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "welcome", entityId: playerId }),
+      JSON.stringify({
+        t: "welcome",
+        entityId: playerId,
+        worldId: this.playgroundRuntime.worldId,
+      }),
     );
   }
 

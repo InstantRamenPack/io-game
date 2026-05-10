@@ -15,25 +15,22 @@ import {
 import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
-import type { WorldSize } from "@client/render/renderTypes.ts";
+import { PixiLightsOutOverlay } from "@client/render/pixi/PixiLightsOutOverlay.ts";
+import type {
+  VisibilityBlockerShape,
+  WorldSize,
+} from "@client/render/renderTypes.ts";
 import type {
   ExtractionSnapshot,
   InfrastructureSnapshot,
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { VisibilityContext } from "@shared/world/Visibility.ts";
-import {
-  getVisibilityContextForMap,
-  isPointVisible,
-} from "@shared/world/Visibility.ts";
+import { getVisibilityContextForMap } from "@shared/world/Visibility.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
 const HOME_BASE_HEIGHT = 1200;
-const HOME_BASE_OUTER_COLOR = 0xc1c8d3;
-const HOME_BASE_INNER_COLOR = 0x8f99a8;
-const HOME_BASE_ACCENT_COLOR = 0xe4e9f1;
-const HOME_BASE_SHADOW_COLOR = 0x5c6470;
 const GRID_DAY_FILL_COLOR = 0xd7f3d2;
 const GRID_NIGHT_FILL_COLOR = 0x3f5f46;
 const GRID_DAY_LINE_COLOR = 0x2d4f37;
@@ -45,19 +42,14 @@ const SNIPER_AIM_LINE_ALPHA = 0.35;
 const SNIPER_AIM_LINE_WIDTH = 2;
 const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
-const MINIMAP_TOP_OFFSET = 56;
-const MAX_VISIBILITY_BLOCKERS = 48;
+const MAX_VISIBILITY_BLOCKERS = 128;
+// Use a game-scale epsilon to avoid precision issues with large world coords.
+const MIN_DISTANCE_EPSILON = 1e-6;
+
 type MinimapPlayerMarker = {
   x: number;
   y: number;
   isSelf: boolean;
-};
-
-export type VisibilityBlockerViewRect = {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
 };
 
 export class PixiWorldView {
@@ -68,6 +60,7 @@ export class PixiWorldView {
   private readonly sniperAimGuide = new Graphics();
   private readonly helipadOverlay = new HelipadOverlay();
   private readonly baseVisionOverlay = new BaseVisionOverlay();
+  private readonly lightsOutOverlay = new PixiLightsOutOverlay();
   private readonly minimapGraphic = new Graphics();
   private readonly minimapLabel = new Text(
     "",
@@ -77,14 +70,19 @@ export class PixiWorldView {
       fill: 0xe8f5e7,
     }),
   );
-  private readonly darknessOverlay = new Graphics();
   private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
+  private infrastructureState: InfrastructureSnapshot = {
+    energyActive: true,
+    commsActive: true,
+  };
   private mapState: MapSnapshot | null = null;
+  private lastMapSeed: number | null = null;
   private visibilityState: VisibilityContext | null = null;
-  private visibilityBlockers: VisibilityBlockerViewRect[] = [];
+  private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
   private gridNightBlend = 0;
+  private lightsOutNightBlend = 0;
   private isPlayground = false;
   private lastGridCameraX = Number.NaN;
   private lastGridCameraY = Number.NaN;
@@ -100,7 +98,7 @@ export class PixiWorldView {
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
     this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
-    this.sceneGraph.overlayLayer.addChild(this.darknessOverlay);
+    this.sceneGraph.overlayLayer.addChild(this.lightsOutOverlay.container);
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
   }
 
@@ -166,7 +164,14 @@ export class PixiWorldView {
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
     this.redrawScreenGridLinesIfNeeded(app);
-    this.redrawLightsOutOverlay(app);
+    this.lightsOutOverlay.update(
+      app,
+      this.visibilityState,
+      this.visibilityBlockers,
+      (targetApp, worldX, worldY) =>
+        this.worldToScreen(targetApp, worldX, worldY),
+      this.isPlayground ? 0 : this.lightsOutNightBlend,
+    );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
     this.baseVisionOverlay.update(deltaMs);
@@ -177,22 +182,43 @@ export class PixiWorldView {
   }
 
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
-    this.baseVisionOverlay.setEnergyActive(state?.energyActive ?? true);
+    this.infrastructureState = state ?? {
+      energyActive: true,
+      commsActive: true,
+    };
+    this.baseVisionOverlay.setEnergyActive(
+      this.infrastructureState.energyActive,
+    );
+    if (this.visibilityState) {
+      this.visibilityState = getVisibilityContextForMap(
+        this.mapState,
+        this.visibilityState.center,
+        { outdoorLightsActive: this.infrastructureState.energyActive },
+      );
+    }
   }
 
   public updateMapState(map: MapSnapshot | null): void {
+    const seed = map?.seed ?? null;
+    if (seed === this.lastMapSeed) {
+      this.mapState = map;
+      return;
+    }
+    this.lastMapSeed = seed;
     this.mapState = map;
     this.drawGridGeometry();
   }
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {
     this.visibilityState = player
-      ? getVisibilityContextForMap(this.mapState, player)
+      ? getVisibilityContextForMap(this.mapState, player, {
+          outdoorLightsActive: this.infrastructureState.energyActive,
+        })
       : null;
   }
 
   public updateVisibilityBlockers(
-    blockers: readonly VisibilityBlockerViewRect[],
+    blockers: readonly VisibilityBlockerShape[],
   ): void {
     this.visibilityBlockers = blockers.slice(0, MAX_VISIBILITY_BLOCKERS);
   }
@@ -200,33 +226,13 @@ export class PixiWorldView {
   public setMinimapPlayers(players: readonly MinimapPlayerMarker[]): void {
     this.minimapPlayers = players;
   }
-
-  public getEntityVisibilityAlpha(entity: {
-    id: number;
-    kind: string;
-    x: number;
-    y: number;
-  }): number {
-    const visibility = this.visibilityState;
-    if (!visibility?.restricted) {
-      return 1;
-    }
-    if (entity.id === undefined || entity.kind === "player") {
-      return 1;
-    }
-    const visible = isPointVisible(visibility, entity, this.visibilityBlockers);
-    if (visible) {
-      return 1;
-    }
-    if (entity.kind === "structure" || entity.kind === "building") {
-      return 0.18;
-    }
-    return 0;
-  }
-
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
     this.updateGridColors();
+  }
+
+  public setLightsOutNightBlend(blend: number): void {
+    this.lightsOutNightBlend = Math.max(0, Math.min(1, blend));
   }
 
   public setPlaygroundMode(isPlayground: boolean): void {
@@ -768,108 +774,6 @@ export class PixiWorldView {
     g.stroke({ width: 1, color: 0xffffff, alpha: 1 });
   }
 
-  private redrawLightsOutOverlay(app: Application): void {
-    const g = this.darknessOverlay;
-    g.clear();
-    const visibility = this.visibilityState;
-    if (!visibility?.restricted) {
-      return;
-    }
-    const center = this.worldToScreen(
-      app,
-      visibility.center.x,
-      visibility.center.y,
-    );
-    if (!center) {
-      return;
-    }
-    const scale = this.viewportController.getCurrentScale(app);
-    const radiusPx = Math.max(64, visibility.radius * scale);
-    const sw = app.screen.width;
-    const sh = app.screen.height;
-    const left = Math.max(0, center.x - radiusPx);
-    const right = Math.min(sw, center.x + radiusPx);
-    const top = Math.max(0, center.y - radiusPx);
-    const bottom = Math.min(sh, center.y + radiusPx);
-
-    g.rect(0, 0, sw, top).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(0, bottom, sw, sh - bottom).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(0, top, left, bottom - top).fill({ color: 0x030507, alpha: 0.82 });
-    g.rect(right, top, sw - right, bottom - top).fill({
-      color: 0x030507,
-      alpha: 0.82,
-    });
-    g.rect(left, top, right - left, bottom - top).stroke({
-      width: 2,
-      color: 0xa9d4ff,
-      alpha: 0.22,
-    });
-    this.drawBlockerShadows(app, g, visibility);
-  }
-
-  private drawBlockerShadows(
-    app: Application,
-    g: Graphics,
-    visibility: VisibilityContext,
-  ): void {
-    if (this.visibilityBlockers.length === 0) {
-      return;
-    }
-    const playerScreen = this.worldToScreen(
-      app,
-      visibility.center.x,
-      visibility.center.y,
-    );
-    if (!playerScreen) {
-      return;
-    }
-    const sw = app.screen.width;
-    const sh = app.screen.height;
-    for (const blocker of this.visibilityBlockers) {
-      const topLeft = this.worldToScreen(app, blocker.minX, blocker.minY);
-      const bottomRight = this.worldToScreen(app, blocker.maxX, blocker.maxY);
-      if (!topLeft || !bottomRight) {
-        continue;
-      }
-      const minX = Math.min(topLeft.x, bottomRight.x);
-      const maxX = Math.max(topLeft.x, bottomRight.x);
-      const minY = Math.min(topLeft.y, bottomRight.y);
-      const maxY = Math.max(topLeft.y, bottomRight.y);
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const shadowPad = 10;
-      if (
-        Math.abs(centerX - playerScreen.x) >= Math.abs(centerY - playerScreen.y)
-      ) {
-        if (centerX >= playerScreen.x) {
-          g.rect(
-            maxX,
-            minY - shadowPad,
-            sw - maxX,
-            maxY - minY + shadowPad * 2,
-          ).fill({ color: 0x030507, alpha: 0.72 });
-        } else {
-          g.rect(0, minY - shadowPad, minX, maxY - minY + shadowPad * 2).fill({
-            color: 0x030507,
-            alpha: 0.72,
-          });
-        }
-      } else if (centerY >= playerScreen.y) {
-        g.rect(
-          minX - shadowPad,
-          maxY,
-          maxX - minX + shadowPad * 2,
-          sh - maxY,
-        ).fill({ color: 0x030507, alpha: 0.72 });
-      } else {
-        g.rect(minX - shadowPad, 0, maxX - minX + shadowPad * 2, minY).fill({
-          color: 0x030507,
-          alpha: 0.72,
-        });
-      }
-    }
-  }
-
   private redrawMinimap(app: Application): void {
     const map = this.mapState;
     const g = this.minimapGraphic;
@@ -881,7 +785,17 @@ export class PixiWorldView {
 
     const size = MINIMAP_SIZE;
     const x = app.screen.width - size - MINIMAP_PADDING;
-    const y = MINIMAP_PADDING + MINIMAP_TOP_OFFSET;
+    const y = MINIMAP_PADDING;
+    if (!this.infrastructureState.commsActive) {
+      g.roundRect(x, y, size, 46, 6)
+        .fill({ color: 0x111820, alpha: 0.84 })
+        .stroke({ width: 1, color: 0xff775c, alpha: 0.55 });
+      this.minimapLabel.text = "COMMS OFFLINE";
+      this.minimapLabel.x = x + 8;
+      this.minimapLabel.y = y + 16;
+      return;
+    }
+
     const scaleX = size / this.worldSize.w;
     const scaleY = size / this.worldSize.h;
     g.roundRect(x, y, size, size, 6)
@@ -978,7 +892,7 @@ function clipRayToWorldBounds(
   worldSize: WorldSize,
 ): { x: number; y: number } | null {
   const rayLength = Math.hypot(directionX, directionY);
-  if (rayLength <= Number.EPSILON) {
+  if (rayLength <= MIN_DISTANCE_EPSILON) {
     return null;
   }
 
@@ -990,10 +904,10 @@ function clipRayToWorldBounds(
   const maxX = worldSize.w;
   const maxY = worldSize.h;
 
-  if (Math.abs(dx) > Number.EPSILON) {
+  if (Math.abs(dx) > MIN_DISTANCE_EPSILON) {
     ts.push((minX - originX) / dx, (maxX - originX) / dx);
   }
-  if (Math.abs(dy) > Number.EPSILON) {
+  if (Math.abs(dy) > MIN_DISTANCE_EPSILON) {
     ts.push((minY - originY) / dy, (maxY - originY) / dy);
   }
 

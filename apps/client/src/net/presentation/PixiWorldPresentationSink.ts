@@ -1,8 +1,20 @@
 import type { ClientWorld } from "@client/net/ClientWorld.ts";
+import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { WorldPresentationEvent } from "@client/net/presentation/WorldPresentationEvent.ts";
 import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
+const TREE_VISIBILITY_RADIUS_SCALE = 0.9;
+const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
+  "structure:tree",
+  "building:tree",
+]);
+const NON_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
+  "building:landmine",
+]);
 
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
@@ -25,6 +37,7 @@ export class PixiWorldPresentationSink {
     this.renderManager.destroy();
     this.syncedEntityIds.clear();
     this.renderer.setConfusionState(false, 0);
+    this.renderer.setVisibilityBlockers([]);
   }
 
   public setPlayerEntityId(entityId: number | undefined): void {
@@ -48,6 +61,7 @@ export class PixiWorldPresentationSink {
 
   public update(deltaMs: number, world: ClientWorld): void {
     this.renderManager.update(deltaMs);
+    this.updateVisibility(world);
     this.updateConfusion(world);
   }
 
@@ -86,7 +100,9 @@ export class PixiWorldPresentationSink {
       }
 
       if (event.type === "attack") {
-        this.renderManager.triggerAttackAnimationByEntityId(event.payload.sourceId);
+        this.renderManager.triggerAttackAnimationByEntityId(
+          event.payload.sourceId,
+        );
         continue;
       }
 
@@ -124,4 +140,76 @@ export class PixiWorldPresentationSink {
     );
     this.renderer.setConfusionState(true, intensity);
   }
+
+  private updateVisibility(world: ClientWorld): void {
+    if (
+      this.renderer.playerX === undefined ||
+      this.renderer.playerY === undefined
+    ) {
+      this.renderer.setVisibilityBlockers([]);
+      return;
+    }
+
+    const blockers: VisibilityBlockerShape[] = [];
+
+    for (const entity of world.entities.values()) {
+      if (!isVisibilityBlockerEntity(entity)) {
+        continue;
+      }
+      const blocker = toVisibilityBlocker(entity);
+      if (!blocker) {
+        continue;
+      }
+      blockers.push(blocker);
+    }
+
+    this.renderer.setVisibilityBlockers(blockers);
+  }
+}
+
+function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
+  if (!entity.alive) {
+    return false;
+  }
+  if (NON_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId)) {
+    return false;
+  }
+  return entity.kind === "building" || entity.kind === "structure";
+}
+
+function toVisibilityBlocker(
+  entity: ClientEntity,
+): VisibilityBlockerShape | null {
+  const bounds = entity.hitboxBounds;
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return null;
+  }
+
+  if (isCircularVisibilityBlocker(entity)) {
+    // Use the larger hitbox dimension so tree canopies fully occlude LOS.
+    const radius =
+      Math.max(bounds.width, bounds.height) *
+      0.5 *
+      TREE_VISIBILITY_RADIUS_SCALE;
+    return {
+      kind: "circle",
+      sourceEntityId: entity.id,
+      centerX: entity.x + bounds.centerX,
+      centerY: entity.y + bounds.centerY,
+      radius,
+    };
+  }
+
+  return {
+    kind: "rect",
+    sourceEntityId: entity.id,
+    minX: entity.x + bounds.minX,
+    minY: entity.y + bounds.minY,
+    maxX: entity.x + bounds.maxX,
+    maxY: entity.y + bounds.maxY,
+  };
+}
+
+function isCircularVisibilityBlocker(entity: ClientEntity): boolean {
+  return CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId);
 }

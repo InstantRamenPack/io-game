@@ -3,6 +3,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type {
   DayNightSnapshot,
   ExtractionSnapshot,
+  InfrastructureSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 
@@ -15,6 +16,7 @@ export class ClientWorld {
   public events: NetEvent[];
   public dayNight: DayNightSnapshot;
   public extraction: ExtractionSnapshot;
+  public infrastructure: InfrastructureSnapshot;
   public version = 1;
 
   private readonly serverFrameHistoryLimit: number;
@@ -32,6 +34,7 @@ export class ClientWorld {
     this.tick = tick;
     this.dayNight = snapshot.dayNight;
     this.extraction = snapshot.extraction;
+    this.infrastructure = snapshot.infrastructure;
     this.entities = new Map();
     for (const entitySnapshot of snapshot.entities) {
       if (
@@ -58,6 +61,7 @@ export class ClientWorld {
     this.events = [...snapshot.events];
     this.dayNight = snapshot.dayNight;
     this.extraction = snapshot.extraction;
+    this.infrastructure = snapshot.infrastructure;
 
     const isFullSnapshot = snapshot.full !== false;
     let worldChanged = this.events.length > 0;

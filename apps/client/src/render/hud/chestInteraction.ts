@@ -1,7 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CHEST_INTERACT_PADDING } from "@shared/gameplay/constants.ts";
 
-
 type WorldBounds = {
   minX: number;
   minY: number;

@@ -21,3 +21,20 @@ export type ResourceStackEntry = {
   typeId: ResourceId;
   count: number;
 };
+
+export type VisibilityBlockerShape =
+  | {
+      kind: "rect";
+      sourceEntityId: number;
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    }
+  | {
+      kind: "circle";
+      sourceEntityId: number;
+      centerX: number;
+      centerY: number;
+      radius: number;
+    };

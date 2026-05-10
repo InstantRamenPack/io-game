@@ -11,7 +11,7 @@
     "generate:content-manifest": "bun run scripts/generate-content-manifest.ts",
     "build": "bun run typecheck && bun run build:client",
     "prod:server": "bun run apps/server/index.ts",
-    "benchmark:optimization": "bun run scripts/optimization.test.ts",
+    "benchmark:optimization": "bun run scripts/benchmarks/optimization.benchmark.ts",
     "benchmark:network-aoi": "bun run scripts/benchmarks/network-aoi.benchmark.ts",
     "benchmark:server-scenarios": "bun run scripts/benchmarks/server-scenarios.benchmark.ts",
     "benchmark:pathfinding": "bun run scripts/benchmarks/pathfinding.benchmark.ts",

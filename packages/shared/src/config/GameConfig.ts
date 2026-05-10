@@ -25,7 +25,7 @@ export class GameConfig {
     maxPacketBytes: 16 * 1024,
   };
   public replication = {
-    interestRadius: 960,
+    interestRadius: 1440,
   };
   public debug = {
     spawnMultiplier: 1,
@@ -58,7 +58,7 @@ export class GameConfig {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
     stormDamage: {
-      damage: 5,
+      damage: 0,
       intervalMs: 2000,
     },
   };

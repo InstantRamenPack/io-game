@@ -35,9 +35,7 @@ export class EnergyTowerRenderer extends BaseEntityRenderer {
     graphics
       .rect(cx - 3, minY - 18, 6, 20)
       .fill({ color: TOWER_STROKE, alpha });
-    graphics
-      .circle(cx, minY - 20, 4)
-      .fill({ color: BOLT_COLOR, alpha });
+    graphics.circle(cx, minY - 20, 4).fill({ color: BOLT_COLOR, alpha });
 
     // Lightning bolt symbol (centered in tower body)
     const bx = cx;
@@ -73,12 +71,17 @@ function drawLightningBolt(
   const hh = h / 2;
 
   g.poly([
-    cx + hw * 0.3, cy - hh,
-    cx - hw * 0.1, cy - hh * 0.05,
-    cx + hw * 0.5, cy - hh * 0.05,
-    cx - hw * 0.3, cy + hh,
-    cx + hw * 0.1, cy + hh * 0.05,
-    cx - hw * 0.5, cy + hh * 0.05,
-  ])
-    .fill({ color, alpha });
+    cx + hw * 0.3,
+    cy - hh,
+    cx - hw * 0.1,
+    cy - hh * 0.05,
+    cx + hw * 0.5,
+    cy - hh * 0.05,
+    cx - hw * 0.3,
+    cy + hh,
+    cx + hw * 0.1,
+    cy + hh * 0.05,
+    cx - hw * 0.5,
+    cy + hh * 0.05,
+  ]).fill({ color, alpha });
 }
