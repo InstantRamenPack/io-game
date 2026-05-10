@@ -1,10 +1,7 @@
 import {
-  BlurFilter,
   Graphics,
-  Sprite,
   Text,
   TextStyle,
-  Texture,
   type Application,
   type Container,
 } from "pixi.js";
@@ -18,6 +15,7 @@ import {
 import { PixiSceneGraph } from "@client/render/pixi/PixiSceneGraph.ts";
 import { PixiViewportController } from "@client/render/pixi/PixiViewportController.ts";
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
+import { PixiLightsOutOverlay } from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import type {
   VisibilityBlockerShape,
   WorldSize,
@@ -28,18 +26,11 @@ import type {
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { VisibilityContext } from "@shared/world/Visibility.ts";
-import {
-  getVisibilityContextForMap,
-  isPointVisible,
-} from "@shared/world/Visibility.ts";
+import { getVisibilityContextForMap } from "@shared/world/Visibility.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
 const HOME_BASE_HEIGHT = 1200;
-const HOME_BASE_OUTER_COLOR = 0xc1c8d3;
-const HOME_BASE_INNER_COLOR = 0x8f99a8;
-const HOME_BASE_ACCENT_COLOR = 0xe4e9f1;
-const HOME_BASE_SHADOW_COLOR = 0x5c6470;
 const GRID_DAY_FILL_COLOR = 0xd7f3d2;
 const GRID_NIGHT_FILL_COLOR = 0x3f5f46;
 const GRID_DAY_LINE_COLOR = 0x2d4f37;
@@ -51,26 +42,9 @@ const SNIPER_AIM_LINE_ALPHA = 0.35;
 const SNIPER_AIM_LINE_WIDTH = 2;
 const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
-const MINIMAP_TOP_OFFSET = 56;
 const MAX_VISIBILITY_BLOCKERS = 128;
 // Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
-const SHADOW_EXTENSION_RATIO = 1.6;
-const LIGHTS_OUT_FADE_START_RADIUS = 480;
-const LIGHTS_OUT_FADE_END_RADIUS = 600;
-const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 512;
-// Fraction of the screen's min dimension to keep clear at the vignette center.
-const VIGNETTE_HOLE_RATIO = 0.58;
-// Vertical scaling for the vignette ellipse (squash on Y axis).
-const VIGNETTE_ELLIPSE_RATIO = 0.88;
-// Minimum blur padding in pixels for the vignette edge.
-const VIGNETTE_MIN_BLUR_PADDING = 120;
-// Extra blur padding derived from the vignette hole radius.
-const VIGNETTE_BLUR_PADDING_RATIO = 0.35;
-// Overscan the vignette rect beyond screen bounds to prevent edge artifacts.
-const VIGNETTE_RECT_PADDING = 512;
-const DARKNESS_OVERLAY_COLOR = 0x000000;
-const VIGNETTE_OVERLAY_COLOR = 0x000000;
 
 type MinimapPlayerMarker = {
   x: number;
@@ -86,6 +60,7 @@ export class PixiWorldView {
   private readonly sniperAimGuide = new Graphics();
   private readonly helipadOverlay = new HelipadOverlay();
   private readonly baseVisionOverlay = new BaseVisionOverlay();
+  private readonly lightsOutOverlay = new PixiLightsOutOverlay();
   private readonly minimapGraphic = new Graphics();
   private readonly minimapLabel = new Text(
     "",
@@ -95,15 +70,6 @@ export class PixiWorldView {
       fill: 0xe8f5e7,
     }),
   );
-  private readonly darknessOverlay = new Graphics();
-  private readonly lightsOutRadiusFalloff = new Sprite(
-    createLightsOutRadiusFalloffTexture(),
-  );
-  private readonly darknessVignette = new Graphics();
-  private readonly darknessVignetteBlur = new BlurFilter({
-    strength: 18,
-    quality: 1,
-  });
   private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private infrastructureState: InfrastructureSnapshot = {
@@ -131,14 +97,7 @@ export class PixiWorldView {
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
     this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
-    this.sceneGraph.overlayLayer.addChild(
-      this.darknessOverlay,
-      this.lightsOutRadiusFalloff,
-      this.darknessVignette,
-    );
-    this.lightsOutRadiusFalloff.anchor.set(0.5);
-    this.lightsOutRadiusFalloff.visible = false;
-    this.darknessVignette.filters = [this.darknessVignetteBlur];
+    this.sceneGraph.overlayLayer.addChild(this.lightsOutOverlay.container);
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
   }
 
@@ -204,7 +163,13 @@ export class PixiWorldView {
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
     this.redrawScreenGridLinesIfNeeded(app);
-    this.redrawLightsOutOverlay(app);
+    this.lightsOutOverlay.update(
+      app,
+      this.visibilityState,
+      this.visibilityBlockers,
+      (targetApp, worldX, worldY) =>
+        this.worldToScreen(targetApp, worldX, worldY),
+    );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
     this.baseVisionOverlay.update(deltaMs);
@@ -258,34 +223,6 @@ export class PixiWorldView {
 
   public setMinimapPlayers(players: readonly MinimapPlayerMarker[]): void {
     this.minimapPlayers = players;
-  }
-
-  public getEntityVisibilityAlpha(entity: {
-    id: number;
-    kind: string;
-    x: number;
-    y: number;
-  }): number {
-    const visibility = this.visibilityState;
-    if (!visibility?.restricted) {
-      return 1;
-    }
-    if (entity.id === undefined || entity.kind === "player") {
-      return 1;
-    }
-    const visible = isPointVisible(
-      visibility,
-      entity,
-      this.visibilityBlockers.filter((blocker) => blocker.kind === "rect"),
-      { targetSourceEntityId: entity.id },
-    );
-    if (visible) {
-      return 1;
-    }
-    if (entity.kind === "structure" || entity.kind === "building") {
-      return 0.18;
-    }
-    return 0;
   }
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
@@ -831,247 +768,6 @@ export class PixiWorldView {
     g.stroke({ width: 1, color: 0xffffff, alpha: 1 });
   }
 
-  private redrawLightsOutOverlay(app: Application): void {
-    const g = this.darknessOverlay;
-    const vignette = this.darknessVignette;
-    g.clear();
-    vignette.clear();
-    const visibility = this.visibilityState;
-    if (!visibility?.restricted) {
-      g.visible = false;
-      this.lightsOutRadiusFalloff.visible = false;
-      vignette.visible = false;
-      return;
-    }
-    g.visible = true;
-    this.lightsOutRadiusFalloff.visible = true;
-    vignette.visible = true;
-    const sw = app.screen.width;
-    const sh = app.screen.height;
-    const visibleRadius = this.getVisibilityRadiusScreen(app, visibility);
-    if (!visibleRadius) {
-      this.lightsOutRadiusFalloff.visible = false;
-      return;
-    }
-    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 1 });
-    g.circle(visibleRadius.x, visibleRadius.y, visibleRadius.radius).cut();
-    this.updateLightsOutRadiusFalloff(visibleRadius);
-    this.drawVisibilityBlockerShadows(app, g, visibility);
-
-    this.drawVisibilityVignette(app);
-  }
-
-  private updateLightsOutRadiusFalloff(visibleRadius: {
-    x: number;
-    y: number;
-    radius: number;
-  }): void {
-    this.lightsOutRadiusFalloff.position.set(visibleRadius.x, visibleRadius.y);
-    this.lightsOutRadiusFalloff.width = visibleRadius.radius * 2;
-    this.lightsOutRadiusFalloff.height = visibleRadius.radius * 2;
-  }
-
-  private getVisibilityRadiusScreen(
-    app: Application,
-    visibility: VisibilityContext,
-  ): { x: number; y: number; radius: number } | null {
-    const center = this.worldToScreen(
-      app,
-      visibility.center.x,
-      visibility.center.y,
-    );
-    const edge = this.worldToScreen(
-      app,
-      visibility.center.x + visibility.radius,
-      visibility.center.y,
-    );
-    if (!center || !edge) {
-      return null;
-    }
-    return {
-      x: center.x,
-      y: center.y,
-      radius: Math.hypot(edge.x - center.x, edge.y - center.y),
-    };
-  }
-
-  private drawVisibilityBlockerShadows(
-    app: Application,
-    graphic: Graphics,
-    visibility: VisibilityContext,
-  ): void {
-    for (const blocker of this.visibilityBlockers) {
-      const shadow =
-        blocker.kind === "rect"
-          ? this.buildRectBlockerShadow(visibility, blocker)
-          : this.buildCircleBlockerShadow(visibility, blocker);
-      if (!shadow) {
-        continue;
-      }
-      const screenPoints = shadow
-        .map((point) => this.worldToScreen(app, point.x, point.y))
-        .filter((point): point is { x: number; y: number } => point !== null);
-      if (screenPoints.length < 4) {
-        continue;
-      }
-      graphic.poly(screenPoints.flatMap((point) => [point.x, point.y])).fill({
-        color: DARKNESS_OVERLAY_COLOR,
-        alpha: 1,
-      });
-      this.cutVisibilityBlockerFromShadow(app, graphic, blocker);
-    }
-  }
-
-  private cutVisibilityBlockerFromShadow(
-    app: Application,
-    graphic: Graphics,
-    blocker: VisibilityBlockerShape,
-  ): void {
-    if (blocker.kind === "rect") {
-      const corners = [
-        this.worldToScreen(app, blocker.minX, blocker.minY),
-        this.worldToScreen(app, blocker.maxX, blocker.minY),
-        this.worldToScreen(app, blocker.maxX, blocker.maxY),
-        this.worldToScreen(app, blocker.minX, blocker.maxY),
-      ];
-      if (corners.some((corner) => corner === null)) {
-        return;
-      }
-      graphic.poly(corners.flatMap((corner) => [corner!.x, corner!.y])).cut();
-      return;
-    }
-
-    const center = this.worldToScreen(app, blocker.centerX, blocker.centerY);
-    const edgeX = this.worldToScreen(
-      app,
-      blocker.centerX + blocker.radius,
-      blocker.centerY,
-    );
-    const edgeY = this.worldToScreen(
-      app,
-      blocker.centerX,
-      blocker.centerY + blocker.radius,
-    );
-    if (!center || !edgeX || !edgeY) {
-      return;
-    }
-    graphic
-      .ellipse(
-        center.x,
-        center.y,
-        Math.abs(edgeX.x - center.x),
-        Math.abs(edgeY.y - center.y),
-      )
-      .cut();
-  }
-
-  private buildRectBlockerShadow(
-    visibility: VisibilityContext,
-    blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
-  ): Array<{ x: number; y: number }> | null {
-    const origin = visibility.center;
-    const blockerCenter = {
-      x: (blocker.minX + blocker.maxX) / 2,
-      y: (blocker.minY + blocker.maxY) / 2,
-    };
-    const distanceToBlocker = Math.hypot(
-      blockerCenter.x - origin.x,
-      blockerCenter.y - origin.y,
-    );
-    if (distanceToBlocker > visibility.radius || distanceToBlocker <= 0) {
-      return null;
-    }
-    const baseAngle = Math.atan2(
-      blockerCenter.y - origin.y,
-      blockerCenter.x - origin.x,
-    );
-    const silhouette = [
-      { x: blocker.minX, y: blocker.minY },
-      { x: blocker.maxX, y: blocker.minY },
-      { x: blocker.maxX, y: blocker.maxY },
-      { x: blocker.minX, y: blocker.maxY },
-    ]
-      .map((point) => ({
-        point,
-        offset: unwrapAngle(
-          Math.atan2(point.y - origin.y, point.x - origin.x),
-          baseAngle,
-        ),
-      }))
-      .sort((left, right) => left.offset - right.offset);
-    const left = silhouette[0]?.point;
-    const right = silhouette.at(-1)?.point;
-    if (!left || !right) {
-      return null;
-    }
-    return buildShadowQuad(origin, visibility.radius, left, right);
-  }
-
-  private buildCircleBlockerShadow(
-    visibility: VisibilityContext,
-    blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
-  ): Array<{ x: number; y: number }> | null {
-    const origin = visibility.center;
-    const dx = blocker.centerX - origin.x;
-    const dy = blocker.centerY - origin.y;
-    const distance = Math.hypot(dx, dy);
-    if (
-      distance > visibility.radius ||
-      distance <= blocker.radius + MIN_DISTANCE_EPSILON
-    ) {
-      return null;
-    }
-    const centerAngle = Math.atan2(dy, dx);
-    const tangentOffset = Math.acos(
-      Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
-    );
-    const left = {
-      x:
-        blocker.centerX +
-        Math.cos(centerAngle + Math.PI - tangentOffset) * blocker.radius,
-      y:
-        blocker.centerY +
-        Math.sin(centerAngle + Math.PI - tangentOffset) * blocker.radius,
-    };
-    const right = {
-      x:
-        blocker.centerX +
-        Math.cos(centerAngle + Math.PI + tangentOffset) * blocker.radius,
-      y:
-        blocker.centerY +
-        Math.sin(centerAngle + Math.PI + tangentOffset) * blocker.radius,
-    };
-    return buildShadowQuad(origin, visibility.radius, left, right);
-  }
-
-  private drawVisibilityVignette(app: Application): void {
-    const g = this.darknessVignette;
-    const sw = app.screen.width;
-    const sh = app.screen.height;
-    const cx = sw / 2;
-    const cy = sh / 2;
-    const minDim = Math.min(sw, sh);
-    const holeR = minDim * VIGNETTE_HOLE_RATIO;
-
-    g.rect(
-      -VIGNETTE_RECT_PADDING,
-      -VIGNETTE_RECT_PADDING,
-      sw + VIGNETTE_RECT_PADDING * 2,
-      sh + VIGNETTE_RECT_PADDING * 2,
-    ).fill({
-      color: VIGNETTE_OVERLAY_COLOR,
-      alpha: 0.3,
-    });
-    g.ellipse(cx, cy, holeR, holeR * VIGNETTE_ELLIPSE_RATIO).cut();
-
-    // Minimum padding keeps blur coverage on very small screens.
-    this.darknessVignetteBlur.padding = Math.max(
-      VIGNETTE_MIN_BLUR_PADDING,
-      holeR * VIGNETTE_BLUR_PADDING_RATIO,
-    );
-    g.filterArea = app.screen;
-  }
-
   private redrawMinimap(app: Application): void {
     const map = this.mapState;
     const g = this.minimapGraphic;
@@ -1083,7 +779,7 @@ export class PixiWorldView {
 
     const size = MINIMAP_SIZE;
     const x = app.screen.width - size - MINIMAP_PADDING;
-    const y = MINIMAP_PADDING + MINIMAP_TOP_OFFSET;
+    const y = MINIMAP_PADDING;
     if (!this.infrastructureState.commsActive) {
       g.roundRect(x, y, size, 46, 6)
         .fill({ color: 0x111820, alpha: 0.84 })
@@ -1408,92 +1104,6 @@ function drawWorldHelipad(
     hCrossW + hBarW * 2,
     hCrossH,
   ).fill({ color: 0x6b5500, alpha: 0.85 });
-}
-
-function buildShadowQuad(
-  origin: { x: number; y: number },
-  radius: number,
-  left: { x: number; y: number },
-  right: { x: number; y: number },
-): Array<{ x: number; y: number }> | null {
-  const leftFar = extendPointFromOrigin(
-    origin,
-    left,
-    radius * SHADOW_EXTENSION_RATIO,
-  );
-  const rightFar = extendPointFromOrigin(
-    origin,
-    right,
-    radius * SHADOW_EXTENSION_RATIO,
-  );
-  if (!leftFar || !rightFar) {
-    return null;
-  }
-  return [left, leftFar, rightFar, right];
-}
-
-function extendPointFromOrigin(
-  origin: { x: number; y: number },
-  point: { x: number; y: number },
-  distance: number,
-): { x: number; y: number } | null {
-  const dx = point.x - origin.x;
-  const dy = point.y - origin.y;
-  const length = Math.hypot(dx, dy);
-  if (length <= MIN_DISTANCE_EPSILON) {
-    return null;
-  }
-  return {
-    x: origin.x + (dx / length) * distance,
-    y: origin.y + (dy / length) * distance,
-  };
-}
-
-function unwrapAngle(angle: number, center: number): number {
-  let unwrapped = angle;
-  while (unwrapped - center > Math.PI) {
-    unwrapped -= Math.PI * 2;
-  }
-  while (unwrapped - center < -Math.PI) {
-    unwrapped += Math.PI * 2;
-  }
-  return unwrapped;
-}
-
-function smootherstep(t: number): number {
-  const clamped = Math.max(0, Math.min(1, t));
-  return clamped * clamped * clamped * (clamped * (clamped * 6 - 15) + 10);
-}
-
-function createLightsOutRadiusFalloffTexture(): Texture {
-  const canvas = document.createElement("canvas");
-  canvas.width = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
-  canvas.height = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return Texture.EMPTY;
-  }
-  const image = context.createImageData(canvas.width, canvas.height);
-  const center = (LIGHTS_OUT_FALLOFF_TEXTURE_SIZE - 1) / 2;
-  const outerRadius = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE / 2;
-  const fadeStartRatio =
-    LIGHTS_OUT_FADE_START_RADIUS / LIGHTS_OUT_FADE_END_RADIUS;
-  for (let y = 0; y < canvas.height; y += 1) {
-    for (let x = 0; x < canvas.width; x += 1) {
-      const dx = x - center;
-      const dy = y - center;
-      const distanceRatio = Math.hypot(dx, dy) / outerRadius;
-      const fadeRatio = (distanceRatio - fadeStartRatio) / (1 - fadeStartRatio);
-      const alpha = smootherstep(fadeRatio);
-      const index = (y * canvas.width + x) * 4;
-      image.data[index] = 0;
-      image.data[index + 1] = 0;
-      image.data[index + 2] = 0;
-      image.data[index + 3] = Math.round(alpha * 255);
-    }
-  }
-  context.putImageData(image, 0, 0);
-  return Texture.from(canvas);
 }
 
 function seededUnit(key: string): number {

@@ -4,6 +4,7 @@ import type { LobbyStateMessage } from "@shared/net/protocol.ts";
 
 export type LobbyHudController = {
   setVisible: (visible: boolean) => void;
+  setSectorFeedVisible: (visible: boolean) => void;
 };
 
 type LobbyHudControllerOptions = {
@@ -37,10 +38,12 @@ export function createLobbyHudController({
   ) {
     return {
       setVisible: () => undefined,
+      setSectorFeedVisible: () => undefined,
     };
   }
 
   let isVisible = false;
+  let sectorFeedVisible = false;
   let lastState: LobbyStateMessage | undefined;
   let lastStartedAtMs: number | null = null;
   let promptHideTimeout: number | undefined;
@@ -66,7 +69,7 @@ export function createLobbyHudController({
     }
     const state = gameClient.getLobbyState() ?? lastState;
     if (!state || !state.inLobby) {
-      root.hidden = !isVisible;
+      root.hidden = !isVisible || sectorFeedVisible;
       statusEl.textContent = "No lobby queue selected";
       metaEl.textContent = "Join an open lobby or enter a code.";
       leaveBtn.disabled = true;
@@ -108,7 +111,7 @@ export function createLobbyHudController({
       return;
     }
 
-    root.hidden = !isVisible;
+    root.hidden = !isVisible || sectorFeedVisible;
     if (matchCoreHud) {
       matchCoreHud.hidden = true;
     }
@@ -175,7 +178,7 @@ export function createLobbyHudController({
   return {
     setVisible(visible: boolean): void {
       isVisible = visible;
-      root.hidden = !visible;
+      root.hidden = !visible || sectorFeedVisible;
       if (matchCoreHud) {
         matchCoreHud.hidden = true;
       }
@@ -189,6 +192,10 @@ export function createLobbyHudController({
         window.clearTimeout(promptHideTimeout);
         promptHideTimeout = undefined;
       }
+      render();
+    },
+    setSectorFeedVisible(visible: boolean): void {
+      sectorFeedVisible = visible;
       render();
     },
   };

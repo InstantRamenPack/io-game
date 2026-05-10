@@ -142,6 +142,7 @@ export class PixiHud {
       craftingMenuOpen: false,
       inventoryOpen: false,
       chestOpen: false,
+      sectorFeedOpen: false,
       openChestEntityId: null,
       selectedCraft: defaultCraftItemTypeId,
       previewedCraft: defaultCraftItemTypeId,
@@ -312,6 +313,15 @@ export class PixiHud {
     this.inventoryEditCoordinator.open(this.state);
     this.syncOverlaySuppression();
     this.markDirty();
+  }
+
+  public toggleSectorFeed(): boolean {
+    this.state.sectorFeedOpen = !this.state.sectorFeedOpen;
+    if (this.statusPanel) {
+      this.statusPanel.container.visible = this.state.sectorFeedOpen;
+    }
+    this.markDirty();
+    return this.state.sectorFeedOpen;
   }
 
   public selectHotbarItemByOrdinal(ordinal: number): boolean {
@@ -503,6 +513,10 @@ export class PixiHud {
     this.craftingHudCoordinator.reset(this.state);
     this.inventoryEditCoordinator.reset(this.state);
     this.chestHudCoordinator.reset(this.state);
+    this.state.sectorFeedOpen = false;
+    if (this.statusPanel) {
+      this.statusPanel.container.visible = false;
+    }
     this.gameClient.stopHoldFire();
     this.gameClient.setMovementSuppression("crafting", false);
     this.gameClient.setMovementSuppression("inventory", false);
@@ -695,6 +709,7 @@ export class PixiHud {
         hotbarActiveIndex,
         hotbarItems,
       });
+      this.statusPanel.container.visible = this.state.sectorFeedOpen;
     }
 
     if (this.dayNightIndicator) {

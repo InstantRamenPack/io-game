@@ -25,7 +25,7 @@ export class GameConfig {
     maxPacketBytes: 16 * 1024,
   };
   public replication = {
-    interestRadius: 2048,
+    interestRadius: 1440,
   };
   public debug = {
     spawnMultiplier: 1,

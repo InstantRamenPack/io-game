@@ -8,7 +8,6 @@ import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const TREE_VISIBILITY_RADIUS_SCALE = 0.7;
-const VISIBILITY_RECALC_DISTANCE_SQ = 1;
 const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
   "structure:tree",
   "building:tree",
@@ -20,11 +19,6 @@ const NON_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
-  private lastVisibilitySample: {
-    x: number;
-    y: number;
-    worldVersion: number;
-  } | null = null;
 
   constructor(
     private readonly renderer: PixiRenderer,
@@ -42,7 +36,6 @@ export class PixiWorldPresentationSink {
   public reset(): void {
     this.renderManager.destroy();
     this.syncedEntityIds.clear();
-    this.lastVisibilitySample = null;
     this.renderer.setConfusionState(false, 0);
     this.renderer.setVisibilityBlockers([]);
   }
@@ -149,27 +142,15 @@ export class PixiWorldPresentationSink {
   }
 
   private updateVisibility(world: ClientWorld): void {
-    const playerX = this.renderer.playerX;
-    const playerY = this.renderer.playerY;
-    if (playerX === undefined || playerY === undefined) {
+    if (
+      this.renderer.playerX === undefined ||
+      this.renderer.playerY === undefined
+    ) {
       this.renderer.setVisibilityBlockers([]);
-      this.lastVisibilitySample = null;
       return;
     }
 
-    const lastSample = this.lastVisibilitySample;
-    if (lastSample && lastSample.worldVersion === world.version) {
-      const dx = playerX - lastSample.x;
-      const dy = playerY - lastSample.y;
-      if (dx * dx + dy * dy <= VISIBILITY_RECALC_DISTANCE_SQ) {
-        return;
-      }
-    }
-
-    const candidates: Array<{
-      blocker: VisibilityBlockerShape;
-      distanceSq: number;
-    }> = [];
+    const blockers: VisibilityBlockerShape[] = [];
 
     for (const entity of world.entities.values()) {
       if (!isVisibilityBlockerEntity(entity)) {
@@ -179,21 +160,10 @@ export class PixiWorldPresentationSink {
       if (!blocker) {
         continue;
       }
-      const center = getVisibilityBlockerCenter(blocker);
-      const dx = center.x - playerX;
-      const dy = center.y - playerY;
-      candidates.push({ blocker, distanceSq: dx * dx + dy * dy });
+      blockers.push(blocker);
     }
 
-    candidates.sort((left, right) => left.distanceSq - right.distanceSq);
-    this.renderer.setVisibilityBlockers(
-      candidates.map(({ blocker }) => blocker),
-    );
-    this.lastVisibilitySample = {
-      x: playerX,
-      y: playerY,
-      worldVersion: world.version,
-    };
+    this.renderer.setVisibilityBlockers(blockers);
   }
 }
 
@@ -242,17 +212,4 @@ function toVisibilityBlocker(
 
 function isCircularVisibilityBlocker(entity: ClientEntity): boolean {
   return CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId);
-}
-
-function getVisibilityBlockerCenter(blocker: VisibilityBlockerShape): {
-  x: number;
-  y: number;
-} {
-  if (blocker.kind === "circle") {
-    return { x: blocker.centerX, y: blocker.centerY };
-  }
-  return {
-    x: (blocker.minX + blocker.maxX) / 2,
-    y: (blocker.minY + blocker.maxY) / 2,
-  };
 }

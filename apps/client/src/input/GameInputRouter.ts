@@ -93,6 +93,13 @@ export class GameInputRouter {
       return;
     }
 
+    if (event.code === "Backquote") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.options.dispatch({ type: "toggleSectorFeed" });
+      return;
+    }
+
     if (key === "c") {
       event.preventDefault();
       this.options.dispatch({

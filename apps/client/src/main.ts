@@ -203,6 +203,11 @@ new GameInputRouter({
       case "openChatSlash":
         chatController.open("/");
         return;
+      case "toggleSectorFeed": {
+        const sectorFeedVisible = hudController.toggleSectorFeed();
+        lobbyHudController.setSectorFeedVisible(sectorFeedVisible);
+        return;
+      }
       case "toggleCraftingMenu":
         hudController.toggleCraftingMenu();
         return;
