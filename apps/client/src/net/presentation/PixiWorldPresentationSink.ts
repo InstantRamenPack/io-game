@@ -7,7 +7,7 @@ import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
-const TREE_VISIBILITY_RADIUS_SCALE = 0.7;
+const TREE_VISIBILITY_RADIUS_SCALE = 0.9;
 const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
   "structure:tree",
   "building:tree",

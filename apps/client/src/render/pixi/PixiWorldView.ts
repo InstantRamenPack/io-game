@@ -82,6 +82,7 @@ export class PixiWorldView {
   private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
   private gridNightBlend = 0;
+  private lightsOutNightBlend = 0;
   private isPlayground = false;
   private lastGridCameraX = Number.NaN;
   private lastGridCameraY = Number.NaN;
@@ -169,6 +170,7 @@ export class PixiWorldView {
       this.visibilityBlockers,
       (targetApp, worldX, worldY) =>
         this.worldToScreen(targetApp, worldX, worldY),
+      this.isPlayground ? 0 : this.lightsOutNightBlend,
     );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
@@ -227,6 +229,10 @@ export class PixiWorldView {
   public setGridNightBlend(blend: number): void {
     this.gridNightBlend = Math.max(0, Math.min(1, blend));
     this.updateGridColors();
+  }
+
+  public setLightsOutNightBlend(blend: number): void {
+    this.lightsOutNightBlend = Math.max(0, Math.min(1, blend));
   }
 
   public setPlaygroundMode(isPlayground: boolean): void {

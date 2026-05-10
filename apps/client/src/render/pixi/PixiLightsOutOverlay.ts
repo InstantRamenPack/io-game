@@ -7,6 +7,7 @@ import {
 } from "pixi.js";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 import type { VisibilityContext } from "@shared/world/Visibility.ts";
+import { OUTER_LIGHTS_OUT_RADIUS } from "@shared/world/Visibility.ts";
 
 type ScreenPoint = { x: number; y: number };
 type WorldPoint = { x: number; y: number };
@@ -28,6 +29,7 @@ const VIGNETTE_HOLE_RADIUS_RATIO = 0.18;
 const VIGNETTE_EDGE_RADIUS_RATIO = 0.48;
 const VIGNETTE_ELLIPSE_RATIO = 0.88;
 const DARKNESS_OVERLAY_COLOR = 0x000000;
+const SHADOW_OVERLAY_ALPHA = 0.55;
 const VIGNETTE_OVERLAY_COLOR = 0x000000;
 const VIGNETTE_OVERLAY_ALPHA = 0.3;
 
@@ -56,17 +58,28 @@ export class PixiLightsOutOverlay {
     visibility: VisibilityContext | null,
     blockers: readonly VisibilityBlockerShape[],
     worldToScreen: WorldToScreen,
+    nightAlpha: number,
   ): void {
     const g = this.darknessOverlay;
     g.clear();
 
-    if (!visibility?.restricted) {
+    if (nightAlpha <= 0 || !visibility) {
       g.visible = false;
       this.radiusFalloff.visible = false;
       this.vignette.visible = false;
+      this.container.alpha = 1;
       return;
     }
 
+    const effectiveVisibility: VisibilityContext = visibility.restricted
+      ? visibility
+      : {
+          center: visibility.center,
+          radius: OUTER_LIGHTS_OUT_RADIUS,
+          restricted: true,
+        };
+
+    this.container.alpha = nightAlpha;
     g.visible = true;
     this.radiusFalloff.visible = true;
     this.vignette.visible = true;
@@ -74,7 +87,7 @@ export class PixiLightsOutOverlay {
     const sh = app.screen.height;
     const visibleRadius = getVisibilityRadiusScreen(
       app,
-      visibility,
+      effectiveVisibility,
       worldToScreen,
     );
     if (!visibleRadius) {
@@ -85,7 +98,7 @@ export class PixiLightsOutOverlay {
     g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 1 });
     g.circle(visibleRadius.x, visibleRadius.y, visibleRadius.radius).cut();
     this.updateRadiusFalloff(visibleRadius);
-    drawVisibilityBlockerShadows(app, g, visibility, blockers, worldToScreen);
+    drawVisibilityBlockerShadows(app, g, effectiveVisibility, blockers, worldToScreen);
     this.drawVignette(app);
   }
 
@@ -141,6 +154,8 @@ function drawVisibilityBlockerShadows(
     Math.hypot(app.screen.width, app.screen.height) *
     SCREEN_SHADOW_EXTENSION_RATIO;
 
+  // Collect all shadow quads for in-range blockers.
+  const inRangeBlockers: VisibilityBlockerShape[] = [];
   for (const blocker of blockers) {
     const shadowEdge =
       blocker.kind === "rect"
@@ -154,33 +169,24 @@ function drawVisibilityBlockerShadows(
     if (!left || !right) {
       continue;
     }
-    drawShadowMinusBlocker(
-      app,
-      graphic,
-      blocker,
-      [
-        left,
-        extendScreenPointFromOrigin(origin, left, shadowExtension),
-        extendScreenPointFromOrigin(origin, right, shadowExtension),
-        right,
-      ],
-      worldToScreen,
-    );
+    inRangeBlockers.push(blocker);
+    graphic
+      .poly(
+        toFlatPointBuffer([
+          left,
+          extendScreenPointFromOrigin(origin, left, shadowExtension),
+          extendScreenPointFromOrigin(origin, right, shadowExtension),
+          right,
+        ]),
+      )
+      .fill({ color: DARKNESS_OVERLAY_COLOR, alpha: SHADOW_OVERLAY_ALPHA });
   }
-}
 
-function drawShadowMinusBlocker(
-  app: Application,
-  graphic: Graphics,
-  blocker: VisibilityBlockerShape,
-  shadow: ScreenQuad,
-  worldToScreen: WorldToScreen,
-): void {
-  graphic.poly(toFlatPointBuffer(shadow)).fill({
-    color: DARKNESS_OVERLAY_COLOR,
-    alpha: 1,
-  });
-  cutVisibilityBlockerFromShadow(app, graphic, blocker, worldToScreen);
+  // Cut all in-range blockers after all shadows are drawn so each blocker is
+  // removed from every shadow polygon, not just its own.
+  for (const blocker of inRangeBlockers) {
+    cutVisibilityBlockerFromShadow(app, graphic, blocker, worldToScreen);
+  }
 }
 
 function extendScreenPointFromOrigin(

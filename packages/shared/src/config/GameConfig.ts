@@ -58,7 +58,7 @@ export class GameConfig {
     dayDurationMs: 120000,
     nightDurationMs: 60000,
     stormDamage: {
-      damage: 5,
+      damage: 0,
       intervalMs: 2000,
     },
   };

@@ -191,6 +191,7 @@ export class PixiRenderer {
   public setGridNightBlend(blend: number): void {
     const nextBlend = Math.max(0, Math.min(1, blend));
     this.worldView.setGridNightBlend(nextBlend);
+    this.worldView.setLightsOutNightBlend(nextBlend);
     this.renderScheduler.markDirty();
   }
 
