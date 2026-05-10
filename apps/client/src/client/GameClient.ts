@@ -538,16 +538,22 @@ export class GameClient {
 
   public onWelcome(entityId: number, worldId?: string): void {
     if (this.isSessionReady()) {
+      const samePlayer = this.playerEntityId === entityId;
       const worldChanged =
-        worldId !== undefined
+        worldId !== undefined && this.currentWorldId !== undefined
           ? worldId !== this.currentWorldId
-          : this.playerEntityId !== entityId;
+          : !samePlayer;
       if (!worldChanged) {
+        if (worldId !== undefined) {
+          this.currentWorldId = worldId;
+        }
         return;
       }
       this.resetForInstanceMigration();
     }
-    this.currentWorldId = worldId;
+    if (worldId !== undefined) {
+      this.currentWorldId = worldId;
+    }
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
     this.pendingPlayerName = null;
@@ -694,7 +700,7 @@ export class GameClient {
 
   private onLobbyState(state: LobbyStateMessage): void {
     this.lobbyState = state;
-    const inActiveMatch = state.inLobby === true && state.startedAtMs != null;
+    const inActiveMatch = state.inLobby && state.startedAtMs != null;
     this.renderer.setPlaygroundMode(!inActiveMatch);
     for (const handler of this.lobbyStateHandlers) {
       handler(state);
