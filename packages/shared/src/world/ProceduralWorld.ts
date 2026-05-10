@@ -255,7 +255,8 @@ const LOOT_BY_TIER: Record<
   common: [
     "item:hunk" as ResourceId,
     "item:junk_food" as ResourceId,
-    "item:gun_mag" as ResourceId,
+    "item:pistol_mag" as ResourceId,
+    "item:rifle_mag" as ResourceId,
   ],
   uncommon: [
     "item:basic_spear" as ResourceId,
@@ -964,7 +965,7 @@ function addDungeonRoomContent(
         spawn("enemy:shoota", x + 120, y),
         spawn("enemy:police", x, y + 112),
       );
-      loot.push(lootSpec("item:gun_mag", x, y + 120, "stackable", "common", 2));
+      loot.push(lootSpec("item:pistol_mag", x, y + 120, "stackable", "common", 2));
       break;
     case "treasure":
       loot.push(

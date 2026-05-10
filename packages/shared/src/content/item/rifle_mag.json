@@ -1,0 +1,8 @@
+{
+  "label": "Rifle Magazine",
+  "recipe": {
+    "hint": "High-capacity magazine for the rifle.",
+    "outputAmount": 1,
+    "costs": [{ "typeId": "item:hunk", "amount": 20 }]
+  }
+}

@@ -1,7 +1,7 @@
 {
-  "label": "Gun Magazine",
+  "label": "Pistol Magazine",
   "recipe": {
-    "hint": "Fresh magazine for the gun or rifle.",
+    "hint": "Fresh magazine for the pistol.",
     "outputAmount": 1,
     "costs": [{ "typeId": "item:hunk", "amount": 12 }]
   }

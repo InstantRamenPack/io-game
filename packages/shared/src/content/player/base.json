@@ -17,7 +17,7 @@
       ],
       "stackables": [
         { "typeId": "item:hunk", "amount": 200 },
-        { "typeId": "item:gun_mag", "amount": 2 },
+        { "typeId": "item:pistol_mag", "amount": 2 },
         { "typeId": "item:crossbow_mag", "amount": 2 },
         { "typeId": "item:drone_mag", "amount": 2 },
         { "typeId": "item:landmine", "amount": 5 },

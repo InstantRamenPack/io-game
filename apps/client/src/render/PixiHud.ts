@@ -30,6 +30,7 @@ import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
 import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
+import { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
 import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
@@ -93,6 +94,7 @@ export class PixiHud {
   private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
   private bossHealthBar?: BossHealthBar;
+  private weaponDisplayView?: WeaponDisplayView;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
   private hunkBadgeIcon?: PIXI.Sprite;
@@ -174,7 +176,7 @@ export class PixiHud {
       });
       this.combatHudView = new CombatHudView({
         ammoTextureProvider: () =>
-          this.gameClient.renderer.getItemTexture("item:gun_mag"),
+          this.gameClient.renderer.getItemTexture("item:pistol_mag"),
       });
       this.hotbarView = new HotbarView({
         slotCount: HOTBAR_SLOT_COUNT,
@@ -217,6 +219,7 @@ export class PixiHud {
       this.chestPromptView = new ChestPromptView();
       this.craftingStationPromptView = new CraftingStationPromptView();
       this.bossHealthBar = new BossHealthBar();
+      this.weaponDisplayView = new WeaponDisplayView();
 
       this.hunkBadge = new PIXI.Container();
       this.hunkBadgeBg = new PIXI.Graphics();
@@ -257,6 +260,7 @@ export class PixiHud {
         this.chestPromptView.container,
         this.craftingStationPromptView.container,
         this.bossHealthBar.container,
+        this.weaponDisplayView.container,
         this.tooltipView.container,
       );
     }
@@ -688,7 +692,8 @@ export class PixiHud {
       this.effectIconView &&
       this.combatHudView &&
       this.hotbarView &&
-      this.resourceStackView
+      this.resourceStackView &&
+      this.weaponDisplayView
     ) {
       this.gameplayHudCoordinator.syncPanels({
         statusPanel: this.statusPanel,
@@ -697,6 +702,7 @@ export class PixiHud {
         combatHudView: this.combatHudView,
         hotbarView: this.hotbarView,
         resourceStackView: this.resourceStackView,
+        weaponDisplayView: this.weaponDisplayView,
         playerEntity: this.selectors.getPlayerEntity(),
         worldEntities: this.selectors.getWorldEntities(),
         trackedBuildings: this.selectors.getTrackedBuildings(),
@@ -729,7 +735,8 @@ export class PixiHud {
       this.combatHudView &&
       this.selectedItemToastView &&
       this.dayNightIndicator &&
-      this.effectDetailPanel
+      this.effectDetailPanel &&
+      this.weaponDisplayView
     ) {
       this.gameplayHudCoordinator.layout({
         screenWidth: app.screen.width,
@@ -742,6 +749,7 @@ export class PixiHud {
         selectedItemToastView: this.selectedItemToastView,
         dayNightIndicator: this.dayNightIndicator,
         effectDetailPanel: this.effectDetailPanel,
+        weaponDisplayView: this.weaponDisplayView,
         inventoryOpen: this.state.inventoryOpen,
         inventoryPanelRect: this.hotbarEditView?.getPanelRect() ?? null,
       });

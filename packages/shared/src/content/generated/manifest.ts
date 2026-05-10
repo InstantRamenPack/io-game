@@ -50,7 +50,8 @@ import itemcrossbowMagJson from "@shared/content/item/crossbow_mag.json";
 import itemdroneMagJson from "@shared/content/item/drone_mag.json";
 import itemdroneShooterJson from "@shared/content/item/drone_shooter.json";
 import itemfistsJson from "@shared/content/item/fists.json";
-import itemgunMagJson from "@shared/content/item/gun_mag.json";
+import itempistolMagJson from "@shared/content/item/pistol_mag.json";
+import itemrifleMagJson from "@shared/content/item/rifle_mag.json";
 import itemhunkJson from "@shared/content/item/hunk.json";
 import itemjunkFoodJson from "@shared/content/item/junk_food.json";
 import itemkatanaJson from "@shared/content/item/katana.json";
@@ -175,7 +176,8 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("drone_mag", itemdroneMagJson),
   makeParsedItemContentEntry("drone_shooter", itemdroneShooterJson),
   makeParsedItemContentEntry("fists", itemfistsJson),
-  makeParsedItemContentEntry("gun_mag", itemgunMagJson),
+  makeParsedItemContentEntry("pistol_mag", itempistolMagJson),
+  makeParsedItemContentEntry("rifle_mag", itemrifleMagJson),
   makeParsedItemContentEntry("hunk", itemhunkJson),
   makeParsedItemContentEntry("junk_food", itemjunkFoodJson),
   makeParsedItemContentEntry("katana", itemkatanaJson),

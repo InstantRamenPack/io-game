@@ -3,9 +3,11 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
 const HIDDEN_RESOURCE_TYPE_IDS = new Set<ResourceId>([
-  "item:gun_mag",
+  "item:pistol_mag",
+  "item:rifle_mag",
   "item:crossbow_mag",
   "item:drone_mag",
+  "item:hunk",
 ]);
 
 export function syncDiscoveredResources(options: {

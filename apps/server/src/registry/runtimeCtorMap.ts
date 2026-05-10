@@ -46,7 +46,8 @@ import { BlueprintSniperItem } from "@server/items/blueprints/BlueprintSniperIte
 import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpikedSpearItem.ts";
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
-import { GunMagazineItem } from "@server/items/magazines/GunMagazineItem.ts";
+import { PistolMagazineItem } from "@server/items/magazines/PistolMagazineItem.ts";
+import { RifleMagazineItem } from "@server/items/magazines/RifleMagazineItem.ts";
 import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.ts";
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
@@ -151,7 +152,8 @@ export const itemRuntimeCtors = [
   BlueprintKatanaItem,
   BlueprintSniperItem,
   BlueprintSpikedSpearItem,
-  GunMagazineItem,
+  PistolMagazineItem,
+  RifleMagazineItem,
   CrossbowMagazineItem,
   DroneMagazineItem,
   SniperMagazineItem,

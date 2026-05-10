@@ -1,5 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
+import type { WeaponDisplayModel } from "@client/render/hud/WeaponDisplayView.ts";
 import {
   getItemContent,
   getProjectileContent,
@@ -122,6 +123,38 @@ export function buildSelectedItemLabel(
     return "Empty";
   }
   return getResourceDisplayLabel(slot.typeId);
+}
+
+export function buildWeaponDisplayModel(
+  activeSlot: InventorySlotSnapshot | null,
+): WeaponDisplayModel {
+  if (!activeSlot || activeSlot.kind === "empty") {
+    return null;
+  }
+
+  const name = getResourceDisplayLabel(activeSlot.typeId);
+
+  if (
+    activeSlot.kind === "weapon" &&
+    typeof activeSlot.magSize === "number" &&
+    activeSlot.magSize > 0
+  ) {
+    const magSize = activeSlot.magSize;
+    const reserveMagCount =
+      typeof activeSlot.reserveMagCount === "number"
+        ? activeSlot.reserveMagCount
+        : 0;
+    return {
+      name,
+      ammo: {
+        inMag:
+          typeof activeSlot.ammoInMag === "number" ? activeSlot.ammoInMag : 0,
+        reserve: reserveMagCount * magSize,
+      },
+    };
+  }
+
+  return { name, ammo: null };
 }
 
 function buildAmmoModel(

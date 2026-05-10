@@ -8,11 +8,13 @@ import type {
 } from "@client/render/hud/HotbarView.ts";
 import type { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import type { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
+import type { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
 import { buildStatusPanelContent } from "@client/render/hud/hudPanelModels.ts";
 import {
   buildActiveEffectEntries,
   buildCombatHudModel,
   buildSelectedItemLabel,
+  buildWeaponDisplayModel,
 } from "@client/render/hud/hudPresentationModels.ts";
 import type { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import {
@@ -83,6 +85,7 @@ export class GameplayHudCoordinator {
     combatHudView: CombatHudView;
     hotbarView: HotbarView;
     resourceStackView: ResourceStackView;
+    weaponDisplayView: WeaponDisplayView;
     playerEntity: ClientEntity | undefined;
     worldEntities: ClientEntity[];
     trackedBuildings: ClientEntity[];
@@ -102,6 +105,7 @@ export class GameplayHudCoordinator {
       combatHudView,
       hotbarView,
       resourceStackView,
+      weaponDisplayView,
       playerEntity,
       worldEntities,
       trackedBuildings,
@@ -170,6 +174,8 @@ export class GameplayHudCoordinator {
         resourceCounts: this.resourceCounts,
       }),
     );
+
+    weaponDisplayView.sync(buildWeaponDisplayModel(activeSlot));
   }
 
   public syncDayNight(options: {
@@ -194,6 +200,7 @@ export class GameplayHudCoordinator {
     selectedItemToastView: SelectedItemToastView;
     dayNightIndicator: DayNightIndicator;
     effectDetailPanel: HudPanel;
+    weaponDisplayView: WeaponDisplayView;
     inventoryOpen: boolean;
     inventoryPanelRect: ScreenRect | null;
   }): void {
@@ -208,6 +215,7 @@ export class GameplayHudCoordinator {
       selectedItemToastView,
       dayNightIndicator,
       effectDetailPanel,
+      weaponDisplayView,
       inventoryOpen,
       inventoryPanelRect,
     } = options;
@@ -219,9 +227,19 @@ export class GameplayHudCoordinator {
       screenWidth - padding - effectIconView.width,
       padding,
     );
+
+    const weaponDisplayBottom = screenHeight - padding;
+    const weaponDisplayTop = weaponDisplayView.container.visible
+      ? weaponDisplayBottom - weaponDisplayView.height
+      : weaponDisplayBottom;
+    weaponDisplayView.setPosition(
+      screenWidth - padding - weaponDisplayView.width,
+      weaponDisplayTop,
+    );
+
     resourceStackView.setPosition(
       screenWidth - padding - resourceStackView.width,
-      screenHeight - padding - resourceStackView.height,
+      weaponDisplayTop - gap - resourceStackView.height,
     );
 
     hotbarView.setPosition(

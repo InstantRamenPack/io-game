@@ -14,7 +14,7 @@
     "magSize": 30,
     "reloadTicks": 35,
     "spreadDeg": 0,
-    "magItemTypeId": "item:gun_mag",
+    "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
       "holdOffset": { "x": 18, "y": 3 },
       "holdRotationDeg": -8,

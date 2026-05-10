@@ -11,7 +11,8 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 const MAG_PICKUP_TYPE_IDS = [
-  "item:gun_mag",
+  "item:pistol_mag",
+  "item:rifle_mag",
   "item:crossbow_mag",
   "item:drone_mag",
 ] as const;
