@@ -6,7 +6,7 @@
     "attackStyle": "jab",
     "cooldownTicks": 13,
     "range": 96,
-    "damage": 25,
+    "damage": 35,
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {

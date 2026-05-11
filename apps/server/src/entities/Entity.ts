@@ -72,6 +72,7 @@ export abstract class Entity {
   protected driveVy = 0;
   protected momentumVx = 0;
   protected momentumVy = 0;
+  public damageMultiplier = 1;
   public hp: number;
   public maxHp: number;
   public ownerId?: number;

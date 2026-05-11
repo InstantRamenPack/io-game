@@ -1,7 +1,7 @@
 {
   "label": "Police",
   "maxHp": 110,
-  "moveSpeed": 20,
+  "moveSpeed": 12,
   "collisionMode": "dynamic",
   "hitboxProfiles": {
     "default": [{ "width": 24, "height": 24, "offsetX": 0, "offsetY": 0 }]

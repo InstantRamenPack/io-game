@@ -40,9 +40,10 @@ export class Drifter extends Enemy {
         new TargetEntityGoal<Enemy>(0, Player, 480),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
-        new AttackAtGoal<Enemy>(3, 0),
+        new AttackAtGoal<Enemy>(3, 0, 50),
       ],
     });
+    this.damageMultiplier = 0.5;
   }
 
   private static createSpawnWeapon(): Weapon {

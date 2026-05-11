@@ -27,7 +27,7 @@ export class DamageEffect extends Effect {
       return;
     }
 
-    const effectiveAmount = this.amount * target.getDamageReductionMultiplier();
+    const effectiveAmount = this.amount * instigator.damageMultiplier * target.getDamageReductionMultiplier();
     const nextHp = Math.max(
       0,
       Math.min(target.maxHp, target.hp - effectiveAmount),

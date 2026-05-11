@@ -12,10 +12,14 @@ export class AttackAtGoal<
   TSelf extends Entity & GoalActor = Entity & GoalActor,
 > extends Goal<TSelf> {
   private readonly weaponSlot: number;
+  private readonly minIntervalTicks: number;
+  private ticksSinceLastAttack: number;
 
-  constructor(priority: number, weaponSlot: number) {
+  constructor(priority: number, weaponSlot: number, minIntervalTicks = 0) {
     super(priority, ["attack"]);
     this.weaponSlot = weaponSlot;
+    this.minIntervalTicks = minIntervalTicks;
+    this.ticksSinceLastAttack = minIntervalTicks;
   }
 
   public override canStart(ctx: GoalContext<TSelf>): boolean {
@@ -28,12 +32,15 @@ export class AttackAtGoal<
   }
 
   public override tick(ctx: GoalContext<TSelf>): void {
+    this.ticksSinceLastAttack += 1;
+
     const weapon = this.resolveWeapon(ctx);
     const target = this.resolveTargetInRange(ctx, weapon);
-    if (!target) {
+    if (!target || this.ticksSinceLastAttack < this.minIntervalTicks) {
       return;
     }
 
+    this.ticksSinceLastAttack = 0;
     weapon.hit(
       ctx.world,
       ctx.self,

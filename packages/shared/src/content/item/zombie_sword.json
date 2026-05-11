@@ -2,9 +2,9 @@
   "label": "Zombie Sword",
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 20,
+    "cooldownTicks": 50,
     "range": 20,
-    "damage": 15,
+    "damage": 10,
     "knockback": 15,
     "sweepArcDeg": 110,
     "equippedRender": {
