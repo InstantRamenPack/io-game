@@ -34,6 +34,8 @@ export class PixiLightsOutOverlay {
   private blockerShadowCanvas: HTMLCanvasElement | null = null;
   private blockerShadowContext: CanvasRenderingContext2D | null = null;
   private blockerShadowTexture: Texture | null = null;
+  private blockerScratchCanvas: HTMLCanvasElement | null = null;
+  private blockerScratchContext: CanvasRenderingContext2D | null = null;
   private cachedTextureKey = "";
 
   constructor() {
@@ -129,6 +131,7 @@ export class PixiLightsOutOverlay {
     drawVisibilityBlockerShadows(
       app,
       context,
+      this.getBlockerScratchContext(canvas),
       visibility,
       blockers,
       worldToScreen,
@@ -158,6 +161,23 @@ export class PixiLightsOutOverlay {
     }
     return this.blockerShadowCanvas;
   }
+
+  private getBlockerScratchContext(
+    targetCanvas: HTMLCanvasElement,
+  ): CanvasRenderingContext2D | null {
+    if (!this.blockerScratchCanvas) {
+      this.blockerScratchCanvas = document.createElement("canvas");
+      this.blockerScratchContext = this.blockerScratchCanvas.getContext("2d");
+    }
+    if (
+      this.blockerScratchCanvas.width !== targetCanvas.width ||
+      this.blockerScratchCanvas.height !== targetCanvas.height
+    ) {
+      this.blockerScratchCanvas.width = targetCanvas.width;
+      this.blockerScratchCanvas.height = targetCanvas.height;
+    }
+    return this.blockerScratchContext;
+  }
 }
 
 function getVisibilityRadiusScreen(
@@ -183,21 +203,30 @@ function getVisibilityRadiusScreen(
 
 function drawVisibilityBlockerShadows(
   app: Application,
-  context: CanvasRenderingContext2D,
+  targetContext: CanvasRenderingContext2D,
+  scratchContext: CanvasRenderingContext2D | null,
   visibility: LightsOutVisibilityContext,
   blockers: readonly VisibilityBlockerShape[],
   worldToScreen: WorldToScreen,
 ): void {
-  const visibleBlockers: VisibilityBlockerShape[] = [];
-  context.save();
-  context.fillStyle = "#000000";
-  context.globalAlpha = 1;
-  context.globalCompositeOperation = "source-over";
+  if (!scratchContext) {
+    return;
+  }
+  const width = targetContext.canvas.width;
+  const height = targetContext.canvas.height;
+  targetContext.save();
+  targetContext.globalAlpha = 1;
+  targetContext.globalCompositeOperation = "source-over";
+  scratchContext.save();
   for (const blocker of blockers) {
     const shadows =
       blocker.kind === "rect"
         ? buildRectBlockerShadows(visibility, blocker)
         : buildCircleBlockerShadow(visibility, blocker);
+    scratchContext.clearRect(0, 0, width, height);
+    scratchContext.fillStyle = "#000000";
+    scratchContext.globalAlpha = 1;
+    scratchContext.globalCompositeOperation = "source-over";
     let drewShadow = false;
     for (const shadow of shadows) {
       const points = shadow
@@ -206,21 +235,24 @@ function drawVisibilityBlockerShadows(
       if (points.length !== shadow.length) {
         continue;
       }
-      drawCanvasPolygon(context, points);
-      context.fill();
+      drawCanvasPolygon(scratchContext, points);
+      scratchContext.fill();
       drewShadow = true;
     }
-    if (drewShadow) {
-      visibleBlockers.push(blocker);
+    if (!drewShadow) {
+      continue;
     }
+    scratchContext.globalCompositeOperation = "destination-out";
+    cutVisibilityBlockerFromShadows(
+      app,
+      scratchContext,
+      blocker,
+      worldToScreen,
+    );
+    targetContext.drawImage(scratchContext.canvas, 0, 0);
   }
-
-  context.globalAlpha = 1;
-  context.globalCompositeOperation = "destination-out";
-  for (const blocker of visibleBlockers) {
-    cutVisibilityBlockerFromShadows(app, context, blocker, worldToScreen);
-  }
-  context.restore();
+  scratchContext.restore();
+  targetContext.restore();
 }
 
 function cutVisibilityBlockerFromShadows(
