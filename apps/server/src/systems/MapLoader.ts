@@ -2,6 +2,7 @@ import seedrandom from "seedrandom";
 import { z } from "zod";
 import worldMapJson from "@server/config/world_map.json";
 import { Building } from "@server/entities/Building.ts";
+import { Chest } from "@server/entities/buildings/Chest.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -17,6 +18,7 @@ import type { World } from "@server/world/World.ts";
 import {
   generateProceduralWorldLayout,
   type ProceduralDungeonRoom,
+  type ProceduralChestLootSlot,
   type ProceduralLootSpec,
   type ProceduralSpawnSpec,
   type ProceduralWorldLayout,
@@ -122,7 +124,7 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
   }
 
   const entity = new entry.ctor(world.allocEntityId());
-  if (entry.kind === "structure") {
+  if (entry.kind === "structure" && !spec.hitboxRects) {
     entity.x = snapToTileCenter(spec.x);
     entity.y = snapToTileCenter(spec.y);
   } else {
@@ -652,7 +654,31 @@ function spawnProceduralEntity(
   world: World,
   spec: ProceduralSpawnSpec,
 ): Entity {
-  return spawnMapEntity(world, spec);
+  const entity = spawnMapEntity(world, spec);
+  if (entity instanceof Chest && spec.chestLoot) {
+    fillChest(entity, spec.chestLoot);
+  }
+  return entity;
+}
+
+function fillChest(
+  chest: Chest,
+  lootSlots: readonly ProceduralChestLootSlot[],
+): void {
+  lootSlots.forEach((slot, index) => {
+    if (index >= chest.chestSlots.length) {
+      return;
+    }
+    if (slot.kind === "weapon") {
+      chest.setSlot(index, { kind: "weapon", typeId: slot.typeId });
+      return;
+    }
+    chest.setSlot(index, {
+      kind: "buildable",
+      typeId: slot.typeId,
+      count: slot.amount ?? 1,
+    });
+  });
 }
 
 function spawnProceduralLoot(world: World, spec: ProceduralLootSpec): void {

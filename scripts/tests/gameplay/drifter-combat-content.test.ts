@@ -17,6 +17,9 @@ describe("drifter combat content", () => {
   test("uses content-owned damage multiplier and melee cadence", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
+    for (const entity of runtime.world.entities.all()) {
+      runtime.world.despawn(entity.id);
+    }
     const player = spawnPlayerLikeDynamic(runtime, 120, 100);
     const drifter = spawnEnemy(runtime, "drifter", 100, 100) as Enemy;
     const drifterContent = requireEntityContent("enemy:drifter");

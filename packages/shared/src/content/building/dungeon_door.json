@@ -1,0 +1,8 @@
+{
+  "label": "Dungeon Door",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [{ "width": 160, "height": 32, "offsetX": 0, "offsetY": 0 }]
+  }
+}

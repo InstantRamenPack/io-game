@@ -69,7 +69,7 @@ describe("procedural survival extraction world", () => {
           ?.archetype,
       ).toBe("forest");
       expect(isCornerSector(layout.extractionSectorId)).toBe(true);
-      expect(isEdgeSector(layout.dungeonSectorId)).toBe(true);
+      expect(isCornerSector(layout.dungeonSectorId)).toBe(true);
       expect(isEdgeSector(layout.militarySectorId)).toBe(true);
       expect(isEdgeSector(layout.forestSectorId)).toBe(true);
     }
@@ -127,13 +127,76 @@ describe("procedural survival extraction world", () => {
     const dungeonSector = layout.sectors.find(
       (sector) => sector.archetype === "dungeon",
     );
+    expect(layout.dungeon.rooms.length).toBeGreaterThanOrEqual(9);
+    expect(layout.dungeon.rooms.length).toBeLessThanOrEqual(12);
+    expect(layout.dungeon.entrances).toHaveLength(2);
+    expect(
+      new Set(layout.dungeon.entrances.map((entrance) => entrance.side)),
+    ).toEqual(new Set(expectedDungeonEntranceSides(layout.dungeonSectorId)));
+    const dungeonSectorBounds = layout.sectors.find(
+      (sector) => sector.id === layout.dungeonSectorId,
+    )!;
+    expect(layout.dungeon.minX).toBe(dungeonSectorBounds.minX);
+    expect(layout.dungeon.minY).toBe(dungeonSectorBounds.minY);
+    expect(layout.dungeon.maxX).toBe(dungeonSectorBounds.maxX);
+    expect(layout.dungeon.maxY).toBe(dungeonSectorBounds.maxY);
+    expect(layout.dungeon.wallHitboxRects.length).toBeGreaterThan(1);
+    expect(
+      dungeonSector?.structures.filter(
+        (spec) => spec.typeId === "structure:dungeon",
+      ),
+    ).toHaveLength(1);
+    expect(
+      dungeonSector?.structures.filter(
+        (spec) => spec.typeId === "structure:dungeon_wall",
+      ).length,
+    ).toBeLessThan(200);
     expect(dungeonSector?.enemies.length).toBeGreaterThanOrEqual(10);
-    expect(dungeonSector?.loot.some((loot) => loot.rewardTier === "epic")).toBe(
-      true,
+    expect(entityTypeIds(dungeonSector!)).toContain("enemy:thanos");
+    expect(entityTypeIds(dungeonSector!)).not.toEqual(
+      expect.arrayContaining([
+        "enemy:bomber",
+        "enemy:wallbreaker",
+        "enemy:saboteur",
+      ]),
     );
     expect(
-      dungeonSector?.loot.some((loot) => loot.typeId === "item:sniper"),
+      dungeonSector?.buildings.some(
+        (building) => building.typeId === "building:tripwire",
+      ),
     ).toBe(true);
+    expect(
+      dungeonSector?.buildings.some(
+        (building) => building.typeId === "building:dungeon_door",
+      ),
+    ).toBe(true);
+    expect(
+      dungeonSector?.buildings.some(
+        (building) =>
+          building.typeId === "building:chest" &&
+          building.chestLoot?.some((slot) => slot.typeId === "item:sniper"),
+      ),
+    ).toBe(true);
+    expect(
+      dungeonSector?.loot.some((loot) => loot.typeId === "item:dungeon_key"),
+    ).toBe(true);
+  });
+
+  test("dungeon chamber centers are reachable from the two entrances when doors are unlockable", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const reachability = computeDungeonReachability(layout);
+
+    for (const entrance of layout.dungeon.entrances) {
+      expect(reachability.isReachable(entrance)).toBe(true);
+    }
+    for (const room of layout.dungeon.rooms) {
+      expect(
+        reachability.isReachable({ x: room.centerX, y: room.centerY }),
+        `${room.id} should be reachable from a dungeon entrance`,
+      ).toBe(true);
+      expect(room.maxX - room.minX).toBeGreaterThanOrEqual(900);
+      expect(room.maxY - room.minY).toBeGreaterThanOrEqual(900);
+    }
   });
 
   test("military, forest, extraction, and residential POIs expose required feature roles", () => {
@@ -313,7 +376,10 @@ describe("procedural survival extraction world", () => {
       sector.features
         .filter(
           (feature) =>
-            feature.risk !== "low" && !reachability.isOccupied(feature.center),
+            feature.risk !== "low" &&
+            sector.archetype !== "dungeon" &&
+            !feature.role.startsWith("dungeon_") &&
+            !reachability.isOccupied(feature.center),
         )
         .filter(
           (feature) =>
@@ -336,6 +402,23 @@ function isCornerSector(id: string): boolean {
 
 function isEdgeSector(id: string): boolean {
   return ["sector_0_1", "sector_1_0", "sector_1_2", "sector_2_1"].includes(id);
+}
+
+type DungeonEntranceSide = "north" | "south" | "west" | "east";
+
+function expectedDungeonEntranceSides(id: string): DungeonEntranceSide[] {
+  switch (id) {
+    case "sector_0_0":
+      return ["east", "south"];
+    case "sector_0_2":
+      return ["west", "south"];
+    case "sector_2_0":
+      return ["east", "north"];
+    case "sector_2_2":
+      return ["west", "north"];
+    default:
+      throw new Error(`Expected a corner dungeon sector, got ${id}`);
+  }
 }
 
 function featureRoles(
@@ -384,6 +467,105 @@ type RuntimeReachability = {
   reachableRatio: number;
   isOccupied(point: WorldPoint): boolean;
 };
+
+type DungeonReachability = {
+  isReachable(point: WorldPoint): boolean;
+};
+
+function computeDungeonReachability(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): DungeonReachability {
+  const cellSize = ACCESS_SAMPLE_SIZE;
+  const dungeon = layout.dungeon;
+  const minCol = Math.floor(dungeon.minX / cellSize);
+  const minRow = Math.floor(dungeon.minY / cellSize);
+  const cols = Math.ceil((dungeon.maxX - dungeon.minX) / cellSize);
+  const rows = Math.ceil((dungeon.maxY - dungeon.minY) / cellSize);
+  const blockers = collectProceduralDungeonWallBlockers(layout);
+  const occupied = new Uint8Array(cols * rows);
+  const reachable = new Uint8Array(cols * rows);
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const point = cellCenter(minCol + col, minRow + row, cellSize);
+      if (pointBlocked(point, blockers)) {
+        occupied[cellIndex(cols, col, row)] = 1;
+      }
+    }
+  }
+
+  const queue: number[] = [];
+  for (const entrance of dungeon.entrances) {
+    const start = pointInsideDungeonFromEntrance(entrance);
+    const startCol = clampIndex(Math.floor(start.x / cellSize) - minCol, cols);
+    const startRow = clampIndex(Math.floor(start.y / cellSize) - minRow, rows);
+    const startIndex = cellIndex(cols, startCol, startRow);
+    if (occupied[startIndex] === 0 && reachable[startIndex] === 0) {
+      reachable[startIndex] = 1;
+      queue.push(startIndex);
+    }
+  }
+
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor]!;
+    const col = current % cols;
+    const row = Math.floor(current / cols);
+    visitNeighbor(col + 1, row, cols, rows, occupied, reachable, queue);
+    visitNeighbor(col - 1, row, cols, rows, occupied, reachable, queue);
+    visitNeighbor(col, row + 1, cols, rows, occupied, reachable, queue);
+    visitNeighbor(col, row - 1, cols, rows, occupied, reachable, queue);
+  }
+
+  return {
+    isReachable(point: WorldPoint) {
+      const col = clampIndex(Math.floor(point.x / cellSize) - minCol, cols);
+      const row = clampIndex(Math.floor(point.y / cellSize) - minRow, rows);
+      return reachable[cellIndex(cols, col, row)] === 1;
+    },
+  };
+}
+
+function collectProceduralDungeonWallBlockers(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): Array<{
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}> {
+  const dungeonSector = layout.sectors.find(
+    (sector) => sector.id === layout.dungeonSectorId,
+  );
+  if (!dungeonSector) {
+    throw new Error("expected dungeon sector");
+  }
+  return dungeonSector.structures.flatMap((spec) =>
+    resolveProceduralSpawnHitboxes(spec).map((rect) => ({
+      minX: rect.minX,
+      minY: rect.minY,
+      maxX: rect.maxX,
+      maxY: rect.maxY,
+    })),
+  );
+}
+
+function pointInsideDungeonFromEntrance(
+  entrance: ReturnType<
+    typeof generateProceduralWorldLayout
+  >["dungeon"]["entrances"][number],
+): WorldPoint {
+  const offset = 128;
+  switch (entrance.side) {
+    case "north":
+      return { x: entrance.x, y: entrance.y + offset };
+    case "south":
+      return { x: entrance.x, y: entrance.y - offset };
+    case "west":
+      return { x: entrance.x + offset, y: entrance.y };
+    case "east":
+      return { x: entrance.x - offset, y: entrance.y };
+  }
+}
 
 function computeOpenAreaReachability(world: World): RuntimeReachability {
   const cellSize = ACCESS_SAMPLE_SIZE;

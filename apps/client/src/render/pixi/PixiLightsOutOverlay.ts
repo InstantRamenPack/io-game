@@ -75,12 +75,7 @@ export class PixiLightsOutOverlay {
 
     this.darknessOverlay.position.set(visibleRadius.x, visibleRadius.y);
     this.updateDarknessOverlayTexture(app, visibleRadius.radius);
-    this.updateBlockerShadowTexture(
-      app,
-      visibility,
-      blockers,
-      worldToScreen,
-    );
+    this.updateBlockerShadowTexture(app, visibility, blockers, worldToScreen);
   }
 
   private updateDarknessOverlayTexture(app: Application, radius: number): void {

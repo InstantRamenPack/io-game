@@ -107,7 +107,11 @@ export class WeaponDisplayView {
       const contentWidth = Math.max(ammoRowWidth, this.nameText.width);
       this.widthValue = Math.ceil(contentWidth + paddingX * 2);
       this.heightValue = Math.ceil(
-        paddingY + ammoRowHeight + nameAmmoGap + this.nameText.height + paddingY,
+        paddingY +
+          ammoRowHeight +
+          nameAmmoGap +
+          this.nameText.height +
+          paddingY,
       );
 
       const right = this.widthValue - paddingX;
@@ -122,11 +126,18 @@ export class WeaponDisplayView {
         ammoY,
       );
       this.ammoSepText.position.set(
-        ammoLeft + this.ammoInMagText.width + sepPad + this.ammoSepText.width / 2,
+        ammoLeft +
+          this.ammoInMagText.width +
+          sepPad +
+          this.ammoSepText.width / 2,
         ammoY,
       );
       this.ammoReserveText.position.set(
-        ammoLeft + this.ammoInMagText.width + sepPad + this.ammoSepText.width + sepPad,
+        ammoLeft +
+          this.ammoInMagText.width +
+          sepPad +
+          this.ammoSepText.width +
+          sepPad,
         ammoY,
       );
     } else {
