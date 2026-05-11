@@ -83,6 +83,11 @@ export const ProjectileContentSchema = z.object({
   }),
 });
 
+export const EntityCombatContentSchema = z.object({
+  damageMultiplier: z.number().finite().nonnegative().default(1),
+  attackMinIntervalTicks: z.number().int().nonnegative().default(0),
+});
+
 export const ItemRequirementSchema = z.object({
   typeId: ResourceIdSchema,
   amount: z.number().int().positive(),
@@ -125,6 +130,7 @@ export const EntityContentSchema = z.object({
     .record(z.string().min(1), z.array(HitboxRectSchema).min(1))
     .optional(),
   activeHitboxProfile: z.string().min(1).optional(),
+  combat: EntityCombatContentSchema.optional(),
   projectile: ProjectileContentSchema.optional(),
   player: z
     .object({
@@ -146,6 +152,7 @@ export type SwingWeaponContent = z.infer<typeof SwingWeaponContentSchema>;
 export type JabWeaponContent = z.infer<typeof JabWeaponContentSchema>;
 export type WeaponContent = z.infer<typeof WeaponContentSchema>;
 export type ProjectileContent = z.infer<typeof ProjectileContentSchema>;
+export type EntityCombatContent = z.infer<typeof EntityCombatContentSchema>;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;

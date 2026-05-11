@@ -1,9 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import {
-  OUTER_LIGHTS_OUT_RADIUS,
-  getVisibilityContext,
-  getVisibilityContextForMap,
-} from "@shared/world/Visibility.ts";
+import { computeLightsOutPresentation } from "@client/render/pixi/PixiWorldView.ts";
 import { generateProceduralWorldLayout } from "@shared/world/ProceduralWorld.ts";
 import {
   bootstrapTestRegistries,
@@ -16,18 +12,34 @@ import {
 describe("lights-out visibility", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("outer sectors restrict radius and center sector is unrestricted", () => {
-    const layout = generateProceduralWorldLayout(1337);
-    const home = layout.sectors.find((sector) => sector.archetype === "home")!;
-    const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
+  test("day lights-out fades by distance from world center", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
 
-    const homeContext = getVisibilityContext(layout, home.center);
-    expect(homeContext.restricted).toBe(false);
-    expect(homeContext.radius).toBe(Number.POSITIVE_INFINITY);
-
-    const outerContext = getVisibilityContext(layout, outer.center);
-    expect(outerContext.restricted).toBe(true);
-    expect(outerContext.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 1500, y: center.y },
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBe(0);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 1750, y: center.y },
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBeCloseTo(0.5);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 2000, y: center.y },
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBe(1);
   });
 
   test("server snapshots keep lights-out replication authoritative-agnostic", () => {
@@ -70,73 +82,63 @@ describe("lights-out visibility", () => {
     expect(ids.has(hiddenEnemy.id)).toBe(true);
   });
 
-  test("client-side map visibility restricts outer-sector radius", () => {
-    const layout = generateProceduralWorldLayout(1337);
-    const outer = layout.sectors.find((sector) => sector.archetype !== "home")!;
-    const map = {
-      sectors: layout.sectors.map((sector) => ({
-        archetype: sector.archetype,
-        minX: sector.minX,
-        minY: sector.minY,
-        maxX: sector.maxX,
-        maxY: sector.maxY,
-        hasLightsOut: sector.hasLightsOut,
-      })),
-    };
-    const context = getVisibilityContextForMap(map, outer.center);
+  test("night lights-out uses the tighter home radius", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
 
-    expect(context.restricted).toBe(true);
-    expect(context.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 500, y: center.y },
+        worldSize,
+        nightBlend: 1,
+        energyActive: true,
+      }).alpha,
+    ).toBe(0);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 625, y: center.y },
+        worldSize,
+        nightBlend: 1,
+        energyActive: true,
+      }).alpha,
+    ).toBeCloseTo(0.5);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 750, y: center.y },
+        worldSize,
+        nightBlend: 1,
+        energyActive: true,
+      }).alpha,
+    ).toBe(1);
   });
 
-  test("energy failure restricts client visibility even in home base", () => {
-    const map = {
-      sectors: [
-        {
-          archetype: "home",
-          minX: 0,
-          minY: 0,
-          maxX: 100,
-          maxY: 100,
-          hasLightsOut: false,
-        },
-        {
-          archetype: "forest",
-          minX: 100,
-          minY: 0,
-          maxX: 200,
-          maxY: 100,
-          hasLightsOut: false,
-        },
-      ],
-    };
+  test("energy failure forces full lights-out anywhere", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
+    const presentation = computeLightsOutPresentation({
+      player: center,
+      worldSize,
+      nightBlend: 0,
+      energyActive: false,
+    });
+
+    expect(presentation.alpha).toBe(1);
+    expect(presentation.visibility?.restricted).toBe(true);
+    expect(presentation.visibility?.radius).toBe(600);
+  });
+
+  test("map center override drives live activation distance", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const center = { x: 4096, y: 4096 };
 
     expect(
-      getVisibilityContextForMap(
-        map,
-        { x: 50, y: 50 },
-        {
-          outdoorLightsActive: false,
-        },
-      ).restricted,
-    ).toBe(true);
-    expect(
-      getVisibilityContextForMap(
-        map,
-        { x: 50, y: 50 },
-        {
-          outdoorLightsActive: false,
-        },
-      ).radius,
-    ).toBe(OUTER_LIGHTS_OUT_RADIUS);
-    const outerContext = getVisibilityContextForMap(
-      map,
-      { x: 150, y: 50 },
-      {
-        outdoorLightsActive: false,
-      },
-    );
-    expect(outerContext.restricted).toBe(true);
-    expect(outerContext.radius).toBe(OUTER_LIGHTS_OUT_RADIUS);
+      computeLightsOutPresentation({
+        player: { x: center.x + 2000, y: center.y },
+        center,
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBe(1);
   });
 });

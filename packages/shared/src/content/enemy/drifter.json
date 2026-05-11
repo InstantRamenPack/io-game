@@ -3,6 +3,10 @@
   "maxHp": 100,
   "moveSpeed": 8,
   "collisionMode": "dynamic",
+  "combat": {
+    "damageMultiplier": 0.5,
+    "attackMinIntervalTicks": 50
+  },
   "hitboxProfiles": {
     "default": [{ "width": 24, "height": 24, "offsetX": 0, "offsetY": 0 }]
   }

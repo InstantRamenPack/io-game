@@ -1,5 +1,9 @@
 import { requireEntityContent } from "@shared/content/catalog.ts";
-import type { CollisionMode, EntityContent } from "@shared/content/schema.ts";
+import type {
+  CollisionMode,
+  EntityCombatContent,
+  EntityContent,
+} from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 type EntityHitboxProfiles = NonNullable<EntityContent["hitboxProfiles"]>;
@@ -11,6 +15,7 @@ export type EntityBaselineContent = {
   moveSpeed?: number;
   hitboxProfiles?: EntityHitboxProfiles;
   activeHitboxProfile?: string;
+  combat: EntityCombatContent;
 };
 
 export type MovingEntityBaselineContent = EntityBaselineContent & {
@@ -45,6 +50,10 @@ export function requireEntityBaselineContent(
     moveSpeed: requireEntityContent(typeId).moveSpeed,
     hitboxProfiles: requireEntityContent(typeId).hitboxProfiles,
     activeHitboxProfile: requireEntityContent(typeId).activeHitboxProfile,
+    combat: requireEntityContent(typeId).combat ?? {
+      damageMultiplier: 1,
+      attackMinIntervalTicks: 0,
+    },
   };
 }
 

@@ -5,14 +5,13 @@ import {
   Texture,
   type Application,
 } from "pixi.js";
-import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
-import type { VisibilityContext } from "@shared/world/Visibility.ts";
-import { OUTER_LIGHTS_OUT_RADIUS } from "@shared/world/Visibility.ts";
+import type {
+  LightsOutVisibilityContext,
+  VisibilityBlockerShape,
+} from "@client/render/renderTypes.ts";
 
 type ScreenPoint = { x: number; y: number };
 type WorldPoint = { x: number; y: number };
-type ShadowEdge = readonly [WorldPoint, WorldPoint];
-type ScreenQuad = readonly [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint];
 type WorldToScreen = (
   app: Application,
   worldX: number,
@@ -20,107 +19,150 @@ type WorldToScreen = (
 ) => ScreenPoint | null;
 
 const MIN_DISTANCE_EPSILON = 1e-6;
-const SCREEN_SHADOW_EXTENSION_RATIO = 2.5;
+const WORLD_SHADOW_EXTENSION = 20_000;
 const LIGHTS_OUT_FADE_START_RADIUS = 480;
 const LIGHTS_OUT_FADE_END_RADIUS = 600;
 const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 512;
-const VIGNETTE_TEXTURE_SIZE = 512;
-const VIGNETTE_HOLE_RADIUS_RATIO = 0.18;
-const VIGNETTE_EDGE_RADIUS_RATIO = 0.48;
-const VIGNETTE_ELLIPSE_RATIO = 0.88;
+const DARKNESS_TEXTURE_RADIUS_BUCKET = 4;
 const DARKNESS_OVERLAY_COLOR = 0x000000;
-const SHADOW_OVERLAY_ALPHA = 0.55;
-const VIGNETTE_OVERLAY_COLOR = 0x000000;
-const VIGNETTE_OVERLAY_ALPHA = 0.3;
 
 export class PixiLightsOutOverlay {
   public readonly container = new Container();
-  private readonly darknessOverlay = new Graphics();
-  private readonly radiusFalloff = new Sprite(
-    createLightsOutRadiusFalloffTexture(),
-  );
-  private readonly vignette = new Sprite(createLightsOutVignetteTexture());
+  private readonly backgroundDim = new Graphics();
+  private readonly blockerShadows = new Sprite(Texture.EMPTY);
+  private readonly darknessOverlay = new Sprite(Texture.EMPTY);
+  private blockerShadowCanvas: HTMLCanvasElement | null = null;
+  private blockerShadowContext: CanvasRenderingContext2D | null = null;
+  private blockerShadowTexture: Texture | null = null;
+  private cachedTextureKey = "";
 
   constructor() {
     this.container.addChild(
+      this.backgroundDim,
       this.darknessOverlay,
-      this.radiusFalloff,
-      this.vignette,
+      this.blockerShadows,
     );
-    this.radiusFalloff.anchor.set(0.5);
-    this.radiusFalloff.visible = false;
-    this.vignette.tint = VIGNETTE_OVERLAY_COLOR;
-    this.vignette.alpha = VIGNETTE_OVERLAY_ALPHA;
+    this.darknessOverlay.anchor.set(0.5);
+    this.container.visible = false;
   }
 
   public update(
     app: Application,
-    visibility: VisibilityContext | null,
+    visibility: LightsOutVisibilityContext | null,
     blockers: readonly VisibilityBlockerShape[],
     worldToScreen: WorldToScreen,
-    nightAlpha: number,
+    overlayAlpha: number,
   ): void {
-    const g = this.darknessOverlay;
-    g.clear();
-
-    if (nightAlpha <= 0 || !visibility) {
-      g.visible = false;
-      this.radiusFalloff.visible = false;
-      this.vignette.visible = false;
-      this.container.alpha = 1;
+    if (overlayAlpha <= 0 || !visibility || !visibility.restricted) {
+      this.container.visible = false;
       return;
     }
 
-    const effectiveVisibility: VisibilityContext = visibility.restricted
-      ? visibility
-      : {
-          center: visibility.center,
-          radius: OUTER_LIGHTS_OUT_RADIUS,
-          restricted: true,
-        };
-
-    this.container.alpha = nightAlpha;
-    g.visible = true;
-    this.radiusFalloff.visible = true;
-    this.vignette.visible = true;
-    const sw = app.screen.width;
-    const sh = app.screen.height;
+    this.container.visible = true;
+    this.container.alpha = overlayAlpha;
+    this.drawBackgroundDim(app);
     const visibleRadius = getVisibilityRadiusScreen(
       app,
-      effectiveVisibility,
+      visibility,
       worldToScreen,
     );
     if (!visibleRadius) {
-      this.radiusFalloff.visible = false;
+      this.container.visible = false;
       return;
     }
 
-    g.rect(0, 0, sw, sh).fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 1 });
-    g.circle(visibleRadius.x, visibleRadius.y, visibleRadius.radius).cut();
-    this.updateRadiusFalloff(visibleRadius);
-    drawVisibilityBlockerShadows(app, g, effectiveVisibility, blockers, worldToScreen);
-    this.drawVignette(app);
+    this.darknessOverlay.position.set(visibleRadius.x, visibleRadius.y);
+    this.updateDarknessOverlayTexture(app, visibleRadius.radius);
+    this.updateBlockerShadowTexture(
+      app,
+      visibility,
+      blockers,
+      worldToScreen,
+    );
   }
 
-  private updateRadiusFalloff(visibleRadius: {
-    x: number;
-    y: number;
-    radius: number;
-  }): void {
-    this.radiusFalloff.position.set(visibleRadius.x, visibleRadius.y);
-    this.radiusFalloff.width = visibleRadius.radius * 2;
-    this.radiusFalloff.height = visibleRadius.radius * 2;
+  private updateDarknessOverlayTexture(app: Application, radius: number): void {
+    const extentRadius = Math.max(
+      1,
+      Math.hypot(app.screen.width, app.screen.height),
+    );
+    const radiusBucket =
+      Math.round(radius / DARKNESS_TEXTURE_RADIUS_BUCKET) *
+      DARKNESS_TEXTURE_RADIUS_BUCKET;
+    const textureKey = [app.screen.width, app.screen.height, radiusBucket].join(
+      ":",
+    );
+    if (textureKey !== this.cachedTextureKey) {
+      this.cachedTextureKey = textureKey;
+      this.darknessOverlay.texture = createLightsOutDarknessTexture(
+        (radiusBucket * LIGHTS_OUT_FADE_START_RADIUS) /
+          LIGHTS_OUT_FADE_END_RADIUS /
+          extentRadius,
+        radiusBucket / extentRadius,
+      );
+    }
+    this.darknessOverlay.width = extentRadius * 2;
+    this.darknessOverlay.height = extentRadius * 2;
   }
 
-  private drawVignette(app: Application): void {
-    this.vignette.width = app.screen.width;
-    this.vignette.height = app.screen.height;
+  private drawBackgroundDim(app: Application): void {
+    this.backgroundDim
+      .clear()
+      .rect(0, 0, app.screen.width, app.screen.height)
+      .fill({ color: DARKNESS_OVERLAY_COLOR, alpha: 0.2 });
+  }
+
+  private updateBlockerShadowTexture(
+    app: Application,
+    visibility: LightsOutVisibilityContext,
+    blockers: readonly VisibilityBlockerShape[],
+    worldToScreen: WorldToScreen,
+  ): void {
+    const canvas = this.getBlockerShadowCanvas(app);
+    const context = this.blockerShadowContext;
+    if (!context || !this.blockerShadowTexture) {
+      this.blockerShadows.visible = false;
+      return;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    drawVisibilityBlockerShadows(
+      app,
+      context,
+      visibility,
+      blockers,
+      worldToScreen,
+    );
+    this.blockerShadowTexture.source.update();
+    this.blockerShadows.texture = this.blockerShadowTexture;
+    this.blockerShadows.position.set(0, 0);
+    this.blockerShadows.visible = true;
+  }
+
+  private getBlockerShadowCanvas(app: Application): HTMLCanvasElement {
+    const width = Math.max(1, Math.ceil(app.screen.width));
+    const height = Math.max(1, Math.ceil(app.screen.height));
+    if (!this.blockerShadowCanvas) {
+      this.blockerShadowCanvas = document.createElement("canvas");
+      this.blockerShadowContext = this.blockerShadowCanvas.getContext("2d");
+    }
+    if (
+      this.blockerShadowCanvas.width !== width ||
+      this.blockerShadowCanvas.height !== height
+    ) {
+      this.blockerShadowCanvas.width = width;
+      this.blockerShadowCanvas.height = height;
+      this.blockerShadowTexture = Texture.from(this.blockerShadowCanvas);
+    } else if (!this.blockerShadowTexture) {
+      this.blockerShadowTexture = Texture.from(this.blockerShadowCanvas);
+    }
+    return this.blockerShadowCanvas;
   }
 }
 
 function getVisibilityRadiusScreen(
   app: Application,
-  visibility: VisibilityContext,
+  visibility: LightsOutVisibilityContext,
   worldToScreen: WorldToScreen,
 ): { x: number; y: number; radius: number } | null {
   const center = worldToScreen(app, visibility.center.x, visibility.center.y);
@@ -141,161 +183,117 @@ function getVisibilityRadiusScreen(
 
 function drawVisibilityBlockerShadows(
   app: Application,
-  graphic: Graphics,
-  visibility: VisibilityContext,
+  context: CanvasRenderingContext2D,
+  visibility: LightsOutVisibilityContext,
   blockers: readonly VisibilityBlockerShape[],
   worldToScreen: WorldToScreen,
 ): void {
-  const origin = worldToScreen(app, visibility.center.x, visibility.center.y);
-  if (!origin) {
-    return;
-  }
-  const shadowExtension =
-    Math.hypot(app.screen.width, app.screen.height) *
-    SCREEN_SHADOW_EXTENSION_RATIO;
-
-  // Collect all shadow quads for in-range blockers.
-  const inRangeBlockers: VisibilityBlockerShape[] = [];
+  const visibleBlockers: VisibilityBlockerShape[] = [];
+  context.save();
+  context.fillStyle = "#000000";
+  context.globalAlpha = 1;
+  context.globalCompositeOperation = "source-over";
   for (const blocker of blockers) {
-    const shadowEdge =
+    const shadows =
       blocker.kind === "rect"
-        ? buildRectBlockerShadow(visibility, blocker)
+        ? buildRectBlockerShadows(visibility, blocker)
         : buildCircleBlockerShadow(visibility, blocker);
-    if (!shadowEdge) {
-      continue;
+    let drewShadow = false;
+    for (const shadow of shadows) {
+      const points = shadow
+        .map((point) => worldToScreenPoint(app, worldToScreen, point))
+        .filter((point): point is ScreenPoint => point !== null);
+      if (points.length !== shadow.length) {
+        continue;
+      }
+      drawCanvasPolygon(context, points);
+      context.fill();
+      drewShadow = true;
     }
-    const left = worldToScreen(app, shadowEdge[0].x, shadowEdge[0].y);
-    const right = worldToScreen(app, shadowEdge[1].x, shadowEdge[1].y);
-    if (!left || !right) {
-      continue;
+    if (drewShadow) {
+      visibleBlockers.push(blocker);
     }
-    inRangeBlockers.push(blocker);
-    graphic
-      .poly(
-        toFlatPointBuffer([
-          left,
-          extendScreenPointFromOrigin(origin, left, shadowExtension),
-          extendScreenPointFromOrigin(origin, right, shadowExtension),
-          right,
-        ]),
-      )
-      .fill({ color: DARKNESS_OVERLAY_COLOR, alpha: SHADOW_OVERLAY_ALPHA });
   }
 
-  // Cut all in-range blockers after all shadows are drawn so each blocker is
-  // removed from every shadow polygon, not just its own.
-  for (const blocker of inRangeBlockers) {
-    cutVisibilityBlockerFromShadow(app, graphic, blocker, worldToScreen);
+  context.globalAlpha = 1;
+  context.globalCompositeOperation = "destination-out";
+  for (const blocker of visibleBlockers) {
+    cutVisibilityBlockerFromShadows(app, context, blocker, worldToScreen);
   }
+  context.restore();
 }
 
-function extendScreenPointFromOrigin(
-  origin: ScreenPoint,
-  point: ScreenPoint,
-  distance: number,
-): ScreenPoint {
-  const dx = point.x - origin.x;
-  const dy = point.y - origin.y;
-  const length = Math.hypot(dx, dy);
-  if (length <= MIN_DISTANCE_EPSILON) {
-    return { ...point };
-  }
-  return {
-    x: origin.x + (dx / length) * distance,
-    y: origin.y + (dy / length) * distance,
-  };
-}
-
-function cutVisibilityBlockerFromShadow(
+function cutVisibilityBlockerFromShadows(
   app: Application,
-  graphic: Graphics,
+  context: CanvasRenderingContext2D,
   blocker: VisibilityBlockerShape,
   worldToScreen: WorldToScreen,
 ): void {
   if (blocker.kind === "rect") {
-    const corners = [
-      worldToScreen(app, blocker.minX, blocker.minY),
-      worldToScreen(app, blocker.maxX, blocker.minY),
-      worldToScreen(app, blocker.maxX, blocker.maxY),
-      worldToScreen(app, blocker.minX, blocker.maxY),
-    ];
-    if (corners.some((corner) => corner === null)) {
-      return;
+    const points = getRectBlockerScreenPoints(app, blocker, worldToScreen);
+    if (points) {
+      drawCanvasPolygon(context, points);
+      context.fill();
     }
-    graphic.poly(toFlatPointBuffer(corners)).cut();
     return;
   }
 
-  const center = worldToScreen(app, blocker.centerX, blocker.centerY);
-  const edgeX = worldToScreen(
-    app,
-    blocker.centerX + blocker.radius,
-    blocker.centerY,
+  const center = worldToScreenPoint(app, worldToScreen, {
+    x: blocker.centerX,
+    y: blocker.centerY,
+  });
+  const edgeX = worldToScreenPoint(app, worldToScreen, {
+    x: blocker.centerX + blocker.radius,
+    y: blocker.centerY,
+  });
+  const edgeY = worldToScreenPoint(app, worldToScreen, {
+    x: blocker.centerX,
+    y: blocker.centerY + blocker.radius,
+  });
+  if (!center || !edgeX || !edgeY) return;
+  context.beginPath();
+  context.ellipse(
+    center.x,
+    center.y,
+    Math.abs(edgeX.x - center.x),
+    Math.abs(edgeY.y - center.y),
+    0,
+    0,
+    Math.PI * 2,
   );
-  const edgeY = worldToScreen(
-    app,
-    blocker.centerX,
-    blocker.centerY + blocker.radius,
-  );
-  if (!center || !edgeX || !edgeY) {
-    return;
-  }
-  graphic
-    .ellipse(
-      center.x,
-      center.y,
-      Math.abs(edgeX.x - center.x),
-      Math.abs(edgeY.y - center.y),
-    )
-    .cut();
+  context.fill();
 }
 
-function buildRectBlockerShadow(
-  visibility: VisibilityContext,
+function buildRectBlockerShadows(
+  visibility: LightsOutVisibilityContext,
   blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
-): ShadowEdge | null {
+): WorldPoint[][] {
   const origin = visibility.center;
-  const blockerCenter = {
-    x: (blocker.minX + blocker.maxX) / 2,
-    y: (blocker.minY + blocker.maxY) / 2,
-  };
-  const distanceToBlocker = Math.hypot(
-    blockerCenter.x - origin.x,
-    blockerCenter.y - origin.y,
-  );
-  if (distanceToBlocker > visibility.radius || distanceToBlocker <= 0) {
-    return null;
+  if (
+    distanceToRect(origin, blocker) > visibility.radius ||
+    pointInRect(origin, blocker)
+  ) {
+    return [];
   }
-  const baseAngle = Math.atan2(
-    blockerCenter.y - origin.y,
-    blockerCenter.x - origin.x,
-  );
-  const silhouette = [
+  const corners = [
     { x: blocker.minX, y: blocker.minY },
     { x: blocker.maxX, y: blocker.minY },
     { x: blocker.maxX, y: blocker.maxY },
     { x: blocker.minX, y: blocker.maxY },
-  ]
-    .map((point) => ({
-      point,
-      offset: unwrapAngle(
-        Math.atan2(point.y - origin.y, point.x - origin.x),
-        baseAngle,
-      ),
-    }))
-    .sort((left, right) => left.offset - right.offset);
-  const left = silhouette[0]?.point;
-  const right = silhouette.at(-1)?.point;
-  if (!left || !right) {
-    return null;
-  }
-  return [left, right];
+  ] satisfies [WorldPoint, WorldPoint, WorldPoint, WorldPoint];
+  const edges: Array<readonly [WorldPoint, WorldPoint]> = [
+    [corners[0], corners[1]],
+    [corners[1], corners[2]],
+    [corners[2], corners[3]],
+    [corners[3], corners[0]],
+  ];
+  return edges.flatMap(([a, b]) => buildProjectedTrapezoid(origin, a, b));
 }
 
 function buildCircleBlockerShadow(
-  visibility: VisibilityContext,
+  visibility: LightsOutVisibilityContext,
   blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
-): ShadowEdge | null {
+): WorldPoint[][] {
   const origin = visibility.center;
   const dx = blocker.centerX - origin.x;
   const dy = blocker.centerY - origin.y;
@@ -304,51 +302,123 @@ function buildCircleBlockerShadow(
     distance > visibility.radius ||
     distance <= blocker.radius + MIN_DISTANCE_EPSILON
   ) {
+    return [];
+  }
+  const nx = -dy / distance;
+  const ny = dx / distance;
+  const a = {
+    x: blocker.centerX + nx * blocker.radius,
+    y: blocker.centerY + ny * blocker.radius,
+  };
+  const b = {
+    x: blocker.centerX - nx * blocker.radius,
+    y: blocker.centerY - ny * blocker.radius,
+  };
+  return buildProjectedTrapezoid(origin, a, b);
+}
+
+function buildProjectedTrapezoid(
+  origin: WorldPoint,
+  a: WorldPoint,
+  b: WorldPoint,
+): WorldPoint[][] {
+  const farA = extendWorldPointFromOrigin(origin, a, WORLD_SHADOW_EXTENSION);
+  const farB = extendWorldPointFromOrigin(origin, b, WORLD_SHADOW_EXTENSION);
+  if (!farA || !farB) {
+    return [];
+  }
+  return [[a, farA, farB, b]];
+}
+
+function extendWorldPointFromOrigin(
+  origin: WorldPoint,
+  point: WorldPoint,
+  distance: number,
+): WorldPoint | null {
+  const dx = point.x - origin.x;
+  const dy = point.y - origin.y;
+  const length = Math.hypot(dx, dy);
+  if (length <= MIN_DISTANCE_EPSILON) {
     return null;
   }
-  const centerAngle = Math.atan2(dy, dx);
-  const tangentOffset = Math.acos(
-    Math.min(1, blocker.radius / Math.max(distance, MIN_DISTANCE_EPSILON)),
+  return {
+    x: origin.x + (dx / length) * distance,
+    y: origin.y + (dy / length) * distance,
+  };
+}
+
+function distanceToRect(
+  point: WorldPoint,
+  rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+): number {
+  const dx = Math.max(rect.minX - point.x, 0, point.x - rect.maxX);
+  const dy = Math.max(rect.minY - point.y, 0, point.y - rect.maxY);
+  return Math.hypot(dx, dy);
+}
+
+function pointInRect(
+  point: WorldPoint,
+  rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+): boolean {
+  return (
+    point.x >= rect.minX &&
+    point.x <= rect.maxX &&
+    point.y >= rect.minY &&
+    point.y <= rect.maxY
   );
-  const left = {
-    x:
-      blocker.centerX +
-      Math.cos(centerAngle + Math.PI - tangentOffset) * blocker.radius,
-    y:
-      blocker.centerY +
-      Math.sin(centerAngle + Math.PI - tangentOffset) * blocker.radius,
-  };
-  const right = {
-    x:
-      blocker.centerX +
-      Math.cos(centerAngle + Math.PI + tangentOffset) * blocker.radius,
-    y:
-      blocker.centerY +
-      Math.sin(centerAngle + Math.PI + tangentOffset) * blocker.radius,
-  };
-  return [left, right];
 }
 
-function toFlatPointBuffer(points: readonly (ScreenPoint | null)[]): number[] {
-  const buffer: number[] = [];
-  for (const point of points) {
-    if (!point) {
-      continue;
-    }
-    buffer.push(point.x, point.y);
-  }
-  return buffer;
+function worldToScreenPoint(
+  app: Application,
+  worldToScreen: WorldToScreen,
+  point: WorldPoint,
+): ScreenPoint | null {
+  return worldToScreen(app, point.x, point.y);
 }
 
-function unwrapAngle(angle: number, center: number): number {
-  let unwrapped = angle;
-  while (unwrapped - center > Math.PI) {
-    unwrapped -= Math.PI * 2;
+function getRectBlockerScreenPoints(
+  app: Application,
+  blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  worldToScreen: WorldToScreen,
+): ScreenPoint[] | null {
+  const points = [
+    worldToScreenPoint(app, worldToScreen, {
+      x: blocker.minX,
+      y: blocker.minY,
+    }),
+    worldToScreenPoint(app, worldToScreen, {
+      x: blocker.maxX,
+      y: blocker.minY,
+    }),
+    worldToScreenPoint(app, worldToScreen, {
+      x: blocker.maxX,
+      y: blocker.maxY,
+    }),
+    worldToScreenPoint(app, worldToScreen, {
+      x: blocker.minX,
+      y: blocker.maxY,
+    }),
+  ];
+  if (points.some((point) => point === null)) {
+    return null;
   }
-  while (unwrapped - center < -Math.PI) {
-    unwrapped += Math.PI * 2;
+  return points as ScreenPoint[];
+}
+
+function drawCanvasPolygon(
+  context: CanvasRenderingContext2D,
+  points: readonly ScreenPoint[],
+): void {
+  const first = points[0];
+  if (!first) {
+    return;
   }
-  return unwrapped;
+  context.beginPath();
+  context.moveTo(first.x, first.y);
+  for (const point of points.slice(1)) {
+    context.lineTo(point.x, point.y);
+  }
+  context.closePath();
 }
 
 function smootherstep(t: number): number {
@@ -356,7 +426,10 @@ function smootherstep(t: number): number {
   return clamped * clamped * clamped * (clamped * (clamped * 6 - 15) + 10);
 }
 
-function createLightsOutRadiusFalloffTexture(): Texture {
+function createLightsOutDarknessTexture(
+  fadeStartRatio: number,
+  fadeEndRatio: number,
+): Texture {
   const canvas = document.createElement("canvas");
   canvas.width = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
   canvas.height = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
@@ -367,45 +440,13 @@ function createLightsOutRadiusFalloffTexture(): Texture {
   const image = context.createImageData(canvas.width, canvas.height);
   const center = (LIGHTS_OUT_FALLOFF_TEXTURE_SIZE - 1) / 2;
   const outerRadius = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE / 2;
-  const fadeStartRatio =
-    LIGHTS_OUT_FADE_START_RADIUS / LIGHTS_OUT_FADE_END_RADIUS;
   for (let y = 0; y < canvas.height; y += 1) {
     for (let x = 0; x < canvas.width; x += 1) {
       const dx = x - center;
       const dy = y - center;
       const distanceRatio = Math.hypot(dx, dy) / outerRadius;
-      const fadeRatio = (distanceRatio - fadeStartRatio) / (1 - fadeStartRatio);
-      const alpha = smootherstep(fadeRatio);
-      const index = (y * canvas.width + x) * 4;
-      image.data[index] = 0;
-      image.data[index + 1] = 0;
-      image.data[index + 2] = 0;
-      image.data[index + 3] = Math.round(alpha * 255);
-    }
-  }
-  context.putImageData(image, 0, 0);
-  return Texture.from(canvas);
-}
-
-function createLightsOutVignetteTexture(): Texture {
-  const canvas = document.createElement("canvas");
-  canvas.width = VIGNETTE_TEXTURE_SIZE;
-  canvas.height = VIGNETTE_TEXTURE_SIZE;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return Texture.EMPTY;
-  }
-
-  const image = context.createImageData(canvas.width, canvas.height);
-  const center = (VIGNETTE_TEXTURE_SIZE - 1) / 2;
-  const innerRadius = VIGNETTE_TEXTURE_SIZE * VIGNETTE_HOLE_RADIUS_RATIO;
-  const outerRadius = VIGNETTE_TEXTURE_SIZE * VIGNETTE_EDGE_RADIUS_RATIO;
-  for (let y = 0; y < canvas.height; y += 1) {
-    for (let x = 0; x < canvas.width; x += 1) {
-      const dx = x - center;
-      const dy = (y - center) / VIGNETTE_ELLIPSE_RATIO;
-      const distance = Math.hypot(dx, dy);
-      const fadeRatio = (distance - innerRadius) / (outerRadius - innerRadius);
+      const fadeRatio =
+        (distanceRatio - fadeStartRatio) / (fadeEndRatio - fadeStartRatio);
       const alpha = smootherstep(fadeRatio);
       const index = (y * canvas.width + x) * 4;
       image.data[index] = 0;

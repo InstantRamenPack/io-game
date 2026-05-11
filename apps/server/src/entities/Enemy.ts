@@ -27,6 +27,7 @@ export class Enemy extends GoalControlledEntity {
     );
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
+    this.damageMultiplier = content.combat.damageMultiplier;
     this.registerGoals(config.goals ?? []);
     this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(

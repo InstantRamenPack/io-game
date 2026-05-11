@@ -38,3 +38,9 @@ export type VisibilityBlockerShape =
       centerY: number;
       radius: number;
     };
+
+export type LightsOutVisibilityContext = {
+  center: { x: number; y: number };
+  radius: number;
+  restricted: boolean;
+};

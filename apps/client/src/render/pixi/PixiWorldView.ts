@@ -17,6 +17,7 @@ import { PixiViewportController } from "@client/render/pixi/PixiViewportControll
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
 import { PixiLightsOutOverlay } from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import type {
+  LightsOutVisibilityContext,
   VisibilityBlockerShape,
   WorldSize,
 } from "@client/render/renderTypes.ts";
@@ -25,8 +26,6 @@ import type {
   InfrastructureSnapshot,
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
-import type { VisibilityContext } from "@shared/world/Visibility.ts";
-import { getVisibilityContextForMap } from "@shared/world/Visibility.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
@@ -45,12 +44,64 @@ const MINIMAP_PADDING = 16;
 const MAX_VISIBILITY_BLOCKERS = 128;
 // Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
+const DAY_LIGHTS_OUT_FADE_START_RADIUS = 1500;
+const DAY_LIGHTS_OUT_FADE_END_RADIUS = 2000;
+const NIGHT_LIGHTS_OUT_FADE_START_RADIUS = 500;
+const NIGHT_LIGHTS_OUT_FADE_END_RADIUS = 750;
+const FULL_LIGHTS_OUT_RADIUS = 600;
+const DISTANT_LIGHTS_OUT_RADIUS = 6000;
 
 type MinimapPlayerMarker = {
   x: number;
   y: number;
   isSelf: boolean;
 };
+
+export function computeLightsOutPresentation(options: {
+  player: { x: number; y: number } | null;
+  worldSize: WorldSize;
+  center?: { x: number; y: number } | null;
+  nightBlend: number;
+  energyActive: boolean;
+}): { visibility: LightsOutVisibilityContext | null; alpha: number } {
+  const { player, worldSize, nightBlend, energyActive } = options;
+  if (!player) {
+    return { visibility: null, alpha: 0 };
+  }
+  const center = options.center ?? {
+    x: worldSize.w / 2,
+    y: worldSize.h / 2,
+  };
+  const thresholds =
+    nightBlend >= 0.5
+      ? {
+          fadeStartRadius: NIGHT_LIGHTS_OUT_FADE_START_RADIUS,
+          fadeEndRadius: NIGHT_LIGHTS_OUT_FADE_END_RADIUS,
+        }
+      : {
+          fadeStartRadius: DAY_LIGHTS_OUT_FADE_START_RADIUS,
+          fadeEndRadius: DAY_LIGHTS_OUT_FADE_END_RADIUS,
+        };
+  const distanceFromCenter = Math.hypot(
+    player.x - center.x,
+    player.y - center.y,
+  );
+  const alpha = energyActive
+    ? inverseLerp(
+        thresholds.fadeStartRadius,
+        thresholds.fadeEndRadius,
+        distanceFromCenter,
+      )
+    : 1;
+  return {
+    alpha,
+    visibility: {
+      center: player,
+      radius: lerp(DISTANT_LIGHTS_OUT_RADIUS, FULL_LIGHTS_OUT_RADIUS, alpha),
+      restricted: alpha > 0,
+    },
+  };
+}
 
 export class PixiWorldView {
   private readonly sceneGraph = new PixiSceneGraph();
@@ -78,7 +129,8 @@ export class PixiWorldView {
   };
   private mapState: MapSnapshot | null = null;
   private lastMapSeed: number | null = null;
-  private visibilityState: VisibilityContext | null = null;
+  private visibilityState: LightsOutVisibilityContext | null = null;
+  private localPlayerPosition: { x: number; y: number } | null = null;
   private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
   private gridNightBlend = 0;
@@ -170,7 +222,7 @@ export class PixiWorldView {
       this.visibilityBlockers,
       (targetApp, worldX, worldY) =>
         this.worldToScreen(targetApp, worldX, worldY),
-      this.isPlayground ? 0 : this.lightsOutNightBlend,
+      this.getLightsOutOverlayAlpha(),
     );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
@@ -189,32 +241,25 @@ export class PixiWorldView {
     this.baseVisionOverlay.setEnergyActive(
       this.infrastructureState.energyActive,
     );
-    if (this.visibilityState) {
-      this.visibilityState = getVisibilityContextForMap(
-        this.mapState,
-        this.visibilityState.center,
-        { outdoorLightsActive: this.infrastructureState.energyActive },
-      );
-    }
+    this.recomputeVisibilityState();
   }
 
   public updateMapState(map: MapSnapshot | null): void {
     const seed = map?.seed ?? null;
     if (seed === this.lastMapSeed) {
       this.mapState = map;
+      this.recomputeVisibilityState();
       return;
     }
     this.lastMapSeed = seed;
     this.mapState = map;
+    this.recomputeVisibilityState();
     this.drawGridGeometry();
   }
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {
-    this.visibilityState = player
-      ? getVisibilityContextForMap(this.mapState, player, {
-          outdoorLightsActive: this.infrastructureState.energyActive,
-        })
-      : null;
+    this.localPlayerPosition = player;
+    this.recomputeVisibilityState();
   }
 
   public updateVisibilityBlockers(
@@ -233,6 +278,7 @@ export class PixiWorldView {
 
   public setLightsOutNightBlend(blend: number): void {
     this.lightsOutNightBlend = Math.max(0, Math.min(1, blend));
+    this.recomputeVisibilityState();
   }
 
   public setPlaygroundMode(isPlayground: boolean): void {
@@ -258,6 +304,42 @@ export class PixiWorldView {
 
   public resetCamera(): void {
     this.viewportController.reset();
+  }
+
+  private recomputeVisibilityState(): void {
+    this.visibilityState = computeLightsOutPresentation({
+      player: this.localPlayerPosition,
+      worldSize: this.worldSize,
+      center: this.getLightsOutCenter(),
+      nightBlend: this.lightsOutNightBlend,
+      energyActive: this.infrastructureState.energyActive,
+    }).visibility;
+  }
+
+  private getLightsOutOverlayAlpha(): number {
+    return computeLightsOutPresentation({
+      player: this.localPlayerPosition,
+      worldSize: this.worldSize,
+      center: this.getLightsOutCenter(),
+      nightBlend: this.lightsOutNightBlend,
+      energyActive: this.infrastructureState.energyActive,
+    }).alpha;
+  }
+
+  private getLightsOutCenter(): { x: number; y: number } {
+    const centerSector = this.mapState?.sectors.find(
+      (sector) => sector.id === this.mapState?.centerSectorId,
+    );
+    if (centerSector) {
+      return {
+        x: (centerSector.minX + centerSector.maxX) / 2,
+        y: (centerSector.minY + centerSector.maxY) / 2,
+      };
+    }
+    return {
+      x: this.worldSize.w / 2,
+      y: this.worldSize.h / 2,
+    };
   }
 
   public getCameraDebugState(
@@ -1119,6 +1201,18 @@ function seededUnit(key: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 0xffffffff;
+}
+
+function inverseLerp(start: number, end: number, value: number): number {
+  if (Math.abs(end - start) <= MIN_DISTANCE_EPSILON) {
+    return value >= end ? 1 : 0;
+  }
+  return Math.max(0, Math.min(1, (value - start) / (end - start)));
+}
+
+function lerp(start: number, end: number, t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  return start + (end - start) * clamped;
 }
 
 function lerpColor(start: number, end: number, t: number): number {
