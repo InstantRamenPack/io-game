@@ -3,6 +3,7 @@ import buildingcannonJson from "@shared/content/building/cannon.json";
 import buildingchestJson from "@shared/content/building/chest.json";
 import buildingcommsTowerJson from "@shared/content/building/comms_tower.json";
 import buildingcraftingStationJson from "@shared/content/building/crafting_station.json";
+import buildingcrateJson from "@shared/content/building/crate.json";
 import buildingdungeonDoorJson from "@shared/content/building/dungeon_door.json";
 import buildingenergyTowerJson from "@shared/content/building/energy_tower.json";
 import buildinglandmineJson from "@shared/content/building/landmine.json";
@@ -107,6 +108,7 @@ export const buildingContentEntries = [
     "crafting_station",
     buildingcraftingStationJson,
   ),
+  makeParsedEntityContentEntry("building", "crate", buildingcrateJson),
   makeParsedEntityContentEntry(
     "building",
     "dungeon_door",

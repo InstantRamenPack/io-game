@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Crate } from "@server/entities/buildings/Crate.ts";
 import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
@@ -105,6 +106,22 @@ describe("dungeon runtime mechanics", () => {
 
     expect(runtime.world.entities.has(door.id)).toBe(false);
     expect(player.inventory.countType(DUNGEON_KEY_TYPE_ID)).toBe(0);
+  });
+
+  test("breaking a reward crate drops its contents as a pickup", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    const crate = new Crate(runtime.world.allocEntityId());
+    crate.x = runtime.world.gameConfig.worldSize.w / 2;
+    crate.y = runtime.world.gameConfig.worldSize.h / 2;
+    crate.contents.addStackable("item:hunk" as ResourceId, 12);
+    runtime.world.spawn(crate);
+
+    crate.applyDamage(runtime.world, crate.maxHp, 0);
+
+    const pickup = findPickupAt(runtime, crate.x, crate.y);
+    expect(pickup).toBeInstanceOf(ItemEntity);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
   });
 });
 

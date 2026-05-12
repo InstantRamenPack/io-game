@@ -2,6 +2,7 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts";
 import { ChestRenderer } from "@client/render/entity/building/ChestRenderer.ts";
 import { CommsTowerRenderer } from "@client/render/entity/building/CommsTowerRenderer.ts";
+import { CrateRenderer } from "@client/render/entity/building/CrateRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
 import { DungeonRenderer } from "@client/render/entity/building/DungeonRenderer.ts";
 import { EnergyTowerRenderer } from "@client/render/entity/building/EnergyTowerRenderer.ts";
@@ -68,6 +69,7 @@ const rendererManifests = [
   ["cannon", CannonRenderer],
   ["chest", ChestRenderer],
   ["comms_tower", CommsTowerRenderer],
+  ["crate", CrateRenderer],
   ["crafting_station", CraftingStationRenderer],
   ["energy_tower", EnergyTowerRenderer],
   ["landmine", LandmineRenderer],

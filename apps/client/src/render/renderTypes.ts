@@ -22,14 +22,18 @@ export type ResourceStackEntry = {
   count: number;
 };
 
+export type VisibilityBlockerRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
 export type VisibilityBlockerShape =
   | {
-      kind: "rect";
+      kind: "rects";
       sourceEntityId: number;
-      minX: number;
-      minY: number;
-      maxX: number;
-      maxY: number;
+      rects: VisibilityBlockerRect[];
     }
   | {
       kind: "circle";

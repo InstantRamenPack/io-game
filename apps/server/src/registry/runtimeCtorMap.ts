@@ -3,6 +3,7 @@ import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
+import { Crate } from "@server/entities/buildings/Crate.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
@@ -109,6 +110,7 @@ export const entityRuntimeCtors = [
   Cannon,
   Chest,
   CommsTower,
+  Crate,
   CraftingStation,
   DungeonDoor,
   EnergyTower,

@@ -1,6 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { ClientEntity } from "@client/net/ClientEntity.ts";
+import { toVisibilityBlocker } from "@client/net/presentation/PixiWorldPresentationSink.ts";
 import { computeLightsOutPresentation } from "@client/render/pixi/PixiWorldView.ts";
-import { generateProceduralWorldLayout } from "@shared/world/ProceduralWorld.ts";
+import {
+  makeBuildingSnapshot,
+  makeStructureSnapshot,
+} from "@tests/helpers/snapshotFixtures.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -80,6 +85,62 @@ describe("lights-out visibility", () => {
     expect(ids.has(wall.id)).toBe(true);
     expect(ids.has(visibleEnemy.id)).toBe(true);
     expect(ids.has(hiddenEnemy.id)).toBe(true);
+  });
+
+  test("multi-rect structure hitboxes stay grouped as one lights-out blocker", () => {
+    const dungeon = new ClientEntity(
+      makeStructureSnapshot(90, 1000, 2000, {
+        typeId: "structure:dungeon",
+        hitboxes: [
+          { width: 100, height: 20, offsetX: -50, offsetY: 0 },
+          { width: 30, height: 120, offsetX: 80, offsetY: 40 },
+          { width: 40, height: 40, offsetX: 0, offsetY: -90 },
+        ],
+      }),
+      1,
+      4,
+    );
+
+    expect(toVisibilityBlocker(dungeon)).toEqual({
+      kind: "rects",
+      sourceEntityId: 90,
+      rects: [
+        {
+          minX: 900,
+          minY: 1990,
+          maxX: 1000,
+          maxY: 2010,
+        },
+        {
+          minX: 1065,
+          minY: 1980,
+          maxX: 1095,
+          maxY: 2100,
+        },
+        {
+          minX: 980,
+          minY: 1890,
+          maxX: 1020,
+          maxY: 1930,
+        },
+      ],
+    });
+  });
+
+  test("tripwire trigger hitboxes do not become lights-out blockers", () => {
+    const tripwire = new ClientEntity(
+      makeBuildingSnapshot(91, 1000, 2000, {
+        typeId: "building:tripwire",
+        hitboxes: [{ width: 220, height: 16, offsetX: 0, offsetY: 0 }],
+        hp: 0,
+        maxHp: 0,
+        label: "Tripwire",
+      }),
+      1,
+      4,
+    );
+
+    expect(toVisibilityBlocker(tripwire)).toBeNull();
   });
 
   test("night lights-out uses the tighter home radius", () => {

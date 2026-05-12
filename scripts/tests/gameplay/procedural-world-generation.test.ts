@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import {
   PROCEDURAL_GRID_SIZE,
+  PROCEDURAL_TILE_SIZE,
   PROCEDURAL_WORLD_SIZE,
   REQUIRED_DUNGEON_ROOM_ROLES,
   generateProceduralWorldLayout,
@@ -140,7 +141,8 @@ describe("procedural survival extraction world", () => {
     expect(layout.dungeon.minY).toBe(dungeonSectorBounds.minY);
     expect(layout.dungeon.maxX).toBe(dungeonSectorBounds.maxX);
     expect(layout.dungeon.maxY).toBe(dungeonSectorBounds.maxY);
-    expect(layout.dungeon.wallHitboxRects.length).toBeGreaterThan(1);
+    expect(layout.dungeon.wallHitboxRects.length).toBeGreaterThan(10);
+    expect(layout.dungeon.wallHitboxRects.length).toBeLessThan(200);
     expect(
       dungeonSector?.structures.filter(
         (spec) => spec.typeId === "structure:dungeon",
@@ -150,7 +152,7 @@ describe("procedural survival extraction world", () => {
       dungeonSector?.structures.filter(
         (spec) => spec.typeId === "structure:dungeon_wall",
       ).length,
-    ).toBeLessThan(200);
+    ).toBe(0);
     expect(dungeonSector?.enemies.length).toBeGreaterThanOrEqual(10);
     expect(entityTypeIds(dungeonSector!)).toContain("enemy:thanos");
     expect(entityTypeIds(dungeonSector!)).not.toEqual(
@@ -170,11 +172,16 @@ describe("procedural survival extraction world", () => {
         (building) => building.typeId === "building:dungeon_door",
       ),
     ).toBe(true);
+    expect(dungeonRoomDoorRoles(layout)).toEqual(["treasure", "boss"]);
+    expect(dungeonKeyLootByRoomRole(layout)).toEqual({ mini_boss: 2 });
+    expect(totalDungeonKeys(layout)).toBeGreaterThanOrEqual(
+      layout.dungeon.doors.length,
+    );
     expect(
       dungeonSector?.buildings.some(
         (building) =>
-          building.typeId === "building:chest" &&
-          building.chestLoot?.some((slot) => slot.typeId === "item:sniper"),
+          building.typeId === "building:crate" &&
+          building.crateLoot?.some((slot) => slot.typeId === "item:sniper"),
       ),
     ).toBe(true);
     expect(
@@ -350,6 +357,11 @@ describe("procedural survival extraction world", () => {
       runtime.world.entities
         .all()
         .filter((entity) => entity.typeId === "pickup:item_entity").length,
+    ).toBe(0);
+    expect(
+      runtime.world.entities
+        .all()
+        .filter((entity) => entity.typeId === "building:crate").length,
     ).toBeGreaterThan(25);
   });
 
@@ -431,6 +443,74 @@ function entityTypeIds(
   sector: ReturnType<typeof generateProceduralWorldLayout>["sectors"][number],
 ): string[] {
   return sector.enemies.map((enemy) => enemy.typeId);
+}
+
+function dungeonRoomDoorRoles(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): string[] {
+  return layout.dungeon.doors.map((door) => {
+    const room = layout.dungeon.rooms.find((candidate) =>
+      pointOnRoomPerimeter(door, candidate),
+    );
+    if (!room) {
+      throw new Error(`Expected dungeon door at ${door.x},${door.y} on a room`);
+    }
+    return room.role;
+  });
+}
+
+function dungeonKeyLootByRoomRole(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): Record<string, number> {
+  const dungeonSector = layout.sectors.find(
+    (sector) => sector.id === layout.dungeonSectorId,
+  );
+  if (!dungeonSector) {
+    throw new Error("expected dungeon sector");
+  }
+  const keysByRole: Record<string, number> = {};
+  for (const loot of dungeonSector.loot) {
+    if (loot.typeId !== "item:dungeon_key") {
+      continue;
+    }
+    const room = layout.dungeon.rooms.find((candidate) =>
+      pointInRect(loot, candidate),
+    );
+    if (!room) {
+      throw new Error(`Expected dungeon key at ${loot.x},${loot.y} in a room`);
+    }
+    keysByRole[room.role] = (keysByRole[room.role] ?? 0) + (loot.amount ?? 1);
+  }
+  return keysByRole;
+}
+
+function totalDungeonKeys(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): number {
+  let total = 0;
+  for (const amount of Object.values(dungeonKeyLootByRoomRole(layout))) {
+    total += amount ?? 0;
+  }
+  return total;
+}
+
+function pointOnRoomPerimeter(
+  point: WorldPoint,
+  room: ReturnType<
+    typeof generateProceduralWorldLayout
+  >["dungeon"]["rooms"][number],
+): boolean {
+  const tolerance = PROCEDURAL_TILE_SIZE;
+  const onVerticalDoor =
+    Math.abs(point.x - room.minX) <= tolerance ||
+    Math.abs(point.x - room.maxX) <= tolerance;
+  const onHorizontalDoor =
+    Math.abs(point.y - room.minY) <= tolerance ||
+    Math.abs(point.y - room.maxY) <= tolerance;
+  return (
+    (onVerticalDoor && point.y >= room.minY && point.y <= room.maxY) ||
+    (onHorizontalDoor && point.x >= room.minX && point.x <= room.maxX)
+  );
 }
 
 function resolveProceduralSpawnHitboxes(

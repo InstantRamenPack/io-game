@@ -7,6 +7,7 @@ import {
 } from "pixi.js";
 import type {
   LightsOutVisibilityContext,
+  VisibilityBlockerRect,
   VisibilityBlockerShape,
 } from "@client/render/renderTypes.ts";
 
@@ -215,8 +216,8 @@ function drawVisibilityBlockerShadows(
   scratchContext.save();
   for (const blocker of blockers) {
     const shadows =
-      blocker.kind === "rect"
-        ? buildRectBlockerShadows(visibility, blocker)
+      blocker.kind === "rects"
+        ? buildRectSetBlockerShadows(visibility, blocker.rects)
         : buildCircleBlockerShadow(visibility, blocker);
     scratchContext.clearRect(0, 0, width, height);
     scratchContext.fillStyle = "#000000";
@@ -256,11 +257,13 @@ function cutVisibilityBlockerFromShadows(
   blocker: VisibilityBlockerShape,
   worldToScreen: WorldToScreen,
 ): void {
-  if (blocker.kind === "rect") {
-    const points = getRectBlockerScreenPoints(app, blocker, worldToScreen);
-    if (points) {
-      drawCanvasPolygon(context, points);
-      context.fill();
+  if (blocker.kind === "rects") {
+    for (const rect of blocker.rects) {
+      const points = getRectBlockerScreenPoints(app, rect, worldToScreen);
+      if (points) {
+        drawCanvasPolygon(context, points);
+        context.fill();
+      }
     }
     return;
   }
@@ -291,22 +294,29 @@ function cutVisibilityBlockerFromShadows(
   context.fill();
 }
 
+function buildRectSetBlockerShadows(
+  visibility: LightsOutVisibilityContext,
+  rects: readonly VisibilityBlockerRect[],
+): WorldPoint[][] {
+  return rects.flatMap((rect) => buildRectBlockerShadows(visibility, rect));
+}
+
 function buildRectBlockerShadows(
   visibility: LightsOutVisibilityContext,
-  blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  rect: VisibilityBlockerRect,
 ): WorldPoint[][] {
   const origin = visibility.center;
   if (
-    distanceToRect(origin, blocker) > visibility.radius ||
-    pointInRect(origin, blocker)
+    distanceToRect(origin, rect) > visibility.radius ||
+    pointInRect(origin, rect)
   ) {
     return [];
   }
   const corners = [
-    { x: blocker.minX, y: blocker.minY },
-    { x: blocker.maxX, y: blocker.minY },
-    { x: blocker.maxX, y: blocker.maxY },
-    { x: blocker.minX, y: blocker.maxY },
+    { x: rect.minX, y: rect.minY },
+    { x: rect.maxX, y: rect.minY },
+    { x: rect.maxX, y: rect.maxY },
+    { x: rect.minX, y: rect.maxY },
   ] satisfies [WorldPoint, WorldPoint, WorldPoint, WorldPoint];
   const edges: Array<readonly [WorldPoint, WorldPoint]> = [
     [corners[0], corners[1]],
@@ -376,17 +386,14 @@ function extendWorldPointFromOrigin(
 
 function distanceToRect(
   point: WorldPoint,
-  rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  rect: VisibilityBlockerRect,
 ): number {
   const dx = Math.max(rect.minX - point.x, 0, point.x - rect.maxX);
   const dy = Math.max(rect.minY - point.y, 0, point.y - rect.maxY);
   return Math.hypot(dx, dy);
 }
 
-function pointInRect(
-  point: WorldPoint,
-  rect: Extract<VisibilityBlockerShape, { kind: "rect" }>,
-): boolean {
+function pointInRect(point: WorldPoint, rect: VisibilityBlockerRect): boolean {
   return (
     point.x >= rect.minX &&
     point.x <= rect.maxX &&
@@ -405,7 +412,7 @@ function worldToScreenPoint(
 
 function getRectBlockerScreenPoints(
   app: Application,
-  blocker: Extract<VisibilityBlockerShape, { kind: "rect" }>,
+  blocker: VisibilityBlockerRect,
   worldToScreen: WorldToScreen,
 ): ScreenPoint[] | null {
   const points = [
