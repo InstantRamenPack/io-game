@@ -1374,8 +1374,8 @@ function addDungeonRoomContent(
       loot.push(lootSpec("item:rifle_mag", x, y, "stackable", "common", 2));
       break;
     case "treasure":
-      buildings.push(
-        crateSpawn("building:crate", x, y, [
+      enemies.push(
+        crateSpawn("enemy:crate", x, y, [
           { typeId: "item:sniper" as ResourceId, kind: "weapon" },
           {
             typeId: "item:blueprint_katana" as ResourceId,
@@ -1442,8 +1442,8 @@ function addDungeonRoomContent(
         spawn("enemy:megaknight", x - 220, y + 160),
         spawn("enemy:sniper", x + 220, y + 160),
       );
-      buildings.push(
-        crateSpawn("building:crate", x, y + 260, [
+      enemies.push(
+        crateSpawn("enemy:crate", x, y + 260, [
           { typeId: "item:thanos_rifle" as ResourceId, kind: "weapon" },
           {
             typeId: "item:blueprint_sniper" as ResourceId,

@@ -15,6 +15,7 @@ import {
 
 const wallItemId = makeResourceId("item", "wall");
 const hunkItemId = makeResourceId("item", "hunk");
+const junkFoodItemId = makeResourceId("item", "junk_food");
 
 function addWallAndFindSlot(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -159,6 +160,80 @@ describe("inventory authority", () => {
     enqueueAction(runtime, { t: "action", seq: 1, action: "pickup" });
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
     expect(player.inventory.countType(wallItemId)).toBeGreaterThan(0);
+  });
+
+  test("stackable non-building pickups auto-collect on overlap", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const before = player.inventory.countType(hunkItemId);
+    const pickupInventory = new Inventory();
+    pickupInventory.addStackable(hunkItemId, 3);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
+    pickup.x = player.x;
+    pickup.y = player.y;
+    runtime.world.spawn(pickup);
+    runtime.world.ensureSpatialIndex();
+
+    tick(runtime, 1);
+
+    expect(runtime.world.entities.has(pickup.id)).toBe(false);
+    expect(player.inventory.countType(hunkItemId)).toBe(before + 3);
+  });
+
+  test("food pickups fill hunger instead of becoming resources", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    player.food = 25;
+    const pickupInventory = new Inventory();
+    pickupInventory.addStackable(junkFoodItemId, 2);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
+    pickup.x = player.x;
+    pickup.y = player.y;
+    runtime.world.spawn(pickup);
+    runtime.world.ensureSpatialIndex();
+
+    tick(runtime, 1);
+
+    expect(runtime.world.entities.has(pickup.id)).toBe(false);
+    expect(player.food).toBeGreaterThan(25);
+    expect(player.inventory.countType(junkFoodItemId)).toBe(0);
+  });
+
+  test("weapon and building pickups stay manual", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const buildingInventory = new Inventory();
+    buildingInventory.addStackable(wallItemId, 1);
+    const buildingPickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      buildingInventory,
+    );
+    buildingPickup.x = player.x;
+    buildingPickup.y = player.y;
+    runtime.world.spawn(buildingPickup);
+
+    const weaponInventory = new Inventory();
+    weaponInventory.addWeapon(new Fists());
+    const weaponPickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      weaponInventory,
+    );
+    weaponPickup.x = player.x;
+    weaponPickup.y = player.y;
+    runtime.world.spawn(weaponPickup);
+    runtime.world.ensureSpatialIndex();
+
+    tick(runtime, 1);
+
+    expect(runtime.world.entities.has(buildingPickup.id)).toBe(true);
+    expect(runtime.world.entities.has(weaponPickup.id)).toBe(true);
+    expect(player.inventory.countType(wallItemId)).toBe(0);
   });
 
   test("pickup action fails when inventory is full", () => {

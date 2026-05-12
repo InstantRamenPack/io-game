@@ -3,7 +3,6 @@ import buildingcannonJson from "@shared/content/building/cannon.json";
 import buildingchestJson from "@shared/content/building/chest.json";
 import buildingcommsTowerJson from "@shared/content/building/comms_tower.json";
 import buildingcraftingStationJson from "@shared/content/building/crafting_station.json";
-import buildingcrateJson from "@shared/content/building/crate.json";
 import buildingdungeonDoorJson from "@shared/content/building/dungeon_door.json";
 import buildingenergyTowerJson from "@shared/content/building/energy_tower.json";
 import buildinglandmineJson from "@shared/content/building/landmine.json";
@@ -26,6 +25,7 @@ import effectknockbackJson from "@shared/content/effect/knockback.json";
 import effectstunnedJson from "@shared/content/effect/stunned.json";
 import enemybomberJson from "@shared/content/enemy/bomber.json";
 import enemycommanderJson from "@shared/content/enemy/commander.json";
+import enemycrateJson from "@shared/content/enemy/crate.json";
 import enemydrifterJson from "@shared/content/enemy/drifter.json";
 import enemymegaknightJson from "@shared/content/enemy/megaknight.json";
 import enemypoliceJson from "@shared/content/enemy/police.json";
@@ -108,7 +108,6 @@ export const buildingContentEntries = [
     "crafting_station",
     buildingcraftingStationJson,
   ),
-  makeParsedEntityContentEntry("building", "crate", buildingcrateJson),
   makeParsedEntityContentEntry(
     "building",
     "dungeon_door",
@@ -152,6 +151,7 @@ export const effectContentEntries = [
 export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "bomber", enemybomberJson),
   makeParsedEntityContentEntry("enemy", "commander", enemycommanderJson),
+  makeParsedEntityContentEntry("enemy", "crate", enemycrateJson),
   makeParsedEntityContentEntry("enemy", "drifter", enemydrifterJson),
   makeParsedEntityContentEntry("enemy", "megaknight", enemymegaknightJson),
   makeParsedEntityContentEntry("enemy", "police", enemypoliceJson),

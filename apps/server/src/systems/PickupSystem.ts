@@ -1,10 +1,11 @@
+import { getItemContent } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { getItemContent } from "@shared/content/catalog.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { System } from "@server/systems/System.ts";
@@ -51,7 +52,8 @@ const MAX_ACTIVE_FOOD_PICKUPS = 8;
 const SPAWN_ATTEMPTS = 20;
 
 /**
- * Spawns consumable pickups (mags, weapons, blueprints, food) and auto-collects food on player overlap.
+ * Spawns consumable pickups (mags, weapons, blueprints, food) and auto-collects
+ * non-weapon, non-buildable pickups on player overlap.
  */
 export class PickupSystem implements System {
   private magAccumulatedMs = 0;
@@ -84,7 +86,7 @@ export class PickupSystem implements System {
       }
     }
 
-    this.collectFoodPickups(world, world.entities.queryInstances(Player));
+    this.collectAutoPickups(world, world.entities.queryInstances(Player));
 
     this.magAccumulatedMs += deltaMs;
     while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
@@ -123,7 +125,7 @@ export class PickupSystem implements System {
     }
   }
 
-  private collectFoodPickups(world: World, players: readonly Player[]): void {
+  private collectAutoPickups(world: World, players: readonly Player[]): void {
     for (const player of players) {
       if (!player.alive) {
         continue;
@@ -145,7 +147,7 @@ export class PickupSystem implements System {
         if (!world.entities.has(candidate.id)) {
           continue;
         }
-        if (!this.isFoodPickup(candidate)) {
+        if (!this.shouldAutoPickup(candidate)) {
           continue;
         }
         if (
@@ -157,13 +159,12 @@ export class PickupSystem implements System {
           continue;
         }
 
-        const foodTypeId = FOOD_PICKUP_TYPE_IDS.find(
-          (typeId) => candidate.contents.getStackableCount(typeId) > 0,
-        );
-        const foodRestore = foodTypeId
-          ? (getItemContent(foodTypeId)?.food?.foodRestore ?? 0)
-          : 0;
-        player.food = Math.min(player.maxFood, player.food + foodRestore);
+        const transferable = this.buildAutoPickupInventory(player, candidate);
+        if (
+          !absorbInventoryByAcquisitionRules(player.inventory, transferable)
+        ) {
+          continue;
+        }
         world.despawn(candidate.id);
       }
     }
@@ -323,6 +324,92 @@ export class PickupSystem implements System {
   private isBlueprintPickup(pickup: ItemEntity): boolean {
     return BLUEPRINT_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
+    );
+  }
+
+  private shouldAutoPickup(pickup: ItemEntity): boolean {
+    for (const [typeId, amount] of pickup.contents.resources.entries()) {
+      if (amount > 0 && this.requiresManualPickup(typeId)) {
+        return false;
+      }
+    }
+
+    for (const slot of pickup.contents.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        return false;
+      }
+      if (slot.count > 0 && this.requiresManualPickup(slot.typeId)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private buildAutoPickupInventory(
+    player: Player,
+    pickup: ItemEntity,
+  ): Inventory {
+    const transferable = new Inventory();
+
+    for (const [typeId, amount] of pickup.contents.resources.entries()) {
+      if (amount <= 0) {
+        continue;
+      }
+      if (this.applyDirectPickupEffect(player, typeId, amount)) {
+        continue;
+      }
+      transferable.addStackable(typeId, amount);
+    }
+
+    for (const slot of pickup.contents.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        transferable.addWeapon(slot.weapon);
+        continue;
+      }
+      if (slot.count <= 0) {
+        continue;
+      }
+      if (this.applyDirectPickupEffect(player, slot.typeId, slot.count)) {
+        continue;
+      }
+      transferable.addStackable(slot.typeId, slot.count);
+    }
+
+    for (const unlockedRecipeTypeId of pickup.contents.getUnlockedRecipeTypeIds()) {
+      transferable.unlockRecipe(unlockedRecipeTypeId);
+    }
+
+    return transferable;
+  }
+
+  private applyDirectPickupEffect(
+    player: Player,
+    typeId: ResourceId,
+    amount: number,
+  ): boolean {
+    const foodRestore = getItemContent(typeId)?.food?.foodRestore;
+    if (foodRestore === undefined) {
+      return false;
+    }
+    player.food = Math.min(player.maxFood, player.food + foodRestore * amount);
+    return true;
+  }
+
+  private requiresManualPickup(typeId: ResourceId): boolean {
+    const itemEntry = itemTypeRegistry.get(typeId);
+    if (!itemEntry) {
+      return false;
+    }
+    return (
+      isWeaponCtor(itemEntry.ctor) ||
+      Boolean(itemEntry.content.buildsEntityTypeId)
     );
   }
 

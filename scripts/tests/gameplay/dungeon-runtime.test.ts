@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Crate } from "@server/entities/buildings/Crate.ts";
+import { Crate } from "@server/entities/enemies/Crate.ts";
 import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
@@ -118,11 +118,29 @@ describe("dungeon runtime mechanics", () => {
     crate.contents.addStackable("item:hunk" as ResourceId, 12);
     runtime.world.spawn(crate);
 
-    crate.applyDamage(runtime.world, crate.maxHp, 0);
+    expect(crate.typeId).toBe("enemy:crate");
+    expect(crate.maxHp).toBe(50);
 
+    crate.applyDamage(runtime.world, 49, 0);
+    expect(crate.alive).toBe(true);
+    expect(runtime.world.entities.has(crate.id)).toBe(true);
+
+    crate.applyDamage(runtime.world, 1, 0);
+
+    expect(crate.alive).toBe(false);
+    expect(runtime.world.entities.has(crate.id)).toBe(false);
     const pickup = findPickupAt(runtime, crate.x, crate.y);
     expect(pickup).toBeInstanceOf(ItemEntity);
+    expect(pickup.id).not.toBe(crate.id);
     expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
+    expect(runtime.world.events.peekBack()).toMatchObject({
+      type: "damage",
+      payload: {
+        targetId: crate.id,
+        targetTypeId: "enemy:crate",
+        isFatal: true,
+      },
+    });
   });
 
   test("player melee can break a reward crate and drop its contents", () => {

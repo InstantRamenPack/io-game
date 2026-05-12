@@ -112,6 +112,14 @@ export class PixiWorldPresentationSink {
         continue;
       }
 
+      if (
+        event.payload.isFatal &&
+        event.payload.targetTypeId === "enemy:crate"
+      ) {
+        this.renderer.triggerCrateBreakEffect(event.payload.x, event.payload.y);
+        continue;
+      }
+
       this.renderManager.triggerDamageFlash(event.payload.targetId);
       if (event.payload.targetId === this.renderer.playerEntityId) {
         this.renderer.triggerDamageOverlay();

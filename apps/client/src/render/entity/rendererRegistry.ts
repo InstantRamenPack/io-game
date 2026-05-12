@@ -2,7 +2,6 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts";
 import { ChestRenderer } from "@client/render/entity/building/ChestRenderer.ts";
 import { CommsTowerRenderer } from "@client/render/entity/building/CommsTowerRenderer.ts";
-import { CrateRenderer } from "@client/render/entity/building/CrateRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
 import { DungeonRenderer } from "@client/render/entity/building/DungeonRenderer.ts";
 import { EnergyTowerRenderer } from "@client/render/entity/building/EnergyTowerRenderer.ts";
@@ -22,6 +21,7 @@ import { ThanosRenderer } from "@client/render/entity/enemy/ThanosRenderer.ts";
 import { WallbreakerRenderer } from "@client/render/entity/enemy/WallbreakerRenderer.ts";
 import { BomberRenderer } from "@client/render/entity/enemy/BomberRenderer.ts";
 import { CommanderRenderer } from "@client/render/entity/enemy/CommanderRenderer.ts";
+import { CrateRenderer } from "@client/render/entity/enemy/CrateRenderer.ts";
 import type {
   EntityRenderer,
   EntityRendererOptions,

@@ -178,10 +178,10 @@ describe("procedural survival extraction world", () => {
       layout.dungeon.doors.length,
     );
     expect(
-      dungeonSector?.buildings.some(
-        (building) =>
-          building.typeId === "building:crate" &&
-          building.crateLoot?.some((slot) => slot.typeId === "item:sniper"),
+      dungeonSector?.enemies.some(
+        (enemy) =>
+          enemy.typeId === "enemy:crate" &&
+          enemy.crateLoot?.some((slot) => slot.typeId === "item:sniper"),
       ),
     ).toBe(true);
     expect(
@@ -361,7 +361,7 @@ describe("procedural survival extraction world", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity) => entity.typeId === "building:crate").length,
+        .filter((entity) => entity.typeId === "enemy:crate").length,
     ).toBeGreaterThan(25);
   });
 

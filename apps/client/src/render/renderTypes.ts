@@ -1,5 +1,4 @@
 import type * as PIXI from "pixi.js";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export type WorldSize = {
   w: number;
@@ -16,11 +15,6 @@ export type ScreenRect = {
 export type Rect = ScreenRect;
 
 export type TextStyleOptions = Partial<PIXI.TextStyleOptions>;
-
-export type ResourceStackEntry = {
-  typeId: ResourceId;
-  count: number;
-};
 
 export type VisibilityBlockerRect = {
   minX: number;

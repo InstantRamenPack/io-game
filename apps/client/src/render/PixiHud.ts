@@ -1,57 +1,40 @@
 import * as PIXI from "pixi.js";
-import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type {
-  GameClientHudApi,
-  PointerInput,
-} from "@client/client/clientTypes.ts";
-import {
-  CraftingModal,
-  type CraftingModalEntry,
-} from "@client/render/hud/CraftingModal.ts";
-import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
-import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
-import { ChestView } from "@client/render/hud/ChestView.ts";
-import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
-import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
-import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
-import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
-import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
-import { HudPanel } from "@client/render/hud/HudPanel.ts";
-import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
-import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
-import { HotbarView } from "@client/render/hud/HotbarView.ts";
-import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
-import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
-import { InventoryView } from "@client/render/hud/InventoryView.ts";
-import { ChestPromptView } from "@client/render/hud/ChestPromptView.ts";
-import { CraftingStationPromptView } from "@client/render/hud/CraftingStationPromptView.ts";
-import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
-import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
-import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
-import { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
-import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
-import { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
-import {
-  computeHotbarActiveIndex,
-  toHotbarSlotItems,
-} from "@client/render/hud/hotbarModel.ts";
-import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
-import {
-  getNearestPickup,
-  getPickupItemLabel,
-} from "@client/render/hud/pickupInteraction.ts";
-import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
-import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInteraction.ts";
-import { getTowerRepairCost } from "@client/render/hud/towerRepairInteraction.ts";
-import type { TextStyleOptions } from "@client/render/renderTypes.ts";
-import {
-  CRAFTABLE_ITEM_TYPE_IDS,
-  getItemContent,
-  isRecipeBlueprintLocked,
-} from "@shared/content/catalog.ts";
-import type { ItemRecipeContent } from "@shared/content/schema.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { InventorySnapshot } from "@shared/net/snapshots.ts";
+import type {GameSelectors} from "@client/app/gameSelectors.ts";
+import type {GameClientHudApi, PointerInput,} from "@client/client/clientTypes.ts";
+import {CraftingModal, type CraftingModalEntry,} from "@client/render/hud/CraftingModal.ts";
+import {CombatHudView} from "@client/render/hud/CombatHudView.ts";
+import {CraftingHudCoordinator} from "@client/render/hud/CraftingHudCoordinator.ts";
+import {ChestView} from "@client/render/hud/ChestView.ts";
+import {ChestHudCoordinator} from "@client/render/hud/ChestHudCoordinator.ts";
+import {BossHealthBar} from "@client/render/hud/BossHealthBar.ts";
+import {DayNightIndicator} from "@client/render/hud/DayNightIndicator.ts";
+import {EffectIconView} from "@client/render/hud/EffectIconView.ts";
+import {GameplayHudCoordinator} from "@client/render/hud/GameplayHudCoordinator.ts";
+import {HudPanel} from "@client/render/hud/HudPanel.ts";
+import {HudTooltipCoordinator} from "@client/render/hud/HudTooltipCoordinator.ts";
+import {HudTooltipView} from "@client/render/hud/HudTooltipView.ts";
+import {HotbarView} from "@client/render/hud/HotbarView.ts";
+import type {HudInteractionState} from "@client/render/hud/HudInteractionState.ts";
+import {InventoryEditCoordinator} from "@client/render/hud/InventoryEditCoordinator.ts";
+import {InventoryView} from "@client/render/hud/InventoryView.ts";
+import {ChestPromptView} from "@client/render/hud/ChestPromptView.ts";
+import {CraftingStationPromptView} from "@client/render/hud/CraftingStationPromptView.ts";
+import {ItemPickupPromptView} from "@client/render/hud/ItemPickupPromptView.ts";
+import {RecyclerPromptView} from "@client/render/hud/RecyclerPromptView.ts";
+import {TowerRepairPromptView} from "@client/render/hud/TowerRepairPromptView.ts";
+import {SelectedItemToastView} from "@client/render/hud/SelectedItemToastView.ts";
+import {WeaponDisplayView} from "@client/render/hud/WeaponDisplayView.ts";
+import {computeHotbarActiveIndex, toHotbarSlotItems,} from "@client/render/hud/hotbarModel.ts";
+import {isNearRecyclerWithItem} from "@client/render/hud/recyclerInteraction.ts";
+import {getNearestPickup, getPickupItemLabel,} from "@client/render/hud/pickupInteraction.ts";
+import {findNearestChest} from "@client/render/hud/chestInteraction.ts";
+import {hasNearbyCraftingStation} from "@client/render/hud/craftingStationInteraction.ts";
+import {getTowerRepairCost} from "@client/render/hud/towerRepairInteraction.ts";
+import type {TextStyleOptions} from "@client/render/renderTypes.ts";
+import {CRAFTABLE_ITEM_TYPE_IDS, getItemContent, isRecipeBlueprintLocked,} from "@shared/content/catalog.ts";
+import type {ItemRecipeContent} from "@shared/content/schema.ts";
+import type {ResourceId} from "@shared/ids/ResourceId.ts";
+import type {InventorySnapshot} from "@shared/net/snapshots.ts";
 
 const HOTBAR_SLOT_COUNT = 10;
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -81,7 +64,6 @@ export class PixiHud {
   private hotbarView?: HotbarView;
   private hotbarEditView?: InventoryView;
   private chestView?: ChestView;
-  private resourceStackView?: ResourceStackView;
   private craftModalView?: CraftingModal;
   private tooltipView?: HudTooltipView;
   private selectedItemToastView?: SelectedItemToastView;
@@ -192,10 +174,6 @@ export class PixiHud {
         iconProvider: (typeId) =>
           this.gameClient.renderer.getItemTexture(typeId),
       });
-      this.resourceStackView = new ResourceStackView({
-        iconProvider: (typeId) =>
-          this.gameClient.renderer.getItemTexture(typeId),
-      });
       this.craftModalView = new CraftingModal({
         titleStyle: new PIXI.TextStyle(this.titleStyle),
         detailTitleStyle: new PIXI.TextStyle({
@@ -248,7 +226,6 @@ export class PixiHud {
         this.combatHudView.container,
         this.hotbarView.container,
         this.hunkBadge,
-        this.resourceStackView.container,
         this.hotbarEditView.container,
         this.chestView.container,
         this.craftModalView.container,
@@ -605,7 +582,6 @@ export class PixiHud {
     const inventory = this.selectors.getInventory();
     const hotbarItems = this.getHotbarItems();
     this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
-    this.gameplayHudCoordinator.syncResourceState(inventory);
 
     const nowMs = performance.now();
     const hotbarActiveIndex = computeHotbarActiveIndex({
@@ -692,7 +668,6 @@ export class PixiHud {
       this.effectIconView &&
       this.combatHudView &&
       this.hotbarView &&
-      this.resourceStackView &&
       this.weaponDisplayView
     ) {
       this.gameplayHudCoordinator.syncPanels({
@@ -701,7 +676,6 @@ export class PixiHud {
         effectIconView: this.effectIconView,
         combatHudView: this.combatHudView,
         hotbarView: this.hotbarView,
-        resourceStackView: this.resourceStackView,
         weaponDisplayView: this.weaponDisplayView,
         playerEntity: this.selectors.getPlayerEntity(),
         worldEntities: this.selectors.getWorldEntities(),
@@ -730,7 +704,6 @@ export class PixiHud {
     if (
       this.statusPanel &&
       this.effectIconView &&
-      this.resourceStackView &&
       this.hotbarView &&
       this.combatHudView &&
       this.selectedItemToastView &&
@@ -743,7 +716,6 @@ export class PixiHud {
         screenHeight: app.screen.height,
         statusPanel: this.statusPanel,
         effectIconView: this.effectIconView,
-        resourceStackView: this.resourceStackView,
         hotbarView: this.hotbarView,
         combatHudView: this.combatHudView,
         selectedItemToastView: this.selectedItemToastView,
@@ -1029,10 +1001,9 @@ export class PixiHud {
     const padding = 8;
     const gap = 6;
 
-    const hunkTexture = this.gameClient.renderer.getItemTexture(
-      "item:hunk" as ResourceId,
+    this.hunkBadgeIcon.texture = this.gameClient.renderer.getItemTexture(
+        "item:hunk" as ResourceId,
     );
-    this.hunkBadgeIcon.texture = hunkTexture;
     this.hunkBadgeIcon.width = iconSize;
     this.hunkBadgeIcon.height = iconSize;
 

@@ -9,6 +9,7 @@ export const NET_EVENT_TYPES = ["damage", "explosion", "attack"] as const;
 export const DamageEventPayloadSchema = z.object({
   sourceId: NonNegativeIntSchema,
   targetId: NonNegativeIntSchema,
+  targetTypeId: z.string().optional(),
   amount: z.number(),
   remainingHp: z.number(),
   maxHp: z.number(),

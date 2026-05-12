@@ -6,7 +6,6 @@ import type {
   HotbarView,
   HotbarSlotItem,
 } from "@client/render/hud/HotbarView.ts";
-import type { ResourceStackView } from "@client/render/hud/ResourceStackView.ts";
 import type { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import type { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
 import { buildStatusPanelContent } from "@client/render/hud/hudPanelModels.ts";
@@ -17,12 +16,7 @@ import {
   buildWeaponDisplayModel,
 } from "@client/render/hud/hudPresentationModels.ts";
 import type { CombatHudView } from "@client/render/hud/CombatHudView.ts";
-import {
-  buildResourceStackEntries,
-  syncDiscoveredResources,
-} from "@client/render/hud/resourceStackModel.ts";
 import type { ScreenRect } from "@client/render/renderTypes.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
   InfrastructureSnapshot,
@@ -35,8 +29,6 @@ type PerformanceRates = {
 };
 
 export class GameplayHudCoordinator {
-  private readonly discoveredResourceTypeIds: ResourceId[] = [];
-  private readonly resourceCounts = new Map<ResourceId, number>();
   private readonly selectionToastDurationMs = 1600;
   private selectedItemToastLabel: string | null = null;
   private selectedItemToastShownAtMs = 0;
@@ -70,21 +62,12 @@ export class GameplayHudCoordinator {
     return true;
   }
 
-  public syncResourceState(inventory: InventorySnapshot | undefined): void {
-    syncDiscoveredResources({
-      inventory,
-      discoveredResourceTypeIds: this.discoveredResourceTypeIds,
-      resourceCounts: this.resourceCounts,
-    });
-  }
-
   public syncPanels(options: {
     statusPanel: HudPanel;
     effectDetailPanel: HudPanel;
     effectIconView: EffectIconView;
     combatHudView: CombatHudView;
     hotbarView: HotbarView;
-    resourceStackView: ResourceStackView;
     weaponDisplayView: WeaponDisplayView;
     playerEntity: ClientEntity | undefined;
     worldEntities: ClientEntity[];
@@ -104,7 +87,6 @@ export class GameplayHudCoordinator {
       effectIconView,
       combatHudView,
       hotbarView,
-      resourceStackView,
       weaponDisplayView,
       playerEntity,
       worldEntities,
@@ -168,13 +150,6 @@ export class GameplayHudCoordinator {
     );
 
     hotbarView.setSlots(hotbarItems, hotbarActiveIndex);
-    resourceStackView.sync(
-      buildResourceStackEntries({
-        discoveredResourceTypeIds: this.discoveredResourceTypeIds,
-        resourceCounts: this.resourceCounts,
-      }),
-    );
-
     weaponDisplayView.sync(buildWeaponDisplayModel(activeSlot));
   }
 
@@ -194,7 +169,6 @@ export class GameplayHudCoordinator {
     screenHeight: number;
     statusPanel: HudPanel;
     effectIconView: EffectIconView;
-    resourceStackView: ResourceStackView;
     hotbarView: HotbarView;
     combatHudView: CombatHudView;
     selectedItemToastView: SelectedItemToastView;
@@ -209,7 +183,6 @@ export class GameplayHudCoordinator {
       screenHeight,
       statusPanel,
       effectIconView,
-      resourceStackView,
       hotbarView,
       combatHudView,
       selectedItemToastView,
@@ -235,11 +208,6 @@ export class GameplayHudCoordinator {
     weaponDisplayView.setPosition(
       screenWidth - padding - weaponDisplayView.width,
       weaponDisplayTop,
-    );
-
-    resourceStackView.setPosition(
-      screenWidth - padding - resourceStackView.width,
-      weaponDisplayTop - gap - resourceStackView.height,
     );
 
     hotbarView.setPosition(

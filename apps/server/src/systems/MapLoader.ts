@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Building } from "@server/entities/Building.ts";
-import { Crate } from "@server/entities/buildings/Crate.ts";
+import { Crate } from "@server/entities/enemies/Crate.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -98,7 +98,7 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
     entity.y = spec.y;
   }
 
-  if (entity instanceof Building && !(entity instanceof Crate)) {
+  if (entity instanceof Building) {
     entity.hp = 0;
     entity.maxHp = 0;
   }
@@ -152,7 +152,7 @@ function spawnProceduralLootCrate(
   spec: ProceduralLootSpec,
 ): void {
   const entity = spawnMapEntity(world, {
-    typeId: "building:crate" as ResourceId,
+    typeId: "enemy:crate" as ResourceId,
     x: spec.x,
     y: spec.y,
   });

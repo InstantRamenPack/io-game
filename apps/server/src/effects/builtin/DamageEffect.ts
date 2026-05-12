@@ -46,6 +46,7 @@ export class DamageEffect extends Effect {
       payload: {
         sourceId: instigator.id,
         targetId: target.id,
+        targetTypeId: target.typeId,
         amount: effectiveAmount,
         remainingHp: nextHp,
         maxHp: target.maxHp,
