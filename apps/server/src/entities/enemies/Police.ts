@@ -16,7 +16,9 @@ export class Police extends Enemy {
     super(id, {
       weapons: [new Taser()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 420),
+        new TargetEntityGoal<Enemy>(0, Player, 420, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 18),
         new AttackAtGoal<Enemy>(3, 0),

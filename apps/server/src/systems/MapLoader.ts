@@ -114,6 +114,7 @@ function snapToTileCenter(value: number): number {
   const tile = Math.floor(value / TILE_SIZE);
   return tile * TILE_SIZE + TILE_SIZE / 2;
 }
+
 function spawnProceduralEntity(
   world: World,
   spec: ProceduralSpawnSpec,

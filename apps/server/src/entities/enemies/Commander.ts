@@ -15,7 +15,9 @@ export class Commander extends Enemy {
     super(id, {
       weapons: [new BasicRifle()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 720),
+        new TargetEntityGoal<Enemy>(0, Player, 720, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new RangedAttackGoal<Enemy>(2, 0, 360, 48, 36, 0.65),
       ],

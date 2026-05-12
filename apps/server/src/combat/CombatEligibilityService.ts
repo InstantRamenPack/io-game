@@ -1,4 +1,5 @@
 import { Building } from "@server/entities/Building.ts";
+import { Crate } from "@server/entities/buildings/Crate.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -27,7 +28,11 @@ export class CombatEligibilityService {
     }
 
     if (instigator instanceof Player) {
-      return target instanceof Enemy || target instanceof Player;
+      return (
+        target instanceof Enemy ||
+        target instanceof Player ||
+        target instanceof Crate
+      );
     }
     if (instigator instanceof Enemy) {
       return target instanceof Player || target instanceof Building;

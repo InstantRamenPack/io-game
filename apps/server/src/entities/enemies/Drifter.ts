@@ -39,7 +39,9 @@ export class Drifter extends Enemy {
     super(id, {
       weapons: [Drifter.createSpawnWeapon()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 480),
+        new TargetEntityGoal<Enemy>(0, Player, 480, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
         new AttackAtGoal<Enemy>(3, 0, combat.attackMinIntervalTicks),

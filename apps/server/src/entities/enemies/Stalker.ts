@@ -16,7 +16,9 @@ export class Stalker extends Enemy {
     super(id, {
       weapons: [new Katana()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 560),
+        new TargetEntityGoal<Enemy>(0, Player, 560, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 16),
         new AttackAtGoal<Enemy>(3, 0),

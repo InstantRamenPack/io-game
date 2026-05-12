@@ -19,7 +19,9 @@ export class Shoota extends Enemy {
     super(id, {
       weapons: [new BasicGun()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 480),
+        new TargetEntityGoal<Enemy>(0, Player, 480, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new RangedAttackGoal<Enemy>(2, 0, 220, 32, 45),
       ],

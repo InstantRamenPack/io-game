@@ -5,6 +5,7 @@ import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { Fists } from "@server/items/weapons/Fists.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   bootstrapTestRegistries,
@@ -119,6 +120,30 @@ describe("dungeon runtime mechanics", () => {
 
     crate.applyDamage(runtime.world, crate.maxHp, 0);
 
+    const pickup = findPickupAt(runtime, crate.x, crate.y);
+    expect(pickup).toBeInstanceOf(ItemEntity);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
+  });
+
+  test("player melee can break a reward crate and drop its contents", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    const x = runtime.world.gameConfig.worldSize.w / 2;
+    const y = runtime.world.gameConfig.worldSize.h / 2;
+    const player = spawnPlayerLikeDynamic(runtime, x - 45, y);
+    const crate = new Crate(runtime.world.allocEntityId());
+    crate.x = x;
+    crate.y = y;
+    crate.contents.addStackable("item:hunk" as ResourceId, 12);
+    runtime.world.spawn(crate);
+    runtime.world.ensureSpatialIndex();
+
+    for (let hitCount = 0; hitCount < 8 && crate.alive; hitCount += 1) {
+      expect(new Fists().hit(runtime.world, player, 0)).toBe(true);
+      runtime.world.ensureSpatialIndex();
+    }
+
+    expect(crate.alive).toBe(false);
     const pickup = findPickupAt(runtime, crate.x, crate.y);
     expect(pickup).toBeInstanceOf(ItemEntity);
     expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
