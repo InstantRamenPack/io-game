@@ -208,10 +208,10 @@ describe("build placement authority", () => {
     expect(centerBuilding).toBeDefined();
 
     const hostileSector = layout.sectors.find(
-      (sector) => sector.archetype !== "home",
+      (sector) => sector.archetype !== "home" && sector.archetype !== "dungeon",
     )!;
-    player.x = hostileSector.minX + 512;
-    player.y = hostileSector.minY + 512;
+    player.x = hostileSector.center.x;
+    player.y = hostileSector.center.y;
     const beforeOuterIds = new Set(
       runtime.world.entities.all().map((e) => e.id),
     );

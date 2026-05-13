@@ -157,7 +157,7 @@ describe("lights-out visibility", () => {
     ).toBe(0);
     expect(
       computeLightsOutPresentation({
-        player: { x: center.x + 625, y: center.y },
+        player: { x: center.x + 937.5, y: center.y },
         worldSize,
         nightBlend: 1,
         energyActive: true,
@@ -165,7 +165,7 @@ describe("lights-out visibility", () => {
     ).toBeCloseTo(0.5);
     expect(
       computeLightsOutPresentation({
-        player: { x: center.x + 750, y: center.y },
+        player: { x: center.x + 1125, y: center.y },
         worldSize,
         nightBlend: 1,
         energyActive: true,
@@ -185,7 +185,7 @@ describe("lights-out visibility", () => {
 
     expect(presentation.alpha).toBe(1);
     expect(presentation.visibility?.restricted).toBe(true);
-    expect(presentation.visibility?.radius).toBe(600);
+    expect(presentation.visibility?.radius).toBe(500);
   });
 
   test("map center override drives live activation distance", () => {

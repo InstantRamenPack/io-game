@@ -35,6 +35,7 @@ describe("drifter combat content", () => {
     expect(drifter.damageMultiplier).toBe(0.5);
     expect(attackMinIntervalTicks).toBe(50);
 
+    player.hp = 50;
     const startingHp = player.hp;
     tick(runtime, 2);
     expect(player.hp).toBeCloseTo(startingHp - expectedDamage, 5);

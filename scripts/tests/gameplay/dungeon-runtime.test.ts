@@ -35,9 +35,7 @@ describe("dungeon runtime mechanics", () => {
     enemy.applyDamage(runtime.world, enemy.maxHp, 0);
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
-    expect(
-      pickup.contents.countType("item:hunk" as ResourceId),
-    ).toBe(3);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(3);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
     ).toBeGreaterThan(0);

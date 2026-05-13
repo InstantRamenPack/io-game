@@ -61,8 +61,4 @@ describe("local player latency", () => {
     expect(latencyMs).toBeGreaterThan(frameMs);
     expect(latencyMs).toBeGreaterThanOrEqual(networkDelayMs);
   });
-
-  test.todo("Minecraft-style prediction moves local player immediately", () => {
-    // TODO: prediction implementation.
-  });
 });
