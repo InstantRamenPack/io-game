@@ -93,6 +93,8 @@ export class Player extends Entity {
   private static readonly INPUT_STALE_TIMEOUT_MS = 250;
   // Drains to zero in 3 minutes at 20 ticks/sec
   private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
+  // 1 HP per 2 seconds at 20 ticks/sec, only above 50% health
+  private static readonly PASSIVE_HEAL_INTERVAL_TICKS = 40;
 
   public name: string;
   public inventory: Inventory;
@@ -172,6 +174,12 @@ export class Player extends Entity {
     this.fists.tick(world);
 
     this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
+    if (
+      world.tick % Player.PASSIVE_HEAL_INTERVAL_TICKS === 0 &&
+      this.hp > this.maxHp * 0.5
+    ) {
+      this.hp = Math.min(this.maxHp, this.hp + 1);
+    }
     const hasFreshInput = this.applyLatestInputIntent(world);
     if (!hasFreshInput) {
       this.resetDriveVelocity();
