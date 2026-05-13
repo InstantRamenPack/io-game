@@ -44,6 +44,10 @@ export class PixiEffectSystem {
     this.particleLayer.triggerExplosion(x, y, radius, style);
   }
 
+  public triggerCrateBreakEffect(x: number, y: number): void {
+    this.particleLayer.triggerCrateBreak(x, y);
+  }
+
   public setConfusionState(active: boolean, intensityRatio: number): void {
     this.overlayLayer.setConfusionState(active, intensityRatio);
   }

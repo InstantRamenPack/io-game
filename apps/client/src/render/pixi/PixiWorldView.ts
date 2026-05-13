@@ -17,6 +17,7 @@ import { PixiViewportController } from "@client/render/pixi/PixiViewportControll
 import { PixiCullingController } from "@client/render/pixi/PixiCullingController.ts";
 import { PixiLightsOutOverlay } from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import type {
+  LightsOutVisibilityContext,
   VisibilityBlockerShape,
   WorldSize,
 } from "@client/render/renderTypes.ts";
@@ -25,8 +26,6 @@ import type {
   InfrastructureSnapshot,
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
-import type { VisibilityContext } from "@shared/world/Visibility.ts";
-import { getVisibilityContextForMap } from "@shared/world/Visibility.ts";
 
 const GRID_CELL_SIZE = 100;
 const HOME_BASE_WIDTH = 1600;
@@ -42,15 +41,66 @@ const SNIPER_AIM_LINE_ALPHA = 0.35;
 const SNIPER_AIM_LINE_WIDTH = 2;
 const MINIMAP_SIZE = 184;
 const MINIMAP_PADDING = 16;
-const MAX_VISIBILITY_BLOCKERS = 128;
 // Use a game-scale epsilon to avoid precision issues with large world coords.
 const MIN_DISTANCE_EPSILON = 1e-6;
+const DAY_LIGHTS_OUT_FADE_START_RADIUS = 1500;
+const DAY_LIGHTS_OUT_FADE_END_RADIUS = 2000;
+const NIGHT_LIGHTS_OUT_FADE_START_RADIUS = 750;
+const NIGHT_LIGHTS_OUT_FADE_END_RADIUS = 1125;
+const FULL_LIGHTS_OUT_RADIUS = 500;
+const DISTANT_LIGHTS_OUT_RADIUS = 1000;
 
 type MinimapPlayerMarker = {
   x: number;
   y: number;
   isSelf: boolean;
 };
+
+export function computeLightsOutPresentation(options: {
+  player: { x: number; y: number } | null;
+  worldSize: WorldSize;
+  center?: { x: number; y: number } | null;
+  nightBlend: number;
+  energyActive: boolean;
+}): { visibility: LightsOutVisibilityContext | null; alpha: number } {
+  const { player, worldSize, nightBlend, energyActive } = options;
+  if (!player) {
+    return { visibility: null, alpha: 0 };
+  }
+  const center = options.center ?? {
+    x: worldSize.w / 2,
+    y: worldSize.h / 2,
+  };
+  const thresholds =
+    nightBlend >= 0.5
+      ? {
+          fadeStartRadius: NIGHT_LIGHTS_OUT_FADE_START_RADIUS,
+          fadeEndRadius: NIGHT_LIGHTS_OUT_FADE_END_RADIUS,
+        }
+      : {
+          fadeStartRadius: DAY_LIGHTS_OUT_FADE_START_RADIUS,
+          fadeEndRadius: DAY_LIGHTS_OUT_FADE_END_RADIUS,
+        };
+  const distanceFromCenter = Math.hypot(
+    player.x - center.x,
+    player.y - center.y,
+  );
+  const alpha = energyActive
+    ? inverseLerp(
+        thresholds.fadeStartRadius,
+        thresholds.fadeEndRadius,
+        distanceFromCenter,
+      )
+    : 1;
+  return {
+    alpha,
+    visibility: {
+      center: player,
+      radius: lerp(DISTANT_LIGHTS_OUT_RADIUS, FULL_LIGHTS_OUT_RADIUS, alpha),
+      restricted: alpha > 0,
+    },
+  };
+}
 
 export class PixiWorldView {
   private readonly sceneGraph = new PixiSceneGraph();
@@ -78,7 +128,8 @@ export class PixiWorldView {
   };
   private mapState: MapSnapshot | null = null;
   private lastMapSeed: number | null = null;
-  private visibilityState: VisibilityContext | null = null;
+  private visibilityState: LightsOutVisibilityContext | null = null;
+  private localPlayerPosition: { x: number; y: number } | null = null;
   private visibilityBlockers: VisibilityBlockerShape[] = [];
   private worldSize: WorldSize;
   private gridNightBlend = 0;
@@ -170,7 +221,7 @@ export class PixiWorldView {
       this.visibilityBlockers,
       (targetApp, worldX, worldY) =>
         this.worldToScreen(targetApp, worldX, worldY),
-      this.isPlayground ? 0 : this.lightsOutNightBlend,
+      this.getLightsOutOverlayAlpha(),
     );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
@@ -189,38 +240,31 @@ export class PixiWorldView {
     this.baseVisionOverlay.setEnergyActive(
       this.infrastructureState.energyActive,
     );
-    if (this.visibilityState) {
-      this.visibilityState = getVisibilityContextForMap(
-        this.mapState,
-        this.visibilityState.center,
-        { outdoorLightsActive: this.infrastructureState.energyActive },
-      );
-    }
+    this.recomputeVisibilityState();
   }
 
   public updateMapState(map: MapSnapshot | null): void {
     const seed = map?.seed ?? null;
     if (seed === this.lastMapSeed) {
       this.mapState = map;
+      this.recomputeVisibilityState();
       return;
     }
     this.lastMapSeed = seed;
     this.mapState = map;
+    this.recomputeVisibilityState();
     this.drawGridGeometry();
   }
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {
-    this.visibilityState = player
-      ? getVisibilityContextForMap(this.mapState, player, {
-          outdoorLightsActive: this.infrastructureState.energyActive,
-        })
-      : null;
+    this.localPlayerPosition = player;
+    this.recomputeVisibilityState();
   }
 
   public updateVisibilityBlockers(
     blockers: readonly VisibilityBlockerShape[],
   ): void {
-    this.visibilityBlockers = blockers.slice(0, MAX_VISIBILITY_BLOCKERS);
+    this.visibilityBlockers = blockers.slice();
   }
 
   public setMinimapPlayers(players: readonly MinimapPlayerMarker[]): void {
@@ -233,6 +277,7 @@ export class PixiWorldView {
 
   public setLightsOutNightBlend(blend: number): void {
     this.lightsOutNightBlend = Math.max(0, Math.min(1, blend));
+    this.recomputeVisibilityState();
   }
 
   public setPlaygroundMode(isPlayground: boolean): void {
@@ -258,6 +303,42 @@ export class PixiWorldView {
 
   public resetCamera(): void {
     this.viewportController.reset();
+  }
+
+  private recomputeVisibilityState(): void {
+    this.visibilityState = computeLightsOutPresentation({
+      player: this.localPlayerPosition,
+      worldSize: this.worldSize,
+      center: this.getLightsOutCenter(),
+      nightBlend: this.lightsOutNightBlend,
+      energyActive: this.infrastructureState.energyActive,
+    }).visibility;
+  }
+
+  private getLightsOutOverlayAlpha(): number {
+    return computeLightsOutPresentation({
+      player: this.localPlayerPosition,
+      worldSize: this.worldSize,
+      center: this.getLightsOutCenter(),
+      nightBlend: this.lightsOutNightBlend,
+      energyActive: this.infrastructureState.energyActive,
+    }).alpha;
+  }
+
+  private getLightsOutCenter(): { x: number; y: number } {
+    const centerSector = this.mapState?.sectors.find(
+      (sector) => sector.id === this.mapState?.centerSectorId,
+    );
+    if (centerSector) {
+      return {
+        x: (centerSector.minX + centerSector.maxX) / 2,
+        y: (centerSector.minY + centerSector.maxY) / 2,
+      };
+    }
+    return {
+      x: this.worldSize.w / 2,
+      y: this.worldSize.h / 2,
+    };
   }
 
   public getCameraDebugState(
@@ -411,38 +492,12 @@ export class PixiWorldView {
   }
 
   private drawProceduralMapArt(g: Graphics, map: MapSnapshot): void {
-    const centerSector = map.sectors.find(
-      (sector) => sector.id === map.centerSectorId,
-    );
     for (const sector of map.sectors) {
       const width = sector.maxX - sector.minX;
       const height = sector.maxY - sector.minY;
       g.rect(sector.minX, sector.minY, width, height)
         .fill({ color: worldSectorColor(sector.archetype), alpha: 0.16 })
         .stroke({ width: 5, color: 0x1e2a2f, alpha: 0.16 });
-      this.drawSectorTexture(g, sector);
-    }
-
-    if (centerSector) {
-      const cx = (centerSector.minX + centerSector.maxX) / 2;
-      const cy = (centerSector.minY + centerSector.maxY) / 2;
-      for (const sector of map.sectors) {
-        if (sector.id === centerSector.id) {
-          continue;
-        }
-        const sx = (sector.minX + sector.maxX) / 2;
-        const sy = (sector.minY + sector.maxY) / 2;
-        g.moveTo(cx, cy)
-          .lineTo(sx, sy)
-          .stroke({ width: 54, color: 0x7f765e, alpha: 0.18 });
-        g.moveTo(cx, cy)
-          .lineTo(sx, sy)
-          .stroke({ width: 18, color: 0xd2c292, alpha: 0.16 });
-      }
-    }
-
-    for (const feature of map.features) {
-      this.drawMapFeature(g, feature);
     }
 
     for (const marker of map.markers) {
@@ -461,162 +516,6 @@ export class PixiWorldView {
           color: minimapMarkerColor(marker.archetype),
           alpha: 0.38,
         });
-    }
-  }
-
-  private drawMapFeature(
-    g: Graphics,
-    feature: MapSnapshot["features"][number],
-  ): void {
-    if (feature.role.startsWith("dungeon_")) {
-      this.drawDungeonRoomFeature(g, feature);
-      return;
-    }
-
-    const width = feature.maxX - feature.minX;
-    const height = feature.maxY - feature.minY;
-    const color = featureColor(feature.role, feature.risk);
-    const borderColor = feature.hasReward ? 0xf2c15b : riskColor(feature.risk);
-    const alpha = feature.risk === "boss" ? 0.32 : 0.2;
-
-    if (feature.role === "pond") {
-      g.ellipse(feature.centerX, feature.centerY, width / 2, height / 2)
-        .fill({ color: 0x315f70, alpha: 0.35 })
-        .stroke({ width: 4, color: 0x78a9b4, alpha: 0.28 });
-      return;
-    }
-
-    if (feature.role === "trail" || feature.role === "approach_route") {
-      g.moveTo(feature.minX, feature.centerY)
-        .lineTo(feature.maxX, feature.centerY)
-        .stroke({ width: Math.max(24, height * 0.25), color, alpha: 0.2 });
-      g.moveTo(feature.minX, feature.centerY)
-        .lineTo(feature.maxX, feature.centerY)
-        .stroke({ width: 5, color: 0xe0d2a4, alpha: 0.18 });
-      return;
-    }
-
-    if (feature.role === "helipad") {
-      drawWorldHelipad(g, feature.centerX, feature.centerY, width * 0.34);
-      return;
-    }
-
-    const radius = feature.role.includes("tower") ? 999 : 10;
-    g.roundRect(feature.minX, feature.minY, width, height, radius)
-      .fill({ color, alpha })
-      .stroke({
-        width: feature.risk === "boss" ? 7 : 4,
-        color: borderColor,
-        alpha: 0.34,
-      });
-
-    if (feature.role === "boss" || feature.role === "reward_cache") {
-      g.circle(feature.centerX, feature.centerY, Math.min(width, height) * 0.22)
-        .fill({ color: 0x3b263f, alpha: 0.18 })
-        .stroke({ width: 6, color: 0xb779ff, alpha: 0.3 });
-    }
-  }
-
-  private drawDungeonRoomFeature(
-    g: Graphics,
-    feature: MapSnapshot["features"][number],
-  ): void {
-    const width = feature.maxX - feature.minX;
-    const height = feature.maxY - feature.minY;
-    const floorColor = dungeonFloorColor(feature.role);
-    const glowColor = dungeonGlowColor(feature.role, feature.risk);
-    const wallColor = 0x1e2021;
-    const trimColor = feature.hasReward ? 0xd9a84a : 0x7d7769;
-    const wall = 34;
-
-    g.roundRect(
-      feature.minX - wall,
-      feature.minY - wall,
-      width + wall * 2,
-      height + wall * 2,
-      12,
-    )
-      .fill({ color: wallColor, alpha: 0.82 })
-      .stroke({ width: 10, color: 0x998f78, alpha: 0.36 });
-    g.roundRect(feature.minX, feature.minY, width, height, 6)
-      .fill({ color: floorColor, alpha: 0.62 })
-      .stroke({ width: 4, color: trimColor, alpha: 0.28 });
-
-    const tile = 64;
-    for (let x = feature.minX + tile; x < feature.maxX; x += tile) {
-      g.moveTo(x, feature.minY)
-        .lineTo(x, feature.maxY)
-        .stroke({ width: 1, color: 0xbab39d, alpha: 0.07 });
-    }
-    for (let y = feature.minY + tile; y < feature.maxY; y += tile) {
-      g.moveTo(feature.minX, y)
-        .lineTo(feature.maxX, y)
-        .stroke({ width: 1, color: 0xbab39d, alpha: 0.07 });
-    }
-
-    g.circle(feature.centerX, feature.centerY, Math.min(width, height) * 0.16)
-      .fill({ color: glowColor, alpha: 0.16 })
-      .stroke({ width: 5, color: glowColor, alpha: 0.32 });
-
-    if (feature.role === "dungeon_crossroads") {
-      g.moveTo(feature.minX + width * 0.18, feature.centerY)
-        .lineTo(feature.maxX - width * 0.18, feature.centerY)
-        .moveTo(feature.centerX, feature.minY + height * 0.18)
-        .lineTo(feature.centerX, feature.maxY - height * 0.18)
-        .stroke({ width: 18, color: 0xc2b080, alpha: 0.16 });
-    }
-
-    if (
-      feature.role === "dungeon_boss" ||
-      feature.role === "dungeon_mini_boss"
-    ) {
-      g.circle(
-        feature.centerX,
-        feature.centerY,
-        Math.min(width, height) * 0.28,
-      ).stroke({ width: 14, color: 0x7d2f42, alpha: 0.24 });
-    }
-  }
-
-  private drawSectorTexture(
-    g: Graphics,
-    sector: MapSnapshot["sectors"][number],
-  ): void {
-    const width = sector.maxX - sector.minX;
-    const height = sector.maxY - sector.minY;
-    const count =
-      sector.archetype === "forest"
-        ? 42
-        : sector.archetype === "military" || sector.archetype === "dungeon"
-          ? 18
-          : 28;
-    for (let index = 0; index < count; index += 1) {
-      const rx = seededUnit(`${sector.id}:x:${index}`);
-      const ry = seededUnit(`${sector.id}:y:${index}`);
-      const x = sector.minX + width * (0.08 + rx * 0.84);
-      const y = sector.minY + height * (0.08 + ry * 0.84);
-      if (sector.archetype === "forest") {
-        g.circle(x, y, 42 + seededUnit(`${sector.id}:r:${index}`) * 38).fill({
-          color: 0x255f32,
-          alpha: 0.2,
-        });
-        continue;
-      }
-      if (sector.archetype === "dungeon") {
-        g.rect(x - 72, y - 56, 144, 112)
-          .fill({ color: 0x303335, alpha: 0.28 })
-          .stroke({ width: 6, color: 0x9a927e, alpha: 0.22 });
-        continue;
-      }
-      if (sector.archetype === "military") {
-        g.rect(x - 90, y - 54, 180, 108)
-          .fill({ color: 0x4c5a4f, alpha: 0.2 })
-          .stroke({ width: 4, color: 0x1d2424, alpha: 0.22 });
-        continue;
-      }
-      g.roundRect(x - 58, y - 42, 116, 84, 8)
-        .fill({ color: 0x7b7465, alpha: 0.14 })
-        .stroke({ width: 3, color: 0x2d302b, alpha: 0.18 });
     }
   }
 
@@ -999,84 +898,6 @@ function minimapMarkerColor(archetype: string): number {
   }
 }
 
-function featureColor(role: string, risk: string): number {
-  if (role.includes("dungeon") || role === "reward_cache") {
-    return 0x4b4650;
-  }
-  if (
-    role.includes("armory") ||
-    role.includes("command") ||
-    role.includes("barracks")
-  ) {
-    return 0x56624f;
-  }
-  if (
-    role.includes("forest") ||
-    role === "camp" ||
-    role === "cabin" ||
-    role === "shrine"
-  ) {
-    return 0x385b36;
-  }
-  if (role.includes("residential") || role.includes("ruin")) {
-    return 0x756c58;
-  }
-  if (risk === "boss") {
-    return 0x5d3940;
-  }
-  return 0x5f6558;
-}
-
-function riskColor(risk: string): number {
-  switch (risk) {
-    case "boss":
-      return 0xe35c46;
-    case "high":
-      return 0xd88a3d;
-    case "medium":
-      return 0xd8c36a;
-    default:
-      return 0xa5c58a;
-  }
-}
-
-function dungeonFloorColor(role: string): number {
-  switch (role) {
-    case "dungeon_treasure":
-      return 0x6b5630;
-    case "dungeon_rest":
-      return 0x4f563f;
-    case "dungeon_armory":
-      return 0x4c4d4a;
-    case "dungeon_hazard":
-      return 0x4a3448;
-    case "dungeon_objective":
-      return 0x35475a;
-    case "dungeon_mini_boss":
-    case "dungeon_boss":
-      return 0x46333b;
-    default:
-      return 0x4d5148;
-  }
-}
-
-function dungeonGlowColor(role: string, risk: string): number {
-  switch (role) {
-    case "dungeon_treasure":
-      return 0xffc34f;
-    case "dungeon_rest":
-      return 0x7be0a4;
-    case "dungeon_objective":
-      return 0x7dbdff;
-    case "dungeon_hazard":
-      return 0xb77dff;
-    case "dungeon_boss":
-      return 0xff4e72;
-    default:
-      return riskColor(risk);
-  }
-}
-
 function drawWorldHelipad(
   g: Graphics,
   x: number,
@@ -1112,13 +933,16 @@ function drawWorldHelipad(
   ).fill({ color: 0x6b5500, alpha: 0.85 });
 }
 
-function seededUnit(key: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < key.length; index += 1) {
-    hash ^= key.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+function inverseLerp(start: number, end: number, value: number): number {
+  if (Math.abs(end - start) <= MIN_DISTANCE_EPSILON) {
+    return value >= end ? 1 : 0;
   }
-  return (hash >>> 0) / 0xffffffff;
+  return Math.max(0, Math.min(1, (value - start) / (end - start)));
+}
+
+function lerp(start: number, end: number, t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  return start + (end - start) * clamped;
 }
 
 function lerpColor(start: number, end: number, t: number): number {

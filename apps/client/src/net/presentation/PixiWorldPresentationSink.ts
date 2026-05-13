@@ -6,6 +6,7 @@ import type { EntityPresentationState } from "@client/render/entity/EntityRender
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 
 const TREE_VISIBILITY_RADIUS_SCALE = 0.9;
 const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
@@ -14,6 +15,7 @@ const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
 ]);
 const NON_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
   "building:landmine",
+  "building:tripwire",
 ]);
 
 export class PixiWorldPresentationSink {
@@ -110,6 +112,14 @@ export class PixiWorldPresentationSink {
         continue;
       }
 
+      if (
+        event.payload.isFatal &&
+        event.payload.targetTypeId === "enemy:crate"
+      ) {
+        this.renderer.triggerCrateBreakEffect(event.payload.x, event.payload.y);
+        continue;
+      }
+
       this.renderManager.triggerDamageFlash(event.payload.targetId);
       if (event.payload.targetId === this.renderer.playerEntityId) {
         this.renderer.triggerDamageOverlay();
@@ -157,10 +167,9 @@ export class PixiWorldPresentationSink {
         continue;
       }
       const blocker = toVisibilityBlocker(entity);
-      if (!blocker) {
-        continue;
+      if (blocker) {
+        blockers.push(blocker);
       }
-      blockers.push(blocker);
     }
 
     this.renderer.setVisibilityBlockers(blockers);
@@ -177,9 +186,13 @@ function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
   return entity.kind === "building" || entity.kind === "structure";
 }
 
-function toVisibilityBlocker(
+export function toVisibilityBlocker(
   entity: ClientEntity,
 ): VisibilityBlockerShape | null {
+  if (NON_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId)) {
+    return null;
+  }
+
   const bounds = entity.hitboxBounds;
   if (bounds.width <= 0 || bounds.height <= 0) {
     return null;
@@ -201,12 +214,16 @@ function toVisibilityBlocker(
   }
 
   return {
-    kind: "rect",
+    kind: "rects",
     sourceEntityId: entity.id,
-    minX: entity.x + bounds.minX,
-    minY: entity.y + bounds.minY,
-    maxX: entity.x + bounds.maxX,
-    maxY: entity.y + bounds.maxY,
+    rects: resolveHitboxRects(entity.x, entity.y, entity.hitboxes).map(
+      (rect) => ({
+        minX: rect.minX,
+        minY: rect.minY,
+        maxX: rect.maxX,
+        maxY: rect.maxY,
+      }),
+    ),
   };
 }
 

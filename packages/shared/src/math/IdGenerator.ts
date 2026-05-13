@@ -4,17 +4,12 @@
  */
 export class IdGenerator {
   private nextId = 1;
-  private readonly freeIds: number[] = [];
 
   /**
    * Allocates a new runtime entity id.
    * @returns Newly allocated numeric id.
    */
   public alloc(): number {
-    const recycled = this.freeIds.pop();
-    if (recycled !== undefined) {
-      return recycled;
-    }
     const allocatedId = this.nextId;
     this.nextId += 1;
     return allocatedId;
@@ -24,6 +19,8 @@ export class IdGenerator {
     if (!Number.isInteger(entityId) || entityId <= 0) {
       return;
     }
-    this.freeIds.push(entityId);
+    // Entity ids are part of the replication identity. Reusing one before every
+    // client has observed the despawn lets a new entity inherit stale client
+    // presentation state, so ids remain unique for the lifetime of a match.
   }
 }

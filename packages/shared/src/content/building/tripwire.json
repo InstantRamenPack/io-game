@@ -1,0 +1,8 @@
+{
+  "label": "Tripwire",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "hitboxProfiles": {
+    "default": [{ "width": 220, "height": 16, "offsetX": 0, "offsetY": 0 }]
+  }
+}

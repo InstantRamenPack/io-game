@@ -251,6 +251,7 @@ export abstract class Entity {
       payload: {
         sourceId,
         targetId: this.id,
+        targetTypeId: this.typeId,
         amount: effectiveAmount,
         remainingHp: nextHp,
         maxHp: this.maxHp,

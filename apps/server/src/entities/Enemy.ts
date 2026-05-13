@@ -1,14 +1,23 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { Goal } from "@server/goals/Goal.ts";
+import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
+import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
+import { getWeaponContent } from "@shared/content/catalog.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
+
+const DEATH_LOOT_HUNK_MULTIPLIER = 3;
+const EQUIPPED_WEAPON_DROP_CHANCE = 0.24;
 
 /**
  * Hostile entity with goal-driven targeting and movement state.
@@ -27,6 +36,7 @@ export class Enemy extends GoalControlledEntity {
     );
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
+    this.damageMultiplier = content.combat.damageMultiplier;
     this.registerGoals(config.goals ?? []);
     this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(
@@ -50,7 +60,50 @@ export class Enemy extends GoalControlledEntity {
   }
 
   public override handleDeath(world: World): void {
+    this.spawnDeathLoot(world);
     this.alive = false;
     world.despawn(this.id);
+  }
+
+  private spawnDeathLoot(world: World): void {
+    const inventory = new Inventory();
+    inventory.addStackable(
+      "item:hunk" as ResourceId,
+      (1 + Math.floor(Math.random() * 4)) * DEATH_LOOT_HUNK_MULTIPLIER,
+    );
+
+    const equippedWeapon = this.weapons[0];
+    if (equippedWeapon) {
+      const weaponContent = getWeaponContent(equippedWeapon.typeId);
+      const magItemTypeId =
+        weaponContent?.attackStyle === "shoot"
+          ? weaponContent.magItemTypeId
+          : undefined;
+      if (magItemTypeId) {
+        inventory.addStackable(
+          magItemTypeId,
+          1 + Math.floor(Math.random() * 2),
+        );
+      }
+    }
+
+    const shouldDropAllWeapons = this.typeId === ("enemy:thanos" as ResourceId);
+    const shouldDropEquippedWeapon =
+      shouldDropAllWeapons || Math.random() < EQUIPPED_WEAPON_DROP_CHANCE;
+    if (shouldDropEquippedWeapon) {
+      for (const weapon of shouldDropAllWeapons
+        ? this.weapons
+        : this.weapons.slice(0, 1)) {
+        const itemEntry = itemTypeRegistry.get(weapon.typeId);
+        if (itemEntry) {
+          grantItemEntryByAcquisitionRules(inventory, itemEntry, 1);
+        }
+      }
+    }
+
+    const pickup = new ItemEntity(world.allocEntityId(), inventory);
+    pickup.x = this.x;
+    pickup.y = this.y;
+    world.spawn(pickup);
   }
 }

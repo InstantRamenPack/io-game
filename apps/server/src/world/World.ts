@@ -42,7 +42,7 @@ export type WorldBenchmarkSink = {
   recordWorldTick(stats: WorldBenchmarkTickStats): void;
 };
 
-const OUTER_PLAYER_BUILDING_LIFETIME_SECONDS = 5;
+const OUTER_PLAYER_BUILDING_DECAY_SECONDS = 20;
 
 /**
  * Authoritative world container for entities, events, time, and shared world services.
@@ -179,7 +179,7 @@ export class World {
     const pickupStartedAt = performance.now();
     this.pickupSystem.update(this, deltaMs);
     const pickupMs = performance.now() - pickupStartedAt;
-    this.expireOuterPlayerBuildings();
+    this.decayOuterPlayerBuildings(deltaMs);
     const spatialAfterStartedAt = performance.now();
     this.ensureSpatialIndex();
     const spatialAfterMs = performance.now() - spatialAfterStartedAt;
@@ -236,7 +236,7 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     this.pickupSystem.update(this, deltaMs);
-    this.expireOuterPlayerBuildings();
+    this.decayOuterPlayerBuildings(deltaMs);
     this.ensureSpatialIndex();
     this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
@@ -319,19 +319,11 @@ export class World {
     this.dungeonRoomsByZone.set(zoneId, rooms);
   }
 
-  private expireOuterPlayerBuildings(): void {
+  private decayOuterPlayerBuildings(deltaMs: number): void {
     if (!this.proceduralLayout || this.playerBuildingSpawnTickById.size === 0) {
       return;
     }
-    for (const [entityId, spawnTick] of [
-      ...this.playerBuildingSpawnTickById.entries(),
-    ]) {
-      if (
-        this.tick - spawnTick <
-        OUTER_PLAYER_BUILDING_LIFETIME_SECONDS * this.gameConfig.tickRate
-      ) {
-        continue;
-      }
+    for (const entityId of [...this.playerBuildingSpawnTickById.keys()]) {
       const entity = this.entities.get(entityId);
       if (!entity) {
         this.playerBuildingSpawnTickById.delete(entityId);
@@ -339,7 +331,12 @@ export class World {
       }
       const sector = getSectorForPoint(this.proceduralLayout, entity);
       if (sector?.allowsFastBuildingDecay) {
-        this.despawn(entityId);
+        const decayDamage =
+          (entity.maxHp * deltaMs) /
+          (OUTER_PLAYER_BUILDING_DECAY_SECONDS * 1000);
+        entity.applyDamage(this, decayDamage, 0);
+      } else {
+        this.playerBuildingSpawnTickById.delete(entityId);
       }
     }
   }

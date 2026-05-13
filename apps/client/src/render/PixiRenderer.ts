@@ -307,6 +307,11 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public triggerCrateBreakEffect(x: number, y: number): void {
+    this.effectSystem.triggerCrateBreakEffect(x, y);
+    this.renderScheduler.markDirty();
+  }
+
   public setConfusionState(active: boolean, intensityRatio: number): void {
     this.effectSystem.setConfusionState(active, intensityRatio);
     this.effectSystem.syncWorldFilters(this.worldView.worldRoot);

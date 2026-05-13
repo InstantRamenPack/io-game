@@ -7,7 +7,7 @@ import type { InventorySlotSnapshot } from "@shared/net/snapshots.ts";
 import { CHEST_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import { toHotbarSlotItems } from "@client/render/hud/hotbarModel.ts";
 
-const CHEST_COLS = 9;
+const CHEST_COLS = 10;
 const CHEST_ROWS = 3;
 const HOTBAR_SLOTS = 10;
 

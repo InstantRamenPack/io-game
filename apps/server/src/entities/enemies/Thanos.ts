@@ -21,7 +21,9 @@ export class Thanos extends Enemy {
         new ThanosRocketLauncher(), // slot 2 — rocket launcher
       ],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, Infinity),
+        new TargetEntityGoal<Enemy>(0, Player, Infinity, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         // Melee fist — highest attack priority, close range
         new AttackAtGoal<Enemy>(2, 0),

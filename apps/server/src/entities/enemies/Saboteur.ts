@@ -25,7 +25,9 @@ export class Saboteur extends Enemy {
           600,
           (e) => !(e instanceof Recycler),
         ),
-        new TargetEntityGoal<Enemy>(3, Player, 400),
+        new TargetEntityGoal<Enemy>(3, Player, 400, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(4),
         new GoToTargetGoal<Enemy>(5, 22),
         new AttackAtGoal<Enemy>(6, 0),

@@ -4,12 +4,15 @@ import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
+import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { Commander } from "@server/entities/enemies/Commander.ts";
+import { Crate } from "@server/entities/enemies/Crate.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
@@ -30,6 +33,7 @@ import { ThanosRocket } from "@server/entities/projectiles/ThanosRocket.ts";
 import { HouseL } from "@server/entities/structures/HouseL.ts";
 import { HouseM } from "@server/entities/structures/HouseM.ts";
 import { HouseXl } from "@server/entities/structures/HouseXl.ts";
+import { Dungeon } from "@server/entities/structures/Dungeon.ts";
 import { DungeonWall } from "@server/entities/structures/DungeonWall.ts";
 import { FenceH } from "@server/entities/structures/FenceH.ts";
 import { FenceV } from "@server/entities/structures/FenceV.ts";
@@ -52,6 +56,7 @@ import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.t
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
+import { DungeonKeyItem } from "@server/items/materials/DungeonKeyItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
@@ -101,10 +106,13 @@ export const entityRuntimeCtors = [
   HouseL,
   HouseM,
   HouseXl,
+  Dungeon,
   Cannon,
   Chest,
   CommsTower,
+  Crate,
   CraftingStation,
+  DungeonDoor,
   EnergyTower,
   FenceH,
   FenceV,
@@ -112,6 +120,7 @@ export const entityRuntimeCtors = [
   Landmine,
   Recycler,
   Tree,
+  Tripwire,
   Wall,
   BasicBullet,
   CannonBullet,
@@ -145,6 +154,7 @@ export const itemRuntimeCtors = [
   ThanosFist,
   ThanosRifle,
   ThanosRocketLauncher,
+  DungeonKeyItem,
   HunkItem,
   JunkFoodItem,
   QualityFoodItem,

@@ -20,7 +20,9 @@ export class Wallbreaker extends Enemy {
       goals: [
         new TargetEntityGoal<Enemy>(0, Wall, 700),
         new TargetEntityGoal<Enemy>(1, Building, 700),
-        new TargetEntityGoal<Enemy>(2, Player, 400),
+        new TargetEntityGoal<Enemy>(2, Player, 400, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(3),
         new GoToTargetGoal<Enemy>(4, 20),
       ],

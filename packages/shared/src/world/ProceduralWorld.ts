@@ -6,7 +6,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 export const PROCEDURAL_WORLD_SEED = 1337;
 export const PROCEDURAL_GRID_SIZE = 3;
-export const PROCEDURAL_SECTOR_SIZE = 4096;
+export const PROCEDURAL_SECTOR_SIZE = 5120;
 export const PROCEDURAL_WORLD_SIZE = {
   w: PROCEDURAL_GRID_SIZE * PROCEDURAL_SECTOR_SIZE,
   h: PROCEDURAL_GRID_SIZE * PROCEDURAL_SECTOR_SIZE,
@@ -16,12 +16,11 @@ export const PROCEDURAL_TILE_SIZE = 16;
 export const REQUIRED_DUNGEON_ROOM_ROLES = [
   "entrance",
   "combat",
+  "enemy_swarm",
   "treasure",
-  "rest",
+  "maze",
+  "trap",
   "armory",
-  "objective",
-  "hazard",
-  "crossroads",
   "mini_boss",
   "boss",
 ] as const;
@@ -66,6 +65,7 @@ export type ProceduralSpawnSpec = ProceduralPoint & {
     offsetX: number;
     offsetY: number;
   }>;
+  crateLoot?: ProceduralCrateLootSlot[];
 };
 
 export type ProceduralLootSpec = ProceduralPoint & {
@@ -73,6 +73,12 @@ export type ProceduralLootSpec = ProceduralPoint & {
   amount?: number;
   kind: "stackable" | "weapon";
   rewardTier: "common" | "uncommon" | "rare" | "epic";
+};
+
+export type ProceduralCrateLootSlot = {
+  typeId: ResourceId;
+  amount?: number;
+  kind: "stackable" | "weapon";
 };
 
 export type ProceduralMapMarker = ProceduralPoint & {
@@ -127,10 +133,16 @@ export type ProceduralDungeonRoom = ProceduralRect & {
   centerY: number;
 };
 
+export type ProceduralDungeonEntrance = ProceduralPoint & {
+  side: "north" | "south" | "west" | "east";
+};
+
 export type ProceduralDungeonPlan = ProceduralRect & {
   id: string;
   rooms: ProceduralDungeonRoom[];
-  entrances: ProceduralPoint[];
+  entrances: ProceduralDungeonEntrance[];
+  wallHitboxRects: NonNullable<ProceduralSpawnSpec["hitboxRects"]>;
+  doors: ProceduralSpawnSpec[];
 };
 
 export type ProceduralSector = ProceduralRect & {
@@ -196,6 +208,8 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
   "wreckage_field",
   "roadside_village",
 ];
+
+const DUNGEON_ROOM_LINEAR_SCALE = 0.7;
 
 const ENEMY_BY_ARCHETYPE: Record<SectorArchetype, readonly ResourceId[]> = {
   home: ["enemy:drifter" as ResourceId],
@@ -286,20 +300,24 @@ export function generateProceduralWorldLayout(
   const assigned = new Map<string, SectorArchetype>();
 
   assigned.set(sectorKey(1, 1), "home");
-  const extractionCoord = pickAndRemove(rng, [...CORNER_COORDS]);
+  const cornerCoords = shuffle(rng, [...CORNER_COORDS]);
+  const dungeonCoord = cornerCoords.shift();
+  const extractionCoord = cornerCoords.shift();
+  if (!dungeonCoord || !extractionCoord) {
+    throw new Error("Expected enough corner sectors for required POIs.");
+  }
+  assigned.set(sectorKey(dungeonCoord.row, dungeonCoord.col), "dungeon");
   assigned.set(
     sectorKey(extractionCoord.row, extractionCoord.col),
     "extraction",
   );
 
   const availableEdges = shuffle(rng, [...EDGE_COORDS]);
-  const dungeonCoord = availableEdges.shift();
   const militaryCoord = availableEdges.shift();
   const forestCoord = availableEdges.shift();
-  if (!dungeonCoord || !militaryCoord || !forestCoord) {
+  if (!militaryCoord || !forestCoord) {
     throw new Error("Expected enough edge sectors for required POIs.");
   }
-  assigned.set(sectorKey(dungeonCoord.row, dungeonCoord.col), "dungeon");
   assigned.set(sectorKey(militaryCoord.row, militaryCoord.col), "military");
   assigned.set(sectorKey(forestCoord.row, forestCoord.col), "forest");
 
@@ -314,7 +332,12 @@ export function generateProceduralWorldLayout(
   }
 
   const dungeonSectorRect = sectorRect(dungeonCoord.row, dungeonCoord.col);
-  const dungeon = createDungeonPlan(dungeonSectorRect);
+  const dungeon = createDungeonPlan(
+    seed,
+    dungeonSectorRect,
+    dungeonCoord.row,
+    dungeonCoord.col,
+  );
   const sectors: ProceduralSector[] = [];
   for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
     for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
@@ -559,7 +582,7 @@ function createSector(
       ),
     );
   } else if (archetype === "dungeon") {
-    addDungeonArchitecture(structures, dungeon);
+    addDungeonArchitecture(structures, buildings, dungeon);
     addFeature(
       features,
       markers,
@@ -616,18 +639,11 @@ function createSector(
         room.maxX - room.minX,
         room.maxY - room.minY,
         dungeonRoomRisk(room.role),
-        [
-          "treasure",
-          "rest",
-          "armory",
-          "objective",
-          "mini_boss",
-          "boss",
-        ].includes(room.role),
+        ["treasure", "armory", "trap", "mini_boss", "boss"].includes(room.role),
         room.role === "boss" || room.role === "mini_boss" ? "major" : "route",
-        room.role === "entrance" || room.role === "crossroads",
+        room.role === "entrance",
       );
-      addDungeonRoomContent(room, enemies, loot, structures);
+      addDungeonRoomContent(room, enemies, loot, buildings);
     }
   } else if (archetype === "military") {
     markers.push(
@@ -777,49 +793,55 @@ function resolveSpawnHitboxes(spec: ProceduralSpawnSpec) {
   return resolveHitboxRects(spec.x, spec.y, activeProfile);
 }
 
-function createDungeonPlan(sector: ProceduralRect): ProceduralDungeonPlan {
-  const minX = snap(sector.minX + 480);
-  const minY = snap(sector.minY + 448);
-  const maxX = snap(sector.maxX - 480);
-  const maxY = snap(sector.maxY - 448);
-  const roomW = 560;
-  const roomH = 448;
-  const gapX = 240;
-  const gapY = 224;
-  const startX = minX + 192;
-  const startY = minY + 144;
-  const roles = REQUIRED_DUNGEON_ROOM_ROLES;
-  const positions = [
-    [0, 1],
-    [0, 0],
-    [0, 2],
-    [1, 0],
-    [1, 1],
-    [1, 2],
-    [2, 0],
-    [2, 1],
-    [2, 2],
-    [3, 1],
-  ] as const;
-  const rooms = roles.map((role, index) => {
-    const position = positions[index] ?? [index, 1];
-    const roomMinX = snap(startX + position[1] * (roomW + gapX));
-    const roomMinY = snap(startY + position[0] * (roomH + gapY));
-    return {
-      id: `dungeon_${role}`,
-      role,
-      minX: roomMinX,
-      minY: roomMinY,
-      maxX: roomMinX + roomW,
-      maxY: roomMinY + roomH,
-      centerX: snap(roomMinX + roomW / 2),
-      centerY: snap(roomMinY + roomH / 2),
-    };
-  });
-  const entrance = rooms[0];
-  if (!entrance) {
-    throw new Error("Dungeon requires an entrance room.");
+function createDungeonPlan(
+  seed: number,
+  sector: ProceduralRect,
+  row: number,
+  col: number,
+): ProceduralDungeonPlan {
+  const rng = seedrandom(`${seed}:dungeon:${row}:${col}`);
+  const minX = snapEdge(sector.minX);
+  const minY = snapEdge(sector.minY);
+  const maxX = snapEdge(sector.maxX);
+  const maxY = snapEdge(sector.maxY);
+  const wallThickness = 64;
+  const rooms = createBspDungeonRooms(
+    rng,
+    {
+      minX: minX + wallThickness + 96,
+      minY: minY + wallThickness + 96,
+      maxX: maxX - wallThickness - 96,
+      maxY: maxY - wallThickness - 96,
+    },
+    9 + Math.floor(rng() * 4),
+  );
+
+  const entranceSides: ProceduralDungeonEntrance["side"][] = [];
+  if (row === 0) {
+    entranceSides.push("south");
+  } else if (row === PROCEDURAL_GRID_SIZE - 1) {
+    entranceSides.push("north");
   }
+  if (col === 0) {
+    entranceSides.push("east");
+  } else if (col === PROCEDURAL_GRID_SIZE - 1) {
+    entranceSides.push("west");
+  }
+  if (entranceSides.length !== 2) {
+    throw new Error("Dungeon must occupy a corner sector.");
+  }
+
+  const entrances = entranceSides.map((side) =>
+    makeDungeonEntrance(side, minX, minY, maxX, maxY),
+  );
+  const centerX = snap((minX + maxX) / 2);
+  const centerY = snap((minY + maxY) / 2);
+  const wallRects = [
+    ...createDungeonOuterWallHitboxes(minX, minY, maxX, maxY, entrances),
+    ...createDungeonInternalWallHitboxes(rooms, centerX, centerY),
+  ];
+  const doors = createDungeonDoorSpawns(rooms, entrances);
+
   return {
     id: "dungeon_alpha",
     minX,
@@ -827,8 +849,389 @@ function createDungeonPlan(sector: ProceduralRect): ProceduralDungeonPlan {
     maxX,
     maxY,
     rooms,
-    entrances: [{ x: entrance.centerX, y: entrance.centerY }],
+    entrances,
+    wallHitboxRects: wallRects,
+    doors,
   };
+}
+
+function makeDungeonEntrance(
+  side: ProceduralDungeonEntrance["side"],
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): ProceduralDungeonEntrance {
+  const centerX = snap((minX + maxX) / 2);
+  const centerY = snap((minY + maxY) / 2);
+  switch (side) {
+    case "north":
+      return { side, x: centerX, y: minY };
+    case "south":
+      return { side, x: centerX, y: maxY };
+    case "west":
+      return { side, x: minX, y: centerY };
+    case "east":
+      return { side, x: maxX, y: centerY };
+  }
+}
+
+type DungeonBspLeaf = ProceduralRect;
+
+function createBspDungeonRooms(
+  rng: seedrandom.PRNG,
+  bounds: ProceduralRect,
+  targetRoomCount: number,
+): ProceduralDungeonRoom[] {
+  const leaves: DungeonBspLeaf[] = [bounds];
+  const minLeafSize = 1120;
+
+  while (leaves.length < targetRoomCount) {
+    const splitIndex = findLargestSplittableLeaf(leaves, minLeafSize);
+    if (splitIndex < 0) {
+      break;
+    }
+    const leaf = leaves.splice(splitIndex, 1)[0]!;
+    const width = leaf.maxX - leaf.minX;
+    const height = leaf.maxY - leaf.minY;
+    const splitVertical = width >= height;
+    const splitRatio = 0.42 + rng() * 0.16;
+    if (splitVertical) {
+      const splitX = snapEdge(leaf.minX + width * splitRatio);
+      leaves.push(
+        { ...leaf, maxX: splitX - 48 },
+        { ...leaf, minX: splitX + 48 },
+      );
+    } else {
+      const splitY = snapEdge(leaf.minY + height * splitRatio);
+      leaves.push(
+        { ...leaf, maxY: splitY - 48 },
+        { ...leaf, minY: splitY + 48 },
+      );
+    }
+  }
+
+  const orderedLeaves = [...leaves].sort((left, right) => {
+    const leftScore = left.minY + left.minX * 0.05;
+    const rightScore = right.minY + right.minX * 0.05;
+    return leftScore - rightScore;
+  });
+  const roleOrder = buildDungeonRoleOrder(orderedLeaves.length);
+
+  return orderedLeaves.map((leaf, index) => {
+    const inset = 72;
+    const fullMinX = snapEdge(leaf.minX + inset);
+    const fullMinY = snapEdge(leaf.minY + inset);
+    const fullMaxX = snapEdge(leaf.maxX - inset);
+    const fullMaxY = snapEdge(leaf.maxY - inset);
+    const centerX = snap((fullMinX + fullMaxX) / 2);
+    const centerY = snap((fullMinY + fullMaxY) / 2);
+    const halfWidth = snapEdge(
+      ((fullMaxX - fullMinX) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
+    );
+    const halfHeight = snapEdge(
+      ((fullMaxY - fullMinY) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
+    );
+    const minX = snapEdge(centerX - halfWidth);
+    const minY = snapEdge(centerY - halfHeight);
+    const maxX = snapEdge(centerX + halfWidth);
+    const maxY = snapEdge(centerY + halfHeight);
+    const role = roleOrder[index] ?? "combat";
+    return {
+      id: `dungeon_${role}_${index}`,
+      role,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      centerX,
+      centerY,
+    };
+  });
+}
+
+function findLargestSplittableLeaf(
+  leaves: readonly DungeonBspLeaf[],
+  minLeafSize: number,
+): number {
+  let bestIndex = -1;
+  let bestArea = 0;
+  for (let index = 0; index < leaves.length; index += 1) {
+    const leaf = leaves[index]!;
+    const width = leaf.maxX - leaf.minX;
+    const height = leaf.maxY - leaf.minY;
+    if (Math.max(width, height) < minLeafSize * 2) {
+      continue;
+    }
+    const area = width * height;
+    if (area > bestArea) {
+      bestArea = area;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+}
+
+function buildDungeonRoleOrder(roomCount: number): DungeonRoomRole[] {
+  const roles: DungeonRoomRole[] = [...REQUIRED_DUNGEON_ROOM_ROLES];
+  const repeats: DungeonRoomRole[] = [
+    "combat",
+    "enemy_swarm",
+    "maze",
+    "trap",
+    "treasure",
+  ];
+  let repeatIndex = 0;
+  while (roles.length < roomCount) {
+    roles.push(repeats[repeatIndex % repeats.length]!);
+    repeatIndex += 1;
+  }
+  return roles.slice(0, roomCount);
+}
+
+function createDungeonOuterWallHitboxes(
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+  entrances: readonly ProceduralDungeonEntrance[],
+): NonNullable<ProceduralSpawnSpec["hitboxRects"]> {
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const wallThickness = 64;
+  const doorHalfWidth = 176;
+  const rects: ProceduralRect[] = [];
+  const addAbsoluteRect = (
+    rectMinX: number,
+    rectMinY: number,
+    rectMaxX: number,
+    rectMaxY: number,
+  ) => {
+    if (rectMaxX <= rectMinX || rectMaxY <= rectMinY) {
+      return;
+    }
+    rects.push({
+      minX: snapEdge(rectMinX),
+      minY: snapEdge(rectMinY),
+      maxX: snapEdge(rectMaxX),
+      maxY: snapEdge(rectMaxY),
+    });
+  };
+
+  const northDoor = entrances.find((entrance) => entrance.side === "north");
+  const southDoor = entrances.find((entrance) => entrance.side === "south");
+  const westDoor = entrances.find((entrance) => entrance.side === "west");
+  const eastDoor = entrances.find((entrance) => entrance.side === "east");
+
+  addSplitHorizontalWall(
+    addAbsoluteRect,
+    minX,
+    maxX,
+    minY,
+    minY + wallThickness,
+    northDoor?.x,
+    doorHalfWidth,
+  );
+  addSplitHorizontalWall(
+    addAbsoluteRect,
+    minX,
+    maxX,
+    maxY - wallThickness,
+    maxY,
+    southDoor?.x,
+    doorHalfWidth,
+  );
+  addSplitVerticalWall(
+    addAbsoluteRect,
+    minY,
+    maxY,
+    minX,
+    minX + wallThickness,
+    westDoor?.y,
+    doorHalfWidth,
+  );
+  addSplitVerticalWall(
+    addAbsoluteRect,
+    minY,
+    maxY,
+    maxX - wallThickness,
+    maxX,
+    eastDoor?.y,
+    doorHalfWidth,
+  );
+
+  return rects.map((rect) => ({
+    width: rect.maxX - rect.minX,
+    height: rect.maxY - rect.minY,
+    offsetX: rect.minX + (rect.maxX - rect.minX) / 2 - centerX,
+    offsetY: rect.minY + (rect.maxY - rect.minY) / 2 - centerY,
+  }));
+}
+
+function createDungeonInternalWallHitboxes(
+  rooms: readonly ProceduralDungeonRoom[],
+  dungeonCenterX: number,
+  dungeonCenterY: number,
+): NonNullable<ProceduralSpawnSpec["hitboxRects"]> {
+  const walls: NonNullable<ProceduralSpawnSpec["hitboxRects"]> = [];
+  const addWall = (minX: number, minY: number, maxX: number, maxY: number) => {
+    const width = maxX - minX;
+    const height = maxY - minY;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    walls.push({
+      width,
+      height,
+      offsetX: minX + width / 2 - dungeonCenterX,
+      offsetY: minY + height / 2 - dungeonCenterY,
+    });
+  };
+
+  for (const room of rooms) {
+    addDungeonRoomInteriorWalls(addWall, room);
+    if (room.role === "maze") {
+      addMazeRoomWalls(addWall, room);
+    }
+  }
+
+  return walls;
+}
+
+function addDungeonRoomInteriorWalls(
+  addWall: (minX: number, minY: number, maxX: number, maxY: number) => void,
+  room: ProceduralDungeonRoom,
+): void {
+  const t = 48;
+  const doorHalfWidth = 112;
+  addSplitHorizontalWall(
+    addWall,
+    room.minX,
+    room.maxX,
+    room.minY,
+    room.minY + t,
+    room.centerX,
+    doorHalfWidth,
+  );
+  addSplitHorizontalWall(
+    addWall,
+    room.minX,
+    room.maxX,
+    room.maxY - t,
+    room.maxY,
+    room.centerX,
+    doorHalfWidth,
+  );
+  addSplitVerticalWall(
+    addWall,
+    room.minY + t,
+    room.maxY - t,
+    room.minX,
+    room.minX + t,
+    room.centerY,
+    doorHalfWidth,
+  );
+  addSplitVerticalWall(
+    addWall,
+    room.minY + t,
+    room.maxY - t,
+    room.maxX - t,
+    room.maxX,
+    room.centerY,
+    doorHalfWidth,
+  );
+}
+
+function createDungeonDoorSpawns(
+  rooms: readonly ProceduralDungeonRoom[],
+  entrances: readonly ProceduralDungeonEntrance[],
+): ProceduralSpawnSpec[] {
+  const nearestEntrance = entrances[0];
+  const lockRoles = new Set<DungeonRoomRole>(["treasure", "boss"]);
+  return rooms
+    .filter((room) => lockRoles.has(room.role))
+    .map((room) => {
+      const dx = nearestEntrance ? room.centerX - nearestEntrance.x : 1;
+      const dy = nearestEntrance ? room.centerY - nearestEntrance.y : 0;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return spawn(
+          "building:dungeon_door",
+          dx >= 0 ? room.minX : room.maxX,
+          room.centerY,
+        );
+      }
+      return spawn(
+        "building:dungeon_door",
+        room.centerX,
+        dy >= 0 ? room.minY : room.maxY,
+      );
+    });
+}
+
+function addSplitHorizontalWall(
+  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
+  minX: number,
+  maxX: number,
+  wallMinY: number,
+  wallMaxY: number,
+  doorX: number | undefined,
+  doorHalfWidth: number,
+): void {
+  if (doorX === undefined) {
+    addRect(minX, wallMinY, maxX, wallMaxY);
+    return;
+  }
+  addRect(minX, wallMinY, doorX - doorHalfWidth, wallMaxY);
+  addRect(doorX + doorHalfWidth, wallMinY, maxX, wallMaxY);
+}
+
+function addSplitVerticalWall(
+  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
+  minY: number,
+  maxY: number,
+  wallMinX: number,
+  wallMaxX: number,
+  doorY: number | undefined,
+  doorHalfWidth: number,
+): void {
+  if (doorY === undefined) {
+    addRect(wallMinX, minY, wallMaxX, maxY);
+    return;
+  }
+  addRect(wallMinX, minY, wallMaxX, doorY - doorHalfWidth);
+  addRect(wallMinX, doorY + doorHalfWidth, wallMaxX, maxY);
+}
+
+function addMazeRoomWalls(
+  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
+  room: ProceduralDungeonRoom,
+): void {
+  const t = 48;
+  const inset = 168;
+  addRect(
+    room.minX + inset,
+    room.minY + 140,
+    room.minX + inset + t,
+    room.maxY - 420,
+  );
+  addRect(
+    room.minX + 360,
+    room.minY + 120,
+    room.maxX - 160,
+    room.minY + 120 + t,
+  );
+  addRect(
+    room.maxX - 280,
+    room.minY + 360,
+    room.maxX - 280 + t,
+    room.maxY - 140,
+  );
+  addRect(
+    room.minX + 180,
+    room.maxY - 260,
+    room.maxX - 360,
+    room.maxY - 260 + t,
+  );
 }
 
 function addArchetypeContent(
@@ -949,12 +1352,16 @@ function addDungeonRoomContent(
   room: ProceduralDungeonRoom,
   enemies: ProceduralSpawnSpec[],
   loot: ProceduralLootSpec[],
-  structures: ProceduralSpawnSpec[],
+  buildings: ProceduralSpawnSpec[],
 ): void {
   const x = room.centerX;
   const y = room.centerY;
   switch (room.role) {
     case "entrance":
+      enemies.push(
+        spawn("enemy:drifter", x - 160, y),
+        spawn("enemy:police", x + 160, y),
+      );
       loot.push(
         lootSpec("item:quality_food", x + 160, y, "stackable", "common", 2),
       );
@@ -965,17 +1372,52 @@ function addDungeonRoomContent(
         spawn("enemy:shoota", x + 120, y),
         spawn("enemy:police", x, y + 112),
       );
-      loot.push(lootSpec("item:pistol_mag", x, y + 120, "stackable", "common", 2));
+      loot.push(
+        lootSpec("item:pistol_mag", x, y + 120, "stackable", "common", 2),
+      );
+      break;
+    case "enemy_swarm":
+      enemies.push(
+        spawn("enemy:drifter", x - 240, y - 160),
+        spawn("enemy:drifter", x, y - 180),
+        spawn("enemy:drifter", x + 240, y - 160),
+        spawn("enemy:shoota", x - 180, y + 140),
+        spawn("enemy:shoota", x + 180, y + 140),
+        spawn("enemy:police", x, y + 220),
+      );
+      loot.push(lootSpec("item:rifle_mag", x, y, "stackable", "common", 2));
       break;
     case "treasure":
-      loot.push(
-        lootSpec("item:blueprint_katana", x - 80, y, "stackable", "rare", 1),
+      enemies.push(
+        crateSpawn("enemy:crate", x, y, [
+          { typeId: "item:sniper" as ResourceId, kind: "weapon" },
+          {
+            typeId: "item:blueprint_katana" as ResourceId,
+            kind: "stackable",
+            amount: 1,
+          },
+          {
+            typeId: "item:sniper_mag" as ResourceId,
+            kind: "stackable",
+            amount: 3,
+          },
+          {
+            typeId: "item:hunk" as ResourceId,
+            kind: "stackable",
+            amount: 12,
+          },
+        ]),
       );
       loot.push(lootSpec("item:hunk", x + 80, y, "stackable", "uncommon", 8));
       break;
-    case "rest":
-      loot.push(
-        lootSpec("item:quality_food", x, y + 96, "stackable", "uncommon", 3),
+    case "maze":
+      enemies.push(
+        spawn("enemy:stalker", x - 200, y - 180),
+        spawn("enemy:police", x + 220, y + 180),
+      );
+      buildings.push(
+        spawn("building:tripwire", x - 48, y - 96),
+        spawn("building:tripwire", x - 180, y),
       );
       break;
     case "armory":
@@ -987,52 +1429,52 @@ function addDungeonRoomContent(
         lootSpec("item:sniper_mag", x + 96, y + 96, "stackable", "rare", 2),
       );
       break;
-    case "objective":
-      enemies.push(spawn("enemy:saboteur", x, y));
-      loot.push(
-        lootSpec(
-          "item:blueprint_basic_rifle",
-          x,
-          y + 128,
-          "stackable",
-          "rare",
-          1,
-        ),
-      );
-      break;
-    case "hazard":
+    case "trap":
       enemies.push(
-        spawn("enemy:bomber", x - 96, y),
-        spawn("enemy:bomber", x + 96, y),
+        spawn("enemy:police", x - 160, y),
+        spawn("enemy:stalker", x + 160, y),
+      );
+      buildings.push(
+        spawn("building:tripwire", x - 112, y - 96),
+        spawn("building:tripwire", x, y),
+        spawn("building:tripwire", x + 112, y + 96),
       );
       loot.push(
         lootSpec("item:landmine", x, y + 128, "stackable", "uncommon", 2),
       );
       break;
-    case "crossroads":
-      loot.push(
-        lootSpec("item:crossbow_mag", x, y + 112, "stackable", "uncommon", 2),
-      );
-      break;
     case "mini_boss":
       enemies.push(spawn("enemy:commander", x, y));
       loot.push(lootSpec("item:crossbow", x, y + 160, "weapon", "rare", 1));
+      loot.push(
+        lootSpec("item:dungeon_key", x + 96, y + 160, "stackable", "rare", 2),
+      );
       break;
     case "boss":
       enemies.push(
-        spawn("enemy:megaknight", x - 96, y),
-        spawn("enemy:sniper", x + 96, y),
+        spawn("enemy:thanos", x, y - 80),
+        spawn("enemy:megaknight", x - 220, y + 160),
+        spawn("enemy:sniper", x + 220, y + 160),
       );
-      loot.push(lootSpec("item:sniper", x - 80, y + 160, "weapon", "epic", 1));
-      loot.push(
-        lootSpec(
-          "item:blueprint_sniper",
-          x + 80,
-          y + 160,
-          "stackable",
-          "epic",
-          1,
-        ),
+      enemies.push(
+        crateSpawn("enemy:crate", x, y + 260, [
+          { typeId: "item:thanos_rifle" as ResourceId, kind: "weapon" },
+          {
+            typeId: "item:blueprint_sniper" as ResourceId,
+            kind: "stackable",
+            amount: 1,
+          },
+          {
+            typeId: "item:sniper_mag" as ResourceId,
+            kind: "stackable",
+            amount: 4,
+          },
+          {
+            typeId: "item:hunk" as ResourceId,
+            kind: "stackable",
+            amount: 20,
+          },
+        ]),
       );
       break;
   }
@@ -1048,8 +1490,7 @@ function dungeonRoomLabel(role: DungeonRoomRole): string {
 function dungeonRoomRisk(role: DungeonRoomRole): ProceduralPoiFeature["risk"] {
   switch (role) {
     case "entrance":
-    case "rest":
-    case "crossroads":
+    case "maze":
       return "medium";
     case "mini_boss":
       return "high";
@@ -1062,101 +1503,16 @@ function dungeonRoomRisk(role: DungeonRoomRole): ProceduralPoiFeature["risk"] {
 
 function addDungeonArchitecture(
   structures: ProceduralSpawnSpec[],
+  buildings: ProceduralSpawnSpec[],
   dungeon: ProceduralDungeonPlan,
 ): void {
-  for (const room of dungeon.rooms) {
-    addDungeonRoomPerimeter(structures, room);
-  }
-}
-
-function addDungeonRoomPerimeter(
-  structures: ProceduralSpawnSpec[],
-  room: ProceduralDungeonRoom,
-): void {
-  const doorHalfWidth = 56;
-  const thickness = PROCEDURAL_TILE_SIZE;
-  const cornerGap = 4;
-  const doorMinX = room.centerX - doorHalfWidth;
-  const doorMaxX = room.centerX + doorHalfWidth;
-  const doorMinY = room.centerY - doorHalfWidth;
-  const doorMaxY = room.centerY + doorHalfWidth;
-
-  addDungeonWallSegment(
-    structures,
-    room.minX,
-    room.minY,
-    doorMinX,
-    room.minY + thickness,
-  );
-  addDungeonWallSegment(
-    structures,
-    doorMaxX,
-    room.minY,
-    room.maxX,
-    room.minY + thickness,
-  );
-  addDungeonWallSegment(
-    structures,
-    room.minX,
-    room.maxY - thickness,
-    doorMinX,
-    room.maxY,
-  );
-  addDungeonWallSegment(
-    structures,
-    doorMaxX,
-    room.maxY - thickness,
-    room.maxX,
-    room.maxY,
-  );
-  addDungeonWallSegment(
-    structures,
-    room.minX,
-    room.minY + thickness + cornerGap,
-    room.minX + thickness,
-    doorMinY,
-  );
-  addDungeonWallSegment(
-    structures,
-    room.minX,
-    doorMaxY,
-    room.minX + thickness,
-    room.maxY - thickness - cornerGap,
-  );
-  addDungeonWallSegment(
-    structures,
-    room.maxX - thickness,
-    room.minY + thickness + cornerGap,
-    room.maxX,
-    doorMinY,
-  );
-  addDungeonWallSegment(
-    structures,
-    room.maxX - thickness,
-    doorMaxY,
-    room.maxX,
-    room.maxY - thickness - cornerGap,
-  );
-}
-
-function addDungeonWallSegment(
-  structures: ProceduralSpawnSpec[],
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
-): void {
-  const width = maxX - minX;
-  const height = maxY - minY;
-  if (width <= 0 || height <= 0) {
-    return;
-  }
   structures.push({
-    typeId: "structure:dungeon_wall" as ResourceId,
-    x: minX + width / 2,
-    y: minY + height / 2,
-    hitboxRects: [{ width, height, offsetX: 0, offsetY: 0 }],
+    typeId: "structure:dungeon" as ResourceId,
+    x: snap((dungeon.minX + dungeon.maxX) / 2),
+    y: snap((dungeon.minY + dungeon.maxY) / 2),
+    hitboxRects: dungeon.wallHitboxRects,
   });
+  buildings.push(...dungeon.doors);
 }
 
 function addMilitaryBaseFeatures(
@@ -1742,16 +2098,6 @@ function adjacentSectorIds(row: number, col: number): string[] {
   }
   return ids;
 }
-
-function pickAndRemove<T>(rng: seedrandom.PRNG, values: T[]): T {
-  const index = Math.floor(rng() * values.length);
-  const [value] = values.splice(index, 1);
-  if (value === undefined) {
-    throw new Error("Cannot pick from an empty array.");
-  }
-  return value;
-}
-
 function shuffle<T>(rng: seedrandom.PRNG, values: T[]): T[] {
   for (let index = values.length - 1; index > 0; index -= 1) {
     const other = Math.floor(rng() * (index + 1));
@@ -1786,6 +2132,20 @@ function spawn(typeId: string, x: number, y: number): ProceduralSpawnSpec {
   return { typeId: typeId as ResourceId, x: snap(x), y: snap(y) };
 }
 
+function crateSpawn(
+  typeId: string,
+  x: number,
+  y: number,
+  crateLoot: ProceduralCrateLootSlot[],
+): ProceduralSpawnSpec {
+  return {
+    typeId: typeId as ResourceId,
+    x: snap(x),
+    y: snap(y),
+    crateLoot,
+  };
+}
+
 function lootSpec(
   typeId: string,
   x: number,
@@ -1813,6 +2173,10 @@ function snap(value: number): number {
     Math.floor(value / PROCEDURAL_TILE_SIZE) * PROCEDURAL_TILE_SIZE +
     PROCEDURAL_TILE_SIZE / 2
   );
+}
+
+function snapEdge(value: number): number {
+  return Math.floor(value / PROCEDURAL_TILE_SIZE) * PROCEDURAL_TILE_SIZE;
 }
 
 function clamp(value: number, min: number, max: number): number {

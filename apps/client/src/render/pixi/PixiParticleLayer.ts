@@ -49,6 +49,10 @@ export class PixiParticleLayer {
     this.triggerEffect(this.buildExplosionEffect(x, y, radius, style));
   }
 
+  public triggerCrateBreak(x: number, y: number): void {
+    this.triggerEffect(this.buildCrateBreakEffect(x, y));
+  }
+
   public triggerEffect(effect: ParticleEffectDescriptor): void {
     if (!this.softCircleTexture || !this.ringTexture) {
       return;
@@ -160,6 +164,43 @@ export class PixiParticleLayer {
         alpha: 0.65,
       });
     }
+
+    return { particles };
+  }
+
+  private buildCrateBreakEffect(
+    x: number,
+    y: number,
+  ): ParticleEffectDescriptor {
+    const particles: ParticleEffectParticleDescriptor[] = [];
+    const shardCount = 12;
+    for (let index = 0; index < shardCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / shardCount;
+      const speed = 0.085 + (index % 3) * 0.025;
+      particles.push({
+        kind: "soft-circle",
+        x,
+        y,
+        durationMs: 220 + (index % 4) * 20,
+        baseScale: 0.22 + (index % 2) * 0.08,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed,
+        tint: index % 2 === 0 ? 0x9b6a34 : 0x5a3518,
+        alpha: 0.85,
+      });
+    }
+
+    particles.push({
+      kind: "ring",
+      x,
+      y,
+      durationMs: 180,
+      baseScale: 0.62,
+      velocityX: 0,
+      velocityY: 0,
+      tint: 0xd6a15e,
+      alpha: 0.45,
+    });
 
     return { particles };
   }

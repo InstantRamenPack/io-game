@@ -3,12 +3,14 @@ import { CannonRenderer } from "@client/render/entity/building/CannonRenderer.ts
 import { ChestRenderer } from "@client/render/entity/building/ChestRenderer.ts";
 import { CommsTowerRenderer } from "@client/render/entity/building/CommsTowerRenderer.ts";
 import { CraftingStationRenderer } from "@client/render/entity/building/CraftingStationRenderer.ts";
+import { DungeonRenderer } from "@client/render/entity/building/DungeonRenderer.ts";
 import { EnergyTowerRenderer } from "@client/render/entity/building/EnergyTowerRenderer.ts";
 import { FenceRenderer } from "@client/render/entity/building/FenceRenderer.ts";
 import { LandmineRenderer } from "@client/render/entity/building/LandmineRenderer.ts";
 import { MapBuildingRenderer } from "@client/render/entity/building/MapBuildingRenderer.ts";
 import { RecyclerRenderer } from "@client/render/entity/building/RecyclerRenderer.ts";
 import { TreeRenderer } from "@client/render/entity/building/TreeRenderer.ts";
+import { TripwireRenderer } from "@client/render/entity/building/TripwireRenderer.ts";
 import { WallRenderer } from "@client/render/entity/building/WallRenderer.ts";
 import { DrifterRenderer } from "@client/render/entity/enemy/DrifterRenderer.ts";
 import { MegaknightRenderer } from "@client/render/entity/enemy/MegaknightRenderer.ts";
@@ -19,6 +21,7 @@ import { ThanosRenderer } from "@client/render/entity/enemy/ThanosRenderer.ts";
 import { WallbreakerRenderer } from "@client/render/entity/enemy/WallbreakerRenderer.ts";
 import { BomberRenderer } from "@client/render/entity/enemy/BomberRenderer.ts";
 import { CommanderRenderer } from "@client/render/entity/enemy/CommanderRenderer.ts";
+import { CrateRenderer } from "@client/render/entity/enemy/CrateRenderer.ts";
 import type {
   EntityRenderer,
   EntityRendererOptions,
@@ -61,13 +64,17 @@ const rendererManifests = [
   ["fence_h", FenceRenderer],
   ["fence_v", FenceRenderer],
   ["wall", WallRenderer],
+  ["dungeon", DungeonRenderer],
   ["dungeon_wall", WallRenderer],
   ["cannon", CannonRenderer],
   ["chest", ChestRenderer],
   ["comms_tower", CommsTowerRenderer],
+  ["crate", CrateRenderer],
   ["crafting_station", CraftingStationRenderer],
   ["energy_tower", EnergyTowerRenderer],
   ["landmine", LandmineRenderer],
+  ["dungeon_door", WallRenderer],
+  ["tripwire", TripwireRenderer],
   ["recycler", RecyclerRenderer],
   ["basic_bullet", BasicBulletRenderer],
   ["rifle_bullet", BasicBulletRenderer],

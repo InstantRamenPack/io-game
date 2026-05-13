@@ -9,6 +9,7 @@ import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { Cleaver } from "@server/items/weapons/Cleaver.ts";
+import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
 import { Scissors } from "@server/items/weapons/Scissors.ts";
 import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
@@ -34,16 +35,18 @@ export class Drifter extends Enemy {
    * @param id Stable runtime entity id.
    */
   constructor(id: number) {
+    const combat = requireHitboxEntityBaselineContent(Drifter.typeId).combat;
     super(id, {
       weapons: [Drifter.createSpawnWeapon()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 480),
+        new TargetEntityGoal<Enemy>(0, Player, 480, {
+          requireLineOfSight: true,
+        }),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
-        new AttackAtGoal<Enemy>(3, 0, 50),
+        new AttackAtGoal<Enemy>(3, 0, combat.attackMinIntervalTicks),
       ],
     });
-    this.damageMultiplier = 0.5;
   }
 
   private static createSpawnWeapon(): Weapon {

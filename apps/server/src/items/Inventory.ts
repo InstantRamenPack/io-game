@@ -353,7 +353,11 @@ export class Inventory {
   }
 
   public clearHotbar(): void {
-    for (let slotIndex = 0; slotIndex < this.hotbarSlots.length; slotIndex += 1) {
+    for (
+      let slotIndex = 0;
+      slotIndex < this.hotbarSlots.length;
+      slotIndex += 1
+    ) {
       this.hotbarSlots[slotIndex] = null;
     }
     this.selectedHotbarIndex = 0;
