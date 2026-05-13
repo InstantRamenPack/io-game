@@ -16,6 +16,9 @@ type EnemyConfig = {
   goals?: readonly Goal<Enemy>[];
 };
 
+const DEATH_LOOT_HUNK_MULTIPLIER = 3;
+const EQUIPPED_WEAPON_DROP_CHANCE = 0.24;
+
 /**
  * Hostile entity with goal-driven targeting and movement state.
  */
@@ -66,7 +69,7 @@ export class Enemy extends GoalControlledEntity {
     const inventory = new Inventory();
     inventory.addStackable(
       "item:hunk" as ResourceId,
-      1 + Math.floor(Math.random() * 4),
+      (1 + Math.floor(Math.random() * 4)) * DEATH_LOOT_HUNK_MULTIPLIER,
     );
 
     const equippedWeapon = this.weapons[0];
@@ -86,7 +89,7 @@ export class Enemy extends GoalControlledEntity {
 
     const shouldDropAllWeapons = this.typeId === ("enemy:thanos" as ResourceId);
     const shouldDropEquippedWeapon =
-      shouldDropAllWeapons || Math.random() < 0.12;
+      shouldDropAllWeapons || Math.random() < EQUIPPED_WEAPON_DROP_CHANCE;
     if (shouldDropEquippedWeapon) {
       for (const weapon of shouldDropAllWeapons
         ? this.weapons

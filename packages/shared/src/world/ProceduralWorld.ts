@@ -209,6 +209,8 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
   "roadside_village",
 ];
 
+const DUNGEON_ROOM_LINEAR_SCALE = 0.7;
+
 const ENEMY_BY_ARCHETYPE: Record<SectorArchetype, readonly ResourceId[]> = {
   home: ["enemy:drifter" as ResourceId],
   extraction: [
@@ -918,10 +920,22 @@ function createBspDungeonRooms(
 
   return orderedLeaves.map((leaf, index) => {
     const inset = 72;
-    const minX = snapEdge(leaf.minX + inset);
-    const minY = snapEdge(leaf.minY + inset);
-    const maxX = snapEdge(leaf.maxX - inset);
-    const maxY = snapEdge(leaf.maxY - inset);
+    const fullMinX = snapEdge(leaf.minX + inset);
+    const fullMinY = snapEdge(leaf.minY + inset);
+    const fullMaxX = snapEdge(leaf.maxX - inset);
+    const fullMaxY = snapEdge(leaf.maxY - inset);
+    const centerX = snap((fullMinX + fullMaxX) / 2);
+    const centerY = snap((fullMinY + fullMaxY) / 2);
+    const halfWidth = snapEdge(
+      ((fullMaxX - fullMinX) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
+    );
+    const halfHeight = snapEdge(
+      ((fullMaxY - fullMinY) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
+    );
+    const minX = snapEdge(centerX - halfWidth);
+    const minY = snapEdge(centerY - halfHeight);
+    const maxX = snapEdge(centerX + halfWidth);
+    const maxY = snapEdge(centerY + halfHeight);
     const role = roleOrder[index] ?? "combat";
     return {
       id: `dungeon_${role}_${index}`,
@@ -930,8 +944,8 @@ function createBspDungeonRooms(
       minY,
       maxX,
       maxY,
-      centerX: snap((minX + maxX) / 2),
-      centerY: snap((minY + maxY) / 2),
+      centerX,
+      centerY,
     };
   });
 }
@@ -1402,8 +1416,8 @@ function addDungeonRoomContent(
         spawn("enemy:police", x + 220, y + 180),
       );
       buildings.push(
-        spawn("building:tripwire", x - 60, y - 120),
-        spawn("building:tripwire", x + 140, y + 140),
+        spawn("building:tripwire", x - 48, y - 96),
+        spawn("building:tripwire", x - 180, y),
       );
       break;
     case "armory":
@@ -1421,9 +1435,9 @@ function addDungeonRoomContent(
         spawn("enemy:stalker", x + 160, y),
       );
       buildings.push(
-        spawn("building:tripwire", x - 220, y - 160),
+        spawn("building:tripwire", x - 112, y - 96),
         spawn("building:tripwire", x, y),
-        spawn("building:tripwire", x + 220, y + 160),
+        spawn("building:tripwire", x + 112, y + 96),
       );
       loot.push(
         lootSpec("item:landmine", x, y + 128, "stackable", "uncommon", 2),

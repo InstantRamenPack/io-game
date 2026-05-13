@@ -201,8 +201,8 @@ describe("procedural survival extraction world", () => {
         reachability.isReachable({ x: room.centerX, y: room.centerY }),
         `${room.id} should be reachable from a dungeon entrance`,
       ).toBe(true);
-      expect(room.maxX - room.minX).toBeGreaterThanOrEqual(900);
-      expect(room.maxY - room.minY).toBeGreaterThanOrEqual(900);
+      expect(room.maxX - room.minX).toBeGreaterThanOrEqual(630);
+      expect(room.maxY - room.minY).toBeGreaterThanOrEqual(630);
     }
   });
 

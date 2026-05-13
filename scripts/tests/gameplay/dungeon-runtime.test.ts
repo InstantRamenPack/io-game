@@ -37,10 +37,28 @@ describe("dungeon runtime mechanics", () => {
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
     expect(
       pickup.contents.countType("item:hunk" as ResourceId),
-    ).toBeGreaterThan(0);
+    ).toBe(3);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
     ).toBeGreaterThan(0);
+    expect(
+      pickup.contents.countType("item:basic_gun" as ResourceId),
+    ).toBeGreaterThan(0);
+  });
+
+  test("enemy death uses the upgraded carried weapon drop chance", () => {
+    bootstrapTestRegistries();
+    Math.random = () => 0.2;
+    const { runtime } = makeRuntime();
+    const enemy = new Shoota(runtime.world.allocEntityId());
+    enemy.x = runtime.world.gameConfig.worldSize.w / 2;
+    enemy.y = runtime.world.gameConfig.worldSize.h / 2;
+    runtime.world.spawn(enemy);
+
+    enemy.applyDamage(runtime.world, enemy.maxHp, 0);
+
+    const pickup = findPickupAt(runtime, enemy.x, enemy.y);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(3);
     expect(
       pickup.contents.countType("item:basic_gun" as ResourceId),
     ).toBeGreaterThan(0);
