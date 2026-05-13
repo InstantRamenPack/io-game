@@ -46,6 +46,34 @@ describe("dungeon runtime mechanics", () => {
     ).toBeGreaterThan(0);
   });
 
+  test("same-tick multi-kill loot does not reuse dead enemy ids", () => {
+    bootstrapTestRegistries();
+    Math.random = () => 0.5;
+    const { runtime } = makeRuntime();
+    const x = runtime.world.gameConfig.worldSize.w / 2;
+    const y = runtime.world.gameConfig.worldSize.h / 2;
+    const firstEnemy = new Shoota(runtime.world.allocEntityId());
+    const secondEnemy = new Shoota(runtime.world.allocEntityId());
+    firstEnemy.x = x;
+    firstEnemy.y = y;
+    secondEnemy.x = x + 16;
+    secondEnemy.y = y;
+    runtime.world.spawn(firstEnemy);
+    runtime.world.spawn(secondEnemy);
+    const deadEnemyIds = new Set([firstEnemy.id, secondEnemy.id]);
+
+    firstEnemy.applyDamage(runtime.world, firstEnemy.maxHp, 0);
+    secondEnemy.applyDamage(runtime.world, secondEnemy.maxHp, 0);
+
+    const pickups = runtime.world.entities
+      .all()
+      .filter((entity): entity is ItemEntity => entity instanceof ItemEntity);
+    expect(pickups).toHaveLength(2);
+    for (const pickup of pickups) {
+      expect(deadEnemyIds.has(pickup.id)).toBe(false);
+    }
+  });
+
   test("Thanos drops his carried weapons on death", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();

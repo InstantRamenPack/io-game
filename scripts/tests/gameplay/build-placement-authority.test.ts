@@ -182,7 +182,7 @@ describe("build placement authority", () => {
     ).toBeCloseTo(0, 3);
   });
 
-  test("outer-sector player buildings decay quickly while center buildings persist", () => {
+  test("outer-sector player buildings lose health over time while center buildings persist", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const layout = runtime.world.proceduralLayout;
@@ -228,6 +228,13 @@ describe("build placement authority", () => {
     expect(outerBuilding).toBeDefined();
 
     tick(runtime, runtime.world.gameConfig.tickRate * 6);
+    expect(runtime.world.entities.has(centerBuilding!.id)).toBe(true);
+    expect(centerBuilding!.hp).toBe(centerBuilding!.maxHp);
+    expect(runtime.world.entities.has(outerBuilding!.id)).toBe(true);
+    expect(outerBuilding!.hp).toBeLessThan(outerBuilding!.maxHp);
+    expect(outerBuilding!.hp).toBeGreaterThan(0);
+
+    tick(runtime, runtime.world.gameConfig.tickRate * 15);
     expect(runtime.world.entities.has(centerBuilding!.id)).toBe(true);
     expect(runtime.world.entities.has(outerBuilding!.id)).toBe(false);
   }, 10_000);
