@@ -17,6 +17,7 @@ type TargetEntityGoalOptions = {
 };
 
 const INSTANCE_SCAN_TARGET_LIMIT = 64;
+const HIDDEN_TARGET_AGGRO_GRACE_SECONDS = 20;
 
 /**
  * Maintains the nearest valid target instance for the acting goal-controlled entity.
@@ -33,6 +34,8 @@ export class TargetEntityGoal<
   private readonly blockerQueryBuffer: StaticGeometryBlocker[] = [];
   private cachedResolutionTick = -1;
   private cachedTarget: Entity | null = null;
+  private hiddenTargetId: number | undefined;
+  private hiddenTargetSinceTick: number | undefined;
 
   /**
    * Creates a target-acquisition goal for live entities of the requested class.
@@ -78,6 +81,7 @@ export class TargetEntityGoal<
 
   public override stop(ctx: GoalContext<TSelf>): void {
     ctx.self.targetId = undefined;
+    this.clearHiddenTarget();
   }
 
   private resolveValidTarget(
@@ -102,10 +106,12 @@ export class TargetEntityGoal<
       target.x,
       target.y,
     );
-    return distanceSquared <= this.aggroRangeSquared &&
-      this.canSeeTarget(ctx, target)
-      ? target
-      : null;
+    if (distanceSquared > this.aggroRangeSquared) {
+      this.clearHiddenTarget(target.id);
+      return null;
+    }
+
+    return this.canRetainTrackedTarget(ctx, target) ? target : null;
   }
 
   private resolveTargetCandidate(ctx: GoalContext<TSelf>): Entity | null {
@@ -275,5 +281,34 @@ export class TargetEntityGoal<
     }
 
     return true;
+  }
+
+  private canRetainTrackedTarget(
+    ctx: GoalContext<TSelf>,
+    target: Entity,
+  ): boolean {
+    if (!this.requireLineOfSight || this.canSeeTarget(ctx, target)) {
+      this.clearHiddenTarget(target.id);
+      return true;
+    }
+
+    if (this.hiddenTargetId !== target.id) {
+      this.hiddenTargetId = target.id;
+      this.hiddenTargetSinceTick = ctx.world.tick;
+    }
+
+    const hiddenSinceTick = this.hiddenTargetSinceTick ?? ctx.world.tick;
+    const hiddenTicks = ctx.world.tick - hiddenSinceTick + 1;
+    const graceTicks =
+      HIDDEN_TARGET_AGGRO_GRACE_SECONDS * ctx.world.gameConfig.tickRate;
+    return hiddenTicks < graceTicks;
+  }
+
+  private clearHiddenTarget(targetId?: number): void {
+    if (targetId !== undefined && this.hiddenTargetId !== targetId) {
+      return;
+    }
+    this.hiddenTargetId = undefined;
+    this.hiddenTargetSinceTick = undefined;
   }
 }

@@ -1,8 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  isRecipeBlueprintLocked,
-  getBlueprintUnlockedRecipeTypeId,
-} from "@shared/content/catalog.ts";
+import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -53,8 +50,6 @@ type PlayerInputIntentState = {
   movement: InputMovement;
   receivedAtMs: number;
 };
-
-const STRUCTURE_TILE_SIZE = 16;
 
 const RECYCLE_HUNK_BY_ITEM: Record<string, number> = {
   "item:fists": 0,
@@ -421,12 +416,8 @@ export class Player extends Entity {
     }
 
     const placedEntity = new targetEntityCtor(world.allocEntityId());
-    const snappedTargetX =
-      Math.floor(targetX / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
-    const snappedTargetY =
-      Math.floor(targetY / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
+    const snappedTargetX = Math.round(targetX);
+    const snappedTargetY = Math.round(targetY);
     placedEntity.x = snappedTargetX;
     placedEntity.y = snappedTargetY;
     placedEntity.ownerId = this.id;
@@ -834,31 +825,6 @@ export class Player extends Entity {
     this.inventory.consumeTypes([{ typeId: hunkTypeId, amount: repairCost }]);
     tower.hp = tower.maxHp;
     tower.alive = true;
-  }
-
-  private unlockBlueprintPickupRecipes(pickupInventory: Inventory): void {
-    const pickupTypeIds = new Set<ResourceId>();
-    for (const [typeId] of pickupInventory.resources.entries()) {
-      pickupTypeIds.add(typeId);
-    }
-    for (const slot of pickupInventory.hotbarSlots) {
-      if (!slot) {
-        continue;
-      }
-      if (slot.kind === "weapon") {
-        pickupTypeIds.add(slot.weapon.typeId);
-      } else {
-        pickupTypeIds.add(slot.typeId);
-      }
-    }
-
-    for (const typeId of pickupTypeIds) {
-      const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeId(typeId);
-      if (!unlockedRecipeTypeId) {
-        continue;
-      }
-      this.inventory.unlockRecipe(unlockedRecipeTypeId);
-    }
   }
 
   private applyChestMove(

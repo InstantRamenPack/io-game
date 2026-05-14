@@ -18,10 +18,11 @@ export type NavPathBenchmarkStats = {
   dirtyRectsProcessed: number;
 };
 
-const PATH_TILE_SIZE = 16;
-const PATHFIND_MAX_ITERATIONS = 50_000;
+const PATH_TILE_SIZE = 1;
+const PATHFIND_MAX_ITERATIONS = 200_000;
 const PATH_CACHE_MAX_ENTRIES = 2_048;
-const WAYPOINT_LOOKAHEAD_DISTANCE = PATH_TILE_SIZE * 3;
+const WAYPOINT_LOOKAHEAD_DISTANCE = 48;
+const PATH_HEURISTIC_WEIGHT = 3;
 const NEIGHBORS: ReadonlyArray<{ dx: number; dy: number; cost: number }> = [
   { dx: 1, dy: 0, cost: 1 },
   { dx: -1, dy: 0, cost: 1 },
@@ -41,15 +42,14 @@ export class NavGridPathService {
   private readonly tileSize = PATH_TILE_SIZE;
   private readonly widthTiles: number;
   private readonly heightTiles: number;
-  private readonly occupancy: Uint8Array;
+  private readonly occupancy = new Set<number>();
   private readonly dirtyRects: TileRect[] = [];
   private readonly openHeapNodes: number[] = [];
   private readonly openHeapScores: number[] = [];
-  private readonly gScore: Float64Array;
-  private readonly fScore: Float64Array;
-  private readonly cameFrom: Int32Array;
-  private readonly nodeEpoch: Uint32Array;
-  private readonly nodeState: Uint8Array;
+  private readonly gScore = new Map<number, number>();
+  private readonly fScore = new Map<number, number>();
+  private readonly cameFrom = new Map<number, number>();
+  private readonly nodeState = new Map<number, number>();
   private readonly queryBuffer: StaticGeometryBlocker[] = [];
   private readonly pathCache = new Map<PathCacheKey, CachedPath>();
   private readonly benchmarkStats: NavPathBenchmarkStats = {
@@ -62,17 +62,10 @@ export class NavGridPathService {
     dirtyUpdateMs: 0,
     dirtyRectsProcessed: 0,
   };
-  private searchEpoch = 1;
 
   constructor(worldSize: { w: number; h: number }) {
     this.widthTiles = Math.max(1, Math.ceil(worldSize.w / this.tileSize));
     this.heightTiles = Math.max(1, Math.ceil(worldSize.h / this.tileSize));
-    this.occupancy = new Uint8Array(this.widthTiles * this.heightTiles);
-    this.gScore = new Float64Array(this.occupancy.length);
-    this.fScore = new Float64Array(this.occupancy.length);
-    this.cameFrom = new Int32Array(this.occupancy.length);
-    this.nodeEpoch = new Uint32Array(this.occupancy.length);
-    this.nodeState = new Uint8Array(this.occupancy.length);
     this.markDirty({
       minX: 0,
       minY: 0,
@@ -257,19 +250,20 @@ export class NavGridPathService {
     if (this.benchmarkEnabled) {
       this.benchmarkStats.pathSearches += 1;
     }
-    this.beginSearchEpoch();
-    const epoch = this.searchEpoch;
+    this.beginSearch();
     if (startIndex === goalIndex) {
       return [start];
     }
 
     this.resetOpenHeap();
-    this.touchNodeForEpoch(startIndex, epoch);
-    this.gScore[startIndex] = 0;
-    this.fScore[startIndex] = octileDistance(start.x, start.y, goal.x, goal.y);
-    this.cameFrom[startIndex] = -1;
-    this.nodeState[startIndex] = NavGridPathService.NODE_STATE_OPEN;
-    this.pushOpenHeap(startIndex, this.fScore[startIndex] ?? 0);
+    this.touchNode(startIndex);
+    this.gScore.set(startIndex, 0);
+    const startFScore =
+      octileDistance(start.x, start.y, goal.x, goal.y) * PATH_HEURISTIC_WEIGHT;
+    this.fScore.set(startIndex, startFScore);
+    this.cameFrom.set(startIndex, -1);
+    this.nodeState.set(startIndex, NavGridPathService.NODE_STATE_OPEN);
+    this.pushOpenHeap(startIndex, startFScore);
 
     let iterations = 0;
     while (
@@ -282,18 +276,16 @@ export class NavGridPathService {
         continue;
       }
       const current = currentOpen.node;
-      if (
-        this.nodeEpoch[current] !== epoch ||
-        this.nodeState[current] !== NavGridPathService.NODE_STATE_OPEN
-      ) {
+      if (this.nodeState.get(current) !== NavGridPathService.NODE_STATE_OPEN) {
         continue;
       }
       if (
-        currentOpen.score > (this.fScore[current] ?? Number.POSITIVE_INFINITY)
+        currentOpen.score >
+        (this.fScore.get(current) ?? Number.POSITIVE_INFINITY)
       ) {
         continue;
       }
-      this.nodeState[current] = NavGridPathService.NODE_STATE_CLOSED;
+      this.nodeState.set(current, NavGridPathService.NODE_STATE_CLOSED);
 
       if (current === goalIndex) {
         if (this.benchmarkEnabled) {
@@ -325,29 +317,29 @@ export class NavGridPathService {
         }
 
         const nextIndex = this.tileToIndex(nextX, nextY);
-        this.touchNodeForEpoch(nextIndex, epoch);
+        this.touchNode(nextIndex);
         if (
-          this.nodeState[nextIndex] === NavGridPathService.NODE_STATE_CLOSED
+          this.nodeState.get(nextIndex) === NavGridPathService.NODE_STATE_CLOSED
         ) {
           continue;
         }
 
-        const currentScore = this.gScore[current] ?? Number.POSITIVE_INFINITY;
+        const currentScore =
+          this.gScore.get(current) ?? Number.POSITIVE_INFINITY;
         const nextScore =
-          this.nodeEpoch[nextIndex] === epoch
-            ? (this.gScore[nextIndex] ?? Number.POSITIVE_INFINITY)
-            : Number.POSITIVE_INFINITY;
+          this.gScore.get(nextIndex) ?? Number.POSITIVE_INFINITY;
         const tentative = currentScore + neighbor.cost;
         if (tentative >= nextScore) {
           continue;
         }
 
-        this.cameFrom[nextIndex] = current;
-        this.gScore[nextIndex] = tentative;
+        this.cameFrom.set(nextIndex, current);
+        this.gScore.set(nextIndex, tentative);
         const nextFScore =
-          tentative + octileDistance(nextX, nextY, goal.x, goal.y);
-        this.fScore[nextIndex] = nextFScore;
-        this.nodeState[nextIndex] = NavGridPathService.NODE_STATE_OPEN;
+          tentative +
+          octileDistance(nextX, nextY, goal.x, goal.y) * PATH_HEURISTIC_WEIGHT;
+        this.fScore.set(nextIndex, nextFScore);
+        this.nodeState.set(nextIndex, NavGridPathService.NODE_STATE_OPEN);
         this.pushOpenHeap(nextIndex, nextFScore);
       }
     }
@@ -360,23 +352,21 @@ export class NavGridPathService {
     return null;
   }
 
-  private beginSearchEpoch(): void {
-    this.searchEpoch += 1;
-    if (this.searchEpoch > 0xffff_fffe) {
-      this.nodeEpoch.fill(0);
-      this.searchEpoch = 1;
-    }
+  private beginSearch(): void {
+    this.gScore.clear();
+    this.fScore.clear();
+    this.cameFrom.clear();
+    this.nodeState.clear();
   }
 
-  private touchNodeForEpoch(nodeIndex: number, epoch: number): void {
-    if (this.nodeEpoch[nodeIndex] === epoch) {
+  private touchNode(nodeIndex: number): void {
+    if (this.nodeState.has(nodeIndex)) {
       return;
     }
-    this.nodeEpoch[nodeIndex] = epoch;
-    this.gScore[nodeIndex] = Number.POSITIVE_INFINITY;
-    this.fScore[nodeIndex] = Number.POSITIVE_INFINITY;
-    this.cameFrom[nodeIndex] = -1;
-    this.nodeState[nodeIndex] = NavGridPathService.NODE_STATE_UNSEEN;
+    this.gScore.set(nodeIndex, Number.POSITIVE_INFINITY);
+    this.fScore.set(nodeIndex, Number.POSITIVE_INFINITY);
+    this.cameFrom.set(nodeIndex, -1);
+    this.nodeState.set(nodeIndex, NavGridPathService.NODE_STATE_UNSEEN);
   }
 
   private resetOpenHeap(): void {
@@ -509,7 +499,7 @@ export class NavGridPathService {
       const rect = this.worldBoundsToTileRect(hitbox);
       for (let y = rect.minY; y <= rect.maxY; y += 1) {
         for (let x = rect.minX; x <= rect.maxX; x += 1) {
-          this.occupancy[this.tileToIndex(x, y)] = 1;
+          this.occupancy.add(this.tileToIndex(x, y));
         }
       }
     }
@@ -518,7 +508,7 @@ export class NavGridPathService {
   private clearRect(rect: TileRect): void {
     for (let y = rect.minY; y <= rect.maxY; y += 1) {
       for (let x = rect.minX; x <= rect.maxX; x += 1) {
-        this.occupancy[this.tileToIndex(x, y)] = 0;
+        this.occupancy.delete(this.tileToIndex(x, y));
       }
     }
   }
@@ -598,7 +588,7 @@ export class NavGridPathService {
 
   private isTileWalkable(x: number, y: number): boolean {
     return (
-      this.isTileInBounds(x, y) && this.occupancy[this.tileToIndex(x, y)] === 0
+      this.isTileInBounds(x, y) && !this.occupancy.has(this.tileToIndex(x, y))
     );
   }
 
@@ -648,7 +638,7 @@ export class NavGridPathService {
   }
 
   private makePathKey(startIndex: number, goalIndex: number): PathCacheKey {
-    return startIndex * this.occupancy.length + goalIndex;
+    return startIndex * (this.widthTiles * this.heightTiles) + goalIndex;
   }
 
   private storePathInCache(key: PathCacheKey, path: CachedPath): void {
@@ -667,7 +657,7 @@ function isStaticNavBlocker(entity: Entity): boolean {
 }
 
 function reconstructPath(
-  cameFrom: Int32Array,
+  cameFrom: ReadonlyMap<number, number>,
   current: number,
   widthTiles: number,
 ): TilePoint[] {
@@ -675,7 +665,7 @@ function reconstructPath(
   let cursor = current;
   while (cursor >= 0) {
     path.push({ x: cursor % widthTiles, y: Math.floor(cursor / widthTiles) });
-    cursor = cameFrom[cursor] ?? -1;
+    cursor = cameFrom.get(cursor) ?? -1;
   }
   path.reverse();
   return path;

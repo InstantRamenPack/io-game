@@ -14,7 +14,6 @@ import {
 
 const wallItemId = makeResourceId("item", "wall");
 const treeItemId = makeResourceId("item", "structure_tree");
-const STRUCTURE_TILE_SIZE = 16;
 
 function addAndSelectBuildable(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -132,7 +131,7 @@ describe("build placement authority", () => {
     expect(runtime.world.entities.all().length).toBe(beforeCount);
   });
 
-  test("structure placement snaps to grid", () => {
+  test("structure placement snaps to pixel", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const homeBounds = runtime.world.proceduralLayout?.homeBounds;
@@ -150,17 +149,11 @@ describe("build placement authority", () => {
     const spawned = getNewEntities(beforeIds, runtime.world.entities.all());
     expect(spawned.length).toBeGreaterThan(0);
     const structure = spawned[0]!;
-    const expectedX =
-      Math.floor((player.x + 128) / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
-    const expectedY =
-      Math.floor(player.y / STRUCTURE_TILE_SIZE) * STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
-    expect(structure.x).toBeCloseTo(expectedX, 3);
-    expect(structure.y).toBeCloseTo(expectedY, 3);
+    expect(structure.x).toBe(Math.round(player.x + 128));
+    expect(structure.y).toBe(Math.round(player.y));
   });
 
-  test("player building placement snaps to grid", () => {
+  test("player building placement snaps to pixel", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     addAndSelectBuildable(player, wallItemId, 1);
@@ -174,12 +167,8 @@ describe("build placement authority", () => {
     const spawned = getNewEntities(beforeIds, runtime.world.entities.all());
     expect(spawned.length).toBeGreaterThan(0);
     const building = spawned[0]!;
-    expect(
-      (building.x - STRUCTURE_TILE_SIZE / 2) % STRUCTURE_TILE_SIZE,
-    ).toBeCloseTo(0, 3);
-    expect(
-      (building.y - STRUCTURE_TILE_SIZE / 2) % STRUCTURE_TILE_SIZE,
-    ).toBeCloseTo(0, 3);
+    expect(building.x).toBe(Math.round(player.x + 47));
+    expect(building.y).toBe(Math.round(player.y + 19));
   });
 
   test("outer-sector player buildings lose health over time while center buildings persist", () => {
