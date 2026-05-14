@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import { toVisibilityBlocker } from "@client/net/presentation/PixiWorldPresentationSink.ts";
+import { countVisibilityShadowPolygonsForBenchmark } from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import { computeLightsOutPresentation } from "@client/render/pixi/PixiWorldView.ts";
 import {
   makeBuildingSnapshot,
@@ -143,6 +144,32 @@ describe("lights-out visibility", () => {
     expect(toVisibilityBlocker(tripwire)).toBeNull();
   });
 
+  test("lights-out shadow projection includes blockers beyond visibility radius", () => {
+    const visibility = {
+      restricted: true,
+      center: { x: 0, y: 0 },
+      radius: 500,
+    };
+    const blockers = [
+      {
+        kind: "rects" as const,
+        sourceEntityId: 1,
+        rects: [{ minX: 2000, minY: -50, maxX: 2100, maxY: 50 }],
+      },
+      {
+        kind: "circle" as const,
+        sourceEntityId: 2,
+        centerX: 0,
+        centerY: 2200,
+        radius: 40,
+      },
+    ];
+
+    expect(
+      countVisibilityShadowPolygonsForBenchmark(visibility, blockers),
+    ).toBe(5);
+  });
+
   test("night lights-out uses the tighter home radius", () => {
     const worldSize = { w: 12_288, h: 12_288 };
     const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
@@ -171,6 +198,20 @@ describe("lights-out visibility", () => {
         energyActive: true,
       }).alpha,
     ).toBe(1);
+  });
+
+  test("transition blends activation radius smoothly between day and night", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
+
+    expect(
+      computeLightsOutPresentation({
+        player: { x: center.x + 1343.75, y: center.y },
+        worldSize,
+        nightBlend: 0.5,
+        energyActive: true,
+      }).alpha,
+    ).toBeCloseTo(0.5);
   });
 
   test("energy failure forces full lights-out anywhere", () => {

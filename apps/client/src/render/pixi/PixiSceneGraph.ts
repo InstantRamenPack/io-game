@@ -21,6 +21,7 @@ export class PixiSceneGraph {
     this.worldRoot.interactiveChildren = false;
     this.effectLayer.interactiveChildren = false;
     this.entityLayer.interactiveChildren = false;
+    this.entityLayer.sortableChildren = true;
     this.placementLayer.interactiveChildren = false;
     this.gridLayer.interactiveChildren = false;
     this.hudRoot.cullableChildren = false;

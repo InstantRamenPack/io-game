@@ -30,6 +30,29 @@ describe("snapshot client application", () => {
     expect(entity?.serverX).toBeCloseTo(40, 3);
   });
 
+  test("delta omitting unchanged equipped item keeps weapon visible", () => {
+    const state = new ClientWorldState(HISTORY_LIMIT);
+    state.pushSnapshot(
+      makeSnapshot(1, [
+        makePlayerSnapshot(1, 0, 0, {
+          equippedItem: {
+            typeId: "item:basic_gun",
+            attackStyle: "shoot",
+            cooldownTicksRemaining: 0,
+          },
+        }),
+      ]),
+      50,
+    );
+    state.pushSnapshot(
+      makeSnapshot(2, [makePlayerSnapshot(1, 40, 0)], { full: false }),
+      100,
+    );
+
+    const entity = state.clientWorld?.entities.get(1);
+    expect(entity?.equippedItem?.typeId).toBe("item:basic_gun");
+  });
+
   test("incomplete delta-only new entities are ignored until complete", () => {
     const state = new ClientWorldState(HISTORY_LIMIT);
     const incomplete = {

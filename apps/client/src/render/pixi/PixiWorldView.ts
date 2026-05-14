@@ -71,26 +71,22 @@ export function computeLightsOutPresentation(options: {
     x: worldSize.w / 2,
     y: worldSize.h / 2,
   };
-  const thresholds =
-    nightBlend >= 0.5
-      ? {
-          fadeStartRadius: NIGHT_LIGHTS_OUT_FADE_START_RADIUS,
-          fadeEndRadius: NIGHT_LIGHTS_OUT_FADE_END_RADIUS,
-        }
-      : {
-          fadeStartRadius: DAY_LIGHTS_OUT_FADE_START_RADIUS,
-          fadeEndRadius: DAY_LIGHTS_OUT_FADE_END_RADIUS,
-        };
+  const fadeStartRadius = lerp(
+    DAY_LIGHTS_OUT_FADE_START_RADIUS,
+    NIGHT_LIGHTS_OUT_FADE_START_RADIUS,
+    nightBlend,
+  );
+  const fadeEndRadius = lerp(
+    DAY_LIGHTS_OUT_FADE_END_RADIUS,
+    NIGHT_LIGHTS_OUT_FADE_END_RADIUS,
+    nightBlend,
+  );
   const distanceFromCenter = Math.hypot(
     player.x - center.x,
     player.y - center.y,
   );
   const alpha = energyActive
-    ? inverseLerp(
-        thresholds.fadeStartRadius,
-        thresholds.fadeEndRadius,
-        distanceFromCenter,
-      )
+    ? inverseLerp(fadeStartRadius, fadeEndRadius, distanceFromCenter)
     : 1;
   return {
     alpha,

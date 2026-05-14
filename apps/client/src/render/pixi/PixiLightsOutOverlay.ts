@@ -296,10 +296,10 @@ export function countVisibilityShadowPolygonsForBenchmark(
   for (const blocker of blockers) {
     if (blocker.kind === "rects") {
       for (const rect of blocker.rects) {
-        count += isRectBlockerShadowRelevant(visibility, rect) ? 4 : 0;
+        count += shouldProjectRectBlockerShadow(visibility, rect) ? 4 : 0;
       }
     } else {
-      count += isCircleBlockerShadowRelevant(visibility, blocker) ? 1 : 0;
+      count += shouldProjectCircleBlockerShadow(visibility, blocker) ? 1 : 0;
     }
   }
   return count;
@@ -310,7 +310,7 @@ function buildRectBlockerShadows(
   rect: VisibilityBlockerRect,
 ): WorldPoint[][] {
   const origin = visibility.center;
-  if (!isRectBlockerShadowRelevant(visibility, rect)) {
+  if (!shouldProjectRectBlockerShadow(visibility, rect)) {
     return [];
   }
   const corners = [
@@ -333,7 +333,7 @@ function buildCircleBlockerShadow(
   blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
 ): WorldPoint[][] {
   const origin = visibility.center;
-  if (!isCircleBlockerShadowRelevant(visibility, blocker)) {
+  if (!shouldProjectCircleBlockerShadow(visibility, blocker)) {
     return [];
   }
   const dx = blocker.centerX - origin.x;
@@ -352,19 +352,14 @@ function buildCircleBlockerShadow(
   return buildProjectedTrapezoid(origin, a, b);
 }
 
-function isRectBlockerShadowRelevant(
+function shouldProjectRectBlockerShadow(
   visibility: LightsOutVisibilityContext,
   rect: VisibilityBlockerRect,
 ): boolean {
-  const origin = visibility.center;
-  const radiusSquared = visibility.radius * visibility.radius;
-  return (
-    distanceToRectSquared(origin, rect) <= radiusSquared &&
-    !pointInRect(origin, rect)
-  );
+  return !pointInRect(visibility.center, rect);
 }
 
-function isCircleBlockerShadowRelevant(
+function shouldProjectCircleBlockerShadow(
   visibility: LightsOutVisibilityContext,
   blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
 ): boolean {
@@ -373,10 +368,7 @@ function isCircleBlockerShadowRelevant(
   const dy = blocker.centerY - origin.y;
   const distanceSquared = dx * dx + dy * dy;
   const minDistance = blocker.radius + MIN_DISTANCE_EPSILON;
-  return (
-    distanceSquared <= visibility.radius * visibility.radius &&
-    distanceSquared > minDistance * minDistance
-  );
+  return distanceSquared > minDistance * minDistance;
 }
 
 function buildProjectedTrapezoid(
@@ -407,15 +399,6 @@ function extendWorldPointFromOrigin(
     x: origin.x + (dx / length) * distance,
     y: origin.y + (dy / length) * distance,
   };
-}
-
-function distanceToRectSquared(
-  point: WorldPoint,
-  rect: VisibilityBlockerRect,
-): number {
-  const dx = Math.max(rect.minX - point.x, 0, point.x - rect.maxX);
-  const dy = Math.max(rect.minY - point.y, 0, point.y - rect.maxY);
-  return dx * dx + dy * dy;
 }
 
 function pointInRect(point: WorldPoint, rect: VisibilityBlockerRect): boolean {

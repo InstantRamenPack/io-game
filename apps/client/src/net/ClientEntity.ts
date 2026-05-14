@@ -343,36 +343,68 @@ export class ClientEntity {
 
     switch (snapshot.kind) {
       case "player":
-        this.name = snapshot.name;
-        this.inventory = snapshot.inventory;
-        this.activeEffects = snapshot.activeEffects;
-        this.moveSpeed = snapshot.moveSpeed;
+        this.name =
+          isFullSnapshot || "name" in snapshot ? snapshot.name : previousName;
+        this.inventory =
+          isFullSnapshot || "inventory" in snapshot
+            ? snapshot.inventory
+            : previousInventory;
+        this.activeEffects =
+          isFullSnapshot || "activeEffects" in snapshot
+            ? snapshot.activeEffects
+            : previousEffects;
+        this.moveSpeed =
+          isFullSnapshot || "moveSpeed" in snapshot
+            ? snapshot.moveSpeed
+            : previousMoveSpeed;
         if (isFullSnapshot || "equippedItem" in snapshot) {
           this.equippedItem = snapshot.equippedItem;
+        } else {
+          this.equippedItem = previousEquippedItem;
         }
-        this.food = snapshot.food;
-        this.maxFood = snapshot.maxFood;
+        this.food =
+          isFullSnapshot || "food" in snapshot ? snapshot.food : previousFood;
+        this.maxFood =
+          isFullSnapshot || "maxFood" in snapshot
+            ? snapshot.maxFood
+            : previousMaxFood;
         break;
       case "enemy":
         if (isFullSnapshot || "targetId" in snapshot) {
           this.targetId = snapshot.targetId;
+        } else {
+          this.targetId = previousTargetId;
         }
         if (isFullSnapshot || "equippedItem" in snapshot) {
           this.equippedItem = snapshot.equippedItem;
+        } else {
+          this.equippedItem = previousEquippedItem;
         }
         break;
       case "building":
-        this.label = snapshot.label;
-        this.tier = snapshot.tier;
+        this.label =
+          isFullSnapshot || "label" in snapshot
+            ? snapshot.label
+            : previousLabel;
+        this.tier =
+          isFullSnapshot || "tier" in snapshot ? snapshot.tier : previousTier;
         if (isFullSnapshot || "chestSlots" in snapshot) {
           this.chestSlots = snapshot.chestSlots;
+        } else {
+          this.chestSlots = previousChestSlots;
         }
         break;
       case "structure":
-        this.label = snapshot.label;
+        this.label =
+          isFullSnapshot || "label" in snapshot
+            ? snapshot.label
+            : previousLabel;
         break;
       case "pickup":
-        this.inventory = snapshot.inventory;
+        this.inventory =
+          isFullSnapshot || "inventory" in snapshot
+            ? snapshot.inventory
+            : previousInventory;
         if (previousInventory !== this.inventory) {
           this.visualVersion += 1;
         }

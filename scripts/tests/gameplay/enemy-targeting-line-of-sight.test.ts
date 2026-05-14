@@ -43,7 +43,7 @@ describe("enemy target line of sight", () => {
     expect(enemy.targetId).toBe(player.id);
 
     spawnWall(runtime, 180, 100);
-    tick(runtime, 10 * 19);
+    tick(runtime, 399);
 
     expect(enemy.targetId).toBe(player.id);
   });
@@ -56,13 +56,13 @@ describe("enemy target line of sight", () => {
     tick(runtime, 1);
     expect(enemy.targetId).toBe(player.id);
 
-    player.x = 1000;
+    player.x = 1300;
     tick(runtime, 1);
 
     expect(enemy.targetId).toBeUndefined();
   });
 
-  test("enemy drops existing player lock after twenty seconds without line of sight", () => {
+  test("enemy drops existing player lock after four hundred ticks without line of sight", () => {
     const { runtime } = makeRuntime({ config: { tickRate: 10 } });
     const player = spawnPlayerLikeDynamic(runtime, 100, 100);
     const enemy = spawnEnemy(runtime, "police", 260, 100) as Enemy;
@@ -72,7 +72,7 @@ describe("enemy target line of sight", () => {
     expect(enemy.targetId).toBe(player.id);
 
     spawnWall(runtime, 180, 100);
-    tick(runtime, 10 * 20);
+    tick(runtime, 400);
 
     expect(enemy.targetId).toBeUndefined();
   });

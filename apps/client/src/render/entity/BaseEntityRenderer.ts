@@ -23,6 +23,9 @@ type EquippedContentCache = {
   texture: PIXI.Texture;
 };
 
+const WORLD_STATIC_Z_BUCKET = 1_000_000;
+const EQUIPPED_ITEM_Z_OFFSET = 0.1;
+
 export abstract class BaseEntityRenderer implements EntityRenderer {
   protected readonly entityContainer: PIXI.Container;
   protected readonly entityGraphic: PIXI.Graphics;
@@ -74,12 +77,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.equippedItemSprite.anchor.set(0.5, 0.5);
     this.equippedItemContainer.visible = false;
     this.equippedItemContainer.addChild(this.equippedItemSprite);
+    pixiRenderer.entityContainer.addChild(this.equippedItemContainer);
 
     this.damageFlashGraphic = new PIXI.Graphics();
     this.damageFlashGraphic.alpha = 0;
     this.damageFlashGraphic.visible = false;
     this.entityContainer.addChild(this.damageFlashGraphic);
-    this.entityContainer.addChild(this.equippedItemContainer);
 
     this.healthBarContainer = new PIXI.Container();
     this.healthBarTrackGraphic = new PIXI.Graphics();
@@ -94,17 +97,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
       this.hitboxGraphic = new PIXI.Graphics();
       this.hitboxContainer.addChild(this.hitboxGraphic);
-      // Create a per-entity equipped hitbox graphic and insert it just
-      // before the equipped item container so it renders behind the weapon
-      // sprite itself.
+      // Keep the debug attack shape with the entity body; the weapon sprite is
+      // a sibling so structures/buildings can sort over it independently.
       this.equippedHitboxGraphic = new PIXI.Graphics();
-      const insertIndex = this.entityContainer.getChildIndex(
-        this.equippedItemContainer,
-      );
-      this.entityContainer.addChildAt(
-        this.equippedHitboxGraphic,
-        Math.max(0, insertIndex),
-      );
+      this.entityContainer.addChild(this.equippedHitboxGraphic);
     }
 
     if (debugInterpolationMode > 0) {
@@ -124,14 +120,19 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const visualY = presentation?.y ?? entity.y;
     const visualRotation = presentation?.rotation ?? entity.rotation;
     this.entityContainer.position.set(visualX, visualY);
+    this.equippedItemContainer.position.set(visualX, visualY);
+    this.entityContainer.zIndex = this.getEntityZIndex(entity, visualY);
+    this.equippedItemContainer.zIndex = visualY + EQUIPPED_ITEM_Z_OFFSET;
 
     if (this.hitboxContainer) {
       this.hitboxContainer.position.set(entity.x, entity.y);
+      this.hitboxContainer.zIndex = this.entityContainer.zIndex;
     }
 
     if (this.debugContainer) {
       this.debugContainer.position.set(entity.serverX, entity.serverY);
       this.debugContainer.rotation = entity.rotation;
+      this.debugContainer.zIndex = this.entityContainer.zIndex;
     }
 
     if (this.pixiRenderer.playerEntityId === entity.id) {
@@ -249,6 +250,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   public setVisibilityAlpha(alpha: number): void {
     const clampedAlpha = Math.max(0, Math.min(1, alpha));
     this.entityContainer.alpha = clampedAlpha;
+    this.equippedItemContainer.alpha = clampedAlpha;
     if (this.hitboxContainer) {
       this.hitboxContainer.alpha = clampedAlpha;
     }
@@ -267,6 +269,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   public destroy(): void {
     if (this.pixiRenderer.entityContainer && this.entityContainer.parent) {
       this.pixiRenderer.entityContainer.removeChild(this.entityContainer);
+    }
+    if (
+      this.pixiRenderer.entityContainer &&
+      this.equippedItemContainer.parent
+    ) {
+      this.pixiRenderer.entityContainer.removeChild(this.equippedItemContainer);
     }
     if (this.pixiRenderer.entityContainer && this.hitboxContainer?.parent) {
       this.pixiRenderer.entityContainer.removeChild(this.hitboxContainer);
@@ -302,6 +310,13 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
   protected getVisualRadius(entity: ClientEntity): number {
     return Math.max(entity.hitboxBounds.width, entity.hitboxBounds.height) / 2;
+  }
+
+  protected getEntityZIndex(entity: ClientEntity, visualY: number): number {
+    if (entity.kind === "building" || entity.kind === "structure") {
+      return WORLD_STATIC_Z_BUCKET + visualY;
+    }
+    return visualY;
   }
 
   protected redrawPresentation(

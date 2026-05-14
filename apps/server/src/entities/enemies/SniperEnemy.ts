@@ -15,7 +15,7 @@ export class SniperEnemy extends Enemy {
     super(id, {
       weapons: [new Sniper()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 980, {
+        new TargetEntityGoal<Enemy>(0, Player, 1470, {
           requireLineOfSight: true,
         }),
         new LookAtTargetGoal<Enemy>(1),

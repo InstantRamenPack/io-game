@@ -68,7 +68,6 @@ export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
       renderManifest.holdOffset.y,
     );
 
-    container.position.set(0, 0);
     container.rotation =
       input.rotation +
       toRadians(renderManifest.holdRotationDeg) +

@@ -1,6 +1,7 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { Goal } from "@server/goals/Goal.ts";
+import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
@@ -16,8 +17,7 @@ type EnemyConfig = {
   goals?: readonly Goal<Enemy>[];
 };
 
-const DEATH_LOOT_HUNK_MULTIPLIER = 3;
-const EQUIPPED_WEAPON_DROP_CHANCE = 0.24;
+const EQUIPPED_WEAPON_DROP_CHANCE = 0.25;
 
 /**
  * Hostile entity with goal-driven targeting and movement state.
@@ -37,7 +37,7 @@ export class Enemy extends GoalControlledEntity {
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
     this.damageMultiplier = content.combat.damageMultiplier;
-    this.registerGoals(config.goals ?? []);
+    this.registerGoals([...(config.goals ?? []), new WanderGoal<Enemy>(100)]);
     this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(
       content.hitboxProfiles,
@@ -69,7 +69,7 @@ export class Enemy extends GoalControlledEntity {
     const inventory = new Inventory();
     inventory.addStackable(
       "item:hunk" as ResourceId,
-      (1 + Math.floor(Math.random() * 4)) * DEATH_LOOT_HUNK_MULTIPLIER,
+      3 + Math.floor(Math.random() * 12),
     );
 
     const equippedWeapon = this.weapons[0];

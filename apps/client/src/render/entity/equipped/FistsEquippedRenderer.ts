@@ -29,7 +29,6 @@ export class FistsEquippedRenderer implements EquippedItemRenderer {
   public syncStatic(input: EquippedStaticSyncInput): void {
     input.sprite.visible = false;
     input.container.rotation = input.rotation;
-    input.container.position.set(0, 0);
 
     const hands = this.ensureHands(input.container);
     this.drawHand(hands.left);
@@ -40,7 +39,6 @@ export class FistsEquippedRenderer implements EquippedItemRenderer {
   public syncAnimated(input: EquippedAnimatedSyncInput): void {
     input.sprite.visible = false;
     input.container.rotation = input.rotation;
-    input.container.position.set(0, 0);
     this.syncHandPositions(input, this.ensureHands(input.container));
   }
 

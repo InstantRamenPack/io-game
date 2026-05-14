@@ -291,11 +291,11 @@ export class WaveSpawner {
       world.spawn(entity);
 
       // Priority -1 overrides the class-default TargetEntityGoal (priority 0).
-      // 6000px covers the full home sector from any perimeter spawn point (~4950px max),
+      // 9000px covers the full home sector from any perimeter spawn point (~4950px max),
       // ensuring wave enemies always find players without affecting non-wave enemies.
       if (entity instanceof Enemy) {
         entity.goalSelector.add(
-          new TargetEntityGoal<Enemy>(-1, Player, 6000, {
+          new TargetEntityGoal<Enemy>(-1, Player, 9000, {
             requireLineOfSight: true,
           }),
         );

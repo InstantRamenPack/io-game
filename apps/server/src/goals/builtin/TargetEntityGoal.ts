@@ -17,7 +17,8 @@ type TargetEntityGoalOptions = {
 };
 
 const INSTANCE_SCAN_TARGET_LIMIT = 64;
-const HIDDEN_TARGET_AGGRO_GRACE_SECONDS = 20;
+const HIDDEN_TARGET_AGGRO_GRACE_TICKS = 400;
+const AGGRO_RETENTION_RADIUS_MULTIPLIER = 1.5;
 
 /**
  * Maintains the nearest valid target instance for the acting goal-controlled entity.
@@ -28,6 +29,7 @@ export class TargetEntityGoal<
   private readonly targetCtor: TargetEntityCtor;
   private readonly aggroRange: number;
   private readonly aggroRangeSquared: number;
+  private readonly aggroRetentionRangeSquared: number;
   private readonly filter: TargetEntityFilter | undefined;
   private readonly requireLineOfSight: boolean;
   private readonly queryBuffer: Entity[] = [];
@@ -55,6 +57,9 @@ export class TargetEntityGoal<
     this.aggroRange = aggroRange;
     this.aggroRangeSquared = Number.isFinite(aggroRange)
       ? aggroRange * aggroRange
+      : Number.POSITIVE_INFINITY;
+    this.aggroRetentionRangeSquared = Number.isFinite(aggroRange)
+      ? (aggroRange * AGGRO_RETENTION_RADIUS_MULTIPLIER) ** 2
       : Number.POSITIVE_INFINITY;
     this.filter = typeof options === "function" ? options : options?.filter;
     this.requireLineOfSight =
@@ -106,7 +111,7 @@ export class TargetEntityGoal<
       target.x,
       target.y,
     );
-    if (distanceSquared > this.aggroRangeSquared) {
+    if (distanceSquared > this.aggroRetentionRangeSquared) {
       this.clearHiddenTarget(target.id);
       return null;
     }
@@ -299,9 +304,7 @@ export class TargetEntityGoal<
 
     const hiddenSinceTick = this.hiddenTargetSinceTick ?? ctx.world.tick;
     const hiddenTicks = ctx.world.tick - hiddenSinceTick + 1;
-    const graceTicks =
-      HIDDEN_TARGET_AGGRO_GRACE_SECONDS * ctx.world.gameConfig.tickRate;
-    return hiddenTicks < graceTicks;
+    return hiddenTicks < HIDDEN_TARGET_AGGRO_GRACE_TICKS;
   }
 
   private clearHiddenTarget(targetId?: number): void {
