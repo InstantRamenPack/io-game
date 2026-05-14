@@ -1,11 +1,11 @@
 import {
-  EntityContentSchema,
-  EffectContentSchema,
-  ItemContentSchema,
-  type EntityContent,
-  type EntityKind,
   type EffectContent,
+  EffectContentSchema,
+  type EntityContent,
+  EntityContentSchema,
+  type EntityKind,
   type ItemContent,
+  ItemContentSchema,
 } from "@shared/content/schema.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import type { JsonValue } from "@shared/json.ts";
@@ -50,16 +50,12 @@ export function makeParsedEntityContentEntry(
   rawContent: JsonValue,
 ): EntityContentEntry {
   const typeId = makeResourceId(kind, resourceName);
-  const parsed = makeParsedContentEntry(
+  return makeParsedContentEntry(
     "entity",
     typeId,
     rawContent,
     EntityContentSchema,
   );
-  if (kind === "structure") {
-    validateStructureTileQuantization(typeId, parsed[1]);
-  }
-  return parsed;
 }
 
 export function makeParsedEffectContentEntry(
@@ -73,39 +69,4 @@ export function makeParsedEffectContentEntry(
     rawContent,
     EffectContentSchema,
   );
-}
-
-const STRUCTURE_TILE_SIZE = 16;
-
-function validateStructureTileQuantization(
-  typeId: ResourceId,
-  content: EntityContent,
-): void {
-  const profiles = content.hitboxProfiles;
-  if (!profiles) {
-    throw new Error(
-      `Structure ${typeId} must declare hitboxProfiles for tile quantization.`,
-    );
-  }
-
-  for (const [profileName, rects] of Object.entries(profiles)) {
-    for (const rect of rects) {
-      const widthTiles = rect.width / STRUCTURE_TILE_SIZE;
-      const heightTiles = rect.height / STRUCTURE_TILE_SIZE;
-      const offsetXTiles = rect.offsetX / STRUCTURE_TILE_SIZE;
-      const offsetYTiles = rect.offsetY / STRUCTURE_TILE_SIZE;
-      if (
-        !Number.isInteger(widthTiles) ||
-        !Number.isInteger(heightTiles) ||
-        widthTiles <= 0 ||
-        heightTiles <= 0 ||
-        !Number.isInteger(offsetXTiles) ||
-        !Number.isInteger(offsetYTiles)
-      ) {
-        throw new Error(
-          `Structure ${typeId} profile=${profileName} has non-${STRUCTURE_TILE_SIZE}px tile-aligned hitbox.`,
-        );
-      }
-    }
-  }
 }

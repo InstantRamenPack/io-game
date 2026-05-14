@@ -30,7 +30,6 @@ type PlacementPreviewOutput = Parameters<
 const PLACEMENT_SPATIAL_CELL_SIZE = 160;
 const PLACEMENT_KEY_OFFSET = 1 << 15;
 const PLACEMENT_KEY_STRIDE = 1 << 16;
-const STRUCTURE_TILE_SIZE = 16;
 
 export class PlacementPreviewController {
   private placementIndexDirty = true;
@@ -144,23 +143,15 @@ export class PlacementPreviewController {
       return;
     }
 
-    const snappedX =
-      Math.floor(pointerAimTarget.x / STRUCTURE_TILE_SIZE) *
-        STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
-    const snappedY =
-      Math.floor(pointerAimTarget.y / STRUCTURE_TILE_SIZE) *
-        STRUCTURE_TILE_SIZE +
-      STRUCTURE_TILE_SIZE / 2;
     const previewRects = resolveHitboxRects(
-      snappedX,
-      snappedY,
+      pointerAimTarget.x,
+      pointerAimTarget.y,
       buildProfile.previewProfile,
     );
     const previewBounds = offsetHitboxBounds(
       buildProfile.previewLocalBounds,
-      snappedX,
-      snappedY,
+      pointerAimTarget.x,
+      pointerAimTarget.y,
     );
 
     let valid = true;
@@ -198,8 +189,8 @@ export class PlacementPreviewController {
 
     const nextPreviewState: PlacementPreviewOutput = {
       visible: true,
-      worldX: snappedX,
-      worldY: snappedY,
+      worldX: pointerAimTarget.x,
+      worldY: pointerAimTarget.y,
       valid,
       typeId: buildProfile.buildsEntityTypeId,
       hitboxProfiles: buildProfile.hitboxProfiles,
