@@ -1207,26 +1207,37 @@ function addMazeRoomWalls(
   room: ProceduralDungeonRoom,
 ): void {
   const t = 48;
-  const inset = 168;
-  addRect(
-    room.minX + inset,
+  const addRoomRect = (
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+  ) => {
+    const boundedMinX = snapEdge(clamp(minX, room.minX + 96, room.maxX - 96));
+    const boundedMinY = snapEdge(clamp(minY, room.minY + 96, room.maxY - 96));
+    const boundedMaxX = snapEdge(clamp(maxX, boundedMinX + t, room.maxX - 96));
+    const boundedMaxY = snapEdge(clamp(maxY, boundedMinY + t, room.maxY - 96));
+    addRect(boundedMinX, boundedMinY, boundedMaxX, boundedMaxY);
+  };
+  addRoomRect(
+    room.minX + 168,
     room.minY + 140,
-    room.minX + inset + t,
+    room.minX + 168 + t,
     room.maxY - 420,
   );
-  addRect(
+  addRoomRect(
     room.minX + 360,
     room.minY + 120,
     room.maxX - 160,
     room.minY + 120 + t,
   );
-  addRect(
+  addRoomRect(
     room.maxX - 280,
     room.minY + 360,
     room.maxX - 280 + t,
     room.maxY - 140,
   );
-  addRect(
+  addRoomRect(
     room.minX + 180,
     room.maxY - 260,
     room.maxX - 360,
@@ -1356,40 +1367,68 @@ function addDungeonRoomContent(
 ): void {
   const x = room.centerX;
   const y = room.centerY;
+  const point = (offsetX: number, offsetY: number, margin = 96) =>
+    dungeonRoomContentPoint(room, offsetX, offsetY, margin);
+  const roomSpawn = (
+    typeId: string,
+    offsetX: number,
+    offsetY: number,
+    margin?: number,
+  ) => {
+    const position = point(offsetX, offsetY, margin);
+    return spawn(typeId, position.x, position.y);
+  };
+  const roomLoot = (
+    typeId: string,
+    offsetX: number,
+    offsetY: number,
+    kind: ProceduralLootSpec["kind"],
+    rewardTier: ProceduralLootSpec["rewardTier"],
+    amount: number,
+  ) => {
+    const position = point(offsetX, offsetY);
+    return lootSpec(typeId, position.x, position.y, kind, rewardTier, amount);
+  };
+  const roomCrate = (
+    offsetX: number,
+    offsetY: number,
+    crateLoot: ProceduralCrateLootSlot[],
+  ) => {
+    const position = point(offsetX, offsetY);
+    return crateSpawn("enemy:crate", position.x, position.y, crateLoot);
+  };
   switch (room.role) {
     case "entrance":
       enemies.push(
-        spawn("enemy:drifter", x - 160, y),
-        spawn("enemy:police", x + 160, y),
+        roomSpawn("enemy:drifter", -160, 0),
+        roomSpawn("enemy:police", 160, 0),
       );
       loot.push(
-        lootSpec("item:quality_food", x + 160, y, "stackable", "common", 2),
+        roomLoot("item:quality_food", 160, 0, "stackable", "common", 2),
       );
       break;
     case "combat":
       enemies.push(
-        spawn("enemy:drifter", x - 120, y),
-        spawn("enemy:shoota", x + 120, y),
-        spawn("enemy:police", x, y + 112),
+        roomSpawn("enemy:drifter", -120, 0),
+        roomSpawn("enemy:shoota", 120, 0),
+        roomSpawn("enemy:police", 0, 112),
       );
-      loot.push(
-        lootSpec("item:pistol_mag", x, y + 120, "stackable", "common", 2),
-      );
+      loot.push(roomLoot("item:pistol_mag", 0, 120, "stackable", "common", 2));
       break;
     case "enemy_swarm":
       enemies.push(
-        spawn("enemy:drifter", x - 240, y - 160),
-        spawn("enemy:drifter", x, y - 180),
-        spawn("enemy:drifter", x + 240, y - 160),
-        spawn("enemy:shoota", x - 180, y + 140),
-        spawn("enemy:shoota", x + 180, y + 140),
-        spawn("enemy:police", x, y + 220),
+        roomSpawn("enemy:drifter", -240, -160),
+        roomSpawn("enemy:drifter", 0, -180),
+        roomSpawn("enemy:drifter", 240, -160),
+        roomSpawn("enemy:shoota", -180, 140),
+        roomSpawn("enemy:shoota", 180, 140),
+        roomSpawn("enemy:police", 0, 220),
       );
       loot.push(lootSpec("item:rifle_mag", x, y, "stackable", "common", 2));
       break;
     case "treasure":
       enemies.push(
-        crateSpawn("enemy:crate", x, y, [
+        roomCrate(0, 0, [
           { typeId: "item:sniper" as ResourceId, kind: "weapon" },
           {
             typeId: "item:blueprint_katana" as ResourceId,
@@ -1412,52 +1451,44 @@ function addDungeonRoomContent(
       break;
     case "maze":
       enemies.push(
-        spawn("enemy:stalker", x - 200, y - 180),
-        spawn("enemy:police", x + 220, y + 180),
+        roomSpawn("enemy:stalker", -200, -180),
+        roomSpawn("enemy:police", 220, 180),
       );
       buildings.push(
-        spawn("building:tripwire", x - 48, y - 96),
-        spawn("building:tripwire", x - 180, y),
+        roomSpawn("building:tripwire", -48, -96, 64),
+        roomSpawn("building:tripwire", -180, 0, 64),
       );
       break;
     case "armory":
-      enemies.push(spawn("enemy:police", x, y - 120));
-      loot.push(
-        lootSpec("item:basic_rifle", x - 96, y + 96, "weapon", "rare", 1),
-      );
-      loot.push(
-        lootSpec("item:sniper_mag", x + 96, y + 96, "stackable", "rare", 2),
-      );
+      enemies.push(roomSpawn("enemy:police", 0, -120));
+      loot.push(roomLoot("item:basic_rifle", -96, 96, "weapon", "rare", 1));
+      loot.push(roomLoot("item:sniper_mag", 96, 96, "stackable", "rare", 2));
       break;
     case "trap":
       enemies.push(
-        spawn("enemy:police", x - 160, y),
-        spawn("enemy:stalker", x + 160, y),
+        roomSpawn("enemy:police", -160, 0),
+        roomSpawn("enemy:stalker", 160, 0),
       );
       buildings.push(
-        spawn("building:tripwire", x - 112, y - 96),
+        roomSpawn("building:tripwire", -112, -96, 64),
         spawn("building:tripwire", x, y),
-        spawn("building:tripwire", x + 112, y + 96),
+        roomSpawn("building:tripwire", 112, 96, 64),
       );
-      loot.push(
-        lootSpec("item:landmine", x, y + 128, "stackable", "uncommon", 2),
-      );
+      loot.push(roomLoot("item:landmine", 0, 128, "stackable", "uncommon", 2));
       break;
     case "mini_boss":
       enemies.push(spawn("enemy:commander", x, y));
-      loot.push(lootSpec("item:crossbow", x, y + 160, "weapon", "rare", 1));
-      loot.push(
-        lootSpec("item:dungeon_key", x + 96, y + 160, "stackable", "rare", 2),
-      );
+      loot.push(roomLoot("item:crossbow", 0, 160, "weapon", "rare", 1));
+      loot.push(roomLoot("item:dungeon_key", 96, 160, "stackable", "rare", 2));
       break;
     case "boss":
       enemies.push(
-        spawn("enemy:thanos", x, y - 80),
-        spawn("enemy:megaknight", x - 220, y + 160),
-        spawn("enemy:sniper", x + 220, y + 160),
+        roomSpawn("enemy:thanos", 0, -80),
+        roomSpawn("enemy:megaknight", -220, 160),
+        roomSpawn("enemy:sniper", 220, 160),
       );
       enemies.push(
-        crateSpawn("enemy:crate", x, y + 260, [
+        roomCrate(0, 260, [
           { typeId: "item:thanos_rifle" as ResourceId, kind: "weapon" },
           {
             typeId: "item:blueprint_sniper" as ResourceId,
@@ -1478,6 +1509,22 @@ function addDungeonRoomContent(
       );
       break;
   }
+}
+
+function dungeonRoomContentPoint(
+  room: ProceduralDungeonRoom,
+  offsetX: number,
+  offsetY: number,
+  margin: number,
+): ProceduralPoint {
+  const minX = Math.min(room.centerX, room.minX + margin);
+  const maxX = Math.max(room.centerX, room.maxX - margin);
+  const minY = Math.min(room.centerY, room.minY + margin);
+  const maxY = Math.max(room.centerY, room.maxY - margin);
+  return {
+    x: clamp(room.centerX + offsetX, minX, maxX),
+    y: clamp(room.centerY + offsetY, minY, maxY),
+  };
 }
 
 function dungeonRoomLabel(role: DungeonRoomRole): string {
