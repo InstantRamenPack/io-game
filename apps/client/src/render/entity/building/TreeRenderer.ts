@@ -18,7 +18,7 @@ export class TreeRenderer extends BaseEntityRenderer {
   ): void {
     const cx = entity.hitboxBounds.centerX;
     const cy = entity.hitboxBounds.centerY;
-    const r = entity.hitboxBounds.width / 2;
+    const r = (entity.hitboxBounds.width * Math.SQRT2) / 2;
 
     // Shadow beneath canopy
     graphics

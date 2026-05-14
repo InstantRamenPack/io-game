@@ -28,6 +28,7 @@ const StaticSpawnSchema = z.object({
   x: z.number().finite(),
   y: z.number().finite(),
   label: z.string().optional(),
+  rotation: z.number().finite().optional(),
   hitboxRects: z
     .array(
       z.object({
@@ -97,6 +98,7 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
     entity.x = spec.x;
     entity.y = spec.y;
   }
+  entity.rotation = spec.rotation ?? 0;
 
   if (entity instanceof Building) {
     entity.hp = 0;
@@ -188,6 +190,7 @@ function loadProceduralLayout(
     layout.dungeon.id,
     layout.dungeon.rooms.map(mapProceduralDungeonRoom),
   );
+  world.initializeForestCampRespawns(layout.forestCamps);
 }
 
 function mapProceduralDungeonRoom(room: ProceduralDungeonRoom): {

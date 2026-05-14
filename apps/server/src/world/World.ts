@@ -5,10 +5,14 @@ import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import {
   getSectorForPoint,
+  type ProceduralForestCamp,
   type ProceduralWorldLayout,
 } from "@shared/world/ProceduralWorld.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import type { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
@@ -82,6 +86,7 @@ export class World {
   private readonly collisionSystem = new CollisionSystem();
   private readonly pickupSystem = new PickupSystem();
   private readonly playerBuildingSpawnTickById = new Map<number, number>();
+  private readonly nextForestCampRespawnTickById = new Map<string, number>();
   private spatialDirty = true;
 
   /**
@@ -133,6 +138,7 @@ export class World {
     const waveStartedAt = performance.now();
     this.waveSystem.update(this, deltaMs);
     this.nightStormSystem.update(this, deltaMs);
+    this.updateForestCampRespawns();
     this.infrastructureSystem?.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
     const waveMs = performance.now() - waveStartedAt;
@@ -211,6 +217,7 @@ export class World {
     this.dayNightSystem.update(this, deltaMs);
     this.waveSystem.update(this, deltaMs);
     this.nightStormSystem.update(this, deltaMs);
+    this.updateForestCampRespawns();
     this.infrastructureSystem?.update(this, deltaMs);
     this.extractionSystem?.update(this, deltaMs);
 
@@ -318,6 +325,87 @@ export class World {
     }>,
   ): void {
     this.dungeonRoomsByZone.set(zoneId, rooms);
+  }
+
+  public initializeForestCampRespawns(
+    camps: readonly ProceduralForestCamp[],
+  ): void {
+    this.nextForestCampRespawnTickById.clear();
+    for (const camp of camps) {
+      const jitter = Math.floor(
+        this.randomNumberGenerator() * camp.respawnDelayTicks,
+      );
+      this.nextForestCampRespawnTickById.set(
+        camp.id,
+        this.tick + camp.respawnDelayTicks + jitter,
+      );
+    }
+  }
+
+  private updateForestCampRespawns(): void {
+    const camps = this.proceduralLayout?.forestCamps;
+    if (!camps || camps.length === 0 || !this.dayNightSystem.isNight()) {
+      return;
+    }
+    for (const camp of camps) {
+      const nextTick =
+        this.nextForestCampRespawnTickById.get(camp.id) ??
+        this.tick + camp.respawnDelayTicks;
+      if (this.tick < nextTick) {
+        continue;
+      }
+      this.nextForestCampRespawnTickById.set(
+        camp.id,
+        this.tick + camp.respawnDelayTicks,
+      );
+      const alive = this.countAliveEnemiesInCamp(camp);
+      if (alive >= camp.maxAlive || this.randomNumberGenerator() > 0.55) {
+        continue;
+      }
+      this.spawnForestCampEnemy(camp);
+    }
+  }
+
+  private countAliveEnemiesInCamp(camp: ProceduralForestCamp): number {
+    let count = 0;
+    const radiusSquared = camp.radius * camp.radius;
+    for (const entity of this.entities.all()) {
+      if (!(entity instanceof Enemy) || !entity.alive) {
+        continue;
+      }
+      const dx = entity.x - camp.x;
+      const dy = entity.y - camp.y;
+      if (dx * dx + dy * dy <= radiusSquared) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  private spawnForestCampEnemy(camp: ProceduralForestCamp): void {
+    const typeId =
+      camp.enemyTypes[
+        Math.floor(this.randomNumberGenerator() * camp.enemyTypes.length)
+      ];
+    if (!typeId) {
+      return;
+    }
+    const entry = entityTypeRegistry.require(typeId);
+    if (!isSpawnableEntityCtor(entry.ctor)) {
+      throw new Error(`Forest camp type ${typeId} is not spawnable.`);
+    }
+    const entity = new entry.ctor(this.allocEntityId());
+    const angle = this.randomNumberGenerator() * Math.PI * 2;
+    const radius = this.randomNumberGenerator() * camp.radius * 0.75;
+    entity.x = Math.max(
+      0,
+      Math.min(camp.x + Math.cos(angle) * radius, this.gameConfig.worldSize.w),
+    );
+    entity.y = Math.max(
+      0,
+      Math.min(camp.y + Math.sin(angle) * radius, this.gameConfig.worldSize.h),
+    );
+    this.spawn(entity);
   }
 
   private decayOuterPlayerBuildings(deltaMs: number): void {

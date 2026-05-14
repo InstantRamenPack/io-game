@@ -1,0 +1,8 @@
+{
+  "label": "Guard Tower",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [{ "width": 128, "height": 128, "offsetX": 0, "offsetY": 0 }]
+  }
+}

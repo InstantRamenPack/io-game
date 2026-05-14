@@ -32,12 +32,19 @@ import { ThanosBullet } from "@server/entities/projectiles/ThanosBullet.ts";
 import { ThanosRocket } from "@server/entities/projectiles/ThanosRocket.ts";
 import { HouseL } from "@server/entities/structures/HouseL.ts";
 import { HouseM } from "@server/entities/structures/HouseM.ts";
+import { HouseS } from "@server/entities/structures/HouseS.ts";
 import { HouseXl } from "@server/entities/structures/HouseXl.ts";
+import { Barracks } from "@server/entities/structures/Barracks.ts";
+import { CampShelter } from "@server/entities/structures/CampShelter.ts";
+import { CommandPost } from "@server/entities/structures/CommandPost.ts";
 import { Dungeon } from "@server/entities/structures/Dungeon.ts";
 import { DungeonWall } from "@server/entities/structures/DungeonWall.ts";
 import { FenceH } from "@server/entities/structures/FenceH.ts";
 import { FenceV } from "@server/entities/structures/FenceV.ts";
+import { GuardTower } from "@server/entities/structures/GuardTower.ts";
+import { MarketStall } from "@server/entities/structures/MarketStall.ts";
 import { Tree } from "@server/entities/structures/Tree.ts";
+import { VehicleWreck } from "@server/entities/structures/VehicleWreck.ts";
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
@@ -105,7 +112,11 @@ export const entityRuntimeCtors = [
   Wallbreaker,
   HouseL,
   HouseM,
+  HouseS,
   HouseXl,
+  Barracks,
+  CampShelter,
+  CommandPost,
   Dungeon,
   Cannon,
   Chest,
@@ -116,10 +127,13 @@ export const entityRuntimeCtors = [
   EnergyTower,
   FenceH,
   FenceV,
+  GuardTower,
   DungeonWall,
+  MarketStall,
   Landmine,
   Recycler,
   Tree,
+  VehicleWreck,
   Tripwire,
   Wall,
   BasicBullet,

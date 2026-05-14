@@ -28,18 +28,25 @@ const MIN_REACHABLE_OPEN_RATIO = 0.97;
 describe("procedural survival extraction world", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("generates a deterministic larger 3x3 macro-sector layout", () => {
+  test("generates a deterministic uneven 40/20/40 macro-sector layout", () => {
     const first = generateProceduralWorldLayout(1337);
     const second = generateProceduralWorldLayout(1337);
 
     expect(first).toEqual(second);
     expect(first.worldSize).toEqual(PROCEDURAL_WORLD_SIZE);
-    expect(first.worldSize.w).toBeGreaterThan(10000);
-    expect(first.worldSize.h).toBeGreaterThan(7000);
+    expect(first.worldSize).toEqual({ w: 12800, h: 12800 });
     expect(first.sectors).toHaveLength(
       PROCEDURAL_GRID_SIZE * PROCEDURAL_GRID_SIZE,
     );
     expect(new Set(first.sectors.map((sector) => sector.id)).size).toBe(9);
+    const center = first.sectors.find((sector) => sector.id === "sector_1_1")!;
+    expect(center.maxX - center.minX).toBe(2560);
+    expect(center.maxY - center.minY).toBe(2560);
+    for (const id of ["sector_0_0", "sector_0_2", "sector_2_0", "sector_2_2"]) {
+      const sector = first.sectors.find((candidate) => candidate.id === id)!;
+      expect(sector.maxX - sector.minX).toBe(5120);
+      expect(sector.maxY - sector.minY).toBe(5120);
+    }
   });
 
   test("varies meaningful sector assignment across seeds while preserving required roles", () => {
@@ -70,9 +77,37 @@ describe("procedural survival extraction world", () => {
       ).toBe("forest");
       expect(isCornerSector(layout.extractionSectorId)).toBe(true);
       expect(isCornerSector(layout.dungeonSectorId)).toBe(true);
-      expect(isEdgeSector(layout.militarySectorId)).toBe(true);
-      expect(isEdgeSector(layout.forestSectorId)).toBe(true);
+      expect(layout.militarySectorId).not.toBe(layout.centerSectorId);
+      expect(layout.forestSectorId).not.toBe(layout.centerSectorId);
     }
+  });
+
+  test("non-dungeon areas are village and forest driven with corner danger scaling", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    expect(layout.villages.length).toBeGreaterThanOrEqual(9);
+    expect(layout.villages.length).toBeLessThanOrEqual(11);
+    expect(layout.forestCamps.length).toBeGreaterThanOrEqual(12);
+    expect(
+      layout.villages.some((village) => village.kind === "extraction_fortified"),
+    ).toBe(true);
+    expect(
+      layout.villages.every((village) => village.sectorId !== layout.centerSectorId),
+    ).toBe(true);
+    expect(
+      layout.villages.every((village) => village.sectorId !== layout.dungeonSectorId),
+    ).toBe(true);
+    expect(
+      layout.villages.some(
+        (village) =>
+          isCornerSector(village.sectorId) &&
+          village.danger === "high" &&
+          ["rare", "epic"].includes(village.lootTier),
+      ),
+    ).toBe(true);
+    expect(
+      layout.villages.every((village) => village.poiRoles.length >= 4),
+    ).toBe(true);
   });
 
   test("every sector has content, traversal, rewards, enemies where hostile, and minimap metadata", () => {
@@ -272,7 +307,7 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("military, forest, extraction, and residential POIs expose required feature roles", () => {
+  test("military, extraction, and village POIs expose required feature roles", () => {
     const layout = generateProceduralWorldLayout(1337);
     const military = layout.sectors.find(
       (sector) => sector.archetype === "military",
@@ -282,33 +317,11 @@ describe("procedural survival extraction world", () => {
     );
     expect(featureRoles(military)).toEqual(
       expect.arrayContaining([
-        "checkpoint",
+        "village_checkpoint",
         "barracks",
-        "command_center",
-        "armory_vault",
-        "motor_pool",
-        "comms",
-        "training_yard",
-        "watch_tower",
-      ]),
-    );
-
-    const forest = layout.sectors.find(
-      (sector) => sector.archetype === "forest",
-    )!;
-    expect(entityTypeIds(forest)).toEqual(
-      expect.arrayContaining(["enemy:stalker"]),
-    );
-    expect(featureRoles(forest)).toEqual(
-      expect.arrayContaining([
-        "trail",
-        "cabin",
-        "camp",
-        "pond",
-        "bridge",
-        "shrine",
-        "hidden_cache",
-        "predator_clearing",
+        "village_command_post",
+        "village_armory",
+        "village_motor_pool",
       ]),
     );
 
@@ -319,7 +332,14 @@ describe("procedural survival extraction world", () => {
       expect.arrayContaining(["enemy:commander", "enemy:sniper"]),
     );
     expect(featureRoles(extraction)).toEqual(
-      expect.arrayContaining(["helipad", "approach_route", "danger_perimeter"]),
+      expect.arrayContaining([
+        "helipad",
+        "approach_route",
+        "danger_perimeter",
+        "village_helipad",
+        "village_checkpoint",
+        "village_armory",
+      ]),
     );
 
     const residentialLike = layout.sectors.filter((sector) =>
@@ -334,7 +354,12 @@ describe("procedural survival extraction world", () => {
     expect(residentialLike.length).toBeGreaterThan(0);
     for (const sector of residentialLike) {
       expect(featureRoles(sector)).toEqual(
-        expect.arrayContaining(["residential_block", "ruin_cluster"]),
+        expect.arrayContaining([
+          "village",
+          "village_house",
+          "village_market",
+          "forest_spawn_camp",
+        ]),
       );
     }
   });
@@ -431,6 +456,39 @@ describe("procedural survival extraction world", () => {
     ).toBeGreaterThan(25);
   });
 
+  test("night forest camp respawn repopulates only up to camp caps", () => {
+    const { runtime } = makeRuntime({
+      config: { dayNight: { dayDurationMs: 1, nightDurationMs: 180000 } },
+    });
+    const layout = runtime.world.proceduralLayout;
+    expect(layout).not.toBeNull();
+    if (!layout) {
+      throw new Error("expected procedural layout");
+    }
+    const camp = layout.forestCamps[0];
+    expect(camp).toBeDefined();
+    if (!camp) {
+      throw new Error("expected forest camp");
+    }
+    camp.respawnDelayTicks = 1;
+    runtime.world.initializeForestCampRespawns([camp]);
+
+    for (const entity of runtime.world.entities.all()) {
+      if (entity.typeId.startsWith("enemy:") && pointWithinCamp(entity, camp)) {
+        runtime.world.despawn(entity.id);
+      }
+    }
+    expect(countAliveEnemiesInCamp(runtime.world, camp)).toBe(0);
+
+    for (let tick = 0; tick < 24; tick += 1) {
+      runtime.world.step();
+    }
+
+    const respawned = countAliveEnemiesInCamp(runtime.world, camp);
+    expect(respawned).toBeGreaterThan(0);
+    expect(respawned).toBeLessThanOrEqual(camp.maxAlive);
+  });
+
   test("loaded procedural geometry leaves spawn clear and nearly all unoccupied sample cells reachable", () => {
     const { runtime } = makeRuntime();
     const world = runtime.world;
@@ -478,10 +536,6 @@ function isCornerSector(id: string): boolean {
   return ["sector_0_0", "sector_0_2", "sector_2_0", "sector_2_2"].includes(id);
 }
 
-function isEdgeSector(id: string): boolean {
-  return ["sector_0_1", "sector_1_0", "sector_1_2", "sector_2_1"].includes(id);
-}
-
 type DungeonEntranceSide = "north" | "south" | "west" | "east";
 
 function expectedDungeonEntranceSides(id: string): DungeonEntranceSide[] {
@@ -509,6 +563,29 @@ function entityTypeIds(
   sector: ReturnType<typeof generateProceduralWorldLayout>["sectors"][number],
 ): string[] {
   return sector.enemies.map((enemy) => enemy.typeId);
+}
+
+function pointWithinCamp(
+  point: WorldPoint,
+  camp: ReturnType<typeof generateProceduralWorldLayout>["forestCamps"][number],
+): boolean {
+  const dx = point.x - camp.x;
+  const dy = point.y - camp.y;
+  return dx * dx + dy * dy <= camp.radius * camp.radius;
+}
+
+function countAliveEnemiesInCamp(
+  world: World,
+  camp: ReturnType<typeof generateProceduralWorldLayout>["forestCamps"][number],
+): number {
+  return world.entities
+    .all()
+    .filter(
+      (entity) =>
+        entity.typeId.startsWith("enemy:") &&
+        entity.alive &&
+        pointWithinCamp(entity, camp),
+    ).length;
 }
 
 function dungeonRoomDoorRoles(

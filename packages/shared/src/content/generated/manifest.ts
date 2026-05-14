@@ -9,14 +9,21 @@ import buildinglandmineJson from "@shared/content/building/landmine.json";
 import buildingrecyclerJson from "@shared/content/building/recycler.json";
 import buildingtripwireJson from "@shared/content/building/tripwire.json";
 import buildingwallJson from "@shared/content/building/wall.json";
+import structurebarracksJson from "@shared/content/structure/barracks.json";
+import structurecampShelterJson from "@shared/content/structure/camp_shelter.json";
+import structurecommandPostJson from "@shared/content/structure/command_post.json";
 import structuredungeonJson from "@shared/content/structure/dungeon.json";
 import structuredungeonWallJson from "@shared/content/structure/dungeon_wall.json";
 import structurefenceHJson from "@shared/content/structure/fence_h.json";
 import structurefenceVJson from "@shared/content/structure/fence_v.json";
+import structureguardTowerJson from "@shared/content/structure/guard_tower.json";
 import structurehouseLJson from "@shared/content/structure/house_l.json";
 import structurehouseMJson from "@shared/content/structure/house_m.json";
+import structurehouseSJson from "@shared/content/structure/house_s.json";
 import structurehouseXlJson from "@shared/content/structure/house_xl.json";
+import structuremarketStallJson from "@shared/content/structure/market_stall.json";
 import structuretreeJson from "@shared/content/structure/tree.json";
+import structurevehicleWreckJson from "@shared/content/structure/vehicle_wreck.json";
 import effectbleedingJson from "@shared/content/effect/bleeding.json";
 import effectconfusionJson from "@shared/content/effect/confusion.json";
 import effectdamageJson from "@shared/content/effect/damage.json";
@@ -125,6 +132,17 @@ export const buildingContentEntries = [
 ] as const;
 
 export const structureContentEntries = [
+  makeParsedEntityContentEntry("structure", "barracks", structurebarracksJson),
+  makeParsedEntityContentEntry(
+    "structure",
+    "camp_shelter",
+    structurecampShelterJson,
+  ),
+  makeParsedEntityContentEntry(
+    "structure",
+    "command_post",
+    structurecommandPostJson,
+  ),
   makeParsedEntityContentEntry("structure", "dungeon", structuredungeonJson),
   makeParsedEntityContentEntry(
     "structure",
@@ -133,10 +151,26 @@ export const structureContentEntries = [
   ),
   makeParsedEntityContentEntry("structure", "fence_h", structurefenceHJson),
   makeParsedEntityContentEntry("structure", "fence_v", structurefenceVJson),
+  makeParsedEntityContentEntry(
+    "structure",
+    "guard_tower",
+    structureguardTowerJson,
+  ),
   makeParsedEntityContentEntry("structure", "house_l", structurehouseLJson),
   makeParsedEntityContentEntry("structure", "house_m", structurehouseMJson),
+  makeParsedEntityContentEntry("structure", "house_s", structurehouseSJson),
   makeParsedEntityContentEntry("structure", "house_xl", structurehouseXlJson),
+  makeParsedEntityContentEntry(
+    "structure",
+    "market_stall",
+    structuremarketStallJson,
+  ),
   makeParsedEntityContentEntry("structure", "tree", structuretreeJson),
+  makeParsedEntityContentEntry(
+    "structure",
+    "vehicle_wreck",
+    structurevehicleWreckJson,
+  ),
 ] as const;
 
 export const effectContentEntries = [
