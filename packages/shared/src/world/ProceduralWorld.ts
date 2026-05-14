@@ -140,6 +140,7 @@ export type ProceduralDungeonEntrance = ProceduralPoint & {
 export type ProceduralDungeonPlan = ProceduralRect & {
   id: string;
   rooms: ProceduralDungeonRoom[];
+  hallways: ProceduralRect[];
   entrances: ProceduralDungeonEntrance[];
   wallHitboxRects: NonNullable<ProceduralSpawnSpec["hitboxRects"]>;
   doors: ProceduralSpawnSpec[];
@@ -209,7 +210,8 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
   "roadside_village",
 ];
 
-const DUNGEON_ROOM_LINEAR_SCALE = 0.7;
+const DUNGEON_HALLWAY_WIDTH = 96;
+const DUNGEON_FILL_CELL_SIZE = 32;
 
 const ENEMY_BY_ARCHETYPE: Record<SectorArchetype, readonly ResourceId[]> = {
   home: ["enemy:drifter" as ResourceId],
@@ -804,18 +806,6 @@ function createDungeonPlan(
   const minY = snapEdge(sector.minY);
   const maxX = snapEdge(sector.maxX);
   const maxY = snapEdge(sector.maxY);
-  const wallThickness = 64;
-  const rooms = createBspDungeonRooms(
-    rng,
-    {
-      minX: minX + wallThickness + 96,
-      minY: minY + wallThickness + 96,
-      maxX: maxX - wallThickness - 96,
-      maxY: maxY - wallThickness - 96,
-    },
-    9 + Math.floor(rng() * 4),
-  );
-
   const entranceSides: ProceduralDungeonEntrance["side"][] = [];
   if (row === 0) {
     entranceSides.push("south");
@@ -834,11 +824,29 @@ function createDungeonPlan(
   const entrances = entranceSides.map((side) =>
     makeDungeonEntrance(side, minX, minY, maxX, maxY),
   );
+  const wallThickness = 64;
+  const roomLayouts = createBspDungeonRoomLayouts(
+    rng,
+    {
+      minX: minX + wallThickness + 96,
+      minY: minY + wallThickness + 96,
+      maxX: maxX - wallThickness - 96,
+      maxY: maxY - wallThickness - 96,
+    },
+    16 + Math.floor(rng() * 5),
+  );
+  const rooms = assignDungeonRoomRoles(roomLayouts, entrances);
   const centerX = snap((minX + maxX) / 2);
   const centerY = snap((minY + maxY) / 2);
+  const hallways = createDungeonHallways(rooms, entrances, rng);
   const wallRects = [
-    ...createDungeonOuterWallHitboxes(minX, minY, maxX, maxY, entrances),
-    ...createDungeonInternalWallHitboxes(rooms, centerX, centerY),
+    ...createDungeonFilledStructureHitboxes(
+      { minX, minY, maxX, maxY },
+      rooms,
+      hallways,
+      centerX,
+      centerY,
+    ),
   ];
   const doors = createDungeonDoorSpawns(rooms, entrances);
 
@@ -849,6 +857,7 @@ function createDungeonPlan(
     maxX,
     maxY,
     rooms,
+    hallways,
     entrances,
     wallHitboxRects: wallRects,
     doors,
@@ -877,36 +886,43 @@ function makeDungeonEntrance(
 }
 
 type DungeonBspLeaf = ProceduralRect;
+type DungeonRoomLayout = ProceduralRect & {
+  centerX: number;
+  centerY: number;
+};
 
-function createBspDungeonRooms(
+function createBspDungeonRoomLayouts(
   rng: seedrandom.PRNG,
   bounds: ProceduralRect,
   targetRoomCount: number,
-): ProceduralDungeonRoom[] {
+): DungeonRoomLayout[] {
   const leaves: DungeonBspLeaf[] = [bounds];
-  const minLeafSize = 1120;
+  const minLeafSize = 704;
 
   while (leaves.length < targetRoomCount) {
-    const splitIndex = findLargestSplittableLeaf(leaves, minLeafSize);
+    const splitIndex = findDungeonLeafSplitCandidate(leaves, minLeafSize, rng);
     if (splitIndex < 0) {
       break;
     }
     const leaf = leaves.splice(splitIndex, 1)[0]!;
     const width = leaf.maxX - leaf.minX;
     const height = leaf.maxY - leaf.minY;
-    const splitVertical = width >= height;
-    const splitRatio = 0.42 + rng() * 0.16;
+    const splitVertical =
+      width > height * 1.2 ? true : height > width * 1.2 ? false : rng() > 0.5;
+    const splitRatios = [0.34, 0.42, 0.5, 0.58, 0.66];
+    const splitRatio = splitRatios[Math.floor(rng() * splitRatios.length)]!;
+    const splitGap = snapEdge(32 + Math.floor(rng() * 3) * 16);
     if (splitVertical) {
       const splitX = snapEdge(leaf.minX + width * splitRatio);
       leaves.push(
-        { ...leaf, maxX: splitX - 48 },
-        { ...leaf, minX: splitX + 48 },
+        { ...leaf, maxX: splitX - splitGap },
+        { ...leaf, minX: splitX + splitGap },
       );
     } else {
       const splitY = snapEdge(leaf.minY + height * splitRatio);
       leaves.push(
-        { ...leaf, maxY: splitY - 48 },
-        { ...leaf, minY: splitY + 48 },
+        { ...leaf, maxY: splitY - splitGap },
+        { ...leaf, minY: splitY + splitGap },
       );
     }
   }
@@ -916,30 +932,21 @@ function createBspDungeonRooms(
     const rightScore = right.minY + right.minX * 0.05;
     return leftScore - rightScore;
   });
-  const roleOrder = buildDungeonRoleOrder(orderedLeaves.length);
-
-  return orderedLeaves.map((leaf, index) => {
-    const inset = 72;
+  return orderedLeaves.map((leaf) => {
+    const inset = 48;
     const fullMinX = snapEdge(leaf.minX + inset);
     const fullMinY = snapEdge(leaf.minY + inset);
     const fullMaxX = snapEdge(leaf.maxX - inset);
     const fullMaxY = snapEdge(leaf.maxY - inset);
     const centerX = snap((fullMinX + fullMaxX) / 2);
     const centerY = snap((fullMinY + fullMaxY) / 2);
-    const halfWidth = snapEdge(
-      ((fullMaxX - fullMinX) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
-    );
-    const halfHeight = snapEdge(
-      ((fullMaxY - fullMinY) * DUNGEON_ROOM_LINEAR_SCALE) / 2,
-    );
+    const halfWidth = snapEdge((fullMaxX - fullMinX) / 4);
+    const halfHeight = snapEdge((fullMaxY - fullMinY) / 4);
     const minX = snapEdge(centerX - halfWidth);
     const minY = snapEdge(centerY - halfHeight);
     const maxX = snapEdge(centerX + halfWidth);
     const maxY = snapEdge(centerY + halfHeight);
-    const role = roleOrder[index] ?? "combat";
     return {
-      id: `dungeon_${role}_${index}`,
-      role,
       minX,
       minY,
       maxX,
@@ -950,196 +957,454 @@ function createBspDungeonRooms(
   });
 }
 
-function findLargestSplittableLeaf(
+function findDungeonLeafSplitCandidate(
   leaves: readonly DungeonBspLeaf[],
   minLeafSize: number,
+  rng: seedrandom.PRNG,
 ): number {
-  let bestIndex = -1;
-  let bestArea = 0;
+  const candidates: Array<{ index: number; area: number }> = [];
   for (let index = 0; index < leaves.length; index += 1) {
     const leaf = leaves[index]!;
     const width = leaf.maxX - leaf.minX;
     const height = leaf.maxY - leaf.minY;
-    if (Math.max(width, height) < minLeafSize * 2) {
+    if (Math.max(width, height) < minLeafSize * 1.65) {
       continue;
     }
-    const area = width * height;
-    if (area > bestArea) {
-      bestArea = area;
-      bestIndex = index;
-    }
+    candidates.push({ index, area: width * height });
   }
-  return bestIndex;
+  if (candidates.length === 0) {
+    return -1;
+  }
+  candidates.sort((left, right) => right.area - left.area);
+  const optionCount = Math.min(4, candidates.length);
+  return candidates[Math.floor(rng() * optionCount)]!.index;
 }
 
-function buildDungeonRoleOrder(roomCount: number): DungeonRoomRole[] {
-  const roles: DungeonRoomRole[] = [...REQUIRED_DUNGEON_ROOM_ROLES];
-  const repeats: DungeonRoomRole[] = [
+function assignDungeonRoomRoles(
+  layouts: readonly DungeonRoomLayout[],
+  entrances: readonly ProceduralDungeonEntrance[],
+): ProceduralDungeonRoom[] {
+  const shallowRoles: DungeonRoomRole[] = [
+    "entrance",
+    "combat",
+    "trap",
+    "enemy_swarm",
+  ];
+  const middleRoles: DungeonRoomRole[] = [
+    "maze",
+    "combat",
+    "trap",
+    "enemy_swarm",
+    "armory",
+  ];
+  const deepRoles: DungeonRoomRole[] = [
+    "armory",
+    "combat",
+    "enemy_swarm",
+    "trap",
+  ];
+
+  const depthOrdered = [...layouts].sort((left, right) => {
+    const leftDepth = dungeonRoomEntranceDepth(left, entrances);
+    const rightDepth = dungeonRoomEntranceDepth(right, entrances);
+    return leftDepth - rightDepth;
+  });
+  const rolesByLayout = new Map<DungeonRoomLayout, DungeonRoomRole>();
+
+  for (let index = 0; index < depthOrdered.length; index += 1) {
+    const layout = depthOrdered[index]!;
+    const progress =
+      depthOrdered.length <= 1 ? 1 : index / (depthOrdered.length - 1);
+    const pool =
+      progress >= 0.75
+        ? deepRoles
+        : progress >= 0.35
+          ? middleRoles
+          : shallowRoles;
+    rolesByLayout.set(layout, pool[index % pool.length]!);
+  }
+
+  const requiredByDepth: DungeonRoomRole[] = [
+    "entrance",
     "combat",
     "enemy_swarm",
     "maze",
     "trap",
+    "armory",
+    "mini_boss",
     "treasure",
+    "boss",
   ];
-  let repeatIndex = 0;
-  while (roles.length < roomCount) {
-    roles.push(repeats[repeatIndex % repeats.length]!);
-    repeatIndex += 1;
+  for (let index = 0; index < requiredByDepth.length; index += 1) {
+    const depthIndex = Math.floor(
+      (index / (requiredByDepth.length - 1)) * (depthOrdered.length - 1),
+    );
+    rolesByLayout.set(depthOrdered[depthIndex]!, requiredByDepth[index]!);
   }
-  return roles.slice(0, roomCount);
+
+  return layouts.map((layout, index) => {
+    const role = rolesByLayout.get(layout) ?? "combat";
+    return {
+      id: `dungeon_${role}_${index}`,
+      role,
+      minX:
+        role === "boss"
+          ? layout.centerX - (layout.maxX - layout.minX)
+          : layout.minX,
+      minY:
+        role === "boss"
+          ? layout.centerY - (layout.maxY - layout.minY)
+          : layout.minY,
+      maxX:
+        role === "boss"
+          ? layout.centerX + (layout.maxX - layout.minX)
+          : layout.maxX,
+      maxY:
+        role === "boss"
+          ? layout.centerY + (layout.maxY - layout.minY)
+          : layout.maxY,
+      centerX: layout.centerX,
+      centerY: layout.centerY,
+    };
+  });
 }
 
-function createDungeonOuterWallHitboxes(
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
+function dungeonRoomEntranceDepth(
+  room: DungeonRoomLayout,
   entrances: readonly ProceduralDungeonEntrance[],
-): NonNullable<ProceduralSpawnSpec["hitboxRects"]> {
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const wallThickness = 64;
-  const doorHalfWidth = 176;
-  const rects: ProceduralRect[] = [];
-  const addAbsoluteRect = (
-    rectMinX: number,
-    rectMinY: number,
-    rectMaxX: number,
-    rectMaxY: number,
-  ) => {
-    if (rectMaxX <= rectMinX || rectMaxY <= rectMinY) {
-      return;
+): number {
+  return Math.min(
+    ...entrances.map((entrance) =>
+      distanceSquared(room.centerX, room.centerY, entrance.x, entrance.y),
+    ),
+  );
+}
+
+function createDungeonHallways(
+  rooms: readonly ProceduralDungeonRoom[],
+  entrances: readonly ProceduralDungeonEntrance[],
+  rng: seedrandom.PRNG,
+): ProceduralRect[] {
+  const hallways: ProceduralRect[] = [];
+  const depthOrderedRooms = [...rooms].sort(
+    (left, right) =>
+      dungeonRoomEntranceDepth(left, entrances) -
+      dungeonRoomEntranceDepth(right, entrances),
+  );
+  const layerCount = 5;
+  const layers: ProceduralDungeonRoom[][] = Array.from(
+    { length: layerCount },
+    () => [],
+  );
+  for (let index = 0; index < depthOrderedRooms.length; index += 1) {
+    const layerIndex = Math.min(
+      layerCount - 1,
+      Math.floor((index / depthOrderedRooms.length) * layerCount),
+    );
+    layers[layerIndex]!.push(depthOrderedRooms[index]!);
+  }
+
+  const addHallwayBetweenPoints = (
+    from: ProceduralPoint,
+    to: ProceduralPoint,
+    allowedRooms: readonly ProceduralDungeonRoom[],
+  ): boolean => {
+    const turns =
+      rng() > 0.5
+        ? [
+            { x: snap(from.x), y: snap(to.y) },
+            { x: snap(to.x), y: snap(from.y) },
+          ]
+        : [
+            { x: snap(to.x), y: snap(from.y) },
+            { x: snap(from.x), y: snap(to.y) },
+          ];
+    for (const turn of turns) {
+      const rects = [
+        makeDungeonHallwayRect(from, turn),
+        makeDungeonHallwayRect(turn, to),
+      ];
+      if (hallwayRectsOnlyTouchRooms(rects, allowedRooms, rooms)) {
+        hallways.push(...rects);
+        return true;
+      }
     }
-    rects.push({
-      minX: snapEdge(rectMinX),
-      minY: snapEdge(rectMinY),
-      maxX: snapEdge(rectMaxX),
-      maxY: snapEdge(rectMaxY),
-    });
+    return false;
+  };
+  const addHallwayBetweenRooms = (
+    fromRoom: ProceduralDungeonRoom,
+    toRoom: ProceduralDungeonRoom,
+  ) => {
+    return addHallwayBetweenPoints(
+      roomEdgePointToward(fromRoom, {
+        x: toRoom.centerX,
+        y: toRoom.centerY,
+      }),
+      roomEdgePointToward(toRoom, {
+        x: fromRoom.centerX,
+        y: fromRoom.centerY,
+      }),
+      [fromRoom, toRoom],
+    );
   };
 
-  const northDoor = entrances.find((entrance) => entrance.side === "north");
-  const southDoor = entrances.find((entrance) => entrance.side === "south");
-  const westDoor = entrances.find((entrance) => entrance.side === "west");
-  const eastDoor = entrances.find((entrance) => entrance.side === "east");
+  const nearestRoomTo = (point: ProceduralPoint) =>
+    rooms.reduce((nearest, room) => {
+      const nearestDistance = distanceSquared(
+        point.x,
+        point.y,
+        nearest.centerX,
+        nearest.centerY,
+      );
+      const roomDistance = distanceSquared(
+        point.x,
+        point.y,
+        room.centerX,
+        room.centerY,
+      );
+      return roomDistance < nearestDistance ? room : nearest;
+    }, rooms[0]!);
 
-  addSplitHorizontalWall(
-    addAbsoluteRect,
-    minX,
-    maxX,
-    minY,
-    minY + wallThickness,
-    northDoor?.x,
-    doorHalfWidth,
-  );
-  addSplitHorizontalWall(
-    addAbsoluteRect,
-    minX,
-    maxX,
-    maxY - wallThickness,
-    maxY,
-    southDoor?.x,
-    doorHalfWidth,
-  );
-  addSplitVerticalWall(
-    addAbsoluteRect,
-    minY,
-    maxY,
-    minX,
-    minX + wallThickness,
-    westDoor?.y,
-    doorHalfWidth,
-  );
-  addSplitVerticalWall(
-    addAbsoluteRect,
-    minY,
-    maxY,
-    maxX - wallThickness,
-    maxX,
-    eastDoor?.y,
-    doorHalfWidth,
-  );
+  for (const entrance of entrances) {
+    let connectedRooms = 0;
+    for (const targetRoom of nearestRoomsTo(
+      entrance,
+      layers[0]!,
+      layers[0]!.length,
+    )) {
+      if (
+        addHallwayBetweenPoints(
+          entrance,
+          roomEdgePointToward(targetRoom, entrance),
+          [targetRoom],
+        )
+      ) {
+        connectedRooms += 1;
+      }
+      if (connectedRooms >= 2) {
+        break;
+      }
+    }
+    if (connectedRooms === 0) {
+      const targetRoom = nearestRoomTo(entrance);
+      addHallwayBetweenPoints(
+        entrance,
+        roomEdgePointToward(targetRoom, entrance),
+        [targetRoom],
+      );
+    }
+  }
 
-  return rects.map((rect) => ({
-    width: rect.maxX - rect.minX,
-    height: rect.maxY - rect.minY,
-    offsetX: rect.minX + (rect.maxX - rect.minX) / 2 - centerX,
-    offsetY: rect.minY + (rect.maxY - rect.minY) / 2 - centerY,
-  }));
+  for (let layerIndex = 0; layerIndex < layers.length; layerIndex += 1) {
+    const currentLayer = layers[layerIndex]!;
+    const previousOptions = layers
+      .slice(Math.max(0, layerIndex - 2), layerIndex)
+      .flat();
+    for (let index = 0; index < currentLayer.length; index += 1) {
+      const room = currentLayer[index]!;
+      const parentOptions =
+        previousOptions.length > 0
+          ? nearestRoomsTo(
+              { x: room.centerX, y: room.centerY },
+              previousOptions,
+              previousOptions.length,
+            )
+          : nearestRoomsTo(
+              { x: room.centerX, y: room.centerY },
+              currentLayer.slice(0, index),
+              currentLayer.slice(0, index).length,
+            );
+      let connectedParents = 0;
+      for (const parent of parentOptions) {
+        if (addHallwayBetweenRooms(parent, room)) {
+          connectedParents += 1;
+        }
+        if (connectedParents >= 2 + (layerIndex % 2)) {
+          break;
+        }
+      }
+    }
+    for (let index = 1; index < currentLayer.length; index += 1) {
+      if (rng() < 0.45) {
+        const previous = currentLayer[index - 1]!;
+        const room = currentLayer[index]!;
+        addHallwayBetweenRooms(previous, room);
+      }
+    }
+  }
+
+  return hallways;
 }
 
-function createDungeonInternalWallHitboxes(
+function roomEdgePointToward(
+  room: DungeonRoomLayout,
+  target: ProceduralPoint,
+): ProceduralPoint {
+  const dx = target.x - room.centerX;
+  const dy = target.y - room.centerY;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return {
+      x: dx >= 0 ? room.maxX : room.minX,
+      y: snap(room.centerY),
+    };
+  }
+  return {
+    x: snap(room.centerX),
+    y: dy >= 0 ? room.maxY : room.minY,
+  };
+}
+
+function hallwayRectsOnlyTouchRooms(
+  hallways: readonly ProceduralRect[],
+  allowedRooms: readonly ProceduralDungeonRoom[],
+  allRooms: readonly ProceduralDungeonRoom[],
+): boolean {
+  return hallways.every((hallway) =>
+    allRooms.every(
+      (room) =>
+        allowedRooms.includes(room) ||
+        !rectsOverlap(hallway, shrinkRect(room, 1)),
+    ),
+  );
+}
+
+function shrinkRect(rect: ProceduralRect, amount: number): ProceduralRect {
+  return {
+    minX: rect.minX + amount,
+    minY: rect.minY + amount,
+    maxX: rect.maxX - amount,
+    maxY: rect.maxY - amount,
+  };
+}
+
+function rectsOverlap(left: ProceduralRect, right: ProceduralRect): boolean {
+  return !(
+    left.maxX <= right.minX ||
+    right.maxX <= left.minX ||
+    left.maxY <= right.minY ||
+    right.maxY <= left.minY
+  );
+}
+
+function nearestRoomsTo<T extends DungeonRoomLayout>(
+  point: ProceduralPoint,
+  rooms: readonly T[],
+  limit: number,
+): T[] {
+  return [...rooms]
+    .sort(
+      (left, right) =>
+        distanceSquared(point.x, point.y, left.centerX, left.centerY) -
+        distanceSquared(point.x, point.y, right.centerX, right.centerY),
+    )
+    .slice(0, limit);
+}
+
+function makeDungeonHallwayRect(
+  from: ProceduralPoint,
+  to: ProceduralPoint,
+): ProceduralRect {
+  const halfWidth = DUNGEON_HALLWAY_WIDTH / 2;
+  return {
+    minX: snapEdge(Math.min(from.x, to.x) - halfWidth),
+    minY: snapEdge(Math.min(from.y, to.y) - halfWidth),
+    maxX: snapEdge(Math.max(from.x, to.x) + halfWidth),
+    maxY: snapEdge(Math.max(from.y, to.y) + halfWidth),
+  };
+}
+
+function createDungeonFilledStructureHitboxes(
+  bounds: ProceduralRect,
   rooms: readonly ProceduralDungeonRoom[],
+  hallways: readonly ProceduralRect[],
   dungeonCenterX: number,
   dungeonCenterY: number,
 ): NonNullable<ProceduralSpawnSpec["hitboxRects"]> {
-  const walls: NonNullable<ProceduralSpawnSpec["hitboxRects"]> = [];
-  const addWall = (minX: number, minY: number, maxX: number, maxY: number) => {
-    const width = maxX - minX;
-    const height = maxY - minY;
-    if (width <= 0 || height <= 0) {
-      return;
-    }
-    walls.push({
-      width,
-      height,
-      offsetX: minX + width / 2 - dungeonCenterX,
-      offsetY: minY + height / 2 - dungeonCenterY,
-    });
-  };
+  const openRects = [...rooms, ...hallways];
+  const cols = Math.ceil((bounds.maxX - bounds.minX) / DUNGEON_FILL_CELL_SIZE);
+  const rows = Math.ceil((bounds.maxY - bounds.minY) / DUNGEON_FILL_CELL_SIZE);
+  const solid = new Uint8Array(cols * rows);
 
-  for (const room of rooms) {
-    addDungeonRoomInteriorWalls(addWall, room);
-    if (room.role === "maze") {
-      addMazeRoomWalls(addWall, room);
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const x =
+        bounds.minX + col * DUNGEON_FILL_CELL_SIZE + DUNGEON_FILL_CELL_SIZE / 2;
+      const y =
+        bounds.minY + row * DUNGEON_FILL_CELL_SIZE + DUNGEON_FILL_CELL_SIZE / 2;
+      solid[row * cols + col] = openRects.some((rect) =>
+        pointInRect({ x, y }, rect),
+      )
+        ? 0
+        : 1;
     }
   }
 
-  return walls;
+  return compressSolidDungeonCells(bounds, cols, rows, solid).map((rect) => ({
+    width: rect.maxX - rect.minX,
+    height: rect.maxY - rect.minY,
+    offsetX: rect.minX + (rect.maxX - rect.minX) / 2 - dungeonCenterX,
+    offsetY: rect.minY + (rect.maxY - rect.minY) / 2 - dungeonCenterY,
+  }));
 }
 
-function addDungeonRoomInteriorWalls(
-  addWall: (minX: number, minY: number, maxX: number, maxY: number) => void,
-  room: ProceduralDungeonRoom,
-): void {
-  const t = 48;
-  const doorHalfWidth = 112;
-  addSplitHorizontalWall(
-    addWall,
-    room.minX,
-    room.maxX,
-    room.minY,
-    room.minY + t,
-    room.centerX,
-    doorHalfWidth,
-  );
-  addSplitHorizontalWall(
-    addWall,
-    room.minX,
-    room.maxX,
-    room.maxY - t,
-    room.maxY,
-    room.centerX,
-    doorHalfWidth,
-  );
-  addSplitVerticalWall(
-    addWall,
-    room.minY + t,
-    room.maxY - t,
-    room.minX,
-    room.minX + t,
-    room.centerY,
-    doorHalfWidth,
-  );
-  addSplitVerticalWall(
-    addWall,
-    room.minY + t,
-    room.maxY - t,
-    room.maxX - t,
-    room.maxX,
-    room.centerY,
-    doorHalfWidth,
-  );
+function compressSolidDungeonCells(
+  bounds: ProceduralRect,
+  cols: number,
+  rows: number,
+  solid: Uint8Array,
+): ProceduralRect[] {
+  const rowRuns: ProceduralRect[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    let col = 0;
+    while (col < cols) {
+      while (col < cols && solid[row * cols + col] === 0) {
+        col += 1;
+      }
+      const startCol = col;
+      while (col < cols && solid[row * cols + col] === 1) {
+        col += 1;
+      }
+      if (col > startCol) {
+        rowRuns.push({
+          minX: bounds.minX + startCol * DUNGEON_FILL_CELL_SIZE,
+          minY: bounds.minY + row * DUNGEON_FILL_CELL_SIZE,
+          maxX: bounds.minX + col * DUNGEON_FILL_CELL_SIZE,
+          maxY: bounds.minY + (row + 1) * DUNGEON_FILL_CELL_SIZE,
+        });
+      }
+    }
+  }
+  return mergeAlignedRects(rowRuns);
+}
+
+function mergeAlignedRects(rects: readonly ProceduralRect[]): ProceduralRect[] {
+  const sorted = [...rects].sort((left, right) => {
+    if (left.minX !== right.minX) {
+      return left.minX - right.minX;
+    }
+    if (left.maxX !== right.maxX) {
+      return left.maxX - right.maxX;
+    }
+    return left.minY - right.minY;
+  });
+  const merged: ProceduralRect[] = [];
+  for (const rect of sorted) {
+    if (rect.maxX <= rect.minX || rect.maxY <= rect.minY) {
+      continue;
+    }
+    const previous = merged.at(-1);
+    if (
+      previous &&
+      previous.minX === rect.minX &&
+      previous.maxX === rect.maxX &&
+      previous.maxY === rect.minY
+    ) {
+      previous.maxY = rect.maxY;
+    } else {
+      merged.push({ ...rect });
+    }
+  }
+  return merged;
 }
 
 function createDungeonDoorSpawns(
@@ -1156,93 +1421,16 @@ function createDungeonDoorSpawns(
       if (Math.abs(dx) >= Math.abs(dy)) {
         return spawn(
           "building:dungeon_door",
-          dx >= 0 ? room.minX : room.maxX,
+          dx >= 0 ? room.minX + 96 : room.maxX - 96,
           room.centerY,
         );
       }
       return spawn(
         "building:dungeon_door",
         room.centerX,
-        dy >= 0 ? room.minY : room.maxY,
+        dy >= 0 ? room.minY + 96 : room.maxY - 96,
       );
     });
-}
-
-function addSplitHorizontalWall(
-  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
-  minX: number,
-  maxX: number,
-  wallMinY: number,
-  wallMaxY: number,
-  doorX: number | undefined,
-  doorHalfWidth: number,
-): void {
-  if (doorX === undefined) {
-    addRect(minX, wallMinY, maxX, wallMaxY);
-    return;
-  }
-  addRect(minX, wallMinY, doorX - doorHalfWidth, wallMaxY);
-  addRect(doorX + doorHalfWidth, wallMinY, maxX, wallMaxY);
-}
-
-function addSplitVerticalWall(
-  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
-  minY: number,
-  maxY: number,
-  wallMinX: number,
-  wallMaxX: number,
-  doorY: number | undefined,
-  doorHalfWidth: number,
-): void {
-  if (doorY === undefined) {
-    addRect(wallMinX, minY, wallMaxX, maxY);
-    return;
-  }
-  addRect(wallMinX, minY, wallMaxX, doorY - doorHalfWidth);
-  addRect(wallMinX, doorY + doorHalfWidth, wallMaxX, maxY);
-}
-
-function addMazeRoomWalls(
-  addRect: (minX: number, minY: number, maxX: number, maxY: number) => void,
-  room: ProceduralDungeonRoom,
-): void {
-  const t = 48;
-  const addRoomRect = (
-    minX: number,
-    minY: number,
-    maxX: number,
-    maxY: number,
-  ) => {
-    const boundedMinX = snapEdge(clamp(minX, room.minX + 96, room.maxX - 96));
-    const boundedMinY = snapEdge(clamp(minY, room.minY + 96, room.maxY - 96));
-    const boundedMaxX = snapEdge(clamp(maxX, boundedMinX + t, room.maxX - 96));
-    const boundedMaxY = snapEdge(clamp(maxY, boundedMinY + t, room.maxY - 96));
-    addRect(boundedMinX, boundedMinY, boundedMaxX, boundedMaxY);
-  };
-  addRoomRect(
-    room.minX + 168,
-    room.minY + 140,
-    room.minX + 168 + t,
-    room.maxY - 420,
-  );
-  addRoomRect(
-    room.minX + 360,
-    room.minY + 120,
-    room.maxX - 160,
-    room.minY + 120 + t,
-  );
-  addRoomRect(
-    room.maxX - 280,
-    room.minY + 360,
-    room.maxX - 280 + t,
-    room.maxY - 140,
-  );
-  addRoomRect(
-    room.minX + 180,
-    room.maxY - 260,
-    room.maxX - 360,
-    room.maxY - 260 + t,
-  );
 }
 
 function addArchetypeContent(
@@ -1455,8 +1643,8 @@ function addDungeonRoomContent(
         roomSpawn("enemy:police", 220, 180),
       );
       buildings.push(
-        roomSpawn("building:tripwire", -48, -96, 64),
-        roomSpawn("building:tripwire", -180, 0, 64),
+        roomSpawn("building:tripwire", -48, -64, 128),
+        roomSpawn("building:tripwire", -96, 0, 128),
       );
       break;
     case "armory":
@@ -1470,9 +1658,9 @@ function addDungeonRoomContent(
         roomSpawn("enemy:stalker", 160, 0),
       );
       buildings.push(
-        roomSpawn("building:tripwire", -112, -96, 64),
+        roomSpawn("building:tripwire", -56, -64, 128),
         spawn("building:tripwire", x, y),
-        roomSpawn("building:tripwire", 112, 96, 64),
+        roomSpawn("building:tripwire", 56, 64, 128),
       );
       loot.push(roomLoot("item:landmine", 0, 128, "stackable", "uncommon", 2));
       break;
@@ -2228,6 +2416,17 @@ function snapEdge(value: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function distanceSquared(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
 }
 
 function labelForArchetype(archetype: SectorArchetype): string {

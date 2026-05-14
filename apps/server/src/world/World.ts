@@ -87,8 +87,9 @@ export class World {
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
    * @param gameConfig Runtime configuration shared with the server.
+   * @param randomSeed Seed for random events.
    */
-  constructor(gameConfig: GameConfig) {
+  constructor(gameConfig: GameConfig, randomSeed: string | number = 1337) {
     this.gameConfig = gameConfig;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
@@ -96,7 +97,7 @@ export class World {
       gameConfig.collision.spatialCellSize,
     );
     this.navPathService = new NavGridPathService(gameConfig.worldSize);
-    this.randomNumberGenerator = seedrandom("1337");
+    this.randomNumberGenerator = seedrandom(String(randomSeed));
     this.events = new Denque<NetEvent>();
     this.dayNightSystem = new DayNightSystem({
       tickRate: gameConfig.tickRate,

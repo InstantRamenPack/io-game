@@ -62,21 +62,25 @@ export function makeTestConfig(
 export function makeRuntime(overrides?: {
   config?: TestConfigOverrides;
   network?: undefined;
+  worldSeed?: number;
 }): { runtime: GameInstanceRuntime; network: FakeNetworkServer };
 export function makeRuntime(overrides: {
   config?: TestConfigOverrides;
   network: NetworkServerLike;
+  worldSeed?: number;
 }): { runtime: GameInstanceRuntime; network: NetworkServerLike };
 export function makeRuntime(
   overrides: {
     config?: TestConfigOverrides;
     network?: NetworkServerLike;
+    worldSeed?: number;
   } = {},
 ): { runtime: GameInstanceRuntime; network: NetworkServerLike } {
   const network = overrides.network ?? new FakeNetworkServer();
   const runtime = new GameInstanceRuntime(
     makeTestConfig(overrides.config),
     network,
+    { worldSeed: overrides.worldSeed },
   );
   return { runtime, network };
 }

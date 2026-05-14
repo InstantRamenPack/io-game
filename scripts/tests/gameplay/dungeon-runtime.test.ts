@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Crate } from "@server/entities/enemies/Crate.ts";
 import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
@@ -17,16 +17,9 @@ import {
 const DUNGEON_KEY_TYPE_ID = "item:dungeon_key" as ResourceId;
 
 describe("dungeon runtime mechanics", () => {
-  const originalRandom = Math.random;
-
-  afterEach(() => {
-    Math.random = originalRandom;
-  });
-
   test("enemy death drops hunks, matching ammo, and sometimes the carried weapon", () => {
     bootstrapTestRegistries();
-    Math.random = () => 0.01;
-    const { runtime } = makeRuntime();
+    const { runtime } = makeRuntime({ worldSeed: 22 });
     const enemy = new Shoota(runtime.world.allocEntityId());
     enemy.x = runtime.world.gameConfig.worldSize.w / 2;
     enemy.y = runtime.world.gameConfig.worldSize.h / 2;
@@ -35,39 +28,25 @@ describe("dungeon runtime mechanics", () => {
     enemy.applyDamage(runtime.world, enemy.maxHp, 0);
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
-    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(3);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(11);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBeGreaterThan(0);
-    expect(
-      pickup.contents.countType("item:basic_gun" as ResourceId),
-    ).toBeGreaterThan(0);
+    ).toBe(1);
   });
 
-  test("enemy death uses the upgraded carried weapon drop chance", () => {
+  test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {
     bootstrapTestRegistries();
-    Math.random = () => 0.2;
-    const { runtime } = makeRuntime();
-    const enemy = new Shoota(runtime.world.allocEntityId());
-    enemy.x = runtime.world.gameConfig.worldSize.w / 2;
-    enemy.y = runtime.world.gameConfig.worldSize.h / 2;
-    runtime.world.spawn(enemy);
+    const first = simulateWaveAndFirstDeathDrop(1337);
+    const second = simulateWaveAndFirstDeathDrop(1337);
+    const third = simulateWaveAndFirstDeathDrop(7331);
 
-    enemy.applyDamage(runtime.world, enemy.maxHp, 0);
-
-    const pickup = findPickupAt(runtime, enemy.x, enemy.y);
-    expect(
-      pickup.contents.countType("item:hunk" as ResourceId),
-    ).toBeGreaterThan(0);
-    expect(
-      pickup.contents.countType("item:basic_gun" as ResourceId),
-    ).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+    expect(third).not.toEqual(first);
   });
 
   test("same-tick multi-kill loot does not reuse dead enemy ids", () => {
     bootstrapTestRegistries();
-    Math.random = () => 0.5;
-    const { runtime } = makeRuntime();
+    const { runtime } = makeRuntime({ worldSeed: 99 });
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
     const firstEnemy = new Shoota(runtime.world.allocEntityId());
@@ -213,6 +192,34 @@ describe("dungeon runtime mechanics", () => {
     expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
   });
 });
+
+function simulateWaveAndFirstDeathDrop(seed: number): {
+  firstWaveEnemyX: number;
+  firstWaveEnemyY: number;
+  hunk: number;
+  ammo: number;
+  weapon: number;
+} {
+  const { runtime } = makeRuntime({ worldSeed: seed });
+  tick(runtime, 1);
+  const waveEnemy = runtime.world.entities
+    .all()
+    .find(
+      (entity) => entity instanceof Shoota && entity.id > 1,
+    );
+  if (!(waveEnemy instanceof Shoota)) {
+    throw new Error("expected first wave shoota spawn");
+  }
+  waveEnemy.applyDamage(runtime.world, waveEnemy.maxHp, 0);
+  const pickup = findPickupAt(runtime, waveEnemy.x, waveEnemy.y);
+  return {
+    firstWaveEnemyX: waveEnemy.x,
+    firstWaveEnemyY: waveEnemy.y,
+    hunk: pickup.contents.countType("item:hunk" as ResourceId),
+    ammo: pickup.contents.countType("item:pistol_mag" as ResourceId),
+    weapon: pickup.contents.countType("item:basic_gun" as ResourceId),
+  };
+}
 
 function findPickupAt(
   runtime: ReturnType<typeof makeRuntime>["runtime"],

@@ -120,6 +120,7 @@ export class Player extends Entity {
     this.defaultCollisionMode = baseline.collisionMode;
     if (this.isDebugSpectatorMode()) {
       this.moveSpeed *= DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER;
+      this.collisionMode = "none";
     }
     this.setMovementTuning({
       driveAccelerationPerTick: Math.max(4, this.moveSpeed * 0.45),
@@ -205,6 +206,9 @@ export class Player extends Entity {
   }
 
   public override getDamageReductionMultiplier(): number {
+    if (this.isDebugSpectatorMode()) {
+      return 0;
+    }
     const fraction = this.food / Math.max(1, this.maxFood);
     if (fraction >= 0.8) return 0.7;
     if (fraction >= 0.5) return 0.85;
@@ -264,7 +268,9 @@ export class Player extends Entity {
     this.x = spawnPosition.x;
     this.y = spawnPosition.y;
     this.rotation = 0;
-    this.collisionMode = this.defaultCollisionMode;
+    this.collisionMode = this.isDebugSpectatorMode()
+      ? "none"
+      : this.defaultCollisionMode;
     this.resetMovement();
     world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
       before,

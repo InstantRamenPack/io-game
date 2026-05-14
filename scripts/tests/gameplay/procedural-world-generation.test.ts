@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import {
   PROCEDURAL_GRID_SIZE,
-  PROCEDURAL_TILE_SIZE,
   PROCEDURAL_WORLD_SIZE,
   REQUIRED_DUNGEON_ROOM_ROLES,
   generateProceduralWorldLayout,
@@ -128,8 +127,8 @@ describe("procedural survival extraction world", () => {
     const dungeonSector = layout.sectors.find(
       (sector) => sector.archetype === "dungeon",
     );
-    expect(layout.dungeon.rooms.length).toBeGreaterThanOrEqual(9);
-    expect(layout.dungeon.rooms.length).toBeLessThanOrEqual(12);
+    expect(layout.dungeon.rooms.length).toBeGreaterThanOrEqual(16);
+    expect(layout.dungeon.rooms.length).toBeLessThanOrEqual(20);
     expect(layout.dungeon.entrances).toHaveLength(2);
     expect(
       new Set(layout.dungeon.entrances.map((entrance) => entrance.side)),
@@ -172,7 +171,12 @@ describe("procedural survival extraction world", () => {
         (building) => building.typeId === "building:dungeon_door",
       ),
     ).toBe(true);
-    expect(dungeonRoomDoorRoles(layout)).toEqual(["treasure", "boss"]);
+    expect(new Set(dungeonRoomDoorRoles(layout))).toEqual(
+      new Set(["treasure", "boss"]),
+    );
+    expect(deepestDungeonRoomRoles(layout, 4)).toEqual(
+      expect.arrayContaining(["treasure", "boss"]),
+    );
     expect(dungeonKeyLootByRoomRole(layout)).toEqual({ mini_boss: 2 });
     expect(totalDungeonKeys(layout)).toBeGreaterThanOrEqual(
       layout.dungeon.doors.length,
@@ -193,6 +197,9 @@ describe("procedural survival extraction world", () => {
     const layout = generateProceduralWorldLayout(1337);
     const reachability = computeDungeonReachability(layout);
 
+    expect(layout.dungeon.hallways.length).toBeGreaterThanOrEqual(
+      layout.dungeon.rooms.length,
+    );
     for (const entrance of layout.dungeon.entrances) {
       expect(reachability.isReachable(entrance)).toBe(true);
     }
@@ -201,8 +208,67 @@ describe("procedural survival extraction world", () => {
         reachability.isReachable({ x: room.centerX, y: room.centerY }),
         `${room.id} should be reachable from a dungeon entrance`,
       ).toBe(true);
-      expect(room.maxX - room.minX).toBeGreaterThanOrEqual(630);
-      expect(room.maxY - room.minY).toBeGreaterThanOrEqual(630);
+      expect(room.maxX - room.minX).toBeGreaterThanOrEqual(240);
+      expect(room.maxY - room.minY).toBeGreaterThanOrEqual(224);
+    }
+  });
+
+  test("dungeon rooms are separated unless joined by narrow hallways", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    for (
+      let leftIndex = 0;
+      leftIndex < layout.dungeon.rooms.length;
+      leftIndex += 1
+    ) {
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < layout.dungeon.rooms.length;
+        rightIndex += 1
+      ) {
+        const left = layout.dungeon.rooms[leftIndex]!;
+        const right = layout.dungeon.rooms[rightIndex]!;
+        expect(
+          rectsOverlapOrTouch(left, right),
+          `${left.id} should not directly touch ${right.id}`,
+        ).toBe(false);
+      }
+    }
+
+    for (const hallway of layout.dungeon.hallways) {
+      expect(
+        Math.min(hallway.maxX - hallway.minX, hallway.maxY - hallway.minY),
+      ).toBeLessThanOrEqual(96);
+      expect(
+        layout.dungeon.rooms.filter((room) => rectsOverlap(hallway, room))
+          .length,
+        `hallway ${hallway.minX},${hallway.minY},${hallway.maxX},${hallway.maxY} should not carve through extra rooms`,
+      ).toBeLessThanOrEqual(2);
+    }
+  });
+
+  test("dungeon open space is limited to chambers and hallways", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const blockers = collectProceduralDungeonWallBlockers(layout);
+    const dungeon = layout.dungeon;
+
+    for (
+      let y = dungeon.minY + ACCESS_SAMPLE_SIZE / 2;
+      y < dungeon.maxY;
+      y += ACCESS_SAMPLE_SIZE
+    ) {
+      for (
+        let x = dungeon.minX + ACCESS_SAMPLE_SIZE / 2;
+        x < dungeon.maxX;
+        x += ACCESS_SAMPLE_SIZE
+      ) {
+        const point = { x, y };
+        const isOpen = !pointBlocked(point, blockers);
+        const expectedOpen = [...dungeon.rooms, ...dungeon.hallways].some(
+          (rect) => pointInRect(point, rect),
+        );
+        expect(isOpen, `open-space mismatch at ${x},${y}`).toBe(expectedOpen);
+      }
     }
   });
 
@@ -347,7 +413,7 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     expect(
       runtime.world.dungeonRoomsByZone.get(layout.dungeon.id)?.length,
-    ).toBe(REQUIRED_DUNGEON_ROOM_ROLES.length);
+    ).toBe(layout.dungeon.rooms.length);
     expect(
       runtime.world.entities
         .all()
@@ -450,13 +516,42 @@ function dungeonRoomDoorRoles(
 ): string[] {
   return layout.dungeon.doors.map((door) => {
     const room = layout.dungeon.rooms.find((candidate) =>
-      pointOnRoomPerimeter(door, candidate),
+      pointInRect(door, candidate),
     );
     if (!room) {
       throw new Error(`Expected dungeon door at ${door.x},${door.y} on a room`);
     }
     return room.role;
   });
+}
+
+function deepestDungeonRoomRoles(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+  count: number,
+): string[] {
+  return [...layout.dungeon.rooms]
+    .sort(
+      (left, right) =>
+        dungeonRoomEntranceDepth(right, layout) -
+        dungeonRoomEntranceDepth(left, layout),
+    )
+    .slice(0, count)
+    .map((room) => room.role);
+}
+
+function dungeonRoomEntranceDepth(
+  room: ReturnType<
+    typeof generateProceduralWorldLayout
+  >["dungeon"]["rooms"][number],
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): number {
+  return Math.min(
+    ...layout.dungeon.entrances.map((entrance) => {
+      const dx = room.centerX - entrance.x;
+      const dy = room.centerY - entrance.y;
+      return dx * dx + dy * dy;
+    }),
+  );
 }
 
 function dungeonKeyLootByRoomRole(
@@ -494,24 +589,36 @@ function totalDungeonKeys(
   return total;
 }
 
-function pointOnRoomPerimeter(
-  point: WorldPoint,
-  room: ReturnType<
-    typeof generateProceduralWorldLayout
-  >["dungeon"]["rooms"][number],
+function rectsOverlapOrTouch(
+  left: ProceduralRectLike,
+  right: ProceduralRectLike,
 ): boolean {
-  const tolerance = PROCEDURAL_TILE_SIZE;
-  const onVerticalDoor =
-    Math.abs(point.x - room.minX) <= tolerance ||
-    Math.abs(point.x - room.maxX) <= tolerance;
-  const onHorizontalDoor =
-    Math.abs(point.y - room.minY) <= tolerance ||
-    Math.abs(point.y - room.maxY) <= tolerance;
-  return (
-    (onVerticalDoor && point.y >= room.minY && point.y <= room.maxY) ||
-    (onHorizontalDoor && point.x >= room.minX && point.x <= room.maxX)
+  return !(
+    left.maxX < right.minX ||
+    right.maxX < left.minX ||
+    left.maxY < right.minY ||
+    right.maxY < left.minY
   );
 }
+
+function rectsOverlap(
+  left: ProceduralRectLike,
+  right: ProceduralRectLike,
+): boolean {
+  return !(
+    left.maxX <= right.minX ||
+    right.maxX <= left.minX ||
+    left.maxY <= right.minY ||
+    right.maxY <= left.minY
+  );
+}
+
+type ProceduralRectLike = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
 
 function resolveProceduralSpawnHitboxes(
   spec: ReturnType<

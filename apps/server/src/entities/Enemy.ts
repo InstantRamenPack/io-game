@@ -67,9 +67,10 @@ export class Enemy extends GoalControlledEntity {
 
   private spawnDeathLoot(world: World): void {
     const inventory = new Inventory();
+    const rng = world.randomNumberGenerator;
     inventory.addStackable(
       "item:hunk" as ResourceId,
-      3 + Math.floor(Math.random() * 12),
+      3 + Math.floor(rng() * 12),
     );
 
     const equippedWeapon = this.weapons[0];
@@ -82,14 +83,14 @@ export class Enemy extends GoalControlledEntity {
       if (magItemTypeId) {
         inventory.addStackable(
           magItemTypeId,
-          1 + Math.floor(Math.random() * 2),
+          1 + Math.floor(rng() * 2),
         );
       }
     }
 
     const shouldDropAllWeapons = this.typeId === ("enemy:thanos" as ResourceId);
     const shouldDropEquippedWeapon =
-      shouldDropAllWeapons || Math.random() < EQUIPPED_WEAPON_DROP_CHANCE;
+      shouldDropAllWeapons || rng() < EQUIPPED_WEAPON_DROP_CHANCE;
     if (shouldDropEquippedWeapon) {
       for (const weapon of shouldDropAllWeapons
         ? this.weapons
