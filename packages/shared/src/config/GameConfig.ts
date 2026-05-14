@@ -7,6 +7,7 @@ import { PROCEDURAL_WORLD_SIZE } from "@shared/world/ProceduralWorld.ts";
  */
 export class GameConfig {
   public static readonly DEFAULT_TICK_RATE = 20;
+  public static readonly MAX_TICK_RATE = 100;
   public static readonly DEFAULT_SPATIAL_CELL_SIZE = 64;
 
   public tickRate = GameConfig.DEFAULT_TICK_RATE;
@@ -169,7 +170,10 @@ export class GameConfig {
       gameConfig.debug.focusedTrace.playerName;
 
     if (Number.isFinite(tickRate) && tickRate > 0) {
-      gameConfig.tickRate = Math.floor(tickRate);
+      gameConfig.tickRate = Math.min(
+        GameConfig.MAX_TICK_RATE,
+        Math.floor(tickRate),
+      );
     }
     if (Number.isFinite(spatialCellSize) && spatialCellSize > 0) {
       gameConfig.collision.spatialCellSize = Math.floor(spatialCellSize);

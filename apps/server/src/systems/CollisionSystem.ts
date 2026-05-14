@@ -189,6 +189,16 @@ class CollisionSystem implements System {
     requestedDeltaY: number,
     options: StaticClipOptions = {},
   ): StaticClipResult {
+    if (!world.staticGeometry.hasBlockers()) {
+      return {
+        deltaX: requestedDeltaX,
+        deltaY: requestedDeltaY,
+        blockedX: false,
+        blockedY: false,
+        initialOverlapRecovered: false,
+      };
+    }
+
     const startX = entity.x;
     const startY = entity.y;
     const blockerIds = options.blockerIds ?? null;
@@ -332,6 +342,7 @@ class CollisionSystem implements System {
       bounds.maxX,
       bounds.maxY,
       this.staticQueryBuffer,
+      false,
     );
     if (candidates.length === 0) {
       return delta;
@@ -417,6 +428,7 @@ class CollisionSystem implements System {
       bounds.maxX,
       bounds.maxY,
       this.staticQueryBuffer,
+      false,
     );
     const entityHitboxes = this.getCachedWorldHitboxes(entity);
     const staticHitboxes: ResolvedHitboxRect[] = [];
@@ -491,7 +503,7 @@ class CollisionSystem implements System {
 
   private resolveDynamicPairs(world: World): boolean {
     let resolvedCollision = false;
-    for (const entity of world.entities.collidable()) {
+    for (const entity of world.entities.dynamic()) {
       if (entity.collisionMode !== "dynamic") {
         continue;
       }

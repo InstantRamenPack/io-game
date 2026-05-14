@@ -23,8 +23,11 @@ const MIN_DISTANCE_EPSILON = 1e-6;
 const WORLD_SHADOW_EXTENSION = 20_000;
 const LIGHTS_OUT_FADE_START_RADIUS = 480;
 const LIGHTS_OUT_FADE_END_RADIUS = 600;
-const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 512;
-const DARKNESS_TEXTURE_RADIUS_BUCKET = 4;
+const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 4096;
+const DARKNESS_TEXTURE_FADE_END_RATIO = 0.125;
+const DARKNESS_TEXTURE_FADE_START_RATIO =
+  DARKNESS_TEXTURE_FADE_END_RATIO *
+  (LIGHTS_OUT_FADE_START_RADIUS / LIGHTS_OUT_FADE_END_RADIUS);
 const DARKNESS_OVERLAY_COLOR = 0x000000;
 
 export class PixiLightsOutOverlay {
@@ -37,7 +40,6 @@ export class PixiLightsOutOverlay {
   private blockerShadowTexture: Texture | null = null;
   private blockerScratchCanvas: HTMLCanvasElement | null = null;
   private blockerScratchContext: CanvasRenderingContext2D | null = null;
-  private cachedTextureKey = "";
 
   constructor() {
     this.container.addChild(
@@ -75,32 +77,17 @@ export class PixiLightsOutOverlay {
     }
 
     this.darknessOverlay.position.set(visibleRadius.x, visibleRadius.y);
-    this.updateDarknessOverlayTexture(app, visibleRadius.radius);
+    this.updateDarknessOverlay(visibleRadius.radius);
     this.updateBlockerShadowTexture(app, visibility, blockers, worldToScreen);
   }
 
-  private updateDarknessOverlayTexture(app: Application, radius: number): void {
-    const extentRadius = Math.max(
-      1,
-      Math.hypot(app.screen.width, app.screen.height),
-    );
-    const radiusBucket =
-      Math.round(radius / DARKNESS_TEXTURE_RADIUS_BUCKET) *
-      DARKNESS_TEXTURE_RADIUS_BUCKET;
-    const textureKey = [app.screen.width, app.screen.height, radiusBucket].join(
-      ":",
-    );
-    if (textureKey !== this.cachedTextureKey) {
-      this.cachedTextureKey = textureKey;
-      this.darknessOverlay.texture = createLightsOutDarknessTexture(
-        (radiusBucket * LIGHTS_OUT_FADE_START_RADIUS) /
-          LIGHTS_OUT_FADE_END_RADIUS /
-          extentRadius,
-        radiusBucket / extentRadius,
-      );
+  private updateDarknessOverlay(radius: number): void {
+    if (this.darknessOverlay.texture === Texture.EMPTY) {
+      this.darknessOverlay.texture = createLightsOutDarknessTexture();
     }
-    this.darknessOverlay.width = extentRadius * 2;
-    this.darknessOverlay.height = extentRadius * 2;
+    const overlayRadius = Math.max(1, radius / DARKNESS_TEXTURE_FADE_END_RATIO);
+    this.darknessOverlay.width = overlayRadius * 2;
+    this.darknessOverlay.height = overlayRadius * 2;
   }
 
   private drawBackgroundDim(app: Application): void {
@@ -301,15 +288,29 @@ function buildRectSetBlockerShadows(
   return rects.flatMap((rect) => buildRectBlockerShadows(visibility, rect));
 }
 
+export function countVisibilityShadowPolygonsForBenchmark(
+  visibility: LightsOutVisibilityContext,
+  blockers: readonly VisibilityBlockerShape[],
+): number {
+  let count = 0;
+  for (const blocker of blockers) {
+    if (blocker.kind === "rects") {
+      for (const rect of blocker.rects) {
+        count += isRectBlockerShadowRelevant(visibility, rect) ? 4 : 0;
+      }
+    } else {
+      count += isCircleBlockerShadowRelevant(visibility, blocker) ? 1 : 0;
+    }
+  }
+  return count;
+}
+
 function buildRectBlockerShadows(
   visibility: LightsOutVisibilityContext,
   rect: VisibilityBlockerRect,
 ): WorldPoint[][] {
   const origin = visibility.center;
-  if (
-    distanceToRect(origin, rect) > visibility.radius ||
-    pointInRect(origin, rect)
-  ) {
+  if (!isRectBlockerShadowRelevant(visibility, rect)) {
     return [];
   }
   const corners = [
@@ -332,15 +333,12 @@ function buildCircleBlockerShadow(
   blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
 ): WorldPoint[][] {
   const origin = visibility.center;
+  if (!isCircleBlockerShadowRelevant(visibility, blocker)) {
+    return [];
+  }
   const dx = blocker.centerX - origin.x;
   const dy = blocker.centerY - origin.y;
   const distance = Math.hypot(dx, dy);
-  if (
-    distance > visibility.radius ||
-    distance <= blocker.radius + MIN_DISTANCE_EPSILON
-  ) {
-    return [];
-  }
   const nx = -dy / distance;
   const ny = dx / distance;
   const a = {
@@ -352,6 +350,33 @@ function buildCircleBlockerShadow(
     y: blocker.centerY - ny * blocker.radius,
   };
   return buildProjectedTrapezoid(origin, a, b);
+}
+
+function isRectBlockerShadowRelevant(
+  visibility: LightsOutVisibilityContext,
+  rect: VisibilityBlockerRect,
+): boolean {
+  const origin = visibility.center;
+  const radiusSquared = visibility.radius * visibility.radius;
+  return (
+    distanceToRectSquared(origin, rect) <= radiusSquared &&
+    !pointInRect(origin, rect)
+  );
+}
+
+function isCircleBlockerShadowRelevant(
+  visibility: LightsOutVisibilityContext,
+  blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
+): boolean {
+  const origin = visibility.center;
+  const dx = blocker.centerX - origin.x;
+  const dy = blocker.centerY - origin.y;
+  const distanceSquared = dx * dx + dy * dy;
+  const minDistance = blocker.radius + MIN_DISTANCE_EPSILON;
+  return (
+    distanceSquared <= visibility.radius * visibility.radius &&
+    distanceSquared > minDistance * minDistance
+  );
 }
 
 function buildProjectedTrapezoid(
@@ -384,13 +409,13 @@ function extendWorldPointFromOrigin(
   };
 }
 
-function distanceToRect(
+function distanceToRectSquared(
   point: WorldPoint,
   rect: VisibilityBlockerRect,
 ): number {
   const dx = Math.max(rect.minX - point.x, 0, point.x - rect.maxX);
   const dy = Math.max(rect.minY - point.y, 0, point.y - rect.maxY);
-  return Math.hypot(dx, dy);
+  return dx * dx + dy * dy;
 }
 
 function pointInRect(point: WorldPoint, rect: VisibilityBlockerRect): boolean {
@@ -460,10 +485,7 @@ function smootherstep(t: number): number {
   return clamped * clamped * clamped * (clamped * (clamped * 6 - 15) + 10);
 }
 
-function createLightsOutDarknessTexture(
-  fadeStartRatio: number,
-  fadeEndRatio: number,
-): Texture {
+function createLightsOutDarknessTexture(): Texture {
   const canvas = document.createElement("canvas");
   canvas.width = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
   canvas.height = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE;
@@ -471,24 +493,36 @@ function createLightsOutDarknessTexture(
   if (!context) {
     return Texture.EMPTY;
   }
-  const image = context.createImageData(canvas.width, canvas.height);
-  const center = (LIGHTS_OUT_FALLOFF_TEXTURE_SIZE - 1) / 2;
+  const center = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE / 2;
   const outerRadius = LIGHTS_OUT_FALLOFF_TEXTURE_SIZE / 2;
-  for (let y = 0; y < canvas.height; y += 1) {
-    for (let x = 0; x < canvas.width; x += 1) {
-      const dx = x - center;
-      const dy = y - center;
-      const distanceRatio = Math.hypot(dx, dy) / outerRadius;
-      const fadeRatio =
-        (distanceRatio - fadeStartRatio) / (fadeEndRatio - fadeStartRatio);
-      const alpha = smootherstep(fadeRatio);
-      const index = (y * canvas.width + x) * 4;
-      image.data[index] = 0;
-      image.data[index + 1] = 0;
-      image.data[index + 2] = 0;
-      image.data[index + 3] = Math.round(alpha * 255);
-    }
-  }
-  context.putImageData(image, 0, 0);
-  return Texture.from(canvas);
+  const startRadius = Math.max(
+    0,
+    DARKNESS_TEXTURE_FADE_START_RATIO * outerRadius,
+  );
+  const endRadius = Math.max(
+    startRadius + 1,
+    DARKNESS_TEXTURE_FADE_END_RATIO * outerRadius,
+  );
+  const gradient = context.createRadialGradient(
+    center,
+    center,
+    startRadius,
+    center,
+    center,
+    endRadius,
+  );
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+  gradient.addColorStop(0.18, alphaStop(0.08));
+  gradient.addColorStop(0.5, alphaStop(0.5));
+  gradient.addColorStop(0.82, alphaStop(0.92));
+  gradient.addColorStop(1, "rgba(0, 0, 0, 1)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const texture = Texture.from(canvas);
+  texture.source.scaleMode = "linear";
+  return texture;
+}
+
+function alphaStop(t: number): string {
+  return `rgba(0, 0, 0, ${smootherstep(t).toFixed(4)})`;
 }

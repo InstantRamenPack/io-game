@@ -71,6 +71,7 @@ export class StaticGeometryIndex {
     maxX: number,
     maxY: number,
     result: StaticGeometryBlocker[] = [],
+    sortByEntityId = true,
   ): StaticGeometryBlocker[] {
     result.length = 0;
     this.queryMarker += 1;
@@ -102,8 +103,14 @@ export class StaticGeometryIndex {
       }
     }
 
-    result.sort((left, right) => left.entityId - right.entityId);
+    if (sortByEntityId) {
+      result.sort((left, right) => left.entityId - right.entityId);
+    }
     return result;
+  }
+
+  public hasBlockers(): boolean {
+    return this.blockerByEntityId.size > 0;
   }
 
   public isBlocker(entity: Entity): boolean {

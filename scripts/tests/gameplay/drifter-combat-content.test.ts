@@ -21,6 +21,7 @@ describe("drifter combat content", () => {
       runtime.world.despawn(entity.id);
     }
     const player = spawnPlayerLikeDynamic(runtime, 120, 100);
+    player.food = 0;
     const drifter = spawnEnemy(runtime, "drifter", 100, 100) as Enemy;
     const drifterContent = requireEntityContent("enemy:drifter");
     const weaponContent = getWeaponContent(

@@ -32,7 +32,7 @@ const FULL_INFRASTRUCTURE: InfrastructureSnapshot = {
 };
 const MAX_DELTA_ENTITY_UPDATES = 1024;
 const FULL_ENTITY_RELIABILITY_SENDS = 4;
-const FULL_ENTITY_REFRESH_TICKS = 40;
+const FULL_ENTITY_REFRESH_TICKS = 600;
 
 /**
  * Serializes authoritative world state after each completed server tick.
@@ -107,6 +107,7 @@ export class SnapshotManager {
       this.replicationState.getLastFullEntitySnapshotTicks(playerId);
     const changedEntities: EntitySnapshot[] = [];
     const removedEntityIds: number[] = [];
+    const firstSnapshotForPlayer = knownEntityVersions.size === 0;
 
     this.bumpMarker();
     this.recordVisibleEntityForPlayer(
@@ -156,6 +157,7 @@ export class SnapshotManager {
 
     const full =
       world.tick <= 2 ||
+      firstSnapshotForPlayer ||
       removedEntityIds.length > MAX_DELTA_REMOVED_IDS ||
       changedEntities.length > MAX_DELTA_ENTITY_UPDATES;
 
@@ -212,7 +214,7 @@ export class SnapshotManager {
       dayNight,
       extraction,
       infrastructure,
-      map,
+      map: undefined,
       minimapPlayers: this.collectMinimapPlayers(world),
       full: false,
       entities: changedEntities,

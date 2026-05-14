@@ -33,6 +33,35 @@ describe("snapshot manager delta/full behavior", () => {
     expect(second.full).toBe(true);
   });
 
+  test("static map metadata is only included in full snapshots", () => {
+    const { runtime } = makeRuntime();
+    const { playerId } = connectTestClient(runtime);
+    const first = stepAndSnapshot(runtime, playerId, 200);
+    for (let i = 0; i < 5; i += 1) {
+      stepAndSnapshot(runtime, playerId, 200);
+    }
+
+    const delta = stepAndSnapshot(runtime, playerId, 200);
+    expect(first.full).toBe(true);
+    expect(first.map).toBeDefined();
+    expect(delta.full).toBe(false);
+    expect(delta.map).toBeUndefined();
+  });
+
+  test("late joining players receive map metadata in their first snapshot", () => {
+    const { runtime } = makeRuntime();
+    const { playerId: firstPlayerId } = connectTestClient(runtime, "client-1");
+    for (let i = 0; i < 8; i += 1) {
+      stepAndSnapshot(runtime, firstPlayerId, 200);
+    }
+
+    const { playerId: latePlayerId } = connectTestClient(runtime, "client-2");
+    const firstLateSnapshot = stepAndSnapshot(runtime, latePlayerId, 200);
+
+    expect(firstLateSnapshot.full).toBe(true);
+    expect(firstLateSnapshot.map).toBeDefined();
+  });
+
   test("changed entity emits delta and strips stable fields", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);

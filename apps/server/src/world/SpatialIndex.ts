@@ -201,7 +201,3 @@ function spansMatch(left: CellSpan, right: CellSpan): boolean {
 
 const CELL_KEY_OFFSET = 1 << 15;
 const CELL_KEY_STRIDE = 1 << 16;
-
-function compareEntitiesById(left: Entity, right: Entity): number {
-  return left.id - right.id;
-}

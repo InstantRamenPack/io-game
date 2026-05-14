@@ -18,7 +18,7 @@ export type NavPathBenchmarkStats = {
   dirtyRectsProcessed: number;
 };
 
-const PATH_TILE_SIZE = 1;
+const PATH_TILE_SIZE = 16;
 const PATHFIND_MAX_ITERATIONS = 200_000;
 const PATH_CACHE_MAX_ENTRIES = 2_048;
 const WAYPOINT_LOOKAHEAD_DISTANCE = 48;

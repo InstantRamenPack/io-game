@@ -9,6 +9,7 @@ type GoalDestinationProvider<TSelf extends GoalActor> = (
 type TilePoint = { x: number; y: number };
 
 const DEFAULT_REPATH_INTERVAL_TICKS = 6;
+const REPATH_STAGGER_TICKS = 3;
 const WAYPOINT_REACHED_DISTANCE_SQUARED = 16;
 const STEERING_JITTER_TICKS = 18;
 const STEERING_JITTER_RADIUS = 5;
@@ -26,6 +27,7 @@ export class GoToPositionGoal<
   private cachedWaypoint: GoalDestination | null = null;
   private hasPathSample = false;
   private lastRepathTick = Number.NEGATIVE_INFINITY;
+  private nextScheduledRepathTick = Number.NEGATIVE_INFINITY;
   private lastDestinationTile: TilePoint | null = null;
 
   /**
@@ -83,6 +85,7 @@ export class GoToPositionGoal<
       );
       this.hasPathSample = true;
       this.lastRepathTick = ctx.world.tick;
+      this.nextScheduledRepathTick = this.computeNextScheduledRepathTick(ctx);
       this.lastDestinationTile = destinationTile;
     }
 
@@ -127,6 +130,9 @@ export class GoToPositionGoal<
     if (!this.hasPathSample) {
       return true;
     }
+    if (this.hasReachedCachedWaypoint(ctx)) {
+      return true;
+    }
     if (
       !this.lastDestinationTile ||
       this.lastDestinationTile.x !== destinationTile.x ||
@@ -134,9 +140,16 @@ export class GoToPositionGoal<
     ) {
       return true;
     }
+    if (ctx.world.tick < this.nextScheduledRepathTick) {
+      return false;
+    }
     if (ctx.world.tick - this.lastRepathTick >= this.repathIntervalTicks) {
       return true;
     }
+    return false;
+  }
+
+  private hasReachedCachedWaypoint(ctx: GoalContext<TSelf>): boolean {
     if (!this.cachedWaypoint) {
       return false;
     }
@@ -152,6 +165,15 @@ export class GoToPositionGoal<
     this.cachedWaypoint = null;
     this.lastDestinationTile = null;
     this.lastRepathTick = Number.NEGATIVE_INFINITY;
+    this.nextScheduledRepathTick = Number.NEGATIVE_INFINITY;
+  }
+
+  private computeNextScheduledRepathTick(ctx: GoalContext<TSelf>): number {
+    return (
+      ctx.world.tick +
+      this.repathIntervalTicks +
+      (ctx.self.id % REPATH_STAGGER_TICKS)
+    );
   }
 
   private addSteeringJitter(

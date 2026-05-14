@@ -1,6 +1,10 @@
 const commands = [
   ["benchmark:network-aoi", ["bun", "run", "benchmark:network-aoi"]],
   ["benchmark:server-scenarios", ["bun", "run", "benchmark:server-scenarios"]],
+  [
+    "benchmark:server-tick-budget",
+    ["bun", "run", "benchmark:server-tick-budget"],
+  ],
   ["benchmark:pathfinding", ["bun", "run", "benchmark:pathfinding"]],
   ["benchmark:collision", ["bun", "run", "benchmark:collision"]],
   ["benchmark:combat-burst", ["bun", "run", "benchmark:combat-burst"]],
@@ -8,6 +12,10 @@ const commands = [
   [
     "benchmark:multiplayer-scale",
     ["bun", "run", "benchmark:multiplayer-scale"],
+  ],
+  [
+    "benchmark:performance-budget",
+    ["bun", "run", "benchmark:performance-budget"],
   ],
 ] as const;
 

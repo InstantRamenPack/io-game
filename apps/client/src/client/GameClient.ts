@@ -517,7 +517,9 @@ export class GameClient {
     this.latestMinimapPlayers = snapshot.minimapPlayers ?? [];
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
-    this.renderer.updateMapState(snapshot.map ?? null);
+    if (snapshot.map !== undefined) {
+      this.renderer.updateMapState(snapshot.map);
+    }
 
     this.placementPreviewController.invalidate({
       spatialIndex: true,
