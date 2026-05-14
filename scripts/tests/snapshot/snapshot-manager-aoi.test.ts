@@ -11,6 +11,7 @@ function stepAndSnapshot(
   runtime: ReturnType<typeof makeRuntime>["runtime"],
   playerId: number,
   interestRadius: number,
+  includeAllEntities = false,
 ): WorldSnapshot {
   runtime.world.step();
   runtime.snapshotManager.prepareTick(runtime.world, []);
@@ -18,6 +19,8 @@ function stepAndSnapshot(
     runtime.world,
     playerId,
     interestRadius,
+    undefined,
+    includeAllEntities,
   );
 }
 
@@ -60,6 +63,25 @@ describe("snapshot manager AOI", () => {
     const snapshot = stepAndSnapshot(runtime, playerId, 120);
     expect(snapshot.entities.some((entity) => entity.id === wall.id)).toBe(
       false,
+    );
+  });
+
+  test("debug player receives entities outside interest radius", () => {
+    const { runtime } = makeRuntime();
+    const { player, playerId } = connectTestClient(
+      runtime,
+      "client-1",
+      "debug",
+    );
+    const wall = spawnWall(runtime, player.x + 1000, player.y);
+    const snapshot = stepAndSnapshot(
+      runtime,
+      playerId,
+      120,
+      player.isDebugSpectatorMode(),
+    );
+    expect(snapshot.entities.some((entity) => entity.id === wall.id)).toBe(
+      true,
     );
   });
 

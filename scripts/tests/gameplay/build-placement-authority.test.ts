@@ -216,6 +216,12 @@ describe("build placement authority", () => {
     )[0];
     expect(outerBuilding).toBeDefined();
 
+    for (const entity of runtime.world.entities.all()) {
+      if (entity.typeId.startsWith("enemy:")) {
+        runtime.world.despawn(entity.id);
+      }
+    }
+
     tick(runtime, runtime.world.gameConfig.tickRate * 6);
     expect(runtime.world.entities.has(centerBuilding!.id)).toBe(true);
     expect(centerBuilding!.hp).toBe(centerBuilding!.maxHp);

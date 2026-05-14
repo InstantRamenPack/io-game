@@ -156,9 +156,18 @@ export class PixiWorldPresentationSink {
       this.renderer.playerX === undefined ||
       this.renderer.playerY === undefined
     ) {
+      this.renderer.setLightsOutSuppressed(false);
       this.renderer.setVisibilityBlockers([]);
       return;
     }
+
+    const player =
+      this.renderer.playerEntityId === undefined
+        ? undefined
+        : world.entities.get(this.renderer.playerEntityId);
+    this.renderer.setLightsOutSuppressed(
+      player?.name?.toLowerCase() === "debug",
+    );
 
     const blockers: VisibilityBlockerShape[] = [];
 

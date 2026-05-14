@@ -195,6 +195,11 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public setLightsOutSuppressed(suppressed: boolean): void {
+    this.worldView.setLightsOutSuppressed(suppressed);
+    this.renderScheduler.markDirty();
+  }
+
   public setPlaygroundMode(isPlayground: boolean): void {
     this.worldView.setPlaygroundMode(isPlayground);
     this.renderScheduler.markDirty();

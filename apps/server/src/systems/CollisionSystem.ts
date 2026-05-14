@@ -12,6 +12,7 @@ import {
 } from "@shared/geometry/hitbox.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { Player } from "@server/entities/Player.ts";
 import type { System } from "@server/systems/System.ts";
 import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 import type { World } from "@server/world/World.ts";
@@ -140,6 +141,23 @@ class CollisionSystem implements System {
     const startY = entity.y;
     const requestedDeltaX = entity.vx;
     const requestedDeltaY = entity.vy;
+    if (this.isDebugNoClipPlayer(entity)) {
+      entity.x += requestedDeltaX;
+      entity.y += requestedDeltaY;
+      this.invalidateEntityCaches(entity);
+      this.resolveWorldBounds(entity, world);
+      return {
+        moved: entity.x !== startX || entity.y !== startY,
+        blockedX: false,
+        blockedY: false,
+        initialOverlapRecovered: false,
+        blockerIds: [],
+        requestedDeltaX,
+        requestedDeltaY,
+        resolvedDeltaX: entity.x - startX,
+        resolvedDeltaY: entity.y - startY,
+      };
+    }
     const blockerIds = world.focusedTrace.enabled ? new Set<number>() : null;
     const clip = this.clipStaticDelta(
       world,
@@ -552,6 +570,12 @@ class CollisionSystem implements System {
     leftEntity: Entity,
     rightEntity: Entity,
   ): boolean {
+    if (
+      this.isDebugNoClipPlayer(leftEntity) ||
+      this.isDebugNoClipPlayer(rightEntity)
+    ) {
+      return false;
+    }
     const leftIsItemEntity = leftEntity instanceof ItemEntity;
     const rightIsItemEntity = rightEntity instanceof ItemEntity;
     if (!leftIsItemEntity && !rightIsItemEntity) {
@@ -854,6 +878,10 @@ class CollisionSystem implements System {
   private invalidateEntityCaches(entity: Entity): void {
     this.worldHitboxCache.delete(entity.id);
     this.worldBoundsCache.delete(entity.id);
+  }
+
+  private isDebugNoClipPlayer(entity: Entity): boolean {
+    return entity instanceof Player && entity.isDebugSpectatorMode();
   }
 }
 

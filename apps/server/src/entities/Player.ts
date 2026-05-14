@@ -42,6 +42,7 @@ import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
 const TOWER_REPAIR_HP_DIVISOR = 50;
+const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
 
 type PlayerInputIntentState = {
   seq: number;
@@ -117,6 +118,9 @@ export class Player extends Entity {
     );
     this.collisionMode = baseline.collisionMode;
     this.defaultCollisionMode = baseline.collisionMode;
+    if (this.isDebugSpectatorMode()) {
+      this.moveSpeed *= DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER;
+    }
     this.setMovementTuning({
       driveAccelerationPerTick: Math.max(4, this.moveSpeed * 0.45),
     });
@@ -457,10 +461,7 @@ export class Player extends Entity {
       }
     }
 
-    if (
-      !this.isDebugCreativeEditor() &&
-      !this.inventory.consumeSelectedBuildable(1)
-    ) {
+    if (!this.inventory.consumeSelectedBuildable(1)) {
       return;
     }
 
@@ -560,7 +561,7 @@ export class Player extends Entity {
     return multiplier;
   }
 
-  private isDebugCreativeEditor(): boolean {
+  public isDebugSpectatorMode(): boolean {
     return (
       process.env.NODE_ENV !== "production" &&
       this.name.toLowerCase() === "debug"

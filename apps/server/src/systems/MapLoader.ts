@@ -208,16 +208,23 @@ function mapProceduralDungeonRoom(room: ProceduralDungeonRoom): {
   };
 }
 
-let cachedProceduralLayout: ReturnType<
-  typeof generateProceduralWorldLayout
-> | null = null;
+const cachedProceduralLayoutBySeed = new Map<
+  number,
+  ReturnType<typeof generateProceduralWorldLayout>
+>();
 
 /**
  * Spawns all map structures and initial enemies from data-backed zones.
  */
-export function loadMap(world: World): void {
-  if (!cachedProceduralLayout) {
-    cachedProceduralLayout = generateProceduralWorldLayout();
+export function loadMap(world: World, seed?: number): void {
+  const layoutSeed = Number.isFinite(seed)
+    ? (Math.floor(seed as number) | 0)
+    : undefined;
+  const cacheKey = layoutSeed ?? 1337;
+  let layout = cachedProceduralLayoutBySeed.get(cacheKey);
+  if (!layout) {
+    layout = generateProceduralWorldLayout(cacheKey);
+    cachedProceduralLayoutBySeed.set(cacheKey, layout);
   }
-  loadProceduralLayout(world, cachedProceduralLayout);
+  loadProceduralLayout(world, layout);
 }

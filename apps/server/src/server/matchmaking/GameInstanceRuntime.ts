@@ -5,7 +5,6 @@ import type {
   ServerToClientMessage,
   SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
-import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -13,11 +12,9 @@ import {
   getMatchPlayerSpawnPosition,
   getPlayerSpawnPosition,
 } from "@server/entities/playerSpawn.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
 import {
   applyPlayerStarterLoadout,
   validatePlayerStarterLoadout,
@@ -27,19 +24,6 @@ import { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
 import { loadMap } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
-
-const DEBUG_CREATIVE_STACK_COUNT = 9999;
-const DEBUG_CREATIVE_ITEM_TYPE_IDS: readonly ResourceId[] = Object.freeze([
-  makeResourceId("item", "wall"),
-  makeResourceId("item", "chest"),
-  makeResourceId("item", "cannon"),
-  makeResourceId("item", "crafting_station"),
-  makeResourceId("item", "structure_fence_h"),
-  makeResourceId("item", "structure_fence_v"),
-  makeResourceId("item", "structure_house_m"),
-  makeResourceId("item", "structure_house_l"),
-  makeResourceId("item", "structure_tree"),
-]);
 
 export class GameInstanceRuntime {
   private static nextWorldId = 0;
@@ -68,13 +52,12 @@ export class GameInstanceRuntime {
     string,
     number | null
   >();
-  private prevWasNight = false;
   private gameFailed = false;
 
   constructor(
     gameConfig: GameConfig,
     networkServer: NetworkServerLike,
-    options: { isPlayground?: boolean } = {},
+    options: { isPlayground?: boolean; worldSeed?: number } = {},
   ) {
     this.isPlayground = options.isPlayground ?? false;
     validatePlayerStarterLoadout();
@@ -107,7 +90,7 @@ export class GameInstanceRuntime {
       }
     }
 
-    loadMap(this.world);
+    loadMap(this.world, options.worldSeed);
     infraSystem.spawnTowers(this.world);
   }
 
@@ -120,9 +103,9 @@ export class GameInstanceRuntime {
     this.snapshotManager.prepareTick(this.world, drainedEvents);
 
     for (const [clientId, playerId] of this.playerIdByClientId) {
+      const player = this.world.get<Player>(playerId);
       let centerOverride: { x: number; y: number } | undefined;
       if (!this.isPlayground) {
-        const player = this.world.get<Player>(playerId);
         if (player && !player.alive) {
           const targetId = this.spectateTargetIdByClientId.get(clientId);
           if (targetId != null) {
@@ -138,6 +121,7 @@ export class GameInstanceRuntime {
         playerId,
         this.gameConfig.replication.interestRadius,
         centerOverride,
+        player?.isDebugSpectatorMode() ?? false,
       );
       snapshot.lastProcessedSeq = this.getLastProcessedSeq(clientId);
       const snapshotMessage: ServerToClientMessage = {
@@ -170,9 +154,6 @@ export class GameInstanceRuntime {
     applyPlayerStarterLoadout(playerEntity);
     if (!this.isPlayground) {
       playerEntity.inventory.clearHotbar();
-    }
-    if (isDebugCreativeEditor(playerEntity)) {
-      applyDebugCreativeLoadout(playerEntity);
     }
 
     this.world.spawn(playerEntity);
@@ -501,33 +482,5 @@ export class GameInstanceRuntime {
       this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1,
       this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
-  }
-}
-
-function isDebugCreativeEditor(player: Player): boolean {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    player.name.toLowerCase() === "debug"
-  );
-}
-
-function applyDebugCreativeLoadout(player: Player): void {
-  player.inventory.resources.clear();
-  player.inventory.clearHotbar();
-
-  for (const itemTypeId of DEBUG_CREATIVE_ITEM_TYPE_IDS) {
-    const itemEntry = itemTypeRegistry.get(itemTypeId);
-    if (!itemEntry) {
-      throw new Error(`Missing debug creative item entry: ${itemTypeId}`);
-    }
-    if (
-      !grantItemEntryByAcquisitionRules(
-        player.inventory,
-        itemEntry,
-        DEBUG_CREATIVE_STACK_COUNT,
-      )
-    ) {
-      throw new Error(`Could not grant debug creative item ${itemTypeId}`);
-    }
   }
 }

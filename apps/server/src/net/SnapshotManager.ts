@@ -60,6 +60,7 @@ export class SnapshotManager {
     playerId: number,
     interestRadius: number,
     centerOverride?: { x: number; y: number },
+    includeAllEntities = false,
   ): WorldSnapshot {
     if (this.tickCache.getPreparedTick() !== world.tick) {
       this.prepareTick(world, []);
@@ -121,13 +122,11 @@ export class SnapshotManager {
       world.tick,
     );
 
-    for (const entity of world.spatial.queryBox(
-      minX,
-      minY,
-      maxX,
-      maxY,
-      this.queryBuffer,
-    )) {
+    const relevantEntities = includeAllEntities
+      ? world.entities.all()
+      : world.spatial.queryBox(minX, minY, maxX, maxY, this.queryBuffer);
+
+    for (const entity of relevantEntities) {
       if (this.isIncluded(entity.id)) {
         continue;
       }
@@ -169,6 +168,7 @@ export class SnapshotManager {
         minY,
         maxX,
         maxY,
+        includeAllEntities,
       );
 
       knownEntityVersions.clear();
@@ -235,6 +235,7 @@ export class SnapshotManager {
     minY: number,
     maxX: number,
     maxY: number,
+    includeAllEntities: boolean,
   ): EntitySnapshot[] {
     const entities: EntitySnapshot[] = [];
     this.bumpMarker();
@@ -245,13 +246,11 @@ export class SnapshotManager {
       this.markIncluded(playerId);
     }
 
-    for (const entity of world.spatial.queryBox(
-      minX,
-      minY,
-      maxX,
-      maxY,
-      this.queryBuffer,
-    )) {
+    const relevantEntities = includeAllEntities
+      ? world.entities.all()
+      : world.spatial.queryBox(minX, minY, maxX, maxY, this.queryBuffer);
+
+    for (const entity of relevantEntities) {
       if (this.isIncluded(entity.id)) {
         continue;
       }

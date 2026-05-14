@@ -18,6 +18,7 @@ import type { AuthService } from "@server/services/AuthService.ts";
 
 type MatchLobby = {
   code: string;
+  seed: number;
   playerClientIds: Set<string>;
   createdAtMs: number;
   countdownEndsAtMs: number | null;
@@ -390,12 +391,10 @@ export class GameServer {
       return;
     }
 
-    const targetLobby = this.matchLobbyByCode.get(lobbyCode);
-    if (!targetLobby) {
-      this.sendToClientSystem(clientId, `Lobby ${lobbyCode} was not found.`);
-      this.sendLobbyState(clientId, true);
-      return;
-    }
+    const nowMs = Date.now();
+    const targetLobby =
+      this.matchLobbyByCode.get(lobbyCode) ??
+      this.createMatchLobby(nowMs, lobbyCode);
 
     if (targetLobby.playerClientIds.has(clientId)) {
       this.sendToClientSystem(clientId, `Already in lobby ${lobbyCode}.`);
@@ -409,7 +408,6 @@ export class GameServer {
       return;
     }
 
-    const nowMs = Date.now();
     this.removeClientFromMatchLobby(clientId, {
       sendDepartureMessage: false,
     });
@@ -541,11 +539,12 @@ export class GameServer {
     return undefined;
   }
 
-  private createMatchLobby(nowMs: number): MatchLobby {
-    const code = this.generateLobbyCode();
+  private createMatchLobby(nowMs: number, requestedCode?: string): MatchLobby {
+    const code = requestedCode ?? this.generateLobbyCode();
     const scopedNetwork = new ScopedWsServer(this.networkServer);
     const lobby: MatchLobby = {
       code,
+      seed: hashLobbyCodeToSeed(code),
       playerClientIds: new Set<string>(),
       createdAtMs: nowMs,
       countdownEndsAtMs: null,
@@ -644,6 +643,7 @@ export class GameServer {
     lobby.runtime = new GameInstanceRuntime(
       this.gameConfig,
       lobby.scopedNetwork,
+      { worldSeed: lobby.seed },
     );
     lobby.gameCompletedAtMs = null;
     lobby.gameFailedAtMs = null;
@@ -780,4 +780,13 @@ export class GameServer {
   private getPlayerDisplayName(clientId: string): string {
     return this.getActiveRuntime(clientId).getPlayerName(clientId) ?? "Player";
   }
+}
+
+function hashLobbyCodeToSeed(lobbyCode: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < lobbyCode.length; index += 1) {
+    hash ^= lobbyCode.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
