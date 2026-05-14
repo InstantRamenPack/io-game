@@ -11,6 +11,10 @@ import {
 describe("enemy wandering", () => {
   beforeAll(bootstrapTestRegistries);
 
+  const playerStart = { x: 6000, y: 500 };
+  const enemyStart = { x: 6160, y: 500 };
+  const outsideAggro = { x: 7000, y: 1400 };
+
   test("enemy without aggro wanders near its idle anchor", () => {
     const { runtime } = makeRuntime();
     const enemy = spawnEnemy(runtime, "police", 300, 300) as Enemy;
@@ -29,14 +33,23 @@ describe("enemy wandering", () => {
 
   test("enemy starts wandering around its standing point after losing aggro", () => {
     const { runtime } = makeRuntime();
-    const player = spawnPlayerLikeDynamic(runtime, 100, 100);
-    const enemy = spawnEnemy(runtime, "police", 260, 100) as Enemy;
+    const player = spawnPlayerLikeDynamic(
+      runtime,
+      playerStart.x,
+      playerStart.y,
+    );
+    const enemy = spawnEnemy(
+      runtime,
+      "police",
+      enemyStart.x,
+      enemyStart.y,
+    ) as Enemy;
 
     tick(runtime, 1);
     expect(enemy.targetId).toBe(player.id);
 
-    player.x = 1200;
-    player.y = 1200;
+    player.x = outsideAggro.x;
+    player.y = outsideAggro.y;
     tick(runtime, 1);
     expect(enemy.targetId).toBeUndefined();
 

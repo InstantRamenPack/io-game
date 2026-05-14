@@ -13,11 +13,11 @@ describe("melee occlusion", () => {
 
   test("multi-rect static blockers only occlude with their actual rects", () => {
     const { runtime } = makeRuntime();
-    const owner = spawnPlayerLikeDynamic(runtime, 100, 100);
-    const target = spawnEnemy(runtime, "drifter", 130, 100);
+    const owner = spawnPlayerLikeDynamic(runtime, 6000, 500);
+    const target = spawnEnemy(runtime, "drifter", 6030, 500);
     const dungeon = new Dungeon(runtime.world.allocEntityId());
-    dungeon.x = 120;
-    dungeon.y = 100;
+    dungeon.x = 6020;
+    dungeon.y = 500;
     dungeon.setHitboxProfileRects("default", [
       { offsetX: 0, offsetY: -80, width: 20, height: 20 },
       { offsetX: 0, offsetY: 80, width: 20, height: 20 },
@@ -33,11 +33,11 @@ describe("melee occlusion", () => {
 
   test("multi-rect static blockers still occlude intersecting rects", () => {
     const { runtime } = makeRuntime();
-    const owner = spawnPlayerLikeDynamic(runtime, 100, 100);
-    const target = spawnEnemy(runtime, "drifter", 140, 100);
+    const owner = spawnPlayerLikeDynamic(runtime, 6000, 500);
+    const target = spawnEnemy(runtime, "drifter", 6040, 500);
     const dungeon = new Dungeon(runtime.world.allocEntityId());
-    dungeon.x = 120;
-    dungeon.y = 100;
+    dungeon.x = 6020;
+    dungeon.y = 500;
     dungeon.setHitboxProfileRects("default", [
       { offsetX: 0, offsetY: 0, width: 20, height: 20 },
       { offsetX: 0, offsetY: 80, width: 20, height: 20 },
