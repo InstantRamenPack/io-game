@@ -48,11 +48,11 @@ import {
   getItemContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
+import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
-const HOTBAR_SLOT_COUNT = 10;
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 export type HudState = HudInteractionState;

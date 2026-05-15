@@ -6,8 +6,14 @@
     "hint": "Forge a katana from a rare schematic and refined hunks at a crafting bench.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:blueprint_katana", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 90 }
+      {
+        "typeId": "item:blueprint_katana",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 90
+      }
     ]
   },
   "weapon": {
@@ -18,7 +24,10 @@
     "knockback": 18,
     "sweepArcDeg": 100,
     "equippedRender": {
-      "holdOffset": { "x": 40, "y": 0 },
+      "holdOffset": {
+        "x": 40,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 1.7,
       "handedness": "right",
@@ -26,5 +35,8 @@
       "swingAngleDeg": 100,
       "jabDistance": 26
     }
+  },
+  "recycle": {
+    "hunkValue": 12
   }
 }

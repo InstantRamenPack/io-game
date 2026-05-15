@@ -5,18 +5,13 @@ import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { VisibilityBlockerShape } from "@client/render/renderTypes.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getEntityContent,
+  getVisibilityBlockerContent,
+} from "@shared/content/catalog.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 
 const TREE_VISIBILITY_RADIUS_SCALE = 0.9;
-const CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
-  "structure:tree",
-  "building:tree",
-]);
-const NON_VISIBILITY_BLOCKER_TYPE_IDS = new Set<ResourceId>([
-  "building:landmine",
-  "building:tripwire",
-]);
 
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
@@ -189,16 +184,31 @@ function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
   if (!entity.alive) {
     return false;
   }
-  if (NON_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId)) {
+  const blockerContent = getVisibilityBlockerContent(entity.typeId);
+  if (blockerContent?.mode === "none") {
     return false;
   }
-  return entity.kind === "building" || entity.kind === "structure";
+  if (blockerContent !== undefined) {
+    return true;
+  }
+
+  return (
+    (entity.kind === "building" || entity.kind === "structure") &&
+    getEntityContent(entity.typeId)?.collisionMode === "static"
+  );
 }
 
 export function toVisibilityBlocker(
   entity: ClientEntity,
 ): VisibilityBlockerShape | null {
-  if (NON_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId)) {
+  const blockerContent = getVisibilityBlockerContent(entity.typeId);
+  if (blockerContent?.mode === "none") {
+    return null;
+  }
+  if (
+    blockerContent === undefined &&
+    getEntityContent(entity.typeId)?.collisionMode !== "static"
+  ) {
     return null;
   }
 
@@ -207,12 +217,11 @@ export function toVisibilityBlocker(
     return null;
   }
 
-  if (isCircularVisibilityBlocker(entity)) {
+  const circleRadiusScale = getCircleVisibilityRadiusScale(entity);
+  if (circleRadiusScale !== null) {
     // Use the larger hitbox dimension so tree canopies fully occlude LOS.
     const radius =
-      Math.max(bounds.width, bounds.height) *
-      0.5 *
-      TREE_VISIBILITY_RADIUS_SCALE;
+      Math.max(bounds.width, bounds.height) * 0.5 * circleRadiusScale;
     return {
       kind: "circle",
       sourceEntityId: entity.id,
@@ -236,6 +245,16 @@ export function toVisibilityBlocker(
   };
 }
 
-function isCircularVisibilityBlocker(entity: ClientEntity): boolean {
-  return CIRCULAR_VISIBILITY_BLOCKER_TYPE_IDS.has(entity.typeId);
+function getCircleVisibilityRadiusScale(entity: ClientEntity): number | null {
+  const blockerContent = getVisibilityBlockerContent(entity.typeId);
+  if (blockerContent?.mode === "circle") {
+    return blockerContent.radiusScale;
+  }
+  if (blockerContent !== undefined) {
+    return null;
+  }
+
+  return getEntityContent(entity.typeId)?.label === "Tree"
+    ? TREE_VISIBILITY_RADIUS_SCALE
+    : null;
 }

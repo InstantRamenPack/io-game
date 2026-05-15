@@ -3,6 +3,19 @@
   "maxHp": 260,
   "collisionMode": "static",
   "hitboxProfiles": {
-    "default": [{ "width": 52, "height": 42, "offsetX": 0, "offsetY": 0 }]
+    "default": [
+      {
+        "width": 52,
+        "height": 42,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "capabilities": {
+    "craftingStation": true,
+    "visibilityBlocker": {
+      "mode": "rects"
+    }
   }
 }

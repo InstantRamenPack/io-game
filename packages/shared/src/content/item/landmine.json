@@ -4,6 +4,14 @@
   "recipe": {
     "hint": "Hidden trap that explodes when enemies step near it.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 36 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 36
+      }
+    ]
+  },
+  "recycle": {
+    "hunkValue": 4
   }
 }

@@ -74,7 +74,8 @@ class CollisionSystem implements System {
     for (const entity of tickPhaseEntities) {
       if (
         !world.entities.has(entity.id) ||
-        (entity.collisionMode !== "dynamic" && !this.isDebugNoClipPlayer(entity))
+        (entity.collisionMode !== "dynamic" &&
+          !this.isDebugNoClipPlayer(entity))
       ) {
         continue;
       }

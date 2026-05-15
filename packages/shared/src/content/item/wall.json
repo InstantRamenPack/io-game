@@ -4,6 +4,14 @@
   "recipe": {
     "hint": "Fast perimeter coverage. Cheap and disposable.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 26 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 26
+      }
+    ]
+  },
+  "recycle": {
+    "hunkValue": 2
   }
 }

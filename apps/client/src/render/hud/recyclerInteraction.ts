@@ -1,6 +1,15 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
+import {
+  getItemContent,
+  getItemRecycleHunkValue,
+} from "@shared/content/catalog.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 import { RECYCLER_INTERACT_PADDING } from "@shared/gameplay/constants.ts";
+
+type HeldInventorySlot = Exclude<
+  InventorySnapshot["hotbarSlots"][number],
+  { kind: "empty" }
+>;
 
 export function isPlayerNearRecycler(
   player: ClientEntity,
@@ -20,7 +29,16 @@ export function isHoldingRecyclableItem(inventory: InventorySnapshot): boolean {
   if (!slot || slot.kind === "empty") {
     return false;
   }
-  return !(slot.kind === "weapon" && slot.typeId === "item:fists");
+  return isRecyclableItem(slot);
+}
+
+function isRecyclableItem(slot: HeldInventorySlot): boolean {
+  const recycleValue = getItemRecycleHunkValue(slot.typeId);
+  if (recycleValue !== undefined) {
+    return recycleValue > 0;
+  }
+
+  return !(slot.kind === "weapon" && getItemContent(slot.typeId)?.hidden);
 }
 
 export function isNearRecyclerWithItem(

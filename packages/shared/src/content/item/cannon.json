@@ -4,6 +4,14 @@
   "recipe": {
     "hint": "Heavy defensive fire for outer lanes.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 65 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 65
+      }
+    ]
+  },
+  "recycle": {
+    "hunkValue": 12
   }
 }

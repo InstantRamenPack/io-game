@@ -1418,7 +1418,6 @@ function createDungeonDoorSpawns(
     });
 }
 
-
 function addDungeonRoomContent(
   room: ProceduralDungeonRoom,
   enemies: ProceduralSpawnSpec[],
@@ -1738,8 +1737,16 @@ function createVillagePlan(
   const width = kind === "extraction_fortified" ? 1760 : isCorner ? 1520 : 1180;
   const height = kind === "extraction_fortified" ? 1360 : isCorner ? 1180 : 920;
   const center = snapPoint({
-    x: clamp(anchor.x + (rng() - 0.5) * 360, sector.minX + 720, sector.maxX - 720),
-    y: clamp(anchor.y + (rng() - 0.5) * 360, sector.minY + 560, sector.maxY - 560),
+    x: clamp(
+      anchor.x + (rng() - 0.5) * 360,
+      sector.minX + 720,
+      sector.maxX - 720,
+    ),
+    y: clamp(
+      anchor.y + (rng() - 0.5) * 360,
+      sector.minY + 560,
+      sector.maxY - 560,
+    ),
   });
   const danger =
     kind === "extraction_fortified"
@@ -1821,7 +1828,17 @@ function addVillageContent(
 
   const rooms = createBspVillageRooms(rng, village, village.poiRoles);
   for (const room of rooms) {
-    addVillagePoiBlock(rng, archetype, village, room, structures, enemies, loot, features, markers);
+    addVillagePoiBlock(
+      rng,
+      archetype,
+      village,
+      room,
+      structures,
+      enemies,
+      loot,
+      features,
+      markers,
+    );
   }
 }
 
@@ -1829,6 +1846,275 @@ type VillageRoom = ProceduralRect & {
   center: ProceduralPoint;
   role: ProceduralVillagePoiRole;
 };
+
+type VillageRoomTemplate = {
+  id: string;
+  structures?: readonly VillageTemplateStructure[];
+  crates?: readonly VillageTemplateOffset[];
+  loot?: VillageTemplateOffset;
+};
+
+type VillageTemplateStructure =
+  | (VillageTemplateOffset & {
+      typeId: string;
+      rotated?: boolean;
+    })
+  | {
+      kind: "fence_box";
+      dx: number;
+      dy: number;
+      width: number;
+      height: number;
+    };
+
+type VillageTemplateOffset = {
+  dx: number;
+  dy: number;
+};
+
+const DEFAULT_VILLAGE_ROOM_TEMPLATES = {
+  house: [
+    {
+      id: "single_home",
+      structures: [
+        { typeId: "structure:house_m", dx: 0, dy: 0, rotated: true },
+      ],
+    },
+    {
+      id: "side_lot",
+      structures: [
+        { typeId: "structure:house_s", dx: -80, dy: 24, rotated: true },
+      ],
+      loot: { dx: 144, dy: 112 },
+    },
+  ],
+  house_cluster: [
+    {
+      id: "triad_courtyard",
+      structures: [
+        { typeId: "structure:house_s", dx: -220, dy: -120, rotated: true },
+        { typeId: "structure:house_m", dx: 180, dy: -140, rotated: true },
+        { typeId: "structure:house_l", dx: -60, dy: 180, rotated: true },
+      ],
+    },
+    {
+      id: "lane_row",
+      structures: [
+        { typeId: "structure:house_s", dx: -240, dy: 80, rotated: true },
+        { typeId: "structure:house_m", dx: 40, dy: -120, rotated: true },
+        { typeId: "structure:house_l", dx: 240, dy: 152, rotated: true },
+      ],
+    },
+  ],
+  market: [
+    {
+      id: "crossroad_stalls",
+      structures: [
+        { typeId: "structure:house_s", dx: -120, dy: 0, rotated: true },
+        { typeId: "structure:market_stall", dx: 180, dy: -80 },
+        { typeId: "structure:market_stall", dx: 180, dy: 120 },
+      ],
+      loot: { dx: 120, dy: 96 },
+    },
+    {
+      id: "corner_vendor",
+      structures: [
+        { typeId: "structure:house_s", dx: -176, dy: -88, rotated: true },
+        { typeId: "structure:market_stall", dx: 96, dy: 80 },
+        { typeId: "structure:market_stall", dx: 264, dy: -96 },
+      ],
+      loot: { dx: 160, dy: 112 },
+    },
+  ],
+  checkpoint: [
+    {
+      id: "road_gate",
+      structures: [
+        { typeId: "structure:guard_tower", dx: -180, dy: -120 },
+        { typeId: "structure:fence_h", dx: 120, dy: -160 },
+        { typeId: "structure:fence_h", dx: 120, dy: 160 },
+      ],
+    },
+    {
+      id: "watch_corner",
+      structures: [
+        { typeId: "structure:guard_tower", dx: 176, dy: -128 },
+        { typeId: "structure:fence_v", dx: -168, dy: 96 },
+        { typeId: "structure:fence_h", dx: 80, dy: 192 },
+      ],
+    },
+  ],
+  camp: [
+    {
+      id: "shelter_firepit",
+      structures: [{ typeId: "structure:camp_shelter", dx: 0, dy: 0 }],
+    },
+    {
+      id: "offset_shelter",
+      structures: [{ typeId: "structure:camp_shelter", dx: -80, dy: 64 }],
+    },
+  ],
+  supply_cache: [
+    {
+      id: "central_crate",
+      crates: [{ dx: 0, dy: 0 }],
+      loot: { dx: 120, dy: 96 },
+    },
+    {
+      id: "stashed_crate",
+      crates: [{ dx: -80, dy: 40 }],
+      loot: { dx: 136, dy: 104 },
+    },
+  ],
+  armory: [
+    {
+      id: "locked_barracks",
+      structures: [
+        { typeId: "structure:barracks", dx: 0, dy: 0, rotated: true },
+      ],
+      crates: [{ dx: 96, dy: 0 }],
+      loot: { dx: 120, dy: 96 },
+    },
+    {
+      id: "rear_cache",
+      structures: [
+        { typeId: "structure:barracks", dx: -72, dy: -32, rotated: true },
+      ],
+      crates: [{ dx: 144, dy: 80 }],
+      loot: { dx: 144, dy: 112 },
+    },
+  ],
+  barracks: [
+    {
+      id: "double_bunk",
+      structures: [
+        { typeId: "structure:barracks", dx: -112, dy: -72, rotated: true },
+        { typeId: "structure:camp_shelter", dx: 160, dy: 112 },
+      ],
+    },
+    {
+      id: "bunk_line",
+      structures: [
+        { typeId: "structure:barracks", dx: 0, dy: 0, rotated: true },
+      ],
+    },
+  ],
+  motor_pool: [
+    {
+      id: "wreck_yard",
+      structures: [{ typeId: "structure:vehicle_wreck", dx: 0, dy: 0 }],
+    },
+    {
+      id: "guarded_wreck",
+      structures: [
+        { typeId: "structure:vehicle_wreck", dx: -96, dy: 48 },
+        { typeId: "structure:fence_h", dx: 168, dy: -144 },
+      ],
+    },
+  ],
+  command_post: [
+    {
+      id: "command_house",
+      structures: [
+        { typeId: "structure:command_post", dx: 0, dy: 0, rotated: true },
+      ],
+    },
+    {
+      id: "command_perimeter",
+      structures: [
+        { typeId: "structure:command_post", dx: -48, dy: -24, rotated: true },
+        { typeId: "structure:fence_h", dx: 160, dy: 168 },
+      ],
+    },
+  ],
+  helipad: [
+    {
+      id: "wide_lz",
+      structures: [
+        { kind: "fence_box", dx: 0, dy: 0, width: 720, height: 560 },
+      ],
+      loot: { dx: 120, dy: 96 },
+    },
+    {
+      id: "tight_lz",
+      structures: [
+        { kind: "fence_box", dx: 0, dy: 0, width: 640, height: 480 },
+      ],
+      loot: { dx: 144, dy: 112 },
+    },
+  ],
+} satisfies Record<ProceduralVillagePoiRole, readonly VillageRoomTemplate[]>;
+
+const VILLAGE_ROOM_TEMPLATES = {
+  civilian: DEFAULT_VILLAGE_ROOM_TEMPLATES,
+  scavenger: {
+    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
+    house_cluster: [
+      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.house_cluster,
+      {
+        id: "salvage_lane",
+        structures: [
+          { typeId: "structure:house_s", dx: -224, dy: -96, rotated: true },
+          { typeId: "structure:vehicle_wreck", dx: 80, dy: 72 },
+          { typeId: "structure:camp_shelter", dx: 256, dy: -128 },
+        ],
+      },
+    ],
+    supply_cache: [
+      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.supply_cache,
+      {
+        id: "scrap_cache",
+        structures: [{ typeId: "structure:vehicle_wreck", dx: -144, dy: 48 }],
+        crates: [{ dx: 96, dy: -48 }],
+        loot: { dx: 128, dy: 96 },
+      },
+    ],
+  },
+  military: {
+    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
+    checkpoint: [
+      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.checkpoint,
+      {
+        id: "hardpoint",
+        structures: [
+          { typeId: "structure:guard_tower", dx: -192, dy: -120 },
+          { typeId: "structure:guard_tower", dx: 184, dy: 128 },
+          { typeId: "structure:fence_h", dx: 0, dy: -192 },
+        ],
+      },
+    ],
+    armory: [
+      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.armory,
+      {
+        id: "fenced_armory",
+        structures: [
+          { typeId: "structure:barracks", dx: -64, dy: 0, rotated: true },
+          { typeId: "structure:fence_h", dx: 144, dy: -168 },
+        ],
+        crates: [{ dx: 144, dy: 80 }],
+        loot: { dx: 144, dy: 112 },
+      },
+    ],
+  },
+  extraction_fortified: {
+    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
+    helipad: [
+      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.helipad,
+      {
+        id: "fortified_lz",
+        structures: [
+          { kind: "fence_box", dx: 0, dy: 0, width: 820, height: 620 },
+          { typeId: "structure:guard_tower", dx: -280, dy: -220 },
+          { typeId: "structure:guard_tower", dx: 280, dy: 220 },
+        ],
+        loot: { dx: 160, dy: 128 },
+      },
+    ],
+  },
+} satisfies Record<
+  ProceduralVillageKind,
+  Record<ProceduralVillagePoiRole, readonly VillageRoomTemplate[]>
+>;
 
 function createBspVillageRooms(
   rng: seedrandom.PRNG,
@@ -1839,7 +2125,10 @@ function createBspVillageRooms(
   const target = roles.length;
   while (leaves.length < target) {
     const index = leaves
-      .map((leaf, i) => ({ i, area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY) }))
+      .map((leaf, i) => ({
+        i,
+        area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY),
+      }))
       .sort((a, b) => b.area - a.area)[0]?.i;
     if (index === undefined) {
       break;
@@ -1855,10 +2144,16 @@ function createBspVillageRooms(
     const ratio = 0.42 + rng() * 0.16;
     if (vertical) {
       const splitX = snapEdge(leaf.minX + width * ratio);
-      leaves.push({ ...leaf, maxX: splitX - 64 }, { ...leaf, minX: splitX + 64 });
+      leaves.push(
+        { ...leaf, maxX: splitX - 64 },
+        { ...leaf, minX: splitX + 64 },
+      );
     } else {
       const splitY = snapEdge(leaf.minY + height * ratio);
-      leaves.push({ ...leaf, maxY: splitY - 64 }, { ...leaf, minY: splitY + 64 });
+      leaves.push(
+        { ...leaf, maxY: splitY - 64 },
+        { ...leaf, minY: splitY + 64 },
+      );
     }
   }
   return leaves.slice(0, roles.length).map((leaf, index) => ({
@@ -1900,52 +2195,18 @@ function addVillagePoiBlock(
     village.kind === "extraction_fortified" && room.role === "helipad",
   );
 
-  switch (room.role) {
-    case "house":
-      structures.push(rotatedHouseSpawn("structure:house_m", room.center.x, room.center.y, cardinalRotation(rng)));
-      break;
-    case "house_cluster":
-      addRotatedHouseCluster(structures, rng, room.center.x, room.center.y, 3);
-      break;
-    case "market":
-      structures.push(
-        rotatedHouseSpawn("structure:house_s", room.center.x - 120, room.center.y, cardinalRotation(rng)),
-        spawn("structure:market_stall", room.center.x + 180, room.center.y - 80),
-        spawn("structure:market_stall", room.center.x + 180, room.center.y + 120),
-      );
-      break;
-    case "checkpoint":
-      structures.push(
-        spawn("structure:guard_tower", room.center.x - 180, room.center.y - 120),
-        spawn("structure:fence_h", room.center.x + 120, room.center.y - 160),
-        spawn("structure:fence_h", room.center.x + 120, room.center.y + 160),
-      );
-      break;
-    case "camp":
-      structures.push(spawn("structure:camp_shelter", room.center.x, room.center.y));
-      break;
-    case "supply_cache":
-      enemies.push(crateSpawn("enemy:crate", room.center.x, room.center.y, crateLootForTier(village.lootTier)));
-      break;
-    case "armory":
-      structures.push(rotatedHouseSpawn("structure:barracks", room.center.x, room.center.y, cardinalRotation(rng)));
-      enemies.push(crateSpawn("enemy:crate", room.center.x + 96, room.center.y, crateLootForTier(village.lootTier)));
-      break;
-    case "motor_pool":
-      structures.push(spawn("structure:vehicle_wreck", room.center.x, room.center.y));
-      break;
-    case "command_post":
-      structures.push(rotatedHouseSpawn("structure:command_post", room.center.x, room.center.y, cardinalRotation(rng)));
-      break;
-    case "helipad":
-      addMilitaryFence(structures, room.center, 720, 560);
-      break;
-  }
+  const template = selectVillageRoomTemplate(rng, village.kind, room.role);
+  applyVillageRoomTemplate(
+    rng,
+    village,
+    room,
+    template,
+    structures,
+    enemies,
+    loot,
+  );
 
   addVillageEnemies(rng, village, room, enemies);
-  if (["market", "supply_cache", "armory", "helipad"].includes(room.role)) {
-    loot.push(villageLoot(village, room.center.x + 120, room.center.y + 96));
-  }
 }
 
 function villageLabel(kind: ProceduralVillageKind): string {
@@ -1997,26 +2258,69 @@ function villageRoleFeature(
 }
 
 function cardinalRotation(rng: seedrandom.PRNG): number {
-  return [0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2][
-    Math.floor(rng() * 4)
-  ]!;
+  return [0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2][Math.floor(rng() * 4)]!;
 }
 
-function addRotatedHouseCluster(
-  structures: ProceduralSpawnSpec[],
+function selectVillageRoomTemplate(
   rng: seedrandom.PRNG,
-  centerX: number,
-  centerY: number,
-  count: number,
+  kind: ProceduralVillageKind,
+  role: ProceduralVillagePoiRole,
+): VillageRoomTemplate {
+  const templates = VILLAGE_ROOM_TEMPLATES[kind][role];
+  return templates[Math.floor(rng() * templates.length)]!;
+}
+
+function applyVillageRoomTemplate(
+  rng: seedrandom.PRNG,
+  village: ProceduralVillagePlan,
+  room: VillageRoom,
+  template: VillageRoomTemplate,
+  structures: ProceduralSpawnSpec[],
+  enemies: ProceduralSpawnSpec[],
+  loot: ProceduralLootSpec[],
 ): void {
-  const offsets = [
-    [-220, -120, "structure:house_s"],
-    [180, -140, "structure:house_m"],
-    [-60, 180, "structure:house_l"],
-  ] as const;
-  for (const [dx, dy, typeId] of offsets.slice(0, count)) {
+  for (const structure of template.structures ?? []) {
+    if ("kind" in structure) {
+      addMilitaryFence(
+        structures,
+        offsetPoint(room.center, structure.dx, structure.dy),
+        structure.width,
+        structure.height,
+        template.id,
+      );
+      continue;
+    }
+    const x = room.center.x + structure.dx;
+    const y = room.center.y + structure.dy;
     structures.push(
-      rotatedHouseSpawn(typeId, centerX + dx, centerY + dy, cardinalRotation(rng)),
+      withTemplateLabel(
+        structure.rotated
+          ? rotatedHouseSpawn(structure.typeId, x, y, cardinalRotation(rng))
+          : spawn(structure.typeId, x, y),
+        template.id,
+      ),
+    );
+  }
+  for (const crate of template.crates ?? []) {
+    enemies.push(
+      withTemplateLabel(
+        crateSpawn(
+          "enemy:crate",
+          room.center.x + crate.dx,
+          room.center.y + crate.dy,
+          crateLootForTier(village.lootTier),
+        ),
+        template.id,
+      ),
+    );
+  }
+  if (template.loot) {
+    loot.push(
+      villageLoot(
+        village,
+        room.center.x + template.loot.dx,
+        room.center.y + template.loot.dy,
+      ),
     );
   }
 }
@@ -2029,8 +2333,19 @@ function addVillageEnemies(
 ): void {
   const pools: Record<ProceduralVillageKind, readonly string[]> = {
     civilian: ["enemy:drifter", "enemy:drifter", "enemy:police"],
-    scavenger: ["enemy:drifter", "enemy:shoota", "enemy:stalker", "enemy:bomber"],
-    military: ["enemy:police", "enemy:shoota", "enemy:sniper", "enemy:saboteur", "enemy:commander"],
+    scavenger: [
+      "enemy:drifter",
+      "enemy:shoota",
+      "enemy:stalker",
+      "enemy:bomber",
+    ],
+    military: [
+      "enemy:police",
+      "enemy:shoota",
+      "enemy:sniper",
+      "enemy:saboteur",
+      "enemy:commander",
+    ],
     extraction_fortified: [
       "enemy:police",
       "enemy:shoota",
@@ -2059,14 +2374,23 @@ function addVillageEnemies(
       : baseCount;
   const pool = pools[village.kind];
   for (let index = 0; index < count; index += 1) {
-    const typeId = pool[(index + Math.floor(rng() * pool.length)) % pool.length]!;
+    const typeId =
+      pool[(index + Math.floor(rng() * pool.length)) % pool.length]!;
     const angle = rng() * Math.PI * 2;
     const radius = 80 + rng() * 180;
     enemies.push(
       spawn(
         typeId,
-        clamp(room.center.x + Math.cos(angle) * radius, room.minX + 64, room.maxX - 64),
-        clamp(room.center.y + Math.sin(angle) * radius, room.minY + 64, room.maxY - 64),
+        clamp(
+          room.center.x + Math.cos(angle) * radius,
+          room.minX + 64,
+          room.maxX - 64,
+        ),
+        clamp(
+          room.center.y + Math.sin(angle) * radius,
+          room.minY + 64,
+          room.maxY - 64,
+        ),
       ),
     );
   }
@@ -2092,14 +2416,21 @@ function villageLoot(
 function crateLootForTier(
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  const pools: Record<ProceduralLootSpec["rewardTier"], ProceduralCrateLootSlot[]> = {
+  const pools: Record<
+    ProceduralLootSpec["rewardTier"],
+    ProceduralCrateLootSlot[]
+  > = {
     common: [
       { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 4 },
       { typeId: "item:junk_food" as ResourceId, kind: "stackable", amount: 2 },
     ],
     uncommon: [
       { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 6 },
-      { typeId: "item:quality_food" as ResourceId, kind: "stackable", amount: 2 },
+      {
+        typeId: "item:quality_food" as ResourceId,
+        kind: "stackable",
+        amount: 2,
+      },
       { typeId: "item:pistol_mag" as ResourceId, kind: "stackable", amount: 2 },
     ],
     rare: [
@@ -2110,7 +2441,11 @@ function crateLootForTier(
     epic: [
       { typeId: "item:sniper" as ResourceId, kind: "weapon" },
       { typeId: "item:sniper_mag" as ResourceId, kind: "stackable", amount: 4 },
-      { typeId: "item:blueprint_sniper" as ResourceId, kind: "stackable", amount: 1 },
+      {
+        typeId: "item:blueprint_sniper" as ResourceId,
+        kind: "stackable",
+        amount: 1,
+      },
     ],
   };
   return pools[tier];
@@ -2215,18 +2550,39 @@ function addMilitaryFence(
   center: ProceduralPoint,
   width: number,
   height: number,
+  templateId?: string,
 ): void {
   const gateHalfSpan = 260;
   for (let x = center.x - width / 2; x <= center.x + width / 2; x += 384) {
     if (Math.abs(x - center.x) > gateHalfSpan) {
-      structures.push(spawn("structure:fence_h", x, center.y - height / 2));
-      structures.push(spawn("structure:fence_h", x, center.y + height / 2));
+      structures.push(
+        withTemplateLabel(
+          spawn("structure:fence_h", x, center.y - height / 2),
+          templateId,
+        ),
+      );
+      structures.push(
+        withTemplateLabel(
+          spawn("structure:fence_h", x, center.y + height / 2),
+          templateId,
+        ),
+      );
     }
   }
   for (let y = center.y - height / 2; y <= center.y + height / 2; y += 384) {
     if (Math.abs(y - center.y) > gateHalfSpan) {
-      structures.push(spawn("structure:fence_v", center.x - width / 2, y));
-      structures.push(spawn("structure:fence_v", center.x + width / 2, y));
+      structures.push(
+        withTemplateLabel(
+          spawn("structure:fence_v", center.x - width / 2, y),
+          templateId,
+        ),
+      );
+      structures.push(
+        withTemplateLabel(
+          spawn("structure:fence_v", center.x + width / 2, y),
+          templateId,
+        ),
+      );
     }
   }
 }
@@ -2347,6 +2703,23 @@ function spawn(typeId: string, x: number, y: number): ProceduralSpawnSpec {
   return { typeId: typeId as ResourceId, x: snap(x), y: snap(y) };
 }
 
+function withTemplateLabel(
+  spec: ProceduralSpawnSpec,
+  templateId: string | undefined,
+): ProceduralSpawnSpec {
+  return templateId
+    ? { ...spec, label: `village_template:${templateId}` }
+    : spec;
+}
+
+function offsetPoint(
+  point: ProceduralPoint,
+  dx: number,
+  dy: number,
+): ProceduralPoint {
+  return { x: snap(point.x + dx), y: snap(point.y + dy) };
+}
+
 function rotatedHouseSpawn(
   typeId: string,
   x: number,
@@ -2358,7 +2731,9 @@ function rotatedHouseSpawn(
   const content = getEntityContent(typeId as ResourceId);
   const hitboxes =
     content?.hitboxProfiles?.[content.activeHitboxProfile ?? "default"] ??
-    (content?.hitboxProfiles ? Object.values(content.hitboxProfiles)[0] : undefined);
+    (content?.hitboxProfiles
+      ? Object.values(content.hitboxProfiles)[0]
+      : undefined);
   if (!hitboxes) {
     return { typeId: typeId as ResourceId, x: centerX, y: centerY, rotation };
   }

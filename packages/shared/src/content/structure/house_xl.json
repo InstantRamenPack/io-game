@@ -4,11 +4,41 @@
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [
-      { "width": 880, "height": 16, "offsetX": 0, "offsetY": -288 },
-      { "width": 368, "height": 16, "offsetX": -256, "offsetY": 288 },
-      { "width": 368, "height": 16, "offsetX": 256, "offsetY": 288 },
-      { "width": 16, "height": 576, "offsetX": -432, "offsetY": 0 },
-      { "width": 16, "height": 576, "offsetX": 432, "offsetY": 0 }
+      {
+        "width": 880,
+        "height": 16,
+        "offsetX": 0,
+        "offsetY": -288
+      },
+      {
+        "width": 368,
+        "height": 16,
+        "offsetX": -256,
+        "offsetY": 288
+      },
+      {
+        "width": 368,
+        "height": 16,
+        "offsetX": 256,
+        "offsetY": 288
+      },
+      {
+        "width": 16,
+        "height": 576,
+        "offsetX": -432,
+        "offsetY": 0
+      },
+      {
+        "width": 16,
+        "height": 576,
+        "offsetX": 432,
+        "offsetY": 0
+      }
     ]
+  },
+  "capabilities": {
+    "visibilityBlocker": {
+      "mode": "rects"
+    }
   }
 }

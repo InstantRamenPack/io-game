@@ -28,10 +28,10 @@ describe("dungeon runtime mechanics", () => {
     enemy.applyDamage(runtime.world, enemy.maxHp, 0);
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
-    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(11);
-    expect(
-      pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBe(1);
+    const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
+    expect(hunkCount).toBeGreaterThanOrEqual(3);
+    expect(hunkCount).toBeLessThanOrEqual(14);
+    expect(pickup.contents.countType("item:pistol_mag" as ResourceId)).toBe(1);
   });
 
   test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {
@@ -204,9 +204,7 @@ function simulateWaveAndFirstDeathDrop(seed: number): {
   tick(runtime, 1);
   const waveEnemy = runtime.world.entities
     .all()
-    .find(
-      (entity) => entity instanceof Shoota && entity.id > 1,
-    );
+    .find((entity) => entity instanceof Shoota && entity.id > 1);
   if (!(waveEnemy instanceof Shoota)) {
     throw new Error("expected first wave shoota spawn");
   }

@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { getResourceNamespace } from "@shared/ids/ResourceId.ts";
+import { isDebugAdminPlayerName } from "@server/content/serverContentCapabilities.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { ChatCommandHandlerFactory } from "@server/chat/commands/types.ts";
@@ -32,8 +33,7 @@ export const createAdminCommandHandlers: ChatCommandHandlerFactory = (
   };
 
   const canUseMapEditor = (player: Player): boolean =>
-    process.env.NODE_ENV !== "production" &&
-    player.name.toLowerCase() === "debug";
+    isDebugAdminPlayerName(player.name);
 
   const snapToTileCenter = (value: number): number =>
     Math.floor(value / MAP_TILE_SIZE) * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;

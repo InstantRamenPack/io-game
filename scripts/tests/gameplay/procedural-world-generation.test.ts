@@ -89,13 +89,19 @@ describe("procedural survival extraction world", () => {
     expect(layout.villages.length).toBeLessThanOrEqual(11);
     expect(layout.forestCamps.length).toBeGreaterThanOrEqual(12);
     expect(
-      layout.villages.some((village) => village.kind === "extraction_fortified"),
+      layout.villages.some(
+        (village) => village.kind === "extraction_fortified",
+      ),
     ).toBe(true);
     expect(
-      layout.villages.every((village) => village.sectorId !== layout.centerSectorId),
+      layout.villages.every(
+        (village) => village.sectorId !== layout.centerSectorId,
+      ),
     ).toBe(true);
     expect(
-      layout.villages.every((village) => village.sectorId !== layout.dungeonSectorId),
+      layout.villages.every(
+        (village) => village.sectorId !== layout.dungeonSectorId,
+      ),
     ).toBe(true);
     expect(
       layout.villages.some(
@@ -108,6 +114,22 @@ describe("procedural survival extraction world", () => {
     expect(
       layout.villages.every((village) => village.poiRoles.length >= 4),
     ).toBe(true);
+  });
+
+  test("village rooms select varied authored templates deterministically", () => {
+    const first = generateProceduralWorldLayout(1337);
+    const second = generateProceduralWorldLayout(1337);
+
+    const firstTemplates = villageTemplateLabels(first);
+    expect(firstTemplates).toEqual(villageTemplateLabels(second));
+    expect(firstTemplates).toEqual(
+      expect.arrayContaining([
+        "village_template:corner_vendor",
+        "village_template:crossroad_stalls",
+        "village_template:lane_row",
+        "village_template:triad_courtyard",
+      ]),
+    );
   });
 
   test("every sector has content, traversal, rewards, enemies where hostile, and minimap metadata", () => {
@@ -563,6 +585,22 @@ function entityTypeIds(
   sector: ReturnType<typeof generateProceduralWorldLayout>["sectors"][number],
 ): string[] {
   return sector.enemies.map((enemy) => enemy.typeId);
+}
+
+function villageTemplateLabels(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): string[] {
+  return [
+    ...new Set(
+      layout.sectors.flatMap((sector) =>
+        [...sector.structures, ...sector.enemies]
+          .map((spec) => spec.label)
+          .filter((label): label is string =>
+            Boolean(label?.startsWith("village_template:")),
+          ),
+      ),
+    ),
+  ].sort();
 }
 
 function pointWithinCamp(

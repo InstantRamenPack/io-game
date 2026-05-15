@@ -4,6 +4,14 @@
   "recipe": {
     "hint": "Store items safely.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 30 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 30
+      }
+    ]
+  },
+  "recycle": {
+    "hunkValue": 6
   }
 }

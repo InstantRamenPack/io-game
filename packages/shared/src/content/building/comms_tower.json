@@ -3,6 +3,22 @@
   "maxHp": 1200,
   "collisionMode": "static",
   "hitboxProfiles": {
-    "default": [{ "width": 100, "height": 165, "offsetX": 0, "offsetY": 0 }]
+    "default": [
+      {
+        "width": 100,
+        "height": 165,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "capabilities": {
+    "repairable": {
+      "costItemTypeId": "item:hunk",
+      "hpPerCostUnit": 50
+    },
+    "visibilityBlocker": {
+      "mode": "rects"
+    }
   }
 }

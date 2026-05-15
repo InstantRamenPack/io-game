@@ -1,5 +1,10 @@
 {
   "label": "Quality Food",
   "hint": "Nutritious but less filling.",
-  "food": { "foodRestore": 20 }
+  "food": {
+    "foodRestore": 20
+  },
+  "pickupSpawn": {
+    "pools": ["food"]
+  }
 }

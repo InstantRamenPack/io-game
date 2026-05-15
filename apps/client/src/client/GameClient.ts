@@ -24,9 +24,14 @@ import {
 import { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
 import { WsClient } from "@client/net/WsClient.ts";
 import { PixiRenderer } from "@client/render/PixiRenderer.ts";
+import {
+  getProjectileContent,
+  getWeaponContent,
+  getWeaponPresentation,
+} from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { normalizeAngle } from "@shared/math/angle.ts";
+import { normalizeAngle, shortestAngleDelta } from "@shared/math/angle.ts";
 import type {
   InputMovement,
   LobbyStateMessage,
@@ -42,8 +47,13 @@ import type {
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 
-const INPUT_SEND_INTERVAL_MS = 1000 / 60;
-const SNIPER_WEAPON_TYPE_ID = "item:sniper";
+const INPUT_KEEPALIVE_INTERVAL_MS = 100;
+const INPUT_THETA_EPSILON = 0.0001;
+
+type SentInputIntent = {
+  theta: number;
+  movement: InputMovement;
+};
 
 /**
  * Coordinates the client runtime while gameplay concerns live in focused
@@ -79,6 +89,7 @@ export class GameClient {
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
   private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
+  private lastSentInputIntent?: SentInputIntent;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
@@ -760,6 +771,7 @@ export class GameClient {
     this.heldMovement.left = false;
     this.heldMovement.right = false;
     this.lastInputSentAtMs = Number.NEGATIVE_INFINITY;
+    this.lastSentInputIntent = undefined;
 
     if (disconnectTransport) {
       this.networkClient.disconnect();
@@ -897,10 +909,6 @@ export class GameClient {
       return;
     }
 
-    if (!force && now - this.lastInputSentAtMs < INPUT_SEND_INTERVAL_MS) {
-      return;
-    }
-
     const player = this.getLocalPlayerEntity();
     if (!player?.alive) {
       return;
@@ -911,12 +919,39 @@ export class GameClient {
       this.pointerAimController.computeAimTheta(visualPose) ??
       visualPose?.rotation ??
       player.rotation;
+    const movement = { ...this.heldMovement };
+    const inputChanged = this.hasInputIntentChanged(theta, movement);
+    const keepaliveDue =
+      now - this.lastInputSentAtMs >= INPUT_KEEPALIVE_INTERVAL_MS;
+    if (!force && !inputChanged && !keepaliveDue) {
+      return;
+    }
+
     const seq = this.inputManager.nextSequence();
     const clientTimeMs = performance.now();
-    this.networkClient.sendInputIntent(seq, clientTimeMs, theta, {
-      ...this.heldMovement,
-    });
+    this.networkClient.sendInputIntent(seq, clientTimeMs, theta, movement);
     this.lastInputSentAtMs = now;
+    this.lastSentInputIntent = {
+      theta,
+      movement,
+    };
+  }
+
+  private hasInputIntentChanged(
+    theta: number,
+    movement: InputMovement,
+  ): boolean {
+    const last = this.lastSentInputIntent;
+    if (!last) {
+      return true;
+    }
+    return (
+      Math.abs(shortestAngleDelta(last.theta, theta)) > INPUT_THETA_EPSILON ||
+      last.movement.up !== movement.up ||
+      last.movement.down !== movement.down ||
+      last.movement.left !== movement.left ||
+      last.movement.right !== movement.right
+    );
   }
 
   private updateHeldAttack(now: number): void {
@@ -1004,7 +1039,8 @@ export class GameClient {
     if (
       !playerPose ||
       !aimTarget ||
-      activeWeapon?.typeId !== SNIPER_WEAPON_TYPE_ID
+      !activeWeapon ||
+      !shouldShowAimGuide(activeWeapon.typeId, this.gameConfig.worldSize)
     ) {
       this.renderer.setSniperAimGuide(null);
       return;
@@ -1024,4 +1060,28 @@ export class GameClient {
       directionY,
     });
   }
+}
+
+function shouldShowAimGuide(
+  weaponTypeId: ResourceId,
+  worldSize: { w: number; h: number },
+): boolean {
+  const presentation = getWeaponPresentation(weaponTypeId);
+  if (presentation !== undefined) {
+    return presentation.aimGuide === "sniper";
+  }
+
+  const weaponContent = getWeaponContent(weaponTypeId);
+  if (weaponContent?.attackStyle !== "shoot") {
+    return false;
+  }
+
+  const projectileContent = getProjectileContent(
+    weaponContent.projectileTypeId,
+  );
+  if (!projectileContent) {
+    return false;
+  }
+
+  return projectileContent.range >= Math.hypot(worldSize.w, worldSize.h);
 }

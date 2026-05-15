@@ -1,6 +1,9 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { getNearDamagedTower as findNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
-import { getResourceDisplayLabel } from "@shared/content/catalog.ts";
+import {
+  getEntityCapabilities,
+  getResourceDisplayLabel,
+} from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import {
   getResourceNamespace,
@@ -85,13 +88,14 @@ export function createGameSelectors(
 
   function getCraftingStations(): ClientEntity[] {
     return getTrackedBuildings().filter(
-      (entity) => entity.typeId === "building:crafting_station",
+      (entity) =>
+        getEntityCapabilities(entity.typeId)?.craftingStation === true,
     );
   }
 
   function getChests(): ClientEntity[] {
     return getTrackedBuildings().filter(
-      (entity) => entity.typeId === "building:chest",
+      (entity) => getEntityCapabilities(entity.typeId)?.container !== undefined,
     );
   }
 

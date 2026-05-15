@@ -5,10 +5,9 @@ import type {
   InventorySlotSnapshot,
   InventorySnapshot,
 } from "@shared/net/snapshots.ts";
+import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-
-const HOTBAR_SLOT_COUNT = 10;
 
 type BuildableSlot = {
   kind: "buildable";

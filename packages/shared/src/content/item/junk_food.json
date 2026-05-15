@@ -1,5 +1,10 @@
 {
   "label": "Junk Food",
   "hint": "Filling but low quality.",
-  "food": { "foodRestore": 40 }
+  "food": {
+    "foodRestore": 40
+  },
+  "pickupSpawn": {
+    "pools": ["food"]
+  }
 }

@@ -10,7 +10,10 @@
     "knockback": 15,
     "sweepArcDeg": 110,
     "equippedRender": {
-      "holdOffset": { "x": 40, "y": 0 },
+      "holdOffset": {
+        "x": 40,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 1.7,
       "handedness": "right",
@@ -18,5 +21,8 @@
       "swingAngleDeg": 110,
       "jabDistance": 0
     }
+  },
+  "recycle": {
+    "hunkValue": 6
   }
 }

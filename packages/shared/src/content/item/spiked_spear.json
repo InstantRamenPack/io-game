@@ -6,9 +6,18 @@
     "hint": "Upgrade a Spear into a Spiked Spear at a crafting bench.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:basic_spear", "amount": 1 },
-      { "typeId": "item:blueprint_spiked_spear", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 20 }
+      {
+        "typeId": "item:basic_spear",
+        "amount": 1
+      },
+      {
+        "typeId": "item:blueprint_spiked_spear",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
     ]
   },
   "weapon": {
@@ -19,7 +28,10 @@
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {
-      "holdOffset": { "x": 35, "y": 0 },
+      "holdOffset": {
+        "x": 35,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 0.8,
       "handedness": "right",
@@ -27,5 +39,8 @@
       "swingAngleDeg": 0,
       "jabDistance": 30
     }
+  },
+  "recycle": {
+    "hunkValue": 9
   }
 }

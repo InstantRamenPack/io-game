@@ -5,7 +5,12 @@
   "recipe": {
     "hint": "Six bolts before a long reload. Each shot pierces through five targets.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 63 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 63
+      }
+    ]
   },
   "weapon": {
     "attackStyle": "shoot",
@@ -16,7 +21,10 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:crossbow_mag",
     "equippedRender": {
-      "holdOffset": { "x": 30, "y": 4 },
+      "holdOffset": {
+        "x": 30,
+        "y": 4
+      },
       "holdRotationDeg": 0,
       "scale": 1.8,
       "handedness": "right",
@@ -24,5 +32,8 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
+  },
+  "recycle": {
+    "hunkValue": 14
   }
 }

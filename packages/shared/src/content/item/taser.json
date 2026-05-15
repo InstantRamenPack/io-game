@@ -5,7 +5,12 @@
   "recipe": {
     "hint": "Melee sweep that stuns on hit.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 42 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 42
+      }
+    ]
   },
   "weapon": {
     "attackStyle": "swing",
@@ -15,7 +20,10 @@
     "knockback": 15,
     "sweepArcDeg": 95,
     "equippedRender": {
-      "holdOffset": { "x": 10, "y": 5 },
+      "holdOffset": {
+        "x": 10,
+        "y": 5
+      },
       "holdRotationDeg": 28,
       "scale": 0.88,
       "handedness": "right",
@@ -23,5 +31,8 @@
       "swingAngleDeg": 95,
       "jabDistance": 0
     }
+  },
+  "recycle": {
+    "hunkValue": 8
   }
 }

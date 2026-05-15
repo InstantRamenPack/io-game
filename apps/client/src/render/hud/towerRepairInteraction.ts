@@ -1,10 +1,11 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
+import {
+  getEntityCapabilities,
+  getEntityContent,
+} from "@shared/content/catalog.ts";
 import { TOWER_INTERACT_PADDING } from "@shared/gameplay/constants.ts";
 
-const TOWER_TYPE_IDS = new Set([
-  "building:energy_tower",
-  "building:comms_tower",
-]);
+const FALLBACK_TOWER_REPAIR_HP_PER_COST_UNIT = 50;
 
 export function isTowerDamaged(tower: ClientEntity): boolean {
   return !tower.alive || tower.hp < tower.maxHp;
@@ -29,7 +30,7 @@ export function isPlayerNearDamagedTower(
 
 export function getTowerRepairCost(tower: ClientEntity): number {
   const missing = tower.alive ? tower.maxHp - tower.hp : tower.maxHp;
-  return Math.ceil(missing / 50);
+  return Math.ceil(missing / getTowerRepairHpPerCostUnit(tower));
 }
 
 export function getNearDamagedTower(
@@ -40,7 +41,7 @@ export function getNearDamagedTower(
     return null;
   }
   for (const b of buildings) {
-    if (!TOWER_TYPE_IDS.has(b.typeId)) {
+    if (!isRepairableTower(b)) {
       continue;
     }
     if (isPlayerNearDamagedTower(player, b)) {
@@ -48,4 +49,26 @@ export function getNearDamagedTower(
     }
   }
   return null;
+}
+
+function isRepairableTower(tower: ClientEntity): boolean {
+  const capabilities = getEntityCapabilities(tower.typeId);
+  if (capabilities?.repairable) {
+    return true;
+  }
+
+  const content = getEntityContent(tower.typeId);
+  return (
+    tower.kind === "building" &&
+    content?.maxHp !== undefined &&
+    content.maxHp > 0 &&
+    content.label.endsWith("Tower")
+  );
+}
+
+function getTowerRepairHpPerCostUnit(tower: ClientEntity): number {
+  return (
+    getEntityCapabilities(tower.typeId)?.repairable?.hpPerCostUnit ??
+    FALLBACK_TOWER_REPAIR_HP_PER_COST_UNIT
+  );
 }

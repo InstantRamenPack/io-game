@@ -1,12 +1,16 @@
-import type { HitboxRect } from "@shared/geometry/hitbox.ts";
 import type {
   ActiveEffectSnapshot,
   EntitySnapshot,
-  EquippedItemSnapshot,
   InventorySlotSnapshot,
   InventorySnapshot,
   WeaponSnapshot,
 } from "@shared/net/snapshots.ts";
+import {
+  getEntityRuntimeBaseFingerprintParts,
+  getEntitySnapshotBaseFingerprintParts,
+  getEquippedItemSnapshotFingerprint,
+  getHitboxFingerprint,
+} from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Building } from "@server/entities/Building.ts";
 import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
@@ -18,21 +22,7 @@ import type { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 
 export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
-  const parts = [
-    snapshot.id,
-    snapshot.kind,
-    snapshot.typeId ?? "",
-    snapshot.x,
-    snapshot.y,
-    snapshot.vx,
-    snapshot.vy,
-    snapshot.rotation,
-    snapshot.hp ?? "",
-    snapshot.maxHp ?? "",
-    snapshot.alive === undefined ? "" : snapshot.alive ? 1 : 0,
-    snapshot.ownerId ?? "",
-    snapshot.hitboxes ? fingerprintHitboxes(snapshot.hitboxes) : "",
-  ];
+  const parts = getEntitySnapshotBaseFingerprintParts(snapshot);
 
   switch (snapshot.kind) {
     case "player":
@@ -41,13 +31,13 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
         snapshot.moveSpeed,
         fingerprintInventory(snapshot.inventory),
         fingerprintActiveEffects(snapshot.activeEffects),
-        fingerprintEquippedItem(snapshot.equippedItem),
+        getEquippedItemSnapshotFingerprint(snapshot.equippedItem),
       );
       break;
     case "enemy":
       parts.push(
         snapshot.targetId ?? "",
-        fingerprintEquippedItem(snapshot.equippedItem),
+        getEquippedItemSnapshotFingerprint(snapshot.equippedItem),
       );
       break;
     case "building":
@@ -74,22 +64,7 @@ export function getEntityRuntimeFingerprint(
   entity: Entity,
   hitboxFingerprint = getEntityHitboxFingerprint(entity),
 ): string {
-  const ctor = entity.constructor as typeof Entity & { readonly kind?: string };
-  const parts: Array<number | string> = [
-    entity.id,
-    ctor.kind ?? entity.constructor.name,
-    entity.typeId,
-    entity.x,
-    entity.y,
-    entity.vx,
-    entity.vy,
-    entity.rotation,
-    entity.hp,
-    entity.maxHp,
-    entity.alive ? 1 : 0,
-    entity.ownerId ?? "",
-    hitboxFingerprint,
-  ];
+  const parts = getEntityRuntimeBaseFingerprintParts(entity, hitboxFingerprint);
 
   if (entity instanceof Player) {
     parts.push(
@@ -138,15 +113,7 @@ export function getEntityRuntimeFingerprint(
 }
 
 export function getEntityHitboxFingerprint(entity: Entity): string {
-  return fingerprintHitboxes(entity.hitboxes);
-}
-
-function fingerprintHitboxes(hitboxes: readonly HitboxRect[]): string {
-  return hitboxes
-    .map((hitbox) =>
-      [hitbox.offsetX, hitbox.offsetY, hitbox.width, hitbox.height].join(","),
-    )
-    .join(";");
+  return getHitboxFingerprint(entity.hitboxes);
 }
 
 function fingerprintInventory(inventory: InventorySnapshot): string {
@@ -272,25 +239,6 @@ function fingerprintActiveEffectsRuntime(
     .join(";");
 }
 
-function fingerprintEquippedItem(
-  equippedItem: EquippedItemSnapshot | undefined,
-): string {
-  if (!equippedItem) {
-    return "";
-  }
-
-  return [
-    equippedItem.typeId,
-    equippedItem.attackStyle,
-    equippedItem.cooldownTicksRemaining,
-    equippedItem.ammoInMag ?? "",
-    equippedItem.magSize ?? "",
-    equippedItem.reserveMagCount ?? "",
-    equippedItem.reloadTicks ?? "",
-    equippedItem.reloadTicksRemaining ?? "",
-  ].join(",");
-}
-
 function fingerprintEquippedWeaponRuntime(
   weapon: Weapon | undefined,
   owner: Entity | undefined,
@@ -299,7 +247,7 @@ function fingerprintEquippedWeaponRuntime(
     return "";
   }
   const equippedItem = weapon.toEquippedItemSnapshot(owner);
-  return fingerprintEquippedItem(equippedItem);
+  return getEquippedItemSnapshotFingerprint(equippedItem);
 }
 
 function fingerprintInventoryRuntime(

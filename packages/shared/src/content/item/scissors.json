@@ -10,7 +10,10 @@
     "knockback": 5,
     "jabWidth": 14,
     "equippedRender": {
-      "holdOffset": { "x": 24, "y": 0 },
+      "holdOffset": {
+        "x": 24,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 0.85,
       "handedness": "right",
@@ -18,5 +21,11 @@
       "swingAngleDeg": 0,
       "jabDistance": 18
     }
+  },
+  "recycle": {
+    "hunkValue": 6
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
   }
 }

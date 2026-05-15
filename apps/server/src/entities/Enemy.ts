@@ -1,4 +1,9 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import {
+  getEnemyDeathHunkDropAmount,
+  HUNK_ITEM_TYPE_ID,
+  shouldDropAllDeathWeapons,
+} from "@server/content/serverContentCapabilities.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
@@ -9,7 +14,6 @@ import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/gran
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
@@ -68,10 +72,7 @@ export class Enemy extends GoalControlledEntity {
   private spawnDeathLoot(world: World): void {
     const inventory = new Inventory();
     const rng = world.randomNumberGenerator;
-    inventory.addStackable(
-      "item:hunk" as ResourceId,
-      3 + Math.floor(rng() * 12),
-    );
+    inventory.addStackable(HUNK_ITEM_TYPE_ID, getEnemyDeathHunkDropAmount(rng));
 
     const equippedWeapon = this.weapons[0];
     if (equippedWeapon) {
@@ -81,14 +82,11 @@ export class Enemy extends GoalControlledEntity {
           ? weaponContent.magItemTypeId
           : undefined;
       if (magItemTypeId) {
-        inventory.addStackable(
-          magItemTypeId,
-          1 + Math.floor(rng() * 2),
-        );
+        inventory.addStackable(magItemTypeId, 1 + Math.floor(rng() * 2));
       }
     }
 
-    const shouldDropAllWeapons = this.typeId === ("enemy:thanos" as ResourceId);
+    const shouldDropAllWeapons = shouldDropAllDeathWeapons(this.typeId);
     const shouldDropEquippedWeapon =
       shouldDropAllWeapons || rng() < EQUIPPED_WEAPON_DROP_CHANCE;
     if (shouldDropEquippedWeapon) {

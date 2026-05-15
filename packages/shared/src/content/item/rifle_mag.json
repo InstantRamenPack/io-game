@@ -3,6 +3,14 @@
   "recipe": {
     "hint": "High-capacity magazine for the rifle.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 20 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "pickupSpawn": {
+    "pools": ["mag"]
   }
 }

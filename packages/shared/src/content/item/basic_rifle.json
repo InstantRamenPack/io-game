@@ -5,7 +5,12 @@
   "recipe": {
     "hint": "pew pew big pew pew",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 100 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 100
+      }
+    ]
   },
   "weapon": {
     "attackStyle": "shoot",
@@ -16,7 +21,10 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
-      "holdOffset": { "x": 18, "y": 3 },
+      "holdOffset": {
+        "x": 18,
+        "y": 3
+      },
       "holdRotationDeg": -8,
       "scale": 1.06,
       "handedness": "right",
@@ -24,5 +32,8 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
+  },
+  "recycle": {
+    "hunkValue": 12
   }
 }

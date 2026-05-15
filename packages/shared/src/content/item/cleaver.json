@@ -10,7 +10,10 @@
     "knockback": 14,
     "sweepArcDeg": 95,
     "equippedRender": {
-      "holdOffset": { "x": 36, "y": 0 },
+      "holdOffset": {
+        "x": 36,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 1.4,
       "handedness": "right",
@@ -18,5 +21,11 @@
       "swingAngleDeg": 95,
       "jabDistance": 0
     }
+  },
+  "recycle": {
+    "hunkValue": 7
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
   }
 }
