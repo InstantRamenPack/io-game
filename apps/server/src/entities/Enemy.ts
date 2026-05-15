@@ -10,7 +10,6 @@ import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
@@ -95,7 +94,7 @@ export class Enemy extends GoalControlledEntity {
         : this.weapons.slice(0, 1)) {
         const itemEntry = itemTypeRegistry.get(weapon.typeId);
         if (itemEntry) {
-          grantItemEntryByAcquisitionRules(inventory, itemEntry, 1);
+          inventory.grantItemCtor(itemEntry.ctor, 1);
         }
       }
     }

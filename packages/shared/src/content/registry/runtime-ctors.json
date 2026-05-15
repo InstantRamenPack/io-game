@@ -1,0 +1,396 @@
+{
+  "entityRuntimeCtors": [
+    {
+      "symbol": "Player",
+      "importPath": "@server/entities/Player.ts"
+    },
+    {
+      "symbol": "ItemEntity",
+      "importPath": "@server/entities/ItemEntity.ts"
+    },
+    {
+      "symbol": "Bomber",
+      "importPath": "@server/entities/enemies/Bomber.ts"
+    },
+    {
+      "symbol": "Commander",
+      "importPath": "@server/entities/enemies/Commander.ts"
+    },
+    {
+      "symbol": "Drifter",
+      "importPath": "@server/entities/enemies/Drifter.ts"
+    },
+    {
+      "symbol": "Megaknight",
+      "importPath": "@server/entities/enemies/Megaknight.ts"
+    },
+    {
+      "symbol": "Police",
+      "importPath": "@server/entities/enemies/Police.ts"
+    },
+    {
+      "symbol": "Saboteur",
+      "importPath": "@server/entities/enemies/Saboteur.ts"
+    },
+    {
+      "symbol": "Shoota",
+      "importPath": "@server/entities/enemies/Shoota.ts"
+    },
+    {
+      "symbol": "Thanos",
+      "importPath": "@server/entities/enemies/Thanos.ts"
+    },
+    {
+      "symbol": "SniperEnemy",
+      "importPath": "@server/entities/enemies/SniperEnemy.ts"
+    },
+    {
+      "symbol": "Stalker",
+      "importPath": "@server/entities/enemies/Stalker.ts"
+    },
+    {
+      "symbol": "Wallbreaker",
+      "importPath": "@server/entities/enemies/Wallbreaker.ts"
+    },
+    {
+      "symbol": "HouseL",
+      "importPath": "@server/entities/structures/HouseL.ts"
+    },
+    {
+      "symbol": "HouseM",
+      "importPath": "@server/entities/structures/HouseM.ts"
+    },
+    {
+      "symbol": "HouseS",
+      "importPath": "@server/entities/structures/HouseS.ts"
+    },
+    {
+      "symbol": "HouseXl",
+      "importPath": "@server/entities/structures/HouseXl.ts"
+    },
+    {
+      "symbol": "Barracks",
+      "importPath": "@server/entities/structures/Barracks.ts"
+    },
+    {
+      "symbol": "CampShelter",
+      "importPath": "@server/entities/structures/CampShelter.ts"
+    },
+    {
+      "symbol": "CommandPost",
+      "importPath": "@server/entities/structures/CommandPost.ts"
+    },
+    {
+      "symbol": "Dungeon",
+      "importPath": "@server/entities/structures/Dungeon.ts"
+    },
+    {
+      "symbol": "Cannon",
+      "importPath": "@server/entities/buildings/Cannon.ts"
+    },
+    {
+      "symbol": "Chest",
+      "importPath": "@server/entities/buildings/Chest.ts"
+    },
+    {
+      "symbol": "CommsTower",
+      "importPath": "@server/entities/buildings/CommsTower.ts"
+    },
+    {
+      "symbol": "Crate",
+      "importPath": "@server/entities/enemies/Crate.ts"
+    },
+    {
+      "symbol": "CraftingStation",
+      "importPath": "@server/entities/buildings/CraftingStation.ts"
+    },
+    {
+      "symbol": "DungeonDoor",
+      "importPath": "@server/entities/buildings/DungeonDoor.ts"
+    },
+    {
+      "symbol": "EnergyTower",
+      "importPath": "@server/entities/buildings/EnergyTower.ts"
+    },
+    {
+      "symbol": "FenceH",
+      "importPath": "@server/entities/structures/FenceH.ts"
+    },
+    {
+      "symbol": "FenceV",
+      "importPath": "@server/entities/structures/FenceV.ts"
+    },
+    {
+      "symbol": "GuardTower",
+      "importPath": "@server/entities/structures/GuardTower.ts"
+    },
+    {
+      "symbol": "DungeonWall",
+      "importPath": "@server/entities/structures/DungeonWall.ts"
+    },
+    {
+      "symbol": "MarketStall",
+      "importPath": "@server/entities/structures/MarketStall.ts"
+    },
+    {
+      "symbol": "Landmine",
+      "importPath": "@server/entities/buildings/Landmine.ts"
+    },
+    {
+      "symbol": "Recycler",
+      "importPath": "@server/entities/buildings/Recycler.ts"
+    },
+    {
+      "symbol": "Tree",
+      "importPath": "@server/entities/structures/Tree.ts"
+    },
+    {
+      "symbol": "VehicleWreck",
+      "importPath": "@server/entities/structures/VehicleWreck.ts"
+    },
+    {
+      "symbol": "Tripwire",
+      "importPath": "@server/entities/buildings/Tripwire.ts"
+    },
+    {
+      "symbol": "Wall",
+      "importPath": "@server/entities/buildings/Wall.ts"
+    },
+    {
+      "symbol": "BasicBullet",
+      "importPath": "@server/entities/projectiles/BasicBullet.ts"
+    },
+    {
+      "symbol": "CannonBullet",
+      "importPath": "@server/entities/projectiles/CannonBullet.ts"
+    },
+    {
+      "symbol": "CrossbowArrow",
+      "importPath": "@server/entities/projectiles/CrossbowArrow.ts"
+    },
+    {
+      "symbol": "HomingDrone",
+      "importPath": "@server/entities/projectiles/HomingDrone.ts"
+    },
+    {
+      "symbol": "RifleBullet",
+      "importPath": "@server/entities/projectiles/RifleBullet.ts"
+    },
+    {
+      "symbol": "SniperBullet",
+      "importPath": "@server/entities/projectiles/SniperBullet.ts"
+    },
+    {
+      "symbol": "ThanosBullet",
+      "importPath": "@server/entities/projectiles/ThanosBullet.ts"
+    },
+    {
+      "symbol": "ThanosRocket",
+      "importPath": "@server/entities/projectiles/ThanosRocket.ts"
+    }
+  ],
+  "itemRuntimeCtors": [
+    {
+      "symbol": "BaseballBat",
+      "importPath": "@server/items/weapons/BaseballBat.ts"
+    },
+    {
+      "symbol": "BasicDagger",
+      "importPath": "@server/items/weapons/BasicDagger.ts"
+    },
+    {
+      "symbol": "BasicGun",
+      "importPath": "@server/items/weapons/BasicGun.ts"
+    },
+    {
+      "symbol": "BasicRifle",
+      "importPath": "@server/items/weapons/BasicRifle.ts"
+    },
+    {
+      "symbol": "BasicSpear",
+      "importPath": "@server/items/weapons/BasicSpear.ts"
+    },
+    {
+      "symbol": "BasicSword",
+      "importPath": "@server/items/weapons/BasicSword.ts"
+    },
+    {
+      "symbol": "Cleaver",
+      "importPath": "@server/items/weapons/Cleaver.ts"
+    },
+    {
+      "symbol": "Crossbow",
+      "importPath": "@server/items/weapons/Crossbow.ts"
+    },
+    {
+      "symbol": "Fists",
+      "importPath": "@server/items/weapons/Fists.ts"
+    },
+    {
+      "symbol": "Katana",
+      "importPath": "@server/items/weapons/Katana.ts"
+    },
+    {
+      "symbol": "LeadPipe",
+      "importPath": "@server/items/weapons/LeadPipe.ts"
+    },
+    {
+      "symbol": "Scissors",
+      "importPath": "@server/items/weapons/Scissors.ts"
+    },
+    {
+      "symbol": "Sniper",
+      "importPath": "@server/items/weapons/Sniper.ts"
+    },
+    {
+      "symbol": "SpikedSpear",
+      "importPath": "@server/items/weapons/SpikedSpear.ts"
+    },
+    {
+      "symbol": "Taser",
+      "importPath": "@server/items/weapons/Taser.ts"
+    },
+    {
+      "symbol": "DroneShooter",
+      "importPath": "@server/items/weapons/DroneShooter.ts"
+    },
+    {
+      "symbol": "ZombieSword",
+      "importPath": "@server/items/weapons/ZombieSword.ts"
+    },
+    {
+      "symbol": "SaboteurSword",
+      "importPath": "@server/items/weapons/SaboteurSword.ts"
+    },
+    {
+      "symbol": "ThanosFist",
+      "importPath": "@server/items/weapons/ThanosFist.ts"
+    },
+    {
+      "symbol": "ThanosRifle",
+      "importPath": "@server/items/weapons/ThanosRifle.ts"
+    },
+    {
+      "symbol": "ThanosRocketLauncher",
+      "importPath": "@server/items/weapons/ThanosRocketLauncher.ts"
+    },
+    {
+      "symbol": "DungeonKeyItem",
+      "importPath": "@server/items/materials/DungeonKeyItem.ts"
+    },
+    {
+      "symbol": "HunkItem",
+      "importPath": "@server/items/materials/HunkItem.ts"
+    },
+    {
+      "symbol": "JunkFoodItem",
+      "importPath": "@server/items/food/JunkFoodItem.ts"
+    },
+    {
+      "symbol": "QualityFoodItem",
+      "importPath": "@server/items/food/QualityFoodItem.ts"
+    },
+    {
+      "symbol": "BlueprintBasicRifleItem",
+      "importPath": "@server/items/blueprints/BlueprintBasicRifleItem.ts"
+    },
+    {
+      "symbol": "BlueprintKatanaItem",
+      "importPath": "@server/items/blueprints/BlueprintKatanaItem.ts"
+    },
+    {
+      "symbol": "BlueprintSniperItem",
+      "importPath": "@server/items/blueprints/BlueprintSniperItem.ts"
+    },
+    {
+      "symbol": "BlueprintSpikedSpearItem",
+      "importPath": "@server/items/blueprints/BlueprintSpikedSpearItem.ts"
+    },
+    {
+      "symbol": "PistolMagazineItem",
+      "importPath": "@server/items/magazines/PistolMagazineItem.ts"
+    },
+    {
+      "symbol": "RifleMagazineItem",
+      "importPath": "@server/items/magazines/RifleMagazineItem.ts"
+    },
+    {
+      "symbol": "CrossbowMagazineItem",
+      "importPath": "@server/items/magazines/CrossbowMagazineItem.ts"
+    },
+    {
+      "symbol": "DroneMagazineItem",
+      "importPath": "@server/items/magazines/DroneMagazineItem.ts"
+    },
+    {
+      "symbol": "SniperMagazineItem",
+      "importPath": "@server/items/magazines/SniperMagazineItem.ts"
+    },
+    {
+      "symbol": "WallItem",
+      "importPath": "@server/items/structures/WallItem.ts"
+    },
+    {
+      "symbol": "CannonItem",
+      "importPath": "@server/items/structures/CannonItem.ts"
+    },
+    {
+      "symbol": "ChestItem",
+      "importPath": "@server/items/structures/ChestItem.ts"
+    },
+    {
+      "symbol": "CraftingStationItem",
+      "importPath": "@server/items/structures/CraftingStationItem.ts"
+    },
+    {
+      "symbol": "LandmineItem",
+      "importPath": "@server/items/structures/LandmineItem.ts"
+    },
+    {
+      "symbol": "StructureHouseLItem",
+      "importPath": "@server/items/structures/StructureHouseLItem.ts"
+    },
+    {
+      "symbol": "StructureHouseMItem",
+      "importPath": "@server/items/structures/StructureHouseMItem.ts"
+    },
+    {
+      "symbol": "StructureFenceHItem",
+      "importPath": "@server/items/structures/StructureFenceHItem.ts"
+    },
+    {
+      "symbol": "StructureFenceVItem",
+      "importPath": "@server/items/structures/StructureFenceVItem.ts"
+    },
+    {
+      "symbol": "StructureTreeItem",
+      "importPath": "@server/items/structures/StructureTreeItem.ts"
+    }
+  ],
+  "effectRuntimeCtors": [
+    {
+      "symbol": "BleedingEffect",
+      "importPath": "@server/effects/builtin/BleedingEffect.ts"
+    },
+    {
+      "symbol": "ConfusionEffect",
+      "importPath": "@server/effects/builtin/ConfusionEffect.ts"
+    },
+    {
+      "symbol": "DamageEffect",
+      "importPath": "@server/effects/builtin/DamageEffect.ts"
+    },
+    {
+      "symbol": "FracturedEffect",
+      "importPath": "@server/effects/builtin/FracturedEffect.ts"
+    },
+    {
+      "symbol": "KnockbackEffect",
+      "importPath": "@server/effects/builtin/KnockbackEffect.ts"
+    },
+    {
+      "symbol": "StunnedEffect",
+      "importPath": "@server/effects/builtin/StunnedEffect.ts"
+    }
+  ]
+}

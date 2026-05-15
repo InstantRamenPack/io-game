@@ -10,7 +10,6 @@ import {
   itemTypeRegistry,
 } from "@server/registry/registries.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { World } from "@server/world/World.ts";
 import {
   generateProceduralWorldLayout,
@@ -142,9 +141,7 @@ function addLootSlotToInventory(
   slot: ProceduralCrateLootSlot,
 ): void {
   const itemEntry = itemTypeRegistry.require(slot.typeId);
-  if (
-    !grantItemEntryByAcquisitionRules(inventory, itemEntry, slot.amount ?? 1)
-  ) {
+  if (!inventory.grantItemCtor(itemEntry.ctor, slot.amount ?? 1)) {
     throw new Error(`Could not create procedural crate loot ${slot.typeId}.`);
   }
 }

@@ -2,8 +2,6 @@ import { requirePlayerStarterLoadout } from "@shared/content/catalog.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { Player } from "@server/entities/Player.ts";
-import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 
 const PLAYER_BASE_TYPE_ID = makeResourceId("player", "base");
 
@@ -12,12 +10,12 @@ export function applyPlayerStarterLoadout(player: Player): void {
 
   for (const weaponTypeId of starterLoadout.weapons) {
     const weaponEntry = itemTypeRegistry.require(weaponTypeId);
-    if (!isWeaponCtor(weaponEntry.ctor)) {
+    if (!new weaponEntry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} is not a weapon item type.`,
       );
     }
-    if (!grantItemEntryByAcquisitionRules(player.inventory, weaponEntry, 1)) {
+    if (!player.inventory.grantItemCtor(weaponEntry.ctor, 1)) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} could not be granted to inventory.`,
       );
@@ -26,18 +24,12 @@ export function applyPlayerStarterLoadout(player: Player): void {
 
   for (const stackable of starterLoadout.stackables) {
     const itemEntry = itemTypeRegistry.require(stackable.typeId);
-    if (isWeaponCtor(itemEntry.ctor)) {
+    if (new itemEntry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} cannot be a weapon item type.`,
       );
     }
-    if (
-      !grantItemEntryByAcquisitionRules(
-        player.inventory,
-        itemEntry,
-        stackable.amount,
-      )
-    ) {
+    if (!player.inventory.grantItemCtor(itemEntry.ctor, stackable.amount)) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} could not be granted to inventory.`,
       );
@@ -57,7 +49,7 @@ export function validatePlayerStarterLoadout(): void {
         `Starter loadout references unknown weapon item ${weaponTypeId}.`,
       );
     }
-    if (!isWeaponCtor(entry.ctor)) {
+    if (!new entry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} is not registered as a weapon class.`,
       );
@@ -71,7 +63,7 @@ export function validatePlayerStarterLoadout(): void {
         `Starter loadout references unknown stackable item ${stackable.typeId}.`,
       );
     }
-    if (isWeaponCtor(entry.ctor)) {
+    if (new entry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} is registered as a weapon.`,
       );

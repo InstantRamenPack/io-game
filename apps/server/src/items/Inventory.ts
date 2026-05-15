@@ -7,7 +7,12 @@ import type {
 } from "@shared/net/snapshots.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import type { Item } from "@server/items/Item.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
+import {
+  itemTypeRegistry,
+  type RegistrableItemCtor,
+} from "@server/registry/registries.ts";
 
 type BuildableSlot = {
   kind: "buildable";
@@ -185,6 +190,26 @@ export class Inventory {
     return true;
   }
 
+  public absorbInventoryByAcquisitionRules(source: Inventory): boolean {
+    const transferable = this.createInventoryTransferableOnAcquisition(source);
+    if (!this.canAbsorbInventory(transferable)) {
+      return false;
+    }
+    if (!this.absorbInventory(transferable)) {
+      return false;
+    }
+    this.grantAcquisitionOnlyItems(source);
+    return true;
+  }
+
+  public grantItem(item: Item, amount: number): boolean {
+    return item.grantToInventory(this, amount);
+  }
+
+  public grantItemCtor(ctor: RegistrableItemCtor, amount: number): boolean {
+    return this.grantItem(new ctor(), amount);
+  }
+
   public unlockRecipe(typeId: ResourceId): boolean {
     if (this.unlockedRecipeTypeIds.has(typeId)) {
       return false;
@@ -205,6 +230,68 @@ export class Inventory {
   public getActiveWeapon(): Weapon | undefined {
     const selectedSlot = this.hotbarSlots[this.selectedHotbarIndex];
     return selectedSlot?.kind === "weapon" ? selectedSlot.weapon : undefined;
+  }
+
+  private createInventoryTransferableOnAcquisition(
+    source: Inventory,
+  ): Inventory {
+    const transferable = new Inventory();
+
+    for (const [typeId, amount] of source.resources.entries()) {
+      const item = this.createItem(typeId);
+      if (item.isStoredOnInventoryAcquisition()) {
+        transferable.addStackable(typeId, amount);
+      }
+    }
+
+    for (const slot of source.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+      if (slot.kind === "weapon") {
+        if (slot.weapon.isStoredOnInventoryAcquisition()) {
+          transferable.addWeapon(slot.weapon);
+        }
+        continue;
+      }
+
+      const item = this.createItem(slot.typeId);
+      if (item.isStoredOnInventoryAcquisition()) {
+        transferable.addStackable(slot.typeId, slot.count);
+      }
+    }
+
+    for (const unlockedRecipeTypeId of source.getUnlockedRecipeTypeIds()) {
+      transferable.unlockRecipe(unlockedRecipeTypeId);
+    }
+
+    return transferable;
+  }
+
+  private grantAcquisitionOnlyItems(source: Inventory): void {
+    for (const [typeId, amount] of source.resources.entries()) {
+      const item = this.createItem(typeId);
+      if (!item.isStoredOnInventoryAcquisition()) {
+        item.grantToInventory(this, amount);
+      }
+    }
+
+    for (const slot of source.hotbarSlots) {
+      if (!slot) {
+        continue;
+      }
+
+      const item =
+        slot.kind === "weapon" ? slot.weapon : this.createItem(slot.typeId);
+      if (item.isStoredOnInventoryAcquisition()) {
+        continue;
+      }
+      item.grantToInventory(this, slot.kind === "weapon" ? 1 : slot.count);
+    }
+  }
+
+  private createItem(typeId: ResourceId): Item {
+    return new (itemTypeRegistry.require(typeId).ctor)();
   }
 
   public getSelectedBuildable(): BuildableSlot | undefined {

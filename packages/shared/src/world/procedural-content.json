@@ -1,0 +1,2417 @@
+{
+  "lootByTier": {
+    "common": [
+      "item:hunk",
+      "item:junk_food",
+      "item:pistol_mag",
+      "item:rifle_mag"
+    ],
+    "uncommon": [
+      "item:basic_spear",
+      "item:lead_pipe",
+      "item:quality_food",
+      "item:crossbow_mag"
+    ],
+    "rare": [
+      "item:basic_rifle",
+      "item:crossbow",
+      "item:blueprint_katana",
+      "item:sniper_mag"
+    ],
+    "epic": [
+      "item:sniper",
+      "item:drone_shooter",
+      "item:blueprint_sniper",
+      "item:blueprint_spiked_spear"
+    ]
+  },
+  "sectorContent": {
+    "home": {
+      "buildings": [
+        { "typeId": "building:recycler", "offsetX": 0, "offsetY": -160 },
+        {
+          "typeId": "building:crafting_station",
+          "offsetX": -224,
+          "offsetY": 0
+        },
+        { "typeId": "building:chest", "offsetX": 224, "offsetY": 0 }
+      ],
+      "loot": [
+        {
+          "typeId": "item:hunk",
+          "offsetX": -128,
+          "offsetY": 192,
+          "kind": "stackable",
+          "rewardTier": "common",
+          "amount": 5
+        }
+      ]
+    },
+    "extraction": {
+      "enemies": [
+        { "typeId": "enemy:commander", "offsetX": 0, "offsetY": -360 },
+        { "typeId": "enemy:sniper", "offsetX": -420, "offsetY": -240 },
+        { "typeId": "enemy:sniper", "offsetX": 420, "offsetY": -240 }
+      ],
+      "loot": [
+        {
+          "typeId": "item:sniper_mag",
+          "offsetX": 320,
+          "offsetY": -192,
+          "kind": "stackable",
+          "rewardTier": "rare",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "dungeonRoomContent": {
+    "entrance": {
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -160,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 160,
+          "offsetY": 0
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:quality_food",
+          "offsetX": 160,
+          "offsetY": 0,
+          "kind": "stackable",
+          "rewardTier": "common",
+          "amount": 2
+        }
+      ]
+    },
+    "combat": {
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -120,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": 120,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": 112
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:pistol_mag",
+          "offsetX": 0,
+          "offsetY": 120,
+          "kind": "stackable",
+          "rewardTier": "common",
+          "amount": 2
+        }
+      ]
+    },
+    "enemy_swarm": {
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -240,
+          "offsetY": -160
+        },
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": 0,
+          "offsetY": -180
+        },
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": 240,
+          "offsetY": -160
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": -180,
+          "offsetY": 140
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": 180,
+          "offsetY": 140
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": 220
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:rifle_mag",
+          "offsetX": 0,
+          "offsetY": 0,
+          "kind": "stackable",
+          "rewardTier": "common",
+          "amount": 2
+        }
+      ]
+    },
+    "treasure": {
+      "crates": [
+        {
+          "offsetX": 0,
+          "offsetY": 0,
+          "loot": [
+            {
+              "typeId": "item:sniper",
+              "kind": "weapon"
+            },
+            {
+              "typeId": "item:blueprint_katana",
+              "kind": "stackable",
+              "amount": 1
+            },
+            {
+              "typeId": "item:sniper_mag",
+              "kind": "stackable",
+              "amount": 3
+            },
+            {
+              "typeId": "item:hunk",
+              "kind": "stackable",
+              "amount": 12
+            }
+          ]
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:hunk",
+          "offsetX": 80,
+          "offsetY": 0,
+          "kind": "stackable",
+          "rewardTier": "uncommon",
+          "amount": 8
+        }
+      ]
+    },
+    "maze": {
+      "enemies": [
+        {
+          "typeId": "enemy:stalker",
+          "offsetX": -200,
+          "offsetY": -180
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 220,
+          "offsetY": 180
+        }
+      ],
+      "buildings": [
+        {
+          "typeId": "building:tripwire",
+          "offsetX": -48,
+          "offsetY": -64,
+          "margin": 128
+        },
+        {
+          "typeId": "building:tripwire",
+          "offsetX": -96,
+          "offsetY": 0,
+          "margin": 128
+        }
+      ]
+    },
+    "armory": {
+      "enemies": [
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": -120
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:basic_rifle",
+          "offsetX": -96,
+          "offsetY": 96,
+          "kind": "weapon",
+          "rewardTier": "rare",
+          "amount": 1
+        },
+        {
+          "typeId": "item:sniper_mag",
+          "offsetX": 96,
+          "offsetY": 96,
+          "kind": "stackable",
+          "rewardTier": "rare",
+          "amount": 2
+        }
+      ]
+    },
+    "trap": {
+      "enemies": [
+        {
+          "typeId": "enemy:police",
+          "offsetX": -160,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:stalker",
+          "offsetX": 160,
+          "offsetY": 0
+        }
+      ],
+      "buildings": [
+        {
+          "typeId": "building:tripwire",
+          "offsetX": -56,
+          "offsetY": -64,
+          "margin": 128
+        },
+        {
+          "typeId": "building:tripwire",
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        {
+          "typeId": "building:tripwire",
+          "offsetX": 56,
+          "offsetY": 64,
+          "margin": 128
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:landmine",
+          "offsetX": 0,
+          "offsetY": 128,
+          "kind": "stackable",
+          "rewardTier": "uncommon",
+          "amount": 2
+        }
+      ]
+    },
+    "mini_boss": {
+      "enemies": [
+        {
+          "typeId": "enemy:commander",
+          "offsetX": 0,
+          "offsetY": 0
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:crossbow",
+          "offsetX": 0,
+          "offsetY": 160,
+          "kind": "weapon",
+          "rewardTier": "rare",
+          "amount": 1
+        },
+        {
+          "typeId": "item:dungeon_key",
+          "offsetX": 96,
+          "offsetY": 160,
+          "kind": "stackable",
+          "rewardTier": "rare",
+          "amount": 2
+        }
+      ]
+    },
+    "boss": {
+      "enemies": [
+        {
+          "typeId": "enemy:thanos",
+          "offsetX": 0,
+          "offsetY": -80
+        },
+        {
+          "typeId": "enemy:megaknight",
+          "offsetX": -220,
+          "offsetY": 160
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": 220,
+          "offsetY": 160
+        }
+      ],
+      "crates": [
+        {
+          "offsetX": 0,
+          "offsetY": 260,
+          "loot": [
+            {
+              "typeId": "item:thanos_rifle",
+              "kind": "weapon"
+            },
+            {
+              "typeId": "item:blueprint_sniper",
+              "kind": "stackable",
+              "amount": 1
+            },
+            {
+              "typeId": "item:sniper_mag",
+              "kind": "stackable",
+              "amount": 4
+            },
+            {
+              "typeId": "item:hunk",
+              "kind": "stackable",
+              "amount": 20
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "defaultVillageRoomTemplates": {
+    "house": [
+      {
+        "id": "single_home",
+        "structures": [
+          {
+            "typeId": "structure:house_m",
+            "dx": 0,
+            "dy": 0,
+            "rotated": true
+          }
+        ]
+      },
+      {
+        "id": "side_lot",
+        "structures": [
+          {
+            "typeId": "structure:house_s",
+            "dx": -80,
+            "dy": 24,
+            "rotated": true
+          }
+        ],
+        "loot": {
+          "dx": 144,
+          "dy": 112
+        }
+      }
+    ],
+    "house_cluster": [
+      {
+        "id": "triad_courtyard",
+        "structures": [
+          {
+            "typeId": "structure:house_s",
+            "dx": -220,
+            "dy": -120,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:house_m",
+            "dx": 180,
+            "dy": -140,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:house_l",
+            "dx": -60,
+            "dy": 180,
+            "rotated": true
+          }
+        ]
+      },
+      {
+        "id": "lane_row",
+        "structures": [
+          {
+            "typeId": "structure:house_s",
+            "dx": -240,
+            "dy": 80,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:house_m",
+            "dx": 40,
+            "dy": -120,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:house_l",
+            "dx": 240,
+            "dy": 152,
+            "rotated": true
+          }
+        ]
+      }
+    ],
+    "market": [
+      {
+        "id": "crossroad_stalls",
+        "structures": [
+          {
+            "typeId": "structure:house_s",
+            "dx": -120,
+            "dy": 0,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:market_stall",
+            "dx": 180,
+            "dy": -80
+          },
+          {
+            "typeId": "structure:market_stall",
+            "dx": 180,
+            "dy": 120
+          }
+        ],
+        "loot": {
+          "dx": 120,
+          "dy": 96
+        }
+      },
+      {
+        "id": "corner_vendor",
+        "structures": [
+          {
+            "typeId": "structure:house_s",
+            "dx": -176,
+            "dy": -88,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:market_stall",
+            "dx": 96,
+            "dy": 80
+          },
+          {
+            "typeId": "structure:market_stall",
+            "dx": 264,
+            "dy": -96
+          }
+        ],
+        "loot": {
+          "dx": 160,
+          "dy": 112
+        }
+      }
+    ],
+    "checkpoint": [
+      {
+        "id": "road_gate",
+        "structures": [
+          {
+            "typeId": "structure:guard_tower",
+            "dx": -180,
+            "dy": -120
+          },
+          {
+            "typeId": "structure:fence_h",
+            "dx": 120,
+            "dy": -160
+          },
+          {
+            "typeId": "structure:fence_h",
+            "dx": 120,
+            "dy": 160
+          }
+        ]
+      },
+      {
+        "id": "watch_corner",
+        "structures": [
+          {
+            "typeId": "structure:guard_tower",
+            "dx": 176,
+            "dy": -128
+          },
+          {
+            "typeId": "structure:fence_v",
+            "dx": -168,
+            "dy": 96
+          },
+          {
+            "typeId": "structure:fence_h",
+            "dx": 80,
+            "dy": 192
+          }
+        ]
+      }
+    ],
+    "camp": [
+      {
+        "id": "shelter_firepit",
+        "structures": [
+          {
+            "typeId": "structure:camp_shelter",
+            "dx": 0,
+            "dy": 0
+          }
+        ]
+      },
+      {
+        "id": "offset_shelter",
+        "structures": [
+          {
+            "typeId": "structure:camp_shelter",
+            "dx": -80,
+            "dy": 64
+          }
+        ]
+      }
+    ],
+    "supply_cache": [
+      {
+        "id": "central_crate",
+        "crates": [
+          {
+            "dx": 0,
+            "dy": 0
+          }
+        ],
+        "loot": {
+          "dx": 120,
+          "dy": 96
+        }
+      },
+      {
+        "id": "stashed_crate",
+        "crates": [
+          {
+            "dx": -80,
+            "dy": 40
+          }
+        ],
+        "loot": {
+          "dx": 136,
+          "dy": 104
+        }
+      }
+    ],
+    "armory": [
+      {
+        "id": "locked_barracks",
+        "structures": [
+          {
+            "typeId": "structure:barracks",
+            "dx": 0,
+            "dy": 0,
+            "rotated": true
+          }
+        ],
+        "crates": [
+          {
+            "dx": 96,
+            "dy": 0
+          }
+        ],
+        "loot": {
+          "dx": 120,
+          "dy": 96
+        }
+      },
+      {
+        "id": "rear_cache",
+        "structures": [
+          {
+            "typeId": "structure:barracks",
+            "dx": -72,
+            "dy": -32,
+            "rotated": true
+          }
+        ],
+        "crates": [
+          {
+            "dx": 144,
+            "dy": 80
+          }
+        ],
+        "loot": {
+          "dx": 144,
+          "dy": 112
+        }
+      }
+    ],
+    "barracks": [
+      {
+        "id": "double_bunk",
+        "structures": [
+          {
+            "typeId": "structure:barracks",
+            "dx": -112,
+            "dy": -72,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:camp_shelter",
+            "dx": 160,
+            "dy": 112
+          }
+        ]
+      },
+      {
+        "id": "bunk_line",
+        "structures": [
+          {
+            "typeId": "structure:barracks",
+            "dx": 0,
+            "dy": 0,
+            "rotated": true
+          }
+        ]
+      }
+    ],
+    "motor_pool": [
+      {
+        "id": "wreck_yard",
+        "structures": [
+          {
+            "typeId": "structure:vehicle_wreck",
+            "dx": 0,
+            "dy": 0
+          }
+        ]
+      },
+      {
+        "id": "guarded_wreck",
+        "structures": [
+          {
+            "typeId": "structure:vehicle_wreck",
+            "dx": -96,
+            "dy": 48
+          },
+          {
+            "typeId": "structure:fence_h",
+            "dx": 168,
+            "dy": -144
+          }
+        ]
+      }
+    ],
+    "command_post": [
+      {
+        "id": "command_house",
+        "structures": [
+          {
+            "typeId": "structure:command_post",
+            "dx": 0,
+            "dy": 0,
+            "rotated": true
+          }
+        ]
+      },
+      {
+        "id": "command_perimeter",
+        "structures": [
+          {
+            "typeId": "structure:command_post",
+            "dx": -48,
+            "dy": -24,
+            "rotated": true
+          },
+          {
+            "typeId": "structure:fence_h",
+            "dx": 160,
+            "dy": 168
+          }
+        ]
+      }
+    ],
+    "helipad": [
+      {
+        "id": "wide_lz",
+        "structures": [
+          {
+            "kind": "fence_box",
+            "dx": 0,
+            "dy": 0,
+            "width": 720,
+            "height": 560
+          }
+        ],
+        "loot": {
+          "dx": 120,
+          "dy": 96
+        }
+      },
+      {
+        "id": "tight_lz",
+        "structures": [
+          {
+            "kind": "fence_box",
+            "dx": 0,
+            "dy": 0,
+            "width": 640,
+            "height": 480
+          }
+        ],
+        "loot": {
+          "dx": 144,
+          "dy": 112
+        }
+      }
+    ]
+  },
+  "villageRoomTemplates": {
+    "civilian": {
+      "house": [
+        {
+          "id": "single_home",
+          "structures": [
+            {
+              "typeId": "structure:house_m",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "side_lot",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -80,
+              "dy": 24,
+              "rotated": true
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "house_cluster": [
+        {
+          "id": "triad_courtyard",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -220,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 180,
+              "dy": -140,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": -60,
+              "dy": 180,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "lane_row",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -240,
+              "dy": 80,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 40,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": 240,
+              "dy": 152,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "market": [
+        {
+          "id": "crossroad_stalls",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -120,
+              "dy": 0,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": -80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": 120
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "corner_vendor",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -176,
+              "dy": -88,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 96,
+              "dy": 80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 264,
+              "dy": -96
+            }
+          ],
+          "loot": {
+            "dx": 160,
+            "dy": 112
+          }
+        }
+      ],
+      "checkpoint": [
+        {
+          "id": "road_gate",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -180,
+              "dy": -120
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": -160
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": 160
+            }
+          ]
+        },
+        {
+          "id": "watch_corner",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 176,
+              "dy": -128
+            },
+            {
+              "typeId": "structure:fence_v",
+              "dx": -168,
+              "dy": 96
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 80,
+              "dy": 192
+            }
+          ]
+        }
+      ],
+      "camp": [
+        {
+          "id": "shelter_firepit",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "offset_shelter",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": -80,
+              "dy": 64
+            }
+          ]
+        }
+      ],
+      "supply_cache": [
+        {
+          "id": "central_crate",
+          "crates": [
+            {
+              "dx": 0,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "stashed_crate",
+          "crates": [
+            {
+              "dx": -80,
+              "dy": 40
+            }
+          ],
+          "loot": {
+            "dx": 136,
+            "dy": 104
+          }
+        }
+      ],
+      "armory": [
+        {
+          "id": "locked_barracks",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 96,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "rear_cache",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -72,
+              "dy": -32,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 144,
+              "dy": 80
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "barracks": [
+        {
+          "id": "double_bunk",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -112,
+              "dy": -72,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 160,
+              "dy": 112
+            }
+          ]
+        },
+        {
+          "id": "bunk_line",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "motor_pool": [
+        {
+          "id": "wreck_yard",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "guarded_wreck",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": -96,
+              "dy": 48
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 168,
+              "dy": -144
+            }
+          ]
+        }
+      ],
+      "command_post": [
+        {
+          "id": "command_house",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "command_perimeter",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": -48,
+              "dy": -24,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 160,
+              "dy": 168
+            }
+          ]
+        }
+      ],
+      "helipad": [
+        {
+          "id": "wide_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 720,
+              "height": 560
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "tight_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 640,
+              "height": 480
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ]
+    },
+    "scavenger": {
+      "house": [
+        {
+          "id": "single_home",
+          "structures": [
+            {
+              "typeId": "structure:house_m",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "side_lot",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -80,
+              "dy": 24,
+              "rotated": true
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "house_cluster": [
+        {
+          "id": "triad_courtyard",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -220,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 180,
+              "dy": -140,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": -60,
+              "dy": 180,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "lane_row",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -240,
+              "dy": 80,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 40,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": 240,
+              "dy": 152,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "salvage_lane",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -224,
+              "dy": -96,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": 80,
+              "dy": 72
+            },
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 256,
+              "dy": -128
+            }
+          ]
+        }
+      ],
+      "market": [
+        {
+          "id": "crossroad_stalls",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -120,
+              "dy": 0,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": -80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": 120
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "corner_vendor",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -176,
+              "dy": -88,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 96,
+              "dy": 80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 264,
+              "dy": -96
+            }
+          ],
+          "loot": {
+            "dx": 160,
+            "dy": 112
+          }
+        }
+      ],
+      "checkpoint": [
+        {
+          "id": "road_gate",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -180,
+              "dy": -120
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": -160
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": 160
+            }
+          ]
+        },
+        {
+          "id": "watch_corner",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 176,
+              "dy": -128
+            },
+            {
+              "typeId": "structure:fence_v",
+              "dx": -168,
+              "dy": 96
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 80,
+              "dy": 192
+            }
+          ]
+        }
+      ],
+      "camp": [
+        {
+          "id": "shelter_firepit",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "offset_shelter",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": -80,
+              "dy": 64
+            }
+          ]
+        }
+      ],
+      "supply_cache": [
+        {
+          "id": "central_crate",
+          "crates": [
+            {
+              "dx": 0,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "stashed_crate",
+          "crates": [
+            {
+              "dx": -80,
+              "dy": 40
+            }
+          ],
+          "loot": {
+            "dx": 136,
+            "dy": 104
+          }
+        },
+        {
+          "id": "scrap_cache",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": -144,
+              "dy": 48
+            }
+          ],
+          "crates": [
+            {
+              "dx": 96,
+              "dy": -48
+            }
+          ],
+          "loot": {
+            "dx": 128,
+            "dy": 96
+          }
+        }
+      ],
+      "armory": [
+        {
+          "id": "locked_barracks",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 96,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "rear_cache",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -72,
+              "dy": -32,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 144,
+              "dy": 80
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "barracks": [
+        {
+          "id": "double_bunk",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -112,
+              "dy": -72,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 160,
+              "dy": 112
+            }
+          ]
+        },
+        {
+          "id": "bunk_line",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "motor_pool": [
+        {
+          "id": "wreck_yard",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "guarded_wreck",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": -96,
+              "dy": 48
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 168,
+              "dy": -144
+            }
+          ]
+        }
+      ],
+      "command_post": [
+        {
+          "id": "command_house",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "command_perimeter",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": -48,
+              "dy": -24,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 160,
+              "dy": 168
+            }
+          ]
+        }
+      ],
+      "helipad": [
+        {
+          "id": "wide_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 720,
+              "height": 560
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "tight_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 640,
+              "height": 480
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ]
+    },
+    "military": {
+      "house": [
+        {
+          "id": "single_home",
+          "structures": [
+            {
+              "typeId": "structure:house_m",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "side_lot",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -80,
+              "dy": 24,
+              "rotated": true
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "house_cluster": [
+        {
+          "id": "triad_courtyard",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -220,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 180,
+              "dy": -140,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": -60,
+              "dy": 180,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "lane_row",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -240,
+              "dy": 80,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 40,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": 240,
+              "dy": 152,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "market": [
+        {
+          "id": "crossroad_stalls",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -120,
+              "dy": 0,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": -80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": 120
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "corner_vendor",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -176,
+              "dy": -88,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 96,
+              "dy": 80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 264,
+              "dy": -96
+            }
+          ],
+          "loot": {
+            "dx": 160,
+            "dy": 112
+          }
+        }
+      ],
+      "checkpoint": [
+        {
+          "id": "road_gate",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -180,
+              "dy": -120
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": -160
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": 160
+            }
+          ]
+        },
+        {
+          "id": "watch_corner",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 176,
+              "dy": -128
+            },
+            {
+              "typeId": "structure:fence_v",
+              "dx": -168,
+              "dy": 96
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 80,
+              "dy": 192
+            }
+          ]
+        },
+        {
+          "id": "hardpoint",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -192,
+              "dy": -120
+            },
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 184,
+              "dy": 128
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 0,
+              "dy": -192
+            }
+          ]
+        }
+      ],
+      "camp": [
+        {
+          "id": "shelter_firepit",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "offset_shelter",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": -80,
+              "dy": 64
+            }
+          ]
+        }
+      ],
+      "supply_cache": [
+        {
+          "id": "central_crate",
+          "crates": [
+            {
+              "dx": 0,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "stashed_crate",
+          "crates": [
+            {
+              "dx": -80,
+              "dy": 40
+            }
+          ],
+          "loot": {
+            "dx": 136,
+            "dy": 104
+          }
+        }
+      ],
+      "armory": [
+        {
+          "id": "locked_barracks",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 96,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "rear_cache",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -72,
+              "dy": -32,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 144,
+              "dy": 80
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        },
+        {
+          "id": "fenced_armory",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -64,
+              "dy": 0,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 144,
+              "dy": -168
+            }
+          ],
+          "crates": [
+            {
+              "dx": 144,
+              "dy": 80
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "barracks": [
+        {
+          "id": "double_bunk",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -112,
+              "dy": -72,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 160,
+              "dy": 112
+            }
+          ]
+        },
+        {
+          "id": "bunk_line",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "motor_pool": [
+        {
+          "id": "wreck_yard",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "guarded_wreck",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": -96,
+              "dy": 48
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 168,
+              "dy": -144
+            }
+          ]
+        }
+      ],
+      "command_post": [
+        {
+          "id": "command_house",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "command_perimeter",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": -48,
+              "dy": -24,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 160,
+              "dy": 168
+            }
+          ]
+        }
+      ],
+      "helipad": [
+        {
+          "id": "wide_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 720,
+              "height": 560
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "tight_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 640,
+              "height": 480
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ]
+    },
+    "extraction_fortified": {
+      "house": [
+        {
+          "id": "single_home",
+          "structures": [
+            {
+              "typeId": "structure:house_m",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "side_lot",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -80,
+              "dy": 24,
+              "rotated": true
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "house_cluster": [
+        {
+          "id": "triad_courtyard",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -220,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 180,
+              "dy": -140,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": -60,
+              "dy": 180,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "lane_row",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -240,
+              "dy": 80,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_m",
+              "dx": 40,
+              "dy": -120,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:house_l",
+              "dx": 240,
+              "dy": 152,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "market": [
+        {
+          "id": "crossroad_stalls",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -120,
+              "dy": 0,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": -80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 180,
+              "dy": 120
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "corner_vendor",
+          "structures": [
+            {
+              "typeId": "structure:house_s",
+              "dx": -176,
+              "dy": -88,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 96,
+              "dy": 80
+            },
+            {
+              "typeId": "structure:market_stall",
+              "dx": 264,
+              "dy": -96
+            }
+          ],
+          "loot": {
+            "dx": 160,
+            "dy": 112
+          }
+        }
+      ],
+      "checkpoint": [
+        {
+          "id": "road_gate",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -180,
+              "dy": -120
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": -160
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 120,
+              "dy": 160
+            }
+          ]
+        },
+        {
+          "id": "watch_corner",
+          "structures": [
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 176,
+              "dy": -128
+            },
+            {
+              "typeId": "structure:fence_v",
+              "dx": -168,
+              "dy": 96
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 80,
+              "dy": 192
+            }
+          ]
+        }
+      ],
+      "camp": [
+        {
+          "id": "shelter_firepit",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "offset_shelter",
+          "structures": [
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": -80,
+              "dy": 64
+            }
+          ]
+        }
+      ],
+      "supply_cache": [
+        {
+          "id": "central_crate",
+          "crates": [
+            {
+              "dx": 0,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "stashed_crate",
+          "crates": [
+            {
+              "dx": -80,
+              "dy": 40
+            }
+          ],
+          "loot": {
+            "dx": 136,
+            "dy": 104
+          }
+        }
+      ],
+      "armory": [
+        {
+          "id": "locked_barracks",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 96,
+              "dy": 0
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "rear_cache",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -72,
+              "dy": -32,
+              "rotated": true
+            }
+          ],
+          "crates": [
+            {
+              "dx": 144,
+              "dy": 80
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        }
+      ],
+      "barracks": [
+        {
+          "id": "double_bunk",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": -112,
+              "dy": -72,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:camp_shelter",
+              "dx": 160,
+              "dy": 112
+            }
+          ]
+        },
+        {
+          "id": "bunk_line",
+          "structures": [
+            {
+              "typeId": "structure:barracks",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        }
+      ],
+      "motor_pool": [
+        {
+          "id": "wreck_yard",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": 0,
+              "dy": 0
+            }
+          ]
+        },
+        {
+          "id": "guarded_wreck",
+          "structures": [
+            {
+              "typeId": "structure:vehicle_wreck",
+              "dx": -96,
+              "dy": 48
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 168,
+              "dy": -144
+            }
+          ]
+        }
+      ],
+      "command_post": [
+        {
+          "id": "command_house",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": 0,
+              "dy": 0,
+              "rotated": true
+            }
+          ]
+        },
+        {
+          "id": "command_perimeter",
+          "structures": [
+            {
+              "typeId": "structure:command_post",
+              "dx": -48,
+              "dy": -24,
+              "rotated": true
+            },
+            {
+              "typeId": "structure:fence_h",
+              "dx": 160,
+              "dy": 168
+            }
+          ]
+        }
+      ],
+      "helipad": [
+        {
+          "id": "wide_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 720,
+              "height": 560
+            }
+          ],
+          "loot": {
+            "dx": 120,
+            "dy": 96
+          }
+        },
+        {
+          "id": "tight_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 640,
+              "height": 480
+            }
+          ],
+          "loot": {
+            "dx": 144,
+            "dy": 112
+          }
+        },
+        {
+          "id": "fortified_lz",
+          "structures": [
+            {
+              "kind": "fence_box",
+              "dx": 0,
+              "dy": 0,
+              "width": 820,
+              "height": 620
+            },
+            {
+              "typeId": "structure:guard_tower",
+              "dx": -280,
+              "dy": -220
+            },
+            {
+              "typeId": "structure:guard_tower",
+              "dx": 280,
+              "dy": 220
+            }
+          ],
+          "loot": {
+            "dx": 160,
+            "dy": 128
+          }
+        }
+      ]
+    }
+  }
+}
