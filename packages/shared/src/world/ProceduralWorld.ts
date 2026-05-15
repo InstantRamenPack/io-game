@@ -1,8 +1,9 @@
 import seedrandom from "seedrandom";
-import { getEntityContent } from "@shared/content/catalog.ts";
+import { getEntityContent, getWeaponContent } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import proceduralContentJson from "@shared/world/procedural-content.json";
 
 export const PROCEDURAL_WORLD_SEED = 1337;
 export const PROCEDURAL_GRID_SIZE = 3;
@@ -247,6 +248,54 @@ export type ProceduralWorldLayout = {
   minimapMarkers: ProceduralMapMarker[];
 };
 
+type ProceduralContentSpawn = {
+  typeId: string;
+  offsetX: number;
+  offsetY: number;
+  margin?: number;
+};
+
+type ProceduralContentLoot = ProceduralContentSpawn & {
+  kind: ProceduralLootSpec["kind"];
+  rewardTier: ProceduralLootSpec["rewardTier"];
+  amount: number;
+};
+
+type ProceduralContentCrate = {
+  offsetX: number;
+  offsetY: number;
+  loot: Array<{
+    typeId: string;
+    kind: ProceduralCrateLootSlot["kind"];
+    amount?: number;
+  }>;
+};
+
+type ProceduralDungeonRoomContent = {
+  enemies?: ProceduralContentSpawn[];
+  buildings?: ProceduralContentSpawn[];
+  loot?: ProceduralContentLoot[];
+  crates?: ProceduralContentCrate[];
+};
+
+type ProceduralSectorContent = {
+  enemies?: ProceduralContentSpawn[];
+  buildings?: ProceduralContentSpawn[];
+  loot?: ProceduralContentLoot[];
+};
+
+type ProceduralContent = {
+  lootByTier: Record<ProceduralLootSpec["rewardTier"], readonly ResourceId[]>;
+  sectorContent: Partial<Record<SectorArchetype, ProceduralSectorContent>>;
+  dungeonRoomContent: Record<DungeonRoomRole, ProceduralDungeonRoomContent>;
+  villageRoomTemplates: Record<
+    ProceduralVillageKind,
+    Record<ProceduralVillagePoiRole, readonly VillageRoomTemplate[]>
+  >;
+};
+
+const PROCEDURAL_CONTENT = proceduralContentJson as ProceduralContent;
+
 const EDGE_COORDS = [
   { row: 0, col: 1 },
   { row: 1, col: 0 },
@@ -271,35 +320,47 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
 
 const DUNGEON_HALLWAY_WIDTH = 96;
 const DUNGEON_FILL_CELL_SIZE = 32;
-const LOOT_BY_TIER: Record<
-  ProceduralLootSpec["rewardTier"],
-  readonly ResourceId[]
-> = {
-  common: [
-    "item:hunk" as ResourceId,
-    "item:junk_food" as ResourceId,
-    "item:pistol_mag" as ResourceId,
-    "item:rifle_mag" as ResourceId,
-  ],
-  uncommon: [
-    "item:basic_spear" as ResourceId,
-    "item:lead_pipe" as ResourceId,
-    "item:quality_food" as ResourceId,
-    "item:crossbow_mag" as ResourceId,
-  ],
-  rare: [
-    "item:basic_rifle" as ResourceId,
-    "item:crossbow" as ResourceId,
-    "item:blueprint_katana" as ResourceId,
-    "item:sniper_mag" as ResourceId,
-  ],
-  epic: [
-    "item:sniper" as ResourceId,
-    "item:drone_shooter" as ResourceId,
-    "item:blueprint_sniper" as ResourceId,
-    "item:blueprint_spiked_spear" as ResourceId,
-  ],
-};
+const LOOT_BY_TIER = PROCEDURAL_CONTENT.lootByTier;
+
+function addSectorAuthoredContent(
+  archetype: SectorArchetype,
+  center: ProceduralPoint,
+  buildings: ProceduralSpawnSpec[],
+  enemies: ProceduralSpawnSpec[],
+  loot: ProceduralLootSpec[],
+): void {
+  const content = PROCEDURAL_CONTENT.sectorContent[archetype];
+  if (!content) {
+    return;
+  }
+
+  for (const building of content.buildings ?? []) {
+    buildings.push(
+      spawn(
+        building.typeId,
+        center.x + building.offsetX,
+        center.y + building.offsetY,
+      ),
+    );
+  }
+  for (const enemy of content.enemies ?? []) {
+    enemies.push(
+      spawn(enemy.typeId, center.x + enemy.offsetX, center.y + enemy.offsetY),
+    );
+  }
+  for (const lootEntry of content.loot ?? []) {
+    loot.push(
+      lootSpec(
+        lootEntry.typeId,
+        center.x + lootEntry.offsetX,
+        center.y + lootEntry.offsetY,
+        lootEntry.kind,
+        lootEntry.rewardTier,
+        lootEntry.amount,
+      ),
+    );
+  }
+}
 
 export function generateProceduralWorldLayout(
   seed = PROCEDURAL_WORLD_SEED,
@@ -460,11 +521,7 @@ function createSector(
   markers.push(landmark);
 
   if (archetype === "home") {
-    buildings.push(spawn("building:recycler", center.x, center.y - 160));
-    buildings.push(
-      spawn("building:crafting_station", center.x - 224, center.y),
-    );
-    buildings.push(spawn("building:chest", center.x + 224, center.y));
+    addSectorAuthoredContent(archetype, center, buildings, enemies, loot);
     addFeature(
       features,
       markers,
@@ -497,17 +554,8 @@ function createSector(
       "route",
       true,
     );
-    loot.push(
-      lootSpec(
-        "item:hunk",
-        center.x - 128,
-        center.y + 192,
-        "stackable",
-        "common",
-        5,
-      ),
-    );
   } else if (archetype === "extraction") {
+    addSectorAuthoredContent(archetype, center, buildings, enemies, loot);
     markers.push(
       marker(
         "extraction_helipad",
@@ -540,11 +588,6 @@ function createSector(
       markers,
     );
     addMilitaryFence(structures, center, 960, 720);
-    enemies.push(
-      spawn("enemy:commander", center.x, center.y - 360),
-      spawn("enemy:sniper", center.x - 420, center.y - 240),
-      spawn("enemy:sniper", center.x + 420, center.y - 240),
-    );
     addFeature(
       features,
       markers,
@@ -592,16 +635,6 @@ function createSector(
       false,
       "major",
       false,
-    );
-    loot.push(
-      lootSpec(
-        "item:sniper_mag",
-        center.x + 320,
-        center.y - 192,
-        "stackable",
-        "rare",
-        2,
-      ),
     );
   } else if (archetype === "dungeon") {
     addDungeonArchitecture(structures, buildings, dungeon);
@@ -1424,8 +1457,6 @@ function addDungeonRoomContent(
   loot: ProceduralLootSpec[],
   buildings: ProceduralSpawnSpec[],
 ): void {
-  const x = room.centerX;
-  const y = room.centerY;
   const point = (offsetX: number, offsetY: number, margin = 96) =>
     dungeonRoomContentPoint(room, offsetX, offsetY, margin);
   const roomSpawn = (
@@ -1456,117 +1487,47 @@ function addDungeonRoomContent(
     const position = point(offsetX, offsetY);
     return crateSpawn("enemy:crate", position.x, position.y, crateLoot);
   };
-  switch (room.role) {
-    case "entrance":
-      enemies.push(
-        roomSpawn("enemy:drifter", -160, 0),
-        roomSpawn("enemy:police", 160, 0),
-      );
-      loot.push(
-        roomLoot("item:quality_food", 160, 0, "stackable", "common", 2),
-      );
-      break;
-    case "combat":
-      enemies.push(
-        roomSpawn("enemy:drifter", -120, 0),
-        roomSpawn("enemy:shoota", 120, 0),
-        roomSpawn("enemy:police", 0, 112),
-      );
-      loot.push(roomLoot("item:pistol_mag", 0, 120, "stackable", "common", 2));
-      break;
-    case "enemy_swarm":
-      enemies.push(
-        roomSpawn("enemy:drifter", -240, -160),
-        roomSpawn("enemy:drifter", 0, -180),
-        roomSpawn("enemy:drifter", 240, -160),
-        roomSpawn("enemy:shoota", -180, 140),
-        roomSpawn("enemy:shoota", 180, 140),
-        roomSpawn("enemy:police", 0, 220),
-      );
-      loot.push(lootSpec("item:rifle_mag", x, y, "stackable", "common", 2));
-      break;
-    case "treasure":
-      enemies.push(
-        roomCrate(0, 0, [
-          { typeId: "item:sniper" as ResourceId, kind: "weapon" },
-          {
-            typeId: "item:blueprint_katana" as ResourceId,
-            kind: "stackable",
-            amount: 1,
-          },
-          {
-            typeId: "item:sniper_mag" as ResourceId,
-            kind: "stackable",
-            amount: 3,
-          },
-          {
-            typeId: "item:hunk" as ResourceId,
-            kind: "stackable",
-            amount: 12,
-          },
-        ]),
-      );
-      loot.push(lootSpec("item:hunk", x + 80, y, "stackable", "uncommon", 8));
-      break;
-    case "maze":
-      enemies.push(
-        roomSpawn("enemy:stalker", -200, -180),
-        roomSpawn("enemy:police", 220, 180),
-      );
-      buildings.push(
-        roomSpawn("building:tripwire", -48, -64, 128),
-        roomSpawn("building:tripwire", -96, 0, 128),
-      );
-      break;
-    case "armory":
-      enemies.push(roomSpawn("enemy:police", 0, -120));
-      loot.push(roomLoot("item:basic_rifle", -96, 96, "weapon", "rare", 1));
-      loot.push(roomLoot("item:sniper_mag", 96, 96, "stackable", "rare", 2));
-      break;
-    case "trap":
-      enemies.push(
-        roomSpawn("enemy:police", -160, 0),
-        roomSpawn("enemy:stalker", 160, 0),
-      );
-      buildings.push(
-        roomSpawn("building:tripwire", -56, -64, 128),
-        spawn("building:tripwire", x, y),
-        roomSpawn("building:tripwire", 56, 64, 128),
-      );
-      loot.push(roomLoot("item:landmine", 0, 128, "stackable", "uncommon", 2));
-      break;
-    case "mini_boss":
-      enemies.push(spawn("enemy:commander", x, y));
-      loot.push(roomLoot("item:crossbow", 0, 160, "weapon", "rare", 1));
-      loot.push(roomLoot("item:dungeon_key", 96, 160, "stackable", "rare", 2));
-      break;
-    case "boss":
-      enemies.push(
-        roomSpawn("enemy:thanos", 0, -80),
-        roomSpawn("enemy:megaknight", -220, 160),
-        roomSpawn("enemy:sniper", 220, 160),
-      );
-      enemies.push(
-        roomCrate(0, 260, [
-          { typeId: "item:thanos_rifle" as ResourceId, kind: "weapon" },
-          {
-            typeId: "item:blueprint_sniper" as ResourceId,
-            kind: "stackable",
-            amount: 1,
-          },
-          {
-            typeId: "item:sniper_mag" as ResourceId,
-            kind: "stackable",
-            amount: 4,
-          },
-          {
-            typeId: "item:hunk" as ResourceId,
-            kind: "stackable",
-            amount: 20,
-          },
-        ]),
-      );
-      break;
+
+  const content = PROCEDURAL_CONTENT.dungeonRoomContent[room.role];
+  for (const enemy of content.enemies ?? []) {
+    enemies.push(
+      roomSpawn(enemy.typeId, enemy.offsetX, enemy.offsetY, enemy.margin),
+    );
+  }
+  for (const building of content.buildings ?? []) {
+    buildings.push(
+      roomSpawn(
+        building.typeId,
+        building.offsetX,
+        building.offsetY,
+        building.margin,
+      ),
+    );
+  }
+  for (const roomLootEntry of content.loot ?? []) {
+    loot.push(
+      roomLoot(
+        roomLootEntry.typeId,
+        roomLootEntry.offsetX,
+        roomLootEntry.offsetY,
+        roomLootEntry.kind,
+        roomLootEntry.rewardTier,
+        roomLootEntry.amount,
+      ),
+    );
+  }
+  for (const crate of content.crates ?? []) {
+    enemies.push(
+      roomCrate(
+        crate.offsetX,
+        crate.offsetY,
+        crate.loot.map((slot) => ({
+          typeId: slot.typeId as ResourceId,
+          kind: slot.kind,
+          amount: slot.amount,
+        })),
+      ),
+    );
   }
 }
 
@@ -1872,249 +1833,7 @@ type VillageTemplateOffset = {
   dy: number;
 };
 
-const DEFAULT_VILLAGE_ROOM_TEMPLATES = {
-  house: [
-    {
-      id: "single_home",
-      structures: [
-        { typeId: "structure:house_m", dx: 0, dy: 0, rotated: true },
-      ],
-    },
-    {
-      id: "side_lot",
-      structures: [
-        { typeId: "structure:house_s", dx: -80, dy: 24, rotated: true },
-      ],
-      loot: { dx: 144, dy: 112 },
-    },
-  ],
-  house_cluster: [
-    {
-      id: "triad_courtyard",
-      structures: [
-        { typeId: "structure:house_s", dx: -220, dy: -120, rotated: true },
-        { typeId: "structure:house_m", dx: 180, dy: -140, rotated: true },
-        { typeId: "structure:house_l", dx: -60, dy: 180, rotated: true },
-      ],
-    },
-    {
-      id: "lane_row",
-      structures: [
-        { typeId: "structure:house_s", dx: -240, dy: 80, rotated: true },
-        { typeId: "structure:house_m", dx: 40, dy: -120, rotated: true },
-        { typeId: "structure:house_l", dx: 240, dy: 152, rotated: true },
-      ],
-    },
-  ],
-  market: [
-    {
-      id: "crossroad_stalls",
-      structures: [
-        { typeId: "structure:house_s", dx: -120, dy: 0, rotated: true },
-        { typeId: "structure:market_stall", dx: 180, dy: -80 },
-        { typeId: "structure:market_stall", dx: 180, dy: 120 },
-      ],
-      loot: { dx: 120, dy: 96 },
-    },
-    {
-      id: "corner_vendor",
-      structures: [
-        { typeId: "structure:house_s", dx: -176, dy: -88, rotated: true },
-        { typeId: "structure:market_stall", dx: 96, dy: 80 },
-        { typeId: "structure:market_stall", dx: 264, dy: -96 },
-      ],
-      loot: { dx: 160, dy: 112 },
-    },
-  ],
-  checkpoint: [
-    {
-      id: "road_gate",
-      structures: [
-        { typeId: "structure:guard_tower", dx: -180, dy: -120 },
-        { typeId: "structure:fence_h", dx: 120, dy: -160 },
-        { typeId: "structure:fence_h", dx: 120, dy: 160 },
-      ],
-    },
-    {
-      id: "watch_corner",
-      structures: [
-        { typeId: "structure:guard_tower", dx: 176, dy: -128 },
-        { typeId: "structure:fence_v", dx: -168, dy: 96 },
-        { typeId: "structure:fence_h", dx: 80, dy: 192 },
-      ],
-    },
-  ],
-  camp: [
-    {
-      id: "shelter_firepit",
-      structures: [{ typeId: "structure:camp_shelter", dx: 0, dy: 0 }],
-    },
-    {
-      id: "offset_shelter",
-      structures: [{ typeId: "structure:camp_shelter", dx: -80, dy: 64 }],
-    },
-  ],
-  supply_cache: [
-    {
-      id: "central_crate",
-      crates: [{ dx: 0, dy: 0 }],
-      loot: { dx: 120, dy: 96 },
-    },
-    {
-      id: "stashed_crate",
-      crates: [{ dx: -80, dy: 40 }],
-      loot: { dx: 136, dy: 104 },
-    },
-  ],
-  armory: [
-    {
-      id: "locked_barracks",
-      structures: [
-        { typeId: "structure:barracks", dx: 0, dy: 0, rotated: true },
-      ],
-      crates: [{ dx: 96, dy: 0 }],
-      loot: { dx: 120, dy: 96 },
-    },
-    {
-      id: "rear_cache",
-      structures: [
-        { typeId: "structure:barracks", dx: -72, dy: -32, rotated: true },
-      ],
-      crates: [{ dx: 144, dy: 80 }],
-      loot: { dx: 144, dy: 112 },
-    },
-  ],
-  barracks: [
-    {
-      id: "double_bunk",
-      structures: [
-        { typeId: "structure:barracks", dx: -112, dy: -72, rotated: true },
-        { typeId: "structure:camp_shelter", dx: 160, dy: 112 },
-      ],
-    },
-    {
-      id: "bunk_line",
-      structures: [
-        { typeId: "structure:barracks", dx: 0, dy: 0, rotated: true },
-      ],
-    },
-  ],
-  motor_pool: [
-    {
-      id: "wreck_yard",
-      structures: [{ typeId: "structure:vehicle_wreck", dx: 0, dy: 0 }],
-    },
-    {
-      id: "guarded_wreck",
-      structures: [
-        { typeId: "structure:vehicle_wreck", dx: -96, dy: 48 },
-        { typeId: "structure:fence_h", dx: 168, dy: -144 },
-      ],
-    },
-  ],
-  command_post: [
-    {
-      id: "command_house",
-      structures: [
-        { typeId: "structure:command_post", dx: 0, dy: 0, rotated: true },
-      ],
-    },
-    {
-      id: "command_perimeter",
-      structures: [
-        { typeId: "structure:command_post", dx: -48, dy: -24, rotated: true },
-        { typeId: "structure:fence_h", dx: 160, dy: 168 },
-      ],
-    },
-  ],
-  helipad: [
-    {
-      id: "wide_lz",
-      structures: [
-        { kind: "fence_box", dx: 0, dy: 0, width: 720, height: 560 },
-      ],
-      loot: { dx: 120, dy: 96 },
-    },
-    {
-      id: "tight_lz",
-      structures: [
-        { kind: "fence_box", dx: 0, dy: 0, width: 640, height: 480 },
-      ],
-      loot: { dx: 144, dy: 112 },
-    },
-  ],
-} satisfies Record<ProceduralVillagePoiRole, readonly VillageRoomTemplate[]>;
-
-const VILLAGE_ROOM_TEMPLATES = {
-  civilian: DEFAULT_VILLAGE_ROOM_TEMPLATES,
-  scavenger: {
-    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
-    house_cluster: [
-      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.house_cluster,
-      {
-        id: "salvage_lane",
-        structures: [
-          { typeId: "structure:house_s", dx: -224, dy: -96, rotated: true },
-          { typeId: "structure:vehicle_wreck", dx: 80, dy: 72 },
-          { typeId: "structure:camp_shelter", dx: 256, dy: -128 },
-        ],
-      },
-    ],
-    supply_cache: [
-      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.supply_cache,
-      {
-        id: "scrap_cache",
-        structures: [{ typeId: "structure:vehicle_wreck", dx: -144, dy: 48 }],
-        crates: [{ dx: 96, dy: -48 }],
-        loot: { dx: 128, dy: 96 },
-      },
-    ],
-  },
-  military: {
-    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
-    checkpoint: [
-      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.checkpoint,
-      {
-        id: "hardpoint",
-        structures: [
-          { typeId: "structure:guard_tower", dx: -192, dy: -120 },
-          { typeId: "structure:guard_tower", dx: 184, dy: 128 },
-          { typeId: "structure:fence_h", dx: 0, dy: -192 },
-        ],
-      },
-    ],
-    armory: [
-      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.armory,
-      {
-        id: "fenced_armory",
-        structures: [
-          { typeId: "structure:barracks", dx: -64, dy: 0, rotated: true },
-          { typeId: "structure:fence_h", dx: 144, dy: -168 },
-        ],
-        crates: [{ dx: 144, dy: 80 }],
-        loot: { dx: 144, dy: 112 },
-      },
-    ],
-  },
-  extraction_fortified: {
-    ...DEFAULT_VILLAGE_ROOM_TEMPLATES,
-    helipad: [
-      ...DEFAULT_VILLAGE_ROOM_TEMPLATES.helipad,
-      {
-        id: "fortified_lz",
-        structures: [
-          { kind: "fence_box", dx: 0, dy: 0, width: 820, height: 620 },
-          { typeId: "structure:guard_tower", dx: -280, dy: -220 },
-          { typeId: "structure:guard_tower", dx: 280, dy: 220 },
-        ],
-        loot: { dx: 160, dy: 128 },
-      },
-    ],
-  },
-} satisfies Record<
-  ProceduralVillageKind,
-  Record<ProceduralVillagePoiRole, readonly VillageRoomTemplate[]>
->;
+const VILLAGE_ROOM_TEMPLATES = PROCEDURAL_CONTENT.villageRoomTemplates;
 
 function createBspVillageRooms(
   rng: seedrandom.PRNG,
@@ -2407,7 +2126,7 @@ function villageLoot(
     typeId,
     x,
     y,
-    isWeaponLoot(typeId) ? "weapon" : "stackable",
+    getWeaponContent(typeId) ? "weapon" : "stackable",
     village.lootTier,
     village.lootTier === "common" ? 3 : 1,
   );
@@ -2844,15 +2563,4 @@ function labelForArchetype(archetype: SectorArchetype): string {
     .split("_")
     .map((word) => word[0]!.toUpperCase() + word.slice(1))
     .join(" ");
-}
-
-function isWeaponLoot(typeId: ResourceId): boolean {
-  return [
-    "item:basic_spear",
-    "item:lead_pipe",
-    "item:basic_rifle",
-    "item:crossbow",
-    "item:sniper",
-    "item:drone_shooter",
-  ].includes(typeId);
 }

@@ -6,6 +6,7 @@ import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -16,6 +17,11 @@ import {
 const wallItemId = makeResourceId("item", "wall");
 const hunkItemId = makeResourceId("item", "hunk");
 const junkFoodItemId = makeResourceId("item", "junk_food");
+const basicRifleItemId = makeResourceId("item", "basic_rifle");
+const basicRifleBlueprintItemId = makeResourceId(
+  "item",
+  "blueprint_basic_rifle",
+);
 
 function addWallAndFindSlot(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -46,6 +52,44 @@ function enqueueAction(
 
 describe("inventory authority", () => {
   beforeAll(bootstrapTestRegistries);
+
+  test("item acquisition grants stackables, weapons, and blueprint unlocks by item type", () => {
+    const inventory = new Inventory();
+
+    expect(
+      inventory.grantItemCtor(itemTypeRegistry.require(hunkItemId).ctor, 3),
+    ).toBe(true);
+    expect(inventory.getResourceCount(hunkItemId)).toBe(3);
+
+    expect(
+      inventory.grantItemCtor(
+        itemTypeRegistry.require(basicRifleItemId).ctor,
+        1,
+      ),
+    ).toBe(true);
+    expect(inventory.countType(basicRifleItemId)).toBe(1);
+
+    expect(
+      inventory.grantItemCtor(
+        itemTypeRegistry.require(basicRifleBlueprintItemId).ctor,
+        1,
+      ),
+    ).toBe(true);
+    expect(inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
+    expect(inventory.countType(basicRifleBlueprintItemId)).toBe(0);
+  });
+
+  test("inventory acquisition transfer unlocks blueprints without storing them", () => {
+    const target = new Inventory();
+    const source = new Inventory();
+    source.addStackable(basicRifleBlueprintItemId, 1);
+    source.addStackable(hunkItemId, 2);
+
+    expect(target.absorbInventoryByAcquisitionRules(source)).toBe(true);
+    expect(target.isRecipeUnlocked(basicRifleItemId)).toBe(true);
+    expect(target.countType(basicRifleBlueprintItemId)).toBe(0);
+    expect(target.getResourceCount(hunkItemId)).toBe(2);
+  });
 
   test("valid inventory move updates hotbar", () => {
     const { runtime } = makeRuntime();

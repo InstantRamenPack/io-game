@@ -14,7 +14,6 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
-import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 
 export const HUNK_ITEM_TYPE_ID = "item:hunk" as ResourceId;
 
@@ -137,8 +136,5 @@ export function requiresManualPickup(typeId: ResourceId): boolean {
   if (!itemEntry) {
     return false;
   }
-  return (
-    isWeaponCtor(itemEntry.ctor) ||
-    itemEntry.content.buildsEntityTypeId !== undefined
-  );
+  return new itemEntry.ctor().requiresManualPickup();
 }

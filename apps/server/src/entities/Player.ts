@@ -31,7 +31,6 @@ import {
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import {
@@ -322,20 +321,12 @@ export class Player extends Entity {
       return;
     }
 
-    const outputCtor = outputEntry.ctor;
-    const weaponSlotsFreedByCosts = isWeaponCtor(outputCtor)
-      ? recipe.costs.reduce((total, cost) => {
-          const costEntry = itemTypeRegistry.get(cost.typeId);
-          return costEntry && isWeaponCtor(costEntry.ctor)
-            ? total + cost.amount
-            : total;
-        }, 0)
-      : 0;
-    const netWeaponSlotsNeeded = recipe.outputAmount - weaponSlotsFreedByCosts;
-    const canStoreCraftOutput = isWeaponCtor(outputCtor)
-      ? netWeaponSlotsNeeded <= 0 ||
-        this.inventory.canAddWeaponCount(netWeaponSlotsNeeded)
-      : this.inventory.canAddStackable(itemTypeId, recipe.outputAmount);
+    const outputItem = new outputEntry.ctor();
+    const canStoreCraftOutput = outputItem.canGrantToInventoryAfterConsuming(
+      this.inventory,
+      recipe.outputAmount,
+      recipe.costs,
+    );
     if (!canStoreCraftOutput) {
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
@@ -348,26 +339,11 @@ export class Player extends Entity {
     }
 
     this.inventory.consumeTypes(recipe.costs);
-    if (isWeaponCtor(outputCtor)) {
-      for (let count = 0; count < recipe.outputAmount; count += 1) {
-        this.inventory.addWeapon(new outputCtor());
-      }
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "crafted_weapon",
-          outputAmount: recipe.outputAmount,
-          totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
-        });
-      }
-      return;
-    }
-
-    this.inventory.addStackable(itemTypeId, recipe.outputAmount);
+    outputItem.grantToInventory(this.inventory, recipe.outputAmount);
     if (shouldTrace) {
       world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
         itemTypeId,
-        result: "crafted_stackable",
+        result: outputItem.getCraftTraceResult(),
         outputAmount: recipe.outputAmount,
         totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
       });
@@ -703,7 +679,7 @@ export class Player extends Entity {
     }
 
     if (
-      !absorbInventoryByAcquisitionRules(this.inventory, nearestPickup.contents)
+      !this.inventory.absorbInventoryByAcquisitionRules(nearestPickup.contents)
     ) {
       return;
     }

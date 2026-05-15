@@ -12,9 +12,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
-import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -141,9 +139,7 @@ export class PickupSystem implements System {
         }
 
         const transferable = this.buildAutoPickupInventory(player, candidate);
-        if (
-          !absorbInventoryByAcquisitionRules(player.inventory, transferable)
-        ) {
+        if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
         }
         world.despawn(candidate.id);
@@ -223,11 +219,11 @@ export class PickupSystem implements System {
       return;
     }
     const weaponEntry = itemTypeRegistry.get(typeId);
-    if (!weaponEntry || !isWeaponCtor(weaponEntry.ctor)) {
+    if (!weaponEntry) {
       return;
     }
     const inventory = new Inventory();
-    inventory.addWeapon(new weaponEntry.ctor());
+    inventory.grantItemCtor(weaponEntry.ctor, 1);
     this.trySpawnPickup(world, inventory);
   }
 

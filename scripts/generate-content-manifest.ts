@@ -31,9 +31,31 @@ type RuntimeCoverageEntry = {
   source: string;
 };
 
+type RegistryCtorEntry = {
+  symbol: string;
+  importPath: string;
+};
+
+type RuntimeRegistryManifest = {
+  entityRuntimeCtors: RegistryCtorEntry[];
+  itemRuntimeCtors: RegistryCtorEntry[];
+  effectRuntimeCtors: RegistryCtorEntry[];
+};
+
 type RendererCoverageEntry = {
   resourceName: string;
   renderer: string;
+  importPath: string;
+};
+
+type RegistryRendererEntry = {
+  resourceName: string;
+  symbol: string;
+  importPath: string;
+};
+
+type EntityRendererRegistryManifest = {
+  entityRenderers: RegistryRendererEntry[];
 };
 
 type CoverageGroup = {
@@ -117,6 +139,10 @@ const ENTITY_CONTENT_KINDS = new Set<ContentKind>([
 ]);
 
 const GENERATED_DIAGNOSTICS_DIRECTORY = "scripts/generated";
+const RUNTIME_REGISTRY_MANIFEST_PATH =
+  "packages/shared/src/content/registry/runtime-ctors.json";
+const ENTITY_RENDERER_REGISTRY_MANIFEST_PATH =
+  "packages/shared/src/content/registry/entity-renderers.json";
 
 function toIdentifier(value: string): string {
   const words = value
@@ -173,6 +199,22 @@ async function readTextFile(filePath: string): Promise<string> {
   return readFile(filePath, "utf8");
 }
 
+async function readJsonFile<T>(filePath: string): Promise<T> {
+  return JSON.parse(await readTextFile(filePath)) as T;
+}
+
+function formatGeneratedFiles(repoRoot: string, filePaths: string[]): void {
+  const prettier = Bun.spawnSync({
+    cmd: ["bunx", "prettier", "--write", ...filePaths],
+    cwd: repoRoot,
+    stderr: "inherit",
+    stdout: "inherit",
+  });
+  if (prettier.exitCode !== 0) {
+    throw new Error("Failed to format generated files.");
+  }
+}
+
 function resolveSourcePath(repoRoot: string, importPath: string): string {
   if (importPath.startsWith("@server/")) {
     return path.join(
@@ -191,44 +233,6 @@ function resolveSourcePath(repoRoot: string, importPath: string): string {
   throw new Error(
     `Unsupported static import path in coverage map: ${importPath}`,
   );
-}
-
-function parseNamedImports(source: string): Map<string, string> {
-  const imports = new Map<string, string>();
-  const importPattern =
-    /import\s+(?:type\s+)?\{\s*([^}]+?)\s*}\s+from\s+"([^"]+)";/gs;
-  for (const match of source.matchAll(importPattern)) {
-    const [, names, importPath] = match;
-    if (!names || !importPath) {
-      continue;
-    }
-    for (const rawName of names.split(",")) {
-      const importedName = rawName
-        .trim()
-        .split(/\s+as\s+/u)
-        .at(-1)
-        ?.trim();
-      if (importedName) {
-        imports.set(importedName, importPath);
-      }
-    }
-  }
-  return imports;
-}
-
-function parseRuntimeArray(source: string, arrayName: string): string[] {
-  const arrayPattern = new RegExp(
-    `export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\]\\s+as\\s+const`,
-    "u",
-  );
-  const match = arrayPattern.exec(source);
-  if (!match?.[1]) {
-    throw new Error(`Unable to find ${arrayName} in runtime constructor map.`);
-  }
-  return match[1]
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
 }
 
 function inferEntityKindFromSourcePath(sourcePath: string): ContentKind {
@@ -275,48 +279,36 @@ function parseResourceName(
 async function collectRuntimeCoverageEntries(
   repoRoot: string,
 ): Promise<RuntimeCoverageEntry[]> {
-  const runtimeMapPath = path.join(
-    repoRoot,
-    "apps/server/src/registry/runtimeCtorMap.ts",
+  const runtimeRegistryManifest = await readJsonFile<RuntimeRegistryManifest>(
+    path.join(repoRoot, RUNTIME_REGISTRY_MANIFEST_PATH),
   );
-  const runtimeMapSource = await readTextFile(runtimeMapPath);
-  const importsBySymbol = parseNamedImports(runtimeMapSource);
   const runtimeArrays = [
     {
-      arrayName: "entityRuntimeCtors",
+      entries: runtimeRegistryManifest.entityRuntimeCtors,
       resolveKind: (sourcePath: string): ContentKind =>
         inferEntityKindFromSourcePath(sourcePath),
     },
     {
-      arrayName: "itemRuntimeCtors",
+      entries: runtimeRegistryManifest.itemRuntimeCtors,
       resolveKind: (): ContentKind => "item",
     },
     {
-      arrayName: "effectRuntimeCtors",
+      entries: runtimeRegistryManifest.effectRuntimeCtors,
       resolveKind: (): ContentKind => "effect",
     },
   ] as const;
   const entries: RuntimeCoverageEntry[] = [];
 
   for (const runtimeArray of runtimeArrays) {
-    for (const symbol of parseRuntimeArray(
-      runtimeMapSource,
-      runtimeArray.arrayName,
-    )) {
-      const importPath = importsBySymbol.get(symbol);
-      if (!importPath) {
-        throw new Error(
-          `Runtime constructor ${symbol} is not imported by ${runtimeArray.arrayName}.`,
-        );
-      }
-      const sourcePath = resolveSourcePath(repoRoot, importPath);
+    for (const entry of runtimeArray.entries) {
+      const sourcePath = resolveSourcePath(repoRoot, entry.importPath);
       const source = await readTextFile(sourcePath);
       const kind = runtimeArray.resolveKind(sourcePath);
-      const resourceName = parseResourceName(source, symbol, sourcePath);
+      const resourceName = parseResourceName(source, entry.symbol, sourcePath);
       entries.push({
         kind,
         typeId: toTypeId(kind, resourceName),
-        symbol,
+        symbol: entry.symbol,
         source: path.relative(repoRoot, sourcePath),
       });
     }
@@ -328,30 +320,17 @@ async function collectRuntimeCoverageEntries(
 async function collectRendererCoverageEntries(
   repoRoot: string,
 ): Promise<RendererCoverageEntry[]> {
-  const rendererRegistryPath = path.join(
-    repoRoot,
-    "apps/client/src/render/entity/rendererRegistry.ts",
-  );
-  const source = await readTextFile(rendererRegistryPath);
-  const manifestPattern =
-    /const\s+rendererManifests\s*=\s*\[([\s\S]*?)\]\s+as\s+const/su;
-  const manifestMatch = manifestPattern.exec(source);
-  if (!manifestMatch?.[1]) {
-    throw new Error(
-      "Unable to find rendererManifests in client renderer registry.",
+  const rendererRegistryManifest =
+    await readJsonFile<EntityRendererRegistryManifest>(
+      path.join(repoRoot, ENTITY_RENDERER_REGISTRY_MANIFEST_PATH),
     );
-  }
-  const entries: RendererCoverageEntry[] = [];
-  const entryPattern = /\[\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*\]/gu;
-  for (const match of manifestMatch[1].matchAll(entryPattern)) {
-    const [, resourceName, renderer] = match;
-    if (resourceName && renderer) {
-      entries.push({ resourceName, renderer });
-    }
-  }
-  return entries.sort((left, right) =>
-    left.resourceName.localeCompare(right.resourceName),
-  );
+  return rendererRegistryManifest.entityRenderers
+    .map((entry) => ({
+      resourceName: entry.resourceName,
+      renderer: entry.symbol,
+      importPath: entry.importPath,
+    }))
+    .sort((left, right) => left.resourceName.localeCompare(right.resourceName));
 }
 
 function sortedUnique(values: Iterable<string>): string[] {
@@ -400,6 +379,89 @@ async function writeCoverageDiagnostics(
   );
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(diagnostics, null, 2)}\n`);
+  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+}
+
+function buildImportLines(entries: readonly RegistryCtorEntry[]): string[] {
+  const importsByPath = new Map<string, string[]>();
+  for (const entry of entries) {
+    const symbols = importsByPath.get(entry.importPath) ?? [];
+    symbols.push(entry.symbol);
+    importsByPath.set(entry.importPath, symbols);
+  }
+  return [...importsByPath.entries()]
+    .sort(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath))
+    .map(([importPath, symbols]) => {
+      const sortedSymbols = [...new Set(symbols)].sort((left, right) =>
+        left.localeCompare(right),
+      );
+      return `import { ${sortedSymbols.join(", ")} } from "${importPath}";`;
+    });
+}
+
+function buildRuntimeCtorArray(
+  exportName: keyof RuntimeRegistryManifest,
+  entries: readonly RegistryCtorEntry[],
+): string {
+  return `export const ${exportName} = [\n${entries
+    .map((entry) => `  ${entry.symbol},`)
+    .join("\n")}\n] as const;`;
+}
+
+async function writeGeneratedRuntimeCtorMap(repoRoot: string): Promise<void> {
+  const manifest = await readJsonFile<RuntimeRegistryManifest>(
+    path.join(repoRoot, RUNTIME_REGISTRY_MANIFEST_PATH),
+  );
+  const allEntries = [
+    ...manifest.entityRuntimeCtors,
+    ...manifest.itemRuntimeCtors,
+    ...manifest.effectRuntimeCtors,
+  ];
+  const outputPath = path.join(
+    repoRoot,
+    "apps/server/src/registry/runtimeCtorMap.ts",
+  );
+  const fileContents = [
+    "// Generated by scripts/generate-content-manifest.ts. Do not edit by hand.",
+    ...buildImportLines(allEntries),
+    "",
+    buildRuntimeCtorArray("entityRuntimeCtors", manifest.entityRuntimeCtors),
+    "",
+    buildRuntimeCtorArray("itemRuntimeCtors", manifest.itemRuntimeCtors),
+    "",
+    buildRuntimeCtorArray("effectRuntimeCtors", manifest.effectRuntimeCtors),
+    "",
+  ].join("\n");
+  await writeFile(outputPath, fileContents);
+  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+}
+
+async function writeGeneratedRendererManifest(repoRoot: string): Promise<void> {
+  const manifest = await readJsonFile<EntityRendererRegistryManifest>(
+    path.join(repoRoot, ENTITY_RENDERER_REGISTRY_MANIFEST_PATH),
+  );
+  const outputPath = path.join(
+    repoRoot,
+    "apps/client/src/render/entity/generated/rendererManifest.ts",
+  );
+  const importEntries = manifest.entityRenderers.map((entry) => ({
+    symbol: entry.symbol,
+    importPath: entry.importPath,
+  }));
+  const fileContents = [
+    "// Generated by scripts/generate-content-manifest.ts. Do not edit by hand.",
+    'import type { EntityRendererCtor } from "@client/render/entity/rendererRegistry.ts";',
+    ...buildImportLines(importEntries),
+    "",
+    "export const rendererManifests = [",
+    ...manifest.entityRenderers.map(
+      (entry) => `  [${JSON.stringify(entry.resourceName)}, ${entry.symbol}],`,
+    ),
+    "] as const satisfies ReadonlyArray<readonly [string, EntityRendererCtor]>;",
+    "",
+  ].join("\n");
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, fileContents);
   process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
 }
 
@@ -493,6 +555,8 @@ async function main(): Promise<void> {
     );
   }
 
+  await writeGeneratedRuntimeCtorMap(repoRoot);
+  await writeGeneratedRendererManifest(repoRoot);
   await runCoverageChecks(repoRoot, contentResources);
 
   const fileContents = [
@@ -511,19 +575,12 @@ async function main(): Promise<void> {
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, fileContents);
-  const prettier = Bun.spawnSync({
-    cmd: ["bunx", "prettier", "--write", outputPath],
-    cwd: repoRoot,
-    stderr: "inherit",
-    stdout: "inherit",
-  });
-  if (prettier.exitCode !== 0) {
-    throw new Error(
-      `Failed to format generated manifest at ${path.relative(repoRoot, outputPath)}.`,
-    );
-  }
-
   process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  formatGeneratedFiles(repoRoot, [
+    "apps/server/src/registry/runtimeCtorMap.ts",
+    "apps/client/src/render/entity/generated/rendererManifest.ts",
+    path.relative(repoRoot, outputPath),
+  ]);
 }
 
 await main();
