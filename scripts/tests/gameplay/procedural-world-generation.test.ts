@@ -132,6 +132,86 @@ describe("procedural survival extraction world", () => {
     );
   });
 
+  test("village, forest camp, and crate loot authored pools stay deterministic", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    const villageEnemyTypes = new Set(
+      layout.sectors
+        .flatMap((sector) => sector.enemies.map((enemy) => enemy.typeId))
+        .filter((typeId) =>
+          [
+            "enemy:drifter",
+            "enemy:police",
+            "enemy:shoota",
+            "enemy:stalker",
+            "enemy:bomber",
+            "enemy:saboteur",
+            "enemy:sniper",
+            "enemy:commander",
+            "enemy:megaknight",
+          ].includes(typeId),
+        ),
+    );
+    expect(villageEnemyTypes).toEqual(
+      new Set([
+        "enemy:drifter",
+        "enemy:police",
+        "enemy:shoota",
+        "enemy:stalker",
+        "enemy:bomber",
+        "enemy:saboteur",
+        "enemy:sniper",
+        "enemy:commander",
+        "enemy:megaknight",
+      ]),
+    );
+
+    expect(layout.forestCamps.some((camp) => isCornerSector(camp.sectorId))).toBe(
+      true,
+    );
+    expect(
+      layout.forestCamps.some((camp) => !isCornerSector(camp.sectorId)),
+    ).toBe(true);
+    for (const camp of layout.forestCamps) {
+      const expected = isCornerSector(camp.sectorId)
+        ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
+        : ["enemy:drifter", "enemy:drifter", "enemy:police"];
+      expect(camp.enemyTypes).toEqual(expected);
+    }
+
+    const villageCrates = layout.sectors
+      .flatMap((sector) => sector.enemies)
+      .filter(
+        (enemy) =>
+          enemy.typeId === "enemy:crate" &&
+          enemy.crateLoot &&
+          enemy.label?.startsWith("village_template:"),
+      )
+      .map((enemy) => enemy.crateLoot!);
+    expect(villageCrates.length).toBeGreaterThan(0);
+    const villageTierPools = new Set(
+      villageCrates.map((lootSlots) => lootSlots.map((slot) => slot.typeId).join(",")),
+    );
+    const allowedVillageTierPools = new Set([
+      "item:hunk,item:junk_food",
+      "item:hunk,item:quality_food,item:pistol_mag",
+      "item:basic_rifle,item:rifle_mag,item:hunk",
+      "item:sniper,item:sniper_mag,item:blueprint_sniper",
+    ]);
+    for (const observed of villageTierPools) {
+      expect(allowedVillageTierPools.has(observed)).toBe(true);
+    }
+    expect(villageTierPools.has("item:hunk,item:quality_food,item:pistol_mag")).toBe(
+      true,
+    );
+    expect(villageTierPools.has("item:basic_rifle,item:rifle_mag,item:hunk")).toBe(
+      true,
+    );
+    expect(
+      villageTierPools.has("item:sniper,item:sniper_mag,item:blueprint_sniper"),
+    ).toBe(true);
+  });
+
   test("every sector has content, traversal, rewards, enemies where hostile, and minimap metadata", () => {
     const layout = generateProceduralWorldLayout(1337);
 

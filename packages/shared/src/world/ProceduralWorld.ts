@@ -286,6 +286,15 @@ type ProceduralSectorContent = {
 
 type ProceduralContent = {
   lootByTier: Record<ProceduralLootSpec["rewardTier"], readonly ResourceId[]>;
+  crateLootByTier: Record<
+    ProceduralLootSpec["rewardTier"],
+    readonly ProceduralCrateLootSlot[]
+  >;
+  forestCampEnemyTypes: {
+    corner: readonly ResourceId[];
+    edge: readonly ResourceId[];
+  };
+  villageEnemyPools: Record<ProceduralVillageKind, readonly ResourceId[]>;
   sectorContent: Partial<Record<SectorArchetype, ProceduralSectorContent>>;
   dungeonRoomContent: Record<DungeonRoomRole, ProceduralDungeonRoomContent>;
   villageRoomTemplates: Record<
@@ -2050,30 +2059,6 @@ function addVillageEnemies(
   room: VillageRoom,
   enemies: ProceduralSpawnSpec[],
 ): void {
-  const pools: Record<ProceduralVillageKind, readonly string[]> = {
-    civilian: ["enemy:drifter", "enemy:drifter", "enemy:police"],
-    scavenger: [
-      "enemy:drifter",
-      "enemy:shoota",
-      "enemy:stalker",
-      "enemy:bomber",
-    ],
-    military: [
-      "enemy:police",
-      "enemy:shoota",
-      "enemy:sniper",
-      "enemy:saboteur",
-      "enemy:commander",
-    ],
-    extraction_fortified: [
-      "enemy:police",
-      "enemy:shoota",
-      "enemy:sniper",
-      "enemy:saboteur",
-      "enemy:commander",
-      "enemy:megaknight",
-    ],
-  };
   const baseCount =
     village.danger === "boss" ? 2 : village.danger === "high" ? 1 : 1;
   if (
@@ -2091,7 +2076,7 @@ function addVillageEnemies(
     room.role === "helipad" || room.role === "armory"
       ? baseCount + 1
       : baseCount;
-  const pool = pools[village.kind];
+  const pool = PROCEDURAL_CONTENT.villageEnemyPools[village.kind];
   for (let index = 0; index < count; index += 1) {
     const typeId =
       pool[(index + Math.floor(rng() * pool.length)) % pool.length]!;
@@ -2135,39 +2120,7 @@ function villageLoot(
 function crateLootForTier(
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  const pools: Record<
-    ProceduralLootSpec["rewardTier"],
-    ProceduralCrateLootSlot[]
-  > = {
-    common: [
-      { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 4 },
-      { typeId: "item:junk_food" as ResourceId, kind: "stackable", amount: 2 },
-    ],
-    uncommon: [
-      { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 6 },
-      {
-        typeId: "item:quality_food" as ResourceId,
-        kind: "stackable",
-        amount: 2,
-      },
-      { typeId: "item:pistol_mag" as ResourceId, kind: "stackable", amount: 2 },
-    ],
-    rare: [
-      { typeId: "item:basic_rifle" as ResourceId, kind: "weapon" },
-      { typeId: "item:rifle_mag" as ResourceId, kind: "stackable", amount: 3 },
-      { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 10 },
-    ],
-    epic: [
-      { typeId: "item:sniper" as ResourceId, kind: "weapon" },
-      { typeId: "item:sniper_mag" as ResourceId, kind: "stackable", amount: 4 },
-      {
-        typeId: "item:blueprint_sniper" as ResourceId,
-        kind: "stackable",
-        amount: 1,
-      },
-    ],
-  };
-  return pools[tier];
+  return [...PROCEDURAL_CONTENT.crateLootByTier[tier]];
 }
 
 function forestTreeCount(rect: ProceduralRect, isCorner: boolean): number {
@@ -2188,9 +2141,11 @@ function createForestCamp(
     x: snap(rect.minX + 360 + rng() * (rect.maxX - rect.minX - 720)),
     y: snap(rect.minY + 360 + rng() * (rect.maxY - rect.minY - 720)),
     radius: 260,
-    enemyTypes: (isCorner
-      ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
-      : ["enemy:drifter", "enemy:drifter", "enemy:police"]) as ResourceId[],
+    enemyTypes: [...(
+      isCorner
+        ? PROCEDURAL_CONTENT.forestCampEnemyTypes.corner
+        : PROCEDURAL_CONTENT.forestCampEnemyTypes.edge
+    )],
     minGroupSize: 2,
     maxGroupSize: isCorner ? 5 : 4,
     maxAlive: isCorner ? 5 : 4,
