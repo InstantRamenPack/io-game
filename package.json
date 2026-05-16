@@ -25,8 +25,8 @@
     "benchmark:smoke": "BENCH_WARMUP_TICKS=5 BENCH_SAMPLE_TICKS=20 BENCH_COLLISION_ENEMIES=50 BENCH_COLLISION_WALLS=50 BENCH_COLLISION_PROJECTILES=20 bun run scripts/benchmarks/collision.benchmark.ts",
     "lint": "eslint . && prettier --check .",
     "format": "eslint --fix . && prettier --write .",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test scripts/tests",
+    "typecheck": "bun run prepare:generated && tsc --noEmit",
+    "test": "bun run prepare:generated && bun test scripts/tests",
     "test:netcode": "bun test scripts/tests/netcode",
     "test:prediction": "bun test scripts/tests/prediction",
     "test:collision": "bun test scripts/tests/collision",
@@ -34,7 +34,8 @@
     "test:snapshot": "bun test scripts/tests/snapshot",
     "test:gameplay": "bun test scripts/tests/gameplay",
     "test:coverage": "bun test --coverage scripts/tests",
-    "test:smoke": "bun run test"
+    "test:smoke": "bun run test",
+    "postinstall": "bun run prepare:generated"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -8,8 +8,6 @@ import {
   projectileContentEntries,
   structureContentEntries,
 } from "@shared/content/generated/manifest.ts";
-import entityRendererRegistryJson from "@shared/content/registry/entity-renderers.json";
-import runtimeCtorRegistryJson from "@shared/content/registry/runtime-ctors.json";
 import type {
   EntityCapabilitiesContent,
   EffectContent,
@@ -29,30 +27,7 @@ import {
 } from "@shared/ids/ResourceId.ts";
 import type { JsonObject } from "@shared/json.ts";
 
-export type RegistryImportEntry = {
-  readonly symbol: string;
-  readonly importPath: string;
-};
-
-export type RuntimeCtorRegistryManifest = {
-  readonly entityRuntimeCtors: readonly RegistryImportEntry[];
-  readonly itemRuntimeCtors: readonly RegistryImportEntry[];
-  readonly effectRuntimeCtors: readonly RegistryImportEntry[];
-};
-
-export type EntityRendererRegistryEntry = RegistryImportEntry & {
-  readonly resourceName: string;
-};
-
-export type EntityRendererRegistryManifest = {
-  readonly entityRenderers: readonly EntityRendererRegistryEntry[];
-};
-
 const itemContents = new Map<ResourceId, ItemContent>(itemContentEntries);
-const runtimeCtorRegistryManifest =
-  runtimeCtorRegistryJson as RuntimeCtorRegistryManifest;
-const entityRendererRegistryManifest =
-  entityRendererRegistryJson as EntityRendererRegistryManifest;
 
 const entityContents = new Map<ResourceId, EntityContent>([
   ...playerContentEntries,
@@ -265,14 +240,6 @@ export function getAllEffectContentEntries(): Array<
   readonly [ResourceId, EffectContent]
 > {
   return sortResourceEntriesByTypeId(effectContents.entries());
-}
-
-export function getRuntimeCtorRegistryManifest(): RuntimeCtorRegistryManifest {
-  return runtimeCtorRegistryManifest;
-}
-
-export function getEntityRendererRegistryManifest(): EntityRendererRegistryManifest {
-  return entityRendererRegistryManifest;
 }
 
 export const CONTENT_COMPAT_DESCRIPTOR = Object.freeze({

@@ -16,6 +16,7 @@ import {
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
@@ -166,14 +167,14 @@ describe("procedural survival extraction world", () => {
       ]),
     );
 
-    expect(layout.forestCamps.some((camp) => isCornerSector(camp.sectorId))).toBe(
-      true,
-    );
+    expect(
+      layout.forestCamps.some((camp) => isCornerSector(camp.sectorId)),
+    ).toBe(true);
     expect(
       layout.forestCamps.some((camp) => !isCornerSector(camp.sectorId)),
     ).toBe(true);
     for (const camp of layout.forestCamps) {
-      const expected = isCornerSector(camp.sectorId)
+      const expected: ResourceId[] = isCornerSector(camp.sectorId)
         ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
         : ["enemy:drifter", "enemy:drifter", "enemy:police"];
       expect(camp.enemyTypes).toEqual(expected);
@@ -190,7 +191,9 @@ describe("procedural survival extraction world", () => {
       .map((enemy) => enemy.crateLoot!);
     expect(villageCrates.length).toBeGreaterThan(0);
     const villageTierPools = new Set(
-      villageCrates.map((lootSlots) => lootSlots.map((slot) => slot.typeId).join(",")),
+      villageCrates.map((lootSlots) =>
+        lootSlots.map((slot) => slot.typeId).join(","),
+      ),
     );
     const allowedVillageTierPools = new Set([
       "item:hunk,item:junk_food",
@@ -201,12 +204,12 @@ describe("procedural survival extraction world", () => {
     for (const observed of villageTierPools) {
       expect(allowedVillageTierPools.has(observed)).toBe(true);
     }
-    expect(villageTierPools.has("item:hunk,item:quality_food,item:pistol_mag")).toBe(
-      true,
-    );
-    expect(villageTierPools.has("item:basic_rifle,item:rifle_mag,item:hunk")).toBe(
-      true,
-    );
+    expect(
+      villageTierPools.has("item:hunk,item:quality_food,item:pistol_mag"),
+    ).toBe(true);
+    expect(
+      villageTierPools.has("item:basic_rifle,item:rifle_mag,item:hunk"),
+    ).toBe(true);
     expect(
       villageTierPools.has("item:sniper,item:sniper_mag,item:blueprint_sniper"),
     ).toBe(true);

@@ -149,6 +149,33 @@ export const PlayerStarterLoadoutSchema = z.object({
   stackables: z.array(ItemRequirementSchema).default([]),
 });
 
+export const RuntimeServerClassKindSchema = z.enum([
+  "material",
+  "magazine",
+  "rangedWeapon",
+  "projectile",
+  "effect",
+  "custom",
+]);
+
+export const RuntimeRegistrationSchema = z
+  .object({
+    server: z
+      .object({
+        classKind: RuntimeServerClassKindSchema.optional(),
+        symbol: z.string().min(1).optional(),
+        importPath: z.string().min(1).optional(),
+      })
+      .optional(),
+    renderer: z
+      .object({
+        symbol: z.string().min(1).optional(),
+        importPath: z.string().min(1).optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
 export const ItemContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
@@ -170,6 +197,7 @@ export const ItemContentSchema = z.object({
       pools: z.array(PickupSpawnPoolSchema).min(1),
     })
     .optional(),
+  runtime: RuntimeRegistrationSchema,
 });
 
 export const EntityContentSchema = z.object({
@@ -192,12 +220,14 @@ export const EntityContentSchema = z.object({
       starterLoadout: PlayerStarterLoadoutSchema.optional(),
     })
     .optional(),
+  runtime: RuntimeRegistrationSchema,
 });
 
 export const EffectContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  runtime: RuntimeRegistrationSchema,
 });
 
 export type AttackStyle = z.infer<typeof AttackStyleSchema>;
@@ -219,6 +249,10 @@ export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type PickupSpawnPool = z.infer<typeof PickupSpawnPoolSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
+export type RuntimeServerClassKind = z.infer<
+  typeof RuntimeServerClassKindSchema
+>;
+export type RuntimeRegistration = z.infer<typeof RuntimeRegistrationSchema>;
 export type FoodContent = { foodRestore: number };
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
