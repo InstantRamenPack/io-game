@@ -2141,11 +2141,11 @@ function createForestCamp(
     x: snap(rect.minX + 360 + rng() * (rect.maxX - rect.minX - 720)),
     y: snap(rect.minY + 360 + rng() * (rect.maxY - rect.minY - 720)),
     radius: 260,
-    enemyTypes: [...(
-      isCorner
+    enemyTypes: [
+      ...(isCorner
         ? PROCEDURAL_CONTENT.forestCampEnemyTypes.corner
-        : PROCEDURAL_CONTENT.forestCampEnemyTypes.edge
-    )],
+        : PROCEDURAL_CONTENT.forestCampEnemyTypes.edge),
+    ],
     minGroupSize: 2,
     maxGroupSize: isCorner ? 5 : 4,
     maxAlive: isCorner ? 5 : 4,
