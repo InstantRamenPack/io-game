@@ -19,6 +19,7 @@ import type {
   VisibilityBlockerContent,
   WeaponContent,
   WeaponPresentation,
+  RarityTier,
 } from "@shared/content/schema.ts";
 import {
   getResourcePath,
@@ -128,6 +129,13 @@ export function getWeaponContent(
   return getItemContent(typeId)?.weapon;
 }
 
+export function getWeaponRarityTier(
+  typeId: ResourceId,
+): RarityTier | undefined {
+  const item = getItemContent(typeId);
+  return item?.weapon ? item.rarityTier : undefined;
+}
+
 export function getWeaponPresentation(
   typeId: ResourceId,
 ): WeaponPresentation | undefined {
@@ -146,6 +154,12 @@ export function getEntityContent(
   typeId: ResourceId,
 ): EntityContent | undefined {
   return entityContents.get(typeId);
+}
+
+export function getEntityRarityTier(
+  typeId: ResourceId,
+): RarityTier | undefined {
+  return getEntityContent(typeId)?.rarityTier;
 }
 
 export function getEntityCapabilities(

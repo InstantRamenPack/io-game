@@ -13,9 +13,6 @@
     ]
   },
   "capabilities": {
-    "craftingStation": true,
-    "visibilityBlocker": {
-      "mode": "rects"
-    }
+    "craftingStation": true
   }
 }

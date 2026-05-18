@@ -215,7 +215,131 @@ export class PixiHud {
     this.markDirty();
   }
 
-  public handlePointerInput(_pointer: PointerInput): boolean {
+  public handlePointerInput(pointer: PointerInput): boolean {
+    if (!this.visible) {
+      return false;
+    }
+
+    const inventory = this.selectors.getInventory();
+    const hotbarItems = toHotbarSlotItems(inventory?.hotbarSlots ?? []);
+
+    if (this.state.chestOpen && this.chestView) {
+      return this.chestHudCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        getSlotRefAtPoint: (screenX, screenY) =>
+          this.chestView?.getSlotRefAtPoint(screenX, screenY) ?? null,
+        getSlotItem: (ref) => {
+          if (ref.source === "hotbar") {
+            return hotbarItems[ref.index] ?? null;
+          }
+          const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+            this.state,
+            this.selectors,
+          );
+          const slot = chestSlots?.[ref.index];
+          if (!slot || slot.kind === "empty") {
+            return null;
+          }
+          return { typeId: slot.typeId };
+        },
+        queueChestMove: (from, to) => {
+          if (this.state.openChestEntityId === null) {
+            return;
+          }
+          this.gameClient.queueChestMove(
+            this.state.openChestEntityId,
+            from.source,
+            from.index,
+            to.source,
+            to.index,
+          );
+        },
+        markDirty: () => this.markDirty(),
+      });
+    }
+
+    if (this.state.craftingMenuOpen && this.craftModalView) {
+      if (pointer.kind === "move") {
+        return this.craftingHudCoordinator.handlePointerMove({
+          state: this.state,
+          pointer,
+          getCraftAtPoint: (screenX, screenY) =>
+            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+          getPreviewedCraftAtPoint: (screenX, screenY, previewedCraft) =>
+            this.craftModalView?.getPreviewedCraftAtPoint(
+              screenX,
+              screenY,
+              previewedCraft,
+            ) ?? null,
+        });
+      }
+      if (pointer.kind === "down") {
+        return this.craftingHudCoordinator.handleCraftModalPointerDown({
+          state: this.state,
+          screenX: pointer.screenX,
+          screenY: pointer.screenY,
+          canSubmitCraft: (itemTypeId) =>
+            this.selectors.hasRecipeResources(
+              this.getRecipeForItem(itemTypeId),
+            ),
+          queueCraftItem: (itemTypeId) =>
+            this.gameClient.queueCraftItem(itemTypeId),
+          isCraftButtonAtPoint: (screenX, screenY) =>
+            this.craftModalView?.isCraftButtonAtPoint(screenX, screenY) ??
+            false,
+          getCraftAtPoint: (screenX, screenY) =>
+            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+        });
+      }
+      return true;
+    }
+
+    if (this.state.inventoryOpen && this.hotbarEditView) {
+      return this.inventoryEditCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        hotbarItems,
+        getSlotIndexAtPoint: (screenX, screenY) =>
+          this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
+        queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
+          this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
+        markDirty: () => this.markDirty(),
+      });
+    }
+
+    if (pointer.kind !== "down") {
+      return false;
+    }
+
+    if (
+      this.chestHudCoordinator.handleGameplayPointerDown({
+        state: this.state,
+        pointer,
+        selectors: this.selectors,
+        openChest: (chestEntityId) => this.openChest(chestEntityId),
+        queueBuildPlacement: (x, y) =>
+          this.gameClient.queueBuildPlacement(x, y),
+      })
+    ) {
+      this.markDirty();
+      return true;
+    }
+
+    if (
+      this.craftingHudCoordinator.handleGameplayPointerDown({
+        state: this.state,
+        pointer,
+        selectors: this.selectors,
+        openCraftingMenu: () => this.toggleCraftingMenu(),
+        queueBuildPlacement: (x, y) =>
+          this.gameClient.queueBuildPlacement(x, y),
+      })
+    ) {
+      this.markDirty();
+      return true;
+    }
+
     return false;
   }
 

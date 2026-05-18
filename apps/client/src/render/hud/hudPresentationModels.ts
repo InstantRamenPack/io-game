@@ -5,7 +5,9 @@ import {
   getProjectileContent,
   getResourceDisplayLabel,
   getWeaponContent,
+  getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
+import type { RarityTier } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   ActiveEffectSnapshot,
@@ -36,8 +38,17 @@ export type HudEffectEntry = {
 
 export type HudTooltipContent = {
   title: string;
+  titleColor?: number;
   detail: string;
   lines: string[];
+};
+
+export const RARITY_COLORS: Record<RarityTier, number> = {
+  common: 0x9ca3af,
+  uncommon: 0x22c55e,
+  rare: 0x3b82f6,
+  epic: 0xa855f7,
+  legendary: 0xf59e0b,
 };
 
 export function buildCombatHudModel(options: {
@@ -100,6 +111,10 @@ export function buildInventoryTooltipContent(
 
   return {
     title,
+    titleColor:
+      slot.kind === "weapon"
+        ? RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"]
+        : undefined,
     detail,
     lines,
   };
@@ -122,6 +137,15 @@ export function buildSelectedItemLabel(
     return "Empty";
   }
   return getResourceDisplayLabel(slot.typeId);
+}
+
+export function getSelectedItemLabelColor(
+  slot: InventorySlotSnapshot | null | undefined,
+): number {
+  if (!slot || slot.kind !== "weapon") {
+    return 0xf3f6ee;
+  }
+  return RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"];
 }
 
 function buildAmmoModel(

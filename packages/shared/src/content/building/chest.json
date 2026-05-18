@@ -15,9 +15,6 @@
   "capabilities": {
     "container": {
       "slots": 30
-    },
-    "visibilityBlocker": {
-      "mode": "rects"
     }
   }
 }

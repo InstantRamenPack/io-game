@@ -8,7 +8,10 @@
     "knockback": 45,
     "sweepArcDeg": 130,
     "equippedRender": {
-      "holdOffset": { "x": 20, "y": 6 },
+      "holdOffset": {
+        "x": 20,
+        "y": 6
+      },
       "holdRotationDeg": 0,
       "scale": 1.5,
       "handedness": "right",
@@ -16,5 +19,6 @@
       "swingAngleDeg": 130,
       "jabDistance": 0
     }
-  }
+  },
+  "rarityTier": "legendary"
 }

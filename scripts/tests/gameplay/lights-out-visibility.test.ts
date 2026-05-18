@@ -144,6 +144,24 @@ describe("lights-out visibility", () => {
     expect(toVisibilityBlocker(tripwire)).toBeNull();
   });
 
+  test("tree circle occlusion is content-driven from visibilityBlocker json", () => {
+    const tree = new ClientEntity(
+      makeStructureSnapshot(92, 1000, 2000, {
+        typeId: "structure:tree",
+        hitboxes: [{ width: 91, height: 91, offsetX: 0, offsetY: 0 }],
+      }),
+      1,
+      4,
+    );
+    expect(toVisibilityBlocker(tree)).toEqual({
+      kind: "circle",
+      sourceEntityId: 92,
+      centerX: 1000,
+      centerY: 2000,
+      radius: 40.95,
+    });
+  });
+
   test("lights-out shadow projection includes blockers beyond visibility radius", () => {
     const visibility = {
       restricted: true,

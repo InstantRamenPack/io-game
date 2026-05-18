@@ -23,7 +23,7 @@ export class SelectedItemToastView {
     this.container.visible = false;
   }
 
-  public sync(label: string | null, alpha: number): void {
+  public sync(label: string | null, alpha: number, textColor = 0xf3f6ee): void {
     this.container.visible = Boolean(label) && alpha > 0;
     if (!label || alpha <= 0) {
       this.widthValue = 0;
@@ -34,6 +34,7 @@ export class SelectedItemToastView {
     const paddingX = 14;
     const paddingY = 8;
     this.text.text = label;
+    this.text.style.fill = textColor;
     this.widthValue = Math.ceil(this.text.width + paddingX * 2);
     this.heightValue = Math.ceil(this.text.height + paddingY * 2);
 

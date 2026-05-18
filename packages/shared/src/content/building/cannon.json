@@ -11,10 +11,5 @@
         "offsetY": 0
       }
     ]
-  },
-  "capabilities": {
-    "visibilityBlocker": {
-      "mode": "rects"
-    }
   }
 }

@@ -27,5 +27,6 @@
   },
   "pickupSpawn": {
     "pools": ["weapon"]
-  }
+  },
+  "rarityTier": "common"
 }

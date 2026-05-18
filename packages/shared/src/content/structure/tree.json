@@ -15,7 +15,7 @@
   "capabilities": {
     "visibilityBlocker": {
       "mode": "circle",
-      "radiusScale": 0.9
+      "radius": 40.95
     }
   }
 }

@@ -8,6 +8,15 @@
     "attackMinIntervalTicks": 50
   },
   "hitboxProfiles": {
-    "default": [{ "width": 24, "height": 24, "offsetX": 0, "offsetY": 0 }]
-  }
+    "default": [
+      {
+        "width": 24,
+        "height": 24,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "rarityTier": "common",
+  "deathLoot": {}
 }

@@ -20,6 +20,13 @@ export const CollisionModeSchema = z.enum(["none", "static", "dynamic"]);
 export type CollisionMode = z.infer<typeof CollisionModeSchema>;
 
 export const AttackStyleSchema = z.enum(["shoot", "swing", "jab"]);
+export const RarityTierSchema = z.enum([
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+]);
 
 export const EquippedRenderSchema = z.object({
   textureTypeId: ResourceIdSchema.optional(),
@@ -100,7 +107,7 @@ export const VisibilityBlockerContentSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("rects") }),
   z.object({
     mode: z.literal("circle"),
-    radiusScale: z.number().finite().positive().default(1),
+    radius: z.number().finite().positive(),
   }),
 ]);
 
@@ -186,6 +193,7 @@ export const ItemContentSchema = z.object({
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
+  rarityTier: RarityTierSchema.optional(),
   food: z.object({ foodRestore: z.number().finite().positive() }).optional(),
   recycle: z
     .object({
@@ -221,6 +229,12 @@ export const EntityContentSchema = z.object({
     })
     .optional(),
   runtime: RuntimeRegistrationSchema,
+  rarityTier: RarityTierSchema.optional(),
+  deathLoot: z
+    .object({
+      // placeholder container for strict enemy death-loot presence
+    })
+    .optional(),
 });
 
 export const EffectContentSchema = z.object({
@@ -231,6 +245,7 @@ export const EffectContentSchema = z.object({
 });
 
 export type AttackStyle = z.infer<typeof AttackStyleSchema>;
+export type RarityTier = z.infer<typeof RarityTierSchema>;
 export type EquippedRender = z.infer<typeof EquippedRenderSchema>;
 export type WeaponPresentation = z.infer<typeof WeaponPresentationSchema>;
 export type ShootWeaponContent = z.infer<typeof ShootWeaponContentSchema>;

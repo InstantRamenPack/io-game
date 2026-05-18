@@ -12,6 +12,7 @@ import {
   buildActiveEffectEntries,
   buildCombatHudModel,
   buildSelectedItemLabel,
+  getSelectedItemLabelColor,
 } from "@client/render/hud/hudPresentationModels.ts";
 import type { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import type { ScreenRect } from "@client/render/renderTypes.ts";
@@ -29,6 +30,7 @@ type PerformanceRates = {
 export class GameplayHudCoordinator {
   private readonly selectionToastDurationMs = 1600;
   private selectedItemToastLabel: string | null = null;
+  private selectedItemToastColor = 0xf3f6ee;
   private selectedItemToastShownAtMs = 0;
   private hasSeenInitialHotbarSelection = false;
   private lastHotbarActiveIndex: number | null = null;
@@ -56,6 +58,7 @@ export class GameplayHudCoordinator {
     }
 
     this.selectedItemToastLabel = buildSelectedItemLabel(slot);
+    this.selectedItemToastColor = getSelectedItemLabelColor(slot);
     this.selectedItemToastShownAtMs = nowMs;
     return true;
   }
@@ -231,7 +234,11 @@ export class GameplayHudCoordinator {
     nowMs: number;
   }): void {
     const alpha = this.getSelectionToastAlpha(options.nowMs);
-    options.selectedItemToastView.sync(this.selectedItemToastLabel, alpha);
+    options.selectedItemToastView.sync(
+      this.selectedItemToastLabel,
+      alpha,
+      this.selectedItemToastColor,
+    );
   }
 
   public isSelectionToastVisible(nowMs: number): boolean {

@@ -698,7 +698,10 @@ export class Player extends Entity {
     }
 
     const typeId = slot.kind === "weapon" ? slot.weapon.typeId : slot.typeId;
-    const hunkAmount = getRecycleHunkOutput(typeId);
+    const hunkAmount = getRecycleHunkOutput(
+      typeId,
+      world.randomNumberGenerator,
+    );
     if (hunkAmount === undefined || hunkAmount <= 0) {
       return;
     }

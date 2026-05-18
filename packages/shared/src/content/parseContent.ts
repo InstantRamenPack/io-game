@@ -41,7 +41,23 @@ export function makeParsedItemContentEntry(
   rawContent: JsonValue,
 ): ItemContentEntry {
   const typeId = makeResourceId("item", resourceName);
-  return makeParsedContentEntry("item", typeId, rawContent, ItemContentSchema);
+  const entry = makeParsedContentEntry(
+    "item",
+    typeId,
+    rawContent,
+    ItemContentSchema,
+  );
+  if (entry[1].weapon && entry[1].rarityTier === undefined) {
+    throw new Error(
+      `Invalid item content for ${typeId}: weapon items must define rarityTier.`,
+    );
+  }
+  if (entry[1].buildsEntityTypeId && entry[1].rarityTier === undefined) {
+    throw new Error(
+      `Invalid item content for ${typeId}: buildable items must define rarityTier.`,
+    );
+  }
+  return entry;
 }
 
 export function makeParsedEntityContentEntry(
@@ -50,12 +66,25 @@ export function makeParsedEntityContentEntry(
   rawContent: JsonValue,
 ): EntityContentEntry {
   const typeId = makeResourceId(kind, resourceName);
-  return makeParsedContentEntry(
+  const entry = makeParsedContentEntry(
     "entity",
     typeId,
     rawContent,
     EntityContentSchema,
   );
+  if (kind === "enemy") {
+    if (entry[1].rarityTier === undefined) {
+      throw new Error(
+        `Invalid entity content for ${typeId}: enemies must define rarityTier.`,
+      );
+    }
+    if (entry[1].deathLoot === undefined) {
+      throw new Error(
+        `Invalid entity content for ${typeId}: enemies must define deathLoot.`,
+      );
+    }
+  }
+  return entry;
 }
 
 export function makeParsedEffectContentEntry(

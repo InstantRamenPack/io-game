@@ -4,6 +4,15 @@
   "moveSpeed": 10,
   "collisionMode": "dynamic",
   "hitboxProfiles": {
-    "default": [{ "width": 46, "height": 46, "offsetX": 0, "offsetY": 0 }]
-  }
+    "default": [
+      {
+        "width": 46,
+        "height": 46,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "rarityTier": "rare",
+  "deathLoot": {}
 }

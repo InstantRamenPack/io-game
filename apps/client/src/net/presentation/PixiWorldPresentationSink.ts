@@ -11,8 +11,6 @@ import {
 } from "@shared/content/catalog.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 
-const TREE_VISIBILITY_RADIUS_SCALE = 0.9;
-
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
@@ -217,17 +215,14 @@ export function toVisibilityBlocker(
     return null;
   }
 
-  const circleRadiusScale = getCircleVisibilityRadiusScale(entity);
-  if (circleRadiusScale !== null) {
-    // Use the larger hitbox dimension so tree canopies fully occlude LOS.
-    const radius =
-      Math.max(bounds.width, bounds.height) * 0.5 * circleRadiusScale;
+  const circleRadius = getCircleVisibilityRadius(entity);
+  if (circleRadius !== null) {
     return {
       kind: "circle",
       sourceEntityId: entity.id,
       centerX: entity.x + bounds.centerX,
       centerY: entity.y + bounds.centerY,
-      radius,
+      radius: circleRadius,
     };
   }
 
@@ -245,16 +240,10 @@ export function toVisibilityBlocker(
   };
 }
 
-function getCircleVisibilityRadiusScale(entity: ClientEntity): number | null {
+function getCircleVisibilityRadius(entity: ClientEntity): number | null {
   const blockerContent = getVisibilityBlockerContent(entity.typeId);
   if (blockerContent?.mode === "circle") {
-    return blockerContent.radiusScale;
+    return blockerContent.radius;
   }
-  if (blockerContent !== undefined) {
-    return null;
-  }
-
-  return getEntityContent(entity.typeId)?.label === "Tree"
-    ? TREE_VISIBILITY_RADIUS_SCALE
-    : null;
+  return null;
 }
