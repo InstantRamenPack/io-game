@@ -1,0 +1,5 @@
+{
+  "maxPlayers": 5,
+  "startCountdownMs": 10000,
+  "codeLength": 6
+}

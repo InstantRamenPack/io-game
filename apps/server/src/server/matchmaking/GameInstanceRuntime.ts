@@ -83,9 +83,8 @@ export class GameInstanceRuntime {
         dayNightSystem: this.world.dayNightSystem,
       });
     } else {
-      this.world.waveSystem = WaveSystem.loadFromFile({
+      this.world.waveSystem = WaveSystem.loadFromSharedConfig({
         dayNightSystem: this.world.dayNightSystem,
-        configPath: "./apps/server/src/config/waves.json",
         chatService: this.chatService,
       });
       this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);

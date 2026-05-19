@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
+import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type {
   JabWeaponContent,
   SwingWeaponContent,
@@ -31,7 +32,7 @@ describe("drifter combat content", () => {
       weaponContent.damage * player.getDamageReductionMultiplier();
     expect(drifter.damageMultiplier).toBe(1);
     expect((weapon as unknown as { range: number }).range).toBe(
-      weaponContent.range * 0.5,
+      weaponContent.range * enemyTuningConfig.weaponAttackRangeMultiplier,
     );
 
     player.hp = 100;

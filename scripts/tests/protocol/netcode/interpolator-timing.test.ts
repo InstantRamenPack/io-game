@@ -67,7 +67,6 @@ describe("interpolator timing", () => {
   });
 
   test("render delay clamps to max", () => {
-    const config = new GameConfig();
     const result = simulateNetworkedSnapshotStream({
       profileName: "bad",
       seed: 9,

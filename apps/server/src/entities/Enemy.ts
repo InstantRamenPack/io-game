@@ -16,15 +16,13 @@ import type { Weapon } from "@server/items/Weapon.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
+import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
-
-const ENEMY_ATTACK_SPEED_MULTIPLIER = 0.25;
-const ENEMY_ATTACK_RANGE_MULTIPLIER = 0.5;
 
 /**
  * Hostile entity with goal-driven targeting and movement state.
@@ -128,6 +126,8 @@ export class Enemy extends GoalControlledEntity {
 }
 
 function applyEnemyWeaponTuning(weapon: Weapon): void {
-  weapon.scaleCooldownTicksPerUse(1 / ENEMY_ATTACK_SPEED_MULTIPLIER);
-  weapon.scaleAttackRange(ENEMY_ATTACK_RANGE_MULTIPLIER);
+  weapon.scaleCooldownTicksPerUse(
+    1 / enemyTuningConfig.weaponAttackSpeedMultiplier,
+  );
+  weapon.scaleAttackRange(enemyTuningConfig.weaponAttackRangeMultiplier);
 }

@@ -6,6 +6,7 @@ import {
   requireProjectileContent,
   requireWeaponContent,
 } from "@shared/content/catalog.ts";
+import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
@@ -33,7 +34,6 @@ describe("enemy weapon tuning", () => {
       throw new Error("expected gun and rifle to remain shoot weapons");
     }
 
-    expect(gunContent.spreadDeg).toBe(15);
     expect(rifleContent.spreadDeg).toBeGreaterThan(0);
     expect(gunContent.spreadDeg).toBeGreaterThan(rifleContent.spreadDeg);
 
@@ -44,7 +44,9 @@ describe("enemy weapon tuning", () => {
       .all()
       .find((entity) => entity instanceof Projectile) as Projectile | undefined;
     expect(projectile).toBeDefined();
-    expect(projectile?.rotation).toBeCloseTo((15 * Math.PI) / 360);
+    expect(projectile?.rotation).toBeCloseTo(
+      (gunContent.spreadDeg * Math.PI) / 360,
+    );
   });
 
   test("shoota carries the regular gun with enemy-only cadence and range nerfs", () => {
@@ -66,11 +68,21 @@ describe("enemy weapon tuning", () => {
     };
     expect(shoota.damageMultiplier).toBe(1);
     expect(rangedWeapon.getProjectileRange()).toBe(
-      projectileContent.range * 0.5,
+      projectileContent.range * enemyTuningConfig.weaponAttackRangeMultiplier,
     );
 
-    const inRangeTarget = spawnPlayerLikeDynamic(runtime, 590, 100);
-    const outOfRangeTarget = spawnPlayerLikeDynamic(runtime, 610, 100);
+    const tunedRange =
+      projectileContent.range * enemyTuningConfig.weaponAttackRangeMultiplier;
+    const inRangeTarget = spawnPlayerLikeDynamic(
+      runtime,
+      shoota.x + tunedRange - 10,
+      shoota.y,
+    );
+    const outOfRangeTarget = spawnPlayerLikeDynamic(
+      runtime,
+      shoota.x + tunedRange + 10,
+      shoota.y,
+    );
     expect(
       rangedWeapon.canHitTarget(runtime.world, shoota, inRangeTarget),
     ).toBe(true);
@@ -80,20 +92,34 @@ describe("enemy weapon tuning", () => {
 
     expect(rangedWeapon.hit(runtime.world, shoota, 0)).toBe(true);
     expect(rangedWeapon.toSnapshot().cooldownTicksRemaining).toBe(
-      weaponContent.cooldownTicks * 4,
+      Math.floor(
+        weaponContent.cooldownTicks /
+          enemyTuningConfig.weaponAttackSpeedMultiplier,
+      ),
     );
     const projectile = runtime.world.entities
       .all()
       .find((entity) => entity instanceof Projectile) as Projectile | undefined;
     expect(projectile?.typeId).toBe("projectile:basic_bullet");
-    expect(projectile?.remainingRange).toBe(projectileContent.range * 0.5);
+    expect(projectile?.remainingRange).toBe(
+      projectileContent.range * enemyTuningConfig.weaponAttackRangeMultiplier,
+    );
   });
 
-  test("ranged enemy pursues beyond screen range but only fires within five hundred units", () => {
+  test("ranged enemies pursue targets beyond weapon range without firing", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const shoota = spawnEnemy(runtime, "shoota", 6160, 500) as Enemy;
-    const player = spawnPlayerLikeDynamic(runtime, 5559, 500);
+    const projectileContent = requireProjectileContent(
+      "projectile:basic_bullet",
+    );
+    const tunedRange =
+      projectileContent.range * enemyTuningConfig.weaponAttackRangeMultiplier;
+    const player = spawnPlayerLikeDynamic(
+      runtime,
+      shoota.x - tunedRange - 101,
+      shoota.y,
+    );
     const startX = shoota.x;
 
     tick(runtime, 2);
@@ -106,7 +132,7 @@ describe("enemy weapon tuning", () => {
         .filter((entity) => entity instanceof Projectile),
     ).toHaveLength(0);
 
-    player.x = shoota.x + 499;
+    player.x = shoota.x + tunedRange - 1;
     tick(runtime, 1);
 
     expect(

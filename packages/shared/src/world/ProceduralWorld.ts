@@ -4,39 +4,33 @@ import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import proceduralContentJson from "@shared/world/procedural-content.json";
+import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
 
-export const PROCEDURAL_WORLD_SEED = 1337;
-export const PROCEDURAL_GRID_SIZE = 3;
-export const PROCEDURAL_CORNER_SECTOR_SIZE = 5120;
-export const PROCEDURAL_CENTER_SECTOR_SIZE = 2560;
-export const PROCEDURAL_SECTOR_BANDS = [
-  PROCEDURAL_CORNER_SECTOR_SIZE,
-  PROCEDURAL_CENTER_SECTOR_SIZE,
-  PROCEDURAL_CORNER_SECTOR_SIZE,
-] as const;
-export const PROCEDURAL_SECTOR_SIZE = PROCEDURAL_CORNER_SECTOR_SIZE;
+export const PROCEDURAL_WORLD_SEED = worldgenConfig.seed;
+export const PROCEDURAL_GRID_SIZE = worldgenConfig.gridSize;
+export const PROCEDURAL_SECTOR_BANDS = worldgenConfig.sectorBands;
+export const PROCEDURAL_SECTOR_SIZE = PROCEDURAL_SECTOR_BANDS[0]!;
 export const PROCEDURAL_WORLD_SIZE = {
   w: PROCEDURAL_SECTOR_BANDS.reduce((total, size) => total + size, 0),
   h: PROCEDURAL_SECTOR_BANDS.reduce((total, size) => total + size, 0),
 } as const;
-export const PROCEDURAL_TILE_SIZE = 16;
-export const PROCEDURAL_TARGET_VILLAGE_COUNT = 10;
-const VILLAGE_CENTER_MARGIN_X = 720;
-const VILLAGE_CENTER_MARGIN_Y = 560;
+export const PROCEDURAL_TILE_SIZE = worldgenConfig.tileSize;
+export const PROCEDURAL_TARGET_VILLAGE_COUNT =
+  worldgenConfig.targetVillageCount;
 
-export const REQUIRED_DUNGEON_ROOM_ROLES = [
-  "entrance",
-  "combat",
-  "enemy_swarm",
-  "treasure",
-  "maze",
-  "trap",
-  "armory",
-  "mini_boss",
-  "boss",
-] as const;
+export type DungeonRoomRole =
+  | "entrance"
+  | "combat"
+  | "enemy_swarm"
+  | "treasure"
+  | "maze"
+  | "trap"
+  | "armory"
+  | "mini_boss"
+  | "boss";
 
-export type DungeonRoomRole = (typeof REQUIRED_DUNGEON_ROOM_ROLES)[number];
+export const REQUIRED_DUNGEON_ROOM_ROLES =
+  worldgenConfig.requiredDungeonRoomRoles as readonly DungeonRoomRole[];
 
 export type SectorArchetype =
   | "home"
@@ -1711,13 +1705,13 @@ function createVillagePlan(
   const center = snapPoint({
     x: clamp(
       anchor.x + (rng() - 0.5) * 360,
-      sector.minX + VILLAGE_CENTER_MARGIN_X,
-      sector.maxX - VILLAGE_CENTER_MARGIN_X,
+      sector.minX + worldgenConfig.villageCenterMargin.x,
+      sector.maxX - worldgenConfig.villageCenterMargin.x,
     ),
     y: clamp(
       anchor.y + (rng() - 0.5) * 360,
-      sector.minY + VILLAGE_CENTER_MARGIN_Y,
-      sector.maxY - VILLAGE_CENTER_MARGIN_Y,
+      sector.minY + worldgenConfig.villageCenterMargin.y,
+      sector.maxY - worldgenConfig.villageCenterMargin.y,
     ),
   });
   const { danger, lootTier } = villageTierForDistance(center);
@@ -1815,10 +1809,10 @@ function possibleVillageCenterRects(
 
 function villageCenterBounds(sector: ProceduralRect): ProceduralRect {
   return {
-    minX: sector.minX + VILLAGE_CENTER_MARGIN_X,
-    minY: sector.minY + VILLAGE_CENTER_MARGIN_Y,
-    maxX: sector.maxX - VILLAGE_CENTER_MARGIN_X,
-    maxY: sector.maxY - VILLAGE_CENTER_MARGIN_Y,
+    minX: sector.minX + worldgenConfig.villageCenterMargin.x,
+    minY: sector.minY + worldgenConfig.villageCenterMargin.y,
+    maxX: sector.maxX - worldgenConfig.villageCenterMargin.x,
+    maxY: sector.maxY - worldgenConfig.villageCenterMargin.y,
   };
 }
 

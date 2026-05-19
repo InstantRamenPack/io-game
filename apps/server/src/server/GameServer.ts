@@ -15,6 +15,7 @@ import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { LobbyStateCache } from "@server/server/matchmaking/LobbyStateCache.ts";
+import { matchmakingConfig } from "@shared/config/gameplayConfig.ts";
 
 type MatchLobby = {
   code: string;
@@ -29,10 +30,6 @@ type MatchLobby = {
   scopedNetwork: ScopedWsServer;
   runtime: GameInstanceRuntime | null;
 };
-
-const MATCH_LOBBY_MAX_PLAYERS = 5;
-const MATCH_LOBBY_START_COUNTDOWN_MS = 10_000;
-const MATCH_LOBBY_CODE_LENGTH = 6;
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -392,7 +389,7 @@ export class GameServer {
       return;
     }
 
-    if (targetLobby.playerClientIds.size >= MATCH_LOBBY_MAX_PLAYERS) {
+    if (targetLobby.playerClientIds.size >= matchmakingConfig.maxPlayers) {
       this.sendToClientSystem(clientId, `Lobby ${lobbyCode} is full.`);
       this.sendLobbyState(clientId, true);
       return;
@@ -416,11 +413,11 @@ export class GameServer {
     this.matchLobbyCodeByClientId.set(clientId, lobby.code);
     this.sendToClientSystem(
       clientId,
-      `Joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+      `Joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${matchmakingConfig.maxPlayers}).`,
     );
     this.broadcastLobbyMessage(
       lobby,
-      `${this.getPlayerDisplayName(clientId)} joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+      `${this.getPlayerDisplayName(clientId)} joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${matchmakingConfig.maxPlayers}).`,
     );
 
     if (lobby.startedAtMs !== null) {
@@ -463,7 +460,7 @@ export class GameServer {
       this.sendToClientSystem(clientId, `Left lobby ${lobby.code}.`);
       this.broadcastLobbyMessage(
         lobby,
-        `${this.getPlayerDisplayName(clientId)} left lobby ${lobby.code} (${playerCount}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+        `${this.getPlayerDisplayName(clientId)} left lobby ${lobby.code} (${playerCount}/${matchmakingConfig.maxPlayers}).`,
       );
     }
 
@@ -510,7 +507,7 @@ export class GameServer {
     if (lobby.playerClientIds.size < 2) {
       return;
     }
-    lobby.countdownEndsAtMs = nowMs + MATCH_LOBBY_START_COUNTDOWN_MS;
+    lobby.countdownEndsAtMs = nowMs + matchmakingConfig.startCountdownMs;
     this.broadcastLobbyMessage(
       lobby,
       `Lobby ${lobby.code} reached 2 players. Game starts in 10 seconds.`,
@@ -556,7 +553,7 @@ export class GameServer {
 
   private findOpenLobby(): MatchLobby | undefined {
     for (const lobby of this.matchLobbyByCode.values()) {
-      if (lobby.playerClientIds.size < MATCH_LOBBY_MAX_PLAYERS) {
+      if (lobby.playerClientIds.size < matchmakingConfig.maxPlayers) {
         return lobby;
       }
     }
@@ -657,7 +654,7 @@ export class GameServer {
     let code: string;
     do {
       code = "";
-      for (let index = 0; index < MATCH_LOBBY_CODE_LENGTH; index += 1) {
+      for (let index = 0; index < matchmakingConfig.codeLength; index += 1) {
         code += alphabet[Math.floor(Math.random() * alphabet.length)] ?? "X";
       }
     } while (this.matchLobbyByCode.has(code));
@@ -754,7 +751,7 @@ export class GameServer {
         inLobby: false,
         isHost: false,
         playerCount: 0,
-        maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+        maxPlayers: matchmakingConfig.maxPlayers,
         countdownEndsAtMs: null,
         startedAtMs: null,
         serverNowMs: nowMs,
@@ -769,7 +766,7 @@ export class GameServer {
         inLobby: false,
         isHost: false,
         playerCount: 0,
-        maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+        maxPlayers: matchmakingConfig.maxPlayers,
         countdownEndsAtMs: null,
         startedAtMs: null,
         serverNowMs: nowMs,
@@ -782,7 +779,7 @@ export class GameServer {
       isHost: lobby.hostClientId === clientId,
       lobbyCode: lobby.code,
       playerCount: lobby.playerClientIds.size,
-      maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+      maxPlayers: matchmakingConfig.maxPlayers,
       createdAtMs: lobby.createdAtMs,
       countdownEndsAtMs: lobby.countdownEndsAtMs,
       startedAtMs: lobby.startedAtMs,

@@ -2,10 +2,9 @@ import { Player } from "@server/entities/Player.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 import type { ProceduralRect } from "@shared/world/ProceduralWorld.ts";
+import { dayNightConfig } from "@shared/config/gameplayConfig.ts";
 
 const ENVIRONMENT_DAMAGE_SOURCE_ID = 0;
-const FALLBACK_HOME_CORE_WIDTH = 760;
-const FALLBACK_HOME_CORE_HEIGHT = 520;
 
 type NightStormSystemConfig = {
   tickRate: number;
@@ -80,11 +79,12 @@ export class NightStormSystem implements System {
     const layout = world.proceduralLayout;
     if (!layout) {
       const { w, h } = world.gameConfig.worldSize;
+      const { width, height } = dayNightConfig.fallbackHomeCore;
       return {
-        minX: w / 2 - FALLBACK_HOME_CORE_WIDTH / 2,
-        minY: h / 2 - FALLBACK_HOME_CORE_HEIGHT / 2,
-        maxX: w / 2 + FALLBACK_HOME_CORE_WIDTH / 2,
-        maxY: h / 2 + FALLBACK_HOME_CORE_HEIGHT / 2,
+        minX: w / 2 - width / 2,
+        minY: h / 2 - height / 2,
+        maxX: w / 2 + width / 2,
+        maxY: h / 2 + height / 2,
       };
     }
 

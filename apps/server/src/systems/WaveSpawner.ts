@@ -4,68 +4,19 @@ import {
   isSpawnableEntityCtor,
   type SpawnableEntityCtor,
 } from "@server/runtime/ctorGuards.ts";
-import { readFileSync } from "node:fs";
-import { z } from "zod";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
+import {
+  wavesConfig,
+  type NightWaveConfig,
+  type WavesConfig,
+  type WaveSpawnConfig,
+} from "@shared/config/gameplayConfig.ts";
 
 type WaveChatBroadcaster = {
   broadcastSystemMessage?: (text: string) => void;
 };
-
-/**
- * Configuration for a single entity spawn in a wave.
- */
-type WaveSpawnConfig = {
-  /** Entity resource type name (e.g., "drifter", "shoota") */
-  entityType: string;
-  /** X coordinate for spawn — omit to use a random home-perimeter position */
-  x?: number;
-  /** Y coordinate for spawn — omit to use a random home-perimeter position */
-  y?: number;
-  /** Delay in ticks before this spawn occurs */
-  delayTicks: number;
-  /** Number of entities to spawn */
-  count: number;
-};
-
-/**
- * Configuration for a complete wave during a night cycle.
- */
-type NightWaveConfig = {
-  /** Which night cycle this wave belongs to (1-indexed) */
-  nightCycle: number;
-  /** All spawns that occur during this night */
-  spawns: WaveSpawnConfig[];
-  /** Optional override for the wave arrival chat broadcast */
-  message?: string;
-};
-
-/**
- * Top-level wave configuration file structure.
- */
-type WavesConfigFile = {
-  waves: NightWaveConfig[];
-};
-
-const WaveSpawnConfigSchema = z.object({
-  entityType: z.string().min(1),
-  x: z.number().finite().optional(),
-  y: z.number().finite().optional(),
-  delayTicks: z.number().int().nonnegative(),
-  count: z.number().int().positive(),
-});
-
-const NightWaveConfigSchema = z.object({
-  nightCycle: z.number().int().positive(),
-  spawns: z.array(WaveSpawnConfigSchema),
-  message: z.string().optional(),
-});
-
-const WavesConfigFileSchema = z.object({
-  waves: z.array(NightWaveConfigSchema),
-});
 
 /**
  * Internal state for tracking a pending spawn.
@@ -81,7 +32,7 @@ type PendingSpawn = {
  * according to the configured delays.
  */
 export class WaveSpawner {
-  private readonly wavesConfig: WavesConfigFile;
+  private readonly wavesConfig: WavesConfig;
   private readonly entityCtorByResourceName: Map<string, SpawnableEntityCtor>;
   private readonly chatService: WaveChatBroadcaster | null;
   private pendingSpawns: PendingSpawn[] = [];
@@ -93,7 +44,7 @@ export class WaveSpawner {
    * @param chatService Optional chat service for broadcasting wave notifications
    */
   constructor(
-    wavesConfig: WavesConfigFile,
+    wavesConfig: WavesConfig,
     chatService: WaveChatBroadcaster | null = null,
   ) {
     this.wavesConfig = wavesConfig;
@@ -123,25 +74,10 @@ export class WaveSpawner {
     return lookup;
   }
 
-  /**
-   * Static factory method to load wave configuration from a JSON file.
-   * @param configPath Path to the waves.json configuration file
-   * @param chatService Optional chat service for notifications
-   * @returns Loaded WaveSpawner instance
-   */
-  public static loadFromFile(
-    configPath: string,
+  public static fromSharedConfig(
     chatService: WaveChatBroadcaster | null = null,
   ): WaveSpawner {
-    const jsonText = readFileSync(configPath, "utf-8");
-    const parsedConfig = WavesConfigFileSchema.safeParse(JSON.parse(jsonText));
-    if (!parsedConfig.success) {
-      throw new Error(
-        `Invalid wave configuration at ${configPath}: ${parsedConfig.error.message}`,
-      );
-    }
-    const config = parsedConfig.data;
-    return new WaveSpawner(config, chatService);
+    return new WaveSpawner(wavesConfig, chatService);
   }
 
   /**
@@ -160,7 +96,7 @@ export class WaveSpawner {
 
     if (waveConfig) {
       resolvedConfig = waveConfig;
-    } else if (nightCycle > 7) {
+    } else if (nightCycle > this.wavesConfig.proceduralAfterNightCycle) {
       resolvedConfig = this.generateRandomWave(nightCycle);
     } else {
       console.warn(
@@ -179,7 +115,10 @@ export class WaveSpawner {
     if (this.chatService?.broadcastSystemMessage) {
       this.chatService.broadcastSystemMessage(
         resolvedConfig.message ??
-          `🌙 Wave ${nightCycle} approaching! Enemies incoming!`,
+          this.wavesConfig.defaultMessageTemplate.replace(
+            "{nightCycle}",
+            String(nightCycle),
+          ),
       );
     }
   }
@@ -239,11 +178,8 @@ export class WaveSpawner {
 
     const worldCenterX = world.gameConfig.worldSize.w / 2;
     const worldCenterY = world.gameConfig.worldSize.h / 2;
-    // Home sector is 4096×4096 centered at world center.
-    // Pick a random side of the square and spawn 400px outside the boundary,
-    // guaranteeing enemies always start outside the home sector.
-    const sectorHalf = 2048;
-    const buffer = 400;
+    const sectorHalf = this.wavesConfig.homePerimeter.halfSize;
+    const buffer = this.wavesConfig.homePerimeter.spawnBuffer;
 
     let baseX: number;
     let baseY: number;
@@ -295,9 +231,14 @@ export class WaveSpawner {
       // ensuring wave enemies always find players without affecting non-wave enemies.
       if (entity instanceof Enemy) {
         entity.goalSelector.add(
-          new TargetEntityGoal<Enemy>(-1, Player, 9000, {
-            requireLineOfSight: true,
-          }),
+          new TargetEntityGoal<Enemy>(
+            this.wavesConfig.targetPriority,
+            Player,
+            9000,
+            {
+              requireLineOfSight: true,
+            },
+          ),
         );
       }
     }

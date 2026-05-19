@@ -1,0 +1,47 @@
+{
+  "tickRate": 20,
+  "worldSize": {
+    "w": 12800,
+    "h": 12800
+  },
+  "collision": {
+    "spatialCellSize": 64,
+    "dynamicSolverIterations": 2,
+    "dynamicPushScale": 0.5,
+    "maxDynamicCorrectionPerTick": 8
+  },
+  "network": {
+    "maxPlayers": 64,
+    "maxPacketBytes": 16384
+  },
+  "replication": {
+    "interestRadius": 1440
+  },
+  "debug": {
+    "spawnMultiplier": 1,
+    "focusedTrace": {
+      "entityId": null,
+      "playerName": ""
+    }
+  },
+  "interpolation": {
+    "snapDistance": 192,
+    "historySize": 8,
+    "tickDurationSmoothing": 0.2,
+    "renderDelaySmoothing": 0.15,
+    "minRenderDelayTicks": 2,
+    "maxRenderDelayTicks": 5,
+    "maxExtrapolationTicks": 0.5,
+    "tickDurationMinFactor": 0.7,
+    "tickDurationMaxFactor": 1.4,
+    "arrivalEwmaSmoothing": 0.12,
+    "jitterEwmaSmoothing": 0.12,
+    "jitterBufferMultiplier": 3,
+    "jitterBufferSafetyMs": 35,
+    "maxDebugLogEntries": 600,
+    "correctionFollowSharpness": 18,
+    "correctionEpsilon": 0.01,
+    "correctionFrameScaleMin": 0.5,
+    "correctionFrameScaleMax": 2.5
+  }
+}

@@ -127,5 +127,12 @@
       "message": "☠️ THANOS HAS ARRIVED! THE FINAL BOSS IS HERE!",
       "spawns": [{ "entityType": "thanos", "delayTicks": 0, "count": 1 }]
     }
-  ]
+  ],
+  "proceduralAfterNightCycle": 7,
+  "defaultMessageTemplate": "🌙 Wave {nightCycle} approaching! Enemies incoming!",
+  "homePerimeter": {
+    "halfSize": 2048,
+    "spawnBuffer": 400
+  },
+  "targetPriority": -1
 }

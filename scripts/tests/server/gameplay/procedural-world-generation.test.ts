@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import {
   PROCEDURAL_GRID_SIZE,
+  PROCEDURAL_SECTOR_BANDS,
   PROCEDURAL_WORLD_SIZE,
   REQUIRED_DUNGEON_ROOM_ROLES,
   generateProceduralWorldLayout,
@@ -35,18 +36,22 @@ describe("procedural survival extraction world", () => {
 
     expect(first).toEqual(second);
     expect(first.worldSize).toEqual(PROCEDURAL_WORLD_SIZE);
-    expect(first.worldSize).toEqual({ w: 12800, h: 12800 });
     expect(first.sectors).toHaveLength(
       PROCEDURAL_GRID_SIZE * PROCEDURAL_GRID_SIZE,
     );
     expect(new Set(first.sectors.map((sector) => sector.id)).size).toBe(9);
+    const cornerBand = PROCEDURAL_SECTOR_BANDS[0];
+    const centerBand = PROCEDURAL_SECTOR_BANDS[1];
+    if (cornerBand === undefined || centerBand === undefined) {
+      throw new Error("expected corner and center procedural sector bands");
+    }
     const center = first.sectors.find((sector) => sector.id === "sector_1_1")!;
-    expect(center.maxX - center.minX).toBe(2560);
-    expect(center.maxY - center.minY).toBe(2560);
+    expect(center.maxX - center.minX).toBe(centerBand);
+    expect(center.maxY - center.minY).toBe(centerBand);
     for (const id of ["sector_0_0", "sector_0_2", "sector_2_0", "sector_2_2"]) {
       const sector = first.sectors.find((candidate) => candidate.id === id)!;
-      expect(sector.maxX - sector.minX).toBe(5120);
-      expect(sector.maxY - sector.minY).toBe(5120);
+      expect(sector.maxX - sector.minX).toBe(cornerBand);
+      expect(sector.maxY - sector.minY).toBe(cornerBand);
     }
   });
 

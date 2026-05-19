@@ -1,4 +1,5 @@
 import { getItemContent } from "@shared/content/catalog.ts";
+import { pickupsConfig } from "@shared/config/gameplayConfig.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
@@ -15,20 +16,6 @@ import { Inventory } from "@server/items/Inventory.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-
-const MAG_PICKUP_SPAWN_INTERVAL_MS = 8000;
-const MAX_ACTIVE_MAG_PICKUPS = 8;
-
-const WEAPON_PICKUP_SPAWN_INTERVAL_MS = 20000;
-const MAX_ACTIVE_WEAPON_PICKUPS = 4;
-
-const BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS = 60000;
-const MAX_ACTIVE_BLUEPRINT_PICKUPS = 2;
-
-const FOOD_PICKUP_SPAWN_INTERVAL_MS = 10000;
-const MAX_ACTIVE_FOOD_PICKUPS = 8;
-
-const SPAWN_ATTEMPTS = 20;
 
 /**
  * Spawns consumable pickups (mags, weapons, blueprints, food) and auto-collects
@@ -68,36 +55,36 @@ export class PickupSystem implements System {
     this.collectAutoPickups(world, world.entities.queryInstances(Player));
 
     this.magAccumulatedMs += deltaMs;
-    while (this.magAccumulatedMs >= MAG_PICKUP_SPAWN_INTERVAL_MS) {
-      this.magAccumulatedMs -= MAG_PICKUP_SPAWN_INTERVAL_MS;
-      if (activeMagPickupCount < MAX_ACTIVE_MAG_PICKUPS) {
+    while (this.magAccumulatedMs >= pickupsConfig.mag.intervalMs) {
+      this.magAccumulatedMs -= pickupsConfig.mag.intervalMs;
+      if (activeMagPickupCount < pickupsConfig.mag.maxActive) {
         this.spawnRandomMagPickup(world);
         activeMagPickupCount += 1;
       }
     }
 
     this.weaponAccumulatedMs += deltaMs;
-    while (this.weaponAccumulatedMs >= WEAPON_PICKUP_SPAWN_INTERVAL_MS) {
-      this.weaponAccumulatedMs -= WEAPON_PICKUP_SPAWN_INTERVAL_MS;
-      if (activeWeaponPickupCount < MAX_ACTIVE_WEAPON_PICKUPS) {
+    while (this.weaponAccumulatedMs >= pickupsConfig.weapon.intervalMs) {
+      this.weaponAccumulatedMs -= pickupsConfig.weapon.intervalMs;
+      if (activeWeaponPickupCount < pickupsConfig.weapon.maxActive) {
         this.spawnRandomWeaponPickup(world);
         activeWeaponPickupCount += 1;
       }
     }
 
     this.blueprintAccumulatedMs += deltaMs;
-    while (this.blueprintAccumulatedMs >= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS) {
-      this.blueprintAccumulatedMs -= BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS;
-      if (activeBlueprintPickupCount < MAX_ACTIVE_BLUEPRINT_PICKUPS) {
+    while (this.blueprintAccumulatedMs >= pickupsConfig.blueprint.intervalMs) {
+      this.blueprintAccumulatedMs -= pickupsConfig.blueprint.intervalMs;
+      if (activeBlueprintPickupCount < pickupsConfig.blueprint.maxActive) {
         this.spawnRandomBlueprintPickup(world);
         activeBlueprintPickupCount += 1;
       }
     }
 
     this.foodAccumulatedMs += deltaMs;
-    while (this.foodAccumulatedMs >= FOOD_PICKUP_SPAWN_INTERVAL_MS) {
-      this.foodAccumulatedMs -= FOOD_PICKUP_SPAWN_INTERVAL_MS;
-      if (activeFoodPickupCount < MAX_ACTIVE_FOOD_PICKUPS) {
+    while (this.foodAccumulatedMs >= pickupsConfig.food.intervalMs) {
+      this.foodAccumulatedMs -= pickupsConfig.food.intervalMs;
+      if (activeFoodPickupCount < pickupsConfig.food.maxActive) {
         this.spawnRandomFoodPickup(world);
         activeFoodPickupCount += 1;
       }
@@ -252,7 +239,7 @@ export class PickupSystem implements System {
   }
 
   private trySpawnPickup(world: World, inventory: Inventory): boolean {
-    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt += 1) {
+    for (let attempt = 0; attempt < pickupsConfig.spawnAttempts; attempt += 1) {
       const pickup = new ItemEntity(world.allocEntityId(), inventory);
       pickup.x = world.randomNumberGenerator() * world.gameConfig.worldSize.w;
       pickup.y = world.randomNumberGenerator() * world.gameConfig.worldSize.h;

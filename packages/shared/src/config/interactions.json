@@ -1,0 +1,12 @@
+{
+  "hotbarSlotCount": 10,
+  "buildPlacementMaxDistance": 160,
+  "craftingStationInteractPadding": 48,
+  "craftingStationQueryRadius": 160,
+  "maxChatMessageLength": 240,
+  "chestInteractPadding": 48,
+  "chestInteractRadius": 160,
+  "chestSlotCount": 30,
+  "recyclerInteractPadding": 80,
+  "towerInteractPadding": 80
+}

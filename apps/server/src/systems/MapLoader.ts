@@ -19,8 +19,7 @@ import {
   type ProceduralSpawnSpec,
   type ProceduralWorldLayout,
 } from "@shared/world/ProceduralWorld.ts";
-
-const TILE_SIZE = 16;
+import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
 
 const StaticSpawnSchema = z.object({
   typeId: ResourceIdSchema,
@@ -77,7 +76,7 @@ const DungeonZoneSchema = z.object({
 });
 z.object({
   seed: z.number().int().default(1337),
-  tileSize: z.number().int().positive().default(TILE_SIZE),
+  tileSize: z.number().int().positive().default(worldgenConfig.tileSize),
   zones: z.array(
     z.discriminatedUnion("kind", [StaticZoneSchema, DungeonZoneSchema]),
   ),
@@ -112,8 +111,8 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
 }
 
 function snapToTileCenter(value: number): number {
-  const tile = Math.floor(value / TILE_SIZE);
-  return tile * TILE_SIZE + TILE_SIZE / 2;
+  const tile = Math.floor(value / worldgenConfig.tileSize);
+  return tile * worldgenConfig.tileSize + worldgenConfig.tileSize / 2;
 }
 
 function spawnProceduralEntity(
@@ -213,15 +212,13 @@ const cachedProceduralLayoutBySeed = new Map<
   ReturnType<typeof generateProceduralWorldLayout>
 >();
 
-const LOBBY_WORLD_SIZE = Object.freeze({ w: 1000, h: 1000 });
-
 function loadLobbyLayout(world: World): void {
   world.proceduralLayout = null;
-  world.gameConfig.worldSize = { ...LOBBY_WORLD_SIZE };
+  world.gameConfig.worldSize = { ...worldgenConfig.lobbyWorldSize };
   spawnMapEntity(world, {
     typeId: "building:crafting_station" as ResourceId,
-    x: LOBBY_WORLD_SIZE.w / 2,
-    y: LOBBY_WORLD_SIZE.h / 2 + 56,
+    x: worldgenConfig.lobbyWorldSize.w / 2,
+    y: worldgenConfig.lobbyWorldSize.h / 2 + 56,
   });
 }
 

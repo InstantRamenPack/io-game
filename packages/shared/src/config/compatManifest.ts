@@ -1,4 +1,5 @@
 import { CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR } from "@shared/config/ClientRuntimeConfig.ts";
+import { GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR } from "@shared/config/gameplayConfig.ts";
 import { CONTENT_COMPAT_DESCRIPTOR } from "@shared/content/catalog.ts";
 import type { JsonObject, JsonValue } from "@shared/json.ts";
 import { NET_EVENT_TYPES } from "@shared/net/events.ts";
@@ -50,6 +51,7 @@ export const COMPAT_MANIFEST: JsonObject = {
   events: [...NET_EVENT_TYPES],
   snapshots: cloneDescriptorRecord(SNAPSHOT_COMPAT_DESCRIPTOR),
   content: CONTENT_COMPAT_DESCRIPTOR,
+  config: GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR,
 };
 
 export const COMPAT_HASH = hashFnv1a(stableSerialize(COMPAT_MANIFEST));
