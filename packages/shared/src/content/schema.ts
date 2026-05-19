@@ -193,11 +193,8 @@ export const ItemContentSchema = z.object({
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
-<<<<<<< HEAD
-  food: z.object({ healAmount: z.number().finite().positive() }).optional(),
-=======
   rarityTier: RarityTierSchema.optional(),
-  food: z.object({ foodRestore: z.number().finite().positive() }).optional(),
+  food: z.object({ healAmount: z.number().finite().positive() }).optional(),
   recycle: z
     .object({
       hunkValue: z.number().int().nonnegative(),
@@ -209,7 +206,6 @@ export const ItemContentSchema = z.object({
     })
     .optional(),
   runtime: RuntimeRegistrationSchema,
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
 });
 
 export const EntityContentSchema = z.object({
@@ -268,15 +264,11 @@ export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type PickupSpawnPool = z.infer<typeof PickupSpawnPoolSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
-<<<<<<< HEAD
-export type FoodContent = { healAmount: number };
-=======
 export type RuntimeServerClassKind = z.infer<
   typeof RuntimeServerClassKindSchema
 >;
 export type RuntimeRegistration = z.infer<typeof RuntimeRegistrationSchema>;
-export type FoodContent = { foodRestore: number };
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
+export type FoodContent = { healAmount: number };
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

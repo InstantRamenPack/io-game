@@ -1,15 +1,5 @@
 {
   "label": "Quality Food",
-<<<<<<< HEAD
   "hint": "Restores 40 HP.",
   "food": { "healAmount": 40 }
-=======
-  "hint": "Nutritious but less filling.",
-  "food": {
-    "foodRestore": 20
-  },
-  "pickupSpawn": {
-    "pools": ["food"]
-  }
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
 }

@@ -50,8 +50,10 @@ import itembasicSpearJson from "@shared/content/item/basic_spear.json";
 import itembasicSwordJson from "@shared/content/item/basic_sword.json";
 import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
 import itemblueprintKatanaJson from "@shared/content/item/blueprint_katana.json";
+import itemblueprintSaboteurSwordJson from "@shared/content/item/blueprint_saboteur_sword.json";
 import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
 import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
+import itemblueprintZombieSwordJson from "@shared/content/item/blueprint_zombie_sword.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
 import itemchestJson from "@shared/content/item/chest.json";
 import itemcleaverJson from "@shared/content/item/cleaver.json";
@@ -76,11 +78,6 @@ import itemshootaGunJson from "@shared/content/item/shoota_gun.json";
 import itemsniperJson from "@shared/content/item/sniper.json";
 import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
-import itemstructureFenceHJson from "@shared/content/item/structure_fence_h.json";
-import itemstructureFenceVJson from "@shared/content/item/structure_fence_v.json";
-import itemstructureHouseLJson from "@shared/content/item/structure_house_l.json";
-import itemstructureHouseMJson from "@shared/content/item/structure_house_m.json";
-import itemstructureTreeJson from "@shared/content/item/structure_tree.json";
 import itemtaserJson from "@shared/content/item/taser.json";
 import itemthanosFistJson from "@shared/content/item/thanos_fist.json";
 import itemthanosRifleJson from "@shared/content/item/thanos_rifle.json";
@@ -107,73 +104,35 @@ import {
 export const buildingContentEntries = [
   makeParsedEntityContentEntry("building", "cannon", buildingcannonJson),
   makeParsedEntityContentEntry("building", "chest", buildingchestJson),
-  makeParsedEntityContentEntry(
-    "building",
-    "comms_tower",
-    buildingcommsTowerJson,
-  ),
-  makeParsedEntityContentEntry(
-    "building",
-    "crafting_station",
-    buildingcraftingStationJson,
-  ),
-  makeParsedEntityContentEntry(
-    "building",
-    "dungeon_door",
-    buildingdungeonDoorJson,
-  ),
-  makeParsedEntityContentEntry(
-    "building",
-    "energy_tower",
-    buildingenergyTowerJson,
-  ),
+  makeParsedEntityContentEntry("building", "comms_tower", buildingcommsTowerJson),
+  makeParsedEntityContentEntry("building", "crafting_station", buildingcraftingStationJson),
+  makeParsedEntityContentEntry("building", "dungeon_door", buildingdungeonDoorJson),
+  makeParsedEntityContentEntry("building", "energy_tower", buildingenergyTowerJson),
   makeParsedEntityContentEntry("building", "landmine", buildinglandmineJson),
   makeParsedEntityContentEntry("building", "recycler", buildingrecyclerJson),
   makeParsedEntityContentEntry("building", "tripwire", buildingtripwireJson),
   makeParsedEntityContentEntry("building", "wall", buildingwallJson),
 ] as const;
 
+
 export const structureContentEntries = [
   makeParsedEntityContentEntry("structure", "barracks", structurebarracksJson),
-  makeParsedEntityContentEntry(
-    "structure",
-    "camp_shelter",
-    structurecampShelterJson,
-  ),
-  makeParsedEntityContentEntry(
-    "structure",
-    "command_post",
-    structurecommandPostJson,
-  ),
+  makeParsedEntityContentEntry("structure", "camp_shelter", structurecampShelterJson),
+  makeParsedEntityContentEntry("structure", "command_post", structurecommandPostJson),
   makeParsedEntityContentEntry("structure", "dungeon", structuredungeonJson),
-  makeParsedEntityContentEntry(
-    "structure",
-    "dungeon_wall",
-    structuredungeonWallJson,
-  ),
+  makeParsedEntityContentEntry("structure", "dungeon_wall", structuredungeonWallJson),
   makeParsedEntityContentEntry("structure", "fence_h", structurefenceHJson),
   makeParsedEntityContentEntry("structure", "fence_v", structurefenceVJson),
-  makeParsedEntityContentEntry(
-    "structure",
-    "guard_tower",
-    structureguardTowerJson,
-  ),
+  makeParsedEntityContentEntry("structure", "guard_tower", structureguardTowerJson),
   makeParsedEntityContentEntry("structure", "house_l", structurehouseLJson),
   makeParsedEntityContentEntry("structure", "house_m", structurehouseMJson),
   makeParsedEntityContentEntry("structure", "house_s", structurehouseSJson),
   makeParsedEntityContentEntry("structure", "house_xl", structurehouseXlJson),
-  makeParsedEntityContentEntry(
-    "structure",
-    "market_stall",
-    structuremarketStallJson,
-  ),
+  makeParsedEntityContentEntry("structure", "market_stall", structuremarketStallJson),
   makeParsedEntityContentEntry("structure", "tree", structuretreeJson),
-  makeParsedEntityContentEntry(
-    "structure",
-    "vehicle_wreck",
-    structurevehicleWreckJson,
-  ),
+  makeParsedEntityContentEntry("structure", "vehicle_wreck", structurevehicleWreckJson),
 ] as const;
+
 
 export const effectContentEntries = [
   makeParsedEffectContentEntry("bleeding", effectbleedingJson),
@@ -183,6 +142,7 @@ export const effectContentEntries = [
   makeParsedEffectContentEntry("knockback", effectknockbackJson),
   makeParsedEffectContentEntry("stunned", effectstunnedJson),
 ] as const;
+
 
 export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "bomber", enemybomberJson),
@@ -199,6 +159,7 @@ export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "wallbreaker", enemywallbreakerJson),
 ] as const;
 
+
 export const itemContentEntries = [
   makeParsedItemContentEntry("baseball_bat", itembaseballBatJson),
   makeParsedItemContentEntry("basic_dagger", itembasicDaggerJson),
@@ -206,16 +167,12 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("basic_rifle", itembasicRifleJson),
   makeParsedItemContentEntry("basic_spear", itembasicSpearJson),
   makeParsedItemContentEntry("basic_sword", itembasicSwordJson),
-  makeParsedItemContentEntry(
-    "blueprint_basic_rifle",
-    itemblueprintBasicRifleJson,
-  ),
+  makeParsedItemContentEntry("blueprint_basic_rifle", itemblueprintBasicRifleJson),
   makeParsedItemContentEntry("blueprint_katana", itemblueprintKatanaJson),
+  makeParsedItemContentEntry("blueprint_saboteur_sword", itemblueprintSaboteurSwordJson),
   makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
-  makeParsedItemContentEntry(
-    "blueprint_spiked_spear",
-    itemblueprintSpikedSpearJson,
-  ),
+  makeParsedItemContentEntry("blueprint_spiked_spear", itemblueprintSpikedSpearJson),
+  makeParsedItemContentEntry("blueprint_zombie_sword", itemblueprintZombieSwordJson),
   makeParsedItemContentEntry("cannon", itemcannonJson),
   makeParsedItemContentEntry("chest", itemchestJson),
   makeParsedItemContentEntry("cleaver", itemcleaverJson),
@@ -240,74 +197,33 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("sniper", itemsniperJson),
   makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
-  makeParsedItemContentEntry("structure_fence_h", itemstructureFenceHJson),
-  makeParsedItemContentEntry("structure_fence_v", itemstructureFenceVJson),
-  makeParsedItemContentEntry("structure_house_l", itemstructureHouseLJson),
-  makeParsedItemContentEntry("structure_house_m", itemstructureHouseMJson),
-  makeParsedItemContentEntry("structure_tree", itemstructureTreeJson),
   makeParsedItemContentEntry("taser", itemtaserJson),
   makeParsedItemContentEntry("thanos_fist", itemthanosFistJson),
   makeParsedItemContentEntry("thanos_rifle", itemthanosRifleJson),
-  makeParsedItemContentEntry(
-    "thanos_rocket_launcher",
-    itemthanosRocketLauncherJson,
-  ),
+  makeParsedItemContentEntry("thanos_rocket_launcher", itemthanosRocketLauncherJson),
   makeParsedItemContentEntry("wall", itemwallJson),
   makeParsedItemContentEntry("zombie_sword", itemzombieSwordJson),
 ] as const;
+
 
 export const pickupContentEntries = [
   makeParsedEntityContentEntry("pickup", "item_entity", pickupitemEntityJson),
 ] as const;
 
+
 export const playerContentEntries = [
   makeParsedEntityContentEntry("player", "base", playerbaseJson),
 ] as const;
 
+
 export const projectileContentEntries = [
-  makeParsedEntityContentEntry(
-    "projectile",
-    "basic_bullet",
-    projectilebasicBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "cannon_bullet",
-    projectilecannonBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "crossbow_arrow",
-    projectilecrossbowArrowJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "homing_drone",
-    projectilehomingDroneJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "rifle_bullet",
-    projectilerifleBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "shoota_bullet",
-    projectileshootaBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "sniper_bullet",
-    projectilesniperBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "thanos_bullet",
-    projectilethanosBulletJson,
-  ),
-  makeParsedEntityContentEntry(
-    "projectile",
-    "thanos_rocket",
-    projectilethanosRocketJson,
-  ),
+  makeParsedEntityContentEntry("projectile", "basic_bullet", projectilebasicBulletJson),
+  makeParsedEntityContentEntry("projectile", "cannon_bullet", projectilecannonBulletJson),
+  makeParsedEntityContentEntry("projectile", "crossbow_arrow", projectilecrossbowArrowJson),
+  makeParsedEntityContentEntry("projectile", "homing_drone", projectilehomingDroneJson),
+  makeParsedEntityContentEntry("projectile", "rifle_bullet", projectilerifleBulletJson),
+  makeParsedEntityContentEntry("projectile", "shoota_bullet", projectileshootaBulletJson),
+  makeParsedEntityContentEntry("projectile", "sniper_bullet", projectilesniperBulletJson),
+  makeParsedEntityContentEntry("projectile", "thanos_bullet", projectilethanosBulletJson),
+  makeParsedEntityContentEntry("projectile", "thanos_rocket", projectilethanosRocketJson),
 ] as const;

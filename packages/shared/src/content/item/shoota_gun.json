@@ -1,5 +1,6 @@
 {
   "label": "Shoota Gun",
+  "rarityTier": "common",
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 25,

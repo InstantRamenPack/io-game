@@ -1496,125 +1496,6 @@ function addDungeonRoomContent(
     const position = point(offsetX, offsetY);
     return crateSpawn("enemy:crate", position.x, position.y, crateLoot);
   };
-<<<<<<< HEAD
-  switch (room.role) {
-    case "entrance":
-      enemies.push(
-        roomSpawn("enemy:drifter", -160, 0),
-        roomSpawn("enemy:police", 160, 0),
-      );
-      loot.push(
-        roomLoot("item:quality_food", 160, 0, "stackable", "common", 2),
-      );
-      break;
-    case "combat":
-      enemies.push(
-        roomSpawn("enemy:drifter", -120, 0),
-        roomSpawn("enemy:shoota", 120, 0),
-        roomSpawn("enemy:police", 0, 112),
-      );
-      loot.push(roomLoot("item:pistol_mag", 0, 120, "stackable", "common", 2));
-      break;
-    case "enemy_swarm":
-      enemies.push(
-        roomSpawn("enemy:drifter", -240, -160),
-        roomSpawn("enemy:drifter", 0, -180),
-        roomSpawn("enemy:drifter", 240, -160),
-        roomSpawn("enemy:shoota", -180, 140),
-        roomSpawn("enemy:shoota", 180, 140),
-        roomSpawn("enemy:police", 0, 220),
-      );
-      loot.push(lootSpec("item:rifle_mag", x, y, "stackable", "common", 2));
-      break;
-    case "treasure":
-      enemies.push(
-        roomCrate(0, 0, [
-          { typeId: "item:sniper" as ResourceId, kind: "weapon" },
-          {
-            typeId: "item:blueprint_katana" as ResourceId,
-            kind: "stackable",
-            amount: 1,
-          },
-          {
-            typeId: "item:sniper_mag" as ResourceId,
-            kind: "stackable",
-            amount: 3,
-          },
-          {
-            typeId: "item:hunk" as ResourceId,
-            kind: "stackable",
-            amount: 12,
-          },
-        ]),
-      );
-      loot.push(lootSpec("item:hunk", x + 80, y, "stackable", "uncommon", 8));
-      break;
-    case "maze":
-      enemies.push(
-        roomSpawn("enemy:stalker", -200, -180),
-        roomSpawn("enemy:police", 220, 180),
-      );
-      buildings.push(
-        roomSpawn("building:tripwire", -48, -64, 128),
-        roomSpawn("building:tripwire", -96, 0, 128),
-      );
-      break;
-    case "armory":
-      enemies.push(
-        roomSpawn("enemy:shoota", 0, -160),
-        roomSpawn("enemy:police", -180, -80),
-        roomSpawn("enemy:police", 180, -80),
-        roomSpawn("enemy:police", -180, 120),
-        roomSpawn("enemy:police", 180, 120),
-      );
-      loot.push(roomLoot("item:basic_rifle", -96, 96, "weapon", "rare", 1));
-      loot.push(roomLoot("item:sniper_mag", 96, 96, "stackable", "rare", 2));
-      break;
-    case "trap":
-      enemies.push(
-        roomSpawn("enemy:police", -160, 0),
-        roomSpawn("enemy:stalker", 160, 0),
-      );
-      buildings.push(
-        roomSpawn("building:tripwire", -56, -64, 128),
-        spawn("building:tripwire", x, y),
-        roomSpawn("building:tripwire", 56, 64, 128),
-      );
-      loot.push(roomLoot("item:landmine", 0, 128, "stackable", "uncommon", 2));
-      break;
-    case "mini_boss":
-      enemies.push(spawn("enemy:commander", x, y));
-      loot.push(roomLoot("item:crossbow", 0, 160, "weapon", "rare", 1));
-      loot.push(roomLoot("item:dungeon_key", 96, 160, "stackable", "rare", 2));
-      break;
-    case "boss":
-      enemies.push(
-        roomSpawn("enemy:thanos", 0, -80),
-        roomSpawn("enemy:megaknight", -220, 160),
-        roomSpawn("enemy:sniper", 220, 160),
-      );
-      enemies.push(
-        roomCrate(0, 260, [
-          { typeId: "item:thanos_rifle" as ResourceId, kind: "weapon" },
-          {
-            typeId: "item:blueprint_sniper" as ResourceId,
-            kind: "stackable",
-            amount: 1,
-          },
-          {
-            typeId: "item:sniper_mag" as ResourceId,
-            kind: "stackable",
-            amount: 4,
-          },
-          {
-            typeId: "item:hunk" as ResourceId,
-            kind: "stackable",
-            amount: 20,
-          },
-        ]),
-      );
-      break;
-=======
 
   const content = PROCEDURAL_CONTENT.dungeonRoomContent[room.role];
   for (const enemy of content.enemies ?? []) {
@@ -1656,7 +1537,6 @@ function addDungeonRoomContent(
         })),
       ),
     );
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
   }
 }
 
@@ -2179,30 +2059,6 @@ function addVillageEnemies(
   room: VillageRoom,
   enemies: ProceduralSpawnSpec[],
 ): void {
-<<<<<<< HEAD
-  // Low and medium danger areas have no static guards — they feel empty early game.
-  if (village.danger === "low" || village.danger === "medium") {
-    return;
-  }
-  // High danger: only fortified positions (checkpoint, armory) have a single guard.
-  if (village.danger === "high" && room.role !== "checkpoint" && room.role !== "armory") {
-    return;
-  }
-  const pools: Record<ProceduralVillageKind, readonly string[]> = {
-    civilian: ["enemy:drifter", "enemy:drifter", "enemy:police"],
-    scavenger: ["enemy:drifter", "enemy:shoota", "enemy:stalker", "enemy:bomber"],
-    military: ["enemy:police", "enemy:shoota", "enemy:sniper", "enemy:saboteur", "enemy:commander"],
-    extraction_fortified: [
-      "enemy:police",
-      "enemy:shoota",
-      "enemy:sniper",
-      "enemy:saboteur",
-      "enemy:commander",
-      "enemy:megaknight",
-    ],
-  };
-  const baseCount = village.danger === "boss" ? 2 : 1;
-=======
   const baseCount =
     village.danger === "boss" ? 2 : village.danger === "high" ? 1 : 1;
   if (
@@ -2216,7 +2072,6 @@ function addVillageEnemies(
     enemies.push(spawn("enemy:drifter", room.center.x, room.center.y));
     return;
   }
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
   const count =
     room.role === "helipad" || room.role === "armory"
       ? baseCount + 1
@@ -2286,7 +2141,6 @@ function createForestCamp(
     x: snap(rect.minX + 360 + rng() * (rect.maxX - rect.minX - 720)),
     y: snap(rect.minY + 360 + rng() * (rect.maxY - rect.minY - 720)),
     radius: 260,
-<<<<<<< HEAD
     enemyTypes: (isCorner
       ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
       : ["enemy:drifter", "enemy:drifter", "enemy:police"]) as ResourceId[],
@@ -2294,17 +2148,6 @@ function createForestCamp(
     maxGroupSize: isCorner ? 3 : 2,
     maxAlive: isCorner ? 3 : 2,
     respawnDelayTicks: 20 * 180,
-=======
-    enemyTypes: [
-      ...(isCorner
-        ? PROCEDURAL_CONTENT.forestCampEnemyTypes.corner
-        : PROCEDURAL_CONTENT.forestCampEnemyTypes.edge),
-    ],
-    minGroupSize: 2,
-    maxGroupSize: isCorner ? 5 : 4,
-    maxAlive: isCorner ? 5 : 4,
-    respawnDelayTicks: 20 * 45,
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
   };
 }
 

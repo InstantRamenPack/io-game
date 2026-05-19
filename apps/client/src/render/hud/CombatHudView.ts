@@ -64,15 +64,7 @@ export class CombatHudView {
     this.heightValue = HEALTH_ROW_HEIGHT;
 
     if (!model.ammo) {
-      this.drawHealthRow(
-        model.hp,
-        model.maxHp,
-        model.food,
-        model.maxFood,
-        0,
-        this.widthValue,
-        padding,
-      );
+      this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
       this.ammoFrame.clear();
       this.reserveText.text = "";
       this.hideAmmoSprites();
@@ -144,19 +136,7 @@ export class CombatHudView {
       sprite.alpha = index < model.ammo.ammoInMag ? 0.98 : 0.5;
     }
 
-<<<<<<< HEAD
-    this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
-=======
-    this.drawHealthRow(
-      model.hp,
-      model.maxHp,
-      model.food,
-      model.maxFood,
-      healthY,
-      this.widthValue,
-      padding,
-    );
->>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
+    this.drawHealthRow(model.hp, model.maxHp, healthY, this.widthValue, padding);
   }
 
   public setPosition(x: number, y: number): void {
