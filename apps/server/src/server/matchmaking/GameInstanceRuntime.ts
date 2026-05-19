@@ -87,9 +87,6 @@ export class GameInstanceRuntime {
         chatService: this.chatService,
       });
       this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Wave spawning system initialized");
-      }
     }
 
     loadMap(this.world, options.worldSeed, {
