@@ -293,11 +293,7 @@ export class CraftingModal {
     const rowStride = tileHeight + CRAFT_MODAL_TILE_GAP;
     const visibleRows = Math.max(1, leftInnerHeight / rowStride);
     const maxScrollRowOffset = Math.max(0, rowCount - visibleRows);
-    this.scrollRowOffset = clamp(
-      this.scrollRowOffset,
-      0,
-      maxScrollRowOffset,
-    );
+    this.scrollRowOffset = clamp(this.scrollRowOffset, 0, maxScrollRowOffset);
 
     for (let index = 0; index < this.tileViews.length; index += 1) {
       const tileView = this.tileViews[index];
@@ -314,7 +310,10 @@ export class CraftingModal {
       const column = index % columns;
       const row = Math.floor(index / columns);
       const tileY = leftInnerY + (row - this.scrollRowOffset) * rowStride;
-      if (tileY + tileHeight < leftInnerY || tileY > leftInnerY + leftInnerHeight) {
+      if (
+        tileY + tileHeight < leftInnerY ||
+        tileY > leftInnerY + leftInnerHeight
+      ) {
         tileView.container.visible = false;
         continue;
       }
@@ -338,7 +337,8 @@ export class CraftingModal {
     }
 
     if (maxScrollRowOffset > 0) {
-      const scrollbarX = leftInnerX + leftInnerWidth - CRAFT_MODAL_SCROLLBAR_WIDTH;
+      const scrollbarX =
+        leftInnerX + leftInnerWidth - CRAFT_MODAL_SCROLLBAR_WIDTH;
       const scrollbarHeight = leftInnerHeight;
       const thumbHeight = Math.max(
         28,
@@ -351,9 +351,21 @@ export class CraftingModal {
             (scrollbarHeight - thumbHeight),
         );
       this.leftPane
-        .roundRect(scrollbarX, leftInnerY, CRAFT_MODAL_SCROLLBAR_WIDTH, scrollbarHeight, 3)
+        .roundRect(
+          scrollbarX,
+          leftInnerY,
+          CRAFT_MODAL_SCROLLBAR_WIDTH,
+          scrollbarHeight,
+          3,
+        )
         .fill({ color: 0x1b2740, alpha: 0.9 })
-        .roundRect(scrollbarX, thumbY, CRAFT_MODAL_SCROLLBAR_WIDTH, thumbHeight, 3)
+        .roundRect(
+          scrollbarX,
+          thumbY,
+          CRAFT_MODAL_SCROLLBAR_WIDTH,
+          thumbHeight,
+          3,
+        )
         .fill({ color: 0x6ea8ff, alpha: 0.95 });
     }
 

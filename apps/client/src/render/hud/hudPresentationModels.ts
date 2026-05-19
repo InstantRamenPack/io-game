@@ -129,7 +129,9 @@ export function buildCraftTooltipContent(
     lines.push(...buildWeaponStatLines(entry.typeId));
   }
   if (itemContent?.buildsEntityTypeId) {
-    lines.push(`Places: ${getResourceDisplayLabel(itemContent.buildsEntityTypeId)}`);
+    lines.push(
+      `Places: ${getResourceDisplayLabel(itemContent.buildsEntityTypeId)}`,
+    );
   }
   return {
     title: entry.label,

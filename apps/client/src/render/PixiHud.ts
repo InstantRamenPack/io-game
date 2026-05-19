@@ -215,7 +215,11 @@ export class PixiHud {
     this.markDirty();
   }
 
-  public handleCraftListWheel(screenX: number, screenY: number, deltaY: number): boolean {
+  public handleCraftListWheel(
+    screenX: number,
+    screenY: number,
+    deltaY: number,
+  ): boolean {
     if (!this.state.craftingMenuOpen || !this.craftModalView) {
       return false;
     }
