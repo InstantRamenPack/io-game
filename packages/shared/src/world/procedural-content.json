@@ -28,22 +28,34 @@
   "crateLootByTier": {
     "common": [
       { "typeId": "item:hunk", "kind": "stackable", "amount": 4 },
-      { "typeId": "item:junk_food", "kind": "stackable", "amount": 2 }
+      { "typeId": "item:junk_food", "kind": "stackable", "amount": 2 },
+      { "typeId": "item:pistol_mag", "kind": "stackable", "amount": 1 },
+      { "typeId": "item:wall", "kind": "stackable", "amount": 2 }
     ],
     "uncommon": [
       { "typeId": "item:hunk", "kind": "stackable", "amount": 6 },
       { "typeId": "item:quality_food", "kind": "stackable", "amount": 2 },
-      { "typeId": "item:pistol_mag", "kind": "stackable", "amount": 2 }
+      { "typeId": "item:pistol_mag", "kind": "stackable", "amount": 2 },
+      { "typeId": "item:basic_spear", "kind": "weapon" },
+      { "typeId": "item:blueprint_spiked_spear", "kind": "stackable", "amount": 1 },
+      { "typeId": "item:crossbow_mag", "kind": "stackable", "amount": 2 }
     ],
     "rare": [
-      { "typeId": "item:basic_rifle", "kind": "weapon" },
+      { "typeId": "item:blueprint_basic_rifle", "kind": "stackable", "amount": 1 },
       { "typeId": "item:rifle_mag", "kind": "stackable", "amount": 3 },
-      { "typeId": "item:hunk", "kind": "stackable", "amount": 10 }
+      { "typeId": "item:hunk", "kind": "stackable", "amount": 10 },
+      { "typeId": "item:crossbow", "kind": "weapon" },
+      { "typeId": "item:crossbow_mag", "kind": "stackable", "amount": 3 },
+      { "typeId": "item:blueprint_katana", "kind": "stackable", "amount": 1 }
     ],
     "epic": [
+      { "typeId": "item:hunk", "kind": "stackable", "amount": 14 },
       { "typeId": "item:sniper", "kind": "weapon" },
       { "typeId": "item:sniper_mag", "kind": "stackable", "amount": 4 },
-      { "typeId": "item:blueprint_sniper", "kind": "stackable", "amount": 1 }
+      { "typeId": "item:blueprint_sniper", "kind": "stackable", "amount": 1 },
+      { "typeId": "item:drone_shooter", "kind": "weapon" },
+      { "typeId": "item:drone_mag", "kind": "stackable", "amount": 3 },
+      { "typeId": "item:blueprint_spiked_spear", "kind": "stackable", "amount": 1 }
     ]
   },
   "forestCampEnemyTypes": {

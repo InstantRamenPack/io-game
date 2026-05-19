@@ -26,6 +26,7 @@ export class RangedWeapon extends Weapon {
   public reloadTicks: number;
   public spread: number;
   public magItemTypeId?: ResourceId;
+  private rangeMultiplier = 1;
 
   /** Reload timer in fixed ticks. */
   protected reloadTicksRemaining = 0;
@@ -42,7 +43,7 @@ export class RangedWeapon extends Weapon {
     this.projectileTypeId = projectileTypeId;
     this.magSize = magSize;
     this.reloadTicks = reloadTicks;
-    this.spread = spread;
+    this.spread = (spread * Math.PI) / 180;
     this.magItemTypeId = magItemTypeId;
     this.ammoInMag = magSize;
   }
@@ -87,11 +88,7 @@ export class RangedWeapon extends Weapon {
     return (
       this.canHit() &&
       combatEligibilityService.canAttackTarget(world, owner, target) &&
-      this.isTargetInRange(
-        owner,
-        target,
-        this.resolveProjectileType().definition.range,
-      )
+      this.isTargetInRange(owner, target, this.getProjectileRange())
     );
   }
 
@@ -132,7 +129,12 @@ export class RangedWeapon extends Weapon {
       directionY,
       rotation: angle,
     };
-    world.spawn(new ProjectileCtor(world.allocEntityId(), projectileConfig));
+    const projectile = new ProjectileCtor(
+      world.allocEntityId(),
+      projectileConfig,
+    );
+    projectile.remainingRange *= this.rangeMultiplier;
+    world.spawn(projectile);
 
     this.ammoInMag--;
     this.resetCooldown();
@@ -179,6 +181,14 @@ export class RangedWeapon extends Weapon {
 
   public getProjectileSpeed(): number {
     return this.resolveProjectileType().definition.speed;
+  }
+
+  public getProjectileRange(): number {
+    return this.resolveProjectileType().definition.range * this.rangeMultiplier;
+  }
+
+  public override scaleAttackRange(multiplier: number): void {
+    this.rangeMultiplier *= multiplier;
   }
 
   public override toEquippedItemSnapshot(

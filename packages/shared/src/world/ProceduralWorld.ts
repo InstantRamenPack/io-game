@@ -21,6 +21,8 @@ export const PROCEDURAL_WORLD_SIZE = {
 } as const;
 export const PROCEDURAL_TILE_SIZE = 16;
 export const PROCEDURAL_TARGET_VILLAGE_COUNT = 10;
+const VILLAGE_CENTER_MARGIN_X = 720;
+const VILLAGE_CENTER_MARGIN_Y = 560;
 
 export const REQUIRED_DUNGEON_ROOM_ROLES = [
   "entrance",
@@ -1709,25 +1711,16 @@ function createVillagePlan(
   const center = snapPoint({
     x: clamp(
       anchor.x + (rng() - 0.5) * 360,
-      sector.minX + 720,
-      sector.maxX - 720,
+      sector.minX + VILLAGE_CENTER_MARGIN_X,
+      sector.maxX - VILLAGE_CENTER_MARGIN_X,
     ),
     y: clamp(
       anchor.y + (rng() - 0.5) * 360,
-      sector.minY + 560,
-      sector.maxY - 560,
+      sector.minY + VILLAGE_CENTER_MARGIN_Y,
+      sector.maxY - VILLAGE_CENTER_MARGIN_Y,
     ),
   });
-  const danger =
-    kind === "extraction_fortified"
-      ? "boss"
-      : kind === "military" || isCorner
-        ? "high"
-        : kind === "scavenger"
-          ? "medium"
-          : "low";
-  const lootTier =
-    danger === "boss" ? "epic" : danger === "high" ? "rare" : "uncommon";
+  const { danger, lootTier } = villageTierForDistance(center);
   const poiRoles = createVillagePoiRoles(kind, isCorner);
   return {
     id: `${sectorId}_village_${index}`,
@@ -1742,6 +1735,107 @@ function createVillagePlan(
     maxX: snapEdge(center.x + width / 2),
     maxY: snapEdge(center.y + height / 2),
   };
+}
+
+function villageTierForDistance(
+  center: ProceduralPoint,
+): Pick<ProceduralVillagePlan, "danger" | "lootTier"> {
+  const worldCenter = proceduralWorldCenter();
+  const distance = Math.hypot(
+    center.x - worldCenter.x,
+    center.y - worldCenter.y,
+  );
+  const { min, max } = possibleVillageCenterDistanceRange();
+  const bandWidth = (max - min) / 3;
+  if (distance < min + bandWidth) {
+    return { danger: "low", lootTier: "common" };
+  }
+  if (distance < min + bandWidth * 2) {
+    return { danger: "medium", lootTier: "uncommon" };
+  }
+  return { danger: "high", lootTier: "rare" };
+}
+
+function possibleVillageCenterDistanceRange(): { min: number; max: number } {
+  const worldCenter = proceduralWorldCenter();
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+
+  for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
+    for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
+      if (row === 1 && col === 1) {
+        continue;
+      }
+      for (const bounds of possibleVillageCenterRects(row, col)) {
+        const closest = snapPoint({
+          x: clamp(worldCenter.x, bounds.minX, bounds.maxX),
+          y: clamp(worldCenter.y, bounds.minY, bounds.maxY),
+        });
+        min = Math.min(
+          min,
+          Math.hypot(closest.x - worldCenter.x, closest.y - worldCenter.y),
+        );
+        for (const corner of rectCorners(bounds)) {
+          const snappedCorner = snapPoint(corner);
+          max = Math.max(
+            max,
+            Math.hypot(
+              snappedCorner.x - worldCenter.x,
+              snappedCorner.y - worldCenter.y,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  return { min, max };
+}
+
+function possibleVillageCenterRects(
+  row: number,
+  col: number,
+): ProceduralRect[] {
+  const sector = sectorRect(row, col);
+  const sectorCenter = snapPoint({
+    x: (sector.minX + sector.maxX) / 2,
+    y: (sector.minY + sector.maxY) / 2,
+  });
+  const centerBounds = villageCenterBounds(sector);
+  const villageCount = isCornerCoord(row, col) ? 2 : 1;
+  return createVillageAnchors(sector, sectorCenter, villageCount).map(
+    (anchor) => ({
+      minX: clamp(anchor.x - 180, centerBounds.minX, centerBounds.maxX),
+      minY: clamp(anchor.y - 180, centerBounds.minY, centerBounds.maxY),
+      maxX: clamp(anchor.x + 180, centerBounds.minX, centerBounds.maxX),
+      maxY: clamp(anchor.y + 180, centerBounds.minY, centerBounds.maxY),
+    }),
+  );
+}
+
+function villageCenterBounds(sector: ProceduralRect): ProceduralRect {
+  return {
+    minX: sector.minX + VILLAGE_CENTER_MARGIN_X,
+    minY: sector.minY + VILLAGE_CENTER_MARGIN_Y,
+    maxX: sector.maxX - VILLAGE_CENTER_MARGIN_X,
+    maxY: sector.maxY - VILLAGE_CENTER_MARGIN_Y,
+  };
+}
+
+function proceduralWorldCenter(): ProceduralPoint {
+  return {
+    x: PROCEDURAL_WORLD_SIZE.w / 2,
+    y: PROCEDURAL_WORLD_SIZE.h / 2,
+  };
+}
+
+function rectCorners(rect: ProceduralRect): ProceduralPoint[] {
+  return [
+    { x: rect.minX, y: rect.minY },
+    { x: rect.maxX, y: rect.minY },
+    { x: rect.minX, y: rect.maxY },
+    { x: rect.maxX, y: rect.maxY },
+  ];
 }
 
 function createVillagePoiRoles(
@@ -2036,7 +2130,7 @@ function applyVillageRoomTemplate(
           "enemy:crate",
           room.center.x + crate.dx,
           room.center.y + crate.dy,
-          crateLootForTier(village.lootTier),
+          crateLootForTier(rng, village.lootTier),
         ),
         template.id,
       ),
@@ -2118,9 +2212,29 @@ function villageLoot(
 }
 
 function crateLootForTier(
+  rng: seedrandom.PRNG,
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  return [...PROCEDURAL_CONTENT.crateLootByTier[tier]];
+  const pool = PROCEDURAL_CONTENT.crateLootByTier[tier];
+  const hunk = pool.find((slot) => slot.typeId === "item:hunk");
+  const optionalSlots = pool.filter((slot) => slot.typeId !== "item:hunk");
+  const loot: ProceduralCrateLootSlot[] = hunk ? [{ ...hunk }] : [];
+  const optionalCount = tier === "common" ? 1 : 2;
+  const usedIndexes = new Set<number>();
+
+  while (
+    loot.length < optionalCount + Number(Boolean(hunk)) &&
+    usedIndexes.size < optionalSlots.length
+  ) {
+    const index = Math.floor(rng() * optionalSlots.length);
+    if (usedIndexes.has(index)) {
+      continue;
+    }
+    usedIndexes.add(index);
+    loot.push({ ...optionalSlots[index]! });
+  }
+
+  return loot;
 }
 
 function forestTreeCount(rect: ProceduralRect, isCorner: boolean): number {

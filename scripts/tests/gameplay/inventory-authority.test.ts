@@ -91,6 +91,38 @@ describe("inventory authority", () => {
     expect(target.getResourceCount(hunkItemId)).toBe(2);
   });
 
+  test("auto-picking a blueprint unlocks the recipe for every player", () => {
+    const { runtime } = makeRuntime();
+    const { player: collector } = connectTestClient(runtime, "client-1");
+    const { player: teammate } = connectTestClient(runtime, "client-2");
+    teammate.x = collector.x + 1000;
+    teammate.y = collector.y;
+
+    const pickupInventory = new Inventory();
+    pickupInventory.addStackable(basicRifleBlueprintItemId, 1);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
+    pickup.x = collector.x;
+    pickup.y = collector.y;
+    runtime.world.spawn(pickup);
+
+    expect(collector.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(false);
+    expect(teammate.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(false);
+    tick(runtime, 1);
+    expect(collector.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
+    expect(teammate.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
+    expect(runtime.world.entities.has(pickup.id)).toBe(false);
+  });
+
+  test("new players start with the content-authored hunk count", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(50);
+  });
+
   test("valid inventory move updates hotbar", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);

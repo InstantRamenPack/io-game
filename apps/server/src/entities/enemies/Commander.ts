@@ -19,7 +19,7 @@ export class Commander extends Enemy {
           requireLineOfSight: true,
         }),
         new LookAtTargetGoal<Enemy>(1),
-        new RangedAttackGoal<Enemy>(2, 0, 360, 48, 36, 0.65),
+        new RangedAttackGoal<Enemy>(2, 0, 360, 48, 36, 0.65, 600),
       ],
     });
   }

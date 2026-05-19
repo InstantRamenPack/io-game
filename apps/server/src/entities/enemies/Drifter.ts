@@ -9,15 +9,14 @@ import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { Cleaver } from "@server/items/weapons/Cleaver.ts";
-import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
 import { Scissors } from "@server/items/weapons/Scissors.ts";
-import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
+import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 
 type DrifterWeaponCtor = new () => Weapon;
 
 const DRIFTER_WEAPON_POOL: readonly DrifterWeaponCtor[] = [
-  ZombieSword,
+  BasicSword,
   Scissors,
   LeadPipe,
   BaseballBat,
@@ -35,7 +34,6 @@ export class Drifter extends Enemy {
    * @param id Stable runtime entity id.
    */
   constructor(id: number) {
-    const combat = requireHitboxEntityBaselineContent(Drifter.typeId).combat;
     super(id, {
       weapons: [Drifter.createSpawnWeapon()],
       goals: [
@@ -44,7 +42,7 @@ export class Drifter extends Enemy {
         }),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
-        new AttackAtGoal<Enemy>(3, 0, combat.attackMinIntervalTicks),
+        new AttackAtGoal<Enemy>(3, 0),
       ],
     });
   }
@@ -55,7 +53,7 @@ export class Drifter extends Enemy {
     const weaponCtor =
       DRIFTER_WEAPON_POOL[
         Drifter.nextWeaponIndex % DRIFTER_WEAPON_POOL.length
-      ] ?? ZombieSword;
+      ] ?? BasicSword;
     Drifter.nextWeaponIndex += 1;
     return new weaponCtor();
   }

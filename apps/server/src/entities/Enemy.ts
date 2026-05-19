@@ -23,6 +23,9 @@ type EnemyConfig = {
   goals?: readonly Goal<Enemy>[];
 };
 
+const ENEMY_ATTACK_SPEED_MULTIPLIER = 0.25;
+const ENEMY_ATTACK_RANGE_MULTIPLIER = 0.5;
+
 /**
  * Hostile entity with goal-driven targeting and movement state.
  */
@@ -40,6 +43,9 @@ export class Enemy extends GoalControlledEntity {
     );
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
+    for (const weapon of this.weapons) {
+      applyEnemyWeaponTuning(weapon);
+    }
     this.damageMultiplier = content.combat.damageMultiplier;
     this.registerGoals([...(config.goals ?? []), new WanderGoal<Enemy>(100)]);
     this.collisionMode = content.collisionMode;
@@ -119,4 +125,9 @@ export class Enemy extends GoalControlledEntity {
     pickup.y = this.y;
     world.spawn(pickup);
   }
+}
+
+function applyEnemyWeaponTuning(weapon: Weapon): void {
+  weapon.scaleCooldownTicksPerUse(1 / ENEMY_ATTACK_SPEED_MULTIPLIER);
+  weapon.scaleAttackRange(ENEMY_ATTACK_RANGE_MULTIPLIER);
 }

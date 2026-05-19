@@ -16,6 +16,7 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import {
+  applyPlayerNonLobbySpawnLoadout,
   applyPlayerStarterLoadout,
   validatePlayerStarterLoadout,
 } from "@server/server/starterLoadout.ts";
@@ -169,9 +170,10 @@ export class GameInstanceRuntime {
     const spawnPosition = this.getSpawnPositionForClient(clientId);
     playerEntity.x = spawnPosition.x;
     playerEntity.y = spawnPosition.y;
-    applyPlayerStarterLoadout(playerEntity);
-    if (!this.isPlayground) {
-      playerEntity.inventory.clearHotbar();
+    if (this.isPlayground) {
+      applyPlayerStarterLoadout(playerEntity);
+    } else {
+      applyPlayerNonLobbySpawnLoadout(playerEntity);
     }
 
     this.world.spawn(playerEntity);

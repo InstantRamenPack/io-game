@@ -142,6 +142,7 @@ export class PickupSystem implements System {
         if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
         }
+        this.unlockBlueprintPickupRecipesForPlayers(candidate, players);
         world.despawn(candidate.id);
       }
     }
@@ -379,6 +380,54 @@ export class PickupSystem implements System {
     }
 
     return transferable;
+  }
+
+  private unlockBlueprintPickupRecipesForPlayers(
+    pickup: ItemEntity,
+    players: readonly Player[],
+  ): void {
+    const unlockedRecipeTypeIds = this.getBlueprintPickupRecipeTypeIds(pickup);
+    if (unlockedRecipeTypeIds.size === 0) {
+      return;
+    }
+
+    for (const player of players) {
+      for (const unlockedRecipeTypeId of unlockedRecipeTypeIds) {
+        player.inventory.unlockRecipe(unlockedRecipeTypeId);
+      }
+    }
+  }
+
+  private getBlueprintPickupRecipeTypeIds(
+    pickup: ItemEntity,
+  ): Set<ResourceId> {
+    const unlockedRecipeTypeIds = new Set<ResourceId>(
+      pickup.contents.getUnlockedRecipeTypeIds(),
+    );
+
+    for (const [typeId, amount] of pickup.contents.resources.entries()) {
+      if (amount <= 0) {
+        continue;
+      }
+      const unlockedRecipeTypeId = getItemContent(typeId)?.unlocksRecipeTypeId;
+      if (unlockedRecipeTypeId) {
+        unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
+      }
+    }
+
+    for (const slot of pickup.contents.hotbarSlots) {
+      if (!slot || slot.kind === "weapon" || slot.count <= 0) {
+        continue;
+      }
+      const unlockedRecipeTypeId = getItemContent(
+        slot.typeId,
+      )?.unlocksRecipeTypeId;
+      if (unlockedRecipeTypeId) {
+        unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
+      }
+    }
+
+    return unlockedRecipeTypeIds;
   }
 
   private applyDirectPickupEffect(

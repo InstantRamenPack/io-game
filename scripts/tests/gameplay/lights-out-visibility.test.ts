@@ -220,6 +220,44 @@ describe("lights-out visibility", () => {
     ).toBeCloseTo(0.25);
   });
 
+  test("dungeon lights-out fades from boundary to full darkness over 100 units", () => {
+    const worldSize = { w: 12_288, h: 12_288 };
+    const dungeonBounds = {
+      minX: 0,
+      minY: 0,
+      maxX: 4096,
+      maxY: 4096,
+    };
+
+    expect(
+      computeLightsOutPresentation({
+        player: { x: dungeonBounds.minX, y: 2048 },
+        dungeonBounds,
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBe(0);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: dungeonBounds.minX + 50, y: 2048 },
+        dungeonBounds,
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBeCloseTo(0.5);
+    expect(
+      computeLightsOutPresentation({
+        player: { x: dungeonBounds.minX + 100, y: 2048 },
+        dungeonBounds,
+        worldSize,
+        nightBlend: 0,
+        energyActive: true,
+      }).alpha,
+    ).toBe(1);
+  });
+
   test("energy failure forces full lights-out anywhere during night", () => {
     const worldSize = { w: 12_288, h: 12_288 };
     const center = { x: worldSize.w / 2, y: worldSize.h / 2 };

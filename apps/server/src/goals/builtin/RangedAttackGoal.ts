@@ -17,6 +17,7 @@ export class RangedAttackGoal<
   private readonly distanceTolerance: number;
   private readonly strafeSwapTicks: number;
   private readonly leadBlendFactor: number;
+  private readonly maxFireDistance: number;
   private strafeSign: -1 | 1 = 1;
   private ticksUntilSwap: number;
 
@@ -27,6 +28,7 @@ export class RangedAttackGoal<
     distanceTolerance = 32,
     strafeSwapTicks = 45,
     leadBlendFactor = 0.5,
+    maxFireDistance = Infinity,
   ) {
     super(priority, ["move", "attack"]);
     this.weaponSlot = weaponSlot;
@@ -34,6 +36,7 @@ export class RangedAttackGoal<
     this.distanceTolerance = distanceTolerance;
     this.strafeSwapTicks = Math.max(1, strafeSwapTicks);
     this.leadBlendFactor = Math.max(0, leadBlendFactor);
+    this.maxFireDistance = maxFireDistance;
     this.ticksUntilSwap = this.strafeSwapTicks;
   }
 
@@ -64,7 +67,7 @@ export class RangedAttackGoal<
         aimPoint.y - ctx.self.y,
         aimPoint.x - ctx.self.x,
       );
-      if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
+      if (this.canFireAtTarget(ctx, weapon, target)) {
         weapon.hit(ctx.world, ctx.self, aimTheta);
       }
       return;
@@ -124,7 +127,7 @@ export class RangedAttackGoal<
       );
     }
 
-    if (weapon.canHitTarget(ctx.world, ctx.self, target)) {
+    if (this.canFireAtTarget(ctx, weapon, target)) {
       weapon.hit(ctx.world, ctx.self, aimTheta);
     }
   }
@@ -141,6 +144,17 @@ export class RangedAttackGoal<
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {
     return goalTargetResolver.resolveTrackedCombatTarget(ctx);
+  }
+
+  private canFireAtTarget(
+    ctx: GoalContext<TSelf>,
+    weapon: RangedWeapon,
+    target: Entity,
+  ): boolean {
+    return (
+      Math.hypot(target.x - ctx.self.x, target.y - ctx.self.y) <=
+        this.maxFireDistance && weapon.canHitTarget(ctx.world, ctx.self, target)
+    );
   }
 
   private resolveWeapon(ctx: GoalContext<TSelf>): RangedWeapon {

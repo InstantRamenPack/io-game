@@ -30,7 +30,7 @@ export class Thanos extends Enemy {
         // Rocket launcher — fires when player is behind a building
         new RocketAttackGoal<Enemy>(3, 2, 900),
         // Rifle — medium-range strafe attack
-        new RangedAttackGoal<Enemy>(4, 1, 350, 60, 70, 0.45),
+        new RangedAttackGoal<Enemy>(4, 1, 350, 60, 70, 0.45, 600),
         // Chase movement when out of rifle range
         new GoToTargetGoal<Enemy>(5, 90),
       ],

@@ -53,7 +53,6 @@ import itemblueprintKatanaJson from "@shared/content/item/blueprint_katana.json"
 import itemblueprintSaboteurSwordJson from "@shared/content/item/blueprint_saboteur_sword.json";
 import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
 import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
-import itemblueprintZombieSwordJson from "@shared/content/item/blueprint_zombie_sword.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
 import itemchestJson from "@shared/content/item/chest.json";
 import itemcleaverJson from "@shared/content/item/cleaver.json";
@@ -74,7 +73,6 @@ import itemqualityFoodJson from "@shared/content/item/quality_food.json";
 import itemrifleMagJson from "@shared/content/item/rifle_mag.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
 import itemscissorsJson from "@shared/content/item/scissors.json";
-import itemshootaGunJson from "@shared/content/item/shoota_gun.json";
 import itemsniperJson from "@shared/content/item/sniper.json";
 import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
@@ -83,7 +81,6 @@ import itemthanosFistJson from "@shared/content/item/thanos_fist.json";
 import itemthanosRifleJson from "@shared/content/item/thanos_rifle.json";
 import itemthanosRocketLauncherJson from "@shared/content/item/thanos_rocket_launcher.json";
 import itemwallJson from "@shared/content/item/wall.json";
-import itemzombieSwordJson from "@shared/content/item/zombie_sword.json";
 import pickupitemEntityJson from "@shared/content/pickup/item_entity.json";
 import playerbaseJson from "@shared/content/player/base.json";
 import projectilebasicBulletJson from "@shared/content/projectile/basic_bullet.json";
@@ -91,7 +88,6 @@ import projectilecannonBulletJson from "@shared/content/projectile/cannon_bullet
 import projectilecrossbowArrowJson from "@shared/content/projectile/crossbow_arrow.json";
 import projectilehomingDroneJson from "@shared/content/projectile/homing_drone.json";
 import projectilerifleBulletJson from "@shared/content/projectile/rifle_bullet.json";
-import projectileshootaBulletJson from "@shared/content/projectile/shoota_bullet.json";
 import projectilesniperBulletJson from "@shared/content/projectile/sniper_bullet.json";
 import projectilethanosBulletJson from "@shared/content/projectile/thanos_bullet.json";
 import projectilethanosRocketJson from "@shared/content/projectile/thanos_rocket.json";
@@ -172,7 +168,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("blueprint_saboteur_sword", itemblueprintSaboteurSwordJson),
   makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
   makeParsedItemContentEntry("blueprint_spiked_spear", itemblueprintSpikedSpearJson),
-  makeParsedItemContentEntry("blueprint_zombie_sword", itemblueprintZombieSwordJson),
   makeParsedItemContentEntry("cannon", itemcannonJson),
   makeParsedItemContentEntry("chest", itemchestJson),
   makeParsedItemContentEntry("cleaver", itemcleaverJson),
@@ -193,7 +188,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("rifle_mag", itemrifleMagJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),
   makeParsedItemContentEntry("scissors", itemscissorsJson),
-  makeParsedItemContentEntry("shoota_gun", itemshootaGunJson),
   makeParsedItemContentEntry("sniper", itemsniperJson),
   makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
@@ -202,7 +196,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("thanos_rifle", itemthanosRifleJson),
   makeParsedItemContentEntry("thanos_rocket_launcher", itemthanosRocketLauncherJson),
   makeParsedItemContentEntry("wall", itemwallJson),
-  makeParsedItemContentEntry("zombie_sword", itemzombieSwordJson),
 ] as const;
 
 
@@ -222,7 +215,6 @@ export const projectileContentEntries = [
   makeParsedEntityContentEntry("projectile", "crossbow_arrow", projectilecrossbowArrowJson),
   makeParsedEntityContentEntry("projectile", "homing_drone", projectilehomingDroneJson),
   makeParsedEntityContentEntry("projectile", "rifle_bullet", projectilerifleBulletJson),
-  makeParsedEntityContentEntry("projectile", "shoota_bullet", projectileshootaBulletJson),
   makeParsedEntityContentEntry("projectile", "sniper_bullet", projectilesniperBulletJson),
   makeParsedEntityContentEntry("projectile", "thanos_bullet", projectilethanosBulletJson),
   makeParsedEntityContentEntry("projectile", "thanos_rocket", projectilethanosRocketJson),

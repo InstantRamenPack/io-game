@@ -83,7 +83,7 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("non-dungeon areas are village and forest driven with corner danger scaling", () => {
+  test("non-dungeon areas are village and forest driven with distance-based village tiers", () => {
     const layout = generateProceduralWorldLayout(1337);
 
     expect(layout.villages.length).toBeGreaterThanOrEqual(9);
@@ -104,14 +104,24 @@ describe("procedural survival extraction world", () => {
         (village) => village.sectorId !== layout.dungeonSectorId,
       ),
     ).toBe(true);
+    const tierLayouts = [layout, generateProceduralWorldLayout(1338)];
     expect(
-      layout.villages.some(
-        (village) =>
-          isCornerSector(village.sectorId) &&
-          village.danger === "high" &&
-          ["rare", "epic"].includes(village.lootTier),
+      new Set(
+        tierLayouts.flatMap((entry) =>
+          entry.villages.map((village) => village.danger),
+        ),
       ),
-    ).toBe(true);
+    ).toEqual(new Set(["low", "medium", "high"]));
+    expect(
+      new Set(
+        tierLayouts.flatMap((entry) =>
+          entry.villages.map((village) => village.lootTier),
+        ),
+      ),
+    ).toEqual(new Set(["common", "uncommon", "rare"]));
+    for (const tierLayout of tierLayouts) {
+      expect(villagesAreTieredByDistance(tierLayout)).toBe(true);
+    }
     expect(
       layout.villages.every((village) => village.poiRoles.length >= 4),
     ).toBe(true);
@@ -180,7 +190,8 @@ describe("procedural survival extraction world", () => {
       expect(camp.enemyTypes).toEqual(expected);
     }
 
-    const villageCrates = layout.sectors
+    const villageCrates = [layout, generateProceduralWorldLayout(1338)]
+      .flatMap((entry) => entry.sectors)
       .flatMap((sector) => sector.enemies)
       .filter(
         (enemy) =>
@@ -195,23 +206,19 @@ describe("procedural survival extraction world", () => {
         lootSlots.map((slot) => slot.typeId).join(","),
       ),
     );
-    const allowedVillageTierPools = new Set([
-      "item:hunk,item:junk_food",
-      "item:hunk,item:quality_food,item:pistol_mag",
-      "item:basic_rifle,item:rifle_mag,item:hunk",
-      "item:sniper,item:sniper_mag,item:blueprint_sniper",
-    ]);
-    for (const observed of villageTierPools) {
-      expect(allowedVillageTierPools.has(observed)).toBe(true);
+    expect(villageTierPools.size).toBeGreaterThan(1);
+    for (const crateLoot of villageCrates) {
+      expect(crateLoot.some((slot) => slot.typeId === "item:hunk")).toBe(true);
     }
     expect(
-      villageTierPools.has("item:hunk,item:quality_food,item:pistol_mag"),
+      villageCrates.some((crateLoot) =>
+        crateLoot.some((slot) => slot.kind === "weapon"),
+      ),
     ).toBe(true);
     expect(
-      villageTierPools.has("item:basic_rifle,item:rifle_mag,item:hunk"),
-    ).toBe(true);
-    expect(
-      villageTierPools.has("item:sniper,item:sniper_mag,item:blueprint_sniper"),
+      villageCrates.some((crateLoot) =>
+        crateLoot.some((slot) => slot.typeId.startsWith("item:blueprint_")),
+      ),
     ).toBe(true);
   });
 
@@ -684,6 +691,34 @@ function villageTemplateLabels(
       ),
     ),
   ].sort();
+}
+
+function villagesAreTieredByDistance(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): boolean {
+  const tierRank = new Map([
+    ["low", 0],
+    ["medium", 1],
+    ["high", 2],
+  ]);
+  const center = {
+    x: layout.worldSize.w / 2,
+    y: layout.worldSize.h / 2,
+  };
+  const villages = [...layout.villages].sort((a, b) => {
+    const aDistance = Math.hypot(a.center.x - center.x, a.center.y - center.y);
+    const bDistance = Math.hypot(b.center.x - center.x, b.center.y - center.y);
+    return aDistance - bDistance;
+  });
+
+  for (let index = 1; index < villages.length; index += 1) {
+    const previous = tierRank.get(villages[index - 1]!.danger);
+    const current = tierRank.get(villages[index]!.danger);
+    if (previous === undefined || current === undefined || current < previous) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function pointWithinCamp(

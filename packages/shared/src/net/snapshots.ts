@@ -225,6 +225,12 @@ export const MapSnapshotSchema = z.object({
   centerSectorId: z.string().min(1),
   extractionSectorId: z.string().min(1),
   dungeonSectorId: z.string().min(1),
+  dungeonBounds: z.object({
+    minX: z.number().finite(),
+    minY: z.number().finite(),
+    maxX: z.number().finite(),
+    maxY: z.number().finite(),
+  }),
   militarySectorId: z.string().min(1),
   forestSectorId: z.string().min(1),
   sectors: z.array(MapSectorSnapshotSchema),
