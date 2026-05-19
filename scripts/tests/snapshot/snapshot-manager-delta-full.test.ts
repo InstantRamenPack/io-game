@@ -78,6 +78,10 @@ describe("snapshot manager delta/full behavior", () => {
     expect(wallDelta).toBeDefined();
     expect(wallDelta?.hitboxes).toBeUndefined();
     expect(wallDelta?.typeId).toBeUndefined();
+    expect(wallDelta?.hp).toBeUndefined();
+    expect(wallDelta?.maxHp).toBeUndefined();
+    expect(wallDelta?.alive).toBeUndefined();
+    expect(wallDelta?.ownerId).toBeUndefined();
   });
 
   test("unchanged entities are omitted from delta snapshots", () => {

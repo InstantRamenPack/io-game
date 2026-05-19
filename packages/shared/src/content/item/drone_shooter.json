@@ -5,7 +5,12 @@
   "recipe": {
     "hint": "Launches a slow homing explosive drone.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 68 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 68
+      }
+    ]
   },
   "weapon": {
     "attackStyle": "shoot",
@@ -16,7 +21,10 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:drone_mag",
     "equippedRender": {
-      "holdOffset": { "x": 15, "y": 0 },
+      "holdOffset": {
+        "x": 15,
+        "y": 0
+      },
       "holdRotationDeg": -4,
       "scale": 0.98,
       "handedness": "right",
@@ -24,5 +32,9 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 14
+  },
+  "rarityTier": "rare"
 }

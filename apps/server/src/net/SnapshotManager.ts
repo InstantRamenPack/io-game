@@ -1,7 +1,6 @@
 import type { NetEvent } from "@shared/net/events.ts";
 import type {
   EntitySnapshot,
-  EquippedItemSnapshot,
   ExtractionSnapshot,
   InfrastructureSnapshot,
   MapSnapshot,
@@ -11,6 +10,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { EventRelevanceFilter } from "@server/net/snapshots/EventRelevanceFilter.ts";
 import { PerPlayerReplicationState } from "@server/net/snapshots/PerPlayerReplicationState.ts";
+import { stripKnownStableEntitySnapshotFields } from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
 import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -228,6 +228,39 @@ export class SnapshotManager {
     };
   }
 
+  public makeFullSnapshotForObserver(world: World): WorldSnapshot {
+    if (this.tickCache.getPreparedTick() !== world.tick) {
+      this.prepareTick(world, []);
+    }
+
+    const dayNight =
+      this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
+    const extraction =
+      this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
+    const infrastructure =
+      this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
+    const entities: EntitySnapshot[] = [];
+    for (const entity of world.entities.all()) {
+      const snapshot = this.tickCache.getSnapshot(entity.id);
+      if (snapshot) {
+        entities.push(snapshot);
+      }
+    }
+
+    return {
+      tick: world.tick,
+      dayNight,
+      extraction,
+      infrastructure,
+      map: makeMapSnapshot(world),
+      minimapPlayers: this.collectMinimapPlayers(world),
+      full: true,
+      entities,
+      removedEntityIds: [],
+      events: [],
+    };
+  }
+
   private collectFullEntitiesForPlayer(
     world: World,
     playerId: number,
@@ -301,7 +334,7 @@ export class SnapshotManager {
       changedEntities.push(
         shouldSendFullEntity
           ? snapshot
-          : stripStableKnownFields(snapshot, knownSnapshot),
+          : stripKnownStableEntitySnapshotFields(snapshot, knownSnapshot),
       );
       if (shouldSendFullEntity) {
         fullEntitySnapshotCounts.set(
@@ -396,63 +429,4 @@ function makeMapSnapshot(world: World): MapSnapshot | undefined {
       y: marker.y,
     })),
   };
-}
-
-function stripStableKnownFields(
-  snapshot: EntitySnapshot,
-  knownSnapshot: EntitySnapshot,
-): EntitySnapshot {
-  const deltaSnapshot = { ...snapshot };
-  delete deltaSnapshot.hitboxes;
-
-  if (deltaSnapshot.typeId === knownSnapshot.typeId) {
-    delete deltaSnapshot.typeId;
-  }
-  if (deltaSnapshot.maxHp === knownSnapshot.maxHp) {
-    delete deltaSnapshot.maxHp;
-  }
-  if (deltaSnapshot.hp === knownSnapshot.hp) {
-    delete deltaSnapshot.hp;
-  }
-  if (deltaSnapshot.alive === knownSnapshot.alive) {
-    delete deltaSnapshot.alive;
-  }
-  if (deltaSnapshot.ownerId === knownSnapshot.ownerId) {
-    delete deltaSnapshot.ownerId;
-  }
-
-  if (deltaSnapshot.kind === "enemy" && knownSnapshot.kind === "enemy") {
-    if (deltaSnapshot.targetId === knownSnapshot.targetId) {
-      delete deltaSnapshot.targetId;
-    }
-    if (
-      equippedItemsMatch(deltaSnapshot.equippedItem, knownSnapshot.equippedItem)
-    ) {
-      delete deltaSnapshot.equippedItem;
-    }
-  }
-
-  return deltaSnapshot as EntitySnapshot;
-}
-
-function equippedItemsMatch(
-  left: EquippedItemSnapshot | undefined,
-  right: EquippedItemSnapshot | undefined,
-): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    left.typeId === right.typeId &&
-    left.attackStyle === right.attackStyle &&
-    left.cooldownTicksRemaining === right.cooldownTicksRemaining &&
-    left.ammoInMag === right.ammoInMag &&
-    left.magSize === right.magSize &&
-    left.reserveMagCount === right.reserveMagCount &&
-    left.reloadTicks === right.reloadTicks &&
-    left.reloadTicksRemaining === right.reloadTicksRemaining
-  );
 }

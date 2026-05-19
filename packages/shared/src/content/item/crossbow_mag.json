@@ -3,6 +3,14 @@
   "recipe": {
     "hint": "Restocks the crossbow with a fresh magazine.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 12 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 12
+      }
+    ]
+  },
+  "pickupSpawn": {
+    "pools": ["mag"]
   }
 }

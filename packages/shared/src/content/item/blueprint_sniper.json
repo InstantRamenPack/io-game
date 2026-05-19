@@ -2,5 +2,8 @@
   "label": "Blueprint: Sniper",
   "hint": "Rare crafting schematic for the Sniper.",
   "description": "Unlocks the Sniper recipe permanently for this session.",
-  "unlocksRecipeTypeId": "item:sniper"
+  "unlocksRecipeTypeId": "item:sniper",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
 }

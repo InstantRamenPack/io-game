@@ -3,6 +3,18 @@
   "maxHp": 250,
   "collisionMode": "static",
   "hitboxProfiles": {
-    "default": [{ "width": 60, "height": 60, "offsetX": 0, "offsetY": 0 }]
+    "default": [
+      {
+        "width": 60,
+        "height": 60,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "capabilities": {
+    "container": {
+      "slots": 30
+    }
   }
 }

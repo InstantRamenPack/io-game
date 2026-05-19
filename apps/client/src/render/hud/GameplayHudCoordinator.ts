@@ -7,13 +7,12 @@ import type {
   HotbarSlotItem,
 } from "@client/render/hud/HotbarView.ts";
 import type { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
-import type { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
 import { buildStatusPanelContent } from "@client/render/hud/hudPanelModels.ts";
 import {
   buildActiveEffectEntries,
   buildCombatHudModel,
   buildSelectedItemLabel,
-  buildWeaponDisplayModel,
+  getSelectedItemLabelColor,
 } from "@client/render/hud/hudPresentationModels.ts";
 import type { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import type { ScreenRect } from "@client/render/renderTypes.ts";
@@ -31,6 +30,7 @@ type PerformanceRates = {
 export class GameplayHudCoordinator {
   private readonly selectionToastDurationMs = 1600;
   private selectedItemToastLabel: string | null = null;
+  private selectedItemToastColor = 0xf3f6ee;
   private selectedItemToastShownAtMs = 0;
   private hasSeenInitialHotbarSelection = false;
   private lastHotbarActiveIndex: number | null = null;
@@ -58,6 +58,7 @@ export class GameplayHudCoordinator {
     }
 
     this.selectedItemToastLabel = buildSelectedItemLabel(slot);
+    this.selectedItemToastColor = getSelectedItemLabelColor(slot);
     this.selectedItemToastShownAtMs = nowMs;
     return true;
   }
@@ -68,7 +69,6 @@ export class GameplayHudCoordinator {
     effectIconView: EffectIconView;
     combatHudView: CombatHudView;
     hotbarView: HotbarView;
-    weaponDisplayView: WeaponDisplayView;
     playerEntity: ClientEntity | undefined;
     worldEntities: ClientEntity[];
     trackedBuildings: ClientEntity[];
@@ -87,7 +87,6 @@ export class GameplayHudCoordinator {
       effectIconView,
       combatHudView,
       hotbarView,
-      weaponDisplayView,
       playerEntity,
       worldEntities,
       trackedBuildings,
@@ -150,7 +149,6 @@ export class GameplayHudCoordinator {
     );
 
     hotbarView.setSlots(hotbarItems, hotbarActiveIndex);
-    weaponDisplayView.sync(buildWeaponDisplayModel(activeSlot));
   }
 
   public syncDayNight(options: {
@@ -174,7 +172,6 @@ export class GameplayHudCoordinator {
     selectedItemToastView: SelectedItemToastView;
     dayNightIndicator: DayNightIndicator;
     effectDetailPanel: HudPanel;
-    weaponDisplayView: WeaponDisplayView;
     inventoryOpen: boolean;
     inventoryPanelRect: ScreenRect | null;
   }): void {
@@ -188,7 +185,6 @@ export class GameplayHudCoordinator {
       selectedItemToastView,
       dayNightIndicator,
       effectDetailPanel,
-      weaponDisplayView,
       inventoryOpen,
       inventoryPanelRect,
     } = options;
@@ -199,15 +195,6 @@ export class GameplayHudCoordinator {
     effectIconView.setPosition(
       screenWidth - padding - effectIconView.width,
       padding,
-    );
-
-    const weaponDisplayBottom = screenHeight - padding;
-    const weaponDisplayTop = weaponDisplayView.container.visible
-      ? weaponDisplayBottom - weaponDisplayView.height
-      : weaponDisplayBottom;
-    weaponDisplayView.setPosition(
-      screenWidth - padding - weaponDisplayView.width,
-      weaponDisplayTop,
     );
 
     hotbarView.setPosition(
@@ -247,7 +234,11 @@ export class GameplayHudCoordinator {
     nowMs: number;
   }): void {
     const alpha = this.getSelectionToastAlpha(options.nowMs);
-    options.selectedItemToastView.sync(this.selectedItemToastLabel, alpha);
+    options.selectedItemToastView.sync(
+      this.selectedItemToastLabel,
+      alpha,
+      this.selectedItemToastColor,
+    );
   }
 
   public isSelectionToastVisible(nowMs: number): boolean {

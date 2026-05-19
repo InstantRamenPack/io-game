@@ -122,76 +122,87 @@ export class World {
    * Advances the world by one fixed simulation tick.
    */
   public step(): void {
-    if (!this.benchmarkSink) {
-      this.stepWithoutBenchmark();
-      return;
-    }
+    const benchmarkSink = this.benchmarkSink;
+    const stepStartedAt = benchmarkSink ? performance.now() : 0;
+    const measurePhase = (phase: () => void): number => {
+      if (!benchmarkSink) {
+        phase();
+        return 0;
+      }
+      const phaseStartedAt = performance.now();
+      phase();
+      return performance.now() - phaseStartedAt;
+    };
 
-    const stepStartedAt = performance.now();
     this.tick += 1;
     const deltaMs = 1000 / this.gameConfig.tickRate;
     this.simulationTimeMs += deltaMs;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
-    const dayNightStartedAt = performance.now();
-    this.dayNightSystem.update(this, deltaMs);
-    const dayNightMs = performance.now() - dayNightStartedAt;
-    const waveStartedAt = performance.now();
-    this.waveSystem.update(this, deltaMs);
-    this.nightStormSystem.update(this, deltaMs);
-    this.updateForestCampRespawns();
-    this.infrastructureSystem?.update(this, deltaMs);
-    this.extractionSystem?.update(this, deltaMs);
-    const waveMs = performance.now() - waveStartedAt;
 
-    const spatialBeforeStartedAt = performance.now();
-    this.ensureSpatialIndex();
-    const spatialBeforeMs = performance.now() - spatialBeforeStartedAt;
-    const navDirtyStartedAt = performance.now();
-    this.navPathService.updateDirty(this);
-    const navDirtyMs = performance.now() - navDirtyStartedAt;
+    const dayNightMs = measurePhase(() => {
+      this.dayNightSystem.update(this, deltaMs);
+    });
+    const waveMs = measurePhase(() => {
+      this.waveSystem.update(this, deltaMs);
+      this.nightStormSystem.update(this, deltaMs);
+      this.updateForestCampRespawns();
+      this.infrastructureSystem?.update(this, deltaMs);
+      this.extractionSystem?.update(this, deltaMs);
+    });
+    const spatialBeforeMs = measurePhase(() => {
+      this.ensureSpatialIndex();
+    });
+    const navDirtyMs = measurePhase(() => {
+      this.navPathService.updateDirty(this);
+    });
+
     const tickPhaseEntities = this.entities.all();
-    const entityTickStartedAt = performance.now();
     let enemyTickMs = 0;
     let enemyCount = 0;
-    for (const entity of tickPhaseEntities) {
-      if (!this.entities.has(entity.id)) {
-        continue;
+    const entityTickMs = measurePhase(() => {
+      for (const entity of tickPhaseEntities) {
+        if (!this.entities.has(entity.id)) {
+          continue;
+        }
+        const isEnemy = entity.typeId.startsWith("enemy:");
+        const entityStartedAt =
+          benchmarkSink && isEnemy ? performance.now() : 0;
+        entity.tick(this);
+        if (isEnemy) {
+          enemyCount += 1;
+          if (benchmarkSink) {
+            enemyTickMs += performance.now() - entityStartedAt;
+          }
+        }
       }
-      const entityStartedAt = performance.now();
-      entity.tick(this);
-      const entityElapsedMs = performance.now() - entityStartedAt;
-      if (entity.typeId.startsWith("enemy:")) {
-        enemyCount += 1;
-        enemyTickMs += entityElapsedMs;
-      }
-    }
-    const entityTickMs = performance.now() - entityTickStartedAt;
+    });
     this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
-    const collisionStartedAt = performance.now();
-    this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
-    const collisionMs = performance.now() - collisionStartedAt;
+    const collisionMs = measurePhase(() => {
+      this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
+    });
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
-    const afterMovementStartedAt = performance.now();
-    for (const entity of this.entities.all()) {
-      if (!this.entities.has(entity.id)) {
-        continue;
+    const afterMovementMs = measurePhase(() => {
+      for (const entity of this.entities.all()) {
+        if (!this.entities.has(entity.id)) {
+          continue;
+        }
+        entity.afterMovement(this);
       }
-      entity.afterMovement(this);
-    }
-    const afterMovementMs = performance.now() - afterMovementStartedAt;
+    });
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
-    const pickupStartedAt = performance.now();
-    this.pickupSystem.update(this, deltaMs);
-    const pickupMs = performance.now() - pickupStartedAt;
+    const pickupMs = measurePhase(() => {
+      this.pickupSystem.update(this, deltaMs);
+    });
     this.decayOuterPlayerBuildings(deltaMs);
-    const spatialAfterStartedAt = performance.now();
-    this.ensureSpatialIndex();
-    const spatialAfterMs = performance.now() - spatialAfterStartedAt;
+    const spatialAfterMs = measurePhase(() => {
+      this.ensureSpatialIndex();
+    });
     this.focusedTrace.recordWorldPhase(this, "tick_end");
-    this.benchmarkSink?.recordWorldTick({
+
+    benchmarkSink?.recordWorldTick({
       tick: this.tick,
       totalMs: performance.now() - stepStartedAt,
       dayNightMs,
@@ -207,46 +218,6 @@ export class World {
       entityCount: tickPhaseEntities.length,
       enemyCount,
     });
-  }
-
-  private stepWithoutBenchmark(): void {
-    this.tick += 1;
-    const deltaMs = 1000 / this.gameConfig.tickRate;
-    this.simulationTimeMs += deltaMs;
-    this.focusedTrace.recordWorldPhase(this, "tick_start");
-    this.dayNightSystem.update(this, deltaMs);
-    this.waveSystem.update(this, deltaMs);
-    this.nightStormSystem.update(this, deltaMs);
-    this.updateForestCampRespawns();
-    this.infrastructureSystem?.update(this, deltaMs);
-    this.extractionSystem?.update(this, deltaMs);
-
-    this.ensureSpatialIndex();
-    this.navPathService.updateDirty(this);
-    const tickPhaseEntities = this.entities.all();
-    for (const entity of tickPhaseEntities) {
-      if (!this.entities.has(entity.id)) {
-        continue;
-      }
-      entity.tick(this);
-    }
-    this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
-
-    this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
-    this.focusedTrace.recordWorldPhase(this, "after_collision");
-
-    for (const entity of this.entities.all()) {
-      if (!this.entities.has(entity.id)) {
-        continue;
-      }
-      entity.afterMovement(this);
-    }
-    this.focusedTrace.recordWorldPhase(this, "after_after_movement");
-
-    this.pickupSystem.update(this, deltaMs);
-    this.decayOuterPlayerBuildings(deltaMs);
-    this.ensureSpatialIndex();
-    this.focusedTrace.recordWorldPhase(this, "tick_end");
   }
 
   /**

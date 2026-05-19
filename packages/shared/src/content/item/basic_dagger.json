@@ -2,6 +2,16 @@
   "label": "Dagger",
   "hint": "Lightning-fast stab with minimal reach.",
   "description": "Very fast stabbing weapon with low range and damage. Excels at rapid harassment.",
+  "recipe": {
+    "hint": "Quick stabbing weapon with minimal reach.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 16
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 6,
@@ -10,7 +20,10 @@
     "knockback": 6,
     "jabWidth": 14,
     "equippedRender": {
-      "holdOffset": { "x": 25, "y": 0 },
+      "holdOffset": {
+        "x": 25,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 0.9,
       "handedness": "right",
@@ -18,5 +31,12 @@
       "swingAngleDeg": 0,
       "jabDistance": 20
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 3
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "rarityTier": "common"
 }

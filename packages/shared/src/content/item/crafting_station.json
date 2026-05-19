@@ -4,6 +4,15 @@
   "recipe": {
     "hint": "Adds a core utility structure to your base.",
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 42 }]
-  }
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 42
+      }
+    ]
+  },
+  "recycle": {
+    "hunkValue": 10
+  },
+  "rarityTier": "uncommon"
 }

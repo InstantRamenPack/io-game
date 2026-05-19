@@ -9,12 +9,17 @@ import {
   structureContentEntries,
 } from "@shared/content/generated/manifest.ts";
 import type {
+  EntityCapabilitiesContent,
   EffectContent,
   EntityContent,
   ItemContent,
+  PickupSpawnPool,
   PlayerStarterLoadout,
   ProjectileContent,
+  VisibilityBlockerContent,
   WeaponContent,
+  WeaponPresentation,
+  RarityTier,
 } from "@shared/content/schema.ts";
 import {
   getResourcePath,
@@ -124,6 +129,19 @@ export function getWeaponContent(
   return getItemContent(typeId)?.weapon;
 }
 
+export function getWeaponRarityTier(
+  typeId: ResourceId,
+): RarityTier | undefined {
+  const item = getItemContent(typeId);
+  return item?.weapon ? item.rarityTier : undefined;
+}
+
+export function getWeaponPresentation(
+  typeId: ResourceId,
+): WeaponPresentation | undefined {
+  return getWeaponContent(typeId)?.presentation;
+}
+
 export function requireWeaponContent(typeId: ResourceId): WeaponContent {
   const weaponContent = getWeaponContent(typeId);
   if (!weaponContent) {
@@ -138,6 +156,24 @@ export function getEntityContent(
   return entityContents.get(typeId);
 }
 
+export function getEntityRarityTier(
+  typeId: ResourceId,
+): RarityTier | undefined {
+  return getEntityContent(typeId)?.rarityTier;
+}
+
+export function getEntityCapabilities(
+  typeId: ResourceId,
+): EntityCapabilitiesContent | undefined {
+  return getEntityContent(typeId)?.capabilities;
+}
+
+export function getVisibilityBlockerContent(
+  typeId: ResourceId,
+): VisibilityBlockerContent | undefined {
+  return getEntityCapabilities(typeId)?.visibilityBlocker;
+}
+
 export function requireEntityContent(typeId: ResourceId): EntityContent {
   return requireMapValue(
     entityContents,
@@ -150,6 +186,18 @@ export function getProjectileContent(
   typeId: ResourceId,
 ): ProjectileContent | undefined {
   return getEntityContent(typeId)?.projectile;
+}
+
+export function getItemRecycleHunkValue(
+  typeId: ResourceId,
+): number | undefined {
+  return getItemContent(typeId)?.recycle?.hunkValue;
+}
+
+export function getItemPickupSpawnPools(
+  typeId: ResourceId,
+): readonly PickupSpawnPool[] {
+  return getItemContent(typeId)?.pickupSpawn?.pools ?? [];
 }
 
 export function requireProjectileContent(

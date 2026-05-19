@@ -3,7 +3,7 @@ services:
     name: io-game
     runtime: node
     plan: free
-    buildCommand: bun install --frozen-lockfile && bun run build:client
+    buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run prod:server
     healthCheckPath: /healthz
     envVars:

@@ -16,13 +16,21 @@ import type { ActionMessage, InputMovement } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import {
+  getRecycleHunkOutput,
+  HUNK_ITEM_TYPE_ID,
+  isContainerEntity,
+  isCraftingStationEntity,
+  isDebugAdminPlayerName,
+  getRepairableCapability,
+  isRecyclerEntity,
+} from "@server/content/serverContentCapabilities.ts";
+import {
   requireHitboxEntityBaselineContent,
   requireMovingEntityBaselineContent,
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import {
@@ -36,12 +44,8 @@ import {
   isWeaponCtor,
 } from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
-import { Recycler } from "@server/entities/buildings/Recycler.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
-import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
-const TOWER_REPAIR_HP_DIVISOR = 50;
 const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
 
 type PlayerInputIntentState = {
@@ -50,32 +54,6 @@ type PlayerInputIntentState = {
   theta: number;
   movement: InputMovement;
   receivedAtMs: number;
-};
-
-const RECYCLE_HUNK_BY_ITEM: Record<string, number> = {
-  "item:fists": 0,
-  "item:baseball_bat": 3,
-  "item:basic_dagger": 3,
-  "item:lead_pipe": 4,
-  "item:basic_spear": 5,
-  "item:basic_sword": 6,
-  "item:scissors": 6,
-  "item:zombie_sword": 7,
-  "item:saboteur_sword": 7,
-  "item:cleaver": 7,
-  "item:taser": 8,
-  "item:spiked_spear": 9,
-  "item:katana": 12,
-  "item:basic_gun": 10,
-  "item:basic_rifle": 12,
-  "item:crossbow": 14,
-  "item:drone_shooter": 14,
-  "item:sniper": 18,
-  "item:wall": 2,
-  "item:landmine": 4,
-  "item:chest": 6,
-  "item:crafting_station": 10,
-  "item:cannon": 12,
 };
 
 /**
@@ -318,20 +296,12 @@ export class Player extends Entity {
       return;
     }
 
-    const outputCtor = outputEntry.ctor;
-    const weaponSlotsFreedByCosts = isWeaponCtor(outputCtor)
-      ? recipe.costs.reduce((total, cost) => {
-          const costEntry = itemTypeRegistry.get(cost.typeId);
-          return costEntry && isWeaponCtor(costEntry.ctor)
-            ? total + cost.amount
-            : total;
-        }, 0)
-      : 0;
-    const netWeaponSlotsNeeded = recipe.outputAmount - weaponSlotsFreedByCosts;
-    const canStoreCraftOutput = isWeaponCtor(outputCtor)
-      ? netWeaponSlotsNeeded <= 0 ||
-        this.inventory.canAddWeaponCount(netWeaponSlotsNeeded)
-      : this.inventory.canAddStackable(itemTypeId, recipe.outputAmount);
+    const outputItem = new outputEntry.ctor();
+    const canStoreCraftOutput = outputItem.canGrantToInventoryAfterConsuming(
+      this.inventory,
+      recipe.outputAmount,
+      recipe.costs,
+    );
     if (!canStoreCraftOutput) {
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
@@ -344,26 +314,11 @@ export class Player extends Entity {
     }
 
     this.inventory.consumeTypes(recipe.costs);
-    if (isWeaponCtor(outputCtor)) {
-      for (let count = 0; count < recipe.outputAmount; count += 1) {
-        this.inventory.addWeapon(new outputCtor());
-      }
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "crafted_weapon",
-          outputAmount: recipe.outputAmount,
-          totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
-        });
-      }
-      return;
-    }
-
-    this.inventory.addStackable(itemTypeId, recipe.outputAmount);
+    outputItem.grantToInventory(this.inventory, recipe.outputAmount);
     if (shouldTrace) {
       world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
         itemTypeId,
-        result: "crafted_stackable",
+        result: outputItem.getCraftTraceResult(),
         outputAmount: recipe.outputAmount,
         totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
       });
@@ -543,10 +498,7 @@ export class Player extends Entity {
   }
 
   public isDebugSpectatorMode(): boolean {
-    return (
-      process.env.NODE_ENV !== "production" &&
-      this.name.toLowerCase() === "debug"
-    );
+    return isDebugAdminPlayerName(this.name);
   }
 
   private applyQueuedActions(world: World): void {
@@ -702,7 +654,7 @@ export class Player extends Entity {
     }
 
     if (
-      !absorbInventoryByAcquisitionRules(this.inventory, nearestPickup.contents)
+      !this.inventory.absorbInventoryByAcquisitionRules(nearestPickup.contents)
     ) {
       return;
     }
@@ -720,19 +672,12 @@ export class Player extends Entity {
       return;
     }
 
-    let typeId: string;
-    if (slot.kind === "weapon") {
-      typeId = slot.weapon.typeId;
-      if (typeId === "item:fists") {
-        return;
-      }
-    } else {
-      typeId = slot.typeId;
-    }
-
-    const hunkAmount =
-      RECYCLE_HUNK_BY_ITEM[typeId] ?? (slot.kind === "weapon" ? 5 : 3);
-    if (hunkAmount <= 0) {
+    const typeId = slot.kind === "weapon" ? slot.weapon.typeId : slot.typeId;
+    const hunkAmount = getRecycleHunkOutput(
+      typeId,
+      world.randomNumberGenerator,
+    );
+    if (hunkAmount === undefined || hunkAmount <= 0) {
       return;
     }
 
@@ -745,7 +690,7 @@ export class Player extends Entity {
       }
     }
 
-    this.inventory.addStackable("item:hunk" as ResourceId, hunkAmount);
+    this.inventory.addStackable(HUNK_ITEM_TYPE_ID, hunkAmount);
   }
 
   private isNearRecycler(world: World): boolean {
@@ -757,7 +702,7 @@ export class Player extends Entity {
       bounds.maxX + pad,
       bounds.maxY + pad,
     )) {
-      if (!(candidate instanceof Recycler)) {
+      if (!isRecyclerEntity(candidate)) {
         continue;
       }
       const rb = candidate.getHitboxBounds();
@@ -775,7 +720,11 @@ export class Player extends Entity {
 
   private repairTower(world: World, towerId: number): void {
     const tower = world.entities.get(towerId);
-    if (!(tower instanceof EnergyTower) && !(tower instanceof CommsTower)) {
+    if (!tower) {
+      return;
+    }
+    const repairable = getRepairableCapability(tower);
+    if (!repairable) {
       return;
     }
 
@@ -796,17 +745,18 @@ export class Player extends Entity {
     }
 
     const totalMissing = tower.alive ? missingHp : tower.maxHp;
-    const repairCost = Math.ceil(totalMissing / TOWER_REPAIR_HP_DIVISOR);
+    const repairCost = Math.ceil(totalMissing / repairable.hpPerCostUnit);
     if (repairCost <= 0) {
       return;
     }
 
-    const hunkTypeId = "item:hunk" as ResourceId;
-    if (this.inventory.countType(hunkTypeId) < repairCost) {
+    if (this.inventory.countType(repairable.costItemTypeId) < repairCost) {
       return;
     }
 
-    this.inventory.consumeTypes([{ typeId: hunkTypeId, amount: repairCost }]);
+    this.inventory.consumeTypes([
+      { typeId: repairable.costItemTypeId, amount: repairCost },
+    ]);
     tower.hp = tower.maxHp;
     tower.alive = true;
   }
@@ -841,7 +791,7 @@ export class Player extends Entity {
     }
 
     const chestEntity = world.entities.get<Chest>(chestEntityId);
-    if (!chestEntity || chestEntity.typeId !== "building:chest") {
+    if (!chestEntity || !isContainerEntity(chestEntity)) {
       return;
     }
 
@@ -937,6 +887,6 @@ export class Player extends Entity {
         this.x + CRAFTING_STATION_QUERY_RADIUS,
         this.y + CRAFTING_STATION_QUERY_RADIUS,
       )
-      .filter((entity) => entity.typeId === "building:crafting_station");
+      .filter(isCraftingStationEntity);
   }
 }

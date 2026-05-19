@@ -1,23 +1,27 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import {
+  getEnemyDeathLootConfig,
+  getEnemyDeathMagDropCount,
+  getEnemyDeathHunkDropAmount,
+  HUNK_ITEM_TYPE_ID,
+  requireWeaponRarityTier,
+  shouldDropEnemyWeapon,
+} from "@server/content/serverContentCapabilities.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { Goal } from "@server/goals/Goal.ts";
 import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
-
-const EQUIPPED_WEAPON_DROP_CHANCE = 0.25;
 
 /**
  * Hostile entity with goal-driven targeting and movement state.
@@ -68,37 +72,45 @@ export class Enemy extends GoalControlledEntity {
   private spawnDeathLoot(world: World): void {
     const inventory = new Inventory();
     const rng = world.randomNumberGenerator;
+    const lootConfig = getEnemyDeathLootConfig(this.typeId);
     inventory.addStackable(
-      "item:hunk" as ResourceId,
-      3 + Math.floor(rng() * 12),
+      HUNK_ITEM_TYPE_ID,
+      getEnemyDeathHunkDropAmount(lootConfig.rarityTier, rng),
     );
 
-    const equippedWeapon = this.weapons[0];
-    if (equippedWeapon) {
-      const weaponContent = getWeaponContent(equippedWeapon.typeId);
+    const rangedWeaponForMags = this.weapons.find(
+      (weapon) => getWeaponContent(weapon.typeId)?.attackStyle === "shoot",
+    );
+    if (rangedWeaponForMags) {
+      const weaponContent = getWeaponContent(rangedWeaponForMags.typeId);
       const magItemTypeId =
         weaponContent?.attackStyle === "shoot"
           ? weaponContent.magItemTypeId
           : undefined;
       if (magItemTypeId) {
-        inventory.addStackable(
-          magItemTypeId,
-          1 + Math.floor(rng() * 2),
-        );
+        const magCount = getEnemyDeathMagDropCount(lootConfig.rarityTier, rng);
+        if (magCount > 0) {
+          inventory.addStackable(magItemTypeId, magCount);
+        }
       }
     }
 
-    const shouldDropAllWeapons = this.typeId === ("enemy:thanos" as ResourceId);
-    const shouldDropEquippedWeapon =
-      shouldDropAllWeapons || rng() < EQUIPPED_WEAPON_DROP_CHANCE;
-    if (shouldDropEquippedWeapon) {
-      for (const weapon of shouldDropAllWeapons
-        ? this.weapons
-        : this.weapons.slice(0, 1)) {
-        const itemEntry = itemTypeRegistry.get(weapon.typeId);
-        if (itemEntry) {
-          grantItemEntryByAcquisitionRules(inventory, itemEntry, 1);
-        }
+    for (const weapon of this.weapons) {
+      requireWeaponRarityTier(weapon.typeId);
+    }
+
+    if (
+      this.weapons.length > 0 &&
+      shouldDropEnemyWeapon(lootConfig.rarityTier, rng)
+    ) {
+      const selectedWeapon =
+        this.weapons[Math.floor(rng() * this.weapons.length)];
+      if (!selectedWeapon) {
+        return;
+      }
+      const itemEntry = itemTypeRegistry.get(selectedWeapon.typeId);
+      if (itemEntry) {
+        inventory.grantItemCtor(itemEntry.ctor, 1);
       }
     }
 

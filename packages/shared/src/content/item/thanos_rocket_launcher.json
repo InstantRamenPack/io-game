@@ -8,7 +8,10 @@
     "reloadTicks": 100,
     "spreadDeg": 0,
     "equippedRender": {
-      "holdOffset": { "x": 22, "y": 5 },
+      "holdOffset": {
+        "x": 22,
+        "y": 5
+      },
       "holdRotationDeg": 0,
       "scale": 1.3,
       "handedness": "right",
@@ -16,5 +19,6 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
-  }
+  },
+  "rarityTier": "legendary"
 }

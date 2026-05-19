@@ -1,37 +1,20 @@
 import { getItemContent } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getWorldWeaponPickupTypeIds,
+  requiresManualPickup,
+  WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
+  WORLD_FOOD_PICKUP_TYPE_IDS,
+  WORLD_MAG_PICKUP_TYPE_IDS,
+} from "@server/content/serverContentCapabilities.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { absorbInventoryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
-import { isWeaponCtor } from "@server/runtime/ctorGuards.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-
-const MAG_PICKUP_TYPE_IDS = [
-  "item:pistol_mag",
-  "item:rifle_mag",
-  "item:crossbow_mag",
-  "item:drone_mag",
-] as const;
-
-const WEAPON_PICKUP_TYPE_IDS = [
-  "item:basic_spear",
-  "item:cleaver",
-  "item:lead_pipe",
-  "item:baseball_bat",
-  "item:basic_dagger",
-  "item:scissors",
-] as const satisfies readonly ResourceId[];
-const BLUEPRINT_PICKUP_TYPE_IDS = [
-  "item:blueprint_spiked_spear",
-  "item:blueprint_basic_rifle",
-  "item:blueprint_katana",
-  "item:blueprint_sniper",
-] as const satisfies readonly ResourceId[];
 
 const MAG_PICKUP_SPAWN_INTERVAL_MS = 8000;
 const MAX_ACTIVE_MAG_PICKUPS = 8;
@@ -42,10 +25,6 @@ const MAX_ACTIVE_WEAPON_PICKUPS = 4;
 const BLUEPRINT_PICKUP_SPAWN_INTERVAL_MS = 60000;
 const MAX_ACTIVE_BLUEPRINT_PICKUPS = 2;
 
-const FOOD_PICKUP_TYPE_IDS = [
-  "item:junk_food",
-  "item:quality_food",
-] as const satisfies readonly ResourceId[];
 const FOOD_PICKUP_SPAWN_INTERVAL_MS = 10000;
 const MAX_ACTIVE_FOOD_PICKUPS = 8;
 
@@ -160,9 +139,7 @@ export class PickupSystem implements System {
         }
 
         const transferable = this.buildAutoPickupInventory(player, candidate);
-        if (
-          !absorbInventoryByAcquisitionRules(player.inventory, transferable)
-        ) {
+        if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
         }
         world.despawn(candidate.id);
@@ -227,32 +204,47 @@ export class PickupSystem implements System {
   }
 
   private spawnRandomMagPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, MAG_PICKUP_TYPE_IDS);
+    const typeId = this.pickRandomTypeId(world, WORLD_MAG_PICKUP_TYPE_IDS);
+    if (!typeId) {
+      return;
+    }
     const inventory = new Inventory();
     inventory.addStackable(typeId, 1);
     this.trySpawnPickup(world, inventory);
   }
 
   private spawnRandomWeaponPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, WEAPON_PICKUP_TYPE_IDS);
+    const typeId = this.pickRandomTypeId(world, getWorldWeaponPickupTypeIds());
+    if (!typeId) {
+      return;
+    }
     const weaponEntry = itemTypeRegistry.get(typeId);
-    if (!weaponEntry || !isWeaponCtor(weaponEntry.ctor)) {
+    if (!weaponEntry) {
       return;
     }
     const inventory = new Inventory();
-    inventory.addWeapon(new weaponEntry.ctor());
+    inventory.grantItemCtor(weaponEntry.ctor, 1);
     this.trySpawnPickup(world, inventory);
   }
 
   private spawnRandomBlueprintPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, BLUEPRINT_PICKUP_TYPE_IDS);
+    const typeId = this.pickRandomTypeId(
+      world,
+      WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
+    );
+    if (!typeId) {
+      return;
+    }
     const inventory = new Inventory();
     inventory.addStackable(typeId, 1);
     this.trySpawnPickup(world, inventory);
   }
 
   private spawnRandomFoodPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, FOOD_PICKUP_TYPE_IDS);
+    const typeId = this.pickRandomTypeId(world, WORLD_FOOD_PICKUP_TYPE_IDS);
+    if (!typeId) {
+      return;
+    }
     const inventory = new Inventory();
     inventory.addStackable(typeId, 1);
     this.trySpawnPickup(world, inventory);
@@ -304,32 +296,32 @@ export class PickupSystem implements System {
   }
 
   private isFoodPickup(pickup: ItemEntity): boolean {
-    return FOOD_PICKUP_TYPE_IDS.some(
+    return WORLD_FOOD_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
 
   private isMagPickup(pickup: ItemEntity): boolean {
-    return MAG_PICKUP_TYPE_IDS.some(
+    return WORLD_MAG_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
 
   private isWeaponPickup(pickup: ItemEntity): boolean {
-    return WEAPON_PICKUP_TYPE_IDS.some(
+    return getWorldWeaponPickupTypeIds().some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
 
   private isBlueprintPickup(pickup: ItemEntity): boolean {
-    return BLUEPRINT_PICKUP_TYPE_IDS.some(
+    return WORLD_BLUEPRINT_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
 
   private shouldAutoPickup(pickup: ItemEntity): boolean {
     for (const [typeId, amount] of pickup.contents.resources.entries()) {
-      if (amount > 0 && this.requiresManualPickup(typeId)) {
+      if (amount > 0 && requiresManualPickup(typeId)) {
         return false;
       }
     }
@@ -341,7 +333,7 @@ export class PickupSystem implements System {
       if (slot.kind === "weapon") {
         return false;
       }
-      if (slot.count > 0 && this.requiresManualPickup(slot.typeId)) {
+      if (slot.count > 0 && requiresManualPickup(slot.typeId)) {
         return false;
       }
     }
@@ -402,21 +394,13 @@ export class PickupSystem implements System {
     return true;
   }
 
-  private requiresManualPickup(typeId: ResourceId): boolean {
-    const itemEntry = itemTypeRegistry.get(typeId);
-    if (!itemEntry) {
-      return false;
-    }
-    return (
-      isWeaponCtor(itemEntry.ctor) ||
-      Boolean(itemEntry.content.buildsEntityTypeId)
-    );
-  }
-
   private pickRandomTypeId<T extends ResourceId>(
     world: World,
-    typeIds: readonly [T, ...T[]],
-  ): T {
+    typeIds: readonly T[],
+  ): T | undefined {
+    if (typeIds.length === 0) {
+      return undefined;
+    }
     const index = Math.floor(world.randomNumberGenerator() * typeIds.length);
     return typeIds[index] ?? typeIds[0];
   }

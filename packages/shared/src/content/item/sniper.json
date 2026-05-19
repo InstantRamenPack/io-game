@@ -6,8 +6,14 @@
     "hint": "Heavy precision rifle with expensive maintenance and reloads.",
     "outputAmount": 1,
     "costs": [
-      { "typeId": "item:blueprint_sniper", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 120 }
+      {
+        "typeId": "item:blueprint_sniper",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 120
+      }
     ]
   },
   "weapon": {
@@ -19,13 +25,23 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:sniper_mag",
     "equippedRender": {
-      "holdOffset": { "x": 22, "y": 2 },
+      "holdOffset": {
+        "x": 22,
+        "y": 2
+      },
       "holdRotationDeg": -10,
       "scale": 1.14,
       "handedness": "right",
       "recoilDistance": 18,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "presentation": {
+      "aimGuide": "sniper"
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 18
+  },
+  "rarityTier": "legendary"
 }

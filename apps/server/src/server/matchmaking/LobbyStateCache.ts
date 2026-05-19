@@ -36,6 +36,7 @@ export class LobbyStateCache {
     const stateWithoutNow: LobbyStateWithoutServerNow = {
       t: state.t,
       inLobby: state.inLobby,
+      isHost: state.isHost,
       lobbyCode: state.lobbyCode,
       playerCount: state.playerCount,
       maxPlayers: state.maxPlayers,

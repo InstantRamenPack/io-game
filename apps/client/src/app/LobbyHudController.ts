@@ -20,6 +20,7 @@ export function createLobbyHudController({
   const statusEl = elements.lobbyHudStatus;
   const metaEl = elements.lobbyHudMeta;
   const joinBtn = elements.lobbyJoinBtn;
+  const startBtn = elements.lobbyStartBtn;
   const leaveBtn = elements.lobbyLeaveBtn;
   const codeInput = elements.lobbyCodeInput;
   const joinCodeBtn = elements.lobbyCodeJoinBtn;
@@ -32,6 +33,7 @@ export function createLobbyHudController({
     !statusEl ||
     !metaEl ||
     !joinBtn ||
+    !startBtn ||
     !leaveBtn ||
     !codeInput ||
     !joinCodeBtn
@@ -70,8 +72,16 @@ export function createLobbyHudController({
     const state = gameClient.getLobbyState() ?? lastState;
     if (!state || !state.inLobby) {
       root.hidden = !isVisible || sectorFeedVisible;
-      statusEl.textContent = "No lobby queue selected";
-      metaEl.textContent = "Join an open lobby or enter a code.";
+      statusEl.textContent = "No lobby code selected";
+      metaEl.textContent = "";
+      joinBtn.hidden = false;
+      startBtn.hidden = true;
+      joinBtn.textContent = "Join Open Lobby";
+      joinBtn.disabled = false;
+      startBtn.disabled = true;
+      codeInput.hidden = false;
+      joinCodeBtn.hidden = false;
+      leaveBtn.hidden = true;
       leaveBtn.disabled = true;
       if (matchCoreHud) {
         matchCoreHud.hidden = true;
@@ -116,7 +126,10 @@ export function createLobbyHudController({
       matchCoreHud.hidden = true;
     }
 
-    let countdownText = "Waiting for 2 players";
+    let countdownText =
+      state.playerCount === 1
+        ? "Ready when you click Start"
+        : "Waiting for 2 players";
     if (state.startedAtMs !== null && state.startedAtMs !== undefined) {
       countdownText = "Game started";
     } else if (
@@ -130,8 +143,18 @@ export function createLobbyHudController({
       countdownText = `Starting in ${countdownSeconds}s`;
     }
 
-    statusEl.textContent = `Lobby ${state.lobbyCode ?? "UNKNOWN"} • ${state.playerCount}/${state.maxPlayers}`;
-    metaEl.textContent = `Queue age ${ageSeconds}s • ${countdownText}`;
+    statusEl.textContent = `Lobby code: ${state.lobbyCode ?? "UNKNOWN"}`;
+    metaEl.textContent = `${state.playerCount}/${state.maxPlayers} • Queue age ${ageSeconds}s • ${countdownText}`;
+    joinBtn.hidden = true;
+    codeInput.hidden = true;
+    joinCodeBtn.hidden = true;
+    leaveBtn.hidden = false;
+    startBtn.hidden = !state.isHost;
+    startBtn.disabled =
+      !state.isHost ||
+      state.playerCount < 1 ||
+      (state.countdownEndsAtMs !== null &&
+        state.countdownEndsAtMs !== undefined);
     leaveBtn.disabled = false;
   };
 
@@ -141,6 +164,10 @@ export function createLobbyHudController({
 
   leaveBtn.addEventListener("click", () => {
     gameClient.requestLeaveLobby();
+  });
+
+  startBtn.addEventListener("click", () => {
+    gameClient.requestStartLobby();
   });
 
   const joinByCode = (): void => {

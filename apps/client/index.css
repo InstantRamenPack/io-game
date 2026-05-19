@@ -702,53 +702,6 @@ body {
   flex-wrap: wrap;
 }
 
-.account-gate {
-  margin-bottom: 18px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid rgba(255, 140, 140, 0.22);
-  background: rgba(191, 56, 47, 0.15);
-  color: #ffd7d3;
-  font-size: 13px;
-  padding: 10px 12px;
-  border-radius: 8px;
-}
-
-.account-gate.ok {
-  border-color: rgba(157, 236, 123, 0.24);
-  background: rgba(72, 170, 35, 0.16);
-  color: #d8f7ca;
-}
-
-.account-btn {
-  border: 0;
-  border-radius: 8px;
-  background: #78db49;
-  color: #0d1709;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.account-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.google-auth-slot {
-  min-width: 220px;
-}
-
-.google-signin-target {
-  min-height: 40px;
-}
-
 .play-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -824,55 +777,73 @@ body {
 
 .lobby-hud {
   position: fixed;
-  top: 16px;
-  left: 16px;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 34;
-  width: min(36vw, 384px);
-  border-radius: 12px;
-  border: 1px solid rgba(157, 236, 123, 0.26);
-  background: rgba(2, 10, 4, 0.78);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(8px);
-  padding: 10px 12px;
+  width: min(92vw, 520px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 205, 92, 0.42);
+  background:
+    linear-gradient(135deg, rgba(12, 26, 36, 0.92), rgba(18, 11, 4, 0.9)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0 1px,
+      transparent 1px 18px
+    );
+  box-shadow:
+    0 18px 70px rgba(0, 0, 0, 0.55),
+    inset 0 0 32px rgba(255, 176, 59, 0.08);
+  backdrop-filter: blur(12px);
+  padding: 16px;
   pointer-events: auto;
 }
 
-.lobby-hud-kicker {
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
 .lobby-hud-status {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 0;
+  font-size: 24px;
+  color: #fff4c7;
+  font-weight: 700;
 }
 
 .lobby-hud-meta {
-  margin-top: 4px;
-  color: var(--text-dim);
-  font-size: 12px;
+  margin-top: 6px;
+  color: rgba(213, 236, 255, 0.72);
+  font-size: 13px;
+  letter-spacing: 0.02em;
 }
 
 .lobby-hud-actions {
-  margin-top: 8px;
+  margin-top: 12px;
   display: flex;
   gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .lobby-hud-actions button,
 .lobby-hud-actions input {
   border-radius: 8px;
-  border: 1px solid rgba(168, 248, 135, 0.25);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-main);
+  border: 1px solid rgba(139, 207, 255, 0.28);
+  background: rgba(14, 36, 54, 0.78);
+  color: #e8f6ff;
   font: inherit;
   padding: 8px 10px;
 }
 
 .lobby-hud-actions button {
   cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#lobby-start-btn {
+  border-color: rgba(255, 198, 92, 0.58);
+  background: linear-gradient(180deg, #ffd15f, #b86d18);
+  color: #1a0f04;
+  font-weight: 800;
 }
 
 .lobby-hud-actions button:disabled {
@@ -881,7 +852,8 @@ body {
 }
 
 .lobby-hud-actions input {
-  flex: 1;
+  flex: 1 1 160px;
+  min-width: 120px;
 }
 
 .game-start-prompt {
@@ -904,18 +876,19 @@ body {
 
 .training-ground-banner {
   position: fixed;
-  top: 14px;
+  top: auto;
+  bottom: 112px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) rotate(-1deg);
   z-index: 33;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: 8px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(240, 185, 60, 0.38);
-  background: rgba(28, 18, 4, 0.84);
+  border-radius: 999px;
+  border: 1px solid rgba(139, 207, 255, 0.34);
+  background: rgba(8, 26, 42, 0.84);
   backdrop-filter: blur(8px);
   pointer-events: none;
   white-space: nowrap;
@@ -926,14 +899,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #f0c040;
+  color: #8bcfff;
 }
 
 .training-ground-sub {
   font-size: 10px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(240, 190, 80, 0.58);
+  color: rgba(213, 236, 255, 0.58);
 }
 
 .match-core-hud {
@@ -989,7 +962,7 @@ body {
   .lobby-hud {
     width: min(80vw, 420px);
     top: 10px;
-    left: 10px;
+    left: 50%;
     right: auto;
   }
 
@@ -1059,4 +1032,117 @@ body {
     bottom: 12px;
     max-width: 90vw;
   }
+}
+
+/* Minimal launch modal over the lobby surface. */
+#game-root.menu-backdrop-world,
+#game-root.is-menu-backdrop {
+  display: block !important;
+}
+
+#game-root.is-menu-backdrop {
+  filter: blur(6px);
+  transform: scale(1.02);
+  transform-origin: 0 0;
+}
+
+#game-root.is-menu-backdrop canvas {
+  opacity: 0.92;
+}
+
+.menu-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+.menu-scene::before,
+.menu-scene::after {
+  content: none;
+}
+
+.play-card {
+  position: relative;
+  z-index: 1;
+  width: min(88vw, 320px);
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 12, 10, 0.72);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
+}
+
+.play-card h1 {
+  margin: 0 0 16px;
+  color: #f5fff0;
+  font-size: 34px;
+  line-height: 1;
+  text-align: center;
+}
+
+.field-error {
+  margin: -4px 0 10px;
+  color: #ff8f8f;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.name-label {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(232, 245, 231, 0.72);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.play-grid,
+.layout,
+.side-menu,
+.hud-top,
+.bottom-stats,
+.card-top,
+.metrics,
+.danger-pill {
+  display: none;
+}
+
+.play-card .field,
+.play-card .launch {
+  display: block;
+}
+
+.field,
+.launch {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  height: 56px;
+  font-size: 22px;
+  padding: 0 16px;
+}
+
+.field {
+  margin-bottom: 14px;
+  background: rgba(238, 248, 232, 0.94);
+  color: #091207;
+}
+
+.launch {
+  background: linear-gradient(180deg, #75e24c, #3da40f);
+  color: #f4ffe9;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.launch:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }

@@ -4,11 +4,8 @@ import type {
   EntityServerFrame,
 } from "@client/net/ClientEntity.ts";
 import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { getProjectileContent } from "@shared/content/catalog.ts";
 import { lerpAngle } from "@shared/math/angle.ts";
-
-const SERVER_DELAYED_PROJECTILE_TYPE_IDS = new Set<string>([
-  "projectile:homing_drone",
-]);
 
 export type InterpolationMode =
   | "none"
@@ -595,10 +592,18 @@ function getReferenceFrame(sample: EntityPositionSample): EntityServerFrame {
 }
 
 function shouldExtrapolateProjectile(entity: ClientEntity): boolean {
-  return (
-    entity.kind === "projectile" &&
-    !SERVER_DELAYED_PROJECTILE_TYPE_IDS.has(entity.typeId)
-  );
+  return entity.kind === "projectile" && !isServerDelayedProjectile(entity);
+}
+
+function isServerDelayedProjectile(entity: ClientEntity): boolean {
+  const projectileContent = getProjectileContent(entity.typeId);
+  if (!projectileContent) {
+    return false;
+  }
+  if (projectileContent.presentation !== undefined) {
+    return projectileContent.presentation.serverDelayed;
+  }
+  return projectileContent.damage === 0;
 }
 
 function lerp(start: number, end: number, t: number): number {

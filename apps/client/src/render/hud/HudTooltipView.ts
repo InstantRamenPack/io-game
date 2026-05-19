@@ -58,6 +58,7 @@ export class HudTooltipView {
     const padding = 10;
     const detailWidth = Math.max(80, maxWidth - padding * 2);
     this.title.text = content.title;
+    this.title.style.fill = content.titleColor ?? 0xf3f6ee;
     this.detail.text = content.detail;
     this.detail.style.wordWrapWidth = detailWidth;
     this.lines.text = content.lines.join("\n");

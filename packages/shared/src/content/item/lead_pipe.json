@@ -2,6 +2,16 @@
   "label": "Lead Pipe",
   "hint": "Short blunt swing. Rarely rattles the target's brain.",
   "description": "Heavy pipe with short reach. Has a small chance to confuse targets on hit.",
+  "recipe": {
+    "hint": "Heavy short-range pipe with control utility.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 18
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 13,
@@ -10,7 +20,10 @@
     "knockback": 12,
     "sweepArcDeg": 85,
     "equippedRender": {
-      "holdOffset": { "x": 35, "y": 0 },
+      "holdOffset": {
+        "x": 35,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 1.2,
       "handedness": "right",
@@ -18,5 +31,12 @@
       "swingAngleDeg": 85,
       "jabDistance": 0
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 4
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "rarityTier": "common"
 }

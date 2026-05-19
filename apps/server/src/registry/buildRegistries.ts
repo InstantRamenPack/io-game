@@ -19,7 +19,7 @@ import {
   effectRuntimeCtors,
   entityRuntimeCtors,
   itemRuntimeCtors,
-} from "@server/registry/runtimeCtorMap.ts";
+} from "@server/registry/runtimeRegistry.ts";
 
 function assertUniqueRuntimeTypeIds(
   entries: Iterable<{ readonly typeId: ResourceId }>,

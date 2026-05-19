@@ -2,6 +2,16 @@
   "label": "Scissors",
   "hint": "Short stab with a chance to open a cut.",
   "description": "Basic scavenged weapon with low range, low damage, and a small chance to inflict bleeding.",
+  "recipe": {
+    "hint": "Cheap stabbing weapon with a bleed chance.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 18
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 9,
@@ -10,7 +20,10 @@
     "knockback": 5,
     "jabWidth": 14,
     "equippedRender": {
-      "holdOffset": { "x": 24, "y": 0 },
+      "holdOffset": {
+        "x": 24,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 0.85,
       "handedness": "right",
@@ -18,5 +31,12 @@
       "swingAngleDeg": 0,
       "jabDistance": 18
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 6
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "rarityTier": "common"
 }

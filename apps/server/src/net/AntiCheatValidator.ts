@@ -3,6 +3,7 @@ import type {
   InputIntentMessage,
 } from "@shared/net/protocol.ts";
 import type { Chest } from "@server/entities/buildings/Chest.ts";
+import { isContainerEntity } from "@server/content/serverContentCapabilities.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -88,7 +89,7 @@ export class AntiCheatValidator {
     const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
     const chestEntity = world.entities.get<Chest>(chestEntityId);
     const chestSlotCount =
-      chestEntity?.typeId === "building:chest"
+      chestEntity && isContainerEntity(chestEntity)
         ? chestEntity.chestSlots.length
         : 0;
 

@@ -13,7 +13,6 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 const wallItemId = makeResourceId("item", "wall");
-const treeItemId = makeResourceId("item", "structure_tree");
 
 function addAndSelectBuildable(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -131,14 +130,14 @@ describe("build placement authority", () => {
     expect(runtime.world.entities.all().length).toBe(beforeCount);
   });
 
-  test("structure placement snaps to pixel", () => {
+  test("build placement snaps to pixel", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const homeBounds = runtime.world.proceduralLayout?.homeBounds;
     expect(homeBounds).toBeDefined();
     player.x = homeBounds!.minX + 512;
     player.y = homeBounds!.minY + 512;
-    addAndSelectBuildable(player, treeItemId, 1);
+    addAndSelectBuildable(player, wallItemId, 1);
     const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
     enqueueAction(runtime, {
       t: "action",
@@ -148,9 +147,9 @@ describe("build placement authority", () => {
     });
     const spawned = getNewEntities(beforeIds, runtime.world.entities.all());
     expect(spawned.length).toBeGreaterThan(0);
-    const structure = spawned[0]!;
-    expect(structure.x).toBe(Math.round(player.x + 128));
-    expect(structure.y).toBe(Math.round(player.y));
+    const built = spawned[0]!;
+    expect(built.x).toBe(Math.round(player.x + 128));
+    expect(built.y).toBe(Math.round(player.y));
   });
 
   test("player building placement snaps to pixel", () => {

@@ -2,6 +2,16 @@
   "label": "Gun",
   "hint": "Reliable sidearm with a fast reload and low recoil.",
   "description": "Starter pistol for close and mid-range fights.",
+  "recipe": {
+    "hint": "Reliable sidearm for close and mid-range fights.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 52
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 5,
@@ -11,13 +21,20 @@
     "spreadDeg": 0,
     "magItemTypeId": "item:pistol_mag",
     "equippedRender": {
-      "holdOffset": { "x": 30, "y": 8 },
+      "holdOffset": {
+        "x": 30,
+        "y": 8
+      },
       "holdRotationDeg": 0,
-      "scale": 1.0,
+      "scale": 1,
       "handedness": "right",
       "recoilDistance": 10,
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 10
+  },
+  "rarityTier": "common"
 }

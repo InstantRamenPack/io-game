@@ -5,8 +5,20 @@
   "collisionMode": "dynamic",
   "hitboxProfiles": {
     "default": [
-      { "width": 28, "height": 18, "offsetX": 0, "offsetY": -8 },
-      { "width": 34, "height": 20, "offsetX": 0, "offsetY": 10 }
+      {
+        "width": 28,
+        "height": 18,
+        "offsetX": 0,
+        "offsetY": -8
+      },
+      {
+        "width": 34,
+        "height": 20,
+        "offsetX": 0,
+        "offsetY": 10
+      }
     ]
-  }
+  },
+  "rarityTier": "legendary",
+  "deathLoot": {}
 }

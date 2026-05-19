@@ -20,6 +20,13 @@ export const CollisionModeSchema = z.enum(["none", "static", "dynamic"]);
 export type CollisionMode = z.infer<typeof CollisionModeSchema>;
 
 export const AttackStyleSchema = z.enum(["shoot", "swing", "jab"]);
+export const RarityTierSchema = z.enum([
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+]);
 
 export const EquippedRenderSchema = z.object({
   textureTypeId: ResourceIdSchema.optional(),
@@ -35,6 +42,10 @@ export const EquippedRenderSchema = z.object({
   jabDistance: z.number().finite().nonnegative().default(0),
 });
 
+export const WeaponPresentationSchema = z.object({
+  aimGuide: z.enum(["sniper"]).optional(),
+});
+
 export const ShootWeaponContentSchema = z.object({
   attackStyle: z.literal("shoot"),
   cooldownTicks: z.number().int().positive(),
@@ -44,6 +55,7 @@ export const ShootWeaponContentSchema = z.object({
   spreadDeg: z.number().finite().nonnegative().default(0),
   magItemTypeId: ResourceIdSchema.optional(),
   equippedRender: EquippedRenderSchema,
+  presentation: WeaponPresentationSchema.optional(),
 });
 
 export const SwingWeaponContentSchema = z.object({
@@ -54,6 +66,7 @@ export const SwingWeaponContentSchema = z.object({
   knockback: z.number().finite().nonnegative().default(0),
   sweepArcDeg: z.number().finite().positive(),
   equippedRender: EquippedRenderSchema,
+  presentation: WeaponPresentationSchema.optional(),
 });
 
 export const JabWeaponContentSchema = z.object({
@@ -64,6 +77,7 @@ export const JabWeaponContentSchema = z.object({
   knockback: z.number().finite().nonnegative().default(0),
   jabWidth: z.number().finite().positive(),
   equippedRender: EquippedRenderSchema,
+  presentation: WeaponPresentationSchema.optional(),
 });
 
 export const WeaponContentSchema = z.discriminatedUnion("attackStyle", [
@@ -81,11 +95,41 @@ export const ProjectileContentSchema = z.object({
     width: z.number().finite().positive(),
     height: z.number().finite().positive(),
   }),
+  presentation: z
+    .object({
+      serverDelayed: z.boolean().default(false),
+    })
+    .optional(),
 });
+
+export const VisibilityBlockerContentSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("none") }),
+  z.object({ mode: z.literal("rects") }),
+  z.object({
+    mode: z.literal("circle"),
+    radius: z.number().finite().positive(),
+  }),
+]);
 
 export const EntityCombatContentSchema = z.object({
   damageMultiplier: z.number().finite().nonnegative().default(1),
   attackMinIntervalTicks: z.number().int().nonnegative().default(0),
+});
+
+export const EntityCapabilitiesContentSchema = z.object({
+  container: z
+    .object({
+      slots: z.number().int().positive().optional(),
+    })
+    .optional(),
+  craftingStation: z.boolean().default(false),
+  repairable: z
+    .object({
+      costItemTypeId: ResourceIdSchema.default("item:hunk"),
+      hpPerCostUnit: z.number().finite().positive().default(50),
+    })
+    .optional(),
+  visibilityBlocker: VisibilityBlockerContentSchema.optional(),
 });
 
 export const ItemRequirementSchema = z.object({
@@ -99,11 +143,45 @@ export const ItemRecipeContentSchema = z.object({
   costs: z.array(ItemRequirementSchema).min(1),
 });
 
+export const PickupSpawnPoolSchema = z.enum([
+  "mag",
+  "weapon",
+  "blueprint",
+  "food",
+]);
+
 export const PlayerStarterLoadoutSchema = z.object({
   selectedHotbarIndex: HotbarIndexSchema.default(0),
   weapons: z.array(ResourceIdSchema).default([]),
   stackables: z.array(ItemRequirementSchema).default([]),
 });
+
+export const RuntimeServerClassKindSchema = z.enum([
+  "material",
+  "magazine",
+  "rangedWeapon",
+  "projectile",
+  "effect",
+  "custom",
+]);
+
+export const RuntimeRegistrationSchema = z
+  .object({
+    server: z
+      .object({
+        classKind: RuntimeServerClassKindSchema.optional(),
+        symbol: z.string().min(1).optional(),
+        importPath: z.string().min(1).optional(),
+      })
+      .optional(),
+    renderer: z
+      .object({
+        symbol: z.string().min(1).optional(),
+        importPath: z.string().min(1).optional(),
+      })
+      .optional(),
+  })
+  .optional();
 
 export const ItemContentSchema = z.object({
   label: z.string().min(1),
@@ -115,7 +193,23 @@ export const ItemContentSchema = z.object({
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
+<<<<<<< HEAD
   food: z.object({ healAmount: z.number().finite().positive() }).optional(),
+=======
+  rarityTier: RarityTierSchema.optional(),
+  food: z.object({ foodRestore: z.number().finite().positive() }).optional(),
+  recycle: z
+    .object({
+      hunkValue: z.number().int().nonnegative(),
+    })
+    .optional(),
+  pickupSpawn: z
+    .object({
+      pools: z.array(PickupSpawnPoolSchema).min(1),
+    })
+    .optional(),
+  runtime: RuntimeRegistrationSchema,
+>>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
 });
 
 export const EntityContentSchema = z.object({
@@ -131,10 +225,18 @@ export const EntityContentSchema = z.object({
     .optional(),
   activeHitboxProfile: z.string().min(1).optional(),
   combat: EntityCombatContentSchema.optional(),
+  capabilities: EntityCapabilitiesContentSchema.optional(),
   projectile: ProjectileContentSchema.optional(),
   player: z
     .object({
       starterLoadout: PlayerStarterLoadoutSchema.optional(),
+    })
+    .optional(),
+  runtime: RuntimeRegistrationSchema,
+  rarityTier: RarityTierSchema.optional(),
+  deathLoot: z
+    .object({
+      // placeholder container for strict enemy death-loot presence
     })
     .optional(),
 });
@@ -143,20 +245,38 @@ export const EffectContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  runtime: RuntimeRegistrationSchema,
 });
 
 export type AttackStyle = z.infer<typeof AttackStyleSchema>;
+export type RarityTier = z.infer<typeof RarityTierSchema>;
 export type EquippedRender = z.infer<typeof EquippedRenderSchema>;
+export type WeaponPresentation = z.infer<typeof WeaponPresentationSchema>;
 export type ShootWeaponContent = z.infer<typeof ShootWeaponContentSchema>;
 export type SwingWeaponContent = z.infer<typeof SwingWeaponContentSchema>;
 export type JabWeaponContent = z.infer<typeof JabWeaponContentSchema>;
 export type WeaponContent = z.infer<typeof WeaponContentSchema>;
 export type ProjectileContent = z.infer<typeof ProjectileContentSchema>;
+export type VisibilityBlockerContent = z.infer<
+  typeof VisibilityBlockerContentSchema
+>;
 export type EntityCombatContent = z.infer<typeof EntityCombatContentSchema>;
+export type EntityCapabilitiesContent = z.infer<
+  typeof EntityCapabilitiesContentSchema
+>;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
+export type PickupSpawnPool = z.infer<typeof PickupSpawnPoolSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
+<<<<<<< HEAD
 export type FoodContent = { healAmount: number };
+=======
+export type RuntimeServerClassKind = z.infer<
+  typeof RuntimeServerClassKindSchema
+>;
+export type RuntimeRegistration = z.infer<typeof RuntimeRegistrationSchema>;
+export type FoodContent = { foodRestore: number };
+>>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

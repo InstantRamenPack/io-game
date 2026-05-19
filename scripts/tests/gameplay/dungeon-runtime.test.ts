@@ -17,7 +17,7 @@ import {
 const DUNGEON_KEY_TYPE_ID = "item:dungeon_key" as ResourceId;
 
 describe("dungeon runtime mechanics", () => {
-  test("enemy death drops hunks, matching ammo, and sometimes the carried weapon", () => {
+  test("enemy death drops tiered hunks and tiered matching ammo", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime({ worldSeed: 22 });
     const enemy = new Shoota(runtime.world.allocEntityId());
@@ -28,10 +28,15 @@ describe("dungeon runtime mechanics", () => {
     enemy.applyDamage(runtime.world, enemy.maxHp, 0);
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
-    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(11);
+    const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
+    expect(hunkCount).toBeGreaterThanOrEqual(28);
+    expect(hunkCount).toBeLessThanOrEqual(45);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBe(1);
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      pickup.contents.countType("item:pistol_mag" as ResourceId),
+    ).toBeLessThanOrEqual(3);
   });
 
   test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {
@@ -71,7 +76,7 @@ describe("dungeon runtime mechanics", () => {
     }
   });
 
-  test("Thanos drops his carried weapons on death", () => {
+  test("Thanos guaranteed drop yields one random carried weapon on death", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const thanos = new Thanos(runtime.world.allocEntityId());
@@ -82,15 +87,11 @@ describe("dungeon runtime mechanics", () => {
     thanos.applyDamage(runtime.world, thanos.maxHp, 0);
 
     const pickup = findPickupAt(runtime, thanos.x, thanos.y);
-    expect(
-      pickup.contents.countType("item:thanos_fist" as ResourceId),
-    ).toBeGreaterThan(0);
-    expect(
-      pickup.contents.countType("item:thanos_rifle" as ResourceId),
-    ).toBeGreaterThan(0);
-    expect(
-      pickup.contents.countType("item:thanos_rocket_launcher" as ResourceId),
-    ).toBeGreaterThan(0);
+    const dropCount =
+      pickup.contents.countType("item:thanos_fist" as ResourceId) +
+      pickup.contents.countType("item:thanos_rifle" as ResourceId) +
+      pickup.contents.countType("item:thanos_rocket_launcher" as ResourceId);
+    expect(dropCount).toBe(1);
   });
 
   test("tripwire targets players once with bleed, slow, and confusion", () => {
@@ -204,9 +205,7 @@ function simulateWaveAndFirstDeathDrop(seed: number): {
   tick(runtime, 1);
   const waveEnemy = runtime.world.entities
     .all()
-    .find(
-      (entity) => entity instanceof Shoota && entity.id > 1,
-    );
+    .find((entity) => entity instanceof Shoota && entity.id > 1);
   if (!(waveEnemy instanceof Shoota)) {
     throw new Error("expected first wave shoota spawn");
   }

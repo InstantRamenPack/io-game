@@ -9,6 +9,7 @@ const CRAFT_MODAL_PREVIEW_ICON_SIZE = 132;
 const CRAFT_BUTTON_WIDTH = 176;
 const CRAFT_BUTTON_HEIGHT = 48;
 const CRAFT_MODAL_MAX_TILES = 64;
+const CRAFT_MODAL_SCROLLBAR_WIDTH = 6;
 
 export type CraftingModalEntry = {
   typeId: ResourceId;
@@ -60,8 +61,8 @@ class CraftTileView {
   ): void {
     const { width, height } = this.rect;
     const isActive = selected || previewed;
-    const fill = entry.available ? 0x1a261c : 0x151517;
-    const border = selected ? 0xf3f6ee : previewed ? 0x8ed061 : 0x58645a;
+    const fill = entry.available ? 0x182234 : 0x151517;
+    const border = selected ? 0xf3f6ee : previewed ? 0x6ea8ff : 0x59667a;
 
     this.background.clear();
     this.background
@@ -76,7 +77,7 @@ class CraftTileView {
       .roundRect(4, 4, width - 8, height - 8, 10)
       .stroke({
         width: 1,
-        color: entry.available ? 0x2f5135 : 0x38363b,
+        color: entry.available ? 0x355a96 : 0x38363b,
         alpha: 0.75,
       });
 
@@ -115,11 +116,13 @@ export class CraftingModal {
   private readonly previewCosts: PIXI.Text;
   private readonly craftButton: PIXI.Graphics;
   private readonly craftButtonLabel: PIXI.Text;
+  private readonly tileViewportMask: PIXI.Graphics;
   private readonly tileViews: CraftTileView[] = [];
   private readonly tileRects = new Map<ResourceId, Rect>();
   private craftButtonRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private previewRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private scrollRowOffset = 0;
 
   constructor(styles: CraftingModalStyles) {
     this.container = new PIXI.Container();
@@ -140,6 +143,7 @@ export class CraftingModal {
     this.craftButton = new PIXI.Graphics();
     this.craftButtonLabel = new PIXI.Text("", styles.detailBodyStyle);
     this.craftButtonLabel.anchor.set(0.5);
+    this.tileViewportMask = new PIXI.Graphics();
 
     this.container.addChild(
       this.background,
@@ -157,6 +161,7 @@ export class CraftingModal {
       this.previewCosts,
       this.craftButton,
       this.craftButtonLabel,
+      this.tileViewportMask,
     );
 
     this.previewDescription.style.wordWrap = true;
@@ -165,6 +170,7 @@ export class CraftingModal {
 
     for (let index = 0; index < CRAFT_MODAL_MAX_TILES; index += 1) {
       const tileView = new CraftTileView(styles.tileLabelStyle);
+      tileView.container.mask = this.tileViewportMask;
       this.tileViews.push(tileView);
       this.container.addChild(tileView.container);
     }
@@ -234,7 +240,7 @@ export class CraftingModal {
       modalHeight,
       18,
       { color: 0x08100a, alpha: 0.9 },
-      { width: 2, color: 0x90c87a, alpha: 0.25 },
+      { width: 2, color: 0x7aa9ff, alpha: 0.32 },
     );
     drawRoundedRect(
       this.leftPane,
@@ -259,7 +265,7 @@ export class CraftingModal {
     this.divider
       .moveTo(leftWidth, 22)
       .lineTo(leftWidth, paneHeight - 22)
-      .stroke({ width: 1, color: 0x26352a, alpha: 0.85 });
+      .stroke({ width: 1, color: 0x2a4164, alpha: 0.85 });
 
     this.leftTitle.position.set(26, 24);
     this.rightTitle.position.set(leftWidth + 22, 24);
@@ -268,6 +274,10 @@ export class CraftingModal {
     const leftInnerY = 58;
     const leftInnerWidth = leftWidth - leftInnerX - 22;
     const leftInnerHeight = paneHeight - leftInnerY - 22;
+    this.tileViewportMask.clear();
+    this.tileViewportMask
+      .rect(leftInnerX, leftInnerY, leftInnerWidth, leftInnerHeight)
+      .fill({ color: 0xffffff, alpha: 1 });
     const columns = Math.max(
       2,
       Math.floor(
@@ -279,6 +289,11 @@ export class CraftingModal {
       (leftInnerWidth - (columns - 1) * CRAFT_MODAL_TILE_GAP) / columns,
     );
     const tileHeight = Math.max(110, tileWidth + 22);
+    const rowCount = Math.ceil(entries.length / columns);
+    const rowStride = tileHeight + CRAFT_MODAL_TILE_GAP;
+    const visibleRows = Math.max(1, leftInnerHeight / rowStride);
+    const maxScrollRowOffset = Math.max(0, rowCount - visibleRows);
+    this.scrollRowOffset = clamp(this.scrollRowOffset, 0, maxScrollRowOffset);
 
     for (let index = 0; index < this.tileViews.length; index += 1) {
       const tileView = this.tileViews[index];
@@ -294,12 +309,15 @@ export class CraftingModal {
       tileView.container.visible = true;
       const column = index % columns;
       const row = Math.floor(index / columns);
-      const tileX = leftInnerX + column * (tileWidth + CRAFT_MODAL_TILE_GAP);
-      const tileY = leftInnerY + row * (tileHeight + CRAFT_MODAL_TILE_GAP);
-      if (tileY + tileHeight > leftInnerY + leftInnerHeight) {
+      const tileY = leftInnerY + (row - this.scrollRowOffset) * rowStride;
+      if (
+        tileY + tileHeight < leftInnerY ||
+        tileY > leftInnerY + leftInnerHeight
+      ) {
         tileView.container.visible = false;
         continue;
       }
+      const tileX = leftInnerX + column * (tileWidth + CRAFT_MODAL_TILE_GAP);
 
       tileView.setLayout(tileX, tileY, tileWidth, tileHeight);
       tileView.render(
@@ -316,6 +334,39 @@ export class CraftingModal {
         width: rect.width,
         height: rect.height,
       });
+    }
+
+    if (maxScrollRowOffset > 0) {
+      const scrollbarX =
+        leftInnerX + leftInnerWidth - CRAFT_MODAL_SCROLLBAR_WIDTH;
+      const scrollbarHeight = leftInnerHeight;
+      const thumbHeight = Math.max(
+        28,
+        Math.floor((visibleRows / rowCount) * scrollbarHeight),
+      );
+      const thumbY =
+        leftInnerY +
+        Math.floor(
+          (this.scrollRowOffset / maxScrollRowOffset) *
+            (scrollbarHeight - thumbHeight),
+        );
+      this.leftPane
+        .roundRect(
+          scrollbarX,
+          leftInnerY,
+          CRAFT_MODAL_SCROLLBAR_WIDTH,
+          scrollbarHeight,
+          3,
+        )
+        .fill({ color: 0x1b2740, alpha: 0.9 })
+        .roundRect(
+          scrollbarX,
+          thumbY,
+          CRAFT_MODAL_SCROLLBAR_WIDTH,
+          thumbHeight,
+          3,
+        )
+        .fill({ color: 0x6ea8ff, alpha: 0.95 });
     }
 
     const previewEntry =
@@ -341,8 +392,8 @@ export class CraftingModal {
       detailWidth,
       CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
       14,
-      { color: 0x152018, alpha: 0.92 },
-      { width: 2, color: 0x8ed061, alpha: 0.65 },
+      { color: 0x17233a, alpha: 0.92 },
+      { width: 2, color: 0x6ea8ff, alpha: 0.75 },
     );
 
     this.previewSprite.texture = iconProvider(previewEntry.typeId);
@@ -358,7 +409,7 @@ export class CraftingModal {
 
     this.previewStatus.text = previewStatusLabel;
     this.previewStatus.style.fill = craftButtonEnabled
-      ? 0x8ed061
+      ? 0x6ea8ff
       : previewEntry.available
         ? 0xc7b27c
         : 0xd78a76;
@@ -386,12 +437,12 @@ export class CraftingModal {
       CRAFT_BUTTON_HEIGHT,
       12,
       {
-        color: craftButtonEnabled ? 0x234028 : 0x1a201b,
+        color: craftButtonEnabled ? 0x1f3f66 : 0x1a201b,
         alpha: craftButtonEnabled ? 0.96 : 0.85,
       },
       {
         width: 2,
-        color: craftButtonEnabled ? 0x8ed061 : 0x5b625a,
+        color: craftButtonEnabled ? 0x6ea8ff : 0x5b625a,
         alpha: 0.95,
       },
     );
@@ -449,6 +500,14 @@ export class CraftingModal {
     return this.tileRects.get(typeId) ?? null;
   }
 
+  public scrollBy(deltaRows: number): boolean {
+    if (!Number.isFinite(deltaRows) || deltaRows === 0) {
+      return false;
+    }
+    this.scrollRowOffset = Math.max(0, this.scrollRowOffset + deltaRows);
+    return true;
+  }
+
   public getPreviewRect(): Rect | null {
     return this.previewRect.width > 0 && this.previewRect.height > 0
       ? this.previewRect
@@ -463,4 +522,8 @@ function isPointInRect(x: number, y: number, rect: Rect): boolean {
     y >= rect.y &&
     y <= rect.y + rect.height
   );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

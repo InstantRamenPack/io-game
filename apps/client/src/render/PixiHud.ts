@@ -29,7 +29,6 @@ import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts
 import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
-import { WeaponDisplayView } from "@client/render/hud/WeaponDisplayView.ts";
 import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
@@ -48,11 +47,11 @@ import {
   getItemContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
+import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
-const HOTBAR_SLOT_COUNT = 10;
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 export type HudState = HudInteractionState;
@@ -92,7 +91,6 @@ export class PixiHud {
   private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
   private bossHealthBar?: BossHealthBar;
-  private weaponDisplayView?: WeaponDisplayView;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
   private hunkBadgeIcon?: PIXI.Sprite;
@@ -153,16 +151,258 @@ export class PixiHud {
     };
   }
 
+  public getState(): Readonly<HudState> {
+    return this.state;
+  }
+
+  public refreshUi(): void {
+    this.markDirty();
+  }
+
+  public toggleCraftingMenu(): void {
+    if (this.state.craftingMenuOpen) {
+      this.craftingHudCoordinator.close(this.state);
+    } else {
+      this.craftingHudCoordinator.open(this.state);
+      if (this.state.inventoryOpen) {
+        this.inventoryEditCoordinator.close(this.state);
+      }
+    }
+    this.markDirty();
+  }
+
+  public toggleInventory(): void {
+    if (this.state.inventoryOpen) {
+      this.inventoryEditCoordinator.close(this.state);
+    } else {
+      this.inventoryEditCoordinator.open(this.state);
+      if (this.state.craftingMenuOpen) {
+        this.craftingHudCoordinator.close(this.state);
+      }
+    }
+    this.markDirty();
+  }
+
+  public toggleSectorFeed(): boolean {
+    this.state.sectorFeedOpen = !this.state.sectorFeedOpen;
+    this.markDirty();
+    return this.state.sectorFeedOpen;
+  }
+
+  public selectHotbarItemByOrdinal(ordinal: number): boolean {
+    const index = ordinal - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= HOTBAR_SLOT_COUNT) {
+      return false;
+    }
+    this.gameClient.queueSelectHotbarIndex(index);
+    return true;
+  }
+
+  public moveCraftSelection(delta: number): boolean {
+    const changed = this.craftingHudCoordinator.moveSelection(
+      this.state,
+      delta,
+      CRAFTABLE_ITEM_TYPE_IDS,
+    );
+    if (changed) {
+      this.markDirty();
+    }
+    return changed;
+  }
+
+  public queueSelectedCraft(): void {
+    this.gameClient.queueCraftItem(this.state.selectedCraft);
+    this.markDirty();
+  }
+
+  public handleCraftListWheel(
+    screenX: number,
+    screenY: number,
+    deltaY: number,
+  ): boolean {
+    if (!this.state.craftingMenuOpen || !this.craftModalView) {
+      return false;
+    }
+    if (!this.craftModalView.containsPoint(screenX, screenY)) {
+      return false;
+    }
+    if (deltaY === 0) {
+      return false;
+    }
+    const changed = this.craftModalView.scrollBy(deltaY / 240);
+    if (changed) {
+      this.markDirty();
+    }
+    return changed;
+  }
+
+  public handlePointerInput(pointer: PointerInput): boolean {
+    if (!this.visible) {
+      return false;
+    }
+
+    const inventory = this.selectors.getInventory();
+    const hotbarItems = toHotbarSlotItems(inventory?.hotbarSlots ?? []);
+
+    if (this.state.chestOpen && this.chestView) {
+      return this.chestHudCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        getSlotRefAtPoint: (screenX, screenY) =>
+          this.chestView?.getSlotRefAtPoint(screenX, screenY) ?? null,
+        getSlotItem: (ref) => {
+          if (ref.source === "hotbar") {
+            return hotbarItems[ref.index] ?? null;
+          }
+          const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+            this.state,
+            this.selectors,
+          );
+          const slot = chestSlots?.[ref.index];
+          if (!slot || slot.kind === "empty") {
+            return null;
+          }
+          return { typeId: slot.typeId };
+        },
+        queueChestMove: (from, to) => {
+          if (this.state.openChestEntityId === null) {
+            return;
+          }
+          this.gameClient.queueChestMove(
+            this.state.openChestEntityId,
+            from.source,
+            from.index,
+            to.source,
+            to.index,
+          );
+        },
+        markDirty: () => this.markDirty(),
+      });
+    }
+
+    if (this.state.craftingMenuOpen && this.craftModalView) {
+      if (pointer.kind === "move") {
+        return this.craftingHudCoordinator.handlePointerMove({
+          state: this.state,
+          pointer,
+          getCraftAtPoint: (screenX, screenY) =>
+            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+          getPreviewedCraftAtPoint: (screenX, screenY, previewedCraft) =>
+            this.craftModalView?.getPreviewedCraftAtPoint(
+              screenX,
+              screenY,
+              previewedCraft,
+            ) ?? null,
+        });
+      }
+      if (pointer.kind === "down") {
+        return this.craftingHudCoordinator.handleCraftModalPointerDown({
+          state: this.state,
+          screenX: pointer.screenX,
+          screenY: pointer.screenY,
+          canSubmitCraft: (itemTypeId) =>
+            this.selectors.hasRecipeResources(
+              this.getRecipeForItem(itemTypeId),
+            ),
+          queueCraftItem: (itemTypeId) =>
+            this.gameClient.queueCraftItem(itemTypeId),
+          isCraftButtonAtPoint: (screenX, screenY) =>
+            this.craftModalView?.isCraftButtonAtPoint(screenX, screenY) ??
+            false,
+          getCraftAtPoint: (screenX, screenY) =>
+            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+        });
+      }
+      return true;
+    }
+
+    if (this.state.inventoryOpen && this.hotbarEditView) {
+      return this.inventoryEditCoordinator.handlePointerInput({
+        state: this.state,
+        pointer,
+        hotbarItems,
+        getSlotIndexAtPoint: (screenX, screenY) =>
+          this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
+        queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
+          this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
+        markDirty: () => this.markDirty(),
+      });
+    }
+
+    if (pointer.kind !== "down") {
+      return false;
+    }
+
+    if (
+      this.chestHudCoordinator.handleGameplayPointerDown({
+        state: this.state,
+        pointer,
+        selectors: this.selectors,
+        openChest: (chestEntityId) => this.openChest(chestEntityId),
+        queueBuildPlacement: (x, y) =>
+          this.gameClient.queueBuildPlacement(x, y),
+      })
+    ) {
+      this.markDirty();
+      return true;
+    }
+
+    if (
+      this.craftingHudCoordinator.handleGameplayPointerDown({
+        state: this.state,
+        pointer,
+        selectors: this.selectors,
+        openCraftingMenu: () => this.toggleCraftingMenu(),
+        queueBuildPlacement: (x, y) =>
+          this.gameClient.queueBuildPlacement(x, y),
+      })
+    ) {
+      this.markDirty();
+      return true;
+    }
+
+    return false;
+  }
+
+  public isCraftingMenuOpen(): boolean {
+    return this.state.craftingMenuOpen;
+  }
+
+  public isInventoryOpen(): boolean {
+    return this.state.inventoryOpen;
+  }
+
+  public isChestOpen(): boolean {
+    return this.state.chestOpen;
+  }
+
+  public closeChest(): void {
+    this.chestHudCoordinator.close(this.state);
+    this.markDirty();
+  }
+
+  public openChest(chestEntityId: number): void {
+    this.chestHudCoordinator.open(this.state, chestEntityId);
+    this.markDirty();
+  }
+
+  public setVisible(visible: boolean): void {
+    if (this.visible === visible) {
+      return;
+    }
+    this.visible = visible;
+    this.markDirty();
+  }
+
   public setRecyclerHoldStartMs(ms: number | null): void {
     this.recyclerHoldStartMs = ms;
-    this.dirty = true;
+    this.markDirty();
   }
 
   public setRepairHoldStartMs(ms: number | null): void {
     this.repairHoldStartMs = ms;
-    this.dirty = true;
+    this.markDirty();
   }
-
   public attach(parent: PIXI.Container): void {
     if (!this.root) {
       this.root = new PIXI.Container();
@@ -213,7 +453,6 @@ export class PixiHud {
       this.chestPromptView = new ChestPromptView();
       this.craftingStationPromptView = new CraftingStationPromptView();
       this.bossHealthBar = new BossHealthBar();
-      this.weaponDisplayView = new WeaponDisplayView();
 
       this.hunkBadge = new PIXI.Container();
       this.hunkBadgeBg = new PIXI.Graphics();
@@ -253,7 +492,6 @@ export class PixiHud {
         this.chestPromptView.container,
         this.craftingStationPromptView.container,
         this.bossHealthBar.container,
-        this.weaponDisplayView.container,
         this.tooltipView.container,
       );
     }
@@ -264,246 +502,6 @@ export class PixiHud {
 
     this.root.visible = this.visible;
     this.markDirty();
-  }
-
-  public getState(): Readonly<HudState> {
-    return this.state;
-  }
-
-  public refreshUi(): void {
-    this.markDirty();
-  }
-
-  public toggleCraftingMenu(): void {
-    if (this.state.craftingMenuOpen) {
-      this.craftingHudCoordinator.close(this.state);
-      this.syncOverlaySuppression();
-      this.markDirty();
-      return;
-    }
-
-    if (this.state.inventoryOpen) {
-      this.inventoryEditCoordinator.close(this.state);
-    }
-
-    if (!this.hasNearbyCraftingStation()) {
-      return;
-    }
-
-    this.craftingHudCoordinator.open(this.state);
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  public toggleInventory(): void {
-    if (this.state.inventoryOpen) {
-      this.inventoryEditCoordinator.close(this.state);
-      this.syncOverlaySuppression();
-      this.markDirty();
-      return;
-    }
-
-    if (this.state.craftingMenuOpen) {
-      this.craftingHudCoordinator.close(this.state);
-    }
-
-    this.inventoryEditCoordinator.open(this.state);
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  public toggleSectorFeed(): boolean {
-    this.state.sectorFeedOpen = !this.state.sectorFeedOpen;
-    if (this.statusPanel) {
-      this.statusPanel.container.visible = this.state.sectorFeedOpen;
-    }
-    this.markDirty();
-    return this.state.sectorFeedOpen;
-  }
-
-  public selectHotbarItemByOrdinal(ordinal: number): boolean {
-    const slotIndex = ordinal - 1;
-    if (slotIndex < 0 || slotIndex >= HOTBAR_SLOT_COUNT) {
-      return false;
-    }
-
-    if (this.state.inventoryOpen) {
-      if (this.state.hoveredInventorySlotIndex === null) {
-        return false;
-      }
-      this.gameClient.queueInventoryMove(
-        this.state.hoveredInventorySlotIndex,
-        slotIndex,
-      );
-      this.inventoryEditCoordinator.sanitizeState(
-        this.state,
-        this.getHotbarItems(),
-      );
-      this.markDirty();
-      return true;
-    }
-
-    if (this.state.craftingMenuOpen) {
-      return false;
-    }
-
-    this.gameClient.queueSelectHotbarIndex(slotIndex);
-    this.markDirty();
-    return true;
-  }
-
-  public moveCraftSelection(delta: number): boolean {
-    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
-    const moved = this.craftingHudCoordinator.moveSelection(
-      this.state,
-      delta,
-      visibleCraftableTypeIds,
-    );
-    if (moved) {
-      this.markDirty();
-    }
-    return moved;
-  }
-
-  public queueSelectedCraft(): void {
-    if (!this.state.craftingMenuOpen) {
-      return;
-    }
-
-    if (!this.canSubmitCraft(this.state.selectedCraft)) {
-      this.markDirty();
-      return;
-    }
-
-    this.gameClient.queueCraftItem(this.state.selectedCraft);
-    this.markDirty();
-  }
-
-  public handlePointerInput(pointer: PointerInput): boolean {
-    if (this.state.chestOpen && this.chestView) {
-      const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
-        this.state,
-        this.selectors,
-      );
-      const hotbarSlots =
-        this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots();
-      return this.chestHudCoordinator.handlePointerInput({
-        state: this.state,
-        pointer,
-        getSlotRefAtPoint: (sx, sy) =>
-          this.chestView?.getSlotRefAtPoint(sx, sy) ?? null,
-        getSlotItem: (ref) => {
-          if (ref.source === "chest") {
-            const slot = chestSlots?.[ref.index];
-            return slot?.kind !== "empty"
-              ? { typeId: slot?.typeId ?? null }
-              : { typeId: null };
-          }
-          const slot = hotbarSlots[ref.index];
-          if (!slot || slot.kind === "empty") return { typeId: null };
-          return { typeId: slot.typeId };
-        },
-        queueChestMove: (from, to) => {
-          if (this.state.openChestEntityId === null) return;
-          this.gameClient.queueChestMove(
-            this.state.openChestEntityId,
-            from.source,
-            from.index,
-            to.source,
-            to.index,
-          );
-        },
-        markDirty: () => this.markDirty(),
-      });
-    }
-
-    if (this.state.inventoryOpen && this.hotbarEditView) {
-      return this.inventoryEditCoordinator.handlePointerInput({
-        state: this.state,
-        pointer,
-        hotbarItems: this.getHotbarItems(),
-        getSlotIndexAtPoint: (screenX, screenY) =>
-          this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
-        queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
-          this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
-        markDirty: () => this.markDirty(),
-      });
-    }
-
-    if (pointer.kind === "move" && this.craftModalView) {
-      const consumed = this.craftingHudCoordinator.handlePointerMove({
-        state: this.state,
-        pointer,
-        getCraftAtPoint: (screenX, screenY) =>
-          this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
-        getPreviewedCraftAtPoint: (screenX, screenY, previewedCraft) =>
-          this.craftModalView?.getPreviewedCraftAtPoint(
-            screenX,
-            screenY,
-            previewedCraft,
-          ) ?? null,
-      });
-      if (consumed) {
-        this.markDirty();
-      }
-      return consumed;
-    }
-
-    if (pointer.kind === "up") {
-      return false;
-    }
-
-    if (this.state.craftingMenuOpen && this.craftModalView) {
-      const consumed = this.craftingHudCoordinator.handleCraftModalPointerDown({
-        state: this.state,
-        screenX: pointer.screenX,
-        screenY: pointer.screenY,
-        canSubmitCraft: (itemTypeId) => this.canSubmitCraft(itemTypeId),
-        queueCraftItem: (itemTypeId) =>
-          this.gameClient.queueCraftItem(itemTypeId),
-        isCraftButtonAtPoint: (screenX, screenY) =>
-          this.craftModalView?.isCraftButtonAtPoint(screenX, screenY) ?? false,
-        getCraftAtPoint: (screenX, screenY) =>
-          this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
-      });
-      if (consumed) {
-        this.markDirty();
-      }
-      return true;
-    }
-
-    const chestHandled = this.chestHudCoordinator.handleGameplayPointerDown({
-      state: this.state,
-      pointer,
-      selectors: this.selectors,
-      openChest: (chestEntityId) => {
-        if (this.state.craftingMenuOpen) {
-          this.craftingHudCoordinator.close(this.state);
-        }
-        if (this.state.inventoryOpen) {
-          this.inventoryEditCoordinator.close(this.state);
-        }
-        this.chestHudCoordinator.open(this.state, chestEntityId);
-        this.syncOverlaySuppression();
-        this.markDirty();
-      },
-      queueBuildPlacement: (x, y) => this.gameClient.queueBuildPlacement(x, y),
-    });
-    if (chestHandled) {
-      return true;
-    }
-
-    return this.craftingHudCoordinator.handleGameplayPointerDown({
-      state: this.state,
-      pointer,
-      selectors: this.selectors,
-      openCraftingMenu: () => {
-        this.craftingHudCoordinator.open(this.state);
-        this.syncOverlaySuppression();
-        this.markDirty();
-      },
-      queueBuildPlacement: (x, y) => this.gameClient.queueBuildPlacement(x, y),
-    });
   }
 
   public reset(): void {
@@ -518,47 +516,6 @@ export class PixiHud {
     this.gameClient.setMovementSuppression("crafting", false);
     this.gameClient.setMovementSuppression("inventory", false);
     this.gameClient.setMovementSuppression("chest", false);
-    this.markDirty();
-  }
-
-  public isCraftingMenuOpen(): boolean {
-    return this.state.craftingMenuOpen;
-  }
-
-  public isInventoryOpen(): boolean {
-    return this.state.inventoryOpen;
-  }
-
-  public isChestOpen(): boolean {
-    return this.state.chestOpen;
-  }
-
-  public closeChest(): void {
-    if (!this.state.chestOpen) {
-      return;
-    }
-    this.chestHudCoordinator.close(this.state);
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  public openChest(chestEntityId: number): void {
-    if (this.state.craftingMenuOpen) {
-      this.craftingHudCoordinator.close(this.state);
-    }
-    if (this.state.inventoryOpen) {
-      this.inventoryEditCoordinator.close(this.state);
-    }
-    this.chestHudCoordinator.open(this.state, chestEntityId);
-    this.syncOverlaySuppression();
-    this.markDirty();
-  }
-
-  public setVisible(visible: boolean): void {
-    this.visible = visible;
-    if (this.root) {
-      this.root.visible = visible;
-    }
     this.markDirty();
   }
 
@@ -683,8 +640,7 @@ export class PixiHud {
       this.effectDetailPanel &&
       this.effectIconView &&
       this.combatHudView &&
-      this.hotbarView &&
-      this.weaponDisplayView
+      this.hotbarView
     ) {
       this.gameplayHudCoordinator.syncPanels({
         statusPanel: this.statusPanel,
@@ -692,7 +648,6 @@ export class PixiHud {
         effectIconView: this.effectIconView,
         combatHudView: this.combatHudView,
         hotbarView: this.hotbarView,
-        weaponDisplayView: this.weaponDisplayView,
         playerEntity: this.selectors.getPlayerEntity(),
         worldEntities: this.selectors.getWorldEntities(),
         trackedBuildings: this.selectors.getTrackedBuildings(),
@@ -724,8 +679,7 @@ export class PixiHud {
       this.combatHudView &&
       this.selectedItemToastView &&
       this.dayNightIndicator &&
-      this.effectDetailPanel &&
-      this.weaponDisplayView
+      this.effectDetailPanel
     ) {
       this.gameplayHudCoordinator.layout({
         screenWidth: app.screen.width,
@@ -737,7 +691,6 @@ export class PixiHud {
         selectedItemToastView: this.selectedItemToastView,
         dayNightIndicator: this.dayNightIndicator,
         effectDetailPanel: this.effectDetailPanel,
-        weaponDisplayView: this.weaponDisplayView,
         inventoryOpen: this.state.inventoryOpen,
         inventoryPanelRect: this.hotbarEditView?.getPanelRect() ?? null,
       });
@@ -1126,18 +1079,6 @@ export class PixiHud {
 
   private hasNearbyCraftingStation(): boolean {
     return this.craftingHudCoordinator.hasNearbyCraftingStation(this.selectors);
-  }
-
-  private canSubmitCraft(itemTypeId: ResourceId): boolean {
-    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
-      return false;
-    }
-
-    if (!this.hasNearbyCraftingStation()) {
-      return false;
-    }
-
-    return this.selectors.hasRecipeResources(this.getRecipeForItem(itemTypeId));
   }
 
   private describeCraftAvailability(itemTypeId: ResourceId): {

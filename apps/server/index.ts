@@ -2,7 +2,6 @@ import { makeClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { WsServer } from "@server/net/WsServer.ts";
 import { GameServer } from "@server/server/GameServer.ts";
-import { AuthService } from "@server/services/AuthService.ts";
 import { existsSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 
@@ -51,12 +50,10 @@ export function main(): void {
   }
 
   const gameConfig = GameConfig.load();
-  const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const tlsCertPath = process.env.TLS_CERT_PATH;
   const tlsKeyPath = process.env.TLS_KEY_PATH;
-  const authService = new AuthService(googleClientId);
   const networkServer = new WsServer(gameConfig.network.maxPacketBytes);
-  const gameServer = new GameServer(gameConfig, networkServer, authService);
+  const gameServer = new GameServer(gameConfig, networkServer);
   gameServer.start();
 
   const port = Number(process.env.PORT ?? 3000);
@@ -95,7 +92,7 @@ export function main(): void {
 
       if (url.pathname === "/runtime-config") {
         return new Response(
-          JSON.stringify(makeClientRuntimeConfig(gameConfig, googleClientId)),
+          JSON.stringify(makeClientRuntimeConfig(gameConfig)),
           {
             headers: {
               "content-type": "application/json; charset=utf-8",

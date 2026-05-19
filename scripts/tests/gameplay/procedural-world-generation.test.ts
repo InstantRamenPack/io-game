@@ -16,6 +16,7 @@ import {
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
@@ -89,13 +90,19 @@ describe("procedural survival extraction world", () => {
     expect(layout.villages.length).toBeLessThanOrEqual(11);
     expect(layout.forestCamps.length).toBeGreaterThanOrEqual(12);
     expect(
-      layout.villages.some((village) => village.kind === "extraction_fortified"),
+      layout.villages.some(
+        (village) => village.kind === "extraction_fortified",
+      ),
     ).toBe(true);
     expect(
-      layout.villages.every((village) => village.sectorId !== layout.centerSectorId),
+      layout.villages.every(
+        (village) => village.sectorId !== layout.centerSectorId,
+      ),
     ).toBe(true);
     expect(
-      layout.villages.every((village) => village.sectorId !== layout.dungeonSectorId),
+      layout.villages.every(
+        (village) => village.sectorId !== layout.dungeonSectorId,
+      ),
     ).toBe(true);
     expect(
       layout.villages.some(
@@ -107,6 +114,104 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     expect(
       layout.villages.every((village) => village.poiRoles.length >= 4),
+    ).toBe(true);
+  });
+
+  test("village rooms select varied authored templates deterministically", () => {
+    const first = generateProceduralWorldLayout(1337);
+    const second = generateProceduralWorldLayout(1337);
+
+    const firstTemplates = villageTemplateLabels(first);
+    expect(firstTemplates).toEqual(villageTemplateLabels(second));
+    expect(firstTemplates).toEqual(
+      expect.arrayContaining([
+        "village_template:corner_vendor",
+        "village_template:crossroad_stalls",
+        "village_template:lane_row",
+        "village_template:triad_courtyard",
+      ]),
+    );
+  });
+
+  test("village, forest camp, and crate loot authored pools stay deterministic", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    const villageEnemyTypes = new Set(
+      layout.sectors
+        .flatMap((sector) => sector.enemies.map((enemy) => enemy.typeId))
+        .filter((typeId) =>
+          [
+            "enemy:drifter",
+            "enemy:police",
+            "enemy:shoota",
+            "enemy:stalker",
+            "enemy:bomber",
+            "enemy:saboteur",
+            "enemy:sniper",
+            "enemy:commander",
+            "enemy:megaknight",
+          ].includes(typeId),
+        ),
+    );
+    expect(villageEnemyTypes).toEqual(
+      new Set([
+        "enemy:drifter",
+        "enemy:police",
+        "enemy:shoota",
+        "enemy:stalker",
+        "enemy:bomber",
+        "enemy:saboteur",
+        "enemy:sniper",
+        "enemy:commander",
+        "enemy:megaknight",
+      ]),
+    );
+
+    expect(
+      layout.forestCamps.some((camp) => isCornerSector(camp.sectorId)),
+    ).toBe(true);
+    expect(
+      layout.forestCamps.some((camp) => !isCornerSector(camp.sectorId)),
+    ).toBe(true);
+    for (const camp of layout.forestCamps) {
+      const expected: ResourceId[] = isCornerSector(camp.sectorId)
+        ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
+        : ["enemy:drifter", "enemy:drifter", "enemy:police"];
+      expect(camp.enemyTypes).toEqual(expected);
+    }
+
+    const villageCrates = layout.sectors
+      .flatMap((sector) => sector.enemies)
+      .filter(
+        (enemy) =>
+          enemy.typeId === "enemy:crate" &&
+          enemy.crateLoot &&
+          enemy.label?.startsWith("village_template:"),
+      )
+      .map((enemy) => enemy.crateLoot!);
+    expect(villageCrates.length).toBeGreaterThan(0);
+    const villageTierPools = new Set(
+      villageCrates.map((lootSlots) =>
+        lootSlots.map((slot) => slot.typeId).join(","),
+      ),
+    );
+    const allowedVillageTierPools = new Set([
+      "item:hunk,item:junk_food",
+      "item:hunk,item:quality_food,item:pistol_mag",
+      "item:basic_rifle,item:rifle_mag,item:hunk",
+      "item:sniper,item:sniper_mag,item:blueprint_sniper",
+    ]);
+    for (const observed of villageTierPools) {
+      expect(allowedVillageTierPools.has(observed)).toBe(true);
+    }
+    expect(
+      villageTierPools.has("item:hunk,item:quality_food,item:pistol_mag"),
+    ).toBe(true);
+    expect(
+      villageTierPools.has("item:basic_rifle,item:rifle_mag,item:hunk"),
+    ).toBe(true);
+    expect(
+      villageTierPools.has("item:sniper,item:sniper_mag,item:blueprint_sniper"),
     ).toBe(true);
   });
 
@@ -563,6 +668,22 @@ function entityTypeIds(
   sector: ReturnType<typeof generateProceduralWorldLayout>["sectors"][number],
 ): string[] {
   return sector.enemies.map((enemy) => enemy.typeId);
+}
+
+function villageTemplateLabels(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): string[] {
+  return [
+    ...new Set(
+      layout.sectors.flatMap((sector) =>
+        [...sector.structures, ...sector.enemies]
+          .map((spec) => spec.label)
+          .filter((label): label is string =>
+            Boolean(label?.startsWith("village_template:")),
+          ),
+      ),
+    ),
+  ].sort();
 }
 
 function pointWithinCamp(

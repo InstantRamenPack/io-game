@@ -1,12 +1,13 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
-import type { WeaponDisplayModel } from "@client/render/hud/WeaponDisplayView.ts";
 import {
   getItemContent,
   getProjectileContent,
   getResourceDisplayLabel,
   getWeaponContent,
+  getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
+import type { RarityTier } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   ActiveEffectSnapshot,
@@ -35,8 +36,17 @@ export type HudEffectEntry = {
 
 export type HudTooltipContent = {
   title: string;
+  titleColor?: number;
   detail: string;
   lines: string[];
+};
+
+export const RARITY_COLORS: Record<RarityTier, number> = {
+  common: 0x9ca3af,
+  uncommon: 0x22c55e,
+  rare: 0x3b82f6,
+  epic: 0xa855f7,
+  legendary: 0xf59e0b,
 };
 
 export function buildCombatHudModel(options: {
@@ -97,6 +107,10 @@ export function buildInventoryTooltipContent(
 
   return {
     title,
+    titleColor:
+      slot.kind === "weapon"
+        ? RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"]
+        : undefined,
     detail,
     lines,
   };
@@ -105,10 +119,23 @@ export function buildInventoryTooltipContent(
 export function buildCraftTooltipContent(
   entry: CraftingModalEntry,
 ): HudTooltipContent {
+  const itemContent = getItemContent(entry.typeId);
+  const lines = [`Output: ${entry.outputAmount}`, `Costs: ${entry.costsLabel}`];
+  if (itemContent?.weapon) {
+    lines.push(...buildWeaponStatLines(entry.typeId));
+  }
+  if (itemContent?.buildsEntityTypeId) {
+    lines.push(
+      `Places: ${getResourceDisplayLabel(itemContent.buildsEntityTypeId)}`,
+    );
+  }
   return {
     title: entry.label,
+    titleColor: itemContent?.weapon
+      ? RARITY_COLORS[getWeaponRarityTier(entry.typeId) ?? "common"]
+      : undefined,
     detail: entry.description,
-    lines: [`Output: ${entry.outputAmount}`, `Costs: ${entry.costsLabel}`],
+    lines,
   };
 }
 
@@ -121,36 +148,13 @@ export function buildSelectedItemLabel(
   return getResourceDisplayLabel(slot.typeId);
 }
 
-export function buildWeaponDisplayModel(
-  activeSlot: InventorySlotSnapshot | null,
-): WeaponDisplayModel {
-  if (!activeSlot || activeSlot.kind === "empty") {
-    return null;
+export function getSelectedItemLabelColor(
+  slot: InventorySlotSnapshot | null | undefined,
+): number {
+  if (!slot || slot.kind !== "weapon") {
+    return 0xf3f6ee;
   }
-
-  const name = getResourceDisplayLabel(activeSlot.typeId);
-
-  if (
-    activeSlot.kind === "weapon" &&
-    typeof activeSlot.magSize === "number" &&
-    activeSlot.magSize > 0
-  ) {
-    const magSize = activeSlot.magSize;
-    const reserveMagCount =
-      typeof activeSlot.reserveMagCount === "number"
-        ? activeSlot.reserveMagCount
-        : 0;
-    return {
-      name,
-      ammo: {
-        inMag:
-          typeof activeSlot.ammoInMag === "number" ? activeSlot.ammoInMag : 0,
-        reserve: reserveMagCount * magSize,
-      },
-    };
-  }
-
-  return { name, ammo: null };
+  return RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"];
 }
 
 function buildAmmoModel(

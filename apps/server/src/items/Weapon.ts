@@ -1,6 +1,9 @@
 import { Item } from "@server/items/Item.ts";
+import type { Inventory } from "@server/items/Inventory.ts";
+import type { ItemRequirement } from "@shared/content/schema.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { itemTypeRegistry } from "@server/registry/registries.ts";
 import { requireWeaponContent } from "@shared/content/catalog.ts";
 import type {
   EquippedItemSnapshot,
@@ -71,5 +74,66 @@ export abstract class Weapon extends Item {
 
   public getReserveMagCount(_owner: Entity | undefined): number | undefined {
     return undefined;
+  }
+
+  public override isWeaponItem(): boolean {
+    return true;
+  }
+
+  public override requiresManualPickup(): boolean {
+    return true;
+  }
+
+  public override canGrantToInventory(
+    targetInventory: Inventory,
+    amount: number,
+  ): boolean {
+    return targetInventory.canAddWeaponCount(amount);
+  }
+
+  public override canGrantToInventoryAfterConsuming(
+    targetInventory: Inventory,
+    amount: number,
+    costs: readonly ItemRequirement[],
+  ): boolean {
+    const slotsFreedByCosts = costs.reduce((total, cost) => {
+      const costEntry = itemTypeRegistry.get(cost.typeId);
+      return (
+        total +
+        (costEntry
+          ? new costEntry.ctor().getHotbarSlotsFreedWhenConsumed(cost.amount)
+          : 0)
+      );
+    }, 0);
+    const netSlotsNeeded = amount - slotsFreedByCosts;
+    return (
+      netSlotsNeeded <= 0 || targetInventory.canAddWeaponCount(netSlotsNeeded)
+    );
+  }
+
+  public override grantToInventory(
+    targetInventory: Inventory,
+    amount: number,
+  ): boolean {
+    if (amount <= 0) {
+      return true;
+    }
+    if (!this.canGrantToInventory(targetInventory, amount)) {
+      return false;
+    }
+
+    const WeaponCtor = this.constructor as new () => Weapon;
+    for (let index = 0; index < amount; index += 1) {
+      targetInventory.addWeapon(new WeaponCtor());
+    }
+    return true;
+  }
+
+  public override getHotbarSlotsFreedWhenConsumed(amount: number): number {
+    return amount;
+  }
+
+  public override getCraftTraceResult(): "crafted_weapon" {
+    return "crafted_weapon";
   }
 }

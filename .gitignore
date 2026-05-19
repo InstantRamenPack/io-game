@@ -6,6 +6,11 @@ out
 dist
 output/playwright
 benchmark-results
+scripts/generated
+apps/client/src/render/entity/generated
+apps/server/src/registry/generated
+apps/server/src/registry/runtimeCtorMap.ts
+packages/shared/src/content/generated
 *.tgz
 
 # code coverage

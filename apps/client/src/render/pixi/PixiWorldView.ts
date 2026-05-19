@@ -132,7 +132,7 @@ export class PixiWorldView {
   private gridNightBlend = 0;
   private lightsOutNightBlend = 0;
   private lightsOutSuppressed = false;
-  private isPlayground = false;
+  private isPlayground = true;
   private lastGridCameraX = Number.NaN;
   private lastGridCameraY = Number.NaN;
   private lastGridScale = Number.NaN;
@@ -292,6 +292,7 @@ export class PixiWorldView {
     }
     this.isPlayground = isPlayground;
     this.updateGridColors();
+    this.recomputeVisibilityState();
   }
 
   public setCameraToPlayer(
@@ -312,7 +313,7 @@ export class PixiWorldView {
   }
 
   private recomputeVisibilityState(): void {
-    if (this.lightsOutSuppressed) {
+    if (this.lightsOutSuppressed || this.isPlayground) {
       this.visibilityState = null;
       return;
     }
@@ -326,7 +327,7 @@ export class PixiWorldView {
   }
 
   private getLightsOutOverlayAlpha(): number {
-    if (this.lightsOutSuppressed) {
+    if (this.lightsOutSuppressed || this.isPlayground) {
       return 0;
     }
     return computeLightsOutPresentation({

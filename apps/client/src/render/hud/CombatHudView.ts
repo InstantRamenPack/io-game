@@ -63,11 +63,100 @@ export class CombatHudView {
     const padding = 8;
     this.heightValue = HEALTH_ROW_HEIGHT;
 
-    this.ammoFrame.clear();
-    this.reserveText.text = "";
-    this.hideAmmoSprites();
+    if (!model.ammo) {
+      this.drawHealthRow(
+        model.hp,
+        model.maxHp,
+        model.food,
+        model.maxFood,
+        0,
+        this.widthValue,
+        padding,
+      );
+      this.ammoFrame.clear();
+      this.reserveText.text = "";
+      this.hideAmmoSprites();
+      return;
+    }
 
+    const reserveBlockWidth = 72;
+    const ammoInnerWidth = Math.max(
+      1,
+      this.widthValue - padding * 2 - reserveBlockWidth - 12,
+    );
+    const iconsPerRow = Math.max(
+      1,
+      Math.floor(
+        (ammoInnerWidth + AMMO_ICON_GAP) / (AMMO_ICON_SIZE + AMMO_ICON_GAP),
+      ),
+    );
+    const rows = Math.max(1, Math.ceil(model.ammo.magSize / iconsPerRow));
+    const ammoHeight =
+      padding * 2 + rows * AMMO_ICON_SIZE + (rows - 1) * AMMO_ROW_GAP;
+    const ammoY = 0;
+    const healthY = ammoHeight + 6;
+    this.heightValue = healthY + HEALTH_ROW_HEIGHT;
+
+    drawRoundedRect(
+      this.ammoFrame,
+      0,
+      ammoY,
+      this.widthValue,
+      ammoHeight,
+      10,
+      { color: 0x101512, alpha: 0.86 },
+      { width: 1, color: 0x4f5d51, alpha: 0.55 },
+    );
+
+    this.reserveText.text =
+      model.ammo.reserveMagCount !== null
+        ? `Mags ${model.ammo.reserveMagCount}`
+        : "";
+    this.reserveText.position.set(
+      this.widthValue - padding,
+      ammoY + ammoHeight / 2,
+    );
+
+    const iconStartX = padding;
+    const iconTopY = ammoY + padding;
+    const texture = this.ammoTextureProvider();
+    this.ensureAmmoSpriteCount(model.ammo.magSize);
+
+    for (let index = 0; index < this.ammoSprites.length; index += 1) {
+      const sprite = this.ammoSprites[index];
+      if (!sprite) {
+        continue;
+      }
+      sprite.visible = index < model.ammo.magSize;
+      if (!sprite.visible) {
+        continue;
+      }
+      sprite.texture = texture;
+      sprite.width = AMMO_ICON_SIZE;
+      sprite.height = AMMO_ICON_SIZE;
+      const row = Math.floor(index / iconsPerRow);
+      const column = index % iconsPerRow;
+      sprite.position.set(
+        iconStartX + column * (AMMO_ICON_SIZE + AMMO_ICON_GAP),
+        iconTopY + row * (AMMO_ICON_SIZE + AMMO_ROW_GAP),
+      );
+      sprite.tint = index < model.ammo.ammoInMag ? 0xffe087 : 0x5f6461;
+      sprite.alpha = index < model.ammo.ammoInMag ? 0.98 : 0.5;
+    }
+
+<<<<<<< HEAD
     this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
+=======
+    this.drawHealthRow(
+      model.hp,
+      model.maxHp,
+      model.food,
+      model.maxFood,
+      healthY,
+      this.widthValue,
+      padding,
+    );
+>>>>>>> 4b0cae76cbbf521e24511ead2524d5a62b1064a8
   }
 
   public setPosition(x: number, y: number): void {

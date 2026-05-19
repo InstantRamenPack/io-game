@@ -2,6 +2,16 @@
   "label": "Baseball Bat",
   "hint": "Wide swing with solid reach. Fractures bone on hit.",
   "description": "Reliable blunt weapon with medium range. Always fractures targets, slowing their movement.",
+  "recipe": {
+    "hint": "Reliable blunt weapon with solid reach.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 24
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 12,
@@ -10,7 +20,10 @@
     "knockback": 20,
     "sweepArcDeg": 100,
     "equippedRender": {
-      "holdOffset": { "x": 38, "y": 0 },
+      "holdOffset": {
+        "x": 38,
+        "y": 0
+      },
       "holdRotationDeg": 0,
       "scale": 1.5,
       "handedness": "right",
@@ -18,5 +31,12 @@
       "swingAngleDeg": 100,
       "jabDistance": 0
     }
-  }
+  },
+  "recycle": {
+    "hunkValue": 3
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "rarityTier": "common"
 }

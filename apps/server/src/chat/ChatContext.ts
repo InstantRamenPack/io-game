@@ -20,7 +20,6 @@ import {
   isSpawnableEntityCtor,
   isStructureCtor,
 } from "@server/runtime/ctorGuards.ts";
-import { grantItemEntryByAcquisitionRules } from "@server/items/acquisition/granting.ts";
 
 type FilterResult = {
   text: string;
@@ -211,11 +210,7 @@ export class ChatContext {
     itemEntry: ItemTypeEntry,
     amount: number,
   ): boolean {
-    return grantItemEntryByAcquisitionRules(
-      target.inventory,
-      itemEntry,
-      amount,
-    );
+    return target.inventory.grantItemCtor(itemEntry.ctor, amount);
   }
 
   public resolveSpawnTarget(
