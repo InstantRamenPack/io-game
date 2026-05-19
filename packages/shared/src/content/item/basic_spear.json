@@ -2,6 +2,16 @@
   "label": "Spear",
   "hint": "Long jab with strong reach and knockback.",
   "description": "Piercing melee weapon for spacing enemies out.",
+  "recipe": {
+    "hint": "Long melee reach with strong knockback.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 34
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 13,

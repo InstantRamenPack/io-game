@@ -55,8 +55,8 @@ const ChestMoveInputSchema = z.object({
 const HelloMessageSchema = z.object({
   t: z.literal("hello"),
   compatHash: z.string().min(1),
-  googleIdToken: z.string().min(1).optional(),
   playerName: z.string().optional(),
+  preview: z.boolean().optional(),
 });
 
 const InputIntentMessageSchema = z
@@ -190,10 +190,16 @@ const LobbyLeaveActionSchema = z.object({
   action: z.literal("leave"),
 });
 
+const LobbyStartActionSchema = z.object({
+  t: z.literal("lobby"),
+  action: z.literal("start"),
+});
+
 const LobbyActionMessageSchemaOptions = [
   LobbyJoinActionSchema,
   LobbyJoinByCodeActionSchema,
   LobbyLeaveActionSchema,
+  LobbyStartActionSchema,
 ] as const;
 
 const LobbyActionMessageSchema = z.discriminatedUnion(

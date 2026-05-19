@@ -1,24 +1,11 @@
 /**
- * Enumerates the top-level menu tabs available on the landing screen.
- * The UI uses these values both for screen-title selection and for
- * `aria-current` synchronization on the left-side button list.
- */
-export type MenuMode = "play" | "loadout" | "settings" | "account";
-
-/**
  * Collects every DOM node that the client entrypoint manipulates directly.
  * Centralizing this lookup keeps the rest of the app working with one typed
  * structure rather than repeating ad hoc `document.getElementById(...)` calls
  * throughout unrelated controller modules.
  */
 export type AppElements = {
-  titleEl: HTMLElement | null;
-  sideButtons: HTMLButtonElement[];
   launchBtn: HTMLElement | null;
-  accountGate: HTMLElement | null;
-  accountGateText: HTMLElement | null;
-  accountBtn: HTMLElement | null;
-  googleSignInTarget: HTMLElement | null;
   menuRoot: HTMLElement | null;
   gameRoot: HTMLElement | null;
   chatRoot: HTMLElement | null;
@@ -29,6 +16,7 @@ export type AppElements = {
   lobbyHudStatus: HTMLElement | null;
   lobbyHudMeta: HTMLElement | null;
   lobbyJoinBtn: HTMLButtonElement | null;
+  lobbyStartBtn: HTMLButtonElement | null;
   lobbyLeaveBtn: HTMLButtonElement | null;
   lobbyCodeInput: HTMLInputElement | null;
   lobbyCodeJoinBtn: HTMLButtonElement | null;
@@ -57,15 +45,7 @@ export type AppElements = {
  */
 export function getAppElements(): AppElements {
   return {
-    titleEl: document.getElementById("menu-title"),
-    sideButtons: Array.from(
-      document.querySelectorAll<HTMLButtonElement>(".side-menu button"),
-    ),
     launchBtn: document.getElementById("launch-btn"),
-    accountGate: document.getElementById("account-gate"),
-    accountGateText: document.getElementById("account-gate-text"),
-    accountBtn: document.getElementById("account-btn"),
-    googleSignInTarget: document.getElementById("google-signin-target"),
     menuRoot: document.querySelector<HTMLElement>('[data-screen="menu"]'),
     gameRoot: document.getElementById("game-root"),
     chatRoot: document.getElementById("chat-root"),
@@ -77,6 +57,9 @@ export function getAppElements(): AppElements {
     lobbyHudMeta: document.getElementById("lobby-hud-meta"),
     lobbyJoinBtn: document.getElementById(
       "lobby-join-btn",
+    ) as HTMLButtonElement | null,
+    lobbyStartBtn: document.getElementById(
+      "lobby-start-btn",
     ) as HTMLButtonElement | null,
     lobbyLeaveBtn: document.getElementById(
       "lobby-leave-btn",

@@ -10,7 +10,8 @@ export class PixiAssetStore {
   private itemIconMap: Record<string, string> = {};
 
   public async load(app: Application): Promise<void> {
-    await Promise.all([this.loadItemIcons(), this.loadItemSprites()]);
+    await this.loadItemIcons();
+    await this.loadItemSprites();
     this.buildParticleTextures(app);
   }
 

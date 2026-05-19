@@ -7,7 +7,6 @@ import {
 import { z } from "zod";
 
 export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
-  "googleClientId",
   "compatHash",
   "tickRate",
   "worldSize",
@@ -15,7 +14,6 @@ export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
 ]);
 
 export const ClientRuntimeConfigSchema = z.object({
-  googleClientId: z.string().min(1).nullable(),
   compatHash: z.string().min(1),
   tickRate: PositiveIntSchema,
   worldSize: z.object({
@@ -80,10 +78,8 @@ export type ClientRuntimeConfig = z.infer<typeof ClientRuntimeConfigSchema>;
 
 export function makeClientRuntimeConfig(
   gameConfig: GameConfig,
-  googleClientId: string | null | undefined,
 ): ClientRuntimeConfig {
   return {
-    googleClientId: googleClientId ?? null,
     compatHash: gameConfig.compatHash,
     tickRate: gameConfig.tickRate,
     worldSize: {

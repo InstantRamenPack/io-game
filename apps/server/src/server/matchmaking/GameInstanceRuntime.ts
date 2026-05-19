@@ -36,6 +36,7 @@ export class GameInstanceRuntime {
   private readonly networkServer: NetworkServerLike;
   private readonly isPlayground: boolean;
   private readonly playerIdByClientId = new Map<string, number>();
+  private readonly previewClientIds = new Set<string>();
   private readonly spawnSlotByClientId = new Map<string, number>();
   private readonly lastProcessedInputSequenceByClientId = new Map<
     string,
@@ -59,11 +60,12 @@ export class GameInstanceRuntime {
     networkServer: NetworkServerLike,
     options: { isPlayground?: boolean; worldSeed?: number } = {},
   ) {
+    const runtimeConfig = cloneGameConfig(gameConfig);
     this.isPlayground = options.isPlayground ?? false;
     validatePlayerStarterLoadout();
-    this.gameConfig = gameConfig;
+    this.gameConfig = runtimeConfig;
     this.networkServer = networkServer;
-    this.world = new World(gameConfig, options.worldSeed ?? 1337);
+    this.world = new World(runtimeConfig, options.worldSeed ?? 1337);
     this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
     this.chatService = new ChatService({
@@ -90,8 +92,12 @@ export class GameInstanceRuntime {
       }
     }
 
-    loadMap(this.world, options.worldSeed);
-    infraSystem.spawnTowers(this.world);
+    loadMap(this.world, options.worldSeed, {
+      kind: this.isPlayground ? "lobby" : "match",
+    });
+    if (!this.isPlayground) {
+      infraSystem.spawnTowers(this.world);
+    }
   }
 
   public tick(): void {
@@ -130,22 +136,37 @@ export class GameInstanceRuntime {
       };
       this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
     }
+
+    for (const clientId of this.previewClientIds) {
+      const snapshotMessage: ServerToClientMessage = {
+        t: "snapshot",
+        snapshot: this.snapshotManager.makeFullSnapshotForObserver(this.world),
+      };
+      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+    }
+  }
+
+  public connectPreviewClient(clientId: string): void {
+    if (this.playerIdByClientId.has(clientId)) {
+      return;
+    }
+    this.previewClientIds.add(clientId);
   }
 
   public connectReadyClient(
     clientId: string,
     requestedPlayerName?: string,
   ): number {
+    this.previewClientIds.delete(clientId);
     const existingPlayerId = this.playerIdByClientId.get(clientId);
     if (existingPlayerId) {
       return existingPlayerId;
     }
 
     const playerId = this.world.allocEntityId();
-    const fallbackPlayerName = `player-${playerId}`;
     const playerEntity = new Player(
       playerId,
-      normalizePlayerName(requestedPlayerName, fallbackPlayerName),
+      normalizePlayerName(requestedPlayerName, ""),
     );
 
     const spawnPosition = this.getSpawnPositionForClient(clientId);
@@ -166,6 +187,7 @@ export class GameInstanceRuntime {
   }
 
   public detachClient(clientId: string): string | undefined {
+    this.previewClientIds.delete(clientId);
     const playerName = this.getPlayer(clientId)?.name;
     this.lastProcessedInputSequenceByClientId.delete(clientId);
     this.lastProcessedActionSequenceByClientId.delete(clientId);
@@ -182,6 +204,17 @@ export class GameInstanceRuntime {
 
   public getPlayerName(clientId: string): string | undefined {
     return this.getPlayer(clientId)?.name;
+  }
+
+  public hasPlayerName(playerName: string): boolean {
+    const normalizedPlayerName = playerName.toLowerCase();
+    for (const playerId of this.playerIdByClientId.values()) {
+      const player = this.world.get<Player>(playerId);
+      if (player?.name.toLowerCase() === normalizedPlayerName) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public getPlayerCount(): number {
@@ -483,4 +516,17 @@ export class GameInstanceRuntime {
       this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
   }
+}
+
+function cloneGameConfig(gameConfig: GameConfig): GameConfig {
+  return Object.assign(new (gameConfig.constructor as new () => GameConfig)(), {
+    ...gameConfig,
+    worldSize: { ...gameConfig.worldSize },
+    collision: { ...gameConfig.collision },
+    network: { ...gameConfig.network },
+    replication: { ...gameConfig.replication },
+    debug: structuredClone(gameConfig.debug),
+    interpolation: { ...gameConfig.interpolation },
+    dayNight: structuredClone(gameConfig.dayNight),
+  });
 }

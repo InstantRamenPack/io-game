@@ -20,6 +20,7 @@ export function createLobbyHudController({
   const statusEl = elements.lobbyHudStatus;
   const metaEl = elements.lobbyHudMeta;
   const joinBtn = elements.lobbyJoinBtn;
+  const startBtn = elements.lobbyStartBtn;
   const leaveBtn = elements.lobbyLeaveBtn;
   const codeInput = elements.lobbyCodeInput;
   const joinCodeBtn = elements.lobbyCodeJoinBtn;
@@ -32,6 +33,7 @@ export function createLobbyHudController({
     !statusEl ||
     !metaEl ||
     !joinBtn ||
+    !startBtn ||
     !leaveBtn ||
     !codeInput ||
     !joinCodeBtn
@@ -72,6 +74,7 @@ export function createLobbyHudController({
       root.hidden = !isVisible || sectorFeedVisible;
       statusEl.textContent = "No lobby queue selected";
       metaEl.textContent = "Join an open lobby or enter a code.";
+      startBtn.disabled = true;
       leaveBtn.disabled = true;
       if (matchCoreHud) {
         matchCoreHud.hidden = true;
@@ -116,7 +119,10 @@ export function createLobbyHudController({
       matchCoreHud.hidden = true;
     }
 
-    let countdownText = "Waiting for 2 players";
+    let countdownText =
+      state.playerCount === 1
+        ? "Ready when you click Start"
+        : "Waiting for 2 players";
     if (state.startedAtMs !== null && state.startedAtMs !== undefined) {
       countdownText = "Game started";
     } else if (
@@ -132,6 +138,10 @@ export function createLobbyHudController({
 
     statusEl.textContent = `Lobby ${state.lobbyCode ?? "UNKNOWN"} • ${state.playerCount}/${state.maxPlayers}`;
     metaEl.textContent = `Queue age ${ageSeconds}s • ${countdownText}`;
+    startBtn.disabled =
+      state.playerCount < 1 ||
+      (state.countdownEndsAtMs !== null &&
+        state.countdownEndsAtMs !== undefined);
     leaveBtn.disabled = false;
   };
 
@@ -141,6 +151,10 @@ export function createLobbyHudController({
 
   leaveBtn.addEventListener("click", () => {
     gameClient.requestLeaveLobby();
+  });
+
+  startBtn.addEventListener("click", () => {
+    gameClient.requestStartLobby();
   });
 
   const joinByCode = (): void => {

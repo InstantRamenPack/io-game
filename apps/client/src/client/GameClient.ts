@@ -253,6 +253,13 @@ export class GameClient {
     this.networkClient.leaveLobby();
   }
 
+  public requestStartLobby(): void {
+    if (!this.isSessionReady() || !this.isTransportConnected()) {
+      return;
+    }
+    this.networkClient.startLobby();
+  }
+
   public async initRenderer(hostElement: HTMLElement): Promise<void> {
     await this.renderer.init(hostElement, this.gameConfig.worldSize);
     this.renderer.invalidateViewRectCache();
@@ -434,10 +441,10 @@ export class GameClient {
       .sort((left, right) => left.localeCompare(right));
   }
 
-  public start(
-    url: string,
-    connectOptions: { googleIdToken?: string; playerName: string },
-  ): void {
+  public start(url: string, connectOptions: { playerName: string }): void {
+    if (this.sessionLifecycle.isStarted() && !this.isSessionReady()) {
+      this.resetSessionState(true);
+    }
     if (!this.sessionLifecycle.begin()) {
       return;
     }
@@ -450,8 +457,26 @@ export class GameClient {
     this.startFrameLoop();
 
     this.networkClient.connect(url, {
-      googleIdToken: connectOptions.googleIdToken,
       playerName: connectOptions.playerName,
+      compatHash: this.gameConfig.compatHash,
+    });
+  }
+
+  public startLobbyPreview(url: string): void {
+    if (!this.sessionLifecycle.begin()) {
+      return;
+    }
+
+    this.rateMonitor.reset();
+    this.worldState = this.sessionLifecycle.createWorldState(
+      this.gameConfig.interpolation.historySize,
+    );
+    this.pendingPlayerName = null;
+    this.startFrameLoop();
+    this.renderer.setPlaygroundMode(true);
+
+    this.networkClient.connect(url, {
+      preview: true,
       compatHash: this.gameConfig.compatHash,
     });
   }

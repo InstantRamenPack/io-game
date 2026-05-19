@@ -2,6 +2,16 @@
   "label": "Scissors",
   "hint": "Short stab with a chance to open a cut.",
   "description": "Basic scavenged weapon with low range, low damage, and a small chance to inflict bleeding.",
+  "recipe": {
+    "hint": "Cheap stabbing weapon with a bleed chance.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 18
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 9,

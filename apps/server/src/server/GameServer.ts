@@ -7,6 +7,7 @@ import {
   type PingMessage,
   type ServerToClientMessage,
 } from "@shared/net/protocol.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
 import { parseFastInputMessage } from "@server/net/FastInputMessageParser.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { ScopedWsServer } from "@server/net/ScopedWsServer.ts";
@@ -14,7 +15,6 @@ import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { LobbyStateCache } from "@server/server/matchmaking/LobbyStateCache.ts";
-import type { AuthService } from "@server/services/AuthService.ts";
 
 type MatchLobby = {
   code: string;
@@ -35,7 +35,7 @@ const MATCH_LOBBY_CODE_LENGTH = 6;
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
- * This class owns transport/auth and orchestrates one playground instance plus lobby instances.
+ * This class owns transport and orchestrates one playground instance plus lobby instances.
  */
 export class GameServer {
   public readonly world: GameInstanceRuntime["world"];
@@ -46,12 +46,11 @@ export class GameServer {
 
   private readonly gameConfig: GameConfig;
   private readonly clock: TickClock;
-  private readonly authService: AuthService;
   private readonly enableMatchmaking: boolean;
   private readonly playgroundRuntime: GameInstanceRuntime;
   private readonly clientStateById = new Map<
     string,
-    "connected" | "hello_pending" | "ready"
+    "connected" | "hello_pending" | "preview" | "ready"
   >();
   private readonly activeRuntimeByClientId = new Map<
     string,
@@ -64,13 +63,11 @@ export class GameServer {
   constructor(
     gameConfig: GameConfig,
     networkServer: NetworkServerLike,
-    authService: AuthService,
     options: { enableMatchmaking?: boolean } = {},
   ) {
     bootstrapTypeRegistries();
     this.gameConfig = gameConfig;
     this.networkServer = networkServer;
-    this.authService = authService;
     this.enableMatchmaking = options.enableMatchmaking ?? true;
     this.playgroundRuntime = new GameInstanceRuntime(
       gameConfig,
@@ -149,8 +146,11 @@ export class GameServer {
     }
 
     this.clientStateById.delete(clientId);
+    this.playgroundRuntime.detachClient(clientId);
     const runtime = this.activeRuntimeByClientId.get(clientId);
-    runtime?.detachClient(clientId);
+    if (runtime !== this.playgroundRuntime) {
+      runtime?.detachClient(clientId);
+    }
     this.activeRuntimeByClientId.delete(clientId);
   }
 
@@ -269,32 +269,14 @@ export class GameServer {
       return;
     }
 
-    if (helloMessage.googleIdToken) {
-      if (!this.authService.isConfigured()) {
-        this.networkServer.send(
-          clientId,
-          JSON.stringify({ t: "error", message: "auth_not_configured" }),
-        );
-        this.networkServer.disconnect(clientId, "auth_not_configured");
-        return;
-      }
-
-      this.clientStateById.set(clientId, "hello_pending");
-      const authenticatedUser = await this.authService.verifyGoogleIdToken(
-        helloMessage.googleIdToken,
+    if (helloMessage.preview === true) {
+      this.playgroundRuntime.connectPreviewClient(clientId);
+      this.clientStateById.set(clientId, "preview");
+      this.networkServer.send(
+        clientId,
+        JSON.stringify({ t: "pong", timeMs: Date.now() }),
       );
-      if (this.clientStateById.get(clientId) !== "hello_pending") {
-        return;
-      }
-      this.clientStateById.set(clientId, "connected");
-      if (!authenticatedUser) {
-        this.networkServer.send(
-          clientId,
-          JSON.stringify({ t: "error", message: "auth_invalid" }),
-        );
-        this.networkServer.disconnect(clientId, "auth_invalid");
-        return;
-      }
+      return;
     }
 
     if (
@@ -309,9 +291,27 @@ export class GameServer {
       return;
     }
 
+    const playerName = normalizePlayerName(helloMessage.playerName, "");
+    if (!playerName) {
+      this.networkServer.send(
+        clientId,
+        JSON.stringify({ t: "error", message: "name_required" }),
+      );
+      this.networkServer.disconnect(clientId, "name_required");
+      return;
+    }
+    if (this.isPlayerNameInUse(playerName)) {
+      this.networkServer.send(
+        clientId,
+        JSON.stringify({ t: "error", message: "name_taken" }),
+      );
+      this.networkServer.disconnect(clientId, "name_taken");
+      return;
+    }
+
     const playerId = this.playgroundRuntime.connectReadyClient(
       clientId,
-      helloMessage.playerName,
+      playerName,
     );
     this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.clientStateById.set(clientId, "ready");
@@ -363,6 +363,9 @@ export class GameServer {
           });
         }
         this.sendLobbyState(clientId, true);
+        return;
+      case "start":
+        this.startLobbyByClientRequest(clientId);
         return;
       default:
         return;
@@ -498,17 +501,7 @@ export class GameServer {
         lobby.countdownEndsAtMs !== null &&
         nowMs >= lobby.countdownEndsAtMs
       ) {
-        this.resetLobbyRuntime(lobby);
-        lobby.startedAtMs = nowMs;
-        lobby.countdownEndsAtMs = null;
-        for (const clientId of lobby.playerClientIds) {
-          this.migrateClientToLobbyRuntime(clientId, lobby);
-        }
-        this.broadcastLobbyMessage(
-          lobby,
-          `Lobby ${lobby.code} game started with ${lobby.playerClientIds.size} player(s).`,
-        );
-        this.broadcastLobbyState(lobby, true);
+        this.startLobby(lobby, nowMs);
         continue;
       }
 
@@ -528,6 +521,43 @@ export class GameServer {
       lobby,
       `Lobby ${lobby.code} reached 2 players. Game starts in 10 seconds.`,
     );
+  }
+
+  private startLobbyByClientRequest(clientId: string): void {
+    const lobbyCode = this.matchLobbyCodeByClientId.get(clientId);
+    if (!lobbyCode) {
+      this.sendToClientSystem(clientId, "Join a lobby before starting.");
+      this.sendLobbyState(clientId, true);
+      return;
+    }
+
+    const lobby = this.matchLobbyByCode.get(lobbyCode);
+    if (!lobby || lobby.startedAtMs !== null) {
+      this.sendLobbyState(clientId, true);
+      return;
+    }
+
+    if (lobby.playerClientIds.size < 1) {
+      this.sendToClientSystem(clientId, "Need at least 1 player to start.");
+      this.sendLobbyState(clientId, true);
+      return;
+    }
+
+    this.startLobby(lobby, Date.now());
+  }
+
+  private startLobby(lobby: MatchLobby, nowMs: number): void {
+    this.resetLobbyRuntime(lobby);
+    lobby.startedAtMs = nowMs;
+    lobby.countdownEndsAtMs = null;
+    for (const clientId of lobby.playerClientIds) {
+      this.migrateClientToLobbyRuntime(clientId, lobby);
+    }
+    this.broadcastLobbyMessage(
+      lobby,
+      `Lobby ${lobby.code} game started with ${lobby.playerClientIds.size} player(s).`,
+    );
+    this.broadcastLobbyState(lobby, true);
   }
 
   private findOpenLobby(): MatchLobby | undefined {
@@ -779,6 +809,18 @@ export class GameServer {
 
   private getPlayerDisplayName(clientId: string): string {
     return this.getActiveRuntime(clientId).getPlayerName(clientId) ?? "Player";
+  }
+
+  private isPlayerNameInUse(playerName: string): boolean {
+    if (this.playgroundRuntime.hasPlayerName(playerName)) {
+      return true;
+    }
+    for (const lobby of this.matchLobbyByCode.values()) {
+      if (lobby.runtime?.hasPlayerName(playerName)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

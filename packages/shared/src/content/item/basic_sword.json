@@ -2,6 +2,16 @@
   "label": "Sword",
   "hint": "Fast sweep attack with a wide arc.",
   "description": "Starter melee weapon that catches clustered targets.",
+  "recipe": {
+    "hint": "Fast sweeping blade for close fights.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 26
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 10,

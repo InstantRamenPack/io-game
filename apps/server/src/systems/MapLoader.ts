@@ -213,10 +213,31 @@ const cachedProceduralLayoutBySeed = new Map<
   ReturnType<typeof generateProceduralWorldLayout>
 >();
 
+const LOBBY_WORLD_SIZE = Object.freeze({ w: 1000, h: 1000 });
+
+function loadLobbyLayout(world: World): void {
+  world.proceduralLayout = null;
+  world.gameConfig.worldSize = { ...LOBBY_WORLD_SIZE };
+  spawnMapEntity(world, {
+    typeId: "building:crafting_station" as ResourceId,
+    x: LOBBY_WORLD_SIZE.w / 2,
+    y: LOBBY_WORLD_SIZE.h / 2 + 56,
+  });
+}
+
 /**
  * Spawns all map structures and initial enemies from data-backed zones.
  */
-export function loadMap(world: World, seed?: number): void {
+export function loadMap(
+  world: World,
+  seed?: number,
+  options: { kind?: "match" | "lobby" } = {},
+): void {
+  if (options.kind === "lobby") {
+    loadLobbyLayout(world);
+    return;
+  }
+
   const layoutSeed = Number.isFinite(seed)
     ? Math.floor(seed as number) | 0
     : undefined;

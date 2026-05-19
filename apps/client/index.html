@@ -6,78 +6,23 @@
     <title>io-game client</title>
   </head>
   <body>
+    <div id="game-root" class="menu-backdrop-world"></div>
     <main class="menu-scene" data-screen="menu">
-      <header class="hud-top">
-        <section class="brand">
-          <h1>BREETT.NOOGS</h1>
-          <p>loclahost 5173</p>
-        </section>
-        <aside class="status">brett goons to chirstopher peng daily</aside>
-      </header>
-
-      <section class="layout">
-        <nav class="side-menu" aria-label="Main menu actions">
-          <button data-view="play" aria-current="true">PLAY</button>
-          <button data-view="loadout">LOADOUT</button>
-          <button data-view="settings">SETTINGS</button>
-          <button data-view="account">ACCOUNT</button>
-        </nav>
-
-        <section class="play-card" aria-label="Server join card">
-          <div class="card-top">
-            <h2 id="menu-title">OUTBREAK SECTOR</h2>
-            <span class="danger-pill">Night +1 incoming</span>
-          </div>
-
-          <div class="metrics" id="menu-metrics">
-            <span>Survivors: 284</span>
-            <span>Alive: 152</span>
-            <span>Queue: 3</span>
-          </div>
-
-          <div class="account-gate" id="account-gate">
-            <span id="account-gate-text">
-              Deploy as guest, or sign in with Google to save progress.
-            </span>
-            <div class="account-actions">
-              <div class="google-auth-slot">
-                <button class="account-btn" id="account-btn" type="button">
-                  Loading...
-                </button>
-                <div
-                  class="google-signin-target"
-                  id="google-signin-target"
-                  hidden
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="play-grid">
-            <input
-              id="player-name-input"
-              class="field"
-              type="text"
-              value="Player-071"
-              aria-label="Player name"
-              autocomplete="nickname"
-            />
-
-            <button class="launch" id="launch-btn">Deploy</button>
-          </div>
-        </section>
+      <section class="play-card" aria-label="Lobby join modal">
+        <h1>Lobby</h1>
+        <label class="name-label" for="player-name-input">Name</label>
+        <input
+          id="player-name-input"
+          class="field"
+          type="text"
+          aria-label="Player name"
+          autocomplete="nickname"
+          maxlength="20"
+          required
+        />
+        <button class="launch" id="launch-btn" type="button">Play</button>
       </section>
-
-      <footer class="bottom-stats" aria-label="Player progression">
-        <div class="hp">250</div>
-        <div>
-          <div class="meta">Level 8</div>
-          <div class="meta">Gold 1320</div>
-          <div class="meta">Bonds 0</div>
-        </div>
-      </footer>
     </main>
-    <div id="game-root" hidden></div>
     <div id="training-ground-banner" class="training-ground-banner" hidden>
       <span class="training-ground-label">Training Ground</span>
       <span class="training-ground-sub"
@@ -98,6 +43,7 @@
       </div>
       <div class="lobby-hud-actions">
         <button id="lobby-join-btn" type="button">Join Open Lobby</button>
+        <button id="lobby-start-btn" type="button">Start Lobby</button>
         <button id="lobby-leave-btn" type="button">Leave Lobby</button>
       </div>
       <div class="lobby-hud-actions">

@@ -18,8 +18,8 @@ import {
 
 type ConnectOptions = {
   compatHash?: string;
-  googleIdToken?: string;
   playerName?: string;
+  preview?: boolean;
 };
 
 /**
@@ -50,11 +50,7 @@ export class WsClient {
 
   public connect(
     url: string,
-    {
-      googleIdToken,
-      playerName,
-      compatHash = COMPAT_HASH,
-    }: ConnectOptions = {},
+    { playerName, preview, compatHash = COMPAT_HASH }: ConnectOptions = {},
   ): void {
     this.disconnect();
 
@@ -66,8 +62,8 @@ export class WsClient {
         JSON.stringify({
           t: "hello",
           compatHash,
-          googleIdToken,
           playerName,
+          ...(preview === undefined ? {} : { preview }),
         }),
         { bypassSimulation: true },
       );
@@ -77,9 +73,10 @@ export class WsClient {
     });
 
     socket.addEventListener("close", () => {
-      if (this.socket === socket) {
-        this.socket = undefined;
+      if (this.socket !== socket) {
+        return;
       }
+      this.socket = undefined;
       for (const closeHandler of this.closeHandlers) {
         closeHandler();
       }
@@ -139,6 +136,10 @@ export class WsClient {
 
   public leaveLobby(): void {
     this.sendRaw(JSON.stringify({ t: "lobby", action: "leave" }));
+  }
+
+  public startLobby(): void {
+    this.sendRaw(JSON.stringify({ t: "lobby", action: "start" }));
   }
 
   public setDebugNetworkProfile(

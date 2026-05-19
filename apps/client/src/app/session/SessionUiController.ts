@@ -29,7 +29,11 @@ export function createSessionUiController(
       elements.menuRoot.dataset.sessionMode = state.mode;
     }
     if (elements.gameRoot) {
-      elements.gameRoot.hidden = !isGameplaySession(state);
+      elements.gameRoot.hidden = false;
+      elements.gameRoot.classList.toggle(
+        "is-menu-backdrop",
+        state.mode === "menu" || state.mode === "connecting",
+      );
     }
     if (elements.chatRoot) {
       elements.chatRoot.hidden = !isGameplaySession(state);

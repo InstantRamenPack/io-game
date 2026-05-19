@@ -14,7 +14,6 @@ import {
   resolvePlayerName,
 } from "@client/app/playerName.ts";
 import { installDebugBridge } from "@client/app/installDebugBridge.ts";
-import { AuthController } from "@client/auth/Auth.ts";
 import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
@@ -26,12 +25,16 @@ import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInte
 import { getNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import {
+  ClientRuntimeConfigSchema,
+  type ClientRuntimeConfig,
+} from "@shared/config/ClientRuntimeConfig.ts";
 
 /**
  * Browser entrypoint for the client application.
  * This file intentionally acts only as the composition root: it resolves DOM
  * handles, constructs the runtime/services/controllers, wires them together,
- * and kicks off auth initialization. All feature behavior now lives in the
+ * and loads runtime configuration. All feature behavior now lives in the
  * concern-specific modules under `apps/client/src/app`.
  */
 const elements = getAppElements();
@@ -54,7 +57,6 @@ if (debugNetworkProfile) {
   );
   gameClient.setDebugNetworkProfile(debugNetworkProfile, seed);
 }
-const authController = new AuthController();
 const sessionUiController = createSessionUiController(elements);
 
 gameClient.bindInput(window);
@@ -81,14 +83,12 @@ const deathController = createDeathController({
 });
 const menuController = createMenuController({
   elements,
-  authController,
   sessionUiController,
 });
 const launchController = createLaunchController({
   elements,
   gameClient,
   gameConfig,
-  authController,
   menuController,
   sessionUiController,
   hudController,
@@ -277,15 +277,38 @@ new GameInputRouter({
 }).bind(window);
 
 hydratePlayerNameInput(elements.playerNameInput);
-menuController.refreshGateUi();
 deathController.sync();
 
-void authController.initialize((runtimeConfig) => {
+void loadRuntimeConfig().then((runtimeConfig) => {
   launchController.applyRuntimeConfig(runtimeConfig);
+  if (elements.gameRoot) {
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    void gameClient
+      .initRenderer(elements.gameRoot)
+      .then(() => {
+        gameClient.startLobbyPreview(wsUrl);
+      })
+      .catch((error) => {
+        console.error("Failed to initialize lobby renderer:", error);
+      });
+  }
   if (autoStartSession) {
     window.setTimeout(() => elements.launchBtn?.click(), 0);
   }
 });
+
+async function loadRuntimeConfig(): Promise<ClientRuntimeConfig> {
+  const response = await fetch("/runtime-config");
+  if (!response.ok) {
+    throw new Error("Unable to load runtime config.");
+  }
+  const parsed = ClientRuntimeConfigSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new Error("Invalid runtime config.");
+  }
+  return parsed.data;
+}
 
 declare global {
   interface Window {

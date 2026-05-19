@@ -228,6 +228,39 @@ export class SnapshotManager {
     };
   }
 
+  public makeFullSnapshotForObserver(world: World): WorldSnapshot {
+    if (this.tickCache.getPreparedTick() !== world.tick) {
+      this.prepareTick(world, []);
+    }
+
+    const dayNight =
+      this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
+    const extraction =
+      this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
+    const infrastructure =
+      this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
+    const entities: EntitySnapshot[] = [];
+    for (const entity of world.entities.all()) {
+      const snapshot = this.tickCache.getSnapshot(entity.id);
+      if (snapshot) {
+        entities.push(snapshot);
+      }
+    }
+
+    return {
+      tick: world.tick,
+      dayNight,
+      extraction,
+      infrastructure,
+      map: makeMapSnapshot(world),
+      minimapPlayers: this.collectMinimapPlayers(world),
+      full: true,
+      entities,
+      removedEntityIds: [],
+      events: [],
+    };
+  }
+
   private collectFullEntitiesForPlayer(
     world: World,
     playerId: number,
