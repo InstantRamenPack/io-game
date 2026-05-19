@@ -85,19 +85,11 @@ export class Player extends Entity {
   public static readonly kind = "player" as const;
   public static override readonly resourceName = "base";
 
-  public static readonly MAX_FOOD = 100;
   private static readonly INPUT_STALE_TIMEOUT_MS = 250;
-  // Drains to zero in 3 minutes at 20 ticks/sec
-  private static readonly FOOD_DRAIN_PER_TICK = 100 / (3 * 60 * 20);
-  // 1 HP per 2 seconds at 20 ticks/sec, fueled by food.
-  private static readonly PASSIVE_HEAL_INTERVAL_TICKS = 40;
-  private static readonly PASSIVE_HEAL_FOOD_COST = 1;
 
   public name: string;
   public inventory: Inventory;
   public moveSpeed = 15;
-  public food = Player.MAX_FOOD;
-  public maxFood = Player.MAX_FOOD;
   private readonly defaultCollisionMode: CollisionMode;
   private readonly fists = new Fists();
   public readonly queuedActions: ActionMessage[] = [];
@@ -174,14 +166,6 @@ export class Player extends Entity {
     this.fists.ownerId = this.id;
     this.fists.tick(world);
 
-    this.food = Math.max(0, this.food - Player.FOOD_DRAIN_PER_TICK);
-    if (
-      world.tick % Player.PASSIVE_HEAL_INTERVAL_TICKS === 0 &&
-      this.food > 0
-    ) {
-      this.hp = Math.min(this.maxHp, this.hp + 1);
-      this.food = Math.max(0, this.food - Player.PASSIVE_HEAL_FOOD_COST);
-    }
     const hasFreshInput = this.applyLatestInputIntent(world);
     if (!hasFreshInput) {
       this.resetDriveVelocity();
@@ -200,19 +184,11 @@ export class Player extends Entity {
       activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
       equippedItem: this.getActiveWeapon()?.toEquippedItemSnapshot(this),
-      food: this.food,
-      maxFood: this.maxFood,
     };
   }
 
   public override getDamageReductionMultiplier(): number {
-    if (this.isDebugSpectatorMode()) {
-      return 0;
-    }
-    const fraction = this.food / Math.max(1, this.maxFood);
-    if (fraction >= 0.8) return 0.7;
-    if (fraction >= 0.5) return 0.85;
-    return 1;
+    return this.isDebugSpectatorMode() ? 0 : 1;
   }
 
   public getActiveWeapon(): Weapon | undefined {
@@ -258,7 +234,6 @@ export class Player extends Entity {
     };
     this.alive = true;
     this.hp = this.maxHp;
-    this.food = this.maxFood;
     this.activeEffects = [];
     this.clearQueuedInputState();
     this.aimTheta = 0;

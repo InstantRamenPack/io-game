@@ -1,11 +1,11 @@
 {
-  "label": "Bullet",
+  "label": "Shoota Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
-    "speed": 100,
-    "range": 1000,
-    "damage": 25,
+    "speed": 80,
+    "range": 400,
+    "damage": 8,
     "maxHits": 1,
     "hitbox": {
       "width": 12,

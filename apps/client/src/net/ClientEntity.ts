@@ -67,8 +67,6 @@ export class ClientEntity {
   public moveSpeed?: number;
   public targetId?: number;
   public equippedItem?: EquippedItemSnapshot;
-  public food?: number;
-  public maxFood?: number;
   public serverX: number;
   public serverY: number;
   public visualVersion = 1;
@@ -143,8 +141,6 @@ export class ClientEntity {
     const previousOwnerId = this.ownerId;
     const previousHp = this.hp;
     const previousMaxHp = this.maxHp;
-    const previousFood = this.food;
-    const previousMaxFood = this.maxFood;
 
     const nextHp = snapshot.hp ?? this.hp;
     const nextMaxHp = snapshot.maxHp ?? this.maxHp;
@@ -199,11 +195,6 @@ export class ClientEntity {
     this.ownerId = nextOwnerId;
 
     if (this.applyKindSpecificFields(snapshot, isFullSnapshot)) {
-      hasStateChange = true;
-    }
-
-    if (previousFood !== this.food || previousMaxFood !== this.maxFood) {
-      this.healthVersion += 1;
       hasStateChange = true;
     }
 
@@ -326,8 +317,6 @@ export class ClientEntity {
     const previousMoveSpeed = this.moveSpeed;
     const previousTargetId = this.targetId;
     const previousEquippedItem = this.equippedItem;
-    const previousFood = this.food;
-    const previousMaxFood = this.maxFood;
 
     this.name = undefined;
     this.label = undefined;
@@ -338,8 +327,6 @@ export class ClientEntity {
     this.moveSpeed = undefined;
     this.targetId = undefined;
     this.equippedItem = undefined;
-    this.food = undefined;
-    this.maxFood = undefined;
 
     switch (snapshot.kind) {
       case "player":
@@ -362,12 +349,6 @@ export class ClientEntity {
         } else {
           this.equippedItem = previousEquippedItem;
         }
-        this.food =
-          isFullSnapshot || "food" in snapshot ? snapshot.food : previousFood;
-        this.maxFood =
-          isFullSnapshot || "maxFood" in snapshot
-            ? snapshot.maxFood
-            : previousMaxFood;
         break;
       case "enemy":
         if (isFullSnapshot || "targetId" in snapshot) {
@@ -422,9 +403,7 @@ export class ClientEntity {
       previousEffects !== this.activeEffects ||
       previousMoveSpeed !== this.moveSpeed ||
       previousTargetId !== this.targetId ||
-      previousEquippedItem !== this.equippedItem ||
-      previousFood !== this.food ||
-      previousMaxFood !== this.maxFood
+      previousEquippedItem !== this.equippedItem
     );
   }
 

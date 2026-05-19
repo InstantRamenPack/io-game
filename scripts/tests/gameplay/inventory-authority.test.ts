@@ -183,10 +183,10 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(hunkItemId)).toBe(before + 3);
   });
 
-  test("food pickups fill hunger instead of becoming resources", () => {
+  test("food pickups heal the player instead of becoming resources", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    player.food = 25;
+    player.hp = 50;
     const pickupInventory = new Inventory();
     pickupInventory.addStackable(junkFoodItemId, 2);
     const pickup = new ItemEntity(
@@ -201,7 +201,7 @@ describe("inventory authority", () => {
     tick(runtime, 1);
 
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
-    expect(player.food).toBeGreaterThan(25);
+    expect(player.hp).toBe(90);
     expect(player.inventory.countType(junkFoodItemId)).toBe(0);
   });
 

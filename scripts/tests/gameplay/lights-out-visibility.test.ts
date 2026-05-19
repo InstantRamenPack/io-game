@@ -18,34 +18,20 @@ import {
 describe("lights-out visibility", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("day lights-out fades by distance from world center", () => {
+  test("day lights-out is fully suppressed regardless of distance", () => {
     const worldSize = { w: 12_288, h: 12_288 };
     const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
 
-    expect(
-      computeLightsOutPresentation({
-        player: { x: center.x + 1500, y: center.y },
-        worldSize,
-        nightBlend: 0,
-        energyActive: true,
-      }).alpha,
-    ).toBe(0);
-    expect(
-      computeLightsOutPresentation({
-        player: { x: center.x + 1750, y: center.y },
-        worldSize,
-        nightBlend: 0,
-        energyActive: true,
-      }).alpha,
-    ).toBeCloseTo(0.5);
-    expect(
-      computeLightsOutPresentation({
-        player: { x: center.x + 2000, y: center.y },
-        worldSize,
-        nightBlend: 0,
-        energyActive: true,
-      }).alpha,
-    ).toBe(1);
+    for (const dist of [0, 1500, 1750, 2000, 4000]) {
+      expect(
+        computeLightsOutPresentation({
+          player: { x: center.x + dist, y: center.y },
+          worldSize,
+          nightBlend: 0,
+          energyActive: true,
+        }).alpha,
+      ).toBe(0);
+    }
   });
 
   test("server snapshots keep lights-out replication authoritative-agnostic", () => {
@@ -204,6 +190,8 @@ describe("lights-out visibility", () => {
     const worldSize = { w: 12_288, h: 12_288 };
     const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
 
+    // At nightBlend=0.5, fadeStart=1125, fadeEnd=1562.5. A player at +1343.75 is
+    // midway through the fade (rawAlpha=0.5), then scaled by nightBlend (0.5) → 0.25.
     expect(
       computeLightsOutPresentation({
         player: { x: center.x + 1343.75, y: center.y },
@@ -211,16 +199,16 @@ describe("lights-out visibility", () => {
         nightBlend: 0.5,
         energyActive: true,
       }).alpha,
-    ).toBeCloseTo(0.5);
+    ).toBeCloseTo(0.25);
   });
 
-  test("energy failure forces full lights-out anywhere", () => {
+  test("energy failure forces full lights-out anywhere during night", () => {
     const worldSize = { w: 12_288, h: 12_288 };
     const center = { x: worldSize.w / 2, y: worldSize.h / 2 };
     const presentation = computeLightsOutPresentation({
       player: center,
       worldSize,
-      nightBlend: 0,
+      nightBlend: 1,
       energyActive: false,
     });
 
@@ -238,7 +226,7 @@ describe("lights-out visibility", () => {
         player: { x: center.x + 2000, y: center.y },
         center,
         worldSize,
-        nightBlend: 0,
+        nightBlend: 1,
         energyActive: true,
       }).alpha,
     ).toBe(1);

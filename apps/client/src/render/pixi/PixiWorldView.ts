@@ -85,9 +85,10 @@ export function computeLightsOutPresentation(options: {
     player.x - center.x,
     player.y - center.y,
   );
-  const alpha = energyActive
+  const rawAlpha = energyActive
     ? inverseLerp(fadeStartRadius, fadeEndRadius, distanceFromCenter)
     : 1;
+  const alpha = rawAlpha * nightBlend;
   return {
     alpha,
     visibility: {

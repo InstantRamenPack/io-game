@@ -45,8 +45,6 @@ export function makePlayerSnapshot(
     inventory: makeInventorySnapshot(),
     activeEffects: [],
     moveSpeed: 15,
-    food: 100,
-    maxFood: 100,
     ...overrides,
   };
 }

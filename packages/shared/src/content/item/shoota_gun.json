@@ -1,0 +1,20 @@
+{
+  "label": "Shoota Gun",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 25,
+    "projectileTypeId": "projectile:shoota_bullet",
+    "magSize": 3,
+    "reloadTicks": 60,
+    "spreadDeg": 5,
+    "equippedRender": {
+      "holdOffset": { "x": 30, "y": 8 },
+      "holdRotationDeg": 0,
+      "scale": 1.0,
+      "handedness": "right",
+      "recoilDistance": 10,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  }
+}

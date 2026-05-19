@@ -105,8 +105,6 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   activeEffects: z.array(ActiveEffectSnapshotSchema),
   moveSpeed: z.number(),
   equippedItem: EquippedItemSnapshotSchema.optional(),
-  food: z.number(),
-  maxFood: z.number(),
 });
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({

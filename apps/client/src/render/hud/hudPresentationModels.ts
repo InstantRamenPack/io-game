@@ -24,8 +24,6 @@ export type CombatHudAmmoModel = {
 export type CombatHudModel = {
   hp: number;
   maxHp: number;
-  food: number;
-  maxFood: number;
   ammo: CombatHudAmmoModel | null;
 };
 
@@ -53,8 +51,6 @@ export function buildCombatHudModel(options: {
   return {
     hp: playerEntity.hp ?? 0,
     maxHp: Math.max(0, playerEntity.maxHp ?? 0),
-    food: playerEntity.food ?? 0,
-    maxFood: Math.max(0, playerEntity.maxFood ?? 0),
     ammo: buildAmmoModel(activeSlot),
   };
 }

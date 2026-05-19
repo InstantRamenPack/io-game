@@ -9,7 +9,7 @@
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 10,
+    "cooldownTicks": 5,
     "projectileTypeId": "projectile:rifle_bullet",
     "magSize": 30,
     "reloadTicks": 35,

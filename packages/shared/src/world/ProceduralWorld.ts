@@ -1520,7 +1520,13 @@ function addDungeonRoomContent(
       );
       break;
     case "armory":
-      enemies.push(roomSpawn("enemy:police", 0, -120));
+      enemies.push(
+        roomSpawn("enemy:shoota", 0, -160),
+        roomSpawn("enemy:police", -180, -80),
+        roomSpawn("enemy:police", 180, -80),
+        roomSpawn("enemy:police", -180, 120),
+        roomSpawn("enemy:police", 180, 120),
+      );
       loot.push(roomLoot("item:basic_rifle", -96, 96, "weapon", "rare", 1));
       loot.push(roomLoot("item:sniper_mag", 96, 96, "stackable", "rare", 2));
       break;
@@ -2027,6 +2033,14 @@ function addVillageEnemies(
   room: VillageRoom,
   enemies: ProceduralSpawnSpec[],
 ): void {
+  // Low and medium danger areas have no static guards — they feel empty early game.
+  if (village.danger === "low" || village.danger === "medium") {
+    return;
+  }
+  // High danger: only fortified positions (checkpoint, armory) have a single guard.
+  if (village.danger === "high" && room.role !== "checkpoint" && room.role !== "armory") {
+    return;
+  }
   const pools: Record<ProceduralVillageKind, readonly string[]> = {
     civilian: ["enemy:drifter", "enemy:drifter", "enemy:police"],
     scavenger: ["enemy:drifter", "enemy:shoota", "enemy:stalker", "enemy:bomber"],
@@ -2040,19 +2054,7 @@ function addVillageEnemies(
       "enemy:megaknight",
     ],
   };
-  const baseCount =
-    village.danger === "boss" ? 2 : village.danger === "high" ? 1 : 1;
-  if (
-    village.danger !== "high" &&
-    village.danger !== "boss" &&
-    (room.role === "house" || room.role === "market")
-  ) {
-    return;
-  }
-  if (room.role === "house_cluster" && village.danger === "low") {
-    enemies.push(spawn("enemy:drifter", room.center.x, room.center.y));
-    return;
-  }
+  const baseCount = village.danger === "boss" ? 2 : 1;
   const count =
     room.role === "helipad" || room.role === "armory"
       ? baseCount + 1
@@ -2137,33 +2139,19 @@ function createForestCamp(
     enemyTypes: (isCorner
       ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
       : ["enemy:drifter", "enemy:drifter", "enemy:police"]) as ResourceId[],
-    minGroupSize: 2,
-    maxGroupSize: isCorner ? 5 : 4,
-    maxAlive: isCorner ? 5 : 4,
-    respawnDelayTicks: 20 * 45,
+    minGroupSize: 1,
+    maxGroupSize: isCorner ? 3 : 2,
+    maxAlive: isCorner ? 3 : 2,
+    respawnDelayTicks: 20 * 180,
   };
 }
 
 function addInitialForestCampEnemies(
-  rng: seedrandom.PRNG,
-  camp: ProceduralForestCamp,
-  enemies: ProceduralSpawnSpec[],
+  _rng: seedrandom.PRNG,
+  _camp: ProceduralForestCamp,
+  _enemies: ProceduralSpawnSpec[],
 ): void {
-  const count =
-    camp.minGroupSize +
-    Math.floor(rng() * (camp.maxGroupSize - camp.minGroupSize + 1));
-  for (let index = 0; index < count; index += 1) {
-    const typeId = camp.enemyTypes[index % camp.enemyTypes.length]!;
-    const angle = rng() * Math.PI * 2;
-    const radius = rng() * camp.radius * 0.7;
-    enemies.push(
-      spawn(
-        typeId,
-        camp.x + Math.cos(angle) * radius,
-        camp.y + Math.sin(angle) * radius,
-      ),
-    );
-  }
+  // Camps start empty — they fill naturally via the respawn system from wave 2 onward.
 }
 
 function addFeature(

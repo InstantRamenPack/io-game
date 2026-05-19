@@ -394,11 +394,11 @@ export class PickupSystem implements System {
     typeId: ResourceId,
     amount: number,
   ): boolean {
-    const foodRestore = getItemContent(typeId)?.food?.foodRestore;
-    if (foodRestore === undefined) {
+    const healAmount = getItemContent(typeId)?.food?.healAmount;
+    if (healAmount === undefined) {
       return false;
     }
-    player.food = Math.min(player.maxFood, player.food + foodRestore * amount);
+    player.hp = Math.min(player.maxHp, player.hp + healAmount * amount);
     return true;
   }
 

@@ -27,6 +27,7 @@ import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
 import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
 import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
+import { ShootaBullet } from "@server/entities/projectiles/ShootaBullet.ts";
 import { SniperBullet } from "@server/entities/projectiles/SniperBullet.ts";
 import { ThanosBullet } from "@server/entities/projectiles/ThanosBullet.ts";
 import { ThanosRocket } from "@server/entities/projectiles/ThanosRocket.ts";
@@ -77,6 +78,7 @@ import { WallItem } from "@server/items/structures/WallItem.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { ShootaGun } from "@server/items/weapons/ShootaGun.ts";
 import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
@@ -141,6 +143,7 @@ export const entityRuntimeCtors = [
   CrossbowArrow,
   HomingDrone,
   RifleBullet,
+  ShootaBullet,
   SniperBullet,
   ThanosBullet,
   ThanosRocket,
@@ -150,6 +153,7 @@ export const itemRuntimeCtors = [
   BaseballBat,
   BasicDagger,
   BasicGun,
+  ShootaGun,
   BasicRifle,
   BasicSpear,
   BasicSword,

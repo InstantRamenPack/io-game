@@ -115,7 +115,7 @@ export const ItemContentSchema = z.object({
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
-  food: z.object({ foodRestore: z.number().finite().positive() }).optional(),
+  food: z.object({ healAmount: z.number().finite().positive() }).optional(),
 });
 
 export const EntityContentSchema = z.object({
@@ -156,7 +156,7 @@ export type EntityCombatContent = z.infer<typeof EntityCombatContentSchema>;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
-export type FoodContent = { foodRestore: number };
+export type FoodContent = { healAmount: number };
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

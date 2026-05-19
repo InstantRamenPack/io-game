@@ -1,5 +1,5 @@
 {
   "label": "Quality Food",
-  "hint": "Nutritious but less filling.",
-  "food": { "foodRestore": 20 }
+  "hint": "Restores 40 HP.",
+  "food": { "healAmount": 40 }
 }
