@@ -106,6 +106,25 @@ createGameOverController({
 gameClient.setPointerActionHandler((pointer) => {
   return hudController.handlePointerInput(pointer);
 });
+window.addEventListener(
+  "wheel",
+  (event) => {
+    const screenPoint = gameClient.renderer.clientToScreen(
+      event.clientX,
+      event.clientY,
+    );
+    if (
+      hudController.handleCraftListWheel(
+        screenPoint.x,
+        screenPoint.y,
+        event.deltaY,
+      )
+    ) {
+      event.preventDefault();
+    }
+  },
+  { passive: false },
+);
 gameClient.onWorldUpdated(() => {
   hudController.setVisible(true);
   hudController.refreshUi();

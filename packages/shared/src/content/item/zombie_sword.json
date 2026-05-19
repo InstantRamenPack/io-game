@@ -1,5 +1,13 @@
 {
   "label": "Zombie Sword",
+  "recipe": {
+    "hint": "Forge this rare blade with a matching blueprint and refined hunks.",
+    "outputAmount": 1,
+    "costs": [
+      { "typeId": "item:blueprint_zombie_sword", "amount": 1 },
+      { "typeId": "item:hunk", "amount": 90 }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 50,

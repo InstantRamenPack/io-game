@@ -24,6 +24,7 @@ export type AppElements = {
   gameStartPrompt: HTMLElement | null;
   matchCoreHud: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
+  playerNameError: HTMLElement | null;
   deathOverlay: HTMLElement | null;
   respawnBtn: HTMLButtonElement | null;
   spectateHud: HTMLElement | null;
@@ -76,6 +77,7 @@ export function getAppElements(): AppElements {
     playerNameInput: document.getElementById(
       "player-name-input",
     ) as HTMLInputElement | null,
+    playerNameError: document.getElementById("player-name-error"),
     deathOverlay: document.getElementById("death-overlay"),
     respawnBtn: document.getElementById(
       "respawn-btn",

@@ -72,9 +72,16 @@ export function createLobbyHudController({
     const state = gameClient.getLobbyState() ?? lastState;
     if (!state || !state.inLobby) {
       root.hidden = !isVisible || sectorFeedVisible;
-      statusEl.textContent = "No lobby queue selected";
-      metaEl.textContent = "Join an open lobby or enter a code.";
+      statusEl.textContent = "No lobby code selected";
+      metaEl.textContent = "";
+      joinBtn.hidden = false;
+      startBtn.hidden = true;
+      joinBtn.textContent = "Join Open Lobby";
+      joinBtn.disabled = false;
       startBtn.disabled = true;
+      codeInput.hidden = false;
+      joinCodeBtn.hidden = false;
+      leaveBtn.hidden = true;
       leaveBtn.disabled = true;
       if (matchCoreHud) {
         matchCoreHud.hidden = true;
@@ -136,9 +143,15 @@ export function createLobbyHudController({
       countdownText = `Starting in ${countdownSeconds}s`;
     }
 
-    statusEl.textContent = `Lobby ${state.lobbyCode ?? "UNKNOWN"} • ${state.playerCount}/${state.maxPlayers}`;
-    metaEl.textContent = `Queue age ${ageSeconds}s • ${countdownText}`;
+    statusEl.textContent = `Lobby code: ${state.lobbyCode ?? "UNKNOWN"}`;
+    metaEl.textContent = `${state.playerCount}/${state.maxPlayers} • Queue age ${ageSeconds}s • ${countdownText}`;
+    joinBtn.hidden = true;
+    codeInput.hidden = true;
+    joinCodeBtn.hidden = true;
+    leaveBtn.hidden = false;
+    startBtn.hidden = !state.isHost;
     startBtn.disabled =
+      !state.isHost ||
       state.playerCount < 1 ||
       (state.countdownEndsAtMs !== null &&
         state.countdownEndsAtMs !== undefined);

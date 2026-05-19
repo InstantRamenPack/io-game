@@ -238,6 +238,7 @@ const ChatMessageSchema = z.object({
 const LobbyStateMessageSchema = z.object({
   t: z.literal("lobby_state"),
   inLobby: z.boolean(),
+  isHost: z.boolean(),
   lobbyCode: z.string().optional(),
   playerCount: z.number().int().nonnegative(),
   maxPlayers: z.number().int().positive(),

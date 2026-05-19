@@ -20,6 +20,7 @@
           maxlength="20"
           required
         />
+        <div id="player-name-error" class="field-error" hidden></div>
         <button class="launch" id="launch-btn" type="button">Play</button>
       </section>
     </main>
@@ -34,19 +35,13 @@
     </div>
     <div id="match-core-hud" class="match-core-hud" hidden></div>
     <section id="lobby-hud-root" class="lobby-hud" hidden>
-      <div class="lobby-hud-kicker">Match Lobby</div>
       <div id="lobby-hud-status" class="lobby-hud-status">
         No lobby queue selected
       </div>
-      <div id="lobby-hud-meta" class="lobby-hud-meta">
-        Join an open lobby or enter a code.
-      </div>
+      <div id="lobby-hud-meta" class="lobby-hud-meta"></div>
       <div class="lobby-hud-actions">
-        <button id="lobby-join-btn" type="button">Join Open Lobby</button>
+        <button id="lobby-join-btn" type="button">Start Lobby</button>
         <button id="lobby-start-btn" type="button">Start Lobby</button>
-        <button id="lobby-leave-btn" type="button">Leave Lobby</button>
-      </div>
-      <div class="lobby-hud-actions">
         <input
           id="lobby-code-input"
           type="text"
@@ -55,6 +50,7 @@
           aria-label="Lobby code"
         />
         <button id="lobby-code-join-btn" type="button">Join Code</button>
+        <button id="lobby-leave-btn" type="button">Leave Lobby</button>
       </div>
     </section>
     <div id="chat-root" class="chat-shell" hidden>

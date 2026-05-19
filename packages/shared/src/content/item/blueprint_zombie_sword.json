@@ -1,0 +1,9 @@
+{
+  "label": "Zombie Sword Blueprint",
+  "hint": "Rare crafting schematic for the Zombie Sword.",
+  "description": "Unlocks the Zombie Sword recipe permanently for this session.",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  },
+  "unlocksRecipeTypeId": "item:zombie_sword"
+}

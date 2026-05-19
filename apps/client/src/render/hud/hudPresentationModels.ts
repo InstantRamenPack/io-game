@@ -123,10 +123,21 @@ export function buildInventoryTooltipContent(
 export function buildCraftTooltipContent(
   entry: CraftingModalEntry,
 ): HudTooltipContent {
+  const itemContent = getItemContent(entry.typeId);
+  const lines = [`Output: ${entry.outputAmount}`, `Costs: ${entry.costsLabel}`];
+  if (itemContent?.weapon) {
+    lines.push(...buildWeaponStatLines(entry.typeId));
+  }
+  if (itemContent?.buildsEntityTypeId) {
+    lines.push(`Places: ${getResourceDisplayLabel(itemContent.buildsEntityTypeId)}`);
+  }
   return {
     title: entry.label,
+    titleColor: itemContent?.weapon
+      ? RARITY_COLORS[getWeaponRarityTier(entry.typeId) ?? "common"]
+      : undefined,
     detail: entry.description,
-    lines: [`Output: ${entry.outputAmount}`, `Costs: ${entry.costsLabel}`],
+    lines,
   };
 }
 

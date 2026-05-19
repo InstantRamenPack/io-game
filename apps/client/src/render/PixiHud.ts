@@ -215,6 +215,23 @@ export class PixiHud {
     this.markDirty();
   }
 
+  public handleCraftListWheel(screenX: number, screenY: number, deltaY: number): boolean {
+    if (!this.state.craftingMenuOpen || !this.craftModalView) {
+      return false;
+    }
+    if (!this.craftModalView.containsPoint(screenX, screenY)) {
+      return false;
+    }
+    if (deltaY === 0) {
+      return false;
+    }
+    const changed = this.craftModalView.scrollBy(deltaY / 240);
+    if (changed) {
+      this.markDirty();
+    }
+    return changed;
+  }
+
   public handlePointerInput(pointer: PointerInput): boolean {
     if (!this.visible) {
       return false;

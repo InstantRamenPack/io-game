@@ -19,6 +19,7 @@ import { LobbyStateCache } from "@server/server/matchmaking/LobbyStateCache.ts";
 type MatchLobby = {
   code: string;
   seed: number;
+  hostClientId: string | null;
   playerClientIds: Set<string>;
   createdAtMs: number;
   countdownEndsAtMs: number | null;
@@ -423,6 +424,9 @@ export class GameServer {
     nowMs: number,
   ): void {
     lobby.playerClientIds.add(clientId);
+    if (lobby.hostClientId === null) {
+      lobby.hostClientId = clientId;
+    }
     this.matchLobbyCodeByClientId.set(clientId, lobby.code);
     this.sendToClientSystem(
       clientId,
@@ -459,6 +463,10 @@ export class GameServer {
     }
 
     lobby.playerClientIds.delete(clientId);
+    if (lobby.hostClientId === clientId) {
+      const nextHost = lobby.playerClientIds.values().next().value;
+      lobby.hostClientId = typeof nextHost === "string" ? nextHost : null;
+    }
     lobby.scopedNetwork.removeClient(clientId);
     if (options.migrateToPlayground ?? true) {
       this.migrateClientToPlayground(clientId);
@@ -575,6 +583,7 @@ export class GameServer {
     const lobby: MatchLobby = {
       code,
       seed: hashLobbyCodeToSeed(code),
+      hostClientId: null,
       playerClientIds: new Set<string>(),
       createdAtMs: nowMs,
       countdownEndsAtMs: null,
@@ -757,6 +766,7 @@ export class GameServer {
       return {
         t: "lobby_state",
         inLobby: false,
+        isHost: false,
         playerCount: 0,
         maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
         countdownEndsAtMs: null,
@@ -771,6 +781,7 @@ export class GameServer {
       return {
         t: "lobby_state",
         inLobby: false,
+        isHost: false,
         playerCount: 0,
         maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
         countdownEndsAtMs: null,
@@ -782,6 +793,7 @@ export class GameServer {
     return {
       t: "lobby_state",
       inLobby: true,
+      isHost: lobby.hostClientId === clientId,
       lobbyCode: lobby.code,
       playerCount: lobby.playerClientIds.size,
       maxPlayers: MATCH_LOBBY_MAX_PLAYERS,

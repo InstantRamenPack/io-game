@@ -35,6 +35,21 @@ export function createLaunchController({
   lobbyHudController,
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
+  function clearNameError(): void {
+    if (!elements.playerNameError) {
+      return;
+    }
+    elements.playerNameError.hidden = true;
+    elements.playerNameError.textContent = "";
+  }
+
+  function showNameError(message: string): void {
+    if (!elements.playerNameError) {
+      return;
+    }
+    elements.playerNameError.hidden = false;
+    elements.playerNameError.textContent = message;
+  }
   function applyGameplayShellState(connected: boolean): void {
     hudController.setVisible(connected);
     chatController.setVisible(connected);
@@ -64,6 +79,7 @@ export function createLaunchController({
   }
 
   elements.launchBtn?.addEventListener("click", () => {
+    clearNameError();
     if (
       elements.playerNameInput &&
       !elements.playerNameInput.reportValidity()
@@ -73,6 +89,7 @@ export function createLaunchController({
 
     const playerName = resolvePlayerName();
     if (!playerName) {
+      showNameError("Enter a valid name.");
       return;
     }
 
@@ -111,6 +128,18 @@ export function createLaunchController({
   });
 
   gameClient.networkClient.onError((message) => {
+    if (message === "name_required") {
+      showNameError("Enter a valid name.");
+      return;
+    }
+    if (message === "name_taken") {
+      showNameError("That name is already in use.");
+      return;
+    }
+    if (message === "invalid_name") {
+      showNameError("Invalid name. Use 1-20 letters/numbers/spaces.");
+      return;
+    }
     if (!isFatalNetworkError(message)) {
       return;
     }
@@ -120,6 +149,10 @@ export function createLaunchController({
         ? "Connection failed before gameplay started. Check the server and refresh."
         : undefined;
     exitSessionUi({ connectionErrorMessage });
+  });
+
+  elements.playerNameInput?.addEventListener("input", () => {
+    clearNameError();
   });
 
   return {
