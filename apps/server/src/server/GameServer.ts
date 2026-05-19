@@ -1,5 +1,6 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
+  encodeServerToClientMessage,
   type HelloMessage,
   type LobbyActionMessage,
   type LobbyStateMessage,
@@ -8,7 +9,6 @@ import {
   type ServerToClientMessage,
 } from "@shared/net/protocol.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
-import { parseFastInputMessage } from "@server/net/FastInputMessageParser.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { ScopedWsServer } from "@server/net/ScopedWsServer.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
@@ -155,32 +155,12 @@ export class GameServer {
     this.activeRuntimeByClientId.delete(clientId);
   }
 
-  private handleRawMessage(clientId: string, rawMessage: string): void {
-    const fastInputMessage = parseFastInputMessage(rawMessage);
-    if (fastInputMessage.kind === "invalid") {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "invalid_message" }),
-      );
-      return;
-    }
-    if (fastInputMessage.kind === "input") {
-      if (!this.requireReady(clientId)) {
-        return;
-      }
-      this.getActiveRuntime(clientId).handleInputIntent(
-        clientId,
-        fastInputMessage.message,
-      );
-      return;
-    }
-
+  private handleRawMessage(
+    clientId: string,
+    rawMessage: string | Uint8Array,
+  ): void {
     const clientMessage = parseClientToServerMessage(rawMessage);
     if (!clientMessage) {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "invalid_message" }),
-      );
       return;
     }
 
@@ -241,13 +221,19 @@ export class GameServer {
           t: "pong",
           timeMs: pingMessage.timeMs,
         };
-        this.networkServer.send(clientId, JSON.stringify(pongMessage));
+        this.networkServer.send(
+          clientId,
+          encodeServerToClientMessage(pongMessage),
+        );
         return;
       }
       default:
         this.networkServer.send(
           clientId,
-          JSON.stringify({ t: "error", message: "unknown_message_type" }),
+          encodeServerToClientMessage({
+            t: "error",
+            message: "unknown_message_type",
+          }),
         );
     }
   }
@@ -264,7 +250,7 @@ export class GameServer {
     if (helloMessage.compatHash !== this.gameConfig.compatHash) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "compat_mismatch" }),
+        encodeServerToClientMessage({ t: "error", message: "compat_mismatch" }),
       );
       this.networkServer.disconnect(clientId, "compat_mismatch");
       return;
@@ -275,7 +261,7 @@ export class GameServer {
       this.clientStateById.set(clientId, "preview");
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "pong", timeMs: Date.now() }),
+        encodeServerToClientMessage({ t: "pong", timeMs: Date.now() }),
       );
       return;
     }
@@ -286,7 +272,7 @@ export class GameServer {
     ) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "server_full" }),
+        encodeServerToClientMessage({ t: "error", message: "server_full" }),
       );
       this.networkServer.disconnect(clientId, "server_full");
       return;
@@ -296,7 +282,7 @@ export class GameServer {
     if (!playerName) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "name_required" }),
+        encodeServerToClientMessage({ t: "error", message: "name_required" }),
       );
       this.networkServer.disconnect(clientId, "name_required");
       return;
@@ -304,7 +290,7 @@ export class GameServer {
     if (this.isPlayerNameInUse(playerName)) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "name_taken" }),
+        encodeServerToClientMessage({ t: "error", message: "name_taken" }),
       );
       this.networkServer.disconnect(clientId, "name_taken");
       return;
@@ -318,11 +304,11 @@ export class GameServer {
     this.clientStateById.set(clientId, "ready");
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "pong", timeMs: Date.now() }),
+      encodeServerToClientMessage({ t: "pong", timeMs: Date.now() }),
     );
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: this.playgroundRuntime.worldId,
@@ -339,7 +325,7 @@ export class GameServer {
     }
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "error", message: "hello_required" }),
+      encodeServerToClientMessage({ t: "error", message: "hello_required" }),
     );
     return false;
   }
@@ -606,7 +592,7 @@ export class GameServer {
       gameDurationMs,
       wavesCompleted,
     };
-    const payload = JSON.stringify(message);
+    const payload = encodeServerToClientMessage(message);
     for (const clientId of lobby.playerClientIds) {
       this.networkServer.send(clientId, payload);
     }
@@ -621,7 +607,7 @@ export class GameServer {
       gameDurationMs,
       wavesCompleted,
     };
-    const payload = JSON.stringify(message);
+    const payload = encodeServerToClientMessage(message);
     const participantClientIds = [...lobby.playerClientIds];
     for (const clientId of participantClientIds) {
       this.networkServer.send(clientId, payload);
@@ -708,7 +694,7 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, lobby.runtime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: lobby.runtime.worldId,
@@ -733,7 +719,7 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: this.playgroundRuntime.worldId,
@@ -750,7 +736,7 @@ export class GameServer {
     if (!this.lobbyStateCache.shouldSend(clientId, state, force)) {
       return;
     }
-    this.networkServer.send(clientId, JSON.stringify(state));
+    this.networkServer.send(clientId, encodeServerToClientMessage(state));
   }
 
   private broadcastLobbyState(lobby: MatchLobby, force: boolean): void {
@@ -816,7 +802,7 @@ export class GameServer {
       text,
       kind: "system",
     };
-    this.networkServer.send(clientId, JSON.stringify(message));
+    this.networkServer.send(clientId, encodeServerToClientMessage(message));
   }
 
   private getPlayerDisplayName(clientId: string): string {

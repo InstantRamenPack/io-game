@@ -1,9 +1,10 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
-import type {
-  ActionMessage,
-  InputIntentMessage,
-  ServerToClientMessage,
-  SpectateUpdateMessage,
+import {
+  encodeServerToClientMessage,
+  type ActionMessage,
+  type InputIntentMessage,
+  type ServerToClientMessage,
+  type SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
@@ -132,7 +133,10 @@ export class GameInstanceRuntime {
         t: "snapshot",
         snapshot,
       };
-      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+      this.networkServer.send(
+        clientId,
+        encodeServerToClientMessage(snapshotMessage),
+      );
     }
 
     for (const clientId of this.previewClientIds) {
@@ -140,7 +144,10 @@ export class GameInstanceRuntime {
         t: "snapshot",
         snapshot: this.snapshotManager.makeFullSnapshotForObserver(this.world),
       };
-      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+      this.networkServer.send(
+        clientId,
+        encodeServerToClientMessage(snapshotMessage),
+      );
     }
   }
 
@@ -326,7 +333,7 @@ export class GameInstanceRuntime {
       t: "spectate_update",
       targetEntityId,
     };
-    this.networkServer.send(clientId, JSON.stringify(message));
+    this.networkServer.send(clientId, encodeServerToClientMessage(message));
   }
 
   public handleInputIntent(
@@ -469,7 +476,7 @@ export class GameInstanceRuntime {
   ): void {
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "error", message: reason }),
+      encodeServerToClientMessage({ t: "error", message: reason }),
     );
     if (!this.world.focusedTrace.matchesEntity(player)) {
       return;

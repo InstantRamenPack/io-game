@@ -398,9 +398,7 @@ export class PickupSystem implements System {
     }
   }
 
-  private getBlueprintPickupRecipeTypeIds(
-    pickup: ItemEntity,
-  ): Set<ResourceId> {
+  private getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {
     const unlockedRecipeTypeIds = new Set<ResourceId>(
       pickup.contents.getUnlockedRecipeTypeIds(),
     );

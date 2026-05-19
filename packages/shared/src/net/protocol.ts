@@ -4,7 +4,7 @@ import {
 } from "@shared/gameplay/constants.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
-import { isJsonObject, parseJsonValue } from "@shared/json.ts";
+import { parseJsonValue } from "@shared/json.ts";
 import {
   ChatTextSchema,
   EntityIdSchema,
@@ -14,6 +14,24 @@ import {
   ResourceIdSchema,
 } from "@shared/validation/schemas.ts";
 import { z } from "zod";
+import {
+  decode as decodeMsgpack,
+  encode as encodeMsgpack,
+} from "@msgpack/msgpack";
+import {
+  compactInputMessage,
+  compactServerMessage,
+  expandInputMessage,
+  expandServerMessage,
+} from "@shared/net/compactProtocol.ts";
+import {
+  recordProtocolDecodeFailure,
+  recordProtocolMetric,
+} from "@shared/net/protocolMetrics.ts";
+
+const PACKET_KIND_OBJECT = 0;
+const PACKET_KIND_INPUT = 1;
+const PACKET_KIND_SERVER = 2;
 
 const MoveIntentKeySchema = z.enum(["up", "down", "left", "right"]);
 
@@ -398,6 +416,54 @@ export type ServerToClientMessage =
   | GameOverMessage
   | SpectateUpdateMessage;
 
+export function encodeClientToServerMessage(
+  message: ClientToServerMessage,
+): Uint8Array {
+  const startedAt = performance.now();
+  if (message.t === "input" && isCompactProtocolEnabled()) {
+    const encoded = encodeMsgpack([
+      PACKET_KIND_INPUT,
+      compactInputMessage(message),
+    ]);
+    recordProtocolMetric(
+      "client_encode",
+      encoded.byteLength,
+      performance.now() - startedAt,
+    );
+    return encoded;
+  }
+  const encoded = encodeMsgpack([PACKET_KIND_OBJECT, message]);
+  recordProtocolMetric(
+    "client_encode",
+    encoded.byteLength,
+    performance.now() - startedAt,
+  );
+  return encoded;
+}
+
+export function encodeServerToClientMessage(
+  message: ServerToClientMessage,
+): Uint8Array {
+  const startedAt = performance.now();
+  const encoded = encodeMsgpack([
+    PACKET_KIND_SERVER,
+    isCompactProtocolEnabled() ? compactServerMessage(message) : message,
+  ]);
+  recordProtocolMetric(
+    "server_encode",
+    encoded.byteLength,
+    performance.now() - startedAt,
+  );
+  return encoded;
+}
+
+function isCompactProtocolEnabled(): boolean {
+  const maybeProcess = globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  return maybeProcess.process?.env?.IO_GAME_COMPACT_PROTOCOL !== "0";
+}
+
 type ParseServerMessageOptions = {
   validateSnapshots?: boolean;
 };
@@ -406,28 +472,84 @@ function parseJson(rawMessage: string) {
   return parseJsonValue(rawMessage);
 }
 
-function isSnapshotMessage(
-  value: ReturnType<typeof parseJson>,
-): value is SnapshotMessage {
-  return value !== null && isJsonObject(value) && value.t === "snapshot";
+function decodePackedMessage(
+  rawMessage: string | Uint8Array,
+  metricKind: "client_decode" | "server_decode",
+) {
+  const startedAt = performance.now();
+  const bytes =
+    typeof rawMessage === "string"
+      ? new TextEncoder().encode(rawMessage).byteLength
+      : rawMessage.byteLength;
+  if (typeof rawMessage === "string") {
+    const parsed = parseJson(rawMessage);
+    if (parsed === null) {
+      recordProtocolDecodeFailure(metricKind, "invalid_json");
+    }
+    recordProtocolMetric(metricKind, bytes, performance.now() - startedAt);
+    return parsed;
+  }
+  try {
+    const decoded = decodeMsgpack(rawMessage);
+    if (!Array.isArray(decoded)) {
+      return decoded;
+    }
+    const [packetKind, payload] = decoded;
+    if (packetKind === PACKET_KIND_OBJECT) {
+      return payload;
+    }
+    if (packetKind === PACKET_KIND_INPUT && Array.isArray(payload)) {
+      const expanded = expandInputMessage(payload);
+      if (!expanded) {
+        recordProtocolDecodeFailure(metricKind, "invalid_input_packet");
+      }
+      recordProtocolMetric(metricKind, bytes, performance.now() - startedAt);
+      return expanded;
+    }
+    if (packetKind === PACKET_KIND_SERVER) {
+      const expanded = expandServerMessage(payload);
+      recordProtocolMetric(metricKind, bytes, performance.now() - startedAt);
+      return expanded;
+    }
+    recordProtocolDecodeFailure(metricKind, "unknown_packet_kind");
+    recordProtocolMetric(metricKind, bytes, performance.now() - startedAt);
+    return decoded;
+  } catch {
+    recordProtocolDecodeFailure(metricKind, "invalid_msgpack");
+    recordProtocolMetric(metricKind, bytes, performance.now() - startedAt);
+    return null;
+  }
+}
+
+function isSnapshotMessage(value: unknown): value is SnapshotMessage {
+  return (
+    value !== null &&
+    value !== undefined &&
+    typeof value === "object" &&
+    "t" in value &&
+    (value as { t?: unknown }).t === "snapshot"
+  );
 }
 
 export function parseClientToServerMessage(
-  rawMessage: string,
+  rawMessage: string | Uint8Array,
 ): ClientToServerMessage | null {
-  const parsedJson = parseJson(rawMessage);
+  const parsedJson = decodePackedMessage(rawMessage, "server_decode");
   if (parsedJson === null) {
     return null;
   }
   const parsedMessage = ClientToServerMessageSchema.safeParse(parsedJson);
+  if (!parsedMessage.success) {
+    recordProtocolDecodeFailure("server_decode", "invalid_schema");
+  }
   return parsedMessage.success ? parsedMessage.data : null;
 }
 
 export function parseServerToClientMessage(
-  rawMessage: string,
+  rawMessage: string | Uint8Array,
   { validateSnapshots = true }: ParseServerMessageOptions = {},
 ): ServerToClientMessage | null {
-  const parsedJson = parseJson(rawMessage);
+  const parsedJson = decodePackedMessage(rawMessage, "client_decode");
   if (parsedJson === null) {
     return null;
   }
@@ -435,5 +557,8 @@ export function parseServerToClientMessage(
     return parsedJson;
   }
   const parsedMessage = ServerToClientMessageSchema.safeParse(parsedJson);
+  if (!parsedMessage.success) {
+    recordProtocolDecodeFailure("client_decode", "invalid_schema");
+  }
   return parsedMessage.success ? parsedMessage.data : null;
 }

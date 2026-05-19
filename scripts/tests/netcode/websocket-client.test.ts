@@ -6,14 +6,13 @@ import {
   makePlayerSnapshot,
 } from "@tests/helpers/snapshotFixtures.ts";
 import { FakeWebSocket } from "@tests/helpers/fakeNetwork.ts";
+import { parseClientToServerMessage } from "@shared/net/protocol.ts";
+
+function decodeSentPacket(packet: string | Uint8Array): unknown {
+  return parseClientToServerMessage(packet);
+}
 
 const originalWebSocket = globalThis.WebSocket;
-
-function setupWebSocket(): FakeWebSocket {
-  const client = new WsClient();
-  client.connect("ws://test", { playerName: "tester" });
-  return FakeWebSocket.instances.at(-1)!;
-}
 
 describe("websocket client", () => {
   beforeEach(() => {
@@ -31,7 +30,7 @@ describe("websocket client", () => {
     const socket = FakeWebSocket.instances[0]!;
     socket.emitOpen();
     expect(socket.sent.length).toBe(1);
-    const hello = JSON.parse(socket.sent[0]!);
+    const hello = decodeSentPacket(socket.sent[0]!) as Record<string, unknown>;
     expect(hello.t).toBe("hello");
     expect(hello.compatHash).toBe(COMPAT_HASH);
     expect(hello.playerName).toBe("tester");
@@ -57,11 +56,17 @@ describe("websocket client", () => {
       left: false,
       right: true,
     });
-    const payload = JSON.parse(socket.sent.at(-1)!);
+    const payload = decodeSentPacket(socket.sent.at(-1)!) as {
+      t: string;
+      seq: number;
+      clientTimeMs: number;
+      theta: number;
+      movement: { right: boolean };
+    };
     expect(payload.t).toBe("input");
     expect(payload.seq).toBe(2);
     expect(payload.clientTimeMs).toBe(120);
-    expect(payload.theta).toBe(0.5);
+    expect(payload.theta).toBeCloseTo(0.5, 4);
     expect(payload.movement.right).toBe(true);
   });
 
@@ -71,7 +76,7 @@ describe("websocket client", () => {
     const socket = FakeWebSocket.instances[0]!;
     socket.emitOpen();
     client.sendAction({ t: "action", seq: 1, action: "attack", theta: 0 });
-    const payload = JSON.parse(socket.sent.at(-1)!);
+    const payload = decodeSentPacket(socket.sent.at(-1)!);
     expect(payload).toEqual({
       t: "action",
       seq: 1,

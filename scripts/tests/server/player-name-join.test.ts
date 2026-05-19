@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { Player } from "@server/entities/Player.ts";
 import { GameServer } from "@server/server/GameServer.ts";
+import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
 
 async function sendHello(
@@ -33,8 +34,8 @@ async function sendHello(
 function errorMessages(network: FakeNetworkServer, clientId: string): string[] {
   return network.sent
     .filter((message) => message.clientId === clientId)
-    .map((message) => JSON.parse(String(message.data)) as { message?: string })
-    .map((message) => message.message)
+    .map((message) => parseServerToClientMessage(message.data))
+    .map((message) => (message?.t === "error" ? message.message : undefined))
     .filter((message): message is string => typeof message === "string");
 }
 

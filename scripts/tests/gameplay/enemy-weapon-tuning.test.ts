@@ -55,7 +55,9 @@ describe("enemy weapon tuning", () => {
     expect(weapon?.typeId).toBe("item:basic_gun");
 
     const weaponContent = requireWeaponContent("item:basic_gun");
-    const projectileContent = requireProjectileContent("projectile:basic_bullet");
+    const projectileContent = requireProjectileContent(
+      "projectile:basic_bullet",
+    );
     if (weaponContent.attackStyle !== "shoot") {
       throw new Error("expected basic gun to remain a shoot weapon");
     }
@@ -63,16 +65,18 @@ describe("enemy weapon tuning", () => {
       getProjectileRange(): number;
     };
     expect(shoota.damageMultiplier).toBe(1);
-    expect(rangedWeapon.getProjectileRange()).toBe(projectileContent.range * 0.5);
+    expect(rangedWeapon.getProjectileRange()).toBe(
+      projectileContent.range * 0.5,
+    );
 
     const inRangeTarget = spawnPlayerLikeDynamic(runtime, 590, 100);
     const outOfRangeTarget = spawnPlayerLikeDynamic(runtime, 610, 100);
-    expect(rangedWeapon.canHitTarget(runtime.world, shoota, inRangeTarget)).toBe(
-      true,
-    );
-    expect(rangedWeapon.canHitTarget(runtime.world, shoota, outOfRangeTarget)).toBe(
-      false,
-    );
+    expect(
+      rangedWeapon.canHitTarget(runtime.world, shoota, inRangeTarget),
+    ).toBe(true);
+    expect(
+      rangedWeapon.canHitTarget(runtime.world, shoota, outOfRangeTarget),
+    ).toBe(false);
 
     expect(rangedWeapon.hit(runtime.world, shoota, 0)).toBe(true);
     expect(rangedWeapon.toSnapshot().cooldownTicksRemaining).toBe(

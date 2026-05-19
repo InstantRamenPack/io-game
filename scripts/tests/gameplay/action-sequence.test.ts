@@ -3,6 +3,7 @@ import type {
   ActionMessage,
   InputIntentMessage,
 } from "@shared/net/protocol.ts";
+import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import type { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
 import {
@@ -40,13 +41,16 @@ function makeAction(seq: number): ActionMessage {
 function latestSnapshot(network: FakeNetworkServer): WorldSnapshot {
   for (let index = network.sent.length - 1; index >= 0; index -= 1) {
     const entry = network.sent[index];
-    if (!entry || typeof entry.data !== "string") {
+    if (!entry) {
       continue;
     }
-    if (!entry.data.includes('"t":"snapshot"')) {
+    const message = parseServerToClientMessage(entry.data, {
+      validateSnapshots: false,
+    });
+    if (!message || message.t !== "snapshot") {
       continue;
     }
-    return JSON.parse(entry.data).snapshot as WorldSnapshot;
+    return message.snapshot as WorldSnapshot;
   }
   throw new Error("snapshot not found");
 }
