@@ -1,12 +1,12 @@
 {
-  "label": "Dungeon Door",
+  "label": "Wooden Bed",
   "maxHp": 0,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [
       {
-        "width": 160,
-        "height": 32,
+        "width": 112,
+        "height": 64,
         "offsetX": 0,
         "offsetY": 0
       }

@@ -27,9 +27,12 @@ import type {
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
 
-const GRID_CELL_SIZE = 100;
+const GRID_CELL_SIZE = 64;
 const HOME_BASE_WIDTH = 1600;
 const HOME_BASE_HEIGHT = 1200;
+const DUNGEON_FLOOR_TILE_SIZE = 96;
+const DUNGEON_FLOOR_LIGHT = 0x6c6c6c;
+const DUNGEON_FLOOR_DARK = 0x5f5f5f;
 const GRID_DAY_FILL_COLOR = 0xd7f3d2;
 const GRID_NIGHT_FILL_COLOR = 0x3f5f46;
 const GRID_DAY_LINE_COLOR = 0x2d4f37;
@@ -559,6 +562,8 @@ export class PixiWorldView {
         .stroke({ width: 5, color: 0x1e2a2f, alpha: 0.16 });
     }
 
+    drawDungeonFloor(g, map);
+
     for (const marker of map.markers) {
       if (!marker.discoveredByDefault && marker.importance !== "major") {
         continue;
@@ -699,35 +704,37 @@ export class PixiWorldView {
     this.lastGridScreenWidth = sw;
     this.lastGridScreenHeight = sh;
 
-    const cellPx = GRID_CELL_SIZE * scale;
-    const offX = ((camX % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
-    const offY = ((camY % GRID_CELL_SIZE) * scale + cellPx) % cellPx;
-
-    this.redrawScreenGridLines(app, offX, offY, cellPx);
+    this.redrawWorldGridLines(app, camX, camY, scale);
   }
 
-  private redrawScreenGridLines(
+  private redrawWorldGridLines(
     app: Application,
-    offX: number,
-    offY: number,
-    cellPx: number,
+    camX: number,
+    camY: number,
+    scale: number,
   ): void {
     const g = this.sceneGraph.gridLinesGraphic;
-    const sw = app.screen.width;
-    const sh = app.screen.height;
+    const halfWidth = app.screen.width / (2 * scale);
+    const halfHeight = app.screen.height / (2 * scale);
+    const minX = Math.max(0, camX - halfWidth - GRID_CELL_SIZE);
+    const maxX = Math.min(this.worldSize.w, camX + halfWidth + GRID_CELL_SIZE);
+    const minY = Math.max(0, camY - halfHeight - GRID_CELL_SIZE);
+    const maxY = Math.min(this.worldSize.h, camY + halfHeight + GRID_CELL_SIZE);
 
     g.clear();
-    for (let x = sw / 2 - offX; x >= -cellPx; x -= cellPx) {
-      g.moveTo(x, 0).lineTo(x, sh);
+    for (
+      let x = Math.floor(minX / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+      x <= maxX;
+      x += GRID_CELL_SIZE
+    ) {
+      g.moveTo(x, minY).lineTo(x, maxY);
     }
-    for (let x = sw / 2 - offX + cellPx; x <= sw + cellPx; x += cellPx) {
-      g.moveTo(x, 0).lineTo(x, sh);
-    }
-    for (let y = sh / 2 - offY; y >= -cellPx; y -= cellPx) {
-      g.moveTo(0, y).lineTo(sw, y);
-    }
-    for (let y = sh / 2 - offY + cellPx; y <= sh + cellPx; y += cellPx) {
-      g.moveTo(0, y).lineTo(sw, y);
+    for (
+      let y = Math.floor(minY / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+      y <= maxY;
+      y += GRID_CELL_SIZE
+    ) {
+      g.moveTo(minX, y).lineTo(maxX, y);
     }
     g.stroke({ width: 1, color: 0xffffff, alpha: 1 });
   }
@@ -937,6 +944,34 @@ function worldSectorColor(archetype: string): number {
       return 0x6a665c;
     default:
       return 0x78906e;
+  }
+}
+
+function drawDungeonFloor(g: Graphics, map: MapSnapshot): void {
+  const bounds = map.dungeonBounds;
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  g.rect(bounds.minX, bounds.minY, width, height).fill({
+    color: DUNGEON_FLOOR_DARK,
+    alpha: 0.88,
+  });
+
+  for (let y = bounds.minY; y < bounds.maxY; y += DUNGEON_FLOOR_TILE_SIZE) {
+    for (let x = bounds.minX; x < bounds.maxX; x += DUNGEON_FLOOR_TILE_SIZE) {
+      const tileMaxX = Math.min(x + DUNGEON_FLOOR_TILE_SIZE, bounds.maxX);
+      const tileMaxY = Math.min(y + DUNGEON_FLOOR_TILE_SIZE, bounds.maxY);
+      const color =
+        (Math.floor((x - bounds.minX) / DUNGEON_FLOOR_TILE_SIZE) +
+          Math.floor((y - bounds.minY) / DUNGEON_FLOOR_TILE_SIZE)) %
+          2 ===
+        0
+          ? DUNGEON_FLOOR_LIGHT
+          : DUNGEON_FLOOR_DARK;
+      g.rect(x, y, tileMaxX - x, tileMaxY - y).fill({
+        color,
+        alpha: 0.72,
+      });
+    }
   }
 }
 

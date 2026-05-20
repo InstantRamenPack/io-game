@@ -4,7 +4,6 @@ import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
@@ -63,7 +62,6 @@ import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.t
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
-import { DungeonKeyItem } from "@server/items/materials/DungeonKeyItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
@@ -117,7 +115,6 @@ export const entityRuntimeCtors = [
   CommsTower,
   Crate,
   CraftingStation,
-  DungeonDoor,
   EnergyTower,
   FenceH,
   FenceV,
@@ -161,7 +158,6 @@ export const itemRuntimeCtors = [
   ThanosFist,
   ThanosRifle,
   ThanosRocketLauncher,
-  DungeonKeyItem,
   HunkItem,
   JunkFoodItem,
   QualityFoodItem,

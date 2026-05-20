@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { Crate } from "@server/entities/enemies/Crate.ts";
-import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
@@ -13,8 +12,6 @@ import {
   spawnPlayerLikeDynamic,
   tick,
 } from "@tests/helpers/worldFixtures.ts";
-
-const DUNGEON_KEY_TYPE_ID = "item:dungeon_key" as ResourceId;
 
 describe("dungeon runtime mechanics", () => {
   test("enemy death drops tiered hunks and tiered matching ammo", () => {
@@ -117,22 +114,26 @@ describe("dungeon runtime mechanics", () => {
     );
   });
 
-  test("dungeon door consumes a key and opens when a player reaches it", () => {
+  test("vertical tripwire uses its vertical trigger hitbox", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
-    const player = spawnPlayerLikeDynamic(runtime, x, y);
-    player.inventory.addStackable(DUNGEON_KEY_TYPE_ID, 1);
-    const door = new DungeonDoor(runtime.world.allocEntityId());
-    door.x = x + 24;
-    door.y = y;
-    runtime.world.spawn(door);
+    const player = spawnPlayerLikeDynamic(runtime, x, y + 80);
+    const tripwire = new Tripwire(runtime.world.allocEntityId());
+    tripwire.x = x;
+    tripwire.y = y;
+    tripwire.setHitboxProfileRects("default", [
+      { width: 16, height: 220, offsetX: 0, offsetY: 0 },
+    ]);
+    runtime.world.spawn(tripwire);
 
     tick(runtime, 1);
 
-    expect(runtime.world.entities.has(door.id)).toBe(false);
-    expect(player.inventory.countType(DUNGEON_KEY_TYPE_ID)).toBe(0);
+    expect(runtime.world.entities.has(tripwire.id)).toBe(false);
+    expect(player.activeEffects.map((effect) => effect.typeId)).toContain(
+      "effect:bleeding",
+    );
   });
 
   test("breaking a reward crate drops its contents as a pickup", () => {

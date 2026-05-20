@@ -3,7 +3,6 @@ import buildingcannonJson from "@shared/content/building/cannon.json";
 import buildingchestJson from "@shared/content/building/chest.json";
 import buildingcommsTowerJson from "@shared/content/building/comms_tower.json";
 import buildingcraftingStationJson from "@shared/content/building/crafting_station.json";
-import buildingdungeonDoorJson from "@shared/content/building/dungeon_door.json";
 import buildingenergyTowerJson from "@shared/content/building/energy_tower.json";
 import buildinglandmineJson from "@shared/content/building/landmine.json";
 import buildingrecyclerJson from "@shared/content/building/recycler.json";
@@ -24,6 +23,9 @@ import structurehouseXlJson from "@shared/content/structure/house_xl.json";
 import structuremarketStallJson from "@shared/content/structure/market_stall.json";
 import structuretreeJson from "@shared/content/structure/tree.json";
 import structurevehicleWreckJson from "@shared/content/structure/vehicle_wreck.json";
+import structurewoodenBedJson from "@shared/content/structure/wooden_bed.json";
+import structurewoodenChairJson from "@shared/content/structure/wooden_chair.json";
+import structurewoodenTableJson from "@shared/content/structure/wooden_table.json";
 import effectbleedingJson from "@shared/content/effect/bleeding.json";
 import effectconfusionJson from "@shared/content/effect/confusion.json";
 import effectdamageJson from "@shared/content/effect/damage.json";
@@ -61,7 +63,6 @@ import itemcrossbowJson from "@shared/content/item/crossbow.json";
 import itemcrossbowMagJson from "@shared/content/item/crossbow_mag.json";
 import itemdroneMagJson from "@shared/content/item/drone_mag.json";
 import itemdroneShooterJson from "@shared/content/item/drone_shooter.json";
-import itemdungeonKeyJson from "@shared/content/item/dungeon_key.json";
 import itemfistsJson from "@shared/content/item/fists.json";
 import itemhunkJson from "@shared/content/item/hunk.json";
 import itemjunkFoodJson from "@shared/content/item/junk_food.json";
@@ -102,7 +103,6 @@ export const buildingContentEntries = [
   makeParsedEntityContentEntry("building", "chest", buildingchestJson),
   makeParsedEntityContentEntry("building", "comms_tower", buildingcommsTowerJson),
   makeParsedEntityContentEntry("building", "crafting_station", buildingcraftingStationJson),
-  makeParsedEntityContentEntry("building", "dungeon_door", buildingdungeonDoorJson),
   makeParsedEntityContentEntry("building", "energy_tower", buildingenergyTowerJson),
   makeParsedEntityContentEntry("building", "landmine", buildinglandmineJson),
   makeParsedEntityContentEntry("building", "recycler", buildingrecyclerJson),
@@ -127,6 +127,9 @@ export const structureContentEntries = [
   makeParsedEntityContentEntry("structure", "market_stall", structuremarketStallJson),
   makeParsedEntityContentEntry("structure", "tree", structuretreeJson),
   makeParsedEntityContentEntry("structure", "vehicle_wreck", structurevehicleWreckJson),
+  makeParsedEntityContentEntry("structure", "wooden_bed", structurewoodenBedJson),
+  makeParsedEntityContentEntry("structure", "wooden_chair", structurewoodenChairJson),
+  makeParsedEntityContentEntry("structure", "wooden_table", structurewoodenTableJson),
 ] as const;
 
 
@@ -176,7 +179,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("crossbow_mag", itemcrossbowMagJson),
   makeParsedItemContentEntry("drone_mag", itemdroneMagJson),
   makeParsedItemContentEntry("drone_shooter", itemdroneShooterJson),
-  makeParsedItemContentEntry("dungeon_key", itemdungeonKeyJson),
   makeParsedItemContentEntry("fists", itemfistsJson),
   makeParsedItemContentEntry("hunk", itemhunkJson),
   makeParsedItemContentEntry("junk_food", itemjunkFoodJson),

@@ -12,6 +12,14 @@ export class TripwireRenderer extends BaseEntityRenderer {
   ): void {
     graphics.clear();
     const bounds = entity.hitboxBounds;
+    if (bounds.height > bounds.width) {
+      graphics
+        .rect(bounds.centerX - 3, bounds.minY, 6, bounds.height)
+        .fill({ color: fillColor, alpha })
+        .stroke({ width: 1, color: 0x2b0b0b, alpha: lineAlpha });
+      return;
+    }
+
     graphics
       .rect(bounds.minX, bounds.centerY - 3, bounds.width, 6)
       .fill({ color: fillColor, alpha })

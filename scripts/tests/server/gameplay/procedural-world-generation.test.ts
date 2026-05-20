@@ -148,6 +148,77 @@ describe("procedural survival extraction world", () => {
     );
   });
 
+  test("enterable house structures stay five-rect hollow shells", () => {
+    for (const typeId of [
+      "structure:house_s",
+      "structure:house_m",
+      "structure:house_l",
+      "structure:house_xl",
+      "structure:barracks",
+      "structure:command_post",
+    ] as const) {
+      const content = getEntityContent(typeId);
+      const hitboxes = content?.hitboxProfiles?.default;
+      expect(
+        hitboxes,
+        `${typeId} should expose default hitboxes`,
+      ).toBeDefined();
+      if (!hitboxes) {
+        throw new Error(`Missing default hitboxes for ${typeId}`);
+      }
+      expect(hitboxes).toHaveLength(5);
+      expect(hitboxes.filter((rect) => rect.height === 16)).toHaveLength(3);
+      expect(hitboxes.filter((rect) => rect.width === 16)).toHaveLength(2);
+    }
+  });
+
+  test("authored village houses can contain crates, enemies, and furniture", () => {
+    const layouts = [1337, 1338, 1339].map((seed) =>
+      generateProceduralWorldLayout(seed),
+    );
+    const templateSpawns = layouts
+      .flatMap((layout) => layout.sectors)
+      .flatMap((sector) => [...sector.structures, ...sector.enemies])
+      .filter((spawn) => spawn.label?.startsWith("village_template:"));
+    const houseSpawns = templateSpawns.filter((spawn) =>
+      [
+        "structure:house_s",
+        "structure:house_m",
+        "structure:house_l",
+        "structure:barracks",
+        "structure:command_post",
+      ].includes(spawn.typeId),
+    );
+    const furnitureSpawns = templateSpawns.filter((spawn) =>
+      [
+        "structure:wooden_bed",
+        "structure:wooden_chair",
+        "structure:wooden_table",
+      ].includes(spawn.typeId),
+    );
+
+    expect(templateSpawns.some((spawn) => spawn.typeId === "enemy:crate")).toBe(
+      true,
+    );
+    expect(
+      templateSpawns.some(
+        (spawn) =>
+          spawn.typeId !== "enemy:crate" && spawn.typeId.startsWith("enemy:"),
+      ),
+    ).toBe(true);
+    expect(
+      templateSpawns.some((spawn) =>
+        [
+          "structure:wooden_bed",
+          "structure:wooden_chair",
+          "structure:wooden_table",
+        ].includes(spawn.typeId),
+      ),
+    ).toBe(true);
+    expect(furnitureSpawns.length).toBeGreaterThan(0);
+    expect(furnitureSpawns.length).toBeLessThan(houseSpawns.length);
+  });
+
   test("village, forest camp, and crate loot authored pools stay deterministic", () => {
     const layout = generateProceduralWorldLayout(1337);
 
@@ -320,18 +391,34 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     expect(
       dungeonSector?.buildings.some(
-        (building) => building.typeId === "building:dungeon_door",
+        (building) =>
+          building.typeId === "building:tripwire" &&
+          building.hitboxRects?.some((rect) => rect.width > rect.height),
       ),
     ).toBe(true);
-    expect(new Set(dungeonRoomDoorRoles(layout))).toEqual(
-      new Set(["treasure", "boss"]),
-    );
+    expect(
+      dungeonSector?.buildings.some(
+        (building) =>
+          building.typeId === "building:tripwire" &&
+          building.hitboxRects?.some((rect) => rect.height > rect.width),
+      ),
+    ).toBe(true);
+    expect(
+      dungeonSector?.buildings.some(
+        (building) => building.typeId === "building:dungeon_door",
+      ),
+    ).toBe(false);
+    expect(
+      dungeonSector?.loot.some((loot) => loot.typeId === "item:dungeon_key"),
+    ).toBe(false);
+    expect(
+      entityTypeIds(dungeonSector!).some(
+        (typeId) =>
+          typeId === "building:dungeon_door" || typeId === "item:dungeon_key",
+      ),
+    ).toBe(false);
     expect(deepestDungeonRoomRoles(layout, 4)).toEqual(
       expect.arrayContaining(["treasure", "boss"]),
-    );
-    expect(dungeonKeyLootByRoomRole(layout)).toEqual({ mini_boss: 2 });
-    expect(totalDungeonKeys(layout)).toBeGreaterThanOrEqual(
-      layout.dungeon.doors.length,
     );
     expect(
       dungeonSector?.enemies.some(
@@ -340,12 +427,9 @@ describe("procedural survival extraction world", () => {
           enemy.crateLoot?.some((slot) => slot.typeId === "item:sniper"),
       ),
     ).toBe(true);
-    expect(
-      dungeonSector?.loot.some((loot) => loot.typeId === "item:dungeon_key"),
-    ).toBe(true);
   });
 
-  test("dungeon chamber centers are reachable from the two entrances when doors are unlockable", () => {
+  test("dungeon chamber centers are reachable from the two entrances without key doors", () => {
     const layout = generateProceduralWorldLayout(1337);
     const reachability = computeDungeonReachability(layout);
 
@@ -571,6 +655,23 @@ describe("procedural survival extraction world", () => {
         .all()
         .filter((entity) => entity.typeId === "enemy:crate").length,
     ).toBeGreaterThan(25);
+    const blockers = runtime.world.entities
+      .all()
+      .filter((entity) => isProceduralStaticBlocker(entity));
+    const crates = runtime.world.entities
+      .all()
+      .filter((entity) => entity.typeId === "enemy:crate");
+    for (const crate of crates) {
+      for (const blocker of blockers) {
+        expect(
+          doResolvedRectSetsOverlap(
+            crate.getWorldHitboxes(),
+            blocker.getWorldHitboxes(),
+          ),
+          `crate@${crate.x},${crate.y} overlaps ${blocker.typeId}@${blocker.x},${blocker.y}`,
+        ).toBe(false);
+      }
+    }
   });
 
   test("night forest camp respawn repopulates only up to camp caps", () => {
@@ -749,20 +850,6 @@ function countAliveEnemiesInCamp(
     ).length;
 }
 
-function dungeonRoomDoorRoles(
-  layout: ReturnType<typeof generateProceduralWorldLayout>,
-): string[] {
-  return layout.dungeon.doors.map((door) => {
-    const room = layout.dungeon.rooms.find((candidate) =>
-      pointInRect(door, candidate),
-    );
-    if (!room) {
-      throw new Error(`Expected dungeon door at ${door.x},${door.y} on a room`);
-    }
-    return room.role;
-  });
-}
-
 function deepestDungeonRoomRoles(
   layout: ReturnType<typeof generateProceduralWorldLayout>,
   count: number,
@@ -790,41 +877,6 @@ function dungeonRoomEntranceDepth(
       return dx * dx + dy * dy;
     }),
   );
-}
-
-function dungeonKeyLootByRoomRole(
-  layout: ReturnType<typeof generateProceduralWorldLayout>,
-): Record<string, number> {
-  const dungeonSector = layout.sectors.find(
-    (sector) => sector.id === layout.dungeonSectorId,
-  );
-  if (!dungeonSector) {
-    throw new Error("expected dungeon sector");
-  }
-  const keysByRole: Record<string, number> = {};
-  for (const loot of dungeonSector.loot) {
-    if (loot.typeId !== "item:dungeon_key") {
-      continue;
-    }
-    const room = layout.dungeon.rooms.find((candidate) =>
-      pointInRect(loot, candidate),
-    );
-    if (!room) {
-      throw new Error(`Expected dungeon key at ${loot.x},${loot.y} in a room`);
-    }
-    keysByRole[room.role] = (keysByRole[room.role] ?? 0) + (loot.amount ?? 1);
-  }
-  return keysByRole;
-}
-
-function totalDungeonKeys(
-  layout: ReturnType<typeof generateProceduralWorldLayout>,
-): number {
-  let total = 0;
-  for (const amount of Object.values(dungeonKeyLootByRoomRole(layout))) {
-    total += amount ?? 0;
-  }
-  return total;
 }
 
 function rectsOverlapOrTouch(
