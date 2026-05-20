@@ -229,6 +229,7 @@ export class PixiWorldView {
       worldSize: this.worldSize,
     });
     this.drawGridGeometry();
+    this.lightsOutOverlay.warmUp();
     this.viewportController.sync(app, this.sceneGraph.worldRoot);
     this.syncCullViewport(app);
   }
