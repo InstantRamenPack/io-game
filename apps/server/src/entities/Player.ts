@@ -144,7 +144,10 @@ export class Player extends Entity {
       return;
     }
 
-    if (this.hp < this.maxHp && world.tick - this.lastDamageTick >= OUT_OF_COMBAT_TICKS) {
+    if (
+      this.hp < this.maxHp &&
+      world.tick - this.lastDamageTick >= OUT_OF_COMBAT_TICKS
+    ) {
       this.regenAccumulator += PASSIVE_REGEN_HP_PER_TICK;
       if (this.regenAccumulator >= 1) {
         const heal = Math.floor(this.regenAccumulator);

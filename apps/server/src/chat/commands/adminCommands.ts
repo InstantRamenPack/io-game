@@ -473,6 +473,19 @@ export const createAdminCommandHandlers: ChatCommandHandlerFactory = (
         `Gave ${amount} ${itemEntry.typeId} to ${grantedCount} player(s).`,
       );
     },
+    time: (clientId, _player, args) => {
+      const action = (args[0] ?? "").toLowerCase();
+      const targetPhase = (args[1] ?? "").toLowerCase();
+      if (
+        action !== "set" ||
+        (targetPhase !== "day" && targetPhase !== "night")
+      ) {
+        context.sendSystem(clientId, "Usage: /time <set day|night>");
+        return;
+      }
+      context.world.dayNightSystem.setPhase(targetPhase);
+      context.sendSystem(clientId, `Time set to ${targetPhase}.`);
+    },
     map: (clientId, player, args) => {
       if (!canUseMapEditor(player)) {
         context.sendSystem(

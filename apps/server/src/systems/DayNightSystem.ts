@@ -48,6 +48,14 @@ export class DayNightSystem implements System {
     return this.phase === "night";
   }
 
+  public setPhase(phase: DayNightPhase): void {
+    this.phase = phase;
+    this.phaseElapsedTicks = 0;
+    if (phase === "day") {
+      this.dayCount += 1;
+    }
+  }
+
   public toSnapshot(): DayNightSnapshot {
     return {
       dayCount: this.dayCount,

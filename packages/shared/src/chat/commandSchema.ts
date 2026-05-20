@@ -10,7 +10,8 @@ export type ChatCommandId =
   | "killall"
   | "effect"
   | "give"
-  | "map";
+  | "map"
+  | "time";
 
 export type ChatAutocompleteSource =
   | "command"
@@ -190,6 +191,13 @@ export const CHAT_COMMAND_SCHEMAS = [
         },
       },
     ],
+  },
+  {
+    id: "time",
+    primaryAlias: "time",
+    aliases: ["time"],
+    usage: "/time <set day|night>",
+    summary: "set day or night",
   },
 ] as const satisfies readonly ChatCommandSchemaEntry[];
 
