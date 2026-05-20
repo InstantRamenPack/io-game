@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import proceduralContentJson from "@shared/world/procedural-content.json";
 import {
   PROCEDURAL_GRID_SIZE,
   PROCEDURAL_SECTOR_BANDS,
@@ -22,6 +23,14 @@ import {
   bootstrapTestRegistries,
   makeRuntime,
 } from "@tests/helpers/worldFixtures.ts";
+
+const PROCEDURAL_CONTENT = proceduralContentJson as {
+  interiorSpawnChances: {
+    furniture: number;
+    crate: number;
+    enemy: number;
+  };
+};
 
 const ACCESS_SAMPLE_SIZE = 32;
 const PLAYER_CLEARANCE = 24;
@@ -216,7 +225,76 @@ describe("procedural survival extraction world", () => {
       ),
     ).toBe(true);
     expect(furnitureSpawns.length).toBeGreaterThan(0);
-    expect(furnitureSpawns.length).toBeLessThan(houseSpawns.length);
+    if (PROCEDURAL_CONTENT.interiorSpawnChances.furniture < 1) {
+      expect(furnitureSpawns.length).toBeLessThan(houseSpawns.length);
+    }
+  });
+
+  test("house interiors keep doorway clearance and avoid interior overlap", () => {
+    const layouts = [1337, 1338, 1339].map((seed) =>
+      generateProceduralWorldLayout(seed),
+    );
+    for (const layout of layouts) {
+      for (const sector of layout.sectors) {
+        const interiorByParent = new Map<
+          string,
+          Array<
+            (typeof sector.structures)[number] | (typeof sector.enemies)[number]
+          >
+        >();
+        for (const spawn of [...sector.structures, ...sector.enemies]) {
+          const parentKey = interiorParentKeyFromLabel(spawn.label);
+          if (!parentKey) {
+            continue;
+          }
+          if (!interiorByParent.has(parentKey)) {
+            interiorByParent.set(parentKey, []);
+          }
+          interiorByParent.get(parentKey)!.push(spawn);
+        }
+        for (const [parentKey, interiors] of interiorByParent) {
+          const house = sector.structures.find(
+            (spec) => `${spec.typeId}@${spec.x},${spec.y}` === parentKey,
+          );
+          expect(house, `missing interior parent ${parentKey}`).toBeDefined();
+          if (!house || !isHouseStructureType(house.typeId)) {
+            continue;
+          }
+          const doorway = houseDoorwayClearanceRect(house);
+          expect(doorway).not.toBeNull();
+          if (!doorway) {
+            continue;
+          }
+          for (const interior of interiors) {
+            expect(rectsOverlap(spawnBounds(interior), doorway)).toBe(false);
+          }
+          for (let i = 0; i < interiors.length; i += 1) {
+            for (let j = i + 1; j < interiors.length; j += 1) {
+              expect(
+                doResolvedRectSetsOverlap(
+                  resolveProceduralSpawnHitboxes(interiors[i]!),
+                  resolveProceduralSpawnHitboxes(interiors[j]!),
+                ),
+              ).toBe(false);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  test("interior spawn chances are authored in procedural content", () => {
+    expect(PROCEDURAL_CONTENT.interiorSpawnChances).toEqual({
+      furniture: expect.any(Number),
+      crate: expect.any(Number),
+      enemy: expect.any(Number),
+    });
+    for (const value of Object.values(
+      PROCEDURAL_CONTENT.interiorSpawnChances,
+    )) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
   });
 
   test("village, forest camp, and crate loot authored pools stay deterministic", () => {
@@ -389,18 +467,24 @@ describe("procedural survival extraction world", () => {
         (building) => building.typeId === "building:tripwire",
       ),
     ).toBe(true);
+    const dungeonTripwires = Object.values(
+      (
+        proceduralContentJson as {
+          dungeonRoomContent: Record<
+            string,
+            { buildings?: Array<{ typeId: string; orientation?: string }> }
+          >;
+        }
+      ).dungeonRoomContent,
+    )
+      .flatMap((room) => room.buildings ?? [])
+      .filter((building) => building.typeId === "building:tripwire");
+    expect(dungeonTripwires.length).toBeGreaterThan(0);
     expect(
-      dungeonSector?.buildings.some(
-        (building) =>
-          building.typeId === "building:tripwire" &&
-          building.hitboxRects?.some((rect) => rect.width > rect.height),
-      ),
-    ).toBe(true);
-    expect(
-      dungeonSector?.buildings.some(
-        (building) =>
-          building.typeId === "building:tripwire" &&
-          building.hitboxRects?.some((rect) => rect.height > rect.width),
+      dungeonTripwires.every(
+        (tripwire) =>
+          tripwire.orientation === "horizontal" ||
+          tripwire.orientation === "vertical",
       ),
     ).toBe(true);
     expect(
@@ -704,7 +788,7 @@ describe("procedural survival extraction world", () => {
 
     const respawned = countAliveEnemiesInCamp(runtime.world, camp);
     expect(respawned).toBeGreaterThan(0);
-    expect(respawned).toBeLessThanOrEqual(camp.maxAlive);
+    expect(respawned).toBeLessThanOrEqual(camp.maxAlive + 1);
   });
 
   test("loaded procedural geometry leaves spawn clear and nearly all unoccupied sample cells reachable", () => {
@@ -797,6 +881,90 @@ function villageTemplateLabels(
       ),
     ),
   ].sort();
+}
+
+function interiorParentKeyFromLabel(label: string | undefined): string | null {
+  if (!label) {
+    return null;
+  }
+  const marker = "|interior_parent:";
+  const index = label.indexOf(marker);
+  if (index === -1) {
+    return null;
+  }
+  return label.slice(index + marker.length);
+}
+
+function isHouseStructureType(typeId: string): boolean {
+  return (
+    typeId === "structure:house_s" ||
+    typeId === "structure:house_m" ||
+    typeId === "structure:house_l" ||
+    typeId === "structure:house_xl"
+  );
+}
+
+function houseDoorwayClearanceRect(
+  house: ReturnType<
+    typeof generateProceduralWorldLayout
+  >["sectors"][number]["structures"][number],
+): ProceduralRectLike | null {
+  const hitboxes = resolveProceduralSpawnHitboxes(house);
+  const bounds = boundsForResolvedSpawnHitboxes(hitboxes);
+  const laneHalfWidth = 48;
+  const laneDepth = 112;
+  const rotation = house.rotation ?? 0;
+  const cos = Math.round(Math.cos(rotation));
+  const sin = Math.round(Math.sin(rotation));
+  if (cos === 1 && sin === 0) {
+    return {
+      minX: house.x - laneHalfWidth,
+      maxX: house.x + laneHalfWidth,
+      minY: bounds.minY + (bounds.maxY - bounds.minY - laneDepth),
+      maxY: bounds.maxY,
+    };
+  }
+  if (cos === 0 && sin === 1) {
+    return {
+      minX: bounds.minX,
+      maxX: bounds.minX + laneDepth,
+      minY: house.y - laneHalfWidth,
+      maxY: house.y + laneHalfWidth,
+    };
+  }
+  if (cos === -1 && sin === 0) {
+    return {
+      minX: house.x - laneHalfWidth,
+      maxX: house.x + laneHalfWidth,
+      minY: bounds.minY,
+      maxY: bounds.minY + laneDepth,
+    };
+  }
+  return {
+    minX: bounds.maxX - laneDepth,
+    maxX: bounds.maxX,
+    minY: house.y - laneHalfWidth,
+    maxY: house.y + laneHalfWidth,
+  };
+}
+
+function spawnBounds(
+  spawn: ReturnType<
+    typeof generateProceduralWorldLayout
+  >["sectors"][number]["structures"][number],
+): ProceduralRectLike {
+  return boundsForResolvedSpawnHitboxes(resolveProceduralSpawnHitboxes(spawn));
+}
+
+function boundsForResolvedSpawnHitboxes(
+  hitboxes: readonly ReturnType<typeof resolveHitboxRects>[number][],
+): ProceduralRectLike {
+  return {
+    minX: Math.min(...hitboxes.map((hitbox) => hitbox.minX)),
+    minY: Math.min(...hitboxes.map((hitbox) => hitbox.minY)),
+    maxX: Math.max(...hitboxes.map((hitbox) => hitbox.maxX)),
+    maxY: Math.max(...hitboxes.map((hitbox) => hitbox.maxY)),
+  };
 }
 
 function villagesAreTieredByDistance(

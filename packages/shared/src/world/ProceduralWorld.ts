@@ -291,6 +291,11 @@ type ProceduralContent = {
     edge: readonly ResourceId[];
   };
   villageEnemyPools: Record<ProceduralVillageKind, readonly ResourceId[]>;
+  interiorSpawnChances: {
+    furniture: number;
+    crate: number;
+    enemy: number;
+  };
   sectorContent: Partial<Record<SectorArchetype, ProceduralSectorContent>>;
   dungeonRoomContent: Record<DungeonRoomRole, ProceduralDungeonRoomContent>;
   villageRoomTemplates: Record<
@@ -847,6 +852,80 @@ function canPlaceInsideStructure(
     candidateBounds.maxY <= structureBounds.maxY &&
     !doResolvedRectSetsOverlap(candidateHitboxes, structureHitboxes)
   );
+}
+
+function isEnterableHouseType(typeId: ResourceId): boolean {
+  return (
+    typeId === "structure:house_s" ||
+    typeId === "structure:house_m" ||
+    typeId === "structure:house_l" ||
+    typeId === "structure:house_xl"
+  );
+}
+
+function doorwayClearanceRect(
+  structure: ProceduralSpawnSpec,
+): ProceduralRect | null {
+  if (!isEnterableHouseType(structure.typeId)) {
+    return null;
+  }
+  const hitboxes = resolveSpawnHitboxes(structure);
+  if (!hitboxes) {
+    return null;
+  }
+  const bounds = boundsForResolvedHitboxes(hitboxes);
+  const laneHalfWidth = 48;
+  const laneDepth = 112;
+  const rotation = structure.rotation ?? 0;
+  const cos = Math.round(Math.cos(rotation));
+  const sin = Math.round(Math.sin(rotation));
+  if (cos === 1 && sin === 0) {
+    return {
+      minX: structure.x - laneHalfWidth,
+      maxX: structure.x + laneHalfWidth,
+      minY: bounds.maxY - laneDepth,
+      maxY: bounds.maxY,
+    };
+  }
+  if (cos === 0 && sin === 1) {
+    return {
+      minX: bounds.minX,
+      maxX: bounds.minX + laneDepth,
+      minY: structure.y - laneHalfWidth,
+      maxY: structure.y + laneHalfWidth,
+    };
+  }
+  if (cos === -1 && sin === 0) {
+    return {
+      minX: structure.x - laneHalfWidth,
+      maxX: structure.x + laneHalfWidth,
+      minY: bounds.minY,
+      maxY: bounds.minY + laneDepth,
+    };
+  }
+  return {
+    minX: bounds.maxX - laneDepth,
+    maxX: bounds.maxX,
+    minY: structure.y - laneHalfWidth,
+    maxY: structure.y + laneHalfWidth,
+  };
+}
+
+function overlapsAcceptedInteriorSpawns(
+  candidate: ProceduralSpawnSpec,
+  accepted: readonly ProceduralSpawnSpec[],
+): boolean {
+  const candidateHitboxes = resolveSpawnHitboxes(candidate);
+  if (!candidateHitboxes) {
+    return false;
+  }
+  return accepted.some((existing) => {
+    const existingHitboxes = resolveSpawnHitboxes(existing);
+    return (
+      existingHitboxes !== null &&
+      doResolvedRectSetsOverlap(candidateHitboxes, existingHitboxes)
+    );
+  });
 }
 
 function houseInteriorRect(
@@ -1570,7 +1649,10 @@ function addDungeonRoomContent(
   ) => {
     const position = point(offsetX, offsetY, margin);
     if (typeId === "building:tripwire") {
-      return tripwireSpawn(position.x, position.y, orientation ?? "horizontal");
+      if (!orientation) {
+        throw new Error("procedural tripwire spawn requires orientation");
+      }
+      return tripwireSpawn(position.x, position.y, orientation);
     }
     return spawn(typeId, position.x, position.y);
   };
@@ -1600,20 +1682,14 @@ function addDungeonRoomContent(
       roomSpawn(enemy.typeId, enemy.offsetX, enemy.offsetY, enemy.margin),
     );
   }
-  let tripwireIndex = 0;
   for (const building of content.buildings ?? []) {
-    const orientation =
-      building.typeId === "building:tripwire"
-        ? (building.orientation ??
-          (tripwireIndex++ % 2 === 0 ? "horizontal" : "vertical"))
-        : building.orientation;
     buildings.push(
       roomSpawn(
         building.typeId,
         building.offsetX,
         building.offsetY,
         building.margin,
-        orientation,
+        building.orientation,
       ),
     );
   }
@@ -2050,9 +2126,7 @@ type VillageTemplateEnemy = VillageTemplateOffset & {
 };
 
 const VILLAGE_ROOM_TEMPLATES = PROCEDURAL_CONTENT.villageRoomTemplates;
-const INTERIOR_CRATE_CHANCE = 0.35;
-const INTERIOR_ENEMY_CHANCE = 0.3;
-const INTERIOR_FURNITURE_CHANCE = 0.25;
+const INTERIOR_SPAWN_CHANCES = PROCEDURAL_CONTENT.interiorSpawnChances;
 
 function createBspVillageRooms(
   rng: seedrandom.PRNG,
@@ -2238,8 +2312,10 @@ function applyVillageRoomTemplate(
       template.id,
     );
     const parentKey = `${structureSpawn.typeId}@${structureSpawn.x},${structureSpawn.y}`;
+    const doorwayRect = doorwayClearanceRect(structureSpawn);
+    const acceptedInteriorSpawns: ProceduralSpawnSpec[] = [];
     structures.push(structureSpawn);
-    if (rng() < INTERIOR_FURNITURE_CHANCE) {
+    if (rng() < INTERIOR_SPAWN_CHANCES.furniture) {
       for (const interiorStructure of structure.interiorStructures ?? []) {
         const interiorSpawn = withTemplateLabel(
           spawn(
@@ -2269,13 +2345,16 @@ function applyVillageRoomTemplate(
           : true;
         if (
           insideInteriorRect &&
-          canPlaceInsideStructure(interiorSpawn, structureSpawn)
+          canPlaceInsideStructure(interiorSpawn, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(interiorSpawn, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(interiorSpawn, acceptedInteriorSpawns)
         ) {
           structures.push(interiorSpawn);
+          acceptedInteriorSpawns.push(interiorSpawn);
         }
       }
     }
-    if (rng() < INTERIOR_CRATE_CHANCE) {
+    if (rng() < INTERIOR_SPAWN_CHANCES.crate) {
       for (const crate of structure.interiorCrates ?? []) {
         const crateSpec = withTemplateLabel(
           crateSpawn(
@@ -2287,12 +2366,17 @@ function applyVillageRoomTemplate(
           template.id,
         );
         crateSpec.label = appendInteriorParentKey(crateSpec.label, parentKey);
-        if (canPlaceInsideStructure(crateSpec, structureSpawn)) {
+        if (
+          canPlaceInsideStructure(crateSpec, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(crateSpec, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(crateSpec, acceptedInteriorSpawns)
+        ) {
           enemies.push(crateSpec);
+          acceptedInteriorSpawns.push(crateSpec);
         }
       }
     }
-    if (rng() < INTERIOR_ENEMY_CHANCE) {
+    if (rng() < INTERIOR_SPAWN_CHANCES.enemy) {
       for (const enemy of structure.interiorEnemies ?? []) {
         const enemySpec = withTemplateLabel(
           spawn(
@@ -2303,8 +2387,13 @@ function applyVillageRoomTemplate(
           template.id,
         );
         enemySpec.label = appendInteriorParentKey(enemySpec.label, parentKey);
-        if (canPlaceInsideStructure(enemySpec, structureSpawn)) {
+        if (
+          canPlaceInsideStructure(enemySpec, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(enemySpec, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(enemySpec, acceptedInteriorSpawns)
+        ) {
           enemies.push(enemySpec);
+          acceptedInteriorSpawns.push(enemySpec);
         }
       }
     }
@@ -2723,7 +2812,6 @@ function interiorParentKeyFromLabel(label: string | undefined): string | null {
   }
   return label.slice(index + marker.length);
 }
-
 
 function offsetPoint(
   point: ProceduralPoint,
