@@ -1,0 +1,10 @@
+{
+  "label": "Medkit",
+  "hint": "Fully restores HP.",
+  "description": "A proper medical kit. Fully restores health. Craft at a crafting station. Press G to use.",
+  "recipe": {
+    "outputAmount": 1,
+    "costs": [{ "typeId": "item:hunk", "amount": 100 }]
+  },
+  "food": { "healAmount": 100 }
+}

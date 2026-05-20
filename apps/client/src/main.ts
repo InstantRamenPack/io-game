@@ -25,6 +25,7 @@ import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInte
 import { getNearDamagedTower } from "@client/render/hud/towerRepairInteraction.ts";
 import { parseDebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
 import { GameConfig } from "@shared/config/GameConfig.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   ClientRuntimeConfigSchema,
   type ClientRuntimeConfig,
@@ -213,6 +214,12 @@ new GameInputRouter({
         selectors.getPlayerEntity(),
         selectors.getTrackedBuildings(),
       )?.id ?? null,
+    hasConsumable:
+      selectors.countInventoryType("item:medkit") > 0
+        ? ("item:medkit" as ResourceId)
+        : selectors.countInventoryType("item:crude_bandage") > 0
+          ? ("item:crude_bandage" as ResourceId)
+          : null,
   }),
   dispatch: (command) => {
     switch (command.type) {
@@ -290,6 +297,9 @@ new GameInputRouter({
         gameClient.queueRepairTower(command.towerId);
         repairHoldActive = false;
         hudController.setRepairHoldStartMs(null);
+        return;
+      case "useConsumable":
+        gameClient.queueUseConsumable(command.typeId);
         return;
     }
   },

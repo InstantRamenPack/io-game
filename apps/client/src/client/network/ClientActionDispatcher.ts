@@ -89,6 +89,13 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueUseConsumable(typeId: ResourceId): void {
+    this.sendAction({
+      action: "useConsumable",
+      typeId,
+    });
+  }
+
   public requestRespawn(): void {
     if (!this.canSend()) {
       return;
@@ -126,7 +133,8 @@ export class ClientActionDispatcher {
       | { action: "drop"; dropWholeStack: boolean }
       | { action: "pickup" }
       | { action: "recycle" }
-      | { action: "repair_tower"; towerId: number },
+      | { action: "repair_tower"; towerId: number }
+      | { action: "useConsumable"; typeId: ResourceId },
   ): void {
     if (!this.canSend()) {
       return;

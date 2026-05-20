@@ -1,0 +1,39 @@
+{
+  "label": "Fire Axe",
+  "hint": "Heavy axe head with brutal fracturing power. Slow but devastating.",
+  "description": "High-damage swing weapon that always fractures targets. The long cooldown demands patience.",
+  "recipe": {
+    "hint": "Heavy axe that always fractures on hit.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 55
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 16,
+    "range": 55,
+    "damage": 45,
+    "knockback": 24,
+    "sweepArcDeg": 95,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 36,
+        "y": 0
+      },
+      "holdRotationDeg": 0,
+      "scale": 1.8,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 95,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 10
+  },
+  "rarityTier": "rare"
+}

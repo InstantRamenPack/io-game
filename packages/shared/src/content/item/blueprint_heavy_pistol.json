@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Desert Eagle",
+  "hint": "Crafting schematic for the Desert Eagle.",
+  "description": "Unlocks the Desert Eagle recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:heavy_pistol",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

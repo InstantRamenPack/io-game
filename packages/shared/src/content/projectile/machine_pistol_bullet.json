@@ -1,0 +1,15 @@
+{
+  "label": "Machine Pistol Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 90,
+    "range": 700,
+    "damage": 15,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 10,
+      "height": 10
+    }
+  }
+}

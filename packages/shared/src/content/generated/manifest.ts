@@ -48,29 +48,46 @@ import itembasicGunJson from "@shared/content/item/basic_gun.json";
 import itembasicRifleJson from "@shared/content/item/basic_rifle.json";
 import itembasicSpearJson from "@shared/content/item/basic_spear.json";
 import itembasicSwordJson from "@shared/content/item/basic_sword.json";
+import itembattleRifleJson from "@shared/content/item/battle_rifle.json";
 import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
+import itemblueprintBattleRifleJson from "@shared/content/item/blueprint_battle_rifle.json";
+import itemblueprintHalberdJson from "@shared/content/item/blueprint_halberd.json";
+import itemblueprintHeavyPistolJson from "@shared/content/item/blueprint_heavy_pistol.json";
 import itemblueprintKatanaJson from "@shared/content/item/blueprint_katana.json";
+import itemblueprintLmgJson from "@shared/content/item/blueprint_lmg.json";
+import itemblueprintMachinePistolJson from "@shared/content/item/blueprint_machine_pistol.json";
 import itemblueprintSaboteurSwordJson from "@shared/content/item/blueprint_saboteur_sword.json";
 import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
 import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
 import itemblueprintZombieSwordJson from "@shared/content/item/blueprint_zombie_sword.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
+import itemcarbineJson from "@shared/content/item/carbine.json";
 import itemchestJson from "@shared/content/item/chest.json";
 import itemcleaverJson from "@shared/content/item/cleaver.json";
 import itemcraftingStationJson from "@shared/content/item/crafting_station.json";
 import itemcrossbowJson from "@shared/content/item/crossbow.json";
 import itemcrossbowMagJson from "@shared/content/item/crossbow_mag.json";
+import itemcrowbarJson from "@shared/content/item/crowbar.json";
+import itemcrudeBandageJson from "@shared/content/item/crude_bandage.json";
 import itemdroneMagJson from "@shared/content/item/drone_mag.json";
 import itemdroneShooterJson from "@shared/content/item/drone_shooter.json";
 import itemdungeonKeyJson from "@shared/content/item/dungeon_key.json";
+import itemfireAxeJson from "@shared/content/item/fire_axe.json";
 import itemfistsJson from "@shared/content/item/fists.json";
+import itemhalberdJson from "@shared/content/item/halberd.json";
+import itemheavyPistolJson from "@shared/content/item/heavy_pistol.json";
 import itemhunkJson from "@shared/content/item/hunk.json";
 import itemjunkFoodJson from "@shared/content/item/junk_food.json";
 import itemkatanaJson from "@shared/content/item/katana.json";
 import itemlandmineJson from "@shared/content/item/landmine.json";
 import itemleadPipeJson from "@shared/content/item/lead_pipe.json";
+import itemlmgJson from "@shared/content/item/lmg.json";
+import itemmacheteJson from "@shared/content/item/machete.json";
+import itemmachinePistolJson from "@shared/content/item/machine_pistol.json";
+import itemmedkitJson from "@shared/content/item/medkit.json";
 import itempistolMagJson from "@shared/content/item/pistol_mag.json";
 import itemqualityFoodJson from "@shared/content/item/quality_food.json";
+import itemrevolverJson from "@shared/content/item/revolver.json";
 import itemrifleMagJson from "@shared/content/item/rifle_mag.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
 import itemscissorsJson from "@shared/content/item/scissors.json";
@@ -87,9 +104,15 @@ import itemzombieSwordJson from "@shared/content/item/zombie_sword.json";
 import pickupitemEntityJson from "@shared/content/pickup/item_entity.json";
 import playerbaseJson from "@shared/content/player/base.json";
 import projectilebasicBulletJson from "@shared/content/projectile/basic_bullet.json";
+import projectilebattleRifleBulletJson from "@shared/content/projectile/battle_rifle_bullet.json";
 import projectilecannonBulletJson from "@shared/content/projectile/cannon_bullet.json";
+import projectilecarbineBulletJson from "@shared/content/projectile/carbine_bullet.json";
 import projectilecrossbowArrowJson from "@shared/content/projectile/crossbow_arrow.json";
+import projectileheavyPistolBulletJson from "@shared/content/projectile/heavy_pistol_bullet.json";
 import projectilehomingDroneJson from "@shared/content/projectile/homing_drone.json";
+import projectilelmgBulletJson from "@shared/content/projectile/lmg_bullet.json";
+import projectilemachinePistolBulletJson from "@shared/content/projectile/machine_pistol_bullet.json";
+import projectilerevolverBulletJson from "@shared/content/projectile/revolver_bullet.json";
 import projectilerifleBulletJson from "@shared/content/projectile/rifle_bullet.json";
 import projectileshootaBulletJson from "@shared/content/projectile/shoota_bullet.json";
 import projectilesniperBulletJson from "@shared/content/projectile/sniper_bullet.json";
@@ -167,29 +190,46 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("basic_rifle", itembasicRifleJson),
   makeParsedItemContentEntry("basic_spear", itembasicSpearJson),
   makeParsedItemContentEntry("basic_sword", itembasicSwordJson),
+  makeParsedItemContentEntry("battle_rifle", itembattleRifleJson),
   makeParsedItemContentEntry("blueprint_basic_rifle", itemblueprintBasicRifleJson),
+  makeParsedItemContentEntry("blueprint_battle_rifle", itemblueprintBattleRifleJson),
+  makeParsedItemContentEntry("blueprint_halberd", itemblueprintHalberdJson),
+  makeParsedItemContentEntry("blueprint_heavy_pistol", itemblueprintHeavyPistolJson),
   makeParsedItemContentEntry("blueprint_katana", itemblueprintKatanaJson),
+  makeParsedItemContentEntry("blueprint_lmg", itemblueprintLmgJson),
+  makeParsedItemContentEntry("blueprint_machine_pistol", itemblueprintMachinePistolJson),
   makeParsedItemContentEntry("blueprint_saboteur_sword", itemblueprintSaboteurSwordJson),
   makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
   makeParsedItemContentEntry("blueprint_spiked_spear", itemblueprintSpikedSpearJson),
   makeParsedItemContentEntry("blueprint_zombie_sword", itemblueprintZombieSwordJson),
   makeParsedItemContentEntry("cannon", itemcannonJson),
+  makeParsedItemContentEntry("carbine", itemcarbineJson),
   makeParsedItemContentEntry("chest", itemchestJson),
   makeParsedItemContentEntry("cleaver", itemcleaverJson),
   makeParsedItemContentEntry("crafting_station", itemcraftingStationJson),
   makeParsedItemContentEntry("crossbow", itemcrossbowJson),
   makeParsedItemContentEntry("crossbow_mag", itemcrossbowMagJson),
+  makeParsedItemContentEntry("crowbar", itemcrowbarJson),
+  makeParsedItemContentEntry("crude_bandage", itemcrudeBandageJson),
   makeParsedItemContentEntry("drone_mag", itemdroneMagJson),
   makeParsedItemContentEntry("drone_shooter", itemdroneShooterJson),
   makeParsedItemContentEntry("dungeon_key", itemdungeonKeyJson),
+  makeParsedItemContentEntry("fire_axe", itemfireAxeJson),
   makeParsedItemContentEntry("fists", itemfistsJson),
+  makeParsedItemContentEntry("halberd", itemhalberdJson),
+  makeParsedItemContentEntry("heavy_pistol", itemheavyPistolJson),
   makeParsedItemContentEntry("hunk", itemhunkJson),
   makeParsedItemContentEntry("junk_food", itemjunkFoodJson),
   makeParsedItemContentEntry("katana", itemkatanaJson),
   makeParsedItemContentEntry("landmine", itemlandmineJson),
   makeParsedItemContentEntry("lead_pipe", itemleadPipeJson),
+  makeParsedItemContentEntry("lmg", itemlmgJson),
+  makeParsedItemContentEntry("machete", itemmacheteJson),
+  makeParsedItemContentEntry("machine_pistol", itemmachinePistolJson),
+  makeParsedItemContentEntry("medkit", itemmedkitJson),
   makeParsedItemContentEntry("pistol_mag", itempistolMagJson),
   makeParsedItemContentEntry("quality_food", itemqualityFoodJson),
+  makeParsedItemContentEntry("revolver", itemrevolverJson),
   makeParsedItemContentEntry("rifle_mag", itemrifleMagJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),
   makeParsedItemContentEntry("scissors", itemscissorsJson),
@@ -218,9 +258,15 @@ export const playerContentEntries = [
 
 export const projectileContentEntries = [
   makeParsedEntityContentEntry("projectile", "basic_bullet", projectilebasicBulletJson),
+  makeParsedEntityContentEntry("projectile", "battle_rifle_bullet", projectilebattleRifleBulletJson),
   makeParsedEntityContentEntry("projectile", "cannon_bullet", projectilecannonBulletJson),
+  makeParsedEntityContentEntry("projectile", "carbine_bullet", projectilecarbineBulletJson),
   makeParsedEntityContentEntry("projectile", "crossbow_arrow", projectilecrossbowArrowJson),
+  makeParsedEntityContentEntry("projectile", "heavy_pistol_bullet", projectileheavyPistolBulletJson),
   makeParsedEntityContentEntry("projectile", "homing_drone", projectilehomingDroneJson),
+  makeParsedEntityContentEntry("projectile", "lmg_bullet", projectilelmgBulletJson),
+  makeParsedEntityContentEntry("projectile", "machine_pistol_bullet", projectilemachinePistolBulletJson),
+  makeParsedEntityContentEntry("projectile", "revolver_bullet", projectilerevolverBulletJson),
   makeParsedEntityContentEntry("projectile", "rifle_bullet", projectilerifleBulletJson),
   makeParsedEntityContentEntry("projectile", "shoota_bullet", projectileshootaBulletJson),
   makeParsedEntityContentEntry("projectile", "sniper_bullet", projectilesniperBulletJson),

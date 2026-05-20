@@ -136,7 +136,13 @@ export class CombatHudView {
       sprite.alpha = index < model.ammo.ammoInMag ? 0.98 : 0.5;
     }
 
-    this.drawHealthRow(model.hp, model.maxHp, healthY, this.widthValue, padding);
+    this.drawHealthRow(
+      model.hp,
+      model.maxHp,
+      healthY,
+      this.widthValue,
+      padding,
+    );
   }
 
   public setPosition(x: number, y: number): void {
@@ -193,7 +199,10 @@ export class CombatHudView {
       { color: 0xb44646, alpha: 0.96 },
     );
     this.healthText.text = `${Math.max(0, Math.round(hp))}/${Math.max(0, Math.round(maxHp))}`;
-    this.healthText.position.set(padding + trackWidth / 2, y + HEALTH_ROW_HEIGHT / 2);
+    this.healthText.position.set(
+      padding + trackWidth / 2,
+      y + HEALTH_ROW_HEIGHT / 2,
+    );
   }
 
   private ensureAmmoSpriteCount(count: number): void {

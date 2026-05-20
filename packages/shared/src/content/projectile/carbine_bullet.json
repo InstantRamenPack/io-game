@@ -1,0 +1,15 @@
+{
+  "label": "Carbine Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 95,
+    "range": 1600,
+    "damage": 30,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 12,
+      "height": 12
+    }
+  }
+}

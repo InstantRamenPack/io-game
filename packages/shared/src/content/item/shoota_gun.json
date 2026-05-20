@@ -3,9 +3,9 @@
   "rarityTier": "common",
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 25,
+    "cooldownTicks": 18,
     "projectileTypeId": "projectile:shoota_bullet",
-    "magSize": 3,
+    "magSize": 12,
     "reloadTicks": 60,
     "spreadDeg": 5,
     "equippedRender": {

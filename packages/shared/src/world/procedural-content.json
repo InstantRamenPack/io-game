@@ -4,25 +4,34 @@
       "item:hunk",
       "item:junk_food",
       "item:pistol_mag",
-      "item:rifle_mag"
+      "item:rifle_mag",
+      "item:crowbar"
     ],
     "uncommon": [
-      "item:basic_spear",
+      "item:machete",
       "item:lead_pipe",
       "item:quality_food",
-      "item:crossbow_mag"
+      "item:crossbow_mag",
+      "item:revolver",
+      "item:carbine"
     ],
     "rare": [
-      "item:basic_rifle",
+      "item:blueprint_basic_rifle",
       "item:crossbow",
       "item:blueprint_katana",
-      "item:sniper_mag"
+      "item:sniper_mag",
+      "item:blueprint_machine_pistol",
+      "item:fire_axe"
     ],
     "epic": [
       "item:sniper",
       "item:drone_shooter",
       "item:blueprint_sniper",
-      "item:blueprint_spiked_spear"
+      "item:blueprint_spiked_spear",
+      "item:blueprint_heavy_pistol",
+      "item:blueprint_battle_rifle",
+      "item:blueprint_lmg",
+      "item:blueprint_halberd"
     ]
   },
   "crateLootByTier": {
@@ -36,7 +45,7 @@
       { "typeId": "item:pistol_mag", "kind": "stackable", "amount": 2 }
     ],
     "rare": [
-      { "typeId": "item:basic_rifle", "kind": "weapon" },
+      { "typeId": "item:blueprint_basic_rifle", "kind": "stackable", "amount": 1 },
       { "typeId": "item:rifle_mag", "kind": "stackable", "amount": 3 },
       { "typeId": "item:hunk", "kind": "stackable", "amount": 10 }
     ],
@@ -289,20 +298,20 @@
       ],
       "loot": [
         {
-          "typeId": "item:basic_rifle",
+          "typeId": "item:blueprint_basic_rifle",
           "offsetX": -96,
           "offsetY": 96,
-          "kind": "weapon",
+          "kind": "stackable",
           "rewardTier": "rare",
           "amount": 1
         },
         {
-          "typeId": "item:sniper_mag",
+          "typeId": "item:carbine",
           "offsetX": 96,
           "offsetY": 96,
-          "kind": "stackable",
-          "rewardTier": "rare",
-          "amount": 2
+          "kind": "weapon",
+          "rewardTier": "uncommon",
+          "amount": 1
         }
       ]
     },

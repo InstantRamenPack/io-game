@@ -1,0 +1,40 @@
+{
+  "label": "M4A1",
+  "hint": "Lightweight carbine with decent range. Good stepping stone to heavier firearms.",
+  "description": "A compact automatic rifle with less stopping power than the AK-74. Easier to come by.",
+  "recipe": {
+    "hint": "Compact M4A1 carbine, easier to craft than the full rifle.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 75
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 5,
+    "projectileTypeId": "projectile:carbine_bullet",
+    "magSize": 20,
+    "reloadTicks": 28,
+    "spreadDeg": 2,
+    "magItemTypeId": "item:rifle_mag",
+    "equippedRender": {
+      "holdOffset": {
+        "x": 20,
+        "y": 4
+      },
+      "holdRotationDeg": -6,
+      "scale": 1.0,
+      "handedness": "right",
+      "recoilDistance": 10,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 10
+  },
+  "rarityTier": "uncommon"
+}

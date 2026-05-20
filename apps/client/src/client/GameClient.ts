@@ -376,6 +376,10 @@ export class GameClient {
     this.actionDispatcher.queueRepairTower(towerId);
   }
 
+  public queueUseConsumable(typeId: ResourceId): void {
+    this.actionDispatcher.queueUseConsumable(typeId);
+  }
+
   public requestRespawn(): void {
     this.actionDispatcher.requestRespawn();
   }

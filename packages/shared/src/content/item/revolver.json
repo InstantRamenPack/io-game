@@ -1,0 +1,40 @@
+{
+  "label": "Colt Python",
+  "hint": "Hard-hitting six-shooter. Each shot counts.",
+  "description": "Slow rate of fire but punishing damage per bullet. Favors accuracy over volume.",
+  "recipe": {
+    "hint": "A reliable .357 revolver for mid-range combat.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 70
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 14,
+    "projectileTypeId": "projectile:revolver_bullet",
+    "magSize": 6,
+    "reloadTicks": 25,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:pistol_mag",
+    "equippedRender": {
+      "holdOffset": {
+        "x": 28,
+        "y": 7
+      },
+      "holdRotationDeg": 0,
+      "scale": 1.05,
+      "handedness": "right",
+      "recoilDistance": 12,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 12
+  },
+  "rarityTier": "uncommon"
+}

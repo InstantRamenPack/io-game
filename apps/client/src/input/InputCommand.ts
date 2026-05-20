@@ -1,3 +1,5 @@
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
 export type InputCommand =
   | { type: "openChat" }
   | { type: "openChatSlash" }
@@ -19,4 +21,5 @@ export type InputCommand =
   | { type: "cancelRepairHold" }
   | { type: "repairTower"; towerId: number }
   | { type: "openChest"; chestEntityId: number }
-  | { type: "openCraftingMenu" };
+  | { type: "openCraftingMenu" }
+  | { type: "useConsumable"; typeId: ResourceId };

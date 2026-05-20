@@ -1,0 +1,44 @@
+{
+  "label": "Desert Eagle",
+  "hint": "High-caliber hand cannon. Each shot hits like a truck.",
+  "description": "Fires .50 AE rounds with tremendous stopping power. Small magazine demands precision.",
+  "recipe": {
+    "hint": "Powerful .50 caliber semi-auto pistol. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:blueprint_heavy_pistol",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 100
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 13,
+    "projectileTypeId": "projectile:heavy_pistol_bullet",
+    "magSize": 8,
+    "reloadTicks": 28,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:pistol_mag",
+    "equippedRender": {
+      "holdOffset": {
+        "x": 26,
+        "y": 6
+      },
+      "holdRotationDeg": 0,
+      "scale": 1.08,
+      "handedness": "right",
+      "recoilDistance": 16,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 16
+  },
+  "rarityTier": "epic"
+}

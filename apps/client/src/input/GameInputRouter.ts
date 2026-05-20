@@ -167,6 +167,17 @@ export class GameInputRouter {
       return;
     }
 
+    if (key === "g") {
+      if (context.hasConsumable) {
+        event.preventDefault();
+        this.options.dispatch({
+          type: "useConsumable",
+          typeId: context.hasConsumable,
+        });
+      }
+      return;
+    }
+
     if (key === "h") {
       event.preventDefault();
       if (context.chestOpen) {

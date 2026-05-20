@@ -137,6 +137,13 @@ const RepairTowerActionMessageSchema = z.object({
   towerId: EntityIdSchema,
 });
 
+const UseConsumableActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("useConsumable"),
+  typeId: ResourceIdSchema,
+});
+
 const ActionMessageSchemaOptions = [
   AttackActionMessageSchema,
   CraftActionMessageSchema,
@@ -148,6 +155,7 @@ const ActionMessageSchemaOptions = [
   PickupActionMessageSchema,
   RecycleActionMessageSchema,
   RepairTowerActionMessageSchema,
+  UseConsumableActionMessageSchema,
 ] as const;
 
 const ActionMessageSchema = z.discriminatedUnion(

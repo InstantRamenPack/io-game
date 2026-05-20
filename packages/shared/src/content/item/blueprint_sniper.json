@@ -1,7 +1,7 @@
 {
-  "label": "Blueprint: Sniper",
-  "hint": "Rare crafting schematic for the Sniper.",
-  "description": "Unlocks the Sniper recipe permanently for this session.",
+  "label": "Blueprint: Remington 700",
+  "hint": "Rare crafting schematic for the Remington 700.",
+  "description": "Unlocks the Remington 700 recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:sniper",
   "pickupSpawn": {
     "pools": ["blueprint"]

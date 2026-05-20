@@ -1,0 +1,15 @@
+{
+  "label": "Heavy Pistol Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 105,
+    "range": 1100,
+    "damage": 75,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 14,
+      "height": 14
+    }
+  }
+}

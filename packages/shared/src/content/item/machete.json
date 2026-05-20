@@ -1,0 +1,42 @@
+{
+  "label": "Military Machete",
+  "hint": "Fast slashing blade. Every hit opens a bleeding wound.",
+  "description": "Quick swing weapon that always inflicts bleeding, making it strong against targets over time.",
+  "recipe": {
+    "hint": "Fast blade with guaranteed bleed on hit.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 30
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 9,
+    "range": 48,
+    "damage": 32,
+    "knockback": 14,
+    "sweepArcDeg": 100,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 38,
+        "y": 0
+      },
+      "holdRotationDeg": 0,
+      "scale": 1.5,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 100,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 6
+  },
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "rarityTier": "uncommon"
+}

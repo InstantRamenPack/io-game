@@ -1,9 +1,9 @@
 {
-  "label": "Sniper",
-  "hint": "Extreme-range precision rifle with brutal single-shot damage.",
+  "label": "Remington 700",
+  "hint": "Extreme-range bolt-action with brutal single-shot damage.",
   "description": "One round per reload with expensive ammunition and long downtime.",
   "recipe": {
-    "hint": "Heavy precision rifle with expensive maintenance and reloads.",
+    "hint": "Precision bolt-action rifle with expensive maintenance and reloads.",
     "outputAmount": 1,
     "costs": [
       {

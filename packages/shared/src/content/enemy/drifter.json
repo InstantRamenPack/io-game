@@ -5,7 +5,7 @@
   "collisionMode": "dynamic",
   "combat": {
     "damageMultiplier": 0.5,
-    "attackMinIntervalTicks": 50
+    "attackMinIntervalTicks": 35
   },
   "hitboxProfiles": {
     "default": [

@@ -1,9 +1,9 @@
 {
-  "label": "Gun",
-  "hint": "Reliable sidearm with a fast reload and low recoil.",
-  "description": "Starter pistol for close and mid-range fights.",
+  "label": "Glock 17",
+  "hint": "Reliable 9mm sidearm with a fast reload and low recoil.",
+  "description": "Standard service pistol. Starter firearm for close and mid-range fights.",
   "recipe": {
-    "hint": "Reliable sidearm for close and mid-range fights.",
+    "hint": "Reliable 9mm sidearm for close and mid-range fights.",
     "outputAmount": 1,
     "costs": [
       {

@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Halberd",
+  "hint": "Crafting schematic for the Halberd.",
+  "description": "Unlocks the Halberd recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:halberd",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

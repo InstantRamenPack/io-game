@@ -1,0 +1,44 @@
+{
+  "label": "M14 EBR",
+  "hint": "Semi-automatic hard-hitter. Slower than the AK but far more punishing per shot.",
+  "description": "Fires 7.62mm rounds at medium cadence. Long effective range rewards precise aim.",
+  "recipe": {
+    "hint": "Enhanced battle rifle with exceptional stopping power. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:blueprint_battle_rifle",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 130
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 10,
+    "projectileTypeId": "projectile:battle_rifle_bullet",
+    "magSize": 15,
+    "reloadTicks": 40,
+    "spreadDeg": 0,
+    "magItemTypeId": "item:rifle_mag",
+    "equippedRender": {
+      "holdOffset": {
+        "x": 16,
+        "y": 2
+      },
+      "holdRotationDeg": -10,
+      "scale": 1.1,
+      "handedness": "right",
+      "recoilDistance": 15,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 20
+  },
+  "rarityTier": "epic"
+}

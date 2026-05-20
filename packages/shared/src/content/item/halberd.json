@@ -1,0 +1,43 @@
+{
+  "label": "Halberd",
+  "hint": "Long polearm that fractures on every hit. Blueprint weapon.",
+  "description": "Exceptional range and high damage make this the best melee weapon for controlling space.",
+  "recipe": {
+    "hint": "Elite polearm with exceptional reach. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:blueprint_halberd",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 95
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "swing",
+    "cooldownTicks": 13,
+    "range": 72,
+    "damage": 52,
+    "knockback": 20,
+    "sweepArcDeg": 90,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 32,
+        "y": 0
+      },
+      "holdRotationDeg": 0,
+      "scale": 2.0,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 90,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 15
+  },
+  "rarityTier": "epic"
+}

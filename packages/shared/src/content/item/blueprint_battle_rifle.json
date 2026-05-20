@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: M14 EBR",
+  "hint": "Crafting schematic for the M14 EBR.",
+  "description": "Unlocks the M14 EBR recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:battle_rifle",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

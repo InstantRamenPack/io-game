@@ -1,5 +1,8 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
+import {
+  getItemContent,
+  isRecipeBlueprintLocked,
+} from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
   CRAFTING_STATION_QUERY_RADIUS,
@@ -545,6 +548,9 @@ export class Player extends Entity {
         case "recycle":
           this.recycleSelectedItem(world);
           break;
+        case "useConsumable":
+          this.useConsumable(actionMessage.typeId);
+          break;
         case "repair_tower":
           this.repairTower(world, actionMessage.towerId);
           break;
@@ -691,6 +697,18 @@ export class Player extends Entity {
     }
 
     this.inventory.addStackable(HUNK_ITEM_TYPE_ID, hunkAmount);
+  }
+
+  private useConsumable(typeId: ResourceId): void {
+    const healAmount = getItemContent(typeId)?.food?.healAmount;
+    if (healAmount === undefined) {
+      return;
+    }
+    if (this.inventory.getResourceCount(typeId) <= 0) {
+      return;
+    }
+    this.inventory.consumeTypes([{ typeId, amount: 1 }]);
+    this.hp = Math.min(this.maxHp, this.hp + healAmount);
   }
 
   private isNearRecycler(world: World): boolean {

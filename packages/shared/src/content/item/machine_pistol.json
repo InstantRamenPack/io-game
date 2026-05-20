@@ -1,0 +1,44 @@
+{
+  "label": "Scorpion vz. 61",
+  "hint": "Compact full-auto machine pistol. Low damage, extreme fire rate, heavy spread.",
+  "description": "Dumps a full magazine in seconds. Shreds at close range, worthless at distance.",
+  "recipe": {
+    "hint": "Compact automatic machine pistol. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:blueprint_machine_pistol",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 85
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 2,
+    "projectileTypeId": "projectile:machine_pistol_bullet",
+    "magSize": 20,
+    "reloadTicks": 22,
+    "spreadDeg": 10,
+    "magItemTypeId": "item:pistol_mag",
+    "equippedRender": {
+      "holdOffset": {
+        "x": 28,
+        "y": 8
+      },
+      "holdRotationDeg": 0,
+      "scale": 0.95,
+      "handedness": "right",
+      "recoilDistance": 8,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    }
+  },
+  "recycle": {
+    "hunkValue": 14
+  },
+  "rarityTier": "rare"
+}

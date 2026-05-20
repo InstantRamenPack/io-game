@@ -1,0 +1,15 @@
+{
+  "label": "Revolver Bullet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 110,
+    "range": 1200,
+    "damage": 55,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 12,
+      "height": 12
+    }
+  }
+}
