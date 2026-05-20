@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
-import { getWeaponContent } from "@shared/content/catalog.ts";
+import {
+  requireProjectileContent,
+  requireWeaponContent,
+} from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type {
   JabWeaponContent,
@@ -26,15 +29,22 @@ describe("drifter combat content", () => {
     const drifter = spawnEnemy(runtime, "drifter", 100, 100) as Enemy;
     const weapon = drifter.weapons[0];
     expect(weapon).toBeDefined();
-    const weaponContent = getWeaponContent(weapon!.typeId) as
+    const weaponContent = requireWeaponContent(weapon!.typeId) as
       | SwingWeaponContent
       | JabWeaponContent
       | ShootWeaponContent;
-    const expectedDamage =
-      weaponContent.damage * player.getDamageReductionMultiplier();
+    const rawDamage =
+      weaponContent.attackStyle === "shoot"
+        ? requireProjectileContent(weaponContent.projectileTypeId).damage
+        : weaponContent.damage;
+    const rawRange =
+      weaponContent.attackStyle === "shoot"
+        ? requireProjectileContent(weaponContent.projectileTypeId).range
+        : weaponContent.range;
+    const expectedDamage = rawDamage * player.getDamageReductionMultiplier();
     expect(drifter.damageMultiplier).toBe(1);
     expect((weapon as unknown as { range: number }).range).toBe(
-      weaponContent.range * enemyTuningConfig.weaponAttackRangeMultiplier,
+      rawRange * enemyTuningConfig.weaponAttackRangeMultiplier,
     );
 
     player.hp = 100;
