@@ -1,5 +1,7 @@
 {
   "label": "Junk Food",
   "hint": "Restores 20 HP.",
-  "food": { "healAmount": 20 }
+  "food": {
+    "healAmount": 20
+  }
 }

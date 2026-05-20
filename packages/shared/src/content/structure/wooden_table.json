@@ -1,0 +1,15 @@
+{
+  "label": "Wooden Table",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 96,
+        "height": 48,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  }
+}

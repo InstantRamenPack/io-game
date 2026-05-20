@@ -1,0 +1,12 @@
+{
+  "dayDurationMs": 120000,
+  "nightDurationMs": 60000,
+  "stormDamage": {
+    "damage": 0,
+    "intervalMs": 2000
+  },
+  "fallbackHomeCore": {
+    "width": 760,
+    "height": 520
+  }
+}

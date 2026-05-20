@@ -1,7 +1,10 @@
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { ServerToClientMessage } from "@shared/net/protocol.ts";
+import {
+  encodeServerToClientMessage,
+  type ServerToClientMessage,
+} from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Structure } from "@server/entities/Structure.ts";
@@ -70,7 +73,7 @@ export class ChatContext {
     from?: string,
   ): void {
     const message: ServerToClientMessage = { t: "chat", text, kind, from };
-    this.networkServer.broadcast(JSON.stringify(message));
+    this.networkServer.broadcast(encodeServerToClientMessage(message));
   }
 
   public sendSystem(clientId: string, text: string): void {
@@ -84,7 +87,7 @@ export class ChatContext {
     from?: string,
   ): void {
     const message: ServerToClientMessage = { t: "chat", text, kind, from };
-    this.networkServer.send(clientId, JSON.stringify(message));
+    this.networkServer.send(clientId, encodeServerToClientMessage(message));
   }
 
   public getPlayerByClientId(clientId: string): Player | undefined {

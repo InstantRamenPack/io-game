@@ -7,6 +7,10 @@ import {
   getItemRecycleHunkValue,
   getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
+import {
+  pickupsConfig,
+  recyclingConfig,
+} from "@shared/config/gameplayConfig.ts";
 import enemyDeathLootBalanceRaw from "@shared/content/death_loot.json";
 import type {
   EntityCapabilitiesContent,
@@ -21,29 +25,6 @@ import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 
 export const HUNK_ITEM_TYPE_ID = "item:hunk" as ResourceId;
-
-const WORLD_WEAPON_PICKUP_TYPE_IDS = [
-  "item:basic_spear",
-  "item:cleaver",
-  "item:lead_pipe",
-  "item:baseball_bat",
-  "item:basic_dagger",
-  "item:scissors",
-] as const satisfies readonly ResourceId[];
-
-const WORLD_AMMO_SOURCE_WEAPON_TYPE_IDS = [
-  "item:pistol_mag",
-  "item:rifle_mag",
-  "item:crossbow_mag",
-  "item:drone_mag",
-] as const satisfies readonly ResourceId[];
-
-const WORLD_BLUEPRINT_PICKUP_TYPE_ORDER = [
-  "item:blueprint_spiked_spear",
-  "item:blueprint_basic_rifle",
-  "item:blueprint_katana",
-  "item:blueprint_sniper",
-] as const satisfies readonly ResourceId[];
 
 function getContentTypeIds(
   predicate: (entry: readonly [ResourceId, ItemContent]) => boolean,
@@ -73,22 +54,22 @@ function getPickupSpawnTypeIds(
 
 export const WORLD_BLUEPRINT_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
   "blueprint",
-  WORLD_BLUEPRINT_PICKUP_TYPE_ORDER,
+  pickupsConfig.legacyOrder.blueprint as readonly ResourceId[],
 );
 
-export const WORLD_FOOD_PICKUP_TYPE_IDS = getPickupSpawnTypeIds("food", [
-  "item:junk_food" as ResourceId,
-  "item:quality_food" as ResourceId,
-]);
+export const WORLD_FOOD_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
+  "food",
+  pickupsConfig.legacyOrder.food as readonly ResourceId[],
+);
 
 export const WORLD_MAG_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
   "mag",
-  WORLD_AMMO_SOURCE_WEAPON_TYPE_IDS,
+  pickupsConfig.legacyOrder.mag as readonly ResourceId[],
 );
 
 const WORLD_WEAPON_PICKUP_TYPE_IDS_BY_CONTENT = getPickupSpawnTypeIds(
   "weapon",
-  WORLD_WEAPON_PICKUP_TYPE_IDS,
+  pickupsConfig.legacyOrder.weapon as readonly ResourceId[],
 );
 
 export function getWorldWeaponPickupTypeIds(): readonly ResourceId[] {
@@ -107,14 +88,7 @@ export function getRecycleHunkOutput(
     (itemContent.weapon || itemContent.buildsEntityTypeId) &&
     itemContent.rarityTier
   ) {
-    const ranges: Record<RarityTier, readonly [number, number]> = {
-      common: [10, 20],
-      uncommon: [30, 50],
-      rare: [70, 100],
-      epic: [140, 190],
-      legendary: [200, 300],
-    };
-    const [min, max] = ranges[itemContent.rarityTier];
+    const [min, max] = recyclingConfig.rarityHunkRanges[itemContent.rarityTier];
     return min + Math.floor(randomNumberGenerator() * (max - min + 1));
   }
   return getItemRecycleHunkValue(typeId);

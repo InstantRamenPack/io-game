@@ -1,6 +1,7 @@
 import Denque from "denque";
 import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
+import { worldConfig } from "@shared/config/gameplayConfig.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import {
@@ -45,8 +46,6 @@ export type WorldBenchmarkTickStats = {
 export type WorldBenchmarkSink = {
   recordWorldTick(stats: WorldBenchmarkTickStats): void;
 };
-
-const OUTER_PLAYER_BUILDING_DECAY_SECONDS = 20;
 
 /**
  * Authoritative world container for entities, events, time, and shared world services.
@@ -393,7 +392,7 @@ export class World {
       if (sector?.allowsFastBuildingDecay) {
         const decayDamage =
           (entity.maxHp * deltaMs) /
-          (OUTER_PLAYER_BUILDING_DECAY_SECONDS * 1000);
+          (worldConfig.outerPlayerBuildingDecaySeconds * 1000);
         entity.applyDamage(this, decayDamage, 0);
       } else {
         this.playerBuildingSpawnTickById.delete(entityId);

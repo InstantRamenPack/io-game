@@ -1,6 +1,6 @@
 {
   "label": "Comms Tower",
-  "maxHp": 1200,
+  "maxHp": 600,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

@@ -1,6 +1,6 @@
 {
   "label": "Bomber",
-  "maxHp": 75,
+  "maxHp": 38,
   "moveSpeed": 10,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

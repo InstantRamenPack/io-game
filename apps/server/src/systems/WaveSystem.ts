@@ -47,19 +47,15 @@ export class WaveSystem implements System {
     this.waveSpawner.update(world, isNight);
   }
 
-  public static loadFromFile(config: {
+  public static loadFromSharedConfig(config: {
     dayNightSystem: DayNightSystem;
-    configPath: string;
     chatService?: {
       broadcastSystemMessage?: (text: string) => void;
     };
   }): WaveSystem {
     return new WaveSystem({
       dayNightSystem: config.dayNightSystem,
-      waveSpawner: WaveSpawner.loadFromFile(
-        config.configPath,
-        config.chatService ?? null,
-      ),
+      waveSpawner: WaveSpawner.fromSharedConfig(config.chatService ?? null),
     });
   }
 }

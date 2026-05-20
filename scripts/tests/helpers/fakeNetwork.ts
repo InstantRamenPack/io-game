@@ -16,7 +16,9 @@ export class FakeNetworkServer implements NetworkServerLike {
   public disconnect(): void {}
 }
 
-type EventHandler = (event?: { data?: string }) => void;
+type EventHandler = (event?: {
+  data?: string | Uint8Array | ArrayBuffer;
+}) => void;
 
 type ListenerMap = Record<string, EventHandler[]>;
 
@@ -29,7 +31,7 @@ export class FakeWebSocket {
 
   public readonly url: string;
   public readyState = FakeWebSocket.CONNECTING;
-  public readonly sent: string[] = [];
+  public readonly sent: Array<string | Uint8Array> = [];
   private readonly listeners: ListenerMap = {};
 
   constructor(url: string) {
@@ -54,7 +56,7 @@ export class FakeWebSocket {
     }
   }
 
-  public send(data: string): void {
+  public send(data: string | Uint8Array): void {
     this.sent.push(data);
   }
 
@@ -72,11 +74,14 @@ export class FakeWebSocket {
     this.emit("error");
   }
 
-  public emitMessage(data: string): void {
+  public emitMessage(data: string | Uint8Array | ArrayBuffer): void {
     this.emit("message", { data });
   }
 
-  private emit(type: string, event: { data?: string } = {}): void {
+  private emit(
+    type: string,
+    event: { data?: string | Uint8Array | ArrayBuffer } = {},
+  ): void {
     const handlers = this.listeners[type] ?? [];
     for (const handler of handlers) {
       handler(event);

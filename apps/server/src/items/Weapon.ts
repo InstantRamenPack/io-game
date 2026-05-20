@@ -17,7 +17,7 @@ import type {
 export abstract class Weapon extends Item {
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
-  private readonly cooldownTicksPerUse: number;
+  private cooldownTicksPerUse: number;
 
   protected constructor(cooldownTicksPerUse: number) {
     super();
@@ -51,6 +51,17 @@ export abstract class Weapon extends Item {
   /** Resets cooldown after a successful hit attempt. */
   protected resetCooldown(): void {
     this.cooldownTicks = this.cooldownTicksPerUse;
+  }
+
+  public scaleCooldownTicksPerUse(multiplier: number): void {
+    this.cooldownTicksPerUse = Math.max(
+      1,
+      Math.floor(this.cooldownTicksPerUse * multiplier),
+    );
+  }
+
+  public scaleAttackRange(_multiplier: number): void {
+    // Weapons without explicit range ignore enemy range tuning.
   }
 
   public toSnapshot(): WeaponSnapshot {

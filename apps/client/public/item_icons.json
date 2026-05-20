@@ -19,6 +19,5 @@
   "item:scissors": "/icons/scissors.png",
   "item:sniper": "/icons/sniper.png",
   "item:spiked_spear": "/icons/spiked_spear.png",
-  "item:taser": "/icons/taser.png",
-  "item:zombie_sword": "/icons/zombie_sword.png"
+  "item:taser": "/icons/taser.png"
 }

@@ -7,15 +7,11 @@ import type {
   ExtractionSnapshot,
   ExtractionStage,
 } from "@shared/net/snapshots.ts";
+import { extractionConfig } from "@shared/config/gameplayConfig.ts";
 
-export const HELIPAD_X = 1000;
-export const HELIPAD_Y = 4050;
-export const HELIPAD_RADIUS = 160;
-
-const ENEMY_DANGER_RADIUS = 400;
-const BOARD_TIMER_GOAL_MS = 45_000;
-const CHOPPER_TIMER_GOAL_MS = 20_000;
-const FINAL_WAVE_CYCLE = 7;
+export const HELIPAD_X = extractionConfig.fallbackHelipad.x;
+export const HELIPAD_Y = extractionConfig.fallbackHelipad.y;
+export const HELIPAD_RADIUS = extractionConfig.fallbackHelipad.radius;
 
 export class ExtractionSystem implements System {
   private readonly waveSystem: WaveSystem;
@@ -48,7 +44,7 @@ export class ExtractionSystem implements System {
     };
 
     const finalWaveActive =
-      this.waveSystem.getNightCycleCounter() >= FINAL_WAVE_CYCLE;
+      this.waveSystem.getNightCycleCounter() >= extractionConfig.finalWaveCycle;
 
     let totalAlivePlayers = 0;
     let playersOnPad = 0;
@@ -67,17 +63,17 @@ export class ExtractionSystem implements System {
     let enemiesInRadius = 0;
     world.ensureSpatialIndex();
     for (const entity of world.spatial.queryBox(
-      helipad.x - ENEMY_DANGER_RADIUS,
-      helipad.y - ENEMY_DANGER_RADIUS,
-      helipad.x + ENEMY_DANGER_RADIUS,
-      helipad.y + ENEMY_DANGER_RADIUS,
+      helipad.x - extractionConfig.enemyDangerRadius,
+      helipad.y - extractionConfig.enemyDangerRadius,
+      helipad.x + extractionConfig.enemyDangerRadius,
+      helipad.y + extractionConfig.enemyDangerRadius,
     )) {
       if (!entity.typeId.startsWith("enemy:") || !entity.alive) {
         continue;
       }
       const dx = entity.x - helipad.x;
       const dy = entity.y - helipad.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= ENEMY_DANGER_RADIUS) {
+      if (Math.sqrt(dx * dx + dy * dy) <= extractionConfig.enemyDangerRadius) {
         enemiesInRadius += 1;
       }
     }
@@ -123,9 +119,9 @@ export class ExtractionSystem implements System {
         if (allOnPad) {
           this.boardElapsedMs = Math.min(
             this.boardElapsedMs + deltaMs,
-            BOARD_TIMER_GOAL_MS,
+            extractionConfig.boardTimerGoalMs,
           );
-          if (this.boardElapsedMs >= BOARD_TIMER_GOAL_MS) {
+          if (this.boardElapsedMs >= extractionConfig.boardTimerGoalMs) {
             this.stage = "chopper_incoming";
             this.chopperElapsedMs = 0;
           }
@@ -138,9 +134,9 @@ export class ExtractionSystem implements System {
         } else {
           this.chopperElapsedMs = Math.min(
             this.chopperElapsedMs + deltaMs,
-            CHOPPER_TIMER_GOAL_MS,
+            extractionConfig.chopperTimerGoalMs,
           );
-          if (this.chopperElapsedMs >= CHOPPER_TIMER_GOAL_MS) {
+          if (this.chopperElapsedMs >= extractionConfig.chopperTimerGoalMs) {
             this.stage = "complete";
             this.completed = true;
           }

@@ -4,7 +4,6 @@ import { Cannon } from "@server/entities/buildings/Cannon.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { DungeonDoor } from "@server/entities/buildings/DungeonDoor.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
@@ -27,7 +26,6 @@ import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
 import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
 import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
-import { ShootaBullet } from "@server/entities/projectiles/ShootaBullet.ts";
 import { SniperBullet } from "@server/entities/projectiles/SniperBullet.ts";
 import { ThanosBullet } from "@server/entities/projectiles/ThanosBullet.ts";
 import { ThanosRocket } from "@server/entities/projectiles/ThanosRocket.ts";
@@ -64,21 +62,14 @@ import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.t
 import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
 import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
-import { DungeonKeyItem } from "@server/items/materials/DungeonKeyItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
 import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
-import { StructureHouseLItem } from "@server/items/structures/StructureHouseLItem.ts";
-import { StructureHouseMItem } from "@server/items/structures/StructureHouseMItem.ts";
-import { StructureFenceHItem } from "@server/items/structures/StructureFenceHItem.ts";
-import { StructureFenceVItem } from "@server/items/structures/StructureFenceVItem.ts";
-import { StructureTreeItem } from "@server/items/structures/StructureTreeItem.ts";
 import { WallItem } from "@server/items/structures/WallItem.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
-import { ShootaGun } from "@server/items/weapons/ShootaGun.ts";
 import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
@@ -92,7 +83,6 @@ import { Scissors } from "@server/items/weapons/Scissors.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
-import { ZombieSword } from "@server/items/weapons/ZombieSword.ts";
 import { Sniper } from "@server/items/weapons/Sniper.ts";
 import { ThanosFist } from "@server/items/weapons/ThanosFist.ts";
 import { ThanosRifle } from "@server/items/weapons/ThanosRifle.ts";
@@ -125,7 +115,6 @@ export const entityRuntimeCtors = [
   CommsTower,
   Crate,
   CraftingStation,
-  DungeonDoor,
   EnergyTower,
   FenceH,
   FenceV,
@@ -143,7 +132,6 @@ export const entityRuntimeCtors = [
   CrossbowArrow,
   HomingDrone,
   RifleBullet,
-  ShootaBullet,
   SniperBullet,
   ThanosBullet,
   ThanosRocket,
@@ -153,7 +141,6 @@ export const itemRuntimeCtors = [
   BaseballBat,
   BasicDagger,
   BasicGun,
-  ShootaGun,
   BasicRifle,
   BasicSpear,
   BasicSword,
@@ -167,12 +154,10 @@ export const itemRuntimeCtors = [
   SpikedSpear,
   Taser,
   DroneShooter,
-  ZombieSword,
   SaboteurSword,
   ThanosFist,
   ThanosRifle,
   ThanosRocketLauncher,
-  DungeonKeyItem,
   HunkItem,
   JunkFoodItem,
   QualityFoodItem,
@@ -190,11 +175,6 @@ export const itemRuntimeCtors = [
   ChestItem,
   CraftingStationItem,
   LandmineItem,
-  StructureHouseLItem,
-  StructureHouseMItem,
-  StructureFenceHItem,
-  StructureFenceVItem,
-  StructureTreeItem,
 ] as const;
 
 export const effectRuntimeCtors = [

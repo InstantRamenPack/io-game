@@ -22,7 +22,7 @@
     "projectileTypeId": "projectile:rifle_bullet",
     "magSize": 30,
     "reloadTicks": 35,
-    "spreadDeg": 0,
+    "spreadDeg": 8,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
       "holdOffset": {
@@ -36,9 +36,6 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     }
-  },
-  "recycle": {
-    "hunkValue": 12
   },
   "rarityTier": "rare"
 }

@@ -1,12 +1,15 @@
 {
   "label": "Drifter",
-  "maxHp": 100,
+  "maxHp": 50,
   "moveSpeed": 8,
   "collisionMode": "dynamic",
+<<<<<<< HEAD
   "combat": {
     "damageMultiplier": 0.5,
     "attackMinIntervalTicks": 35
   },
+=======
+>>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
   "hitboxProfiles": {
     "default": [
       {

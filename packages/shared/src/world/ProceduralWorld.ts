@@ -4,37 +4,33 @@ import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import proceduralContentJson from "@shared/world/procedural-content.json";
+import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
 
-export const PROCEDURAL_WORLD_SEED = 1337;
-export const PROCEDURAL_GRID_SIZE = 3;
-export const PROCEDURAL_CORNER_SECTOR_SIZE = 5120;
-export const PROCEDURAL_CENTER_SECTOR_SIZE = 2560;
-export const PROCEDURAL_SECTOR_BANDS = [
-  PROCEDURAL_CORNER_SECTOR_SIZE,
-  PROCEDURAL_CENTER_SECTOR_SIZE,
-  PROCEDURAL_CORNER_SECTOR_SIZE,
-] as const;
-export const PROCEDURAL_SECTOR_SIZE = PROCEDURAL_CORNER_SECTOR_SIZE;
+export const PROCEDURAL_WORLD_SEED = worldgenConfig.seed;
+export const PROCEDURAL_GRID_SIZE = worldgenConfig.gridSize;
+export const PROCEDURAL_SECTOR_BANDS = worldgenConfig.sectorBands;
+export const PROCEDURAL_SECTOR_SIZE = PROCEDURAL_SECTOR_BANDS[0]!;
 export const PROCEDURAL_WORLD_SIZE = {
   w: PROCEDURAL_SECTOR_BANDS.reduce((total, size) => total + size, 0),
   h: PROCEDURAL_SECTOR_BANDS.reduce((total, size) => total + size, 0),
 } as const;
-export const PROCEDURAL_TILE_SIZE = 16;
-export const PROCEDURAL_TARGET_VILLAGE_COUNT = 10;
+export const PROCEDURAL_TILE_SIZE = worldgenConfig.tileSize;
+export const PROCEDURAL_TARGET_VILLAGE_COUNT =
+  worldgenConfig.targetVillageCount;
 
-export const REQUIRED_DUNGEON_ROOM_ROLES = [
-  "entrance",
-  "combat",
-  "enemy_swarm",
-  "treasure",
-  "maze",
-  "trap",
-  "armory",
-  "mini_boss",
-  "boss",
-] as const;
+export type DungeonRoomRole =
+  | "entrance"
+  | "combat"
+  | "enemy_swarm"
+  | "treasure"
+  | "maze"
+  | "trap"
+  | "armory"
+  | "mini_boss"
+  | "boss";
 
-export type DungeonRoomRole = (typeof REQUIRED_DUNGEON_ROOM_ROLES)[number];
+export const REQUIRED_DUNGEON_ROOM_ROLES =
+  worldgenConfig.requiredDungeonRoomRoles as readonly DungeonRoomRole[];
 
 export type SectorArchetype =
   | "home"
@@ -204,7 +200,6 @@ export type ProceduralDungeonPlan = ProceduralRect & {
   hallways: ProceduralRect[];
   entrances: ProceduralDungeonEntrance[];
   wallHitboxRects: NonNullable<ProceduralSpawnSpec["hitboxRects"]>;
-  doors: ProceduralSpawnSpec[];
 };
 
 export type ProceduralSector = ProceduralRect & {
@@ -253,6 +248,7 @@ type ProceduralContentSpawn = {
   offsetX: number;
   offsetY: number;
   margin?: number;
+  orientation?: "horizontal" | "vertical";
 };
 
 type ProceduralContentLoot = ProceduralContentSpawn & {
@@ -295,6 +291,11 @@ type ProceduralContent = {
     edge: readonly ResourceId[];
   };
   villageEnemyPools: Record<ProceduralVillageKind, readonly ResourceId[]>;
+  interiorSpawnChances: {
+    furniture: number;
+    crate: number;
+    enemy: number;
+  };
   sectorContent: Partial<Record<SectorArchetype, ProceduralSectorContent>>;
   dungeonRoomContent: Record<DungeonRoomRole, ProceduralDungeonRoomContent>;
   villageRoomTemplates: Record<
@@ -743,9 +744,20 @@ function createSector(
     ...structures,
     ...buildings,
   ]);
+  const keptParentKeys = new Set(
+    staticSpawns.map((spec) => `${spec.typeId}@${spec.x},${spec.y}`),
+  );
+  const filteredStructures = staticSpawns.filter((spec) => {
+    const parentKey = interiorParentKeyFromLabel(spec.label);
+    return parentKey === null || keptParentKeys.has(parentKey);
+  });
   const structureTypeIds = new Set(
     structures.map((structure) => structure.typeId),
   );
+  const filteredEnemies = enemies.filter((spec) => {
+    const parentKey = interiorParentKeyFromLabel(spec.label);
+    return parentKey === null || keptParentKeys.has(parentKey);
+  });
 
   return {
     id: sectorKey(row, col),
@@ -758,13 +770,13 @@ function createSector(
     landmark,
     rewardArea,
     traversalConnections: adjacentSectorIds(row, col),
-    structures: staticSpawns.filter((spec) =>
+    structures: filteredStructures.filter((spec) =>
       structureTypeIds.has(spec.typeId),
     ),
-    buildings: staticSpawns.filter(
+    buildings: filteredStructures.filter(
       (spec) => !structureTypeIds.has(spec.typeId),
     ),
-    enemies,
+    enemies: filteredEnemies,
     loot,
     features,
     minimapMarkers: markers,
@@ -822,6 +834,195 @@ function resolveSpawnHitboxes(spec: ProceduralSpawnSpec) {
   return resolveHitboxRects(spec.x, spec.y, activeProfile);
 }
 
+function canPlaceInsideStructure(
+  candidate: ProceduralSpawnSpec,
+  structure: ProceduralSpawnSpec,
+): boolean {
+  const candidateHitboxes = resolveSpawnHitboxes(candidate);
+  const structureHitboxes = resolveSpawnHitboxes(structure);
+  if (!candidateHitboxes || !structureHitboxes) {
+    return false;
+  }
+  const structureBounds = boundsForResolvedHitboxes(structureHitboxes);
+  const candidateBounds = boundsForResolvedHitboxes(candidateHitboxes);
+  return (
+    candidateBounds.minX >= structureBounds.minX &&
+    candidateBounds.maxX <= structureBounds.maxX &&
+    candidateBounds.minY >= structureBounds.minY &&
+    candidateBounds.maxY <= structureBounds.maxY &&
+    !doResolvedRectSetsOverlap(candidateHitboxes, structureHitboxes)
+  );
+}
+
+function isEnterableHouseType(typeId: ResourceId): boolean {
+  return (
+    typeId === "structure:house_s" ||
+    typeId === "structure:house_m" ||
+    typeId === "structure:house_l" ||
+    typeId === "structure:house_xl"
+  );
+}
+
+function doorwayClearanceRect(
+  structure: ProceduralSpawnSpec,
+): ProceduralRect | null {
+  if (!isEnterableHouseType(structure.typeId)) {
+    return null;
+  }
+  const hitboxes = resolveSpawnHitboxes(structure);
+  if (!hitboxes) {
+    return null;
+  }
+  const bounds = boundsForResolvedHitboxes(hitboxes);
+  const laneHalfWidth = 48;
+  const laneDepth = 112;
+  const rotation = structure.rotation ?? 0;
+  const cos = Math.round(Math.cos(rotation));
+  const sin = Math.round(Math.sin(rotation));
+  if (cos === 1 && sin === 0) {
+    return {
+      minX: structure.x - laneHalfWidth,
+      maxX: structure.x + laneHalfWidth,
+      minY: bounds.maxY - laneDepth,
+      maxY: bounds.maxY,
+    };
+  }
+  if (cos === 0 && sin === 1) {
+    return {
+      minX: bounds.minX,
+      maxX: bounds.minX + laneDepth,
+      minY: structure.y - laneHalfWidth,
+      maxY: structure.y + laneHalfWidth,
+    };
+  }
+  if (cos === -1 && sin === 0) {
+    return {
+      minX: structure.x - laneHalfWidth,
+      maxX: structure.x + laneHalfWidth,
+      minY: bounds.minY,
+      maxY: bounds.minY + laneDepth,
+    };
+  }
+  return {
+    minX: bounds.maxX - laneDepth,
+    maxX: bounds.maxX,
+    minY: structure.y - laneHalfWidth,
+    maxY: structure.y + laneHalfWidth,
+  };
+}
+
+function overlapsAcceptedInteriorSpawns(
+  candidate: ProceduralSpawnSpec,
+  accepted: readonly ProceduralSpawnSpec[],
+): boolean {
+  const candidateHitboxes = resolveSpawnHitboxes(candidate);
+  if (!candidateHitboxes) {
+    return false;
+  }
+  return accepted.some((existing) => {
+    const existingHitboxes = resolveSpawnHitboxes(existing);
+    return (
+      existingHitboxes !== null &&
+      doResolvedRectSetsOverlap(candidateHitboxes, existingHitboxes)
+    );
+  });
+}
+
+function houseInteriorRect(
+  structure: ProceduralSpawnSpec,
+): ProceduralRect | null {
+  if (
+    structure.typeId !== "structure:house_s" &&
+    structure.typeId !== "structure:house_m" &&
+    structure.typeId !== "structure:house_l" &&
+    structure.typeId !== "structure:house_xl"
+  ) {
+    return null;
+  }
+  const structureHitboxes = resolveSpawnHitboxes(structure);
+  if (!structureHitboxes) {
+    return null;
+  }
+  const bounds = boundsForResolvedHitboxes(structureHitboxes);
+  return {
+    minX: bounds.minX + 16,
+    minY: bounds.minY + 16,
+    maxX: bounds.maxX - 16,
+    maxY: bounds.maxY - 16,
+  };
+}
+
+function enterableInteriorRect(
+  structure: ProceduralSpawnSpec,
+): ProceduralRect | null {
+  if (
+    structure.typeId !== "structure:house_s" &&
+    structure.typeId !== "structure:house_m" &&
+    structure.typeId !== "structure:house_l" &&
+    structure.typeId !== "structure:house_xl" &&
+    structure.typeId !== "structure:barracks" &&
+    structure.typeId !== "structure:command_post"
+  ) {
+    return null;
+  }
+  const structureHitboxes = resolveSpawnHitboxes(structure);
+  if (!structureHitboxes) {
+    return null;
+  }
+  const bounds = boundsForResolvedHitboxes(structureHitboxes);
+  return {
+    minX: bounds.minX + 16,
+    minY: bounds.minY + 16,
+    maxX: bounds.maxX - 16,
+    maxY: bounds.maxY - 16,
+  };
+}
+
+function isFullyInsideRect(
+  candidate: ProceduralSpawnSpec,
+  rect: ProceduralRect,
+): boolean {
+  const candidateHitboxes = resolveSpawnHitboxes(candidate);
+  if (!candidateHitboxes) {
+    return false;
+  }
+  const candidateBounds = boundsForResolvedHitboxes(candidateHitboxes);
+  return (
+    candidateBounds.minX >= rect.minX &&
+    candidateBounds.maxX <= rect.maxX &&
+    candidateBounds.minY >= rect.minY &&
+    candidateBounds.maxY <= rect.maxY
+  );
+}
+
+function overlapsRect(
+  candidate: ProceduralSpawnSpec,
+  rect: ProceduralRect,
+): boolean {
+  const candidateHitboxes = resolveSpawnHitboxes(candidate);
+  if (!candidateHitboxes) {
+    return false;
+  }
+  const candidateBounds = boundsForResolvedHitboxes(candidateHitboxes);
+  return !(
+    candidateBounds.maxX <= rect.minX ||
+    candidateBounds.minX >= rect.maxX ||
+    candidateBounds.maxY <= rect.minY ||
+    candidateBounds.minY >= rect.maxY
+  );
+}
+
+function boundsForResolvedHitboxes(
+  hitboxes: readonly ReturnType<typeof resolveHitboxRects>[number][],
+): ProceduralRect {
+  return {
+    minX: Math.min(...hitboxes.map((hitbox) => hitbox.minX)),
+    minY: Math.min(...hitboxes.map((hitbox) => hitbox.minY)),
+    maxX: Math.max(...hitboxes.map((hitbox) => hitbox.maxX)),
+    maxY: Math.max(...hitboxes.map((hitbox) => hitbox.maxY)),
+  };
+}
+
 function createDungeonPlan(
   seed: number,
   sector: ProceduralRect,
@@ -875,8 +1076,6 @@ function createDungeonPlan(
       centerY,
     ),
   ];
-  const doors = createDungeonDoorSpawns(rooms, entrances);
-
   return {
     id: "dungeon_alpha",
     minX,
@@ -887,7 +1086,6 @@ function createDungeonPlan(
     hallways,
     entrances,
     wallHitboxRects: wallRects,
-    doors,
   };
 }
 
@@ -1434,32 +1632,6 @@ function mergeAlignedRects(rects: readonly ProceduralRect[]): ProceduralRect[] {
   return merged;
 }
 
-function createDungeonDoorSpawns(
-  rooms: readonly ProceduralDungeonRoom[],
-  entrances: readonly ProceduralDungeonEntrance[],
-): ProceduralSpawnSpec[] {
-  const nearestEntrance = entrances[0];
-  const lockRoles = new Set<DungeonRoomRole>(["treasure", "boss"]);
-  return rooms
-    .filter((room) => lockRoles.has(room.role))
-    .map((room) => {
-      const dx = nearestEntrance ? room.centerX - nearestEntrance.x : 1;
-      const dy = nearestEntrance ? room.centerY - nearestEntrance.y : 0;
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        return spawn(
-          "building:dungeon_door",
-          dx >= 0 ? room.minX + 96 : room.maxX - 96,
-          room.centerY,
-        );
-      }
-      return spawn(
-        "building:dungeon_door",
-        room.centerX,
-        dy >= 0 ? room.minY + 96 : room.maxY - 96,
-      );
-    });
-}
-
 function addDungeonRoomContent(
   room: ProceduralDungeonRoom,
   enemies: ProceduralSpawnSpec[],
@@ -1473,8 +1645,15 @@ function addDungeonRoomContent(
     offsetX: number,
     offsetY: number,
     margin?: number,
+    orientation?: ProceduralContentSpawn["orientation"],
   ) => {
     const position = point(offsetX, offsetY, margin);
+    if (typeId === "building:tripwire") {
+      if (!orientation) {
+        throw new Error("procedural tripwire spawn requires orientation");
+      }
+      return tripwireSpawn(position.x, position.y, orientation);
+    }
     return spawn(typeId, position.x, position.y);
   };
   const roomLoot = (
@@ -1510,6 +1689,7 @@ function addDungeonRoomContent(
         building.offsetX,
         building.offsetY,
         building.margin,
+        building.orientation,
       ),
     );
   }
@@ -1588,7 +1768,6 @@ function addDungeonArchitecture(
     y: snap((dungeon.minY + dungeon.maxY) / 2),
     hitboxRects: dungeon.wallHitboxRects,
   });
-  buildings.push(...dungeon.doors);
 }
 
 function addVillageAndForestSectorContent(
@@ -1709,25 +1888,16 @@ function createVillagePlan(
   const center = snapPoint({
     x: clamp(
       anchor.x + (rng() - 0.5) * 360,
-      sector.minX + 720,
-      sector.maxX - 720,
+      sector.minX + worldgenConfig.villageCenterMargin.x,
+      sector.maxX - worldgenConfig.villageCenterMargin.x,
     ),
     y: clamp(
       anchor.y + (rng() - 0.5) * 360,
-      sector.minY + 560,
-      sector.maxY - 560,
+      sector.minY + worldgenConfig.villageCenterMargin.y,
+      sector.maxY - worldgenConfig.villageCenterMargin.y,
     ),
   });
-  const danger =
-    kind === "extraction_fortified"
-      ? "boss"
-      : kind === "military" || isCorner
-        ? "high"
-        : kind === "scavenger"
-          ? "medium"
-          : "low";
-  const lootTier =
-    danger === "boss" ? "epic" : danger === "high" ? "rare" : "uncommon";
+  const { danger, lootTier } = villageTierForDistance(center);
   const poiRoles = createVillagePoiRoles(kind, isCorner);
   return {
     id: `${sectorId}_village_${index}`,
@@ -1742,6 +1912,107 @@ function createVillagePlan(
     maxX: snapEdge(center.x + width / 2),
     maxY: snapEdge(center.y + height / 2),
   };
+}
+
+function villageTierForDistance(
+  center: ProceduralPoint,
+): Pick<ProceduralVillagePlan, "danger" | "lootTier"> {
+  const worldCenter = proceduralWorldCenter();
+  const distance = Math.hypot(
+    center.x - worldCenter.x,
+    center.y - worldCenter.y,
+  );
+  const { min, max } = possibleVillageCenterDistanceRange();
+  const bandWidth = (max - min) / 3;
+  if (distance < min + bandWidth) {
+    return { danger: "low", lootTier: "common" };
+  }
+  if (distance < min + bandWidth * 2) {
+    return { danger: "medium", lootTier: "uncommon" };
+  }
+  return { danger: "high", lootTier: "rare" };
+}
+
+function possibleVillageCenterDistanceRange(): { min: number; max: number } {
+  const worldCenter = proceduralWorldCenter();
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+
+  for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
+    for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
+      if (row === 1 && col === 1) {
+        continue;
+      }
+      for (const bounds of possibleVillageCenterRects(row, col)) {
+        const closest = snapPoint({
+          x: clamp(worldCenter.x, bounds.minX, bounds.maxX),
+          y: clamp(worldCenter.y, bounds.minY, bounds.maxY),
+        });
+        min = Math.min(
+          min,
+          Math.hypot(closest.x - worldCenter.x, closest.y - worldCenter.y),
+        );
+        for (const corner of rectCorners(bounds)) {
+          const snappedCorner = snapPoint(corner);
+          max = Math.max(
+            max,
+            Math.hypot(
+              snappedCorner.x - worldCenter.x,
+              snappedCorner.y - worldCenter.y,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  return { min, max };
+}
+
+function possibleVillageCenterRects(
+  row: number,
+  col: number,
+): ProceduralRect[] {
+  const sector = sectorRect(row, col);
+  const sectorCenter = snapPoint({
+    x: (sector.minX + sector.maxX) / 2,
+    y: (sector.minY + sector.maxY) / 2,
+  });
+  const centerBounds = villageCenterBounds(sector);
+  const villageCount = isCornerCoord(row, col) ? 2 : 1;
+  return createVillageAnchors(sector, sectorCenter, villageCount).map(
+    (anchor) => ({
+      minX: clamp(anchor.x - 180, centerBounds.minX, centerBounds.maxX),
+      minY: clamp(anchor.y - 180, centerBounds.minY, centerBounds.maxY),
+      maxX: clamp(anchor.x + 180, centerBounds.minX, centerBounds.maxX),
+      maxY: clamp(anchor.y + 180, centerBounds.minY, centerBounds.maxY),
+    }),
+  );
+}
+
+function villageCenterBounds(sector: ProceduralRect): ProceduralRect {
+  return {
+    minX: sector.minX + worldgenConfig.villageCenterMargin.x,
+    minY: sector.minY + worldgenConfig.villageCenterMargin.y,
+    maxX: sector.maxX - worldgenConfig.villageCenterMargin.x,
+    maxY: sector.maxY - worldgenConfig.villageCenterMargin.y,
+  };
+}
+
+function proceduralWorldCenter(): ProceduralPoint {
+  return {
+    x: PROCEDURAL_WORLD_SIZE.w / 2,
+    y: PROCEDURAL_WORLD_SIZE.h / 2,
+  };
+}
+
+function rectCorners(rect: ProceduralRect): ProceduralPoint[] {
+  return [
+    { x: rect.minX, y: rect.minY },
+    { x: rect.maxX, y: rect.minY },
+    { x: rect.minX, y: rect.maxY },
+    { x: rect.maxX, y: rect.maxY },
+  ];
 }
 
 function createVillagePoiRoles(
@@ -1821,6 +2092,7 @@ type VillageRoomTemplate = {
   id: string;
   structures?: readonly VillageTemplateStructure[];
   crates?: readonly VillageTemplateOffset[];
+  enemies?: readonly VillageTemplateEnemy[];
   loot?: VillageTemplateOffset;
 };
 
@@ -1828,6 +2100,9 @@ type VillageTemplateStructure =
   | (VillageTemplateOffset & {
       typeId: string;
       rotated?: boolean;
+      interiorStructures?: readonly VillageTemplateStructureSpawn[];
+      interiorCrates?: readonly VillageTemplateOffset[];
+      interiorEnemies?: readonly VillageTemplateEnemy[];
     })
   | {
       kind: "fence_box";
@@ -1842,7 +2117,16 @@ type VillageTemplateOffset = {
   dy: number;
 };
 
+type VillageTemplateStructureSpawn = VillageTemplateOffset & {
+  typeId: string;
+};
+
+type VillageTemplateEnemy = VillageTemplateOffset & {
+  typeId: string;
+};
+
 const VILLAGE_ROOM_TEMPLATES = PROCEDURAL_CONTENT.villageRoomTemplates;
+const INTERIOR_SPAWN_CHANCES = PROCEDURAL_CONTENT.interiorSpawnChances;
 
 function createBspVillageRooms(
   rng: seedrandom.PRNG,
@@ -2020,14 +2304,99 @@ function applyVillageRoomTemplate(
     }
     const x = room.center.x + structure.dx;
     const y = room.center.y + structure.dy;
-    structures.push(
-      withTemplateLabel(
-        structure.rotated
-          ? rotatedHouseSpawn(structure.typeId, x, y, cardinalRotation(rng))
-          : spawn(structure.typeId, x, y),
-        template.id,
-      ),
+    const rotation = structure.rotated ? cardinalRotation(rng) : 0;
+    const structureSpawn = withTemplateLabel(
+      structure.rotated
+        ? rotatedHouseSpawn(structure.typeId, x, y, rotation)
+        : spawn(structure.typeId, x, y),
+      template.id,
     );
+    const parentKey = `${structureSpawn.typeId}@${structureSpawn.x},${structureSpawn.y}`;
+    const doorwayRect = doorwayClearanceRect(structureSpawn);
+    const acceptedInteriorSpawns: ProceduralSpawnSpec[] = [];
+    structures.push(structureSpawn);
+    if (rng() < INTERIOR_SPAWN_CHANCES.furniture) {
+      for (const interiorStructure of structure.interiorStructures ?? []) {
+        const interiorSpawn = withTemplateLabel(
+          spawn(
+            interiorStructure.typeId,
+            rotatedOffsetX(
+              x,
+              interiorStructure.dx,
+              interiorStructure.dy,
+              rotation,
+            ),
+            rotatedOffsetY(
+              y,
+              interiorStructure.dx,
+              interiorStructure.dy,
+              rotation,
+            ),
+          ),
+          template.id,
+        );
+        interiorSpawn.label = appendInteriorParentKey(
+          interiorSpawn.label,
+          parentKey,
+        );
+        const interiorRect = houseInteriorRect(structureSpawn);
+        const insideInteriorRect = interiorRect
+          ? isFullyInsideRect(interiorSpawn, interiorRect)
+          : true;
+        if (
+          insideInteriorRect &&
+          canPlaceInsideStructure(interiorSpawn, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(interiorSpawn, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(interiorSpawn, acceptedInteriorSpawns)
+        ) {
+          structures.push(interiorSpawn);
+          acceptedInteriorSpawns.push(interiorSpawn);
+        }
+      }
+    }
+    if (rng() < INTERIOR_SPAWN_CHANCES.crate) {
+      for (const crate of structure.interiorCrates ?? []) {
+        const crateSpec = withTemplateLabel(
+          crateSpawn(
+            "enemy:crate",
+            rotatedOffsetX(x, crate.dx, crate.dy, rotation),
+            rotatedOffsetY(y, crate.dx, crate.dy, rotation),
+            crateLootForTier(rng, village.lootTier),
+          ),
+          template.id,
+        );
+        crateSpec.label = appendInteriorParentKey(crateSpec.label, parentKey);
+        if (
+          canPlaceInsideStructure(crateSpec, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(crateSpec, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(crateSpec, acceptedInteriorSpawns)
+        ) {
+          enemies.push(crateSpec);
+          acceptedInteriorSpawns.push(crateSpec);
+        }
+      }
+    }
+    if (rng() < INTERIOR_SPAWN_CHANCES.enemy) {
+      for (const enemy of structure.interiorEnemies ?? []) {
+        const enemySpec = withTemplateLabel(
+          spawn(
+            enemy.typeId,
+            rotatedOffsetX(x, enemy.dx, enemy.dy, rotation),
+            rotatedOffsetY(y, enemy.dx, enemy.dy, rotation),
+          ),
+          template.id,
+        );
+        enemySpec.label = appendInteriorParentKey(enemySpec.label, parentKey);
+        if (
+          canPlaceInsideStructure(enemySpec, structureSpawn) &&
+          (!doorwayRect || !overlapsRect(enemySpec, doorwayRect)) &&
+          !overlapsAcceptedInteriorSpawns(enemySpec, acceptedInteriorSpawns)
+        ) {
+          enemies.push(enemySpec);
+          acceptedInteriorSpawns.push(enemySpec);
+        }
+      }
+    }
   }
   for (const crate of template.crates ?? []) {
     enemies.push(
@@ -2036,8 +2405,16 @@ function applyVillageRoomTemplate(
           "enemy:crate",
           room.center.x + crate.dx,
           room.center.y + crate.dy,
-          crateLootForTier(village.lootTier),
+          crateLootForTier(rng, village.lootTier),
         ),
+        template.id,
+      ),
+    );
+  }
+  for (const enemy of template.enemies ?? []) {
+    enemies.push(
+      withTemplateLabel(
+        spawn(enemy.typeId, room.center.x + enemy.dx, room.center.y + enemy.dy),
         template.id,
       ),
     );
@@ -2118,9 +2495,29 @@ function villageLoot(
 }
 
 function crateLootForTier(
+  rng: seedrandom.PRNG,
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  return [...PROCEDURAL_CONTENT.crateLootByTier[tier]];
+  const pool = PROCEDURAL_CONTENT.crateLootByTier[tier];
+  const hunk = pool.find((slot) => slot.typeId === "item:hunk");
+  const optionalSlots = pool.filter((slot) => slot.typeId !== "item:hunk");
+  const loot: ProceduralCrateLootSlot[] = hunk ? [{ ...hunk }] : [];
+  const optionalCount = tier === "common" ? 1 : 2;
+  const usedIndexes = new Set<number>();
+
+  while (
+    loot.length < optionalCount + Number(Boolean(hunk)) &&
+    usedIndexes.size < optionalSlots.length
+  ) {
+    const index = Math.floor(rng() * optionalSlots.length);
+    if (usedIndexes.has(index)) {
+      continue;
+    }
+    usedIndexes.add(index);
+    loot.push({ ...optionalSlots[index]! });
+  }
+
+  return loot;
 }
 
 function forestTreeCount(rect: ProceduralRect, isCorner: boolean): number {
@@ -2251,14 +2648,19 @@ function addForest(
   rect: ProceduralRect,
   count: number,
 ): void {
+  const houseInteriors = structures
+    .map((spec) => enterableInteriorRect(spec))
+    .filter((interior): interior is ProceduralRect => interior !== null);
   for (let index = 0; index < count; index += 1) {
-    structures.push(
-      spawn(
-        "structure:tree",
-        rect.minX + 180 + rng() * (rect.maxX - rect.minX - 360),
-        rect.minY + 180 + rng() * (rect.maxY - rect.minY - 360),
-      ),
+    const tree = spawn(
+      "structure:tree",
+      rect.minX + 180 + rng() * (rect.maxX - rect.minX - 360),
+      rect.minY + 180 + rng() * (rect.maxY - rect.minY - 360),
     );
+    if (houseInteriors.some((interior) => overlapsRect(tree, interior))) {
+      continue;
+    }
+    structures.push(tree);
   }
 }
 
@@ -2361,6 +2763,28 @@ function spawn(typeId: string, x: number, y: number): ProceduralSpawnSpec {
   return { typeId: typeId as ResourceId, x: snap(x), y: snap(y) };
 }
 
+function tripwireSpawn(
+  x: number,
+  y: number,
+  orientation: "horizontal" | "vertical",
+): ProceduralSpawnSpec {
+  const horizontal = orientation === "horizontal";
+  return {
+    typeId: "building:tripwire" as ResourceId,
+    x: snap(x),
+    y: snap(y),
+    rotation: horizontal ? 0 : Math.PI / 2,
+    hitboxRects: [
+      {
+        width: horizontal ? 220 : 16,
+        height: horizontal ? 16 : 220,
+        offsetX: 0,
+        offsetY: 0,
+      },
+    ],
+  };
+}
+
 function withTemplateLabel(
   spec: ProceduralSpawnSpec,
   templateId: string | undefined,
@@ -2370,12 +2794,53 @@ function withTemplateLabel(
     : spec;
 }
 
+function appendInteriorParentKey(
+  label: string | undefined,
+  parentKey: string,
+): string {
+  return `${label ?? "village_template:unknown"}|interior_parent:${parentKey}`;
+}
+
+function interiorParentKeyFromLabel(label: string | undefined): string | null {
+  if (!label) {
+    return null;
+  }
+  const marker = "|interior_parent:";
+  const index = label.indexOf(marker);
+  if (index === -1) {
+    return null;
+  }
+  return label.slice(index + marker.length);
+}
+
 function offsetPoint(
   point: ProceduralPoint,
   dx: number,
   dy: number,
 ): ProceduralPoint {
   return { x: snap(point.x + dx), y: snap(point.y + dy) };
+}
+
+function rotatedOffsetX(
+  centerX: number,
+  dx: number,
+  dy: number,
+  rotation: number,
+): number {
+  const cos = Math.round(Math.cos(rotation));
+  const sin = Math.round(Math.sin(rotation));
+  return centerX + dx * cos - dy * sin;
+}
+
+function rotatedOffsetY(
+  centerY: number,
+  dx: number,
+  dy: number,
+  rotation: number,
+): number {
+  const cos = Math.round(Math.cos(rotation));
+  const sin = Math.round(Math.sin(rotation));
+  return centerY + dx * sin + dy * cos;
 }
 
 function rotatedHouseSpawn(
@@ -2426,11 +2891,13 @@ function rotateHitboxRects(
     const maxX = Math.max(...corners.map((point) => point.x));
     const minY = Math.min(...corners.map((point) => point.y));
     const maxY = Math.max(...corners.map((point) => point.y));
+    // Cardinal rotations should preserve exact grid geometry; avoid floor-based
+    // snapping here so wall endpoints do not lose a tile from FP drift.
     return {
-      width: snapEdge(maxX - minX),
-      height: snapEdge(maxY - minY),
-      offsetX: snap((minX + maxX) / 2) - PROCEDURAL_TILE_SIZE / 2,
-      offsetY: snap((minY + maxY) / 2) - PROCEDURAL_TILE_SIZE / 2,
+      width: Math.round(maxX - minX),
+      height: Math.round(maxY - minY),
+      offsetX: Math.round((minX + maxX) / 2),
+      offsetY: Math.round((minY + maxY) / 2),
     };
   });
 }

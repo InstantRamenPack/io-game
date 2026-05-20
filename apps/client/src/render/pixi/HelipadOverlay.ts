@@ -3,12 +3,9 @@ import type {
   ExtractionSnapshot,
   ExtractionStage,
 } from "@shared/net/snapshots.ts";
+import { extractionConfig } from "@shared/config/gameplayConfig.ts";
 
-const HELIPAD_X = 1000;
-const HELIPAD_Y = 4050;
-const HELIPAD_RADIUS = 130;
-const BOARD_TIMER_GOAL_MS = 45_000;
-const CHOPPER_TIMER_GOAL_MS = 20_000;
+const HELIPAD_VISUAL_RADIUS = extractionConfig.fallbackHelipad.radius - 30;
 
 const RING_COLOR: Record<ExtractionStage, number> = {
   locked: 0xff4422,
@@ -27,8 +24,8 @@ export class HelipadOverlay {
 
   constructor() {
     this.container = new Container();
-    this.container.x = HELIPAD_X;
-    this.container.y = HELIPAD_Y;
+    this.container.x = extractionConfig.fallbackHelipad.x;
+    this.container.y = extractionConfig.fallbackHelipad.y;
     this.container.zIndex = 5;
 
     this.ring = new Graphics();
@@ -46,7 +43,7 @@ export class HelipadOverlay {
       },
     });
     this.labelText.anchor.set(0.5, 0.5);
-    this.labelText.y = HELIPAD_RADIUS + 22;
+    this.labelText.y = HELIPAD_VISUAL_RADIUS + 22;
     this.container.addChild(this.labelText);
 
     this.timerText = new Text({
@@ -61,7 +58,7 @@ export class HelipadOverlay {
       },
     });
     this.timerText.anchor.set(0.5, 0.5);
-    this.timerText.y = HELIPAD_RADIUS + 52;
+    this.timerText.y = HELIPAD_VISUAL_RADIUS + 52;
     this.container.addChild(this.timerText);
 
     this.container.visible = false;
@@ -81,10 +78,10 @@ export class HelipadOverlay {
 
     this.ring.clear();
     this.ring
-      .circle(0, 0, HELIPAD_RADIUS + 8)
+      .circle(0, 0, HELIPAD_VISUAL_RADIUS + 8)
       .stroke({ width: 5, color, alpha: pulseAlpha });
     this.ring
-      .circle(0, 0, HELIPAD_RADIUS + 16)
+      .circle(0, 0, HELIPAD_VISUAL_RADIUS + 16)
       .stroke({ width: 2, color, alpha: pulseAlpha * 0.4 });
 
     switch (state.stage) {
@@ -109,7 +106,7 @@ export class HelipadOverlay {
           state.totalAlivePlayers > 0 &&
           state.playersOnPad >= state.totalAlivePlayers;
         const remaining = Math.ceil(
-          (BOARD_TIMER_GOAL_MS - state.boardElapsedMs) / 1000,
+          (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
         );
         this.labelText.text = allOn ? "EXTRACTING..." : "WAITING FOR TEAM";
         this.labelText.style.fill = allOn ? 0x88ffaa : 0xffdd44;
@@ -121,7 +118,7 @@ export class HelipadOverlay {
       case "chopper_incoming": {
         const hasEnemies = state.enemiesInRadius > 0;
         const remaining = Math.ceil(
-          (CHOPPER_TIMER_GOAL_MS - state.chopperElapsedMs) / 1000,
+          (extractionConfig.chopperTimerGoalMs - state.chopperElapsedMs) / 1000,
         );
         this.labelText.text = hasEnemies
           ? `ENEMIES NEARBY! (${state.enemiesInRadius})`

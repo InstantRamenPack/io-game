@@ -1,7 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { GameConfig } from "@shared/config/GameConfig.ts";
-import type { InputIntentMessage } from "@shared/net/protocol.ts";
+import {
+  parseServerToClientMessage,
+  type InputIntentMessage,
+} from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
 import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
@@ -66,6 +69,8 @@ export type SnapshotSummary = {
   fullSnapshots: number;
   deltaSnapshots: number;
   totalBytes: number;
+  jsonBaselineTotalBytes: number;
+  bandwidthReduction: number;
   averageBytes: number;
   p95Bytes: number;
   maxBytes: number;
@@ -107,6 +112,7 @@ type ProjectileCtor = new (
 
 export class CapturingNetworkServer implements NetworkServerLike {
   public readonly bytesByClientId = new Map<string, number[]>();
+  public readonly jsonBaselineBytesByClientId = new Map<string, number[]>();
   private readonly clientIds = new Set<string>();
   private readonly entityCounts: number[] = [];
   private readonly removedEntityCounts: number[] = [];
@@ -121,30 +127,38 @@ export class CapturingNetworkServer implements NetworkServerLike {
   public disconnect(): void {}
 
   public send(clientId: string, data: string | Uint8Array): void {
-    if (typeof data !== "string") {
-      return;
-    }
     this.clientIds.add(clientId);
 
     const bytes = this.bytesByClientId.get(clientId) ?? [];
-    bytes.push(data.length);
+    bytes.push(typeof data === "string" ? data.length : data.byteLength);
     this.bytesByClientId.set(clientId, bytes);
 
-    if (!data.startsWith('{"t":"snapshot"')) {
+    const message = parseServerToClientMessage(data, {
+      validateSnapshots: false,
+    });
+    if (message) {
+      const jsonBytes = this.jsonBaselineBytesByClientId.get(clientId) ?? [];
+      jsonBytes.push(JSON.stringify(message).length);
+      this.jsonBaselineBytesByClientId.set(clientId, jsonBytes);
+    }
+    if (!message || message.t !== "snapshot") {
       return;
     }
     this.snapshots += 1;
-    if (data.includes('"full":false')) {
+    if (message.snapshot.full === false) {
       this.deltaSnapshots += 1;
     } else {
       this.fullSnapshots += 1;
     }
-    this.entityCounts.push(countJsonKey(data, '"id":'));
-    this.removedEntityCounts.push(countRemovedEntityIds(data));
+    this.entityCounts.push(message.snapshot.entities.length);
+    this.removedEntityCounts.push(
+      message.snapshot.removedEntityIds?.length ?? 0,
+    );
   }
 
   public reset(): void {
     this.bytesByClientId.clear();
+    this.jsonBaselineBytesByClientId.clear();
     this.clientIds.clear();
     this.entityCounts.length = 0;
     this.removedEntityCounts.length = 0;
@@ -157,14 +171,26 @@ export class CapturingNetworkServer implements NetworkServerLike {
     return [...this.bytesByClientId.values()].flat();
   }
 
+  public allJsonBaselineBytes(): number[] {
+    return [...this.jsonBaselineBytesByClientId.values()].flat();
+  }
+
   public summarize(): SnapshotSummary {
     const bytes = this.allBytes();
+    const jsonBaselineBytes = this.allJsonBaselineBytes();
+    const totalBytes = sum(bytes);
+    const jsonBaselineTotalBytes = sum(jsonBaselineBytes);
     return {
       clients: this.clientIds.size,
       snapshots: this.snapshots,
       fullSnapshots: this.fullSnapshots,
       deltaSnapshots: this.deltaSnapshots,
-      totalBytes: sum(bytes),
+      totalBytes,
+      jsonBaselineTotalBytes,
+      bandwidthReduction:
+        jsonBaselineTotalBytes > 0
+          ? 1 - totalBytes / jsonBaselineTotalBytes
+          : 0,
       averageBytes: average(bytes),
       p95Bytes: percentile(bytes, 0.95),
       maxBytes: max(bytes),
@@ -571,34 +597,4 @@ function percentile(values: readonly number[], quantile: number): number {
     Math.max(0, Math.ceil(sorted.length * quantile) - 1),
   );
   return sorted[index] ?? 0;
-}
-
-function countJsonKey(source: string, key: string): number {
-  let count = 0;
-  let index = source.indexOf(key);
-  while (index >= 0) {
-    count += 1;
-    index = source.indexOf(key, index + key.length);
-  }
-  return count;
-}
-
-function countRemovedEntityIds(source: string): number {
-  const key = '"removedEntityIds":[';
-  const start = source.indexOf(key);
-  if (start < 0) {
-    return 0;
-  }
-  const valueStart = start + key.length;
-  const valueEnd = source.indexOf("]", valueStart);
-  if (valueEnd <= valueStart) {
-    return 0;
-  }
-  let count = 1;
-  for (let index = valueStart; index < valueEnd; index += 1) {
-    if (source.charCodeAt(index) === 44) {
-      count += 1;
-    }
-  }
-  return count;
 }

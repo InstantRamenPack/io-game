@@ -16,7 +16,7 @@
     "attackStyle": "swing",
     "cooldownTicks": 13,
     "range": 38,
-    "damage": 25,
+    "damage": 13,
     "knockback": 12,
     "sweepArcDeg": 85,
     "equippedRender": {
@@ -31,9 +31,6 @@
       "swingAngleDeg": 85,
       "jabDistance": 0
     }
-  },
-  "recycle": {
-    "hunkValue": 4
   },
   "pickupSpawn": {
     "pools": ["weapon"]

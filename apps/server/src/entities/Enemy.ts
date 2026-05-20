@@ -16,6 +16,7 @@ import type { Weapon } from "@server/items/Weapon.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
+import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
@@ -40,6 +41,9 @@ export class Enemy extends GoalControlledEntity {
     );
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
+    for (const weapon of this.weapons) {
+      applyEnemyWeaponTuning(weapon);
+    }
     this.damageMultiplier = content.combat.damageMultiplier;
     this.registerGoals([...(config.goals ?? []), new WanderGoal<Enemy>(100)]);
     this.collisionMode = content.collisionMode;
@@ -119,4 +123,11 @@ export class Enemy extends GoalControlledEntity {
     pickup.y = this.y;
     world.spawn(pickup);
   }
+}
+
+function applyEnemyWeaponTuning(weapon: Weapon): void {
+  weapon.scaleCooldownTicksPerUse(
+    1 / enemyTuningConfig.weaponAttackSpeedMultiplier,
+  );
+  weapon.scaleAttackRange(enemyTuningConfig.weaponAttackRangeMultiplier);
 }

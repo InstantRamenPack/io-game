@@ -1,6 +1,6 @@
 {
   "label": "Recycler",
-  "maxHp": 99999,
+  "maxHp": 50000,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

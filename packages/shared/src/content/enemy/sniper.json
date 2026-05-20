@@ -1,6 +1,6 @@
 {
   "label": "Sniper",
-  "maxHp": 70,
+  "maxHp": 35,
   "moveSpeed": 7,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

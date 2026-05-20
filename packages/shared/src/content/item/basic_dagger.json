@@ -16,7 +16,7 @@
     "attackStyle": "jab",
     "cooldownTicks": 6,
     "range": 28,
-    "damage": 18,
+    "damage": 9,
     "knockback": 6,
     "jabWidth": 14,
     "equippedRender": {
@@ -31,9 +31,6 @@
       "swingAngleDeg": 0,
       "jabDistance": 20
     }
-  },
-  "recycle": {
-    "hunkValue": 3
   },
   "pickupSpawn": {
     "pools": ["weapon"]

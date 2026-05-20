@@ -1,6 +1,6 @@
 {
   "label": "Stalker",
-  "maxHp": 95,
+  "maxHp": 48,
   "moveSpeed": 13,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

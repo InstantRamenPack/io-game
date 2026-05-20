@@ -19,7 +19,7 @@ export class SniperEnemy extends Enemy {
           requireLineOfSight: true,
         }),
         new LookAtTargetGoal<Enemy>(1),
-        new RangedAttackGoal<Enemy>(2, 0, 620, 60, 90, 0.85),
+        new RangedAttackGoal<Enemy>(2, 0, 620, 60, 90, 0.85, 600),
       ],
     });
   }

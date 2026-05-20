@@ -390,6 +390,12 @@ function makeMapSnapshot(world: World): MapSnapshot | undefined {
     centerSectorId: layout.centerSectorId,
     extractionSectorId: layout.extractionSectorId,
     dungeonSectorId: layout.dungeonSectorId,
+    dungeonBounds: {
+      minX: layout.dungeon.minX,
+      minY: layout.dungeon.minY,
+      maxX: layout.dungeon.maxX,
+      maxY: layout.dungeon.maxY,
+    },
     militarySectorId: layout.militarySectorId,
     forestSectorId: layout.forestSectorId,
     sectors: layout.sectors.map((sector) => ({

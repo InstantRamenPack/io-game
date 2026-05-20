@@ -5,7 +5,11 @@
   "projectile": {
     "speed": 80,
     "range": 2000,
+<<<<<<< HEAD
     "damage": 40,
+=======
+    "damage": 15,
+>>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
     "maxHits": 1,
     "hitbox": {
       "width": 12,

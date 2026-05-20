@@ -36,23 +36,129 @@
   },
   "crateLootByTier": {
     "common": [
-      { "typeId": "item:hunk", "kind": "stackable", "amount": 4 },
-      { "typeId": "item:junk_food", "kind": "stackable", "amount": 2 }
+      {
+        "typeId": "item:hunk",
+        "kind": "stackable",
+        "amount": 4
+      },
+      {
+        "typeId": "item:junk_food",
+        "kind": "stackable",
+        "amount": 2
+      },
+      {
+        "typeId": "item:pistol_mag",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:wall",
+        "kind": "stackable",
+        "amount": 2
+      }
     ],
     "uncommon": [
-      { "typeId": "item:hunk", "kind": "stackable", "amount": 6 },
-      { "typeId": "item:quality_food", "kind": "stackable", "amount": 2 },
-      { "typeId": "item:pistol_mag", "kind": "stackable", "amount": 2 }
+      {
+        "typeId": "item:hunk",
+        "kind": "stackable",
+        "amount": 6
+      },
+      {
+        "typeId": "item:quality_food",
+        "kind": "stackable",
+        "amount": 2
+      },
+      {
+        "typeId": "item:pistol_mag",
+        "kind": "stackable",
+        "amount": 2
+      },
+      {
+        "typeId": "item:basic_spear",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:blueprint_spiked_spear",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:crossbow_mag",
+        "kind": "stackable",
+        "amount": 2
+      }
     ],
     "rare": [
+<<<<<<< HEAD
       { "typeId": "item:blueprint_basic_rifle", "kind": "stackable", "amount": 1 },
       { "typeId": "item:rifle_mag", "kind": "stackable", "amount": 3 },
       { "typeId": "item:hunk", "kind": "stackable", "amount": 10 }
+=======
+      {
+        "typeId": "item:blueprint_basic_rifle",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:rifle_mag",
+        "kind": "stackable",
+        "amount": 3
+      },
+      {
+        "typeId": "item:hunk",
+        "kind": "stackable",
+        "amount": 10
+      },
+      {
+        "typeId": "item:crossbow",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:crossbow_mag",
+        "kind": "stackable",
+        "amount": 3
+      },
+      {
+        "typeId": "item:blueprint_katana",
+        "kind": "stackable",
+        "amount": 1
+      }
+>>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
     ],
     "epic": [
-      { "typeId": "item:sniper", "kind": "weapon" },
-      { "typeId": "item:sniper_mag", "kind": "stackable", "amount": 4 },
-      { "typeId": "item:blueprint_sniper", "kind": "stackable", "amount": 1 }
+      {
+        "typeId": "item:hunk",
+        "kind": "stackable",
+        "amount": 14
+      },
+      {
+        "typeId": "item:sniper",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:sniper_mag",
+        "kind": "stackable",
+        "amount": 4
+      },
+      {
+        "typeId": "item:blueprint_sniper",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:drone_shooter",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:drone_mag",
+        "kind": "stackable",
+        "amount": 3
+      },
+      {
+        "typeId": "item:blueprint_spiked_spear",
+        "kind": "stackable",
+        "amount": 1
+      }
     ]
   },
   "forestCampEnemyTypes": {
@@ -83,16 +189,29 @@
       "enemy:megaknight"
     ]
   },
+  "interiorSpawnChances": {
+    "furniture": 0.25,
+    "crate": 0.35,
+    "enemy": 0.3
+  },
   "sectorContent": {
     "home": {
       "buildings": [
-        { "typeId": "building:recycler", "offsetX": 0, "offsetY": -160 },
+        {
+          "typeId": "building:recycler",
+          "offsetX": 0,
+          "offsetY": -160
+        },
         {
           "typeId": "building:crafting_station",
           "offsetX": -224,
           "offsetY": 0
         },
-        { "typeId": "building:chest", "offsetX": 224, "offsetY": 0 }
+        {
+          "typeId": "building:chest",
+          "offsetX": 224,
+          "offsetY": 0
+        }
       ],
       "loot": [
         {
@@ -107,9 +226,21 @@
     },
     "extraction": {
       "enemies": [
-        { "typeId": "enemy:commander", "offsetX": 0, "offsetY": -360 },
-        { "typeId": "enemy:sniper", "offsetX": -420, "offsetY": -240 },
-        { "typeId": "enemy:sniper", "offsetX": 420, "offsetY": -240 }
+        {
+          "typeId": "enemy:commander",
+          "offsetX": 0,
+          "offsetY": -360
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": -420,
+          "offsetY": -240
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": 420,
+          "offsetY": -240
+        }
       ],
       "loot": [
         {
@@ -278,13 +409,15 @@
           "typeId": "building:tripwire",
           "offsetX": -48,
           "offsetY": -64,
-          "margin": 128
+          "margin": 128,
+          "orientation": "horizontal"
         },
         {
           "typeId": "building:tripwire",
           "offsetX": -96,
           "offsetY": 0,
-          "margin": 128
+          "margin": 128,
+          "orientation": "vertical"
         }
       ]
     },
@@ -333,18 +466,21 @@
           "typeId": "building:tripwire",
           "offsetX": -56,
           "offsetY": -64,
-          "margin": 128
+          "margin": 128,
+          "orientation": "horizontal"
         },
         {
           "typeId": "building:tripwire",
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "orientation": "vertical"
         },
         {
           "typeId": "building:tripwire",
           "offsetX": 56,
           "offsetY": 64,
-          "margin": 128
+          "margin": 128,
+          "orientation": "horizontal"
         }
       ],
       "loot": [
@@ -374,14 +510,6 @@
           "kind": "weapon",
           "rewardTier": "rare",
           "amount": 1
-        },
-        {
-          "typeId": "item:dungeon_key",
-          "offsetX": 96,
-          "offsetY": 160,
-          "kind": "stackable",
-          "rewardTier": "rare",
-          "amount": 2
         }
       ]
     },
@@ -827,7 +955,37 @@
               "typeId": "structure:house_m",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             }
           ]
         },
@@ -838,7 +996,32 @@
               "typeId": "structure:house_s",
               "dx": -80,
               "dy": 24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             }
           ],
           "loot": {
@@ -855,19 +1038,104 @@
               "typeId": "structure:house_s",
               "dx": -220,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 180,
               "dy": -140,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": -60,
               "dy": 180,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         },
@@ -878,19 +1146,104 @@
               "typeId": "structure:house_s",
               "dx": -240,
               "dy": 80,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 40,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": 240,
               "dy": 152,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -903,7 +1256,32 @@
               "typeId": "structure:house_s",
               "dx": -120,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -928,7 +1306,32 @@
               "typeId": "structure:house_s",
               "dx": -176,
               "dy": -88,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -1047,7 +1450,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1068,7 +1501,37 @@
               "typeId": "structure:barracks",
               "dx": -72,
               "dy": -32,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1091,7 +1554,37 @@
               "typeId": "structure:barracks",
               "dx": -112,
               "dy": -72,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             },
             {
               "typeId": "structure:camp_shelter",
@@ -1107,7 +1600,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -1147,7 +1670,32 @@
               "typeId": "structure:command_post",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             }
           ]
         },
@@ -1158,7 +1706,32 @@
               "typeId": "structure:command_post",
               "dx": -48,
               "dy": -24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             },
             {
               "typeId": "structure:fence_h",
@@ -1212,7 +1785,37 @@
               "typeId": "structure:house_m",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             }
           ]
         },
@@ -1223,7 +1826,32 @@
               "typeId": "structure:house_s",
               "dx": -80,
               "dy": 24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             }
           ],
           "loot": {
@@ -1240,19 +1868,104 @@
               "typeId": "structure:house_s",
               "dx": -220,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 180,
               "dy": -140,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": -60,
               "dy": 180,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         },
@@ -1263,19 +1976,104 @@
               "typeId": "structure:house_s",
               "dx": -240,
               "dy": 80,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 40,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": 240,
               "dy": 152,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         },
@@ -1286,7 +2084,32 @@
               "typeId": "structure:house_s",
               "dx": -224,
               "dy": -96,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:vehicle_wreck",
@@ -1309,7 +2132,32 @@
               "typeId": "structure:house_s",
               "dx": -120,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -1334,7 +2182,32 @@
               "typeId": "structure:house_s",
               "dx": -176,
               "dy": -88,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -1473,7 +2346,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1494,7 +2397,37 @@
               "typeId": "structure:barracks",
               "dx": -72,
               "dy": -32,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1517,7 +2450,37 @@
               "typeId": "structure:barracks",
               "dx": -112,
               "dy": -72,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             },
             {
               "typeId": "structure:camp_shelter",
@@ -1533,7 +2496,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -1573,7 +2566,32 @@
               "typeId": "structure:command_post",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             }
           ]
         },
@@ -1584,7 +2602,32 @@
               "typeId": "structure:command_post",
               "dx": -48,
               "dy": -24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             },
             {
               "typeId": "structure:fence_h",
@@ -1638,7 +2681,37 @@
               "typeId": "structure:house_m",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             }
           ]
         },
@@ -1649,7 +2722,32 @@
               "typeId": "structure:house_s",
               "dx": -80,
               "dy": 24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             }
           ],
           "loot": {
@@ -1666,19 +2764,104 @@
               "typeId": "structure:house_s",
               "dx": -220,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 180,
               "dy": -140,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": -60,
               "dy": 180,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         },
@@ -1689,19 +2872,104 @@
               "typeId": "structure:house_s",
               "dx": -240,
               "dy": 80,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 40,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": 240,
               "dy": 152,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -1714,7 +2982,32 @@
               "typeId": "structure:house_s",
               "dx": -120,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -1739,7 +3032,32 @@
               "typeId": "structure:house_s",
               "dx": -176,
               "dy": -88,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -1878,7 +3196,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1899,7 +3247,37 @@
               "typeId": "structure:barracks",
               "dx": -72,
               "dy": -32,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -1920,7 +3298,37 @@
               "typeId": "structure:barracks",
               "dx": -64,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             },
             {
               "typeId": "structure:fence_h",
@@ -1948,7 +3356,37 @@
               "typeId": "structure:barracks",
               "dx": -112,
               "dy": -72,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             },
             {
               "typeId": "structure:camp_shelter",
@@ -1964,7 +3402,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -2004,7 +3472,32 @@
               "typeId": "structure:command_post",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             }
           ]
         },
@@ -2015,7 +3508,32 @@
               "typeId": "structure:command_post",
               "dx": -48,
               "dy": -24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             },
             {
               "typeId": "structure:fence_h",
@@ -2069,7 +3587,37 @@
               "typeId": "structure:house_m",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             }
           ]
         },
@@ -2080,7 +3628,32 @@
               "typeId": "structure:house_s",
               "dx": -80,
               "dy": 24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             }
           ],
           "loot": {
@@ -2097,19 +3670,104 @@
               "typeId": "structure:house_s",
               "dx": -220,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 180,
               "dy": -140,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": -60,
               "dy": 180,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         },
@@ -2120,19 +3778,104 @@
               "typeId": "structure:house_s",
               "dx": -240,
               "dy": 80,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:house_m",
               "dx": 40,
               "dy": -120,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": -64,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -32
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": -72,
+                  "dy": 48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 88,
+                  "dy": -56
+                }
+              ]
             },
             {
               "typeId": "structure:house_l",
               "dx": 240,
               "dy": 152,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 0,
+                  "dy": 120
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -72
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 56,
+                  "dy": -48
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -2145,7 +3888,32 @@
               "typeId": "structure:house_s",
               "dx": -120,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -2170,7 +3938,32 @@
               "typeId": "structure:house_s",
               "dx": -176,
               "dy": -88,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 72,
+                  "dy": 64
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:drifter",
+                  "dx": 0,
+                  "dy": -48
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": -48,
+                  "dy": -16
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 48,
+                  "dy": -16
+                }
+              ]
             },
             {
               "typeId": "structure:market_stall",
@@ -2289,7 +4082,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -2310,7 +4133,37 @@
               "typeId": "structure:barracks",
               "dx": -72,
               "dy": -32,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ],
           "crates": [
@@ -2333,7 +4186,37 @@
               "typeId": "structure:barracks",
               "dx": -112,
               "dy": -72,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             },
             {
               "typeId": "structure:camp_shelter",
@@ -2349,7 +4232,37 @@
               "typeId": "structure:barracks",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 224,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:police",
+                  "dx": -112,
+                  "dy": -56
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": -176,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_bed",
+                  "dx": 0,
+                  "dy": -64
+                },
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 128,
+                  "dy": 64
+                }
+              ]
             }
           ]
         }
@@ -2389,7 +4302,32 @@
               "typeId": "structure:command_post",
               "dx": 0,
               "dy": 0,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             }
           ]
         },
@@ -2400,7 +4338,32 @@
               "typeId": "structure:command_post",
               "dx": -48,
               "dy": -24,
-              "rotated": true
+              "rotated": true,
+              "interiorCrates": [
+                {
+                  "dx": 160,
+                  "dy": 96
+                }
+              ],
+              "interiorEnemies": [
+                {
+                  "typeId": "enemy:commander",
+                  "dx": -72,
+                  "dy": -64
+                }
+              ],
+              "interiorStructures": [
+                {
+                  "typeId": "structure:wooden_table",
+                  "dx": 0,
+                  "dy": -40
+                },
+                {
+                  "typeId": "structure:wooden_chair",
+                  "dx": 72,
+                  "dy": 40
+                }
+              ]
             },
             {
               "typeId": "structure:fence_h",

@@ -1,5 +1,6 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import {
+  encodeServerToClientMessage,
   type HelloMessage,
   type LobbyActionMessage,
   type LobbyStateMessage,
@@ -8,13 +9,13 @@ import {
   type ServerToClientMessage,
 } from "@shared/net/protocol.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
-import { parseFastInputMessage } from "@server/net/FastInputMessageParser.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { ScopedWsServer } from "@server/net/ScopedWsServer.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import { TickClock } from "@server/server/TickClock.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { LobbyStateCache } from "@server/server/matchmaking/LobbyStateCache.ts";
+import { matchmakingConfig } from "@shared/config/gameplayConfig.ts";
 
 type MatchLobby = {
   code: string;
@@ -29,10 +30,6 @@ type MatchLobby = {
   scopedNetwork: ScopedWsServer;
   runtime: GameInstanceRuntime | null;
 };
-
-const MATCH_LOBBY_MAX_PLAYERS = 5;
-const MATCH_LOBBY_START_COUNTDOWN_MS = 10_000;
-const MATCH_LOBBY_CODE_LENGTH = 6;
 
 /**
  * Authoritative server runtime for players, input handling, and snapshot output.
@@ -155,32 +152,12 @@ export class GameServer {
     this.activeRuntimeByClientId.delete(clientId);
   }
 
-  private handleRawMessage(clientId: string, rawMessage: string): void {
-    const fastInputMessage = parseFastInputMessage(rawMessage);
-    if (fastInputMessage.kind === "invalid") {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "invalid_message" }),
-      );
-      return;
-    }
-    if (fastInputMessage.kind === "input") {
-      if (!this.requireReady(clientId)) {
-        return;
-      }
-      this.getActiveRuntime(clientId).handleInputIntent(
-        clientId,
-        fastInputMessage.message,
-      );
-      return;
-    }
-
+  private handleRawMessage(
+    clientId: string,
+    rawMessage: string | Uint8Array,
+  ): void {
     const clientMessage = parseClientToServerMessage(rawMessage);
     if (!clientMessage) {
-      this.networkServer.send(
-        clientId,
-        JSON.stringify({ t: "error", message: "invalid_message" }),
-      );
       return;
     }
 
@@ -241,13 +218,19 @@ export class GameServer {
           t: "pong",
           timeMs: pingMessage.timeMs,
         };
-        this.networkServer.send(clientId, JSON.stringify(pongMessage));
+        this.networkServer.send(
+          clientId,
+          encodeServerToClientMessage(pongMessage),
+        );
         return;
       }
       default:
         this.networkServer.send(
           clientId,
-          JSON.stringify({ t: "error", message: "unknown_message_type" }),
+          encodeServerToClientMessage({
+            t: "error",
+            message: "unknown_message_type",
+          }),
         );
     }
   }
@@ -264,7 +247,7 @@ export class GameServer {
     if (helloMessage.compatHash !== this.gameConfig.compatHash) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "compat_mismatch" }),
+        encodeServerToClientMessage({ t: "error", message: "compat_mismatch" }),
       );
       this.networkServer.disconnect(clientId, "compat_mismatch");
       return;
@@ -275,7 +258,7 @@ export class GameServer {
       this.clientStateById.set(clientId, "preview");
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "pong", timeMs: Date.now() }),
+        encodeServerToClientMessage({ t: "pong", timeMs: Date.now() }),
       );
       return;
     }
@@ -286,7 +269,7 @@ export class GameServer {
     ) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "server_full" }),
+        encodeServerToClientMessage({ t: "error", message: "server_full" }),
       );
       this.networkServer.disconnect(clientId, "server_full");
       return;
@@ -296,7 +279,7 @@ export class GameServer {
     if (!playerName) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "name_required" }),
+        encodeServerToClientMessage({ t: "error", message: "name_required" }),
       );
       this.networkServer.disconnect(clientId, "name_required");
       return;
@@ -304,7 +287,7 @@ export class GameServer {
     if (this.isPlayerNameInUse(playerName)) {
       this.networkServer.send(
         clientId,
-        JSON.stringify({ t: "error", message: "name_taken" }),
+        encodeServerToClientMessage({ t: "error", message: "name_taken" }),
       );
       this.networkServer.disconnect(clientId, "name_taken");
       return;
@@ -318,11 +301,11 @@ export class GameServer {
     this.clientStateById.set(clientId, "ready");
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "pong", timeMs: Date.now() }),
+      encodeServerToClientMessage({ t: "pong", timeMs: Date.now() }),
     );
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: this.playgroundRuntime.worldId,
@@ -339,7 +322,7 @@ export class GameServer {
     }
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "error", message: "hello_required" }),
+      encodeServerToClientMessage({ t: "error", message: "hello_required" }),
     );
     return false;
   }
@@ -406,7 +389,7 @@ export class GameServer {
       return;
     }
 
-    if (targetLobby.playerClientIds.size >= MATCH_LOBBY_MAX_PLAYERS) {
+    if (targetLobby.playerClientIds.size >= matchmakingConfig.maxPlayers) {
       this.sendToClientSystem(clientId, `Lobby ${lobbyCode} is full.`);
       this.sendLobbyState(clientId, true);
       return;
@@ -430,11 +413,11 @@ export class GameServer {
     this.matchLobbyCodeByClientId.set(clientId, lobby.code);
     this.sendToClientSystem(
       clientId,
-      `Joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+      `Joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${matchmakingConfig.maxPlayers}).`,
     );
     this.broadcastLobbyMessage(
       lobby,
-      `${this.getPlayerDisplayName(clientId)} joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+      `${this.getPlayerDisplayName(clientId)} joined lobby ${lobby.code} (${lobby.playerClientIds.size}/${matchmakingConfig.maxPlayers}).`,
     );
 
     if (lobby.startedAtMs !== null) {
@@ -477,7 +460,7 @@ export class GameServer {
       this.sendToClientSystem(clientId, `Left lobby ${lobby.code}.`);
       this.broadcastLobbyMessage(
         lobby,
-        `${this.getPlayerDisplayName(clientId)} left lobby ${lobby.code} (${playerCount}/${MATCH_LOBBY_MAX_PLAYERS}).`,
+        `${this.getPlayerDisplayName(clientId)} left lobby ${lobby.code} (${playerCount}/${matchmakingConfig.maxPlayers}).`,
       );
     }
 
@@ -524,7 +507,7 @@ export class GameServer {
     if (lobby.playerClientIds.size < 2) {
       return;
     }
-    lobby.countdownEndsAtMs = nowMs + MATCH_LOBBY_START_COUNTDOWN_MS;
+    lobby.countdownEndsAtMs = nowMs + matchmakingConfig.startCountdownMs;
     this.broadcastLobbyMessage(
       lobby,
       `Lobby ${lobby.code} reached 2 players. Game starts in 10 seconds.`,
@@ -570,7 +553,7 @@ export class GameServer {
 
   private findOpenLobby(): MatchLobby | undefined {
     for (const lobby of this.matchLobbyByCode.values()) {
-      if (lobby.playerClientIds.size < MATCH_LOBBY_MAX_PLAYERS) {
+      if (lobby.playerClientIds.size < matchmakingConfig.maxPlayers) {
         return lobby;
       }
     }
@@ -606,7 +589,7 @@ export class GameServer {
       gameDurationMs,
       wavesCompleted,
     };
-    const payload = JSON.stringify(message);
+    const payload = encodeServerToClientMessage(message);
     for (const clientId of lobby.playerClientIds) {
       this.networkServer.send(clientId, payload);
     }
@@ -621,7 +604,7 @@ export class GameServer {
       gameDurationMs,
       wavesCompleted,
     };
-    const payload = JSON.stringify(message);
+    const payload = encodeServerToClientMessage(message);
     const participantClientIds = [...lobby.playerClientIds];
     for (const clientId of participantClientIds) {
       this.networkServer.send(clientId, payload);
@@ -671,7 +654,7 @@ export class GameServer {
     let code: string;
     do {
       code = "";
-      for (let index = 0; index < MATCH_LOBBY_CODE_LENGTH; index += 1) {
+      for (let index = 0; index < matchmakingConfig.codeLength; index += 1) {
         code += alphabet[Math.floor(Math.random() * alphabet.length)] ?? "X";
       }
     } while (this.matchLobbyByCode.has(code));
@@ -708,7 +691,7 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, lobby.runtime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: lobby.runtime.worldId,
@@ -733,7 +716,7 @@ export class GameServer {
     this.activeRuntimeByClientId.set(clientId, this.playgroundRuntime);
     this.networkServer.send(
       clientId,
-      JSON.stringify({
+      encodeServerToClientMessage({
         t: "welcome",
         entityId: playerId,
         worldId: this.playgroundRuntime.worldId,
@@ -750,7 +733,7 @@ export class GameServer {
     if (!this.lobbyStateCache.shouldSend(clientId, state, force)) {
       return;
     }
-    this.networkServer.send(clientId, JSON.stringify(state));
+    this.networkServer.send(clientId, encodeServerToClientMessage(state));
   }
 
   private broadcastLobbyState(lobby: MatchLobby, force: boolean): void {
@@ -768,7 +751,7 @@ export class GameServer {
         inLobby: false,
         isHost: false,
         playerCount: 0,
-        maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+        maxPlayers: matchmakingConfig.maxPlayers,
         countdownEndsAtMs: null,
         startedAtMs: null,
         serverNowMs: nowMs,
@@ -783,7 +766,7 @@ export class GameServer {
         inLobby: false,
         isHost: false,
         playerCount: 0,
-        maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+        maxPlayers: matchmakingConfig.maxPlayers,
         countdownEndsAtMs: null,
         startedAtMs: null,
         serverNowMs: nowMs,
@@ -796,7 +779,7 @@ export class GameServer {
       isHost: lobby.hostClientId === clientId,
       lobbyCode: lobby.code,
       playerCount: lobby.playerClientIds.size,
-      maxPlayers: MATCH_LOBBY_MAX_PLAYERS,
+      maxPlayers: matchmakingConfig.maxPlayers,
       createdAtMs: lobby.createdAtMs,
       countdownEndsAtMs: lobby.countdownEndsAtMs,
       startedAtMs: lobby.startedAtMs,
@@ -816,7 +799,7 @@ export class GameServer {
       text,
       kind: "system",
     };
-    this.networkServer.send(clientId, JSON.stringify(message));
+    this.networkServer.send(clientId, encodeServerToClientMessage(message));
   }
 
   private getPlayerDisplayName(clientId: string): string {

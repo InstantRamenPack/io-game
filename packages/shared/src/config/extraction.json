@@ -1,0 +1,11 @@
+{
+  "fallbackHelipad": {
+    "x": 1000,
+    "y": 4050,
+    "radius": 160
+  },
+  "enemyDangerRadius": 400,
+  "boardTimerGoalMs": 45000,
+  "chopperTimerGoalMs": 20000,
+  "finalWaveCycle": 7
+}

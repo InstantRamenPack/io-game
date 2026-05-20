@@ -1,6 +1,6 @@
 {
   "label": "Shoota",
-  "maxHp": 100,
+  "maxHp": 50,
   "moveSpeed": 8,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

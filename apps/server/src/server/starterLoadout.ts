@@ -4,6 +4,7 @@ import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { Player } from "@server/entities/Player.ts";
 
 const PLAYER_BASE_TYPE_ID = makeResourceId("player", "base");
+const HUNK_ITEM_TYPE_ID = makeResourceId("item", "hunk");
 
 export function applyPlayerStarterLoadout(player: Player): void {
   const starterLoadout = requirePlayerStarterLoadout(PLAYER_BASE_TYPE_ID);
@@ -68,5 +69,27 @@ export function validatePlayerStarterLoadout(): void {
         `Starter loadout stackable ${stackable.typeId} is registered as a weapon.`,
       );
     }
+  }
+}
+
+export function applyPlayerNonLobbySpawnLoadout(player: Player): void {
+  const starterLoadout = requirePlayerStarterLoadout(PLAYER_BASE_TYPE_ID);
+  player.inventory.clearHotbar();
+
+  const hunkStack = starterLoadout.stackables.find(
+    (stackable) => stackable.typeId === HUNK_ITEM_TYPE_ID,
+  );
+  if (!hunkStack || hunkStack.amount <= 0) {
+    return;
+  }
+
+  const itemEntry = itemTypeRegistry.require(hunkStack.typeId);
+  if (new itemEntry.ctor().isWeaponItem()) {
+    throw new Error("Starter loadout hunk stackable cannot be a weapon item.");
+  }
+  if (!player.inventory.grantItemCtor(itemEntry.ctor, hunkStack.amount)) {
+    throw new Error(
+      `Starter loadout stackable ${hunkStack.typeId} could not be granted to inventory.`,
+    );
   }
 }

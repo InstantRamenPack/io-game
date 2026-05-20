@@ -1,5 +1,8 @@
 export type OpenHandler = (clientId: string) => void;
-export type MessageHandler = (clientId: string, rawMessage: string) => void;
+export type MessageHandler = (
+  clientId: string,
+  rawMessage: string | Uint8Array,
+) => void;
 export type CloseHandler = (clientId: string) => void;
 
 export interface NetworkServerLike {

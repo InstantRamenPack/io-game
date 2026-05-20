@@ -1,0 +1,26 @@
+{
+  "seed": 1337,
+  "gridSize": 3,
+  "sectorBands": [5120, 2560, 5120],
+  "tileSize": 16,
+  "targetVillageCount": 10,
+  "villageCenterMargin": {
+    "x": 720,
+    "y": 560
+  },
+  "lobbyWorldSize": {
+    "w": 1000,
+    "h": 1000
+  },
+  "requiredDungeonRoomRoles": [
+    "entrance",
+    "combat",
+    "enemy_swarm",
+    "treasure",
+    "maze",
+    "trap",
+    "armory",
+    "mini_boss",
+    "boss"
+  ]
+}

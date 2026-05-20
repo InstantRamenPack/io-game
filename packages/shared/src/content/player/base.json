@@ -4,7 +4,14 @@
   "moveSpeed": 15,
   "collisionMode": "dynamic",
   "hitboxProfiles": {
-    "default": [{ "width": 32, "height": 32, "offsetX": 0, "offsetY": 0 }]
+    "default": [
+      {
+        "width": 32,
+        "height": 32,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
   },
   "player": {
     "starterLoadout": {
@@ -16,14 +23,38 @@
         "item:crossbow"
       ],
       "stackables": [
-        { "typeId": "item:hunk", "amount": 200 },
-        { "typeId": "item:pistol_mag", "amount": 2 },
-        { "typeId": "item:crossbow_mag", "amount": 2 },
-        { "typeId": "item:drone_mag", "amount": 2 },
-        { "typeId": "item:landmine", "amount": 5 },
-        { "typeId": "item:wall", "amount": 8 },
-        { "typeId": "item:cannon", "amount": 2 },
-        { "typeId": "item:crafting_station", "amount": 1 }
+        {
+          "typeId": "item:hunk",
+          "amount": 50
+        },
+        {
+          "typeId": "item:pistol_mag",
+          "amount": 2
+        },
+        {
+          "typeId": "item:crossbow_mag",
+          "amount": 2
+        },
+        {
+          "typeId": "item:drone_mag",
+          "amount": 2
+        },
+        {
+          "typeId": "item:landmine",
+          "amount": 5
+        },
+        {
+          "typeId": "item:wall",
+          "amount": 8
+        },
+        {
+          "typeId": "item:cannon",
+          "amount": 2
+        },
+        {
+          "typeId": "item:crafting_station",
+          "amount": 1
+        }
       ]
     }
   }

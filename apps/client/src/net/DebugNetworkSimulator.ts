@@ -22,7 +22,7 @@ export type DebugNetworkMetrics = {
 };
 
 type PlannedDelivery = {
-  payload: string;
+  payload: string | Uint8Array;
   delayMs: number;
   duplicate: boolean;
   reordered: boolean;
@@ -116,7 +116,10 @@ export class DebugNetworkSimulator {
     this.enabled = false;
   }
 
-  public deliver(payload: string, callback: (payload: string) => void): void {
+  public deliver(
+    payload: string | Uint8Array,
+    callback: (payload: string | Uint8Array) => void,
+  ): void {
     const deliveries = this.planDeliveries(payload);
     for (const delivery of deliveries) {
       if (delivery.delayMs <= 0) {
@@ -134,7 +137,7 @@ export class DebugNetworkSimulator {
     }
   }
 
-  public planDeliveries(payload: string): PlannedDelivery[] {
+  public planDeliveries(payload: string | Uint8Array): PlannedDelivery[] {
     this.sentPacketCount += 1;
     if (!this.enabled) {
       return [
@@ -173,7 +176,10 @@ export class DebugNetworkSimulator {
     };
   }
 
-  private createDelivery(payload: string, duplicate: boolean): PlannedDelivery {
+  private createDelivery(
+    payload: string | Uint8Array,
+    duplicate: boolean,
+  ): PlannedDelivery {
     const jitterOffset =
       this.profile.jitterMs <= 0
         ? 0

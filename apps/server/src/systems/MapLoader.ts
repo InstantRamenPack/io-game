@@ -5,6 +5,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
   entityTypeRegistry,
   itemTypeRegistry,
@@ -19,8 +20,7 @@ import {
   type ProceduralSpawnSpec,
   type ProceduralWorldLayout,
 } from "@shared/world/ProceduralWorld.ts";
-
-const TILE_SIZE = 16;
+import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
 
 const StaticSpawnSchema = z.object({
   typeId: ResourceIdSchema,
@@ -77,7 +77,7 @@ const DungeonZoneSchema = z.object({
 });
 z.object({
   seed: z.number().int().default(1337),
-  tileSize: z.number().int().positive().default(TILE_SIZE),
+  tileSize: z.number().int().positive().default(worldgenConfig.tileSize),
   zones: z.array(
     z.discriminatedUnion("kind", [StaticZoneSchema, DungeonZoneSchema]),
   ),
@@ -112,8 +112,8 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
 }
 
 function snapToTileCenter(value: number): number {
-  const tile = Math.floor(value / TILE_SIZE);
-  return tile * TILE_SIZE + TILE_SIZE / 2;
+  const tile = Math.floor(value / worldgenConfig.tileSize);
+  return tile * worldgenConfig.tileSize + worldgenConfig.tileSize / 2;
 }
 
 function spawnProceduralEntity(
@@ -121,6 +121,13 @@ function spawnProceduralEntity(
   spec: ProceduralSpawnSpec,
 ): Entity {
   const entity = spawnMapEntity(world, spec);
+  if (
+    entity instanceof Crate &&
+    wouldOverlapExistingStructureOrBuilding(world, entity)
+  ) {
+    world.despawn(entity.id);
+    return entity;
+  }
   if (entity instanceof Crate && spec.crateLoot) {
     fillCrate(entity, spec.crateLoot);
   }
@@ -150,15 +157,53 @@ function spawnProceduralLootCrate(
   world: World,
   spec: ProceduralLootSpec,
 ): void {
-  const entity = spawnMapEntity(world, {
-    typeId: "enemy:crate" as ResourceId,
-    x: spec.x,
-    y: spec.y,
-  });
+  const entry = entityTypeRegistry.require("enemy:crate" as ResourceId);
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error("Procedural loot crate type is not spawnable.");
+  }
+  const entity = new entry.ctor(world.allocEntityId());
+  entity.x = spec.x;
+  entity.y = spec.y;
+  if (wouldOverlapExistingStructureOrBuilding(world, entity)) {
+    return;
+  }
+  world.spawn(entity);
   if (!(entity instanceof Crate)) {
     throw new Error("Procedural loot crate type did not create a crate.");
   }
   addLootSlotToInventory(entity.contents, spec);
+}
+
+function wouldOverlapExistingStructureOrBuilding(
+  world: World,
+  entity: Entity,
+): boolean {
+  const bounds = entity.getWorldBounds();
+  const entityHitboxes = entity.getWorldHitboxes();
+  for (const candidate of world.entities.all()) {
+    if (candidate.id === entity.id) {
+      continue;
+    }
+    const candidateKind = entityTypeRegistry.require(candidate.typeId).kind;
+    if (candidateKind !== "structure" && candidateKind !== "building") {
+      continue;
+    }
+    const candidateBounds = candidate.getWorldBounds();
+    if (
+      candidateBounds.maxX < bounds.minX ||
+      candidateBounds.minX > bounds.maxX ||
+      candidateBounds.maxY < bounds.minY ||
+      candidateBounds.minY > bounds.maxY
+    ) {
+      continue;
+    }
+    if (
+      doResolvedRectSetsOverlap(entityHitboxes, candidate.getWorldHitboxes())
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function loadProceduralLayout(
@@ -213,15 +258,13 @@ const cachedProceduralLayoutBySeed = new Map<
   ReturnType<typeof generateProceduralWorldLayout>
 >();
 
-const LOBBY_WORLD_SIZE = Object.freeze({ w: 1000, h: 1000 });
-
 function loadLobbyLayout(world: World): void {
   world.proceduralLayout = null;
-  world.gameConfig.worldSize = { ...LOBBY_WORLD_SIZE };
+  world.gameConfig.worldSize = { ...worldgenConfig.lobbyWorldSize };
   spawnMapEntity(world, {
     typeId: "building:crafting_station" as ResourceId,
-    x: LOBBY_WORLD_SIZE.w / 2,
-    y: LOBBY_WORLD_SIZE.h / 2 + 56,
+    x: worldgenConfig.lobbyWorldSize.w / 2,
+    y: worldgenConfig.lobbyWorldSize.h / 2 + 56,
   });
 }
 

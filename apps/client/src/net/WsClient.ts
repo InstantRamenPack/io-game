@@ -7,7 +7,10 @@ import type {
   LobbyStateMessage,
   SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
-import { parseServerToClientMessage } from "@shared/net/protocol.ts";
+import {
+  encodeClientToServerMessage,
+  parseServerToClientMessage,
+} from "@shared/net/protocol.ts";
 import { COMPAT_HASH } from "@shared/config/compat.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import {
@@ -55,11 +58,12 @@ export class WsClient {
     this.disconnect();
 
     const socket = new WebSocket(url);
+    socket.binaryType = "arraybuffer";
     this.socket = socket;
 
     socket.addEventListener("open", () => {
       this.sendRaw(
-        JSON.stringify({
+        encodeClientToServerMessage({
           t: "hello",
           compatHash,
           playerName,
@@ -89,7 +93,11 @@ export class WsClient {
     });
 
     socket.addEventListener("message", (messageEvent) => {
-      this.inboundNetworkSimulator.deliver(String(messageEvent.data), (raw) =>
+      const payload =
+        messageEvent.data instanceof ArrayBuffer
+          ? new Uint8Array(messageEvent.data)
+          : String(messageEvent.data);
+      this.inboundNetworkSimulator.deliver(payload, (raw) =>
         this.handleRawServerMessage(raw),
       );
     });
@@ -102,7 +110,7 @@ export class WsClient {
     movement: InputIntentMessage["movement"],
   ): void {
     this.sendRaw(
-      JSON.stringify({
+      encodeClientToServerMessage({
         t: "input",
         seq,
         ...(clientTimeMs === undefined ? {} : { clientTimeMs }),
@@ -113,33 +121,37 @@ export class WsClient {
   }
 
   public sendAction(actionMessage: ActionMessage): void {
-    this.sendRaw(JSON.stringify(actionMessage));
+    this.sendRaw(encodeClientToServerMessage(actionMessage));
   }
 
   public sendRespawn(): void {
-    this.sendRaw(JSON.stringify({ t: "respawn" }));
+    this.sendRaw(encodeClientToServerMessage({ t: "respawn" }));
   }
 
   public sendChat(text: string): void {
-    this.sendRaw(JSON.stringify({ t: "chat", text }));
+    this.sendRaw(encodeClientToServerMessage({ t: "chat", text }));
   }
 
   public joinLobby(): void {
-    this.sendRaw(JSON.stringify({ t: "lobby", action: "join" }));
+    this.sendRaw(encodeClientToServerMessage({ t: "lobby", action: "join" }));
   }
 
   public joinLobbyByCode(lobbyCode: string): void {
     this.sendRaw(
-      JSON.stringify({ t: "lobby", action: "joinByCode", lobbyCode }),
+      encodeClientToServerMessage({
+        t: "lobby",
+        action: "joinByCode",
+        lobbyCode,
+      }),
     );
   }
 
   public leaveLobby(): void {
-    this.sendRaw(JSON.stringify({ t: "lobby", action: "leave" }));
+    this.sendRaw(encodeClientToServerMessage({ t: "lobby", action: "leave" }));
   }
 
   public startLobby(): void {
-    this.sendRaw(JSON.stringify({ t: "lobby", action: "start" }));
+    this.sendRaw(encodeClientToServerMessage({ t: "lobby", action: "start" }));
   }
 
   public setDebugNetworkProfile(
@@ -234,7 +246,7 @@ export class WsClient {
   }
 
   private sendRaw(
-    payload: string,
+    payload: Uint8Array,
     options: { bypassSimulation?: boolean } = {},
   ): void {
     const socket = this.socket;
@@ -242,18 +254,22 @@ export class WsClient {
       return;
     }
     if (options.bypassSimulation) {
-      socket.send(payload);
+      socket.send(new Uint8Array(payload));
       return;
     }
     this.outboundNetworkSimulator.deliver(payload, (delayedPayload) => {
       if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) {
         return;
       }
-      socket.send(delayedPayload);
+      if (typeof delayedPayload === "string") {
+        socket.send(delayedPayload);
+      } else {
+        socket.send(new Uint8Array(delayedPayload));
+      }
     });
   }
 
-  private handleRawServerMessage(rawMessage: string): void {
+  private handleRawServerMessage(rawMessage: string | Uint8Array): void {
     const serverMessage = parseServerToClientMessage(rawMessage, {
       validateSnapshots: this.validateSnapshotMessages,
     });

@@ -1,9 +1,10 @@
 import type { GameConfig } from "@shared/config/GameConfig.ts";
-import type {
-  ActionMessage,
-  InputIntentMessage,
-  ServerToClientMessage,
-  SpectateUpdateMessage,
+import {
+  encodeServerToClientMessage,
+  type ActionMessage,
+  type InputIntentMessage,
+  type ServerToClientMessage,
+  type SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
@@ -16,6 +17,7 @@ import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
 import {
+  applyPlayerNonLobbySpawnLoadout,
   applyPlayerStarterLoadout,
   validatePlayerStarterLoadout,
 } from "@server/server/starterLoadout.ts";
@@ -81,9 +83,8 @@ export class GameInstanceRuntime {
         dayNightSystem: this.world.dayNightSystem,
       });
     } else {
-      this.world.waveSystem = WaveSystem.loadFromFile({
+      this.world.waveSystem = WaveSystem.loadFromSharedConfig({
         dayNightSystem: this.world.dayNightSystem,
-        configPath: "./apps/server/src/config/waves.json",
         chatService: this.chatService,
       });
       this.world.extractionSystem = new ExtractionSystem(this.world.waveSystem);
@@ -131,7 +132,10 @@ export class GameInstanceRuntime {
         t: "snapshot",
         snapshot,
       };
-      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+      this.networkServer.send(
+        clientId,
+        encodeServerToClientMessage(snapshotMessage),
+      );
     }
 
     for (const clientId of this.previewClientIds) {
@@ -139,7 +143,10 @@ export class GameInstanceRuntime {
         t: "snapshot",
         snapshot: this.snapshotManager.makeFullSnapshotForObserver(this.world),
       };
-      this.networkServer.send(clientId, JSON.stringify(snapshotMessage));
+      this.networkServer.send(
+        clientId,
+        encodeServerToClientMessage(snapshotMessage),
+      );
     }
   }
 
@@ -169,9 +176,10 @@ export class GameInstanceRuntime {
     const spawnPosition = this.getSpawnPositionForClient(clientId);
     playerEntity.x = spawnPosition.x;
     playerEntity.y = spawnPosition.y;
-    applyPlayerStarterLoadout(playerEntity);
-    if (!this.isPlayground) {
-      playerEntity.inventory.clearHotbar();
+    if (this.isPlayground) {
+      applyPlayerStarterLoadout(playerEntity);
+    } else {
+      applyPlayerNonLobbySpawnLoadout(playerEntity);
     }
 
     this.world.spawn(playerEntity);
@@ -324,7 +332,7 @@ export class GameInstanceRuntime {
       t: "spectate_update",
       targetEntityId,
     };
-    this.networkServer.send(clientId, JSON.stringify(message));
+    this.networkServer.send(clientId, encodeServerToClientMessage(message));
   }
 
   public handleInputIntent(
@@ -467,7 +475,7 @@ export class GameInstanceRuntime {
   ): void {
     this.networkServer.send(
       clientId,
-      JSON.stringify({ t: "error", message: reason }),
+      encodeServerToClientMessage({ t: "error", message: reason }),
     );
     if (!this.world.focusedTrace.matchesEntity(player)) {
       return;

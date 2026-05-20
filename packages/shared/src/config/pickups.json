@@ -1,0 +1,42 @@
+{
+  "spawnAttempts": 20,
+  "mag": {
+    "intervalMs": 8000,
+    "maxActive": 8
+  },
+  "weapon": {
+    "intervalMs": 20000,
+    "maxActive": 4
+  },
+  "blueprint": {
+    "intervalMs": 60000,
+    "maxActive": 2
+  },
+  "food": {
+    "intervalMs": 10000,
+    "maxActive": 8
+  },
+  "legacyOrder": {
+    "weapon": [
+      "item:basic_spear",
+      "item:cleaver",
+      "item:lead_pipe",
+      "item:baseball_bat",
+      "item:basic_dagger",
+      "item:scissors"
+    ],
+    "mag": [
+      "item:pistol_mag",
+      "item:rifle_mag",
+      "item:crossbow_mag",
+      "item:drone_mag"
+    ],
+    "blueprint": [
+      "item:blueprint_spiked_spear",
+      "item:blueprint_basic_rifle",
+      "item:blueprint_katana",
+      "item:blueprint_sniper"
+    ],
+    "food": ["item:junk_food", "item:quality_food"]
+  }
+}

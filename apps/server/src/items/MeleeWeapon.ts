@@ -82,6 +82,10 @@ export abstract class MeleeWeapon extends Weapon {
     return this.isTargetInAttackShape(owner, target, aim);
   }
 
+  public override scaleAttackRange(multiplier: number): void {
+    this.range *= multiplier;
+  }
+
   public override hit(world: World, owner: Entity, theta: number): boolean {
     if (!this.canHit()) {
       return false;

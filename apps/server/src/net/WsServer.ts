@@ -36,7 +36,7 @@ export class WsServer implements NetworkServerLike {
    * @param handler Callback invoked with client id and raw message text.
    */
   public onMessage(
-    handler: (clientId: string, rawMessage: string) => void,
+    handler: (clientId: string, rawMessage: string | Uint8Array) => void,
   ): void {
     this.messageHandlers.push(handler);
   }
@@ -86,7 +86,7 @@ export class WsServer implements NetworkServerLike {
     const rawMessage =
       typeof rawMessageData === "string"
         ? rawMessageData
-        : rawMessageData.toString();
+        : new Uint8Array(rawMessageData);
 
     for (const messageHandler of this.messageHandlers) {
       messageHandler(clientId, rawMessage);
