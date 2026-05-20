@@ -2483,9 +2483,9 @@ function villageLoot(
   y: number,
 ): ProceduralLootSpec {
   const pool = LOOT_BY_TIER[village.lootTier];
-  const index = Math.abs(
-    Math.imul((x | 0) ^ 0x9e3779b9, (y | 0) ^ 0x85ebca6b),
-  ) % pool.length;
+  const index =
+    Math.abs(Math.imul((x | 0) ^ 0x9e3779b9, (y | 0) ^ 0x85ebca6b)) %
+    pool.length;
   const typeId = pool[index]!;
   return lootSpec(
     typeId,
@@ -2507,7 +2507,9 @@ function crateLootForTier(
     .filter((typeId) => !knownTypeIds.has(typeId))
     .map((typeId) => ({
       typeId,
-      kind: getWeaponContent(typeId) ? ("weapon" as const) : ("stackable" as const),
+      kind: getWeaponContent(typeId)
+        ? ("weapon" as const)
+        : ("stackable" as const),
       amount: getWeaponContent(typeId) ? undefined : 1,
     }));
   const pool = [...explicitPool, ...derivedPool];
