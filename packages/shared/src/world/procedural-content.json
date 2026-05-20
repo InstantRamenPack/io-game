@@ -89,11 +89,6 @@
       }
     ],
     "rare": [
-<<<<<<< HEAD
-      { "typeId": "item:blueprint_basic_rifle", "kind": "stackable", "amount": 1 },
-      { "typeId": "item:rifle_mag", "kind": "stackable", "amount": 3 },
-      { "typeId": "item:hunk", "kind": "stackable", "amount": 10 }
-=======
       {
         "typeId": "item:blueprint_basic_rifle",
         "kind": "stackable",
@@ -123,7 +118,6 @@
         "kind": "stackable",
         "amount": 1
       }
->>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
     ],
     "epic": [
       {

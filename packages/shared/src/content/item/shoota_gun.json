@@ -1,6 +1,11 @@
 {
   "label": "Shoota Gun",
   "rarityTier": "common",
+  "runtime": {
+    "server": {
+      "classKind": "rangedWeapon"
+    }
+  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 18,

@@ -72,11 +72,7 @@ import itemcrowbarJson from "@shared/content/item/crowbar.json";
 import itemcrudeBandageJson from "@shared/content/item/crude_bandage.json";
 import itemdroneMagJson from "@shared/content/item/drone_mag.json";
 import itemdroneShooterJson from "@shared/content/item/drone_shooter.json";
-<<<<<<< HEAD
-import itemdungeonKeyJson from "@shared/content/item/dungeon_key.json";
 import itemfireAxeJson from "@shared/content/item/fire_axe.json";
-=======
->>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
 import itemfistsJson from "@shared/content/item/fists.json";
 import itemhalberdJson from "@shared/content/item/halberd.json";
 import itemheavyPistolJson from "@shared/content/item/heavy_pistol.json";
@@ -95,6 +91,7 @@ import itemrevolverJson from "@shared/content/item/revolver.json";
 import itemrifleMagJson from "@shared/content/item/rifle_mag.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
 import itemscissorsJson from "@shared/content/item/scissors.json";
+import itemshootaGunJson from "@shared/content/item/shoota_gun.json";
 import itemsniperJson from "@shared/content/item/sniper.json";
 import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
@@ -116,6 +113,7 @@ import projectilelmgBulletJson from "@shared/content/projectile/lmg_bullet.json"
 import projectilemachinePistolBulletJson from "@shared/content/projectile/machine_pistol_bullet.json";
 import projectilerevolverBulletJson from "@shared/content/projectile/revolver_bullet.json";
 import projectilerifleBulletJson from "@shared/content/projectile/rifle_bullet.json";
+import projectileshootaBulletJson from "@shared/content/projectile/shoota_bullet.json";
 import projectilesniperBulletJson from "@shared/content/projectile/sniper_bullet.json";
 import projectilethanosBulletJson from "@shared/content/projectile/thanos_bullet.json";
 import projectilethanosRocketJson from "@shared/content/projectile/thanos_rocket.json";
@@ -215,11 +213,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("crude_bandage", itemcrudeBandageJson),
   makeParsedItemContentEntry("drone_mag", itemdroneMagJson),
   makeParsedItemContentEntry("drone_shooter", itemdroneShooterJson),
-<<<<<<< HEAD
-  makeParsedItemContentEntry("dungeon_key", itemdungeonKeyJson),
   makeParsedItemContentEntry("fire_axe", itemfireAxeJson),
-=======
->>>>>>> fe1b8b69a18490d83a812559e5e5dae9d1180139
   makeParsedItemContentEntry("fists", itemfistsJson),
   makeParsedItemContentEntry("halberd", itemhalberdJson),
   makeParsedItemContentEntry("heavy_pistol", itemheavyPistolJson),
@@ -238,6 +232,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("rifle_mag", itemrifleMagJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),
   makeParsedItemContentEntry("scissors", itemscissorsJson),
+  makeParsedItemContentEntry("shoota_gun", itemshootaGunJson),
   makeParsedItemContentEntry("sniper", itemsniperJson),
   makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
@@ -271,6 +266,7 @@ export const projectileContentEntries = [
   makeParsedEntityContentEntry("projectile", "machine_pistol_bullet", projectilemachinePistolBulletJson),
   makeParsedEntityContentEntry("projectile", "revolver_bullet", projectilerevolverBulletJson),
   makeParsedEntityContentEntry("projectile", "rifle_bullet", projectilerifleBulletJson),
+  makeParsedEntityContentEntry("projectile", "shoota_bullet", projectileshootaBulletJson),
   makeParsedEntityContentEntry("projectile", "sniper_bullet", projectilesniperBulletJson),
   makeParsedEntityContentEntry("projectile", "thanos_bullet", projectilethanosBulletJson),
   makeParsedEntityContentEntry("projectile", "thanos_rocket", projectilethanosRocketJson),
