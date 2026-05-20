@@ -126,8 +126,11 @@ export class Enemy extends GoalControlledEntity {
 }
 
 function applyEnemyWeaponTuning(weapon: Weapon): void {
-  weapon.scaleCooldownTicksPerUse(
-    1 / enemyTuningConfig.weaponAttackSpeedMultiplier,
-  );
+  const weaponContent = getWeaponContent(weapon.typeId);
+  const cooldownMultiplier =
+    weaponContent?.attackStyle === "shoot"
+      ? enemyTuningConfig.rangedWeaponCooldownMultiplier
+      : enemyTuningConfig.meleeWeaponCooldownMultiplier;
+  weapon.scaleCooldownTicksPerUse(cooldownMultiplier);
   weapon.scaleAttackRange(enemyTuningConfig.weaponAttackRangeMultiplier);
 }

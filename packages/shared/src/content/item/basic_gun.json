@@ -18,7 +18,7 @@
     "projectileTypeId": "projectile:basic_bullet",
     "magSize": 12,
     "reloadTicks": 20,
-    "spreadDeg": 15,
+    "spreadDeg": 5,
     "magItemTypeId": "item:pistol_mag",
     "equippedRender": {
       "holdOffset": {

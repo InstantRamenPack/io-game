@@ -161,7 +161,8 @@ const RecyclingConfigSchema = z
   });
 
 const EnemyTuningConfigSchema = z.object({
-  weaponAttackSpeedMultiplier: PositiveFiniteNumberSchema,
+  meleeWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
+  rangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
   weaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
 });
 

@@ -1,4 +1,5 @@
 {
-  "weaponAttackSpeedMultiplier": 0.25,
+  "meleeWeaponCooldownMultiplier": 2,
+  "rangedWeaponCooldownMultiplier": 8,
   "weaponAttackRangeMultiplier": 0.5
 }

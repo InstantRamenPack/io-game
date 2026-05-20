@@ -65,8 +65,10 @@ describe("shared gameplay config", () => {
   });
 
   test("enemy global tuning keeps enemy weapons slower and shorter ranged", () => {
-    expect(enemyTuningConfig.weaponAttackSpeedMultiplier).toBeGreaterThan(0);
-    expect(enemyTuningConfig.weaponAttackSpeedMultiplier).toBeLessThan(1);
+    expect(enemyTuningConfig.meleeWeaponCooldownMultiplier).toBeGreaterThan(1);
+    expect(enemyTuningConfig.rangedWeaponCooldownMultiplier).toBeGreaterThan(
+      enemyTuningConfig.meleeWeaponCooldownMultiplier,
+    );
     expect(enemyTuningConfig.weaponAttackRangeMultiplier).toBeGreaterThan(0);
     expect(enemyTuningConfig.weaponAttackRangeMultiplier).toBeLessThan(1);
   });

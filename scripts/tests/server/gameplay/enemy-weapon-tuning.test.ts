@@ -93,8 +93,8 @@ describe("enemy weapon tuning", () => {
     expect(rangedWeapon.hit(runtime.world, shoota, 0)).toBe(true);
     expect(rangedWeapon.toSnapshot().cooldownTicksRemaining).toBe(
       Math.floor(
-        weaponContent.cooldownTicks /
-          enemyTuningConfig.weaponAttackSpeedMultiplier,
+        weaponContent.cooldownTicks *
+          enemyTuningConfig.rangedWeaponCooldownMultiplier,
       ),
     );
     const projectile = runtime.world.entities

@@ -4,6 +4,7 @@ import { getWeaponContent } from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type {
   JabWeaponContent,
+  ShootWeaponContent,
   SwingWeaponContent,
 } from "@shared/content/schema.ts";
 import {
@@ -15,7 +16,7 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("drifter combat content", () => {
-  test("uses full weapon damage with global enemy cadence and range nerfs", () => {
+  test("uses full weapon damage with split enemy cadence and range nerfs", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     for (const entity of runtime.world.entities.all()) {
@@ -27,7 +28,8 @@ describe("drifter combat content", () => {
     expect(weapon).toBeDefined();
     const weaponContent = getWeaponContent(weapon!.typeId) as
       | SwingWeaponContent
-      | JabWeaponContent;
+      | JabWeaponContent
+      | ShootWeaponContent;
     const expectedDamage =
       weaponContent.damage * player.getDamageReductionMultiplier();
     expect(drifter.damageMultiplier).toBe(1);
@@ -40,10 +42,16 @@ describe("drifter combat content", () => {
     tick(runtime, 2);
     expect(player.hp).toBeCloseTo(startingHp - expectedDamage, 5);
 
-    tick(runtime, weaponContent.cooldownTicks);
-    expect(player.hp).toBeCloseTo(startingHp - expectedDamage, 5);
+    const cooldownMultiplier =
+      weaponContent.attackStyle === "shoot"
+        ? enemyTuningConfig.rangedWeaponCooldownMultiplier
+        : enemyTuningConfig.meleeWeaponCooldownMultiplier;
+    const tunedCooldownTicks = Math.max(
+      1,
+      Math.floor(weaponContent.cooldownTicks * cooldownMultiplier),
+    );
 
-    tick(runtime, weaponContent.cooldownTicks * 3);
+    tick(runtime, tunedCooldownTicks);
     expect(player.hp).toBeCloseTo(startingHp - expectedDamage * 2, 5);
   });
 });
