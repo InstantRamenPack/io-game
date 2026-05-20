@@ -3,10 +3,6 @@
   "maxHp": 50,
   "moveSpeed": 8,
   "collisionMode": "dynamic",
-  "combat": {
-    "damageMultiplier": 0.5,
-    "attackMinIntervalTicks": 35
-  },
   "hitboxProfiles": {
     "default": [
       {
