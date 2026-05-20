@@ -403,6 +403,35 @@ describe("procedural survival extraction world", () => {
     }
   });
 
+  test("village crate loot reaches newly added blueprint tiers through procedural generation", () => {
+    const observedVillageCrateLoot = new Set<string>();
+
+    for (let seed = 1300; seed <= 1450; seed += 1) {
+      const layout = generateProceduralWorldLayout(seed);
+      for (const sector of layout.sectors) {
+        for (const enemy of sector.enemies) {
+          if (
+            enemy.typeId !== "enemy:crate" ||
+            !enemy.crateLoot ||
+            !enemy.label?.startsWith("village_template:")
+          ) {
+            continue;
+          }
+          for (const slot of enemy.crateLoot) {
+            observedVillageCrateLoot.add(slot.typeId);
+          }
+        }
+      }
+    }
+
+    expect(observedVillageCrateLoot.has("item:blueprint_machine_pistol")).toBe(
+      true,
+    );
+    expect(observedVillageCrateLoot.has("item:carbine")).toBe(true);
+    expect(observedVillageCrateLoot.has("item:revolver")).toBe(true);
+    expect(observedVillageCrateLoot.has("item:fire_axe")).toBe(true);
+  });
+
   test("home center area has no procedural structure blockers", () => {
     const layout = generateProceduralWorldLayout(1337);
     const home = layout.sectors.find((sector) => sector.archetype === "home");

@@ -2483,7 +2483,10 @@ function villageLoot(
   y: number,
 ): ProceduralLootSpec {
   const pool = LOOT_BY_TIER[village.lootTier];
-  const typeId = pool[0]!;
+  const index = Math.abs(
+    Math.imul((x | 0) ^ 0x9e3779b9, (y | 0) ^ 0x85ebca6b),
+  ) % pool.length;
+  const typeId = pool[index]!;
   return lootSpec(
     typeId,
     x,
@@ -2498,7 +2501,16 @@ function crateLootForTier(
   rng: seedrandom.PRNG,
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  const pool = PROCEDURAL_CONTENT.crateLootByTier[tier];
+  const explicitPool = PROCEDURAL_CONTENT.crateLootByTier[tier];
+  const knownTypeIds = new Set(explicitPool.map((slot) => slot.typeId));
+  const derivedPool = LOOT_BY_TIER[tier]
+    .filter((typeId) => !knownTypeIds.has(typeId))
+    .map((typeId) => ({
+      typeId,
+      kind: getWeaponContent(typeId) ? ("weapon" as const) : ("stackable" as const),
+      amount: getWeaponContent(typeId) ? undefined : 1,
+    }));
+  const pool = [...explicitPool, ...derivedPool];
   const hunk = pool.find((slot) => slot.typeId === "item:hunk");
   const optionalSlots = pool.filter((slot) => slot.typeId !== "item:hunk");
   const loot: ProceduralCrateLootSlot[] = hunk ? [{ ...hunk }] : [];
