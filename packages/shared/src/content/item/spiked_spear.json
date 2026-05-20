@@ -24,7 +24,7 @@
     "attackStyle": "jab",
     "cooldownTicks": 13,
     "range": 96,
-    "damage": 35,
+    "damage": 18,
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {
@@ -39,9 +39,6 @@
       "swingAngleDeg": 0,
       "jabDistance": 30
     }
-  },
-  "recycle": {
-    "hunkValue": 9
   },
   "rarityTier": "rare"
 }

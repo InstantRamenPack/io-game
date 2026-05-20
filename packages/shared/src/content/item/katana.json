@@ -20,7 +20,7 @@
     "attackStyle": "swing",
     "cooldownTicks": 8,
     "range": 60,
-    "damage": 32,
+    "damage": 16,
     "knockback": 18,
     "sweepArcDeg": 100,
     "equippedRender": {
@@ -35,9 +35,6 @@
       "swingAngleDeg": 100,
       "jabDistance": 26
     }
-  },
-  "recycle": {
-    "hunkValue": 12
   },
   "rarityTier": "legendary"
 }

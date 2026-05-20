@@ -1,6 +1,6 @@
 {
   "label": "Landmine",
-  "maxHp": 30,
+  "maxHp": 15,
   "collisionMode": "none",
   "hitboxProfiles": {
     "default": [

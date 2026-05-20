@@ -1,6 +1,6 @@
 {
   "label": "Thanos",
-  "maxHp": 2000,
+  "maxHp": 1000,
   "moveSpeed": 3,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

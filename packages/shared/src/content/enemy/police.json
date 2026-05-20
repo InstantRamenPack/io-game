@@ -1,6 +1,6 @@
 {
   "label": "Police",
-  "maxHp": 110,
+  "maxHp": 55,
   "moveSpeed": 12,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

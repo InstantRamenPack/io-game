@@ -1,6 +1,6 @@
 {
   "label": "Saboteur",
-  "maxHp": 80,
+  "maxHp": 40,
   "moveSpeed": 11,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

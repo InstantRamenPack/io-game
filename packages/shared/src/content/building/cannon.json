@@ -1,6 +1,6 @@
 {
   "label": "Cannon",
-  "maxHp": 240,
+  "maxHp": 120,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

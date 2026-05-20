@@ -146,9 +146,9 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(crate);
 
     expect(crate.typeId).toBe("enemy:crate");
-    expect(crate.maxHp).toBe(50);
+    expect(crate.maxHp).toBe(25);
 
-    crate.applyDamage(runtime.world, 49, 0);
+    crate.applyDamage(runtime.world, 24, 0);
     expect(crate.alive).toBe(true);
     expect(runtime.world.entities.has(crate.id)).toBe(true);
 

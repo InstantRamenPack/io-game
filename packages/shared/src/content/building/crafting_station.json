@@ -1,6 +1,6 @@
 {
   "label": "Crafting Station",
-  "maxHp": 260,
+  "maxHp": 130,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

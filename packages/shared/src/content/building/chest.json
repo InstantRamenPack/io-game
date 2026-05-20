@@ -1,6 +1,6 @@
 {
   "label": "Chest",
-  "maxHp": 250,
+  "maxHp": 125,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

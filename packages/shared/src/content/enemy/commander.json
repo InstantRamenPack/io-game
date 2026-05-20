@@ -1,6 +1,6 @@
 {
   "label": "Commander",
-  "maxHp": 180,
+  "maxHp": 90,
   "moveSpeed": 6,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

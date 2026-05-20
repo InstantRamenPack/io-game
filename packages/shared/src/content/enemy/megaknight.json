@@ -1,6 +1,6 @@
 {
   "label": "Megaknight",
-  "maxHp": 150,
+  "maxHp": 75,
   "moveSpeed": 7,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

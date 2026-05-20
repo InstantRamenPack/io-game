@@ -1,6 +1,6 @@
 {
   "label": "Crate",
-  "maxHp": 50,
+  "maxHp": 25,
   "moveSpeed": 0,
   "collisionMode": "static",
   "hitboxProfiles": {
