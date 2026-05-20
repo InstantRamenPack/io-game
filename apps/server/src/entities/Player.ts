@@ -51,6 +51,9 @@ import type { CollisionMode } from "@shared/content/schema.ts";
 
 const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
 
+const OUT_OF_COMBAT_TICKS = 100; // 5s at 20 tps
+const PASSIVE_REGEN_HP_PER_TICK = 2 / 60; // 2 HP over 3s at 20 tps
+
 type PlayerInputIntentState = {
   seq: number;
   clientTimeMs?: number;
@@ -77,6 +80,7 @@ export class Player extends Entity {
   private queuedActionHead = 0;
   private aimTheta = 0;
   private latestInputIntent?: PlayerInputIntentState;
+  private regenAccumulator = 0;
 
   constructor(id: number, name = "player") {
     const baseline = requireMovingEntityBaselineContent(Player.typeId);
@@ -138,6 +142,17 @@ export class Player extends Entity {
     super.tick(world);
     if (!this.alive || !world.entities.has(this.id)) {
       return;
+    }
+
+    if (this.hp < this.maxHp && world.tick - this.lastDamageTick >= OUT_OF_COMBAT_TICKS) {
+      this.regenAccumulator += PASSIVE_REGEN_HP_PER_TICK;
+      if (this.regenAccumulator >= 1) {
+        const heal = Math.floor(this.regenAccumulator);
+        this.hp = Math.min(this.maxHp, this.hp + heal);
+        this.regenAccumulator -= heal;
+      }
+    } else {
+      this.regenAccumulator = 0;
     }
 
     for (const weapon of this.inventory.iterateWeaponSlots()) {

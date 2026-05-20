@@ -75,6 +75,7 @@ export abstract class Entity {
   public damageMultiplier = 1;
   public hp: number;
   public maxHp: number;
+  public lastDamageTick = -Infinity;
   public ownerId?: number;
   private readonly compositeHitbox = new CompositeHitbox();
   private snapshotHitboxesCache?: HitboxRect[];
@@ -245,6 +246,7 @@ export abstract class Entity {
     }
 
     this.hp = nextHp;
+    this.lastDamageTick = world.tick;
     const isFatal = nextHp <= 0;
     const damageEvent: NetEvent = {
       type: "damage",
