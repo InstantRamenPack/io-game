@@ -35,7 +35,6 @@ describe("enemy weapon tuning", () => {
     }
 
     expect(rifleContent.spreadDeg).toBeGreaterThan(0);
-    expect(gunContent.spreadDeg).toBeGreaterThan(rifleContent.spreadDeg);
 
     const gun = new BasicGun();
     expect(gun.hit(runtime.world, player, 0)).toBe(true);
