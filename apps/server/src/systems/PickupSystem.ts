@@ -7,7 +7,6 @@ import {
   requiresManualPickup,
   WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
   WORLD_FOOD_PICKUP_TYPE_IDS,
-  WORLD_MAG_PICKUP_TYPE_IDS,
 } from "@server/content/serverContentCapabilities.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
@@ -22,7 +21,6 @@ import type { World } from "@server/world/World.ts";
  * non-weapon, non-buildable pickups on player overlap.
  */
 export class PickupSystem implements System {
-  private magAccumulatedMs = 0;
   private weaponAccumulatedMs = 0;
   private blueprintAccumulatedMs = 0;
   private foodAccumulatedMs = 0;
@@ -36,14 +34,11 @@ export class PickupSystem implements System {
       world.entities.queryInstances(ItemEntity),
     );
 
-    let activeMagPickupCount = 0;
     let activeWeaponPickupCount = 0;
     let activeBlueprintPickupCount = 0;
     let activeFoodPickupCount = 0;
     for (const pickup of world.entities.queryInstances(ItemEntity)) {
-      if (this.isMagPickup(pickup)) {
-        activeMagPickupCount += 1;
-      } else if (this.isWeaponPickup(pickup)) {
+      if (this.isWeaponPickup(pickup)) {
         activeWeaponPickupCount += 1;
       } else if (this.isBlueprintPickup(pickup)) {
         activeBlueprintPickupCount += 1;
@@ -53,15 +48,6 @@ export class PickupSystem implements System {
     }
 
     this.collectAutoPickups(world, world.entities.queryInstances(Player));
-
-    this.magAccumulatedMs += deltaMs;
-    while (this.magAccumulatedMs >= pickupsConfig.mag.intervalMs) {
-      this.magAccumulatedMs -= pickupsConfig.mag.intervalMs;
-      if (activeMagPickupCount < pickupsConfig.mag.maxActive) {
-        this.spawnRandomMagPickup(world);
-        activeMagPickupCount += 1;
-      }
-    }
 
     this.weaponAccumulatedMs += deltaMs;
     while (this.weaponAccumulatedMs >= pickupsConfig.weapon.intervalMs) {
@@ -191,16 +177,6 @@ export class PickupSystem implements System {
     }
   }
 
-  private spawnRandomMagPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, WORLD_MAG_PICKUP_TYPE_IDS);
-    if (!typeId) {
-      return;
-    }
-    const inventory = new Inventory();
-    inventory.addStackable(typeId, 1);
-    this.trySpawnPickup(world, inventory);
-  }
-
   private spawnRandomWeaponPickup(world: World): void {
     const typeId = this.pickRandomTypeId(world, getWorldWeaponPickupTypeIds());
     if (!typeId) {
@@ -285,12 +261,6 @@ export class PickupSystem implements System {
 
   private isFoodPickup(pickup: ItemEntity): boolean {
     return WORLD_FOOD_PICKUP_TYPE_IDS.some(
-      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-    );
-  }
-
-  private isMagPickup(pickup: ItemEntity): boolean {
-    return WORLD_MAG_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
