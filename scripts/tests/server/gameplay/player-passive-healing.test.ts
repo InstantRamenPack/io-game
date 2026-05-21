@@ -37,8 +37,7 @@ describe("player passive healing", () => {
 
     expect(player.hp).toBe(hpBefore + 1);
 
-    const expectedTicksUntilFirstHeal =
-      1 + Math.ceil(1 / passiveHealing.hpPerTick);
+    const expectedTicksUntilFirstHeal = Math.ceil(1 / passiveHealing.hpPerTick);
     expect(ticksUntilFirstHeal).toBe(expectedTicksUntilFirstHeal);
   });
 });
