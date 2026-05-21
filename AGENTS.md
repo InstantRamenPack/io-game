@@ -54,6 +54,7 @@ These rules apply to every task in this repo unless the user explicitly override
 ## Content System Facts
 
 - Shared JSON content plus strict parse-time validation is the source of truth for gameplay data.
+- For gameplay tuning/config knobs, prefer existing shared `.json` ownership surfaces (especially entity/item content JSON like `packages/shared/src/content/...`) over hardcoded server constants or new one-off config files.
 - Regenerate the content manifest after content schema/catalog changes with `bun run generate:content-manifest` or a command that already invokes it.
 - Enemy death loot balance lives in `packages/shared/src/content/enemy-death-loot-balance.json`.
 - Rarity is required for enemies, weapons, and buildable items. Recycling rarity behavior is server-owned in `serverContentCapabilities.ts`.
