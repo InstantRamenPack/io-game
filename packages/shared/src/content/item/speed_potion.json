@@ -6,5 +6,10 @@
     "outputAmount": 1,
     "costs": [{ "typeId": "item:hunk", "amount": 75 }]
   },
+  "activeEffect": {
+    "typeId": "effect:speed_boost",
+    "durationTicks": 3600,
+    "speedMultiplier": 1.35
+  },
   "consumable": true
 }

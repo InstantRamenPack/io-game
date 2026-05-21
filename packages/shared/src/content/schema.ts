@@ -195,6 +195,13 @@ export const ItemContentSchema = z.object({
   weapon: WeaponContentSchema.optional(),
   rarityTier: RarityTierSchema.optional(),
   food: z.object({ healAmount: z.number().finite().positive() }).optional(),
+  activeEffect: z
+    .object({
+      typeId: ResourceIdSchema,
+      durationTicks: z.number().int().positive(),
+      speedMultiplier: z.number().finite().positive().optional(),
+    })
+    .optional(),
   consumable: z.boolean().default(false),
   recycle: z
     .object({

@@ -1,18 +1,19 @@
 import type { Player } from "@server/entities/Player.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
-
-const SPEED_BOOST_EFFECT_TYPE_ID = "effect:speed_boost" as const;
-const SPEED_BOOST_DURATION_TICKS = 60 * 20 * 3;
-const SPEED_BOOST_MULTIPLIER = 1.35;
+import { getItemContent } from "@shared/content/catalog.ts";
 
 export class SpeedPotionItem extends ConsumableItem {
   public static override readonly resourceName = "speed_potion";
 
   public consume(player: Player): void {
+    const activeEffect = getItemContent(this.typeId)?.activeEffect;
+    if (!activeEffect) {
+      return;
+    }
     player.applyOrRefreshActiveEffect({
-      typeId: SPEED_BOOST_EFFECT_TYPE_ID,
-      ticksRemaining: SPEED_BOOST_DURATION_TICKS,
-      speedMultiplier: SPEED_BOOST_MULTIPLIER,
+      typeId: activeEffect.typeId,
+      ticksRemaining: activeEffect.durationTicks,
+      speedMultiplier: activeEffect.speedMultiplier,
     });
   }
 }
