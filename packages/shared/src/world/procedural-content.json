@@ -2,7 +2,7 @@
   "lootByTier": {
     "common": [
       "item:hunk",
-      "item:junk_food",
+      "item:crude_bandage",
       "item:pistol_mag",
       "item:rifle_mag",
       "item:crowbar"
@@ -10,7 +10,7 @@
     "uncommon": [
       "item:machete",
       "item:lead_pipe",
-      "item:quality_food",
+      "item:crude_bandage",
       "item:crossbow_mag",
       "item:revolver",
       "item:carbine"
@@ -42,7 +42,7 @@
         "amount": 4
       },
       {
-        "typeId": "item:junk_food",
+        "typeId": "item:crude_bandage",
         "kind": "stackable",
         "amount": 2
       },
@@ -64,7 +64,7 @@
         "amount": 6
       },
       {
-        "typeId": "item:quality_food",
+        "typeId": "item:crude_bandage",
         "kind": "stackable",
         "amount": 2
       },
@@ -264,7 +264,7 @@
       ],
       "loot": [
         {
-          "typeId": "item:quality_food",
+          "typeId": "item:crude_bandage",
           "offsetX": 160,
           "offsetY": 0,
           "kind": "stackable",

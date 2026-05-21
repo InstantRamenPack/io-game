@@ -12,7 +12,7 @@
     "intervalMs": 60000,
     "maxActive": 2
   },
-  "food": {
+  "medical": {
     "intervalMs": 10000,
     "maxActive": 8
   },
@@ -37,6 +37,6 @@
       "item:blueprint_katana",
       "item:blueprint_sniper"
     ],
-    "food": ["item:junk_food", "item:quality_food"]
+    "medical": ["item:crude_bandage"]
   }
 }

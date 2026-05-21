@@ -2,8 +2,6 @@
   "__default__": "/placeholder.png",
   "item:baseball_bat": "/icons/basic_sword.png",
   "item:basic_dagger": "/icons/dagger.png",
-  "item:junk_food": "/icons/junk_food.png",
-  "item:quality_food": "/icons/quality_food.png",
   "item:pistol_mag": "/icons/pistol_ammo.png",
   "item:rifle_mag": "/icons/rifle_ammo.png",
   "item:sniper_mag": "/icons/sniper_ammo.png",

@@ -546,6 +546,7 @@ export class Inventory {
   }
 
   private isBuildableType(typeId: ResourceId): boolean {
-    return Boolean(getItemContent(typeId)?.buildsEntityTypeId);
+    const content = getItemContent(typeId);
+    return Boolean(content?.buildsEntityTypeId || content?.consumable);
   }
 }

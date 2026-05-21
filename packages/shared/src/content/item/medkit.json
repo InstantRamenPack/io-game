@@ -6,6 +6,6 @@
     "outputAmount": 1,
     "costs": [{ "typeId": "item:hunk", "amount": 100 }]
   },
-  "food": { "healAmount": 100 },
+  "healing": { "amount": 100 },
   "consumable": true
 }

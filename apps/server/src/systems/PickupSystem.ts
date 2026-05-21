@@ -6,7 +6,7 @@ import {
   getWorldWeaponPickupTypeIds,
   requiresManualPickup,
   WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
-  WORLD_FOOD_PICKUP_TYPE_IDS,
+  WORLD_MEDICAL_PICKUP_TYPE_IDS,
 } from "@server/content/serverContentCapabilities.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
@@ -17,13 +17,13 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
- * Spawns consumable pickups (mags, weapons, blueprints, food) and auto-collects
+ * Spawns consumable pickups (mags, weapons, blueprints, medical) and auto-collects
  * non-weapon, non-buildable pickups on player overlap.
  */
 export class PickupSystem implements System {
   private weaponAccumulatedMs = 0;
   private blueprintAccumulatedMs = 0;
-  private foodAccumulatedMs = 0;
+  private medicalAccumulatedMs = 0;
   private readonly queryBuffer: Entity[] = [];
   private readonly spawnQueryBuffer: Entity[] = [];
   private readonly removedPickupIds = new Set<number>();
@@ -36,14 +36,14 @@ export class PickupSystem implements System {
 
     let activeWeaponPickupCount = 0;
     let activeBlueprintPickupCount = 0;
-    let activeFoodPickupCount = 0;
+    let activeMedicalPickupCount = 0;
     for (const pickup of world.entities.queryInstances(ItemEntity)) {
       if (this.isWeaponPickup(pickup)) {
         activeWeaponPickupCount += 1;
       } else if (this.isBlueprintPickup(pickup)) {
         activeBlueprintPickupCount += 1;
-      } else if (this.isFoodPickup(pickup)) {
-        activeFoodPickupCount += 1;
+      } else if (this.isMedicalPickup(pickup)) {
+        activeMedicalPickupCount += 1;
       }
     }
 
@@ -67,12 +67,12 @@ export class PickupSystem implements System {
       }
     }
 
-    this.foodAccumulatedMs += deltaMs;
-    while (this.foodAccumulatedMs >= pickupsConfig.food.intervalMs) {
-      this.foodAccumulatedMs -= pickupsConfig.food.intervalMs;
-      if (activeFoodPickupCount < pickupsConfig.food.maxActive) {
-        this.spawnRandomFoodPickup(world);
-        activeFoodPickupCount += 1;
+    this.medicalAccumulatedMs += deltaMs;
+    while (this.medicalAccumulatedMs >= pickupsConfig.medical.intervalMs) {
+      this.medicalAccumulatedMs -= pickupsConfig.medical.intervalMs;
+      if (activeMedicalPickupCount < pickupsConfig.medical.maxActive) {
+        this.spawnRandomMedicalPickup(world);
+        activeMedicalPickupCount += 1;
       }
     }
   }
@@ -111,7 +111,7 @@ export class PickupSystem implements System {
           continue;
         }
 
-        const transferable = this.buildAutoPickupInventory(player, candidate);
+        const transferable = this.buildAutoPickupInventory(candidate);
         if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
         }
@@ -204,8 +204,8 @@ export class PickupSystem implements System {
     this.trySpawnPickup(world, inventory);
   }
 
-  private spawnRandomFoodPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, WORLD_FOOD_PICKUP_TYPE_IDS);
+  private spawnRandomMedicalPickup(world: World): void {
+    const typeId = this.pickRandomTypeId(world, WORLD_MEDICAL_PICKUP_TYPE_IDS);
     if (!typeId) {
       return;
     }
@@ -259,8 +259,8 @@ export class PickupSystem implements System {
     return false;
   }
 
-  private isFoodPickup(pickup: ItemEntity): boolean {
-    return WORLD_FOOD_PICKUP_TYPE_IDS.some(
+  private isMedicalPickup(pickup: ItemEntity): boolean {
+    return WORLD_MEDICAL_PICKUP_TYPE_IDS.some(
       (typeId) => pickup.contents.getStackableCount(typeId) > 0,
     );
   }
@@ -299,17 +299,11 @@ export class PickupSystem implements System {
     return true;
   }
 
-  private buildAutoPickupInventory(
-    player: Player,
-    pickup: ItemEntity,
-  ): Inventory {
+  private buildAutoPickupInventory(pickup: ItemEntity): Inventory {
     const transferable = new Inventory();
 
     for (const [typeId, amount] of pickup.contents.resources.entries()) {
       if (amount <= 0) {
-        continue;
-      }
-      if (this.applyDirectPickupEffect(player, typeId, amount)) {
         continue;
       }
       transferable.addStackable(typeId, amount);
@@ -324,9 +318,6 @@ export class PickupSystem implements System {
         continue;
       }
       if (slot.count <= 0) {
-        continue;
-      }
-      if (this.applyDirectPickupEffect(player, slot.typeId, slot.count)) {
         continue;
       }
       transferable.addStackable(slot.typeId, slot.count);
@@ -383,19 +374,6 @@ export class PickupSystem implements System {
     }
 
     return unlockedRecipeTypeIds;
-  }
-
-  private applyDirectPickupEffect(
-    player: Player,
-    typeId: ResourceId,
-    amount: number,
-  ): boolean {
-    const healAmount = getItemContent(typeId)?.food?.healAmount;
-    if (healAmount === undefined) {
-      return false;
-    }
-    player.hp = Math.min(player.maxHp, player.hp + healAmount * amount);
-    return true;
   }
 
   private pickRandomTypeId<T extends ResourceId>(

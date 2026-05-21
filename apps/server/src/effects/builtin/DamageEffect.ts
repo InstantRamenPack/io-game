@@ -1,5 +1,7 @@
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
+import { Building } from "@server/entities/Building.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { Player } from "@server/entities/Player.ts";
 import { Effect } from "@server/effects/Effect.ts";
 import type { DamageEventPayload, NetEvent } from "@shared/net/events.ts";
 import type { World } from "@server/world/World.ts";
@@ -16,11 +18,39 @@ export class DamageEffect extends Effect {
     this.amount = amount;
   }
 
-  public override apply(world: World, source: Entity, target: Entity): void {
+  public static resolveInstigator(world: World, source: Entity): Entity | null {
     const instigator = source.getCombatInstigator(world);
+    if (!instigator || !instigator.alive) {
+      return null;
+    }
+    return instigator;
+  }
+
+  public static canApply(
+    world: World,
+    source: Entity,
+    target: Entity,
+  ): boolean {
+    const instigator = DamageEffect.resolveInstigator(world, source);
+    if (!instigator || !target.alive || instigator.id === target.id) {
+      return false;
+    }
+
+    if (instigator instanceof Player) {
+      return target instanceof Enemy || target instanceof Player;
+    }
+    if (instigator instanceof Enemy) {
+      return target instanceof Player || target instanceof Building;
+    }
+
+    return false;
+  }
+
+  public override apply(world: World, source: Entity, target: Entity): void {
+    const instigator = DamageEffect.resolveInstigator(world, source);
     if (
       !instigator ||
-      !combatEligibilityService.canAttackTarget(world, source, target) ||
+      !DamageEffect.canApply(world, source, target) ||
       !Number.isFinite(this.amount) ||
       this.amount <= 0
     ) {
@@ -40,6 +70,7 @@ export class DamageEffect extends Effect {
     }
 
     target.hp = nextHp;
+    target.lastDamageTick = world.tick;
     const isFatal = nextHp <= 0;
     const damageEvent: NetEvent = {
       type: "damage",

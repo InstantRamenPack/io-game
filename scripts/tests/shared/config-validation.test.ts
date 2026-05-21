@@ -40,7 +40,7 @@ describe("shared gameplay config", () => {
       pickupsConfig.mag,
       pickupsConfig.weapon,
       pickupsConfig.blueprint,
-      pickupsConfig.food,
+      pickupsConfig.medical,
     ]) {
       expect(pool.intervalMs).toBeGreaterThan(0);
       expect(pool.maxActive).toBeGreaterThanOrEqual(0);

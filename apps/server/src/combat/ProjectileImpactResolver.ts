@@ -7,7 +7,7 @@ import {
   resolveHitboxRects,
 } from "@shared/geometry/hitbox.ts";
 import { COMBAT_OCCLUSION_EPSILON } from "@server/combat/CombatOcclusion.ts";
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Projectile } from "@server/entities/Projectile.ts";
 import type { World } from "@server/world/World.ts";
@@ -87,7 +87,7 @@ export class ProjectileImpactResolver {
 
       if (
         ignoredTargetIds.has(candidate.id) ||
-        !combatEligibilityService.canAttackTarget(world, projectile, candidate)
+        !DamageEffect.canApply(world, projectile, candidate)
       ) {
         continue;
       }

@@ -147,7 +147,7 @@ export const PickupSpawnPoolSchema = z.enum([
   "mag",
   "weapon",
   "blueprint",
-  "food",
+  "medical",
 ]);
 
 export const PlayerStarterLoadoutSchema = z.object({
@@ -194,7 +194,7 @@ export const ItemContentSchema = z.object({
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
   rarityTier: RarityTierSchema.optional(),
-  food: z.object({ healAmount: z.number().finite().positive() }).optional(),
+  healing: z.object({ amount: z.number().finite().positive() }).optional(),
   activeEffect: z
     .object({
       typeId: ResourceIdSchema,
@@ -255,6 +255,7 @@ export const EffectContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  speedMultiplier: z.number().finite().positive().optional(),
   runtime: RuntimeRegistrationSchema,
 });
 
@@ -282,7 +283,7 @@ export type RuntimeServerClassKind = z.infer<
   typeof RuntimeServerClassKindSchema
 >;
 export type RuntimeRegistration = z.infer<typeof RuntimeRegistrationSchema>;
-export type FoodContent = { healAmount: number };
+export type HealingContent = { amount: number };
 export type ItemContent = z.infer<typeof ItemContentSchema>;
 export type EntityContent = z.infer<typeof EntityContentSchema>;
 export type EffectContent = z.infer<typeof EffectContentSchema>;

@@ -48,7 +48,9 @@ import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
 import { ConfusionEffect } from "@server/effects/builtin/ConfusionEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { FracturedEffect } from "@server/effects/builtin/FracturedEffect.ts";
+import { HealEffect } from "@server/effects/builtin/HealEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
+import { SpeedEffect } from "@server/effects/builtin/SpeedEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import { BlueprintBasicRifleItem } from "@server/items/blueprints/BlueprintBasicRifleItem.ts";
 import { BlueprintKatanaItem } from "@server/items/blueprints/BlueprintKatanaItem.ts";
@@ -59,9 +61,10 @@ import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts"
 import { PistolMagazineItem } from "@server/items/magazines/PistolMagazineItem.ts";
 import { RifleMagazineItem } from "@server/items/magazines/RifleMagazineItem.ts";
 import { SniperMagazineItem } from "@server/items/magazines/SniperMagazineItem.ts";
-import { JunkFoodItem } from "@server/items/food/JunkFoodItem.ts";
-import { QualityFoodItem } from "@server/items/food/QualityFoodItem.ts";
 import { HunkItem } from "@server/items/materials/HunkItem.ts";
+import { CrudeBandageItem } from "@server/items/medical/CrudeBandageItem.ts";
+import { MedkitItem } from "@server/items/medical/MedkitItem.ts";
+import { SpeedPotionItem } from "@server/items/medical/SpeedPotionItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
 import { ChestItem } from "@server/items/structures/ChestItem.ts";
 import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
@@ -159,8 +162,9 @@ export const itemRuntimeCtors = [
   ThanosRifle,
   ThanosRocketLauncher,
   HunkItem,
-  JunkFoodItem,
-  QualityFoodItem,
+  CrudeBandageItem,
+  MedkitItem,
+  SpeedPotionItem,
   BlueprintBasicRifleItem,
   BlueprintKatanaItem,
   BlueprintSniperItem,
@@ -182,6 +186,8 @@ export const effectRuntimeCtors = [
   ConfusionEffect,
   DamageEffect,
   FracturedEffect,
+  HealEffect,
   KnockbackEffect,
+  SpeedEffect,
   StunnedEffect,
 ] as const;

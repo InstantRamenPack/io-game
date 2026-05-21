@@ -5,7 +5,7 @@ import {
   getBlockerRayEntryDistance,
   getEntityRayEntryDistance,
 } from "@server/combat/CombatOcclusion.ts";
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import type { NetEvent } from "@shared/net/events.ts";
@@ -68,10 +68,7 @@ export abstract class MeleeWeapon extends Weapon {
   }
 
   public canReachTarget(world: World, owner: Entity, target: Entity): boolean {
-    if (
-      !this.canHit() ||
-      !combatEligibilityService.canAttackTarget(world, owner, target)
-    ) {
+    if (!this.canHit() || !DamageEffect.canApply(world, owner, target)) {
       return false;
     }
 
@@ -217,7 +214,7 @@ export abstract class MeleeWeapon extends Weapon {
         continue;
       }
 
-      if (!combatEligibilityService.canAttackTarget(world, owner, entity)) {
+      if (!DamageEffect.canApply(world, owner, entity)) {
         continue;
       }
 

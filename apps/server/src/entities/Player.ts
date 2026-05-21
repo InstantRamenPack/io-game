@@ -576,7 +576,7 @@ export class Player extends Entity {
           this.recycleSelectedItem(world);
           break;
         case "useConsumable":
-          this.useConsumable(actionMessage.typeId);
+          this.useConsumable(world, actionMessage.typeId);
           break;
         case "repair_tower":
           this.repairTower(world, actionMessage.towerId);
@@ -726,7 +726,7 @@ export class Player extends Entity {
     this.inventory.addStackable(HUNK_ITEM_TYPE_ID, hunkAmount);
   }
 
-  private useConsumable(typeId: ResourceId): void {
+  private useConsumable(world: World, typeId: ResourceId): void {
     const selectedIndex = this.inventory.selectedHotbarIndex;
     const selectedSlot = this.inventory.hotbarSlots[selectedIndex];
     if (
@@ -749,7 +749,7 @@ export class Player extends Entity {
     if (selectedSlot.count <= 0) {
       this.inventory.hotbarSlots[selectedIndex] = null;
     }
-    item.consume(this);
+    item.consume(world, this);
   }
 
   private isNearRecycler(world: World): boolean {

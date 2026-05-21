@@ -1,7 +1,7 @@
 import type { Entity } from "@server/entities/Entity.ts";
 import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 
 type EntityCtor<T extends Entity> = abstract new (...args: never[]) => T;
 
@@ -40,7 +40,7 @@ export class GoalTargetResolver {
     if (!target) {
       return null;
     }
-    return combatEligibilityService.canAttackTarget(
+    return DamageEffect.canApply(
       ctx.world,
       this.toCombatEntity(ctx.self),
       target,
@@ -57,7 +57,7 @@ export class GoalTargetResolver {
     if (!target) {
       return null;
     }
-    return combatEligibilityService.canAttackTarget(
+    return DamageEffect.canApply(
       ctx.world,
       this.toCombatEntity(ctx.self),
       target,
@@ -85,7 +85,7 @@ export class GoalTargetResolver {
     )) {
       if (
         !candidate.alive ||
-        !combatEligibilityService.canAttackTarget(
+        !DamageEffect.canApply(
           ctx.world,
           this.toCombatEntity(ctx.self),
           candidate,

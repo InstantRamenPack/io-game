@@ -1,4 +1,4 @@
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Effect } from "@server/effects/Effect.ts";
 import type { World } from "@server/world/World.ts";
@@ -18,10 +18,10 @@ export class BleedingEffect extends Effect {
   }
 
   public override apply(world: World, source: Entity, target: Entity): void {
-    const instigator = source.getCombatInstigator(world);
+    const instigator = DamageEffect.resolveInstigator(world, source);
     if (
       !instigator ||
-      !combatEligibilityService.canAttackTarget(world, source, target) ||
+      !DamageEffect.canApply(world, source, target) ||
       this.totalDurationTicks <= 0 ||
       this.pulseIntervalTicks <= 0 ||
       this.pulseDamage <= 0

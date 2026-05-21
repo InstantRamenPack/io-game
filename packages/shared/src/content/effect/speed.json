@@ -1,0 +1,9 @@
+{
+  "label": "Speed",
+  "speedMultiplier": 1.35,
+  "runtime": {
+    "server": {
+      "classKind": "effect"
+    }
+  }
+}

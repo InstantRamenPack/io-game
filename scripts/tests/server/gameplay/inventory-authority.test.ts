@@ -16,7 +16,9 @@ import {
 
 const wallItemId = makeResourceId("item", "wall");
 const hunkItemId = makeResourceId("item", "hunk");
-const junkFoodItemId = makeResourceId("item", "junk_food");
+const crudeBandageItemId = makeResourceId("item", "crude_bandage");
+const speedPotionItemId = makeResourceId("item", "speed_potion");
+const speedEffectId = makeResourceId("effect", "speed");
 const basicRifleItemId = makeResourceId("item", "basic_rifle");
 const basicRifleBlueprintItemId = makeResourceId(
   "item",
@@ -259,12 +261,12 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(hunkItemId)).toBe(before + 3);
   });
 
-  test("food pickups heal the player instead of becoming resources", () => {
+  test("medical pickups collect as bandages instead of healing directly", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     player.hp = 50;
     const pickupInventory = new Inventory();
-    pickupInventory.addStackable(junkFoodItemId, 2);
+    pickupInventory.addStackable(crudeBandageItemId, 2);
     const pickup = new ItemEntity(
       runtime.world.allocEntityId(),
       pickupInventory,
@@ -277,8 +279,56 @@ describe("inventory authority", () => {
     tick(runtime, 1);
 
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
-    expect(player.hp).toBe(90);
-    expect(player.inventory.countType(junkFoodItemId)).toBe(0);
+    expect(player.hp).toBe(50);
+    expect(player.inventory.countType(crudeBandageItemId)).toBe(2);
+  });
+
+  test("consuming a bandage heals through the healing effect path", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    player.hp = 50;
+    player.inventory.addStackable(crudeBandageItemId, 1);
+    const slotIndex = player.inventory.hotbarSlots.findIndex(
+      (slot) =>
+        slot?.kind === "buildable" && slot.typeId === crudeBandageItemId,
+    );
+    expect(slotIndex).toBeGreaterThanOrEqual(0);
+    player.inventory.selectedHotbarIndex = slotIndex;
+
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "useConsumable",
+      typeId: crudeBandageItemId,
+    });
+
+    expect(player.hp).toBe(60);
+    expect(player.inventory.countType(crudeBandageItemId)).toBe(0);
+  });
+
+  test("consuming a speed potion applies effect-authored movement speed", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    player.inventory.addStackable(speedPotionItemId, 1);
+    const slotIndex = player.inventory.hotbarSlots.findIndex(
+      (slot) => slot?.kind === "buildable" && slot.typeId === speedPotionItemId,
+    );
+    expect(slotIndex).toBeGreaterThanOrEqual(0);
+    player.inventory.selectedHotbarIndex = slotIndex;
+
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "useConsumable",
+      typeId: speedPotionItemId,
+    });
+
+    expect(player.activeEffects).toContainEqual({
+      typeId: speedEffectId,
+      ticksRemaining: 3600,
+      speedMultiplier: 1.35,
+    });
+    expect(player.inventory.countType(speedPotionItemId)).toBe(0);
   });
 
   test("weapon and building pickups stay manual", () => {

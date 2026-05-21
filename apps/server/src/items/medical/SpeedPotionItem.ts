@@ -1,19 +1,22 @@
 import type { Player } from "@server/entities/Player.ts";
+import type { Effect } from "@server/effects/Effect.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
+import { effectTypeRegistry } from "@server/registry/registries.ts";
 import { getItemContent } from "@shared/content/catalog.ts";
+import type { World } from "@server/world/World.ts";
+
+type TimedEffectCtor = new (durationTicks: number) => Effect;
 
 export class SpeedPotionItem extends ConsumableItem {
   public static override readonly resourceName = "speed_potion";
 
-  public consume(player: Player): void {
+  public consume(world: World, player: Player): void {
     const activeEffect = getItemContent(this.typeId)?.activeEffect;
     if (!activeEffect) {
       return;
     }
-    player.applyOrRefreshActiveEffect({
-      typeId: activeEffect.typeId,
-      ticksRemaining: activeEffect.durationTicks,
-      speedMultiplier: activeEffect.speedMultiplier,
-    });
+    const EffectCtor = effectTypeRegistry.require(activeEffect.typeId)
+      .ctor as unknown as TimedEffectCtor;
+    new EffectCtor(activeEffect.durationTicks).apply(world, player, player);
   }
 }

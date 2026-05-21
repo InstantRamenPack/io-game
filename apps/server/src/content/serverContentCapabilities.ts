@@ -57,9 +57,9 @@ export const WORLD_BLUEPRINT_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
   pickupsConfig.legacyOrder.blueprint as readonly ResourceId[],
 );
 
-export const WORLD_FOOD_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
-  "food",
-  pickupsConfig.legacyOrder.food as readonly ResourceId[],
+export const WORLD_MEDICAL_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
+  "medical",
+  pickupsConfig.legacyOrder.medical as readonly ResourceId[],
 );
 
 export const WORLD_MAG_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(

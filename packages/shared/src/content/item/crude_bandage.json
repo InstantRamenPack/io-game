@@ -6,6 +6,9 @@
     "outputAmount": 1,
     "costs": [{ "typeId": "item:hunk", "amount": 25 }]
   },
-  "food": { "healAmount": 10 },
-  "consumable": true
+  "healing": { "amount": 10 },
+  "consumable": true,
+  "pickupSpawn": {
+    "pools": ["medical"]
+  }
 }

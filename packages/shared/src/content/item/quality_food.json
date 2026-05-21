@@ -1,7 +1,0 @@
-{
-  "label": "Quality Food",
-  "hint": "Restores 40 HP.",
-  "food": {
-    "healAmount": 40
-  }
-}

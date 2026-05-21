@@ -30,7 +30,9 @@ import effectbleedingJson from "@shared/content/effect/bleeding.json";
 import effectconfusionJson from "@shared/content/effect/confusion.json";
 import effectdamageJson from "@shared/content/effect/damage.json";
 import effectfracturedJson from "@shared/content/effect/fractured.json";
+import effecthealJson from "@shared/content/effect/heal.json";
 import effectknockbackJson from "@shared/content/effect/knockback.json";
+import effectspeedJson from "@shared/content/effect/speed.json";
 import effectstunnedJson from "@shared/content/effect/stunned.json";
 import enemybomberJson from "@shared/content/enemy/bomber.json";
 import enemycommanderJson from "@shared/content/enemy/commander.json";
@@ -77,7 +79,6 @@ import itemfistsJson from "@shared/content/item/fists.json";
 import itemhalberdJson from "@shared/content/item/halberd.json";
 import itemheavyPistolJson from "@shared/content/item/heavy_pistol.json";
 import itemhunkJson from "@shared/content/item/hunk.json";
-import itemjunkFoodJson from "@shared/content/item/junk_food.json";
 import itemkatanaJson from "@shared/content/item/katana.json";
 import itemlandmineJson from "@shared/content/item/landmine.json";
 import itemleadPipeJson from "@shared/content/item/lead_pipe.json";
@@ -86,7 +87,6 @@ import itemmacheteJson from "@shared/content/item/machete.json";
 import itemmachinePistolJson from "@shared/content/item/machine_pistol.json";
 import itemmedkitJson from "@shared/content/item/medkit.json";
 import itempistolMagJson from "@shared/content/item/pistol_mag.json";
-import itemqualityFoodJson from "@shared/content/item/quality_food.json";
 import itemrevolverJson from "@shared/content/item/revolver.json";
 import itemrifleMagJson from "@shared/content/item/rifle_mag.json";
 import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
@@ -162,7 +162,9 @@ export const effectContentEntries = [
   makeParsedEffectContentEntry("confusion", effectconfusionJson),
   makeParsedEffectContentEntry("damage", effectdamageJson),
   makeParsedEffectContentEntry("fractured", effectfracturedJson),
+  makeParsedEffectContentEntry("heal", effecthealJson),
   makeParsedEffectContentEntry("knockback", effectknockbackJson),
+  makeParsedEffectContentEntry("speed", effectspeedJson),
   makeParsedEffectContentEntry("stunned", effectstunnedJson),
 ] as const;
 
@@ -217,7 +219,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("halberd", itemhalberdJson),
   makeParsedItemContentEntry("heavy_pistol", itemheavyPistolJson),
   makeParsedItemContentEntry("hunk", itemhunkJson),
-  makeParsedItemContentEntry("junk_food", itemjunkFoodJson),
   makeParsedItemContentEntry("katana", itemkatanaJson),
   makeParsedItemContentEntry("landmine", itemlandmineJson),
   makeParsedItemContentEntry("lead_pipe", itemleadPipeJson),
@@ -226,7 +227,6 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("machine_pistol", itemmachinePistolJson),
   makeParsedItemContentEntry("medkit", itemmedkitJson),
   makeParsedItemContentEntry("pistol_mag", itempistolMagJson),
-  makeParsedItemContentEntry("quality_food", itemqualityFoodJson),
   makeParsedItemContentEntry("revolver", itemrevolverJson),
   makeParsedItemContentEntry("rifle_mag", itemrifleMagJson),
   makeParsedItemContentEntry("saboteur_sword", itemsaboteurSwordJson),

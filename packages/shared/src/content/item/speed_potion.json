@@ -7,9 +7,8 @@
     "costs": [{ "typeId": "item:hunk", "amount": 75 }]
   },
   "activeEffect": {
-    "typeId": "effect:speed_boost",
-    "durationTicks": 3600,
-    "speedMultiplier": 1.35
+    "typeId": "effect:speed",
+    "durationTicks": 3600
   },
   "consumable": true
 }

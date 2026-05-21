@@ -1,4 +1,3 @@
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ExplosionAreaEffect } from "@server/effects/area/ExplosionAreaEffect.ts";
 import type { RadialAreaEffectHitContext } from "@server/effects/area/RadialAreaEffect.ts";
@@ -25,10 +24,7 @@ export class LandmineExplosionAreaEffect extends ExplosionAreaEffect {
     source: Entity,
     target: Entity,
   ): boolean {
-    return (
-      target.alive &&
-      combatEligibilityService.canAttackTarget(world, source, target)
-    );
+    return target.alive && DamageEffect.canApply(world, source, target);
   }
 
   /**

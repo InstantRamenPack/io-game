@@ -1,4 +1,3 @@
-import { combatEligibilityService } from "@server/combat/CombatEligibilityService.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
 import {
@@ -29,7 +28,7 @@ export class MegaknightSlamAreaEffect extends RadialAreaEffect {
     return (
       target.alive &&
       target instanceof Player &&
-      combatEligibilityService.canAttackTarget(world, source, target)
+      DamageEffect.canApply(world, source, target)
     );
   }
 

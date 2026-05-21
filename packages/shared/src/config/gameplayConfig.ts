@@ -125,12 +125,12 @@ const PickupsConfigSchema = z.object({
   mag: PickupPoolConfigSchema,
   weapon: PickupPoolConfigSchema,
   blueprint: PickupPoolConfigSchema,
-  food: PickupPoolConfigSchema,
+  medical: PickupPoolConfigSchema,
   legacyOrder: z.object({
     weapon: z.array(ResourceIdSchema),
     mag: z.array(ResourceIdSchema),
     blueprint: z.array(ResourceIdSchema),
-    food: z.array(ResourceIdSchema),
+    medical: z.array(ResourceIdSchema),
   }),
 });
 
