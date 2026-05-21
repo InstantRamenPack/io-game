@@ -1,10 +1,11 @@
 {
   "label": "Crude Bandage",
   "hint": "Restores 10 HP.",
-  "description": "A rough field dressing. Craft at a crafting station. Press G to use.",
+  "description": "A rough field dressing. Craft at a crafting station.",
   "recipe": {
     "outputAmount": 1,
     "costs": [{ "typeId": "item:hunk", "amount": 25 }]
   },
-  "food": { "healAmount": 10 }
+  "food": { "healAmount": 10 },
+  "consumable": true
 }

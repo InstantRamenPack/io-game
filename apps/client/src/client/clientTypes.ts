@@ -40,6 +40,7 @@ export type GameClientHudApi = {
     toSource: "hotbar" | "chest",
     toIndex: number,
   ): void;
+  queueUseConsumable(typeId: ResourceId): void;
   stopHoldFire(): void;
   setMovementSuppression(
     reason: MovementSuppressionReason,

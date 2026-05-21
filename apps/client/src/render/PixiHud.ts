@@ -95,11 +95,6 @@ export class PixiHud {
   private hunkBadgeBg?: PIXI.Graphics;
   private hunkBadgeIcon?: PIXI.Sprite;
   private hunkBadgeText?: PIXI.Text;
-  private consumableBadge?: PIXI.Container;
-  private consumableBadgeBg?: PIXI.Graphics;
-  private consumableBadgeIcon?: PIXI.Sprite;
-  private consumableBadgeText?: PIXI.Text;
-  private consumableBadgeKey?: PIXI.Text;
   private visible = false;
   private dirty = true;
   private lastLayoutWidth = 0;
@@ -366,6 +361,17 @@ export class PixiHud {
       return true;
     }
 
+    const activeIndex = computeHotbarActiveIndex({
+      inventory,
+      pendingHotbarIndex: undefined,
+    });
+    const activeSlot =
+      activeIndex === null ? undefined : hotbarItems[activeIndex];
+    if (activeSlot?.typeId && getItemContent(activeSlot.typeId)?.consumable) {
+      this.gameClient.queueUseConsumable(activeSlot.typeId as ResourceId);
+      return true;
+    }
+
     return false;
   }
 
@@ -479,34 +485,6 @@ export class PixiHud {
         this.hunkBadgeText,
       );
 
-      this.consumableBadge = new PIXI.Container();
-      this.consumableBadgeBg = new PIXI.Graphics();
-      this.consumableBadgeIcon = new PIXI.Sprite();
-      this.consumableBadgeIcon.anchor.set(0, 0.5);
-      const consumableBadgeStyle = new PIXI.TextStyle({
-        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 14,
-        fill: 0xe8f5e7,
-        fontWeight: "bold",
-      });
-      this.consumableBadgeText = new PIXI.Text("0", consumableBadgeStyle);
-      this.consumableBadgeText.anchor.set(0, 0.5);
-      this.consumableBadgeKey = new PIXI.Text(
-        "G",
-        new PIXI.TextStyle({
-          fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-          fontSize: 10,
-          fill: 0xa8baa4,
-        }),
-      );
-      this.consumableBadgeKey.anchor.set(0, 0.5);
-      this.consumableBadge.addChild(
-        this.consumableBadgeBg,
-        this.consumableBadgeIcon,
-        this.consumableBadgeText,
-        this.consumableBadgeKey,
-      );
-
       this.root.addChild(
         this.statusPanel.container,
         this.effectIconView.container,
@@ -514,7 +492,6 @@ export class PixiHud {
         this.combatHudView.container,
         this.hotbarView.container,
         this.hunkBadge,
-        this.consumableBadge,
         this.hotbarEditView.container,
         this.chestView.container,
         this.craftModalView.container,
@@ -766,7 +743,6 @@ export class PixiHud {
       nearCraftingStation,
     );
     this.syncHunkBadge(inventory);
-    this.syncConsumableBadge(inventory);
   }
 
   public markDirty(): void {
@@ -1030,81 +1006,6 @@ export class PixiHud {
     const hotbarX = this.hotbarView.container.x;
     const hotbarY = this.hotbarView.container.y;
     this.hunkBadge.position.set(hotbarX + this.hotbarView.width + 10, hotbarY);
-  }
-
-  private syncConsumableBadge(inventory: InventorySnapshot | undefined): void {
-    if (
-      !this.consumableBadge ||
-      !this.consumableBadgeBg ||
-      !this.consumableBadgeIcon ||
-      !this.consumableBadgeText ||
-      !this.consumableBadgeKey ||
-      !this.hotbarView
-    ) {
-      return;
-    }
-
-    const medkitCount =
-      inventory?.resources.find((r) => r.typeId === "item:medkit")?.amount ?? 0;
-    const bandageCount =
-      inventory?.resources.find((r) => r.typeId === "item:crude_bandage")
-        ?.amount ?? 0;
-
-    const hasAny = medkitCount > 0 || bandageCount > 0;
-    this.consumableBadge.visible = hasAny;
-    if (!hasAny) {
-      return;
-    }
-
-    const activeTypeId: ResourceId =
-      medkitCount > 0
-        ? ("item:medkit" as ResourceId)
-        : ("item:crude_bandage" as ResourceId);
-    const activeCount = medkitCount > 0 ? medkitCount : bandageCount;
-
-    const iconSize = 22;
-    const padding = 8;
-    const gap = 6;
-    const keyWidth = 14;
-
-    this.consumableBadgeIcon.texture =
-      this.gameClient.renderer.getItemTexture(activeTypeId);
-    this.consumableBadgeIcon.width = iconSize;
-    this.consumableBadgeIcon.height = iconSize;
-
-    this.consumableBadgeText.text = String(activeCount);
-    this.consumableBadgeKey.text = "G";
-
-    const badgeHeight = this.hotbarView.height;
-    const badgeWidth =
-      padding +
-      iconSize +
-      gap +
-      this.consumableBadgeText.width +
-      gap +
-      keyWidth +
-      padding;
-
-    this.consumableBadgeBg.clear();
-    this.consumableBadgeBg
-      .roundRect(0, 0, badgeWidth, badgeHeight, 6)
-      .fill({ color: 0x151515, alpha: 0.78 })
-      .roundRect(0, 0, badgeWidth, badgeHeight, 6)
-      .stroke({ width: 2, color: 0x2d5c3a, alpha: 0.8 });
-
-    this.consumableBadgeIcon.position.set(padding, badgeHeight / 2);
-    this.consumableBadgeText.position.set(
-      padding + iconSize + gap,
-      badgeHeight / 2,
-    );
-    this.consumableBadgeKey.position.set(
-      padding + iconSize + gap + this.consumableBadgeText.width + gap,
-      badgeHeight / 2,
-    );
-
-    const hotbarX = this.hotbarView.container.x;
-    const hotbarY = this.hotbarView.container.y;
-    this.consumableBadge.position.set(hotbarX - badgeWidth - 10, hotbarY);
   }
 
   private syncHotbarEditView(

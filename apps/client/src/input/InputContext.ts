@@ -1,6 +1,4 @@
 import type { SessionUiMode } from "@client/app/session/SessionUiStore.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-
 export type InputContext = {
   sessionMode: SessionUiMode;
   chatOpen: boolean;
@@ -13,5 +11,4 @@ export type InputContext = {
   nearChest: number | null;
   nearCraftingStation: boolean;
   nearDamagedTower: number | null;
-  hasConsumable: ResourceId | null;
 };

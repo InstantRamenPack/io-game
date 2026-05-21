@@ -1,0 +1,10 @@
+{
+  "label": "Speed Potion",
+  "hint": "Boosts movement speed for several minutes.",
+  "description": "A stimulant mix that increases your movement speed for 3 minutes.",
+  "recipe": {
+    "outputAmount": 1,
+    "costs": [{ "typeId": "item:hunk", "amount": 75 }]
+  },
+  "consumable": true
+}

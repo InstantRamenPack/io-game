@@ -93,6 +93,7 @@ import itemsaboteurSwordJson from "@shared/content/item/saboteur_sword.json";
 import itemscissorsJson from "@shared/content/item/scissors.json";
 import itemsniperJson from "@shared/content/item/sniper.json";
 import itemsniperMagJson from "@shared/content/item/sniper_mag.json";
+import itemspeedPotionJson from "@shared/content/item/speed_potion.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
 import itemtaserJson from "@shared/content/item/taser.json";
 import itemthanosFistJson from "@shared/content/item/thanos_fist.json";
@@ -232,6 +233,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("scissors", itemscissorsJson),
   makeParsedItemContentEntry("sniper", itemsniperJson),
   makeParsedItemContentEntry("sniper_mag", itemsniperMagJson),
+  makeParsedItemContentEntry("speed_potion", itemspeedPotionJson),
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
   makeParsedItemContentEntry("taser", itemtaserJson),
   makeParsedItemContentEntry("thanos_fist", itemthanosFistJson),

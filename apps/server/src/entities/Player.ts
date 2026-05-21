@@ -1,6 +1,5 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
-  getItemContent,
   requireEntityContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
@@ -34,6 +33,7 @@ import {
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
+import { ConsumableItem } from "@server/items/ConsumableItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
@@ -727,15 +727,29 @@ export class Player extends Entity {
   }
 
   private useConsumable(typeId: ResourceId): void {
-    const healAmount = getItemContent(typeId)?.food?.healAmount;
-    if (healAmount === undefined) {
+    const selectedIndex = this.inventory.selectedHotbarIndex;
+    const selectedSlot = this.inventory.hotbarSlots[selectedIndex];
+    if (
+      !selectedSlot ||
+      selectedSlot.kind !== "buildable" ||
+      selectedSlot.typeId !== typeId ||
+      selectedSlot.count <= 0
+    ) {
       return;
     }
-    if (this.inventory.getResourceCount(typeId) <= 0) {
+    const itemEntry = itemTypeRegistry.get(typeId);
+    if (!itemEntry) {
       return;
     }
-    this.inventory.consumeTypes([{ typeId, amount: 1 }]);
-    this.hp = Math.min(this.maxHp, this.hp + healAmount);
+    const item = new itemEntry.ctor();
+    if (!(item instanceof ConsumableItem)) {
+      return;
+    }
+    selectedSlot.count -= 1;
+    if (selectedSlot.count <= 0) {
+      this.inventory.hotbarSlots[selectedIndex] = null;
+    }
+    item.consume(this);
   }
 
   private isNearRecycler(world: World): boolean {
