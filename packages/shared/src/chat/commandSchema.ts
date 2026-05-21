@@ -19,7 +19,9 @@ export type ChatAutocompleteSource =
   | "item"
   | "effect"
   | "selector"
-  | "player";
+  | "player"
+  | "time_action"
+  | "time_period";
 
 export type ChatAutocompleteRule = {
   argIndex: number;
@@ -198,6 +200,20 @@ export const CHAT_COMMAND_SCHEMAS = [
     aliases: ["time"],
     usage: "/time <set day|night>",
     summary: "set day or night",
+    autocomplete: [
+      {
+        argIndex: 0,
+        sources: ["time_action"],
+      },
+      {
+        argIndex: 1,
+        sources: ["time_period"],
+        whenArgEquals: {
+          index: 0,
+          value: "set",
+        },
+      },
+    ],
   },
 ] as const satisfies readonly ChatCommandSchemaEntry[];
 

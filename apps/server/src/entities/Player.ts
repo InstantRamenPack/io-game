@@ -1,6 +1,7 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
   getItemContent,
+  requireEntityContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import {
@@ -51,9 +52,6 @@ import type { CollisionMode } from "@shared/content/schema.ts";
 
 const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
 
-const OUT_OF_COMBAT_TICKS = 100; // 5s at 20 tps
-const PASSIVE_REGEN_HP_PER_TICK = 2 / 60; // 2 HP over 3s at 20 tps
-
 type PlayerInputIntentState = {
   seq: number;
   clientTimeMs?: number;
@@ -68,6 +66,16 @@ type PlayerInputIntentState = {
 export class Player extends Entity {
   public static readonly kind = "player" as const;
   public static override readonly resourceName = "base";
+  private static readonly PASSIVE_HEALING = (() => {
+    const passiveHealing = requireEntityContent(Player.typeId).player
+      ?.passiveHealing;
+    if (!passiveHealing) {
+      throw new Error(
+        "Missing player passiveHealing content for entity:player/base",
+      );
+    }
+    return passiveHealing;
+  })();
 
   private static readonly INPUT_STALE_TIMEOUT_MS = 250;
 
@@ -146,9 +154,10 @@ export class Player extends Entity {
 
     if (
       this.hp < this.maxHp &&
-      world.tick - this.lastDamageTick >= OUT_OF_COMBAT_TICKS
+      world.tick - this.lastDamageTick >=
+        Player.PASSIVE_HEALING.outOfCombatTicks
     ) {
-      this.regenAccumulator += PASSIVE_REGEN_HP_PER_TICK;
+      this.regenAccumulator += Player.PASSIVE_HEALING.hpPerTick;
       if (this.regenAccumulator >= 1) {
         const heal = Math.floor(this.regenAccumulator);
         this.hp = Math.min(this.maxHp, this.hp + heal);

@@ -14,6 +14,10 @@
     ]
   },
   "player": {
+    "passiveHealing": {
+      "outOfCombatTicks": 100,
+      "hpPerTick": 0.02
+    },
     "starterLoadout": {
       "selectedHotbarIndex": 1,
       "weapons": [

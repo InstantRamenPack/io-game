@@ -100,6 +100,15 @@ const selectorSuggestions: ChatSuggestion[] = [
   { value: "@e", label: "@e", detail: "all entities" },
 ];
 
+const timeActionSuggestions: ChatSuggestion[] = [
+  { value: "set", label: "set", detail: "set time value" },
+];
+
+const timePeriodSuggestions: ChatSuggestion[] = [
+  { value: "day", label: "day", detail: "set daytime" },
+  { value: "night", label: "night", detail: "set nighttime" },
+];
+
 export function createChatController({
   elements,
   gameClient,
@@ -500,6 +509,10 @@ function getSourceSuggestions(
       return selectorSuggestions;
     case "player":
       return playerSuggestions;
+    case "time_action":
+      return timeActionSuggestions;
+    case "time_period":
+      return timePeriodSuggestions;
   }
 }
 

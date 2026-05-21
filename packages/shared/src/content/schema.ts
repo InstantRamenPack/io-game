@@ -226,6 +226,12 @@ export const EntityContentSchema = z.object({
   player: z
     .object({
       starterLoadout: PlayerStarterLoadoutSchema.optional(),
+      passiveHealing: z
+        .object({
+          outOfCombatTicks: z.number().int().positive(),
+          hpPerTick: z.number().finite().positive(),
+        })
+        .optional(),
     })
     .optional(),
   runtime: RuntimeRegistrationSchema,
