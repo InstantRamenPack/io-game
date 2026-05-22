@@ -1,22 +1,18 @@
 {
   "label": "Saboteur Sword",
   "recipe": {
-    "hint": "Forge this rare blade with a matching blueprint and refined hunks.",
+    "hint": "Specialized blade for damaging base utilities.",
     "outputAmount": 1,
     "costs": [
       {
-        "typeId": "item:blueprint_saboteur_sword",
-        "amount": 1
-      },
-      {
         "typeId": "item:hunk",
-        "amount": 95
+        "amount": 120
       }
     ]
   },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 20,
+    "cooldownTicks": 10,
     "range": 10,
     "damage": 5,
     "knockback": 15,
@@ -34,5 +30,8 @@
       "jabDistance": 0
     }
   },
-  "rarityTier": "rare"
+  "rarityTier": "uncommon",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  }
 }

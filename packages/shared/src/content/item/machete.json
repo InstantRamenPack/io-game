@@ -8,15 +8,15 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 30
+        "amount": 80
       }
     ]
   },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 9,
-    "range": 48,
-    "damage": 32,
+    "cooldownTicks": 8,
+    "range": 50,
+    "damage": 20,
     "knockback": 14,
     "sweepArcDeg": 100,
     "equippedRender": {

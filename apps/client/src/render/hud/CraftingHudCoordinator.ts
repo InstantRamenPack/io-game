@@ -4,7 +4,10 @@ import {
   isPlayerNearCraftingStation,
 } from "@client/render/hud/craftingStationInteraction.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
-import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
+import type {
+  CraftingTabId,
+  HudInteractionState,
+} from "@client/render/hud/HudInteractionState.ts";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import type { PointerInput } from "@client/client/clientTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -133,6 +136,7 @@ export class CraftingHudCoordinator {
     queueCraftItem: (itemTypeId: ResourceId) => void;
     isCraftButtonAtPoint: (screenX: number, screenY: number) => boolean;
     getCraftAtPoint: (screenX: number, screenY: number) => ResourceId | null;
+    getTabAtPoint: (screenX: number, screenY: number) => CraftingTabId | null;
   }): boolean {
     const {
       state,
@@ -142,7 +146,16 @@ export class CraftingHudCoordinator {
       queueCraftItem,
       isCraftButtonAtPoint,
       getCraftAtPoint,
+      getTabAtPoint,
     } = options;
+    const clickedTab = getTabAtPoint(screenX, screenY);
+    if (clickedTab) {
+      state.craftingTab = clickedTab;
+      this.hoveredCraftItemTypeId = null;
+      this.hoveredCraftPreview = false;
+      return true;
+    }
+
     if (isCraftButtonAtPoint(screenX, screenY)) {
       const craftTarget = state.previewedCraft;
       state.selectedCraft = craftTarget;

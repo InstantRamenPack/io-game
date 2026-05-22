@@ -1,9 +1,9 @@
 {
-  "label": "Rifle Bullet",
+  "label": "AK-47 Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
-    "speed": 80,
+    "speed": 100,
     "range": 2000,
     "damage": 15,
     "maxHits": 1,

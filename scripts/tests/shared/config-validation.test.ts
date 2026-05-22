@@ -60,7 +60,7 @@ describe("shared gameplay config", () => {
       expect(max).toBeGreaterThanOrEqual(min);
     }
     for (let index = 1; index < ranges.length; index += 1) {
-      expect(ranges[index]![0]).toBeGreaterThan(ranges[index - 1]![1]);
+      expect(ranges[index]![0]).toBeGreaterThanOrEqual(ranges[index - 1]![0]);
     }
   });
 

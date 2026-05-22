@@ -12,16 +12,16 @@
       },
       {
         "typeId": "item:hunk",
-        "amount": 140
+        "amount": 220
       }
     ]
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 4,
+    "cooldownTicks": 2,
     "projectileTypeId": "projectile:lmg_bullet",
     "magSize": 50,
-    "reloadTicks": 90,
+    "reloadTicks": 100,
     "spreadDeg": 4,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {

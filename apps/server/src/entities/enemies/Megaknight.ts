@@ -14,6 +14,7 @@ export class Megaknight extends Enemy {
 
   constructor(id: number) {
     super(id, {
+      weapons: [],
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 900, {
           requireLineOfSight: true,

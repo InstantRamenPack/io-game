@@ -7,6 +7,7 @@ import type {
 import {
   CraftingModal,
   type CraftingModalEntry,
+  type CraftingModalTab,
 } from "@client/render/hud/CraftingModal.ts";
 import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
@@ -20,7 +21,10 @@ import { HudPanel } from "@client/render/hud/HudPanel.ts";
 import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
 import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
 import { HotbarView } from "@client/render/hud/HotbarView.ts";
-import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
+import type {
+  CraftingTabId,
+  HudInteractionState,
+} from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
 import { ChestPromptView } from "@client/render/hud/ChestPromptView.ts";
@@ -45,6 +49,7 @@ import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
+  getWeaponContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
@@ -53,6 +58,12 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+const CRAFTING_TABS: ReadonlyArray<{ id: CraftingTabId; label: string }> = [
+  { id: "weapons", label: "Weapons" },
+  { id: "ammo", label: "Ammo" },
+  { id: "healing", label: "Healing" },
+  { id: "buildings", label: "Buildings" },
+];
 
 export type HudState = HudInteractionState;
 
@@ -138,6 +149,7 @@ export class PixiHud {
 
     this.state = {
       craftingMenuOpen: false,
+      craftingTab: "weapons",
       inventoryOpen: false,
       chestOpen: false,
       sectorFeedOpen: false,
@@ -311,6 +323,8 @@ export class PixiHud {
             false,
           getCraftAtPoint: (screenX, screenY) =>
             this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+          getTabAtPoint: (screenX, screenY) =>
+            this.craftModalView?.getTabAtPoint(screenX, screenY) ?? null,
         });
       }
       return true;
@@ -1057,7 +1071,19 @@ export class PixiHud {
       return [];
     }
 
-    const visibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
+    const allVisibleCraftableTypeIds = this.getVisibleCraftableTypeIds();
+    const craftTabs = this.buildCraftingTabs(allVisibleCraftableTypeIds);
+    if (
+      !craftTabs.some(
+        (tab) => tab.id === this.state.craftingTab && tab.count > 0,
+      )
+    ) {
+      this.state.craftingTab =
+        craftTabs.find((tab) => tab.count > 0)?.id ?? "weapons";
+    }
+    const visibleCraftableTypeIds = allVisibleCraftableTypeIds.filter(
+      (typeId) => this.getCraftingTabForItem(typeId) === this.state.craftingTab,
+    );
     this.syncCraftSelection(visibleCraftableTypeIds);
 
     const craftEntries = this.craftingHudCoordinator.buildCraftEntries({
@@ -1077,6 +1103,8 @@ export class PixiHud {
       screenWidth,
       screenHeight,
       entries: craftEntries,
+      tabs: craftTabs,
+      activeTab: this.state.craftingTab,
       selectedCraft: this.state.selectedCraft,
       previewedCraft: this.state.previewedCraft,
       iconProvider: (typeId) => this.gameClient.renderer.getItemTexture(typeId),
@@ -1143,10 +1171,58 @@ export class PixiHud {
     );
 
     return CRAFTABLE_ITEM_TYPE_IDS.filter((itemTypeId) => {
+      if (this.isMagRecipeLocked(itemTypeId, unlockedRecipeTypeIds)) {
+        return false;
+      }
       if (!isRecipeBlueprintLocked(itemTypeId)) {
         return true;
       }
       return unlockedRecipeTypeIds.has(itemTypeId);
+    });
+  }
+
+  private isMagRecipeLocked(
+    itemTypeId: ResourceId,
+    unlockedRecipeTypeIds: ReadonlySet<ResourceId>,
+  ): boolean {
+    return (
+      this.getCraftingTabForItem(itemTypeId) === "ammo" &&
+      !unlockedRecipeTypeIds.has(itemTypeId)
+    );
+  }
+
+  private buildCraftingTabs(
+    craftableTypeIds: readonly ResourceId[],
+  ): CraftingModalTab[] {
+    return CRAFTING_TABS.map((tab) => ({
+      ...tab,
+      count: craftableTypeIds.filter(
+        (typeId) => this.getCraftingTabForItem(typeId) === tab.id,
+      ).length,
+    }));
+  }
+
+  private getCraftingTabForItem(itemTypeId: ResourceId): CraftingTabId {
+    const item = getItemContent(itemTypeId);
+    if (item?.weapon) {
+      return "weapons";
+    }
+    if (this.isMagazineItemTypeId(itemTypeId)) {
+      return "ammo";
+    }
+    if (item?.healing || item?.activeEffect || item?.consumable) {
+      return "healing";
+    }
+    return "buildings";
+  }
+
+  private isMagazineItemTypeId(itemTypeId: ResourceId): boolean {
+    return CRAFTABLE_ITEM_TYPE_IDS.some((craftableTypeId) => {
+      const weaponContent = getWeaponContent(craftableTypeId);
+      return (
+        weaponContent?.attackStyle === "shoot" &&
+        weaponContent.magItemTypeId === itemTypeId
+      );
     });
   }
 

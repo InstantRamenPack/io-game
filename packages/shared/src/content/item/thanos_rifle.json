@@ -2,7 +2,7 @@
   "label": "Thanos Rifle",
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 14,
+    "cooldownTicks": 8,
     "projectileTypeId": "projectile:thanos_bullet",
     "magSize": 8,
     "reloadTicks": 80,

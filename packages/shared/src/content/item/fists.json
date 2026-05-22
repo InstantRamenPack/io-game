@@ -5,9 +5,9 @@
   "hidden": true,
   "weapon": {
     "attackStyle": "jab",
-    "cooldownTicks": 7,
+    "cooldownTicks": 6,
     "range": 20,
-    "damage": 7,
+    "damage": 5,
     "knockback": 4,
     "jabWidth": 18,
     "equippedRender": {
@@ -23,5 +23,18 @@
       "jabDistance": 12
     }
   },
-  "rarityTier": "common"
+  "rarityTier": "common",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "recipe": {
+    "hint": "Craft Fists from scavenged hunks.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 10
+      }
+    ]
+  }
 }

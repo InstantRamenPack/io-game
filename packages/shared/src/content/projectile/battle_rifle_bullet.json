@@ -1,5 +1,5 @@
 {
-  "label": "Battle Rifle Bullet",
+  "label": "M14 Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {

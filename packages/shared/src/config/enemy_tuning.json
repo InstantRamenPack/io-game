@@ -1,5 +1,5 @@
 {
   "meleeWeaponCooldownMultiplier": 2,
-  "rangedWeaponCooldownMultiplier": 8,
+  "rangedWeaponCooldownMultiplier": 6,
   "weaponAttackRangeMultiplier": 0.5
 }

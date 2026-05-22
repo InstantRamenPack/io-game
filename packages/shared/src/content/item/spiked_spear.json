@@ -2,29 +2,11 @@
   "label": "Spiked Spear",
   "hint": "Piercing spear that causes bleeding.",
   "description": "Long jab with bleed pressure on top of direct damage.",
-  "recipe": {
-    "hint": "Upgrade a Spear into a Spiked Spear at a crafting bench.",
-    "outputAmount": 1,
-    "costs": [
-      {
-        "typeId": "item:basic_spear",
-        "amount": 1
-      },
-      {
-        "typeId": "item:blueprint_spiked_spear",
-        "amount": 1
-      },
-      {
-        "typeId": "item:hunk",
-        "amount": 20
-      }
-    ]
-  },
   "weapon": {
     "attackStyle": "jab",
-    "cooldownTicks": 13,
-    "range": 96,
-    "damage": 18,
+    "cooldownTicks": 12,
+    "range": 100,
+    "damage": 24,
     "knockback": 15,
     "jabWidth": 24,
     "equippedRender": {

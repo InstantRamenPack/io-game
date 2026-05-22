@@ -2,22 +2,12 @@
   "label": "Taser",
   "hint": "Short sweep that stuns on hit.",
   "description": "Control-oriented melee tool with zero direct damage.",
-  "recipe": {
-    "hint": "Melee sweep that stuns on hit.",
-    "outputAmount": 1,
-    "costs": [
-      {
-        "typeId": "item:hunk",
-        "amount": 42
-      }
-    ]
-  },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 16,
+    "cooldownTicks": 6,
     "range": 60,
-    "damage": 0,
-    "knockback": 15,
+    "damage": 1,
+    "knockback": 20,
     "sweepArcDeg": 95,
     "equippedRender": {
       "holdOffset": {
@@ -32,5 +22,18 @@
       "jabDistance": 0
     }
   },
-  "rarityTier": "common"
+  "rarityTier": "uncommon",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  },
+  "recipe": {
+    "hint": "Short-range stun weapon for controlling rushes.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 70
+      }
+    ]
+  }
 }

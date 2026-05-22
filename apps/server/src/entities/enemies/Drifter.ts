@@ -9,7 +9,6 @@ import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { Cleaver } from "@server/items/weapons/Cleaver.ts";
-import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
 import { Scissors } from "@server/items/weapons/Scissors.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 
@@ -18,7 +17,6 @@ type DrifterWeaponCtor = new () => Weapon;
 const DRIFTER_WEAPON_POOL: readonly DrifterWeaponCtor[] = [
   BasicSword,
   Scissors,
-  LeadPipe,
   BaseballBat,
   BasicDagger,
   Cleaver,

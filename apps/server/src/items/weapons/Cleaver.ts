@@ -7,7 +7,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { SweepMeleeWeapon } from "@server/items/SweepMeleeWeapon.ts";
 import type { World } from "@server/world/World.ts";
 
-const BLEED_CHANCE = 0.2;
+const BLEED_CHANCE = 0.4;
 
 /**
  * Short sweep weapon with a moderate bleed proc chance.

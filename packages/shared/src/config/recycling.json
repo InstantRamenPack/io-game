@@ -2,8 +2,8 @@
   "rarityHunkRanges": {
     "common": [10, 20],
     "uncommon": [30, 50],
-    "rare": [70, 100],
-    "epic": [140, 190],
+    "rare": [40, 80],
+    "epic": [80, 120],
     "legendary": [200, 300]
   }
 }

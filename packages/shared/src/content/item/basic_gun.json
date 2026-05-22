@@ -8,7 +8,7 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 52
+        "amount": 50
       }
     ]
   },
@@ -33,5 +33,8 @@
       "jabDistance": 0
     }
   },
-  "rarityTier": "common"
+  "rarityTier": "common",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  }
 }

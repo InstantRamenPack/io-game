@@ -1,5 +1,11 @@
 import seedrandom from "seedrandom";
-import { getEntityContent, getWeaponContent } from "@shared/content/catalog.ts";
+import {
+  getAllEntityContentEntries,
+  getAllItemContentEntries,
+  getEntityContent,
+  getWeaponContent,
+} from "@shared/content/catalog.ts";
+import type { RarityTier } from "@shared/content/schema.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -118,7 +124,7 @@ export type ProceduralLootSpec = ProceduralPoint & {
   typeId: ResourceId;
   amount?: number;
   kind: "stackable" | "weapon";
-  rewardTier: "common" | "uncommon" | "rare" | "epic";
+  rewardTier: ProceduralRewardTier;
 };
 
 export type ProceduralCrateLootSlot = {
@@ -267,6 +273,9 @@ type ProceduralContentCrate = {
   }>;
 };
 
+type ProceduralRewardTier = Exclude<RarityTier, "legendary">;
+type RarityWeightTable = Partial<Record<RarityTier, number>>;
+
 type ProceduralDungeonRoomContent = {
   enemies?: ProceduralContentSpawn[];
   buildings?: ProceduralContentSpawn[];
@@ -281,9 +290,9 @@ type ProceduralSectorContent = {
 };
 
 type ProceduralContent = {
-  lootByTier: Record<ProceduralLootSpec["rewardTier"], readonly ResourceId[]>;
+  lootByTier: Record<ProceduralRewardTier, readonly ResourceId[]>;
   crateLootByTier: Record<
-    ProceduralLootSpec["rewardTier"],
+    ProceduralRewardTier,
     readonly ProceduralCrateLootSlot[]
   >;
   forestCampEnemyTypes: {
@@ -291,6 +300,8 @@ type ProceduralContent = {
     edge: readonly ResourceId[];
   };
   villageEnemyPools: Record<ProceduralVillageKind, readonly ResourceId[]>;
+  villageEnemyRarityWeights: Record<ProceduralRewardTier, RarityWeightTable>;
+  dungeonEnemyRarityWeights: Record<DungeonRoomRole, RarityWeightTable>;
   interiorSpawnChances: {
     furniture: number;
     crate: number;
@@ -331,6 +342,44 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
 const DUNGEON_HALLWAY_WIDTH = 96;
 const DUNGEON_FILL_CELL_SIZE = 32;
 const LOOT_BY_TIER = PROCEDURAL_CONTENT.lootByTier;
+const ENEMY_TYPE_IDS_BY_RARITY = buildEnemyTypeIdsByRarity();
+const EPIC_BLUEPRINT_TYPE_IDS = getEpicBlueprintTypeIds();
+
+function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
+  const result: Record<RarityTier, ResourceId[]> = {
+    common: [],
+    uncommon: [],
+    rare: [],
+    epic: [],
+    legendary: [],
+  };
+  for (const [typeId, content] of getAllEntityContentEntries()) {
+    if (!typeId.startsWith("enemy:") || !content.rarityTier) {
+      continue;
+    }
+    if (typeId === "enemy:crate") {
+      continue;
+    }
+    result[content.rarityTier].push(typeId);
+  }
+  return result;
+}
+
+function getEpicBlueprintTypeIds(): ResourceId[] {
+  return getAllItemContentEntries()
+    .filter(([, item]) => {
+      if (!item.unlocksRecipeTypeId) {
+        return false;
+      }
+      const unlockedItem = getAllItemContentEntries().find(
+        ([typeId]) => typeId === item.unlocksRecipeTypeId,
+      )?.[1];
+      return (
+        unlockedItem?.weapon !== undefined && unlockedItem.rarityTier === "epic"
+      );
+    })
+    .map(([typeId]) => typeId);
+}
 
 function addSectorAuthoredContent(
   archetype: SectorArchetype,
@@ -438,6 +487,7 @@ export function generateProceduralWorldLayout(
     radius: 160,
   };
   const villages = sectors.flatMap((sector) => sector.villages);
+  placeEpicBlueprintCrates(sectors, villages);
   const forestCamps = sectors.flatMap((sector) => sector.forestCamps);
   const minimapMarkers = sectors.flatMap((sector) => sector.minimapMarkers);
 
@@ -463,6 +513,70 @@ export function generateProceduralWorldLayout(
     forestCamps,
     minimapMarkers,
   };
+}
+
+function placeEpicBlueprintCrates(
+  sectors: ProceduralSector[],
+  villages: readonly ProceduralVillagePlan[],
+): void {
+  if (EPIC_BLUEPRINT_TYPE_IDS.length === 0) {
+    return;
+  }
+  const worldCenter = proceduralWorldCenter();
+  const farVillages = [...villages]
+    .filter((village) => village.lootTier !== "common")
+    .sort(
+      (left, right) =>
+        distanceSquared(
+          right.center.x,
+          right.center.y,
+          worldCenter.x,
+          worldCenter.y,
+        ) -
+        distanceSquared(
+          left.center.x,
+          left.center.y,
+          worldCenter.x,
+          worldCenter.y,
+        ),
+    );
+  if (farVillages.length === 0) {
+    return;
+  }
+
+  for (let index = 0; index < EPIC_BLUEPRINT_TYPE_IDS.length; index += 1) {
+    const village = farVillages[index % farVillages.length]!;
+    const sector = sectors.find(
+      (candidate) => candidate.id === village.sectorId,
+    );
+    if (!sector) {
+      continue;
+    }
+    const angle = (Math.PI * 2 * index) / EPIC_BLUEPRINT_TYPE_IDS.length;
+    sector.enemies.push(
+      crateSpawn(
+        "enemy:crate",
+        clamp(
+          village.center.x + Math.cos(angle) * 180,
+          village.minX + 96,
+          village.maxX - 96,
+        ),
+        clamp(
+          village.center.y + Math.sin(angle) * 180,
+          village.minY + 96,
+          village.maxY - 96,
+        ),
+        [
+          { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 12 },
+          {
+            typeId: EPIC_BLUEPRINT_TYPE_IDS[index]!,
+            kind: "stackable",
+            amount: 1,
+          },
+        ],
+      ),
+    );
+  }
 }
 
 export function sectorKey(row: number, col: number): string {
@@ -1677,11 +1791,29 @@ function addDungeonRoomContent(
   };
 
   const content = PROCEDURAL_CONTENT.dungeonRoomContent[room.role];
+  const enemyWeights = PROCEDURAL_CONTENT.dungeonEnemyRarityWeights[room.role];
+  const roomEnemySpawns: ProceduralSpawnSpec[] = [];
   for (const enemy of content.enemies ?? []) {
-    enemies.push(
-      roomSpawn(enemy.typeId, enemy.offsetX, enemy.offsetY, enemy.margin),
+    roomEnemySpawns.push(
+      roomSpawn(
+        selectEnemyTypeIdByRarityWeights(
+          seededRng(`${room.id}:${enemy.offsetX}:${enemy.offsetY}:enemy`),
+          enemyWeights,
+          {
+            excludedTypeIds: new Set<ResourceId>([
+              "enemy:saboteur",
+              "enemy:wallbreaker",
+            ]),
+          },
+        ),
+        enemy.offsetX,
+        enemy.offsetY,
+        enemy.margin,
+      ),
     );
   }
+  enforcePoliceSupportSpawn(roomEnemySpawns);
+  enemies.push(...roomEnemySpawns);
   for (const building of content.buildings ?? []) {
     buildings.push(
       roomSpawn(
@@ -2453,10 +2585,11 @@ function addVillageEnemies(
     room.role === "helipad" || room.role === "armory"
       ? baseCount + 1
       : baseCount;
-  const pool = PROCEDURAL_CONTENT.villageEnemyPools[village.kind];
+  const weights =
+    PROCEDURAL_CONTENT.villageEnemyRarityWeights[village.lootTier];
+  const startIndex = enemies.length;
   for (let index = 0; index < count; index += 1) {
-    const typeId =
-      pool[(index + Math.floor(rng() * pool.length)) % pool.length]!;
+    const typeId = selectEnemyTypeIdByRarityWeights(rng, weights);
     const angle = rng() * Math.PI * 2;
     const radius = 80 + rng() * 180;
     enemies.push(
@@ -2475,6 +2608,81 @@ function addVillageEnemies(
       ),
     );
   }
+  enforcePoliceSupportSpawn(enemies, startIndex, enemies.length);
+}
+
+function selectEnemyTypeIdByRarityWeights(
+  rng: seedrandom.PRNG,
+  weights: RarityWeightTable,
+  options: {
+    excludedTypeIds?: ReadonlySet<ResourceId>;
+  } = {},
+): ResourceId {
+  const weightedTiers = Object.entries(weights)
+    .map(([tier, weight]) => ({
+      tier: tier as RarityTier,
+      weight: Math.max(0, weight ?? 0),
+    }))
+    .filter(
+      ({ tier, weight }) =>
+        weight > 0 && ENEMY_TYPE_IDS_BY_RARITY[tier].length > 0,
+    );
+  const totalWeight = weightedTiers.reduce(
+    (total, entry) => total + entry.weight,
+    0,
+  );
+  if (totalWeight <= 0) {
+    return (
+      ENEMY_TYPE_IDS_BY_RARITY.common[0] ?? ("enemy:drifter" as ResourceId)
+    );
+  }
+
+  let roll = rng() * totalWeight;
+  for (const { tier, weight } of weightedTiers) {
+    roll -= weight;
+    if (roll <= 0) {
+      const pool = ENEMY_TYPE_IDS_BY_RARITY[tier].filter(
+        (typeId) => !options.excludedTypeIds?.has(typeId),
+      );
+      if (pool.length === 0) {
+        continue;
+      }
+      return pool[Math.floor(rng() * pool.length)]!;
+    }
+  }
+
+  const fallbackPool = ENEMY_TYPE_IDS_BY_RARITY[
+    weightedTiers.at(-1)!.tier
+  ].filter((typeId) => !options.excludedTypeIds?.has(typeId));
+  if (fallbackPool.length === 0) {
+    return "enemy:drifter";
+  }
+  return fallbackPool[Math.floor(rng() * fallbackPool.length)]!;
+}
+
+function enforcePoliceSupportSpawn(
+  spawns: ProceduralSpawnSpec[],
+  startIndex = 0,
+  endIndex = spawns.length,
+): void {
+  const scopedSpawns = spawns.slice(startIndex, endIndex);
+  if (scopedSpawns.length <= 1) {
+    if (scopedSpawns[0]?.typeId === "enemy:police") {
+      spawns[startIndex] = { ...scopedSpawns[0], typeId: "enemy:drifter" };
+    }
+    return;
+  }
+  const hasNonPolice = scopedSpawns.some(
+    (spawn) => spawn.typeId !== "enemy:police",
+  );
+  if (hasNonPolice) {
+    return;
+  }
+  spawns[startIndex] = { ...scopedSpawns[0]!, typeId: "enemy:drifter" };
+}
+
+function seededRng(seed: string): seedrandom.PRNG {
+  return seedrandom(seed);
 }
 
 function villageLoot(
@@ -2552,9 +2760,11 @@ function createForestCamp(
     x: snap(rect.minX + 360 + rng() * (rect.maxX - rect.minX - 720)),
     y: snap(rect.minY + 360 + rng() * (rect.maxY - rect.minY - 720)),
     radius: 260,
-    enemyTypes: (isCorner
-      ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
-      : ["enemy:drifter", "enemy:drifter", "enemy:police"]) as ResourceId[],
+    enemyTypes: [
+      ...(isCorner
+        ? PROCEDURAL_CONTENT.forestCampEnemyTypes.corner
+        : PROCEDURAL_CONTENT.forestCampEnemyTypes.edge),
+    ],
     minGroupSize: 1,
     maxGroupSize: isCorner ? 3 : 2,
     maxAlive: isCorner ? 3 : 2,

@@ -15,6 +15,7 @@ import { Crate } from "@server/entities/enemies/Crate.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
+import { Ranger } from "@server/entities/enemies/Ranger.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
@@ -53,7 +54,12 @@ import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { SpeedEffect } from "@server/effects/builtin/SpeedEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import { BlueprintBasicRifleItem } from "@server/items/blueprints/BlueprintBasicRifleItem.ts";
+import { BlueprintHalberdItem } from "@server/items/blueprints/BlueprintHalberdItem.ts";
+import { BlueprintHeavyPistolItem } from "@server/items/blueprints/BlueprintHeavyPistolItem.ts";
 import { BlueprintKatanaItem } from "@server/items/blueprints/BlueprintKatanaItem.ts";
+import { BlueprintLmgItem } from "@server/items/blueprints/BlueprintLmgItem.ts";
+import { BlueprintMachinePistolItem } from "@server/items/blueprints/BlueprintMachinePistolItem.ts";
+import { BlueprintSaboteurSwordItem } from "@server/items/blueprints/BlueprintSaboteurSwordItem.ts";
 import { BlueprintSniperItem } from "@server/items/blueprints/BlueprintSniperItem.ts";
 import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpikedSpearItem.ts";
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
@@ -77,11 +83,17 @@ import { BasicRifle } from "@server/items/weapons/BasicRifle.ts";
 import { BasicSpear } from "@server/items/weapons/BasicSpear.ts";
 import { BasicSword } from "@server/items/weapons/BasicSword.ts";
 import { Cleaver } from "@server/items/weapons/Cleaver.ts";
+import { Carbine } from "@server/items/weapons/Carbine.ts";
 import { Crossbow } from "@server/items/weapons/Crossbow.ts";
 import { DroneShooter } from "@server/items/weapons/DroneShooter.ts";
+import { FireAxe } from "@server/items/weapons/FireAxe.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
-import { LeadPipe } from "@server/items/weapons/LeadPipe.ts";
+import { Halberd } from "@server/items/weapons/Halberd.ts";
+import { HeavyPistol } from "@server/items/weapons/HeavyPistol.ts";
 import { Katana } from "@server/items/weapons/Katana.ts";
+import { Lmg } from "@server/items/weapons/Lmg.ts";
+import { Machete } from "@server/items/weapons/Machete.ts";
+import { MachinePistol } from "@server/items/weapons/MachinePistol.ts";
 import { Scissors } from "@server/items/weapons/Scissors.ts";
 import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
@@ -99,6 +111,7 @@ export const entityRuntimeCtors = [
   Drifter,
   Megaknight,
   Police,
+  Ranger,
   Saboteur,
   Shoota,
   Thanos,
@@ -148,10 +161,16 @@ export const itemRuntimeCtors = [
   BasicSpear,
   BasicSword,
   Cleaver,
+  Carbine,
   Crossbow,
   Fists,
+  FireAxe,
+  Halberd,
+  HeavyPistol,
   Katana,
-  LeadPipe,
+  Lmg,
+  Machete,
+  MachinePistol,
   Scissors,
   Sniper,
   SpikedSpear,
@@ -166,7 +185,12 @@ export const itemRuntimeCtors = [
   MedkitItem,
   SpeedPotionItem,
   BlueprintBasicRifleItem,
+  BlueprintHalberdItem,
+  BlueprintHeavyPistolItem,
   BlueprintKatanaItem,
+  BlueprintLmgItem,
+  BlueprintMachinePistolItem,
+  BlueprintSaboteurSwordItem,
   BlueprintSniperItem,
   BlueprintSpikedSpearItem,
   PistolMagazineItem,

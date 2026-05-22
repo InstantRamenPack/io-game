@@ -1,8 +1,11 @@
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ChestSlotRef } from "@client/render/hud/ChestView.ts";
 
+export type CraftingTabId = "weapons" | "ammo" | "healing" | "buildings";
+
 export type HudInteractionState = {
   craftingMenuOpen: boolean;
+  craftingTab: CraftingTabId;
   inventoryOpen: boolean;
   chestOpen: boolean;
   sectorFeedOpen: boolean;

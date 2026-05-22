@@ -2,22 +2,12 @@
   "label": "Cleaver",
   "hint": "Short sweeping chop. Sometimes opens a bleeding wound.",
   "description": "Basic melee weapon with medium damage, short reach, and a chance to inflict bleeding.",
-  "recipe": {
-    "hint": "Short chopping weapon with bleeding pressure.",
-    "outputAmount": 1,
-    "costs": [
-      {
-        "typeId": "item:hunk",
-        "amount": 28
-      }
-    ]
-  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 12,
-    "range": 42,
-    "damage": 14,
-    "knockback": 14,
+    "range": 50,
+    "damage": 10,
+    "knockback": 10,
     "sweepArcDeg": 95,
     "equippedRender": {
       "holdOffset": {
@@ -35,5 +25,15 @@
   "pickupSpawn": {
     "pools": ["weapon"]
   },
-  "rarityTier": "common"
+  "rarityTier": "common",
+  "recipe": {
+    "hint": "Craft Cleaver from scavenged hunks.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 40
+      }
+    ]
+  }
 }

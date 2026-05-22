@@ -12,15 +12,15 @@
       },
       {
         "typeId": "item:hunk",
-        "amount": 95
+        "amount": 180
       }
     ]
   },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 13,
-    "range": 72,
-    "damage": 52,
+    "cooldownTicks": 12,
+    "range": 80,
+    "damage": 40,
     "knockback": 20,
     "sweepArcDeg": 90,
     "equippedRender": {
@@ -29,7 +29,7 @@
         "y": 0
       },
       "holdRotationDeg": 0,
-      "scale": 2.0,
+      "scale": 2,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 90,

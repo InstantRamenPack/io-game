@@ -9,7 +9,11 @@ import {
   pointInRect,
 } from "@shared/world/ProceduralWorld.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
-import { getEntityContent } from "@shared/content/catalog.ts";
+import {
+  getAllItemContentEntries,
+  getEntityContent,
+  getItemContent,
+} from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
   entityTypeRegistry,
@@ -310,7 +314,6 @@ describe("procedural survival extraction world", () => {
             "enemy:shoota",
             "enemy:stalker",
             "enemy:bomber",
-            "enemy:saboteur",
             "enemy:sniper",
             "enemy:commander",
             "enemy:megaknight",
@@ -324,7 +327,6 @@ describe("procedural survival extraction world", () => {
         "enemy:shoota",
         "enemy:stalker",
         "enemy:bomber",
-        "enemy:saboteur",
         "enemy:sniper",
         "enemy:commander",
         "enemy:megaknight",
@@ -339,8 +341,8 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     for (const camp of layout.forestCamps) {
       const expected: ResourceId[] = isCornerSector(camp.sectorId)
-        ? ["enemy:drifter", "enemy:stalker", "enemy:shoota"]
-        : ["enemy:drifter", "enemy:drifter", "enemy:police"];
+        ? ["enemy:police", "enemy:ranger", "enemy:stalker"]
+        : ["enemy:drifter", "enemy:shoota", "enemy:police"];
       expect(camp.enemyTypes).toEqual(expected);
     }
 
@@ -370,8 +372,8 @@ describe("procedural survival extraction world", () => {
       ),
     ).toBe(true);
     expect(
-      villageCrates.some((crateLoot) =>
-        crateLoot.some((slot) => slot.typeId.startsWith("item:blueprint_")),
+      villageCrates.every((crateLoot) =>
+        crateLoot.every((slot) => !slot.typeId.startsWith("item:blueprint_")),
       ),
     ).toBe(true);
   });
@@ -403,33 +405,47 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("village crate loot reaches newly added blueprint tiers through procedural generation", () => {
-    const observedVillageCrateLoot = new Set<string>();
+  test("procedural crates place exactly one blueprint for each epic weapon", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const expectedBlueprintTypeIds = new Set(
+      getAllItemContentEntries()
+        .filter(([, item]) => {
+          if (!item.unlocksRecipeTypeId) {
+            return false;
+          }
+          return (
+            getItemContent(item.unlocksRecipeTypeId)?.weapon !== undefined &&
+            getItemContent(item.unlocksRecipeTypeId)?.rarityTier === "epic"
+          );
+        })
+        .map(([typeId]) => typeId),
+    );
+    const observedBlueprintCounts = new Map<ResourceId, number>();
 
-    for (let seed = 1300; seed <= 1450; seed += 1) {
-      const layout = generateProceduralWorldLayout(seed);
-      for (const sector of layout.sectors) {
-        for (const enemy of sector.enemies) {
-          if (
-            enemy.typeId !== "enemy:crate" ||
-            !enemy.crateLoot ||
-            !enemy.label?.startsWith("village_template:")
-          ) {
+    for (const sector of layout.sectors) {
+      for (const enemy of sector.enemies) {
+        if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+          continue;
+        }
+        for (const slot of enemy.crateLoot) {
+          if (!slot.typeId.startsWith("item:blueprint_")) {
             continue;
           }
-          for (const slot of enemy.crateLoot) {
-            observedVillageCrateLoot.add(slot.typeId);
-          }
+          observedBlueprintCounts.set(
+            slot.typeId,
+            (observedBlueprintCounts.get(slot.typeId) ?? 0) +
+              (slot.amount ?? 1),
+          );
         }
       }
     }
 
-    expect(observedVillageCrateLoot.has("item:blueprint_machine_pistol")).toBe(
-      true,
+    expect(new Set(observedBlueprintCounts.keys())).toEqual(
+      expectedBlueprintTypeIds,
     );
-    expect(observedVillageCrateLoot.has("item:carbine")).toBe(true);
-    expect(observedVillageCrateLoot.has("item:revolver")).toBe(true);
-    expect(observedVillageCrateLoot.has("item:fire_axe")).toBe(true);
+    for (const count of observedBlueprintCounts.values()) {
+      expect(count).toBe(1);
+    }
   });
 
   test("home center area has no procedural structure blockers", () => {
@@ -484,12 +500,8 @@ describe("procedural survival extraction world", () => {
     ).toBe(0);
     expect(dungeonSector?.enemies.length).toBeGreaterThanOrEqual(10);
     expect(entityTypeIds(dungeonSector!)).toContain("enemy:thanos");
-    expect(entityTypeIds(dungeonSector!)).not.toEqual(
-      expect.arrayContaining([
-        "enemy:bomber",
-        "enemy:wallbreaker",
-        "enemy:saboteur",
-      ]),
+    expect(entityTypeIds(dungeonSector!)).toEqual(
+      expect.arrayContaining(["enemy:ranger", "enemy:stalker"]),
     );
     expect(
       dungeonSector?.buildings.some(
@@ -627,7 +639,7 @@ describe("procedural survival extraction world", () => {
       (sector) => sector.archetype === "military",
     )!;
     expect(entityTypeIds(military)).toEqual(
-      expect.arrayContaining(["enemy:commander", "enemy:sniper"]),
+      expect.arrayContaining(["enemy:commander", "enemy:ranger"]),
     );
     expect(featureRoles(military)).toEqual(
       expect.arrayContaining([

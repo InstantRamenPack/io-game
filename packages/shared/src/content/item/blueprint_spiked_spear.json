@@ -2,8 +2,5 @@
   "label": "Blueprint: Spiked Spear",
   "hint": "Rare crafting schematic for the Spiked Spear.",
   "description": "Unlocks the Spiked Spear recipe permanently for this session.",
-  "unlocksRecipeTypeId": "item:spiked_spear",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  }
+  "unlocksRecipeTypeId": "item:spiked_spear"
 }

@@ -8,17 +8,17 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 75
+        "amount": 100
       }
     ]
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 5,
+    "cooldownTicks": 3,
     "projectileTypeId": "projectile:carbine_bullet",
     "magSize": 20,
-    "reloadTicks": 28,
-    "spreadDeg": 2,
+    "reloadTicks": 30,
+    "spreadDeg": 3,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
       "holdOffset": {
@@ -26,7 +26,7 @@
         "y": 4
       },
       "holdRotationDeg": -6,
-      "scale": 1.0,
+      "scale": 1,
       "handedness": "right",
       "recoilDistance": 10,
       "swingAngleDeg": 0,
@@ -36,5 +36,8 @@
   "recycle": {
     "hunkValue": 10
   },
-  "rarityTier": "uncommon"
+  "rarityTier": "uncommon",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  }
 }

@@ -1,15 +1,15 @@
 {
-  "label": "Machine Pistol Bullet",
+  "label": "Scorpion vz. 61 Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
-    "speed": 90,
-    "range": 700,
-    "damage": 15,
+    "speed": 75,
+    "range": 600,
+    "damage": 8,
     "maxHits": 1,
     "hitbox": {
-      "width": 10,
-      "height": 10
+      "width": 6,
+      "height": 6
     }
   }
 }

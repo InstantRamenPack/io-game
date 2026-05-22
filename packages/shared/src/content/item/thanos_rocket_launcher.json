@@ -2,9 +2,9 @@
   "label": "Thanos Rocket Launcher",
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 80,
+    "cooldownTicks": 30,
     "projectileTypeId": "projectile:thanos_rocket",
-    "magSize": 1,
+    "magSize": 3,
     "reloadTicks": 100,
     "spreadDeg": 0,
     "equippedRender": {

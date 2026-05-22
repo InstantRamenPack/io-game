@@ -3,35 +3,47 @@
     "common": [
       "item:hunk",
       "item:crude_bandage",
+      "item:baseball_bat",
+      "item:basic_dagger",
+      "item:basic_gun",
+      "item:basic_spear",
+      "item:basic_sword",
+      "item:cleaver",
+      "item:fists",
+      "item:scissors",
       "item:pistol_mag",
-      "item:rifle_mag",
-      "item:crowbar"
+      "item:rifle_mag"
     ],
     "uncommon": [
-      "item:machete",
-      "item:lead_pipe",
+      "item:hunk",
       "item:crude_bandage",
+      "item:carbine",
+      "item:crossbow",
+      "item:machete",
+      "item:saboteur_sword",
+      "item:taser",
       "item:crossbow_mag",
-      "item:revolver",
-      "item:carbine"
+      "item:wall",
+      "item:chest",
+      "item:crafting_station",
+      "item:landmine"
     ],
     "rare": [
-      "item:blueprint_basic_rifle",
-      "item:crossbow",
-      "item:blueprint_katana",
-      "item:sniper_mag",
-      "item:blueprint_machine_pistol",
-      "item:fire_axe"
+      "item:hunk",
+      "item:basic_rifle",
+      "item:drone_shooter",
+      "item:fire_axe",
+      "item:katana",
+      "item:machine_pistol",
+      "item:spiked_spear",
+      "item:cannon"
     ],
     "epic": [
-      "item:sniper",
-      "item:drone_shooter",
-      "item:blueprint_sniper",
-      "item:blueprint_spiked_spear",
-      "item:blueprint_heavy_pistol",
-      "item:blueprint_battle_rifle",
-      "item:blueprint_lmg",
-      "item:blueprint_halberd"
+      "item:hunk",
+      "item:halberd",
+      "item:heavy_pistol",
+      "item:lmg",
+      "item:sniper"
     ]
   },
   "crateLootByTier": {
@@ -44,77 +56,140 @@
       {
         "typeId": "item:crude_bandage",
         "kind": "stackable",
-        "amount": 2
-      },
-      {
-        "typeId": "item:pistol_mag",
-        "kind": "stackable",
         "amount": 1
       },
       {
-        "typeId": "item:wall",
-        "kind": "stackable",
-        "amount": 2
-      }
-    ],
-    "uncommon": [
-      {
-        "typeId": "item:hunk",
-        "kind": "stackable",
-        "amount": 6
+        "typeId": "item:baseball_bat",
+        "kind": "weapon"
       },
       {
-        "typeId": "item:crude_bandage",
-        "kind": "stackable",
-        "amount": 2
+        "typeId": "item:basic_dagger",
+        "kind": "weapon"
       },
       {
-        "typeId": "item:pistol_mag",
-        "kind": "stackable",
-        "amount": 2
+        "typeId": "item:basic_gun",
+        "kind": "weapon"
       },
       {
         "typeId": "item:basic_spear",
         "kind": "weapon"
       },
       {
-        "typeId": "item:blueprint_spiked_spear",
-        "kind": "stackable",
-        "amount": 1
+        "typeId": "item:basic_sword",
+        "kind": "weapon"
       },
       {
-        "typeId": "item:crossbow_mag",
-        "kind": "stackable",
-        "amount": 2
-      }
-    ],
-    "rare": [
+        "typeId": "item:cleaver",
+        "kind": "weapon"
+      },
       {
-        "typeId": "item:blueprint_basic_rifle",
+        "typeId": "item:fists",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:scissors",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:pistol_mag",
         "kind": "stackable",
         "amount": 1
       },
       {
         "typeId": "item:rifle_mag",
         "kind": "stackable",
-        "amount": 3
-      },
+        "amount": 1
+      }
+    ],
+    "uncommon": [
       {
         "typeId": "item:hunk",
         "kind": "stackable",
-        "amount": 10
+        "amount": 7
+      },
+      {
+        "typeId": "item:crude_bandage",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:carbine",
+        "kind": "weapon"
       },
       {
         "typeId": "item:crossbow",
         "kind": "weapon"
       },
       {
-        "typeId": "item:crossbow_mag",
-        "kind": "stackable",
-        "amount": 3
+        "typeId": "item:machete",
+        "kind": "weapon"
       },
       {
-        "typeId": "item:blueprint_katana",
+        "typeId": "item:saboteur_sword",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:taser",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:crossbow_mag",
+        "kind": "stackable",
+        "amount": 2
+      },
+      {
+        "typeId": "item:wall",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:chest",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:crafting_station",
+        "kind": "stackable",
+        "amount": 1
+      },
+      {
+        "typeId": "item:landmine",
+        "kind": "stackable",
+        "amount": 1
+      }
+    ],
+    "rare": [
+      {
+        "typeId": "item:hunk",
+        "kind": "stackable",
+        "amount": 12
+      },
+      {
+        "typeId": "item:basic_rifle",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:drone_shooter",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:fire_axe",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:katana",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:machine_pistol",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:spiked_spear",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:cannon",
         "kind": "stackable",
         "amount": 1
       }
@@ -123,64 +198,59 @@
       {
         "typeId": "item:hunk",
         "kind": "stackable",
-        "amount": 14
+        "amount": 18
+      },
+      {
+        "typeId": "item:halberd",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:heavy_pistol",
+        "kind": "weapon"
+      },
+      {
+        "typeId": "item:lmg",
+        "kind": "weapon"
       },
       {
         "typeId": "item:sniper",
         "kind": "weapon"
-      },
-      {
-        "typeId": "item:sniper_mag",
-        "kind": "stackable",
-        "amount": 4
-      },
-      {
-        "typeId": "item:blueprint_sniper",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:drone_shooter",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:drone_mag",
-        "kind": "stackable",
-        "amount": 3
-      },
-      {
-        "typeId": "item:blueprint_spiked_spear",
-        "kind": "stackable",
-        "amount": 1
       }
     ]
   },
   "forestCampEnemyTypes": {
-    "corner": ["enemy:drifter", "enemy:stalker", "enemy:shoota"],
-    "edge": ["enemy:drifter", "enemy:drifter", "enemy:police"]
+    "corner": ["enemy:police", "enemy:ranger", "enemy:stalker"],
+    "edge": ["enemy:drifter", "enemy:shoota", "enemy:police"]
   },
   "villageEnemyPools": {
-    "civilian": ["enemy:drifter", "enemy:drifter", "enemy:police"],
+    "civilian": [
+      "enemy:drifter",
+      "enemy:shoota",
+      "enemy:police",
+      "enemy:ranger"
+    ],
     "scavenger": [
       "enemy:drifter",
       "enemy:shoota",
+      "enemy:police",
+      "enemy:ranger",
       "enemy:stalker",
       "enemy:bomber"
     ],
     "military": [
       "enemy:police",
-      "enemy:shoota",
+      "enemy:ranger",
+      "enemy:commander",
+      "enemy:stalker",
       "enemy:sniper",
-      "enemy:saboteur",
-      "enemy:commander"
+      "enemy:megaknight"
     ],
     "extraction_fortified": [
-      "enemy:police",
-      "enemy:shoota",
-      "enemy:sniper",
-      "enemy:saboteur",
       "enemy:commander",
-      "enemy:megaknight"
+      "enemy:stalker",
+      "enemy:sniper",
+      "enemy:megaknight",
+      "enemy:thanos"
     ]
   },
   "interiorSpawnChances": {
@@ -357,11 +427,6 @@
               "kind": "weapon"
             },
             {
-              "typeId": "item:blueprint_katana",
-              "kind": "stackable",
-              "amount": 1
-            },
-            {
               "typeId": "item:sniper_mag",
               "kind": "stackable",
               "amount": 3
@@ -424,14 +489,6 @@
         }
       ],
       "loot": [
-        {
-          "typeId": "item:blueprint_basic_rifle",
-          "offsetX": -96,
-          "offsetY": 96,
-          "kind": "stackable",
-          "rewardTier": "rare",
-          "amount": 1
-        },
         {
           "typeId": "item:carbine",
           "offsetX": 96,
@@ -533,11 +590,6 @@
             {
               "typeId": "item:thanos_rifle",
               "kind": "weapon"
-            },
-            {
-              "typeId": "item:blueprint_sniper",
-              "kind": "stackable",
-              "amount": 1
             },
             {
               "typeId": "item:sniper_mag",
@@ -4427,6 +4479,70 @@
           }
         }
       ]
+    }
+  },
+  "villageEnemyRarityWeights": {
+    "common": {
+      "common": 7,
+      "uncommon": 3,
+      "rare": 1
+    },
+    "uncommon": {
+      "common": 2,
+      "uncommon": 6,
+      "rare": 2,
+      "epic": 0.35
+    },
+    "rare": {
+      "uncommon": 2,
+      "rare": 6,
+      "epic": 2
+    },
+    "epic": {
+      "rare": 2,
+      "epic": 5,
+      "legendary": 0.5
+    }
+  },
+  "dungeonEnemyRarityWeights": {
+    "entrance": {
+      "common": 5,
+      "uncommon": 3,
+      "rare": 1
+    },
+    "combat": {
+      "common": 2,
+      "uncommon": 5,
+      "rare": 2
+    },
+    "enemy_swarm": {
+      "common": 3,
+      "uncommon": 4,
+      "rare": 2
+    },
+    "maze": {
+      "uncommon": 4,
+      "rare": 3
+    },
+    "trap": {
+      "uncommon": 3,
+      "rare": 4
+    },
+    "treasure": {
+      "rare": 5,
+      "epic": 2
+    },
+    "armory": {
+      "rare": 4,
+      "epic": 2
+    },
+    "mini_boss": {
+      "rare": 3,
+      "epic": 4
+    },
+    "boss": {
+      "epic": 3,
+      "legendary": 1
     }
   }
 }

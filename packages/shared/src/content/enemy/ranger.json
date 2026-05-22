@@ -1,7 +1,7 @@
 {
-  "label": "Police",
-  "maxHp": 55,
-  "moveSpeed": 12,
+  "label": "Ranger",
+  "maxHp": 65,
+  "moveSpeed": 8,
   "collisionMode": "dynamic",
   "hitboxProfiles": {
     "default": [

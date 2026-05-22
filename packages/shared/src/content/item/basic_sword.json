@@ -8,15 +8,15 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 26
+        "amount": 20
       }
     ]
   },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 10,
+    "cooldownTicks": 8,
     "range": 50,
-    "damage": 18,
+    "damage": 15,
     "knockback": 15,
     "sweepArcDeg": 110,
     "equippedRender": {
@@ -32,5 +32,8 @@
       "jabDistance": 0
     }
   },
-  "rarityTier": "common"
+  "rarityTier": "common",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  }
 }

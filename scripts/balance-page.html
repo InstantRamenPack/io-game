@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weapon Balance</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.35;
+        color: #172026;
+        background: #f4f6f8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      main {
+        width: min(1800px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 24px 0 40px;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 720;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      input[type="search"],
+      select {
+        height: 36px;
+        border: 1px solid #c9d1d8;
+        border-radius: 6px;
+        background: #ffffff;
+        color: inherit;
+        font: inherit;
+      }
+
+      input[type="search"] {
+        width: min(360px, 40vw);
+        padding: 0 10px;
+      }
+
+      select {
+        padding: 0 8px;
+      }
+
+      .status {
+        min-width: 160px;
+        color: #5a6670;
+        font-size: 13px;
+        text-align: right;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid #cfd6dc;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      table {
+        width: 100%;
+        min-width: 1480px;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid #e1e6ea;
+        border-right: 1px solid #e1e6ea;
+        padding: 7px 8px;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #edf1f4;
+        color: #40505d;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      th[draggable="true"] {
+        cursor: grab;
+      }
+
+      th.drag-over {
+        background: #dbe7f2;
+      }
+
+      .column-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .sort-mark {
+        color: #6a7782;
+        font-size: 11px;
+      }
+
+      th:first-child,
+      td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #ffffff;
+        box-shadow: 1px 0 0 #e1e6ea;
+      }
+
+      th:first-child {
+        z-index: 3;
+        background: #edf1f4;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      td.meta {
+        color: #5a6670;
+      }
+
+      td.missing {
+        color: #9aa4ad;
+      }
+
+      td[contenteditable="true"] {
+        min-width: 72px;
+        background: #fffdf3;
+        cursor: text;
+      }
+
+      select.cell-select {
+        width: 100%;
+        min-width: 104px;
+        height: 26px;
+        border: 0;
+        border-radius: 4px;
+        background: #fffdf3;
+        font: inherit;
+      }
+
+      td[contenteditable="true"]:focus {
+        outline: 2px solid #2b7fff;
+        outline-offset: -2px;
+        background: #ffffff;
+      }
+
+      td.changed {
+        background: #eaf7ef;
+      }
+
+      td.error {
+        background: #ffecec;
+        color: #9d1c20;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Weapon Balance</h1>
+        </div>
+        <div class="controls">
+          <input
+            id="search"
+            type="search"
+            placeholder="Filter weapons or bullets"
+          />
+          <select id="attack-style">
+            <option value="">All attacks</option>
+            <option value="shoot">Shoot</option>
+            <option value="swing">Swing</option>
+            <option value="jab">Jab</option>
+          </select>
+          <div id="status" class="status">Loading...</div>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr id="header-row"></tr>
+          </thead>
+          <tbody id="balance-rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script type="module">
+      const columns = [
+        { kind: "field", key: "item.label" },
+        { kind: "meta", key: "weaponTypeId", label: "Weapon Type" },
+        { kind: "meta", key: "attackStyle", label: "Attack" },
+        { kind: "field", key: "item.rarityTier" },
+        { kind: "field", key: "item.hunkCost" },
+        { kind: "field", key: "projectile.label" },
+        { kind: "meta", key: "projectileTypeId", label: "Bullet Type" },
+        { kind: "field", key: "weapon.cooldownTicks" },
+        { kind: "field", key: "weapon.magSize" },
+        { kind: "field", key: "weapon.reloadTicks" },
+        { kind: "field", key: "weapon.spreadDeg" },
+        { kind: "field", key: "weapon.range" },
+        { kind: "field", key: "weapon.damage" },
+        { kind: "field", key: "weapon.knockback" },
+        { kind: "field", key: "weapon.sweepArcDeg" },
+        { kind: "field", key: "weapon.jabWidth" },
+        { kind: "field", key: "projectile.speed" },
+        { kind: "field", key: "projectile.range" },
+        { kind: "field", key: "projectile.damage" },
+        { kind: "field", key: "projectile.maxHits" },
+        { kind: "field", key: "projectile.hitboxWidth" },
+        { kind: "field", key: "projectile.hitboxHeight" },
+        { kind: "derived", key: "dpsNoReload", label: "DPS No Reload" },
+        { kind: "derived", key: "dpsWithReload", label: "DPS With Reload" },
+      ];
+
+      const headerRow = document.querySelector("#header-row");
+      const rowsBody = document.querySelector("#balance-rows");
+      const searchInput = document.querySelector("#search");
+      const attackStyleSelect = document.querySelector("#attack-style");
+      const statusElement = document.querySelector("#status");
+      const rarityTiers = ["common", "uncommon", "rare", "epic", "legendary"];
+
+      let rows = [];
+      let fieldLabels = new Map();
+      let sortState = { key: "item.label", direction: "asc" };
+      let draggedColumnKey = null;
+
+      function setStatus(message) {
+        statusElement.textContent = message;
+      }
+
+      function renderHeader() {
+        const headers = columns.map((column) => {
+          const th = document.createElement("th");
+          th.draggable = true;
+          th.dataset.columnKey = column.key;
+
+          const label = document.createElement("span");
+          label.className = "column-label";
+          label.textContent = columnLabel(column);
+
+          const sortMark = document.createElement("span");
+          sortMark.className = "sort-mark";
+          sortMark.textContent =
+            sortState.key === column.key
+              ? sortState.direction === "asc"
+                ? "up"
+                : "down"
+              : "";
+          label.append(sortMark);
+          th.append(label);
+
+          th.addEventListener("click", () => sortByColumn(column.key));
+          th.addEventListener("dragstart", (event) => {
+            draggedColumnKey = column.key;
+            event.dataTransfer.effectAllowed = "move";
+          });
+          th.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            th.classList.add("drag-over");
+          });
+          th.addEventListener("dragleave", () => {
+            th.classList.remove("drag-over");
+          });
+          th.addEventListener("drop", (event) => {
+            event.preventDefault();
+            th.classList.remove("drag-over");
+            moveColumn(draggedColumnKey, column.key);
+          });
+          th.addEventListener("dragend", () => {
+            draggedColumnKey = null;
+          });
+
+          return th;
+        });
+        headerRow.replaceChildren(...headers);
+      }
+
+      function fieldByKey(row, key) {
+        return row.fields.find((field) => field.key === key);
+      }
+
+      function columnLabel(column) {
+        return column.kind === "field"
+          ? (fieldLabels.get(column.key) ?? column.key)
+          : column.label;
+      }
+
+      function sortByColumn(key) {
+        sortState =
+          sortState.key === key
+            ? {
+                key,
+                direction: sortState.direction === "asc" ? "desc" : "asc",
+              }
+            : { key, direction: "asc" };
+        renderHeader();
+        renderRows();
+      }
+
+      function moveColumn(fromKey, toKey) {
+        if (!fromKey || fromKey === toKey) {
+          return;
+        }
+
+        const fromIndex = columns.findIndex((column) => column.key === fromKey);
+        const toIndex = columns.findIndex((column) => column.key === toKey);
+        if (fromIndex < 0 || toIndex < 0) {
+          return;
+        }
+
+        const [column] = columns.splice(fromIndex, 1);
+        columns.splice(toIndex, 0, column);
+        renderHeader();
+        renderRows();
+      }
+
+      function columnValue(row, column) {
+        if (column.kind === "field") {
+          return fieldByKey(row, column.key)?.value ?? null;
+        }
+        return row[column.key] ?? null;
+      }
+
+      function compareValues(a, b) {
+        if (a === b) {
+          return 0;
+        }
+        if (a === null || a === undefined) {
+          return 1;
+        }
+        if (b === null || b === undefined) {
+          return -1;
+        }
+        if (typeof a === "number" && typeof b === "number") {
+          return a - b;
+        }
+        return String(a).localeCompare(String(b), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      function matchesFilters(row) {
+        const query = searchInput.value.trim().toLowerCase();
+        const style = attackStyleSelect.value;
+        if (style && row.attackStyle !== style) {
+          return false;
+        }
+        if (!query) {
+          return true;
+        }
+
+        return [
+          row.weaponLabel,
+          row.weaponTypeId,
+          fieldByKey(row, "item.label")?.value,
+          fieldByKey(row, "projectile.label")?.value,
+          row.projectileLabel,
+          row.projectileTypeId,
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(query));
+      }
+
+      function makeFixedCell(value) {
+        const td = document.createElement("td");
+        td.className = value ? "meta" : "missing";
+        td.textContent = value ?? "-";
+        return td;
+      }
+
+      function formatDerivedValue(value) {
+        return typeof value === "number" ? value.toFixed(2) : "-";
+      }
+
+      function makeDerivedCell(value) {
+        const td = document.createElement("td");
+        td.className = typeof value === "number" ? "meta" : "missing";
+        td.textContent = formatDerivedValue(value);
+        return td;
+      }
+
+      function makeEditableCell(row, field) {
+        const td = document.createElement("td");
+        if (!field || (field.value === null && !field.editableWhenMissing)) {
+          td.className = "missing";
+          td.textContent = "-";
+          return td;
+        }
+
+        if (field.key === "item.rarityTier") {
+          return makeRarityCell(row, field);
+        }
+
+        td.contentEditable = "true";
+        td.inputMode = field.kind === "number" ? "decimal" : "text";
+        td.textContent = field.value === null ? "" : String(field.value);
+        td.dataset.originalValue =
+          field.value === null ? "" : String(field.value);
+        if (field.value === null) {
+          td.className = "missing";
+        }
+
+        td.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            td.blur();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            td.textContent = td.dataset.originalValue ?? "";
+            td.blur();
+          }
+        });
+
+        td.addEventListener("blur", () => {
+          void saveEditableCell(row, field, td);
+        });
+
+        return td;
+      }
+
+      function makeColumnCell(row, column) {
+        if (column.kind === "field") {
+          return makeEditableCell(row, fieldByKey(row, column.key));
+        }
+        if (column.kind === "derived") {
+          return makeDerivedCell(row[column.key]);
+        }
+        return makeFixedCell(row[column.key]);
+      }
+
+      function makeRarityCell(row, field) {
+        const td = document.createElement("td");
+        const select = document.createElement("select");
+        select.className = "cell-select";
+        select.dataset.originalValue = String(field.value ?? "");
+
+        for (const rarity of rarityTiers) {
+          const option = document.createElement("option");
+          option.value = rarity;
+          option.textContent = rarity;
+          select.append(option);
+        }
+
+        select.value = String(field.value ?? "common");
+        select.addEventListener("change", () => {
+          void saveCellValue(row, field, td, select.value, select);
+        });
+
+        td.append(select);
+        return td;
+      }
+
+      async function saveEditableCell(row, field, cell) {
+        await saveCellValue(row, field, cell, cell.textContent.trim(), cell);
+      }
+
+      async function saveCellValue(
+        row,
+        field,
+        cell,
+        rawValue,
+        originalElement,
+      ) {
+        if (rawValue === originalElement.dataset.originalValue) {
+          return;
+        }
+
+        const value =
+          field.kind === "number"
+            ? rawValue.length === 0 && field.deleteOnBlank
+              ? null
+              : Number(rawValue)
+            : rawValue.length > 0
+              ? rawValue
+              : null;
+
+        if (
+          field.kind === "number" &&
+          value !== null &&
+          !Number.isFinite(value)
+        ) {
+          cell.className = "error";
+          setStatus("Invalid number");
+          return;
+        }
+
+        setStatus("Saving...");
+        cell.className = "";
+
+        const response = await fetch("/api/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            weaponTypeId: row.weaponTypeId,
+            source: field.source,
+            path: field.path,
+            value,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          cell.className = "error";
+          setStatus(payload.error ?? "Save failed");
+          return;
+        }
+
+        rows = payload.rows;
+        refreshFieldLabels();
+        originalElement.dataset.originalValue = rawValue;
+        cell.className = "changed";
+        setStatus("Saved");
+        renderRows();
+      }
+
+      function renderRows() {
+        const sortColumn = columns.find(
+          (column) => column.key === sortState.key,
+        );
+        const visibleRows = rows.filter(matchesFilters).sort((a, b) => {
+          if (!sortColumn) {
+            return 0;
+          }
+          const result = compareValues(
+            columnValue(a, sortColumn),
+            columnValue(b, sortColumn),
+          );
+          return sortState.direction === "asc" ? result : -result;
+        });
+        const renderedRows = visibleRows.map((row) => {
+          const tr = document.createElement("tr");
+          tr.replaceChildren(
+            ...columns.map((column) => makeColumnCell(row, column)),
+          );
+          return tr;
+        });
+
+        rowsBody.replaceChildren(...renderedRows);
+        setStatus(`${visibleRows.length} of ${rows.length} weapons`);
+      }
+
+      function refreshFieldLabels() {
+        fieldLabels = new Map();
+        for (const row of rows) {
+          for (const field of row.fields) {
+            fieldLabels.set(field.key, field.label);
+          }
+        }
+      }
+
+      async function loadRows() {
+        const response = await fetch("/api/balance");
+        const payload = await response.json();
+        rows = payload.rows;
+        refreshFieldLabels();
+        renderHeader();
+        renderRows();
+      }
+
+      searchInput.addEventListener("input", renderRows);
+      attackStyleSelect.addEventListener("change", renderRows);
+
+      await loadRows();
+    </script>
+  </body>
+</html>

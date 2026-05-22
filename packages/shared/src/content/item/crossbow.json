@@ -8,17 +8,17 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 63
+        "amount": 60
       }
     ]
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 7,
+    "cooldownTicks": 8,
     "projectileTypeId": "projectile:crossbow_arrow",
-    "magSize": 6,
-    "reloadTicks": 48,
-    "spreadDeg": 0,
+    "magSize": 8,
+    "reloadTicks": 30,
+    "spreadDeg": 2,
     "magItemTypeId": "item:crossbow_mag",
     "equippedRender": {
       "holdOffset": {
@@ -33,5 +33,8 @@
       "jabDistance": 0
     }
   },
-  "rarityTier": "rare"
+  "rarityTier": "uncommon",
+  "pickupSpawn": {
+    "pools": ["weapon"]
+  }
 }

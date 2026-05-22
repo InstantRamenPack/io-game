@@ -1,14 +1,14 @@
 {
   "common": {
-    "weaponDropChance": 0.2,
+    "weaponDropChance": 0.15,
     "hunkMin": 5,
     "hunkMax": 10,
-    "magDropChance": 0.4,
+    "magDropChance": 0.3,
     "magMin": 1,
     "magMax": 2
   },
   "uncommon": {
-    "weaponDropChance": 0.3,
+    "weaponDropChance": 0.2,
     "hunkMin": 12,
     "hunkMax": 20,
     "magDropChance": 0.5,
@@ -16,18 +16,18 @@
     "magMax": 2
   },
   "rare": {
-    "weaponDropChance": 0.55,
+    "weaponDropChance": 0.3,
     "hunkMin": 28,
     "hunkMax": 45,
-    "magDropChance": 0.7,
+    "magDropChance": 0.5,
     "magMin": 1,
     "magMax": 3
   },
   "epic": {
-    "weaponDropChance": 0.75,
+    "weaponDropChance": 0.3,
     "hunkMin": 55,
     "hunkMax": 80,
-    "magDropChance": 0.85,
+    "magDropChance": 0.5,
     "magMin": 2,
     "magMax": 3
   },

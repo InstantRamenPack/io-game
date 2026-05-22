@@ -8,15 +8,15 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 16
+        "amount": 30
       }
     ]
   },
   "weapon": {
     "attackStyle": "jab",
-    "cooldownTicks": 6,
-    "range": 28,
-    "damage": 9,
+    "cooldownTicks": 3,
+    "range": 20,
+    "damage": 8,
     "knockback": 6,
     "jabWidth": 14,
     "equippedRender": {

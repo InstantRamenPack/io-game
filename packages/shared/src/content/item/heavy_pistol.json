@@ -12,17 +12,17 @@
       },
       {
         "typeId": "item:hunk",
-        "amount": 100
+        "amount": 180
       }
     ]
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 13,
+    "cooldownTicks": 16,
     "projectileTypeId": "projectile:heavy_pistol_bullet",
     "magSize": 8,
-    "reloadTicks": 28,
-    "spreadDeg": 0,
+    "reloadTicks": 30,
+    "spreadDeg": 1,
     "magItemTypeId": "item:pistol_mag",
     "equippedRender": {
       "holdOffset": {

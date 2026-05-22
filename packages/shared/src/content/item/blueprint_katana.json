@@ -2,8 +2,5 @@
   "label": "Blueprint: Katana",
   "hint": "Rare crafting schematic for the Katana.",
   "description": "Unlocks the Katana recipe permanently for this session.",
-  "unlocksRecipeTypeId": "item:katana",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  }
+  "unlocksRecipeTypeId": "item:katana"
 }

@@ -12,16 +12,16 @@
       },
       {
         "typeId": "item:hunk",
-        "amount": 120
+        "amount": 200
       }
     ]
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 26,
+    "cooldownTicks": 40,
     "projectileTypeId": "projectile:sniper_bullet",
     "magSize": 1,
-    "reloadTicks": 95,
+    "reloadTicks": 100,
     "spreadDeg": 0,
     "magItemTypeId": "item:sniper_mag",
     "equippedRender": {
@@ -40,5 +40,5 @@
       "aimGuide": "sniper"
     }
   },
-  "rarityTier": "legendary"
+  "rarityTier": "epic"
 }

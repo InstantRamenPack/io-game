@@ -1,11 +1,11 @@
 {
-  "label": "Revolver Bullet",
+  "label": "Colt Python Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
     "speed": 110,
     "range": 1200,
-    "damage": 55,
+    "damage": 25,
     "maxHits": 1,
     "hitbox": {
       "width": 12,

@@ -1,4 +1,4 @@
-import { getItemContent } from "@shared/content/catalog.ts";
+import { getItemContent, getWeaponContent } from "@shared/content/catalog.ts";
 import type { ItemRequirement } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
@@ -82,6 +82,10 @@ export class Inventory {
       kind: "weapon",
       weapon,
     };
+    const weaponContent = getWeaponContent(weapon.typeId);
+    if (weaponContent?.attackStyle === "shoot" && weaponContent.magItemTypeId) {
+      this.unlockRecipe(weaponContent.magItemTypeId);
+    }
     return true;
   }
 

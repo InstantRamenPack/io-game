@@ -1,11 +1,11 @@
 {
-  "label": "Bullet",
+  "label": "Glock Bullet",
   "maxHp": 0,
   "collisionMode": "none",
   "projectile": {
-    "speed": 100,
+    "speed": 75,
     "range": 1000,
-    "damage": 13,
+    "damage": 12,
     "maxHits": 1,
     "hitbox": {
       "width": 12,

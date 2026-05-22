@@ -5,6 +5,7 @@ import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
+import deathLootConfig from "@shared/content/death_loot.json";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   bootstrapTestRegistries,
@@ -26,14 +27,14 @@ describe("dungeon runtime mechanics", () => {
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
     const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
-    expect(hunkCount).toBeGreaterThanOrEqual(28);
-    expect(hunkCount).toBeLessThanOrEqual(45);
+    expect(hunkCount).toBeGreaterThanOrEqual(deathLootConfig.common.hunkMin);
+    expect(hunkCount).toBeLessThanOrEqual(deathLootConfig.common.hunkMax);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBeGreaterThanOrEqual(1);
+    ).toBeGreaterThanOrEqual(deathLootConfig.common.magMin);
     expect(
       pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBeLessThanOrEqual(3);
+    ).toBeLessThanOrEqual(deathLootConfig.common.magMax);
   });
 
   test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {

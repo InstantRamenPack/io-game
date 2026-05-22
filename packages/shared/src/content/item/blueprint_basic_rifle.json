@@ -2,8 +2,5 @@
   "label": "Blueprint: AK-74",
   "hint": "Rare crafting schematic for the AK-74.",
   "description": "Unlocks the AK-74 recipe permanently for this session.",
-  "unlocksRecipeTypeId": "item:basic_rifle",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  }
+  "unlocksRecipeTypeId": "item:basic_rifle"
 }

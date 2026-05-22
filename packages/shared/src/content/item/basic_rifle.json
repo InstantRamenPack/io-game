@@ -1,27 +1,13 @@
 {
-  "label": "AK-74",
+  "label": "AK-47",
   "hint": "Accurate automatic rifle with a large magazine.",
   "description": "Longer-range firearm for sustained pressure. Requires a blueprint to craft.",
-  "recipe": {
-    "hint": "Standard-issue assault rifle. Blueprint required.",
-    "outputAmount": 1,
-    "costs": [
-      {
-        "typeId": "item:blueprint_basic_rifle",
-        "amount": 1
-      },
-      {
-        "typeId": "item:hunk",
-        "amount": 100
-      }
-    ]
-  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 5,
     "projectileTypeId": "projectile:rifle_bullet",
     "magSize": 30,
-    "reloadTicks": 35,
+    "reloadTicks": 30,
     "spreadDeg": 8,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {

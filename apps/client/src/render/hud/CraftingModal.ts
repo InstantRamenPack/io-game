@@ -1,6 +1,7 @@
 import * as PIXI from "pixi.js";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { Rect } from "@client/render/renderTypes.ts";
+import type { CraftingTabId } from "@client/render/hud/HudInteractionState.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const CRAFT_MODAL_TILE_GAP = 12;
@@ -10,6 +11,14 @@ const CRAFT_BUTTON_WIDTH = 176;
 const CRAFT_BUTTON_HEIGHT = 48;
 const CRAFT_MODAL_MAX_TILES = 64;
 const CRAFT_MODAL_SCROLLBAR_WIDTH = 6;
+const CRAFT_TAB_HEIGHT = 30;
+const CRAFT_TAB_GAP = 8;
+
+export type CraftingModalTab = {
+  id: CraftingTabId;
+  label: string;
+  count: number;
+};
 
 export type CraftingModalEntry = {
   typeId: ResourceId;
@@ -107,6 +116,9 @@ export class CraftingModal {
   private readonly divider: PIXI.Graphics;
   private readonly leftTitle: PIXI.Text;
   private readonly rightTitle: PIXI.Text;
+  private readonly tabBar: PIXI.Container;
+  private readonly tabBackgrounds = new Map<CraftingTabId, PIXI.Graphics>();
+  private readonly tabLabels = new Map<CraftingTabId, PIXI.Text>();
   private readonly previewFrame: PIXI.Graphics;
   private readonly previewSprite: PIXI.Sprite;
   private readonly previewLabel: PIXI.Text;
@@ -119,6 +131,7 @@ export class CraftingModal {
   private readonly tileViewportMask: PIXI.Graphics;
   private readonly tileViews: CraftTileView[] = [];
   private readonly tileRects = new Map<ResourceId, Rect>();
+  private readonly tabRects = new Map<CraftingTabId, Rect>();
   private craftButtonRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private previewRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -132,6 +145,7 @@ export class CraftingModal {
     this.divider = new PIXI.Graphics();
     this.leftTitle = new PIXI.Text("Craftables", styles.titleStyle);
     this.rightTitle = new PIXI.Text("Details", styles.titleStyle);
+    this.tabBar = new PIXI.Container();
     this.previewFrame = new PIXI.Graphics();
     this.previewSprite = new PIXI.Sprite();
     this.previewSprite.anchor.set(0.5);
@@ -152,6 +166,7 @@ export class CraftingModal {
       this.divider,
       this.leftTitle,
       this.rightTitle,
+      this.tabBar,
       this.previewFrame,
       this.previewSprite,
       this.previewLabel,
@@ -180,6 +195,8 @@ export class CraftingModal {
     screenWidth: number;
     screenHeight: number;
     entries: CraftingModalEntry[];
+    tabs: readonly CraftingModalTab[];
+    activeTab: CraftingTabId;
     selectedCraft: ResourceId;
     previewedCraft: ResourceId;
     iconProvider: (typeId: ResourceId) => PIXI.Texture;
@@ -191,6 +208,8 @@ export class CraftingModal {
       screenWidth,
       screenHeight,
       entries,
+      tabs,
+      activeTab,
       selectedCraft,
       previewedCraft,
       iconProvider,
@@ -201,6 +220,7 @@ export class CraftingModal {
 
     this.container.visible = visible;
     this.tileRects.clear();
+    this.tabRects.clear();
     if (!visible) {
       this.craftButtonRect = { x: 0, y: 0, width: 0, height: 0 };
       this.modalRect = { x: 0, y: 0, width: 0, height: 0 };
@@ -271,8 +291,18 @@ export class CraftingModal {
     this.rightTitle.position.set(leftWidth + 22, 24);
 
     const leftInnerX = 26;
-    const leftInnerY = 58;
+    const tabsY = 58;
     const leftInnerWidth = leftWidth - leftInnerX - 22;
+    this.syncTabs(
+      tabs,
+      activeTab,
+      modalX,
+      modalY,
+      leftInnerX,
+      tabsY,
+      leftInnerWidth,
+    );
+    const leftInnerY = tabsY + CRAFT_TAB_HEIGHT + 14;
     const leftInnerHeight = paneHeight - leftInnerY - 22;
     this.tileViewportMask.clear();
     this.tileViewportMask
@@ -482,6 +512,15 @@ export class CraftingModal {
     return null;
   }
 
+  public getTabAtPoint(screenX: number, screenY: number): CraftingTabId | null {
+    for (const [tabId, rect] of this.tabRects.entries()) {
+      if (isPointInRect(screenX, screenY, rect)) {
+        return tabId;
+      }
+    }
+    return null;
+  }
+
   public isCraftButtonAtPoint(screenX: number, screenY: number): boolean {
     return isPointInRect(screenX, screenY, this.craftButtonRect);
   }
@@ -512,6 +551,66 @@ export class CraftingModal {
     return this.previewRect.width > 0 && this.previewRect.height > 0
       ? this.previewRect
       : null;
+  }
+
+  private syncTabs(
+    tabs: readonly CraftingModalTab[],
+    activeTab: CraftingTabId,
+    modalX: number,
+    modalY: number,
+    x: number,
+    y: number,
+    width: number,
+  ): void {
+    this.tabBar.position.set(0, 0);
+    let tabX = x;
+    const tabWidth = Math.max(
+      74,
+      Math.floor((width - (tabs.length - 1) * CRAFT_TAB_GAP) / tabs.length),
+    );
+
+    for (const tab of tabs) {
+      let background = this.tabBackgrounds.get(tab.id);
+      let label = this.tabLabels.get(tab.id);
+      if (!background || !label) {
+        background = new PIXI.Graphics();
+        label = new PIXI.Text("", {
+          fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+          fontSize: 13,
+          fill: 0xf1f6ef,
+        });
+        label.anchor.set(0.5);
+        this.tabBackgrounds.set(tab.id, background);
+        this.tabLabels.set(tab.id, label);
+        this.tabBar.addChild(background, label);
+      }
+
+      const active = tab.id === activeTab;
+      drawRoundedRect(
+        background,
+        tabX,
+        y,
+        tabWidth,
+        CRAFT_TAB_HEIGHT,
+        8,
+        { color: active ? 0x1f3f66 : 0x141c27, alpha: active ? 0.96 : 0.82 },
+        {
+          width: 1,
+          color: active ? 0x6ea8ff : 0x3d4a5f,
+          alpha: active ? 0.95 : 0.7,
+        },
+      );
+      label.text = `${tab.label} ${tab.count}`;
+      label.style.fill = active ? 0xf1f6ef : 0xb7c0b5;
+      label.position.set(tabX + tabWidth / 2, y + CRAFT_TAB_HEIGHT / 2);
+      this.tabRects.set(tab.id, {
+        x: modalX + tabX,
+        y: modalY + y,
+        width: tabWidth,
+        height: CRAFT_TAB_HEIGHT,
+      });
+      tabX += tabWidth + CRAFT_TAB_GAP;
+    }
   }
 }
 

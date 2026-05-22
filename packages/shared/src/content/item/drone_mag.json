@@ -9,8 +9,5 @@
         "amount": 20
       }
     ]
-  },
-  "pickupSpawn": {
-    "pools": ["mag"]
   }
 }

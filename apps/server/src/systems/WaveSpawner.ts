@@ -105,7 +105,14 @@ export class WaveSpawner {
       return;
     }
 
+    const hasNonPoliceSpawn = resolvedConfig.spawns.some(
+      (spawn) => spawn.entityType !== "police" && spawn.count > 0,
+    );
+
     for (const spawn of resolvedConfig.spawns) {
+      if (spawn.entityType === "police" && !hasNonPoliceSpawn) {
+        continue;
+      }
       this.pendingSpawns.push({
         spawn,
         ticksRemaining: spawn.delayTicks,

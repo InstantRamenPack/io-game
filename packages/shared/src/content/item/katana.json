@@ -2,25 +2,11 @@
   "label": "Katana",
   "hint": "Two rapid cuts followed by a devastating thrust.",
   "description": "Blueprint melee weapon with high damage, medium reach, and a three-hit combo that ends in a heavier stab.",
-  "recipe": {
-    "hint": "Forge a katana from a rare schematic and refined hunks at a crafting bench.",
-    "outputAmount": 1,
-    "costs": [
-      {
-        "typeId": "item:blueprint_katana",
-        "amount": 1
-      },
-      {
-        "typeId": "item:hunk",
-        "amount": 90
-      }
-    ]
-  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 8,
-    "range": 60,
-    "damage": 16,
+    "range": 75,
+    "damage": 30,
     "knockback": 18,
     "sweepArcDeg": 100,
     "equippedRender": {
@@ -36,5 +22,5 @@
       "jabDistance": 26
     }
   },
-  "rarityTier": "legendary"
+  "rarityTier": "rare"
 }
