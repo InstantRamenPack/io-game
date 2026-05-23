@@ -138,6 +138,23 @@ export function createChatController({
   let selectedSuggestionIndex = 0;
   let releaseChatSuppression: (() => void) | undefined;
 
+  const ensureOpenStateMatchesVisibility = (): void => {
+    if (!isOpen) {
+      return;
+    }
+    if (root.hidden || !root.isConnected) {
+      closeChat();
+    }
+  };
+
+  const rootVisibilityObserver = new MutationObserver(() => {
+    ensureOpenStateMatchesVisibility();
+  });
+  rootVisibilityObserver.observe(root, {
+    attributes: true,
+    attributeFilter: ["hidden"],
+  });
+
   const setVisible = (visible: boolean): void => {
     root.hidden = !visible;
     if (!visible) {
@@ -320,6 +337,14 @@ export function createChatController({
   input.addEventListener("input", () => {
     selectedSuggestionIndex = 0;
     updateSuggestions();
+  });
+
+  input.addEventListener("blur", () => {
+    if (!isOpen) {
+      return;
+    }
+    // If focus leaves chat input, always close so movement/input state stays in sync.
+    closeChat();
   });
 
   input.addEventListener("keydown", (event) => {
