@@ -32,6 +32,7 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
         fingerprintInventory(snapshot.inventory),
         fingerprintActiveEffects(snapshot.activeEffects),
         getEquippedItemSnapshotFingerprint(snapshot.equippedItem),
+        snapshot.armorTypeId ?? "",
       );
       break;
     case "enemy":
@@ -73,6 +74,7 @@ export function getEntityRuntimeFingerprint(
       fingerprintInventoryRuntime(entity.inventory, entity),
       fingerprintActiveEffectsRuntime(entity.activeEffects),
       fingerprintEquippedWeaponRuntime(entity.getActiveWeapon(), entity),
+      entity.getEquippedArmorTypeId() ?? "",
     );
     return parts.join("|");
   }

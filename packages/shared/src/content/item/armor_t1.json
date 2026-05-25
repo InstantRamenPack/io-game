@@ -1,0 +1,13 @@
+{
+  "label": "Scout Armor",
+  "hint": "Light armor plating.",
+  "description": "Tier 1 armor. Reduces incoming damage by 8%.",
+  "armor": {
+    "tier": 1,
+    "damageReductionPct": 0.08
+  },
+  "recipe": {
+    "hint": "Basic armor shell.",
+    "costs": [{ "typeId": "item:hunk", "amount": 25 }]
+  }
+}

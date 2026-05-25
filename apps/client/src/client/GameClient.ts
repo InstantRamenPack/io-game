@@ -356,6 +356,15 @@ export class GameClient {
     );
   }
 
+  public queueArmorMove(
+    fromSource: "hotbar" | "armor",
+    fromIndex: number,
+    toSource: "hotbar" | "armor",
+    toIndex: number,
+  ): void {
+    this.actionDispatcher.queueArmorMove(fromSource, fromIndex, toSource, toIndex);
+  }
+
   public queueSelectHotbarIndex(index: number): void {
     this.actionDispatcher.queueSelectHotbarIndex(index);
   }

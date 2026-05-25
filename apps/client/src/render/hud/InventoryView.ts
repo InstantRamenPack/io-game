@@ -4,6 +4,10 @@ import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { Rect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
+export type InventorySlotRef =
+  | { source: "hotbar"; index: number }
+  | { source: "armor"; index: 0 };
+
 class InventorySlotView {
   public readonly container = new PIXI.Container();
   private readonly background = new PIXI.Graphics();
@@ -101,7 +105,8 @@ export class InventoryView {
   private readonly title: PIXI.Text;
   private readonly helper: PIXI.Text;
   private readonly slots: InventorySlotView[] = [];
-  private readonly slotRects = new Map<number, Rect>();
+  private readonly armorSlot: InventorySlotView;
+  private readonly slotRects = new Map<string, Rect>();
   private panelRect: Rect | null = null;
   private readonly slotSize = 64;
   private readonly gap = 10;
@@ -150,6 +155,13 @@ export class InventoryView {
       this.slots.push(slot);
       this.container.addChild(slot.container);
     }
+    this.armorSlot = new InventorySlotView({
+      size: this.slotSize,
+      iconProvider: options.iconProvider,
+      countStyle,
+      shortcutStyle,
+    });
+    this.container.addChild(this.armorSlot.container);
   }
 
   public sync(options: {
@@ -157,18 +169,20 @@ export class InventoryView {
     screenWidth: number;
     screenHeight: number;
     hotbarItems: HotbarSlotItem[];
+    armorItem: HotbarSlotItem;
     selectedHotbarIndex: number;
-    hoveredSlotIndex: number | null;
-    heldSlotIndex: number | null;
+    hoveredSlotRef: InventorySlotRef | null;
+    heldSlotRef: InventorySlotRef | null;
   }): void {
     const {
       visible,
       screenWidth,
       screenHeight,
       hotbarItems,
+      armorItem,
       selectedHotbarIndex,
-      hoveredSlotIndex,
-      heldSlotIndex,
+      hoveredSlotRef,
+      heldSlotRef,
     } = options;
 
     this.container.visible = visible;
@@ -178,7 +192,7 @@ export class InventoryView {
       return;
     }
 
-    const contentWidth = 10 * this.slotSize + 9 * this.gap;
+    const contentWidth = 11 * this.slotSize + 10 * this.gap;
     const modalWidth = contentWidth + this.padding * 2;
     const modalHeight = this.slotSize + this.padding * 2 + 72;
     const modalX = Math.floor((screenWidth - modalWidth) / 2);
@@ -215,13 +229,29 @@ export class InventoryView {
     this.helper.position.set(this.padding, this.padding + 30);
 
     const slotY = this.padding + 64;
+    const armorX = this.padding;
+    this.slotRects.set("armor:0", {
+      x: modalX + armorX,
+      y: modalY + slotY,
+      width: this.slotSize,
+      height: this.slotSize,
+    });
+    this.armorSlot.setLayout(armorX, slotY);
+    this.armorSlot.render({
+      item: armorItem,
+      active: false,
+      hovered: hoveredSlotRef?.source === "armor",
+      held: heldSlotRef?.source === "armor",
+      shortcutLabel: "Armor",
+    });
+
     for (let index = 0; index < this.slots.length; index += 1) {
       const slot = this.slots[index];
       if (!slot) {
         continue;
       }
-      const x = this.padding + index * (this.slotSize + this.gap);
-      this.slotRects.set(index, {
+      const x = this.padding + (index + 1) * (this.slotSize + this.gap);
+      this.slotRects.set(`hotbar:${index}`, {
         x: modalX + x,
         y: modalY + slotY,
         width: this.slotSize,
@@ -231,29 +261,38 @@ export class InventoryView {
       slot.render({
         item: hotbarItems[index] ?? emptySlotItem(),
         active: selectedHotbarIndex === index,
-        hovered: hoveredSlotIndex === index,
-        held: heldSlotIndex === index,
+        hovered:
+          hoveredSlotRef?.source === "hotbar" && hoveredSlotRef.index === index,
+        held: heldSlotRef?.source === "hotbar" && heldSlotRef.index === index,
         shortcutLabel: String((index + 1) % 10),
       });
     }
   }
 
-  public getSlotIndexAtPoint(screenX: number, screenY: number): number | null {
-    for (const [slotIndex, rect] of this.slotRects) {
+  public getSlotRefAtPoint(screenX: number, screenY: number): InventorySlotRef | null {
+    for (const [slotKey, rect] of this.slotRects) {
       if (
         screenX >= rect.x &&
         screenX <= rect.x + rect.width &&
         screenY >= rect.y &&
         screenY <= rect.y + rect.height
       ) {
-        return slotIndex;
+        if (slotKey === "armor:0") {
+          return { source: "armor", index: 0 };
+        }
+        const hotbarIndex = Number(slotKey.replace("hotbar:", ""));
+        return Number.isInteger(hotbarIndex)
+          ? { source: "hotbar", index: hotbarIndex }
+          : null;
       }
     }
     return null;
   }
 
-  public getSlotRect(slotIndex: number): Rect | null {
-    return this.slotRects.get(slotIndex) ?? null;
+  public getSlotRect(slotRef: InventorySlotRef): Rect | null {
+    const key =
+      slotRef.source === "armor" ? "armor:0" : `hotbar:${slotRef.index}`;
+    return this.slotRects.get(key) ?? null;
   }
 
   public getPanelRect(): Rect | null {

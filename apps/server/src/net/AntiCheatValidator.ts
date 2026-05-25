@@ -30,7 +30,10 @@ export class AntiCheatValidator {
 
     switch (actionMessage.action) {
       case "attack":
-        return playerEntity.getActiveWeapon() !== undefined;
+        return (
+          playerEntity.getActiveWeapon() !== undefined ||
+          playerEntity.canEquipSelectedArmorFromAttack()
+        );
       case "build":
         return (
           actionMessage.build.x >= 0 &&
@@ -45,6 +48,8 @@ export class AntiCheatValidator {
         );
       case "inventoryMove":
         return this.isValidInventoryMove(actionMessage, playerEntity);
+      case "armorMove":
+        return this.isValidArmorMove(actionMessage, playerEntity);
       case "chestMove":
         return this.isValidChestMove(actionMessage, playerEntity, world);
       case "craft":
@@ -104,5 +109,23 @@ export class AntiCheatValidator {
         : toIndex >= 0 && toIndex < chestSlotCount;
 
     return isValidFrom && isValidTo;
+  }
+
+  private isValidArmorMove(
+    actionMessage: ActionMessage,
+    playerEntity: Player,
+  ): boolean {
+    if (actionMessage.action !== "armorMove") {
+      return false;
+    }
+    const { fromSource, fromIndex, toSource, toIndex } = actionMessage.armorMove;
+    const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
+    const isValidFrom =
+      fromSource === "hotbar"
+        ? fromIndex >= 0 && fromIndex < hotbarSlotCount
+        : fromIndex === 0;
+    const isValidTo =
+      toSource === "hotbar" ? toIndex >= 0 && toIndex < hotbarSlotCount : toIndex === 0;
+    return isValidFrom && isValidTo && fromSource !== toSource;
   }
 }

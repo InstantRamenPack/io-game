@@ -17,6 +17,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import type { ActionMessage, InputMovement } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
+import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import {
   getRecycleHunkOutput,
@@ -89,6 +90,7 @@ export class Player extends Entity {
   private aimTheta = 0;
   private latestInputIntent?: PlayerInputIntentState;
   private regenAccumulator = 0;
+  private equippedArmorTypeId?: ResourceId;
 
   constructor(id: number, name = "player") {
     const baseline = requireMovingEntityBaselineContent(Player.typeId);
@@ -192,11 +194,37 @@ export class Player extends Entity {
       activeEffects: this.getActiveEffectSnapshots(),
       moveSpeed: this.moveSpeed,
       equippedItem: this.getActiveWeapon()?.toEquippedItemSnapshot(this),
+      armorTypeId: this.equippedArmorTypeId,
+      armorTier: this.getEquippedArmorStats()?.tier,
+      armorDamageReductionPct: this.getEquippedArmorStats()?.damageReductionPct,
     };
   }
 
   public override getDamageReductionMultiplier(): number {
-    return this.isDebugSpectatorMode() ? 0 : 1;
+    if (this.isDebugSpectatorMode()) {
+      return 0;
+    }
+    const armorStats = this.getEquippedArmorStats();
+    return armorStats ? 1 - armorStats.damageReductionPct : 1;
+  }
+
+  public override getDamageReflectionPct(): number {
+    const armorStats = this.getEquippedArmorStats();
+    return armorStats?.reflectDamagePct ?? 0;
+  }
+
+  public canEquipSelectedArmorFromAttack(): boolean {
+    const selectedSlot =
+      this.inventory.hotbarSlots[this.inventory.selectedHotbarIndex];
+    return (
+      selectedSlot?.kind === "buildable" &&
+      !!getArmorStats(selectedSlot.typeId) &&
+      !this.equippedArmorTypeId
+    );
+  }
+
+  public getEquippedArmorTypeId(): ResourceId | undefined {
+    return this.equippedArmorTypeId;
   }
 
   public getActiveWeapon(): Weapon | undefined {
@@ -545,7 +573,9 @@ export class Player extends Entity {
           break;
         case "attack":
           this.setAimTheta(actionMessage.theta);
-          this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
+          if (!this.tryEquipSelectedArmorFromAttack()) {
+            this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
+          }
           break;
         case "craft":
           this.craft(world, actionMessage.craft.itemTypeId);
@@ -562,6 +592,9 @@ export class Player extends Entity {
             actionMessage.inventoryMove.fromSlotIndex,
             actionMessage.inventoryMove.toSlotIndex,
           );
+          break;
+        case "armorMove":
+          this.applyArmorMove(actionMessage.armorMove);
           break;
         case "chestMove":
           this.applyChestMove(world, actionMessage.chestMove);
@@ -600,12 +633,15 @@ export class Player extends Entity {
   private dropSelectedItem(world: World, dropWholeStack: boolean): void {
     const selectedHotbarIndex = this.inventory.selectedHotbarIndex;
     const selectedSlot = this.inventory.hotbarSlots[selectedHotbarIndex];
-    if (!selectedSlot) {
+    if (!selectedSlot && !this.equippedArmorTypeId) {
       return;
     }
 
     const droppedInventory = new Inventory();
-    if (selectedSlot.kind === "weapon") {
+    if (!selectedSlot) {
+      droppedInventory.addStackable(this.equippedArmorTypeId as ResourceId, 1);
+      this.equippedArmorTypeId = undefined;
+    } else if (selectedSlot.kind === "weapon") {
       this.inventory.hotbarSlots[selectedHotbarIndex] = null;
       droppedInventory.addWeapon(selectedSlot.weapon);
     } else {
@@ -651,6 +687,12 @@ export class Player extends Entity {
     }
 
     world.spawn(pickup);
+  }
+
+  private getEquippedArmorStats() {
+    return this.equippedArmorTypeId
+      ? getArmorStats(this.equippedArmorTypeId)
+      : null;
   }
 
   private pickupNearestOverlappingItem(world: World): void {
@@ -887,6 +929,118 @@ export class Player extends Entity {
 
     this.writeSlotValue(toSource, toIndex, chestEntity, fromValue);
     this.writeSlotValue(fromSource, fromIndex, chestEntity, toValue);
+  }
+
+  private applyArmorMove(action: {
+    fromSource: "hotbar" | "armor";
+    fromIndex: number;
+    toSource: "hotbar" | "armor";
+    toIndex: number;
+  }): void {
+    if (action.fromSource === action.toSource) {
+      return;
+    }
+    if (action.fromSource === "hotbar" && action.toSource === "armor") {
+      this.moveHotbarToArmor(action.fromIndex, action.toIndex);
+      return;
+    }
+    this.moveArmorToHotbar(action.fromIndex, action.toIndex);
+  }
+
+  private tryEquipSelectedArmorFromAttack(): boolean {
+    if (!this.canEquipSelectedArmorFromAttack()) {
+      return false;
+    }
+    const selectedIndex = this.inventory.selectedHotbarIndex;
+    const slot = this.inventory.hotbarSlots[selectedIndex];
+    if (!slot || slot.kind !== "buildable") {
+      return false;
+    }
+    this.equippedArmorTypeId = slot.typeId;
+    slot.count -= 1;
+    if (slot.count <= 0) {
+      this.inventory.hotbarSlots[selectedIndex] = null;
+    }
+    return true;
+  }
+
+  private moveHotbarToArmor(fromHotbarIndex: number, toArmorIndex: number): void {
+    if (toArmorIndex !== 0) {
+      return;
+    }
+    const selectedSlot = this.inventory.hotbarSlots[fromHotbarIndex];
+    if (!selectedSlot || selectedSlot.kind !== "buildable" || selectedSlot.count <= 0) {
+      return;
+    }
+    if (!getArmorStats(selectedSlot.typeId)) {
+      return;
+    }
+
+    const incomingArmorTypeId = selectedSlot.typeId;
+    selectedSlot.count -= 1;
+    if (selectedSlot.count <= 0) {
+      this.inventory.hotbarSlots[fromHotbarIndex] = null;
+    }
+
+    if (this.equippedArmorTypeId) {
+      const currentArmorTypeId = this.equippedArmorTypeId;
+      if (
+        selectedSlot &&
+        selectedSlot.kind === "buildable" &&
+        selectedSlot.typeId === currentArmorTypeId
+      ) {
+        selectedSlot.count += 1;
+      } else if (this.inventory.hotbarSlots[fromHotbarIndex] === null) {
+        this.inventory.hotbarSlots[fromHotbarIndex] = {
+          kind: "buildable",
+          typeId: currentArmorTypeId,
+          count: 1,
+        };
+      } else if (!this.inventory.canAddStackable(currentArmorTypeId, 1)) {
+        selectedSlot.count += 1;
+        if (this.inventory.hotbarSlots[fromHotbarIndex] === null) {
+          this.inventory.hotbarSlots[fromHotbarIndex] = selectedSlot;
+        }
+        return;
+      } else {
+        this.inventory.addStackable(currentArmorTypeId, 1);
+      }
+    }
+
+    this.equippedArmorTypeId = incomingArmorTypeId;
+  }
+
+  private moveArmorToHotbar(fromArmorIndex: number, toHotbarIndex: number): void {
+    if (fromArmorIndex !== 0 || !this.equippedArmorTypeId) {
+      return;
+    }
+    const slot = this.inventory.hotbarSlots[toHotbarIndex];
+    if (!slot) {
+      this.inventory.hotbarSlots[toHotbarIndex] = {
+        kind: "buildable",
+        typeId: this.equippedArmorTypeId,
+        count: 1,
+      };
+      this.equippedArmorTypeId = undefined;
+      return;
+    }
+    if (slot.kind === "buildable" && getArmorStats(slot.typeId)) {
+      const temp = slot.typeId;
+      slot.typeId = this.equippedArmorTypeId;
+      this.equippedArmorTypeId = temp;
+      return;
+    }
+    // Target slot is occupied by a weapon or non-armor item; find first empty slot
+    const emptyIndex = this.inventory.hotbarSlots.findIndex((s) => s === null);
+    if (emptyIndex === -1) {
+      return;
+    }
+    this.inventory.hotbarSlots[emptyIndex] = {
+      kind: "buildable",
+      typeId: this.equippedArmorTypeId,
+      count: 1,
+    };
+    this.equippedArmorTypeId = undefined;
   }
 
   private extractSlotValue(

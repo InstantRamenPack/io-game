@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Field Armor",
+  "hint": "Unlocks Field Armor crafting.",
+  "description": "Unlocks the Field Armor recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:armor_t2",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

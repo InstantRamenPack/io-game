@@ -1,7 +1,13 @@
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ChestSlotRef } from "@client/render/hud/ChestView.ts";
+import type { InventorySlotRef } from "@client/render/hud/InventoryView.ts";
 
-export type CraftingTabId = "weapons" | "ammo" | "healing" | "buildings";
+export type CraftingTabId =
+  | "weapons"
+  | "armor"
+  | "ammo"
+  | "healing"
+  | "buildings";
 
 export type HudInteractionState = {
   craftingMenuOpen: boolean;
@@ -12,8 +18,8 @@ export type HudInteractionState = {
   openChestEntityId: number | null;
   selectedCraft: ResourceId;
   previewedCraft: ResourceId;
-  hoveredInventorySlotIndex: number | null;
-  heldInventorySlotIndex: number | null;
+  hoveredInventorySlotRef: InventorySlotRef | null;
+  heldInventorySlotRef: InventorySlotRef | null;
   hoveredChestSlotRef: ChestSlotRef | null;
   heldChestSlotRef: ChestSlotRef | null;
 };

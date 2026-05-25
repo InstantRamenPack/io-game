@@ -129,6 +129,16 @@ export function getWeaponContent(
   return getItemContent(typeId)?.weapon;
 }
 
+export function getArmorContent(typeId: ResourceId):
+  | {
+      tier: 1 | 2 | 3 | 4;
+      damageReductionPct: number;
+      reflectDamagePct: number;
+    }
+  | undefined {
+  return getItemContent(typeId)?.armor;
+}
+
 export function getWeaponRarityTier(
   typeId: ResourceId,
 ): RarityTier | undefined {

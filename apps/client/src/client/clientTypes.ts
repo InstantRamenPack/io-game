@@ -40,6 +40,12 @@ export type GameClientHudApi = {
     toSource: "hotbar" | "chest",
     toIndex: number,
   ): void;
+  queueArmorMove(
+    fromSource: "hotbar" | "armor",
+    fromIndex: number,
+    toSource: "hotbar" | "armor",
+    toIndex: number,
+  ): void;
   queueUseConsumable(typeId: ResourceId): void;
   stopHoldFire(): void;
   setMovementSuppression(

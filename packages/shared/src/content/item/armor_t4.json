@@ -1,0 +1,17 @@
+{
+  "label": "Aegis Armor",
+  "hint": "Top-tier reactive armor.",
+  "description": "Tier 4 armor. Reduces incoming damage by 35% and reflects 10% of mitigated damage.",
+  "armor": {
+    "tier": 4,
+    "damageReductionPct": 0.35,
+    "reflectDamagePct": 0.1
+  },
+  "recipe": {
+    "hint": "Upgrade Juggernaut Armor into Aegis Armor.",
+    "costs": [
+      { "typeId": "item:armor_t3", "amount": 1 },
+      { "typeId": "item:hunk", "amount": 95 }
+    ]
+  }
+}

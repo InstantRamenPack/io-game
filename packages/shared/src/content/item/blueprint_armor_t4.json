@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Aegis Armor",
+  "hint": "Unlocks Aegis Armor crafting.",
+  "description": "Unlocks the Aegis Armor recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:armor_t4",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

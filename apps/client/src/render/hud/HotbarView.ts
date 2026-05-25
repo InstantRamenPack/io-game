@@ -199,7 +199,9 @@ class HotbarSlotView {
 
 export class HotbarView {
   public readonly container: PIXI.Container;
+  private readonly armorBackground: PIXI.Graphics;
   private readonly background: PIXI.Graphics;
+  private readonly armorSlot: HotbarSlotView;
   private readonly slots: HotbarSlotView[] = [];
   private readonly slotSize = 52;
   private readonly slotGap = 6;
@@ -214,7 +216,9 @@ export class HotbarView {
     iconProvider: (typeId: ResourceId) => PIXI.Texture;
   }) {
     this.container = new PIXI.Container();
+    this.armorBackground = new PIXI.Graphics();
     this.background = new PIXI.Graphics();
+    this.container.addChild(this.armorBackground);
     this.container.addChild(this.background);
 
     const countStyle = new PIXI.TextStyle({
@@ -235,6 +239,30 @@ export class HotbarView {
       letterSpacing: 0.4,
     });
 
+    const armorCountStyle = new PIXI.TextStyle({
+      fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+      fontSize: 13,
+      fill: 0xf3f6ee,
+      stroke: { color: 0x0c120b, width: 3 },
+    });
+    const armorShortcutStyle = new PIXI.TextStyle({
+      fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+      fontSize: 10,
+      fill: 0xb8c3b6,
+      letterSpacing: 0.4,
+    });
+    this.armorSlot = new HotbarSlotView({
+      slotSize: this.slotSize,
+      iconPadding: this.iconPadding,
+      iconProvider: options.iconProvider,
+      countStyle: armorCountStyle,
+      shortcutStyle: armorShortcutStyle,
+    });
+    this.armorSlot.setShortcutLabel("ARM");
+    this.armorSlot.container.position.set(this.padding, this.padding);
+    this.container.addChild(this.armorSlot.container);
+
+    const mainOffsetX = this.padding * 2 + this.slotSize + this.slotGap;
     for (let index = 0; index < options.slotCount; index += 1) {
       const slot = new HotbarSlotView({
         slotSize: this.slotSize,
@@ -245,7 +273,7 @@ export class HotbarView {
       });
       slot.setShortcutLabel(options.shortcutLabels[index] ?? "");
       slot.container.position.set(
-        this.padding + index * (this.slotSize + this.slotGap),
+        mainOffsetX + index * (this.slotSize + this.slotGap),
         this.padding,
       );
       this.slots.push(slot);
@@ -255,7 +283,18 @@ export class HotbarView {
     this.layoutBackground(options.slotCount);
   }
 
-  public setSlots(items: HotbarSlotItem[], activeIndex: number | null): void {
+  public setSlots(
+    items: HotbarSlotItem[],
+    activeIndex: number | null,
+    armorItem: HotbarSlotItem,
+  ): void {
+    if (armorItem.typeId) {
+      this.armorSlot.setItem(armorItem);
+    } else {
+      this.armorSlot.clearItem();
+    }
+    this.armorSlot.setActive(false);
+
     for (let index = 0; index < this.slots.length; index += 1) {
       const slot = this.slots[index];
       if (!slot) {
@@ -284,21 +323,32 @@ export class HotbarView {
   }
 
   private layoutBackground(slotCount: number): void {
-    const width =
+    const mainWidth =
       this.padding * 2 +
       slotCount * this.slotSize +
       (slotCount - 1) * this.slotGap;
+    const mainX = this.padding * 2 + this.slotSize + this.slotGap;
+    const armorWidth = this.padding * 2 + this.slotSize;
     const height = this.padding * 2 + this.slotSize;
-    this.widthValue = Math.ceil(width);
+    this.widthValue = Math.ceil(mainX + mainWidth);
     this.heightValue = Math.ceil(height);
+
+    this.armorBackground.clear();
+    this.armorBackground
+      .roundRect(0, 0, armorWidth, height, 6)
+      .fill({ color: 0x151515, alpha: 0.78 })
+      .roundRect(0, 0, armorWidth, height, 6)
+      .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 })
+      .roundRect(2, 2, armorWidth - 4, height - 4, 5)
+      .stroke({ width: 1, color: 0x2a2a2a, alpha: 0.85 });
 
     this.background.clear();
     this.background
-      .roundRect(0, 0, width, height, 6)
+      .roundRect(mainX, 0, mainWidth, height, 6)
       .fill({ color: 0x151515, alpha: 0.78 })
-      .roundRect(0, 0, width, height, 6)
+      .roundRect(mainX, 0, mainWidth, height, 6)
       .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 })
-      .roundRect(2, 2, width - 4, height - 4, 5)
+      .roundRect(mainX + 2, 2, mainWidth - 4, height - 4, 5)
       .stroke({ width: 1, color: 0x2a2a2a, alpha: 0.85 });
   }
 }

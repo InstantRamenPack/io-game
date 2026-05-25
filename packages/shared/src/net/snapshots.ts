@@ -105,12 +105,22 @@ export const PlayerSnapshotSchema = EntitySnapshotBaseSchema.extend({
   activeEffects: z.array(ActiveEffectSnapshotSchema),
   moveSpeed: z.number(),
   equippedItem: EquippedItemSnapshotSchema.optional(),
+  armorTypeId: ResourceIdSchema.optional(),
+  armorTier: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+    .optional(),
+  armorDamageReductionPct: z.number().finite().min(0).max(1).optional(),
 });
 
 export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
   targetId: EntityIdSchema.optional(),
   equippedItem: EquippedItemSnapshotSchema.optional(),
+  armorTypeId: ResourceIdSchema.optional(),
+  armorTier: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+    .optional(),
+  armorDamageReductionPct: z.number().finite().min(0).max(1).optional(),
 });
 
 export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({

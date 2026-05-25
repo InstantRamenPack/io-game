@@ -1,0 +1,16 @@
+{
+  "label": "Juggernaut Armor",
+  "hint": "Heavy layered armor.",
+  "description": "Tier 3 armor. Reduces incoming damage by 24%.",
+  "armor": {
+    "tier": 3,
+    "damageReductionPct": 0.24
+  },
+  "recipe": {
+    "hint": "Upgrade Field Armor into Juggernaut Armor.",
+    "costs": [
+      { "typeId": "item:armor_t2", "amount": 1 },
+      { "typeId": "item:hunk", "amount": 65 }
+    ]
+  }
+}

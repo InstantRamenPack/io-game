@@ -373,6 +373,10 @@ export abstract class Entity {
     return 1;
   }
 
+  public getDamageReflectionPct(): number {
+    return 0;
+  }
+
   public getReloadInventory(): Inventory | null {
     return null;
   }

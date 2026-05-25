@@ -224,6 +224,9 @@ export class World {
    * @param entity Entity to spawn into the world.
    */
   public spawn(entity: Entity): void {
+    if (entity instanceof Enemy) {
+      entity.maybeAssignSpawnArmor(this.randomNumberGenerator);
+    }
     this.entities.add(entity);
     if (isEnemyEntity(entity)) {
       this.enemyCount += 1;

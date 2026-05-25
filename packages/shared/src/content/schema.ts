@@ -202,6 +202,13 @@ export const ItemContentSchema = z.object({
       speedMultiplier: z.number().finite().positive().optional(),
     })
     .optional(),
+  armor: z
+    .object({
+      tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+      damageReductionPct: z.number().finite().min(0).max(1),
+      reflectDamagePct: z.number().finite().min(0).max(1).default(0),
+    })
+    .optional(),
   consumable: z.boolean().default(false),
   recycle: z
     .object({

@@ -47,12 +47,20 @@ import enemysniperJson from "@shared/content/enemy/sniper.json";
 import enemystalkerJson from "@shared/content/enemy/stalker.json";
 import enemythanosJson from "@shared/content/enemy/thanos.json";
 import enemywallbreakerJson from "@shared/content/enemy/wallbreaker.json";
+import itemarmorT1Json from "@shared/content/item/armor_t1.json";
+import itemarmorT2Json from "@shared/content/item/armor_t2.json";
+import itemarmorT3Json from "@shared/content/item/armor_t3.json";
+import itemarmorT4Json from "@shared/content/item/armor_t4.json";
 import itembaseballBatJson from "@shared/content/item/baseball_bat.json";
 import itembasicDaggerJson from "@shared/content/item/basic_dagger.json";
 import itembasicGunJson from "@shared/content/item/basic_gun.json";
 import itembasicRifleJson from "@shared/content/item/basic_rifle.json";
 import itembasicSpearJson from "@shared/content/item/basic_spear.json";
 import itembasicSwordJson from "@shared/content/item/basic_sword.json";
+import itemblueprintArmorT1Json from "@shared/content/item/blueprint_armor_t1.json";
+import itemblueprintArmorT2Json from "@shared/content/item/blueprint_armor_t2.json";
+import itemblueprintArmorT3Json from "@shared/content/item/blueprint_armor_t3.json";
+import itemblueprintArmorT4Json from "@shared/content/item/blueprint_armor_t4.json";
 import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
 import itemblueprintHalberdJson from "@shared/content/item/blueprint_halberd.json";
 import itemblueprintHeavyPistolJson from "@shared/content/item/blueprint_heavy_pistol.json";
@@ -183,12 +191,20 @@ export const enemyContentEntries = [
 
 
 export const itemContentEntries = [
+  makeParsedItemContentEntry("armor_t1", itemarmorT1Json),
+  makeParsedItemContentEntry("armor_t2", itemarmorT2Json),
+  makeParsedItemContentEntry("armor_t3", itemarmorT3Json),
+  makeParsedItemContentEntry("armor_t4", itemarmorT4Json),
   makeParsedItemContentEntry("baseball_bat", itembaseballBatJson),
   makeParsedItemContentEntry("basic_dagger", itembasicDaggerJson),
   makeParsedItemContentEntry("basic_gun", itembasicGunJson),
   makeParsedItemContentEntry("basic_rifle", itembasicRifleJson),
   makeParsedItemContentEntry("basic_spear", itembasicSpearJson),
   makeParsedItemContentEntry("basic_sword", itembasicSwordJson),
+  makeParsedItemContentEntry("blueprint_armor_t1", itemblueprintArmorT1Json),
+  makeParsedItemContentEntry("blueprint_armor_t2", itemblueprintArmorT2Json),
+  makeParsedItemContentEntry("blueprint_armor_t3", itemblueprintArmorT3Json),
+  makeParsedItemContentEntry("blueprint_armor_t4", itemblueprintArmorT4Json),
   makeParsedItemContentEntry("blueprint_basic_rifle", itemblueprintBasicRifleJson),
   makeParsedItemContentEntry("blueprint_halberd", itemblueprintHalberdJson),
   makeParsedItemContentEntry("blueprint_heavy_pistol", itemblueprintHeavyPistolJson),

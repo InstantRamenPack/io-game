@@ -56,6 +56,18 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueArmorMove(
+    fromSource: "hotbar" | "armor",
+    fromIndex: number,
+    toSource: "hotbar" | "armor",
+    toIndex: number,
+  ): void {
+    this.sendAction({
+      action: "armorMove",
+      armorMove: { fromSource, fromIndex, toSource, toIndex },
+    });
+  }
+
   public queueSelectHotbarIndex(index: number): void {
     this.sendAction({
       action: "selectHotbar",
@@ -120,6 +132,15 @@ export class ClientActionDispatcher {
           inventoryMove: { fromSlotIndex: number; toSlotIndex: number };
         }
       | { action: "selectHotbar"; index: number }
+      | {
+          action: "armorMove";
+          armorMove: {
+            fromSource: "hotbar" | "armor";
+            fromIndex: number;
+            toSource: "hotbar" | "armor";
+            toIndex: number;
+          };
+        }
       | {
           action: "chestMove";
           chestMove: {

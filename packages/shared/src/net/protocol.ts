@@ -62,6 +62,13 @@ const InventoryMoveInputSchema = z.object({
   toSlotIndex: HotbarIndexSchema,
 });
 
+const ArmorMoveInputSchema = z.object({
+  fromSource: z.enum(["hotbar", "armor"]),
+  fromIndex: HotbarIndexSchema,
+  toSource: z.enum(["hotbar", "armor"]),
+  toIndex: HotbarIndexSchema,
+});
+
 const ChestMoveInputSchema = z.object({
   chestEntityId: EntityIdSchema,
   fromSource: z.enum(["hotbar", "chest"]),
@@ -122,6 +129,13 @@ const SelectHotbarActionMessageSchema = z.object({
   index: HotbarIndexSchema,
 });
 
+const ArmorMoveActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("armorMove"),
+  armorMove: ArmorMoveInputSchema,
+});
+
 const ChestMoveActionMessageSchema = z.object({
   t: z.literal("action"),
   seq: NonNegativeIntSchema,
@@ -168,6 +182,7 @@ const ActionMessageSchemaOptions = [
   BuildActionMessageSchema,
   InventoryMoveActionMessageSchema,
   SelectHotbarActionMessageSchema,
+  ArmorMoveActionMessageSchema,
   ChestMoveActionMessageSchema,
   DropActionMessageSchema,
   PickupActionMessageSchema,

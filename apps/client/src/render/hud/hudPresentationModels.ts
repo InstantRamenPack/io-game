@@ -26,6 +26,8 @@ export type CombatHudModel = {
   hp: number;
   maxHp: number;
   ammo: CombatHudAmmoModel | null;
+  armorTier: 1 | 2 | 3 | 4 | null;
+  armorDamageReductionPct: number;
 };
 
 export type HudEffectEntry = {
@@ -62,6 +64,8 @@ export function buildCombatHudModel(options: {
     hp: playerEntity.hp ?? 0,
     maxHp: Math.max(0, playerEntity.maxHp ?? 0),
     ammo: buildAmmoModel(activeSlot),
+    armorTier: playerEntity.armorTier ?? null,
+    armorDamageReductionPct: playerEntity.armorDamageReductionPct ?? 0,
   };
 }
 
@@ -90,6 +94,13 @@ export function buildInventoryTooltipContent(
 
   if (slot.kind === "buildable") {
     lines.push(`Stack: ${slot.count}`);
+    const armor = getItemContent(slot.typeId)?.armor;
+    if (armor) {
+      lines.push(
+        `Armor Tier ${armor.tier}`,
+        `Damage Reduction: ${Math.round(armor.damageReductionPct * 100)}%`,
+      );
+    }
   }
 
   if (slot.kind === "weapon") {

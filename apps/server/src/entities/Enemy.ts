@@ -17,6 +17,11 @@ import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
+import {
+  getArmorStats,
+  type ArmorTier,
+} from "@shared/gameplay/rules/armorRules.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { World } from "@server/world/World.ts";
 
 type EnemyConfig = {
@@ -29,6 +34,7 @@ type EnemyConfig = {
  */
 export class Enemy extends GoalControlledEntity {
   public static readonly kind = "enemy" as const;
+  private equippedArmorTypeId?: ResourceId;
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -60,7 +66,37 @@ export class Enemy extends GoalControlledEntity {
       kind: "enemy",
       targetId: this.targetId,
       equippedItem: this.weapons[0]?.toEquippedItemSnapshot(this),
+      armorTypeId: this.equippedArmorTypeId,
+      armorTier: this.getEquippedArmorStats()?.tier,
+      armorDamageReductionPct: this.getEquippedArmorStats()?.damageReductionPct,
     };
+  }
+
+  public override getDamageReductionMultiplier(): number {
+    const armorStats = this.getEquippedArmorStats();
+    return armorStats ? 1 - armorStats.damageReductionPct : 1;
+  }
+
+  public override getDamageReflectionPct(): number {
+    const armorStats = this.getEquippedArmorStats();
+    return armorStats?.reflectDamagePct ?? 0;
+  }
+
+  public equipArmorTypeId(typeId: ResourceId): void {
+    if (!getArmorStats(typeId)) {
+      return;
+    }
+    this.equippedArmorTypeId = typeId;
+  }
+
+  public maybeAssignSpawnArmor(rng: () => number): void {
+    if (this.equippedArmorTypeId || rng() >= 0.12) {
+      return;
+    }
+    const roll = rng();
+    const tier: ArmorTier =
+      roll < 0.6 ? 1 : roll < 0.85 ? 2 : roll < 0.96 ? 3 : 4;
+    this.equipArmorTypeId(`item:armor_t${tier}` as ResourceId);
   }
 
   public override hasInfiniteReloadMags(): boolean {
@@ -118,10 +154,20 @@ export class Enemy extends GoalControlledEntity {
       }
     }
 
+    if (this.equippedArmorTypeId && rng() < 0.04) {
+      inventory.addStackable(this.equippedArmorTypeId, 1);
+    }
+
     const pickup = new ItemEntity(world.allocEntityId(), inventory);
     pickup.x = this.x;
     pickup.y = this.y;
     world.spawn(pickup);
+  }
+
+  private getEquippedArmorStats() {
+    return this.equippedArmorTypeId
+      ? getArmorStats(this.equippedArmorTypeId)
+      : null;
   }
 }
 

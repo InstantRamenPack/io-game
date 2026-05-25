@@ -140,6 +140,18 @@ export function stripKnownStableEntitySnapshotFields(
     ) {
       delete deltaSnapshot.equippedItem;
     }
+    if (deltaSnapshot.armorTypeId === knownSnapshot.armorTypeId) {
+      delete deltaSnapshot.armorTypeId;
+    }
+    if (deltaSnapshot.armorTier === knownSnapshot.armorTier) {
+      delete deltaSnapshot.armorTier;
+    }
+    if (
+      deltaSnapshot.armorDamageReductionPct ===
+      knownSnapshot.armorDamageReductionPct
+    ) {
+      delete deltaSnapshot.armorDamageReductionPct;
+    }
   }
 
   return deltaSnapshot as EntitySnapshot;

@@ -67,6 +67,9 @@ export class ClientEntity {
   public moveSpeed?: number;
   public targetId?: number;
   public equippedItem?: EquippedItemSnapshot;
+  public armorTypeId?: ResourceId;
+  public armorTier?: 1 | 2 | 3 | 4;
+  public armorDamageReductionPct?: number;
   public serverX: number;
   public serverY: number;
   public visualVersion = 1;
@@ -317,6 +320,9 @@ export class ClientEntity {
     const previousMoveSpeed = this.moveSpeed;
     const previousTargetId = this.targetId;
     const previousEquippedItem = this.equippedItem;
+    const previousArmorTypeId = this.armorTypeId;
+    const previousArmorTier = this.armorTier;
+    const previousArmorDamageReductionPct = this.armorDamageReductionPct;
 
     this.name = undefined;
     this.label = undefined;
@@ -327,6 +333,9 @@ export class ClientEntity {
     this.moveSpeed = undefined;
     this.targetId = undefined;
     this.equippedItem = undefined;
+    this.armorTypeId = undefined;
+    this.armorTier = undefined;
+    this.armorDamageReductionPct = undefined;
 
     switch (snapshot.kind) {
       case "player":
@@ -349,6 +358,21 @@ export class ClientEntity {
         } else {
           this.equippedItem = previousEquippedItem;
         }
+        if (isFullSnapshot || "armorTypeId" in snapshot) {
+          this.armorTypeId = snapshot.armorTypeId;
+        } else {
+          this.armorTypeId = previousArmorTypeId;
+        }
+        if (isFullSnapshot || "armorTier" in snapshot) {
+          this.armorTier = snapshot.armorTier;
+        } else {
+          this.armorTier = previousArmorTier;
+        }
+        if (isFullSnapshot || "armorDamageReductionPct" in snapshot) {
+          this.armorDamageReductionPct = snapshot.armorDamageReductionPct;
+        } else {
+          this.armorDamageReductionPct = previousArmorDamageReductionPct;
+        }
         break;
       case "enemy":
         if (isFullSnapshot || "targetId" in snapshot) {
@@ -360,6 +384,21 @@ export class ClientEntity {
           this.equippedItem = snapshot.equippedItem;
         } else {
           this.equippedItem = previousEquippedItem;
+        }
+        if (isFullSnapshot || "armorTypeId" in snapshot) {
+          this.armorTypeId = snapshot.armorTypeId;
+        } else {
+          this.armorTypeId = previousArmorTypeId;
+        }
+        if (isFullSnapshot || "armorTier" in snapshot) {
+          this.armorTier = snapshot.armorTier;
+        } else {
+          this.armorTier = previousArmorTier;
+        }
+        if (isFullSnapshot || "armorDamageReductionPct" in snapshot) {
+          this.armorDamageReductionPct = snapshot.armorDamageReductionPct;
+        } else {
+          this.armorDamageReductionPct = previousArmorDamageReductionPct;
         }
         break;
       case "building":
@@ -403,7 +442,10 @@ export class ClientEntity {
       previousEffects !== this.activeEffects ||
       previousMoveSpeed !== this.moveSpeed ||
       previousTargetId !== this.targetId ||
-      previousEquippedItem !== this.equippedItem
+      previousEquippedItem !== this.equippedItem ||
+      previousArmorTypeId !== this.armorTypeId ||
+      previousArmorTier !== this.armorTier ||
+      previousArmorDamageReductionPct !== this.armorDamageReductionPct
     );
   }
 

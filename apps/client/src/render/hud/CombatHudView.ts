@@ -3,6 +3,7 @@ import type { CombatHudModel } from "@client/render/hud/hudPresentationModels.ts
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 const HEALTH_ROW_HEIGHT = 28;
+const ARMOR_ROW_HEIGHT = 16;
 const AMMO_ICON_SIZE = 14;
 const AMMO_ICON_GAP = 4;
 const AMMO_ROW_GAP = 6;
@@ -12,11 +13,14 @@ export class CombatHudView {
   private readonly healthFrame = new PIXI.Graphics();
   private readonly healthTrack = new PIXI.Graphics();
   private readonly healthFill = new PIXI.Graphics();
+  private readonly armorFrame = new PIXI.Graphics();
+  private readonly armorIcons = new PIXI.Graphics();
   private readonly healthText: PIXI.Text;
   private readonly ammoFrame = new PIXI.Graphics();
   private readonly reserveText: PIXI.Text;
   private readonly ammoSprites: PIXI.Sprite[] = [];
   private readonly ammoTextureProvider: () => PIXI.Texture;
+  private readonly armorText: PIXI.Text;
   private widthValue = 0;
   private heightValue = 0;
 
@@ -40,14 +44,26 @@ export class CombatHudView {
       }),
     });
     this.reserveText.anchor.set(1, 0.5);
+    this.armorText = new PIXI.Text({
+      text: "",
+      style: new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 10,
+        fill: 0xcfd9ea,
+      }),
+    });
+    this.armorText.anchor.set(0, 0.5);
 
     this.container.addChild(
       this.healthFrame,
       this.healthTrack,
       this.healthFill,
+      this.armorFrame,
+      this.armorIcons,
       this.ammoFrame,
       this.healthText,
       this.reserveText,
+      this.armorText,
     );
   }
 
@@ -64,7 +80,15 @@ export class CombatHudView {
     this.heightValue = HEALTH_ROW_HEIGHT;
 
     if (!model.ammo) {
-      this.drawHealthRow(model.hp, model.maxHp, 0, this.widthValue, padding);
+      this.drawArmorRow(model, 0, this.widthValue, padding);
+      this.drawHealthRow(
+        model.hp,
+        model.maxHp,
+        ARMOR_ROW_HEIGHT + 4,
+        this.widthValue,
+        padding,
+      );
+      this.heightValue = ARMOR_ROW_HEIGHT + 4 + HEALTH_ROW_HEIGHT;
       this.ammoFrame.clear();
       this.reserveText.text = "";
       this.hideAmmoSprites();
@@ -86,7 +110,8 @@ export class CombatHudView {
     const ammoHeight =
       padding * 2 + rows * AMMO_ICON_SIZE + (rows - 1) * AMMO_ROW_GAP;
     const ammoY = 0;
-    const healthY = ammoHeight + 6;
+    const armorY = ammoHeight + 6;
+    const healthY = armorY + ARMOR_ROW_HEIGHT + 4;
     this.heightValue = healthY + HEALTH_ROW_HEIGHT;
 
     drawRoundedRect(
@@ -136,6 +161,7 @@ export class CombatHudView {
       sprite.alpha = index < model.ammo.ammoInMag ? 0.98 : 0.5;
     }
 
+    this.drawArmorRow(model, armorY, this.widthValue, padding);
     this.drawHealthRow(
       model.hp,
       model.maxHp,
@@ -202,6 +228,51 @@ export class CombatHudView {
     this.healthText.position.set(
       padding + trackWidth / 2,
       y + HEALTH_ROW_HEIGHT / 2,
+    );
+  }
+
+  private drawArmorRow(
+    model: CombatHudModel,
+    y: number,
+    width: number,
+    padding: number,
+  ): void {
+    const iconCount = 10;
+    const spacing = 3;
+    const iconSize = 8;
+    const iconsWidth = iconCount * iconSize + (iconCount - 1) * spacing;
+    const filled = Math.round(
+      (model.armorDamageReductionPct / 0.35) * iconCount,
+    );
+    this.armorFrame.clear();
+    this.armorFrame.roundRect(0, y, width, ARMOR_ROW_HEIGHT, 8).fill({
+      color: 0x10131f,
+      alpha: 0.82,
+    });
+
+    this.armorIcons.clear();
+    const iconsStartX = padding;
+    for (let index = 0; index < iconCount; index += 1) {
+      const x = iconsStartX + index * (iconSize + spacing);
+      const color =
+        model.armorTier === 4
+          ? index < filled
+            ? 0xf4c86b
+            : 0x4e4738
+          : index < filled
+            ? 0x7fa8ff
+            : 0x3a4356;
+      this.armorIcons
+        .roundRect(x, y + 4, iconSize, iconSize, 2)
+        .fill({ color, alpha: 0.95 });
+    }
+    this.armorText.text =
+      model.armorTier === null
+        ? "No armor"
+        : `T${model.armorTier}  ${Math.round(model.armorDamageReductionPct * 100)}%`;
+    this.armorText.position.set(
+      Math.min(width - 90, iconsStartX + iconsWidth + 10),
+      y + ARMOR_ROW_HEIGHT / 2,
     );
   }
 

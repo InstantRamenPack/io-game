@@ -2,9 +2,10 @@ import type { PointerInput } from "@client/client/clientTypes.ts";
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
 import { sanitizeHotbarEditState } from "@client/render/hud/hotbarEditModel.ts";
 import type { HudInteractionState } from "@client/render/hud/HudInteractionState.ts";
+import type { InventorySlotRef } from "@client/render/hud/InventoryView.ts";
 
 export class InventoryEditCoordinator {
-  private draggedInventorySlotIndex: number | null = null;
+  private draggedInventorySlotRef: InventorySlotRef | null = null;
 
   public open(state: HudInteractionState): void {
     state.inventoryOpen = true;
@@ -23,18 +24,20 @@ export class InventoryEditCoordinator {
   public sanitizeState(
     state: HudInteractionState,
     hotbarItems: HotbarSlotItem[],
+    armorItem: HotbarSlotItem,
   ): void {
-    const { hoveredSlotIndex, heldSlotIndex } = sanitizeHotbarEditState({
+    const { hoveredSlotRef, heldSlotRef } = sanitizeHotbarEditState({
       inventoryOpen: state.inventoryOpen,
-      hoveredSlotIndex: state.hoveredInventorySlotIndex,
-      heldSlotIndex: state.heldInventorySlotIndex,
+      hoveredSlotRef: state.hoveredInventorySlotRef,
+      heldSlotRef: state.heldInventorySlotRef,
       hotbarItems,
+      armorItem,
     });
 
-    state.hoveredInventorySlotIndex = hoveredSlotIndex;
-    state.heldInventorySlotIndex = heldSlotIndex;
-    if (!state.inventoryOpen || heldSlotIndex === null) {
-      this.draggedInventorySlotIndex = null;
+    state.hoveredInventorySlotRef = hoveredSlotRef;
+    state.heldInventorySlotRef = heldSlotRef;
+    if (!state.inventoryOpen || heldSlotRef === null) {
+      this.draggedInventorySlotRef = null;
     }
   }
 
@@ -42,24 +45,29 @@ export class InventoryEditCoordinator {
     state: HudInteractionState;
     pointer: PointerInput;
     hotbarItems: HotbarSlotItem[];
-    getSlotIndexAtPoint: (screenX: number, screenY: number) => number | null;
-    queueInventoryMove: (fromSlotIndex: number, toSlotIndex: number) => void;
+    armorItem: HotbarSlotItem;
+    getSlotRefAtPoint: (screenX: number, screenY: number) => InventorySlotRef | null;
+    queueInventoryMove: (from: InventorySlotRef, to: InventorySlotRef) => void;
     markDirty: () => void;
   }): boolean {
     const {
       state,
       pointer,
       hotbarItems,
-      getSlotIndexAtPoint,
+      armorItem,
+      getSlotRefAtPoint,
       queueInventoryMove,
       markDirty,
     } = options;
-    const hoveredSlotIndex = getSlotIndexAtPoint(
+    const hoveredSlotRef = getSlotRefAtPoint(
       pointer.screenX,
       pointer.screenY,
     );
-    if (hoveredSlotIndex !== state.hoveredInventorySlotIndex) {
-      state.hoveredInventorySlotIndex = hoveredSlotIndex;
+    const sameHoveredRef =
+      hoveredSlotRef?.source === state.hoveredInventorySlotRef?.source &&
+      hoveredSlotRef?.index === state.hoveredInventorySlotRef?.index;
+    if (!sameHoveredRef) {
+      state.hoveredInventorySlotRef = hoveredSlotRef;
       markDirty();
     }
 
@@ -69,32 +77,39 @@ export class InventoryEditCoordinator {
 
     if (pointer.kind === "up") {
       if (
-        this.draggedInventorySlotIndex !== null &&
-        hoveredSlotIndex !== null &&
-        hoveredSlotIndex !== this.draggedInventorySlotIndex
+        this.draggedInventorySlotRef !== null &&
+        hoveredSlotRef !== null &&
+        (hoveredSlotRef.source !== this.draggedInventorySlotRef.source ||
+          hoveredSlotRef.index !== this.draggedInventorySlotRef.index)
       ) {
-        queueInventoryMove(this.draggedInventorySlotIndex, hoveredSlotIndex);
+        queueInventoryMove(this.draggedInventorySlotRef, hoveredSlotRef);
         this.clearDragState(state);
         markDirty();
       }
-      this.draggedInventorySlotIndex = null;
+      this.draggedInventorySlotRef = null;
       return true;
     }
 
-    if (hoveredSlotIndex === null) {
+    if (hoveredSlotRef === null) {
       this.clearDragState(state);
       markDirty();
       return true;
     }
 
-    const item = hotbarItems[hoveredSlotIndex];
-    if (state.heldInventorySlotIndex !== null) {
-      if (state.heldInventorySlotIndex === hoveredSlotIndex) {
-        this.draggedInventorySlotIndex = hoveredSlotIndex;
+    const item =
+      hoveredSlotRef.source === "armor"
+        ? armorItem
+        : hotbarItems[hoveredSlotRef.index];
+    if (state.heldInventorySlotRef !== null) {
+      if (
+        state.heldInventorySlotRef.source === hoveredSlotRef.source &&
+        state.heldInventorySlotRef.index === hoveredSlotRef.index
+      ) {
+        this.draggedInventorySlotRef = hoveredSlotRef;
         return true;
       }
 
-      queueInventoryMove(state.heldInventorySlotIndex, hoveredSlotIndex);
+      queueInventoryMove(state.heldInventorySlotRef, hoveredSlotRef);
       this.clearDragState(state);
       markDirty();
       return true;
@@ -104,14 +119,14 @@ export class InventoryEditCoordinator {
       return true;
     }
 
-    state.heldInventorySlotIndex = hoveredSlotIndex;
-    this.draggedInventorySlotIndex = hoveredSlotIndex;
+    state.heldInventorySlotRef = hoveredSlotRef;
+    this.draggedInventorySlotRef = hoveredSlotRef;
     markDirty();
     return true;
   }
 
   private clearDragState(state: HudInteractionState): void {
-    state.heldInventorySlotIndex = null;
-    this.draggedInventorySlotIndex = null;
+    state.heldInventorySlotRef = null;
+    this.draggedInventorySlotRef = null;
   }
 }

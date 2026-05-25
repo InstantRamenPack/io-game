@@ -60,6 +60,7 @@ import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const CRAFTING_TABS: ReadonlyArray<{ id: CraftingTabId; label: string }> = [
   { id: "weapons", label: "Weapons" },
+  { id: "armor", label: "Armor" },
   { id: "ammo", label: "Ammo" },
   { id: "healing", label: "Healing" },
   { id: "buildings", label: "Buildings" },
@@ -156,8 +157,8 @@ export class PixiHud {
       openChestEntityId: null,
       selectedCraft: defaultCraftItemTypeId,
       previewedCraft: defaultCraftItemTypeId,
-      hoveredInventorySlotIndex: null,
-      heldInventorySlotIndex: null,
+      hoveredInventorySlotRef: null,
+      heldInventorySlotRef: null,
       hoveredChestSlotRef: null,
       heldChestSlotRef: null,
     };
@@ -255,6 +256,7 @@ export class PixiHud {
 
     const inventory = this.selectors.getInventory();
     const hotbarItems = toHotbarSlotItems(inventory?.hotbarSlots ?? []);
+    const armorItem = this.getArmorHotbarItem();
 
     if (this.state.chestOpen && this.chestView) {
       return this.chestHudCoordinator.handlePointerInput({
@@ -335,10 +337,21 @@ export class PixiHud {
         state: this.state,
         pointer,
         hotbarItems,
-        getSlotIndexAtPoint: (screenX, screenY) =>
-          this.hotbarEditView?.getSlotIndexAtPoint(screenX, screenY) ?? null,
-        queueInventoryMove: (fromSlotIndex, toSlotIndex) =>
-          this.gameClient.queueInventoryMove(fromSlotIndex, toSlotIndex),
+        armorItem,
+        getSlotRefAtPoint: (screenX, screenY) =>
+          this.hotbarEditView?.getSlotRefAtPoint(screenX, screenY) ?? null,
+        queueInventoryMove: (from, to) => {
+          if (from.source === "hotbar" && to.source === "hotbar") {
+            this.gameClient.queueInventoryMove(from.index, to.index);
+            return;
+          }
+          this.gameClient.queueArmorMove(
+            from.source,
+            from.index,
+            to.source,
+            to.index,
+          );
+        },
         markDirty: () => this.markDirty(),
       });
     }
@@ -579,7 +592,11 @@ export class PixiHud {
 
     const inventory = this.selectors.getInventory();
     const hotbarItems = this.getHotbarItems();
-    this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
+    this.inventoryEditCoordinator.sanitizeState(
+      this.state,
+      hotbarItems,
+      this.getArmorHotbarItem(),
+    );
 
     const nowMs = performance.now();
     const hotbarActiveIndex = computeHotbarActiveIndex({
@@ -684,6 +701,7 @@ export class PixiHud {
         inventory,
         hotbarActiveIndex,
         hotbarItems,
+        armorItem: this.getArmorHotbarItem(),
       });
       this.statusPanel.container.visible = this.state.sectorFeedOpen;
     }
@@ -787,10 +805,13 @@ export class PixiHud {
 
     const tooltipState = this.tooltipCoordinator.resolveTooltipState({
       inventoryOpen: this.state.inventoryOpen,
-      hoveredInventorySlotIndex: this.state.hoveredInventorySlotIndex,
+      hoveredInventorySlotIndex:
+        this.state.hoveredInventorySlotRef?.source === "hotbar"
+          ? this.state.hoveredInventorySlotRef.index
+          : null,
       inventory: this.selectors.getInventory(),
       getInventorySlotRect: (slotIndex) =>
-        this.hotbarEditView?.getSlotRect(slotIndex) ?? null,
+        this.hotbarEditView?.getSlotRect({ source: "hotbar", index: slotIndex }) ?? null,
       craftingMenuOpen: this.state.craftingMenuOpen,
       hoveredCraftItemTypeId:
         this.craftingHudCoordinator.getHoveredCraftItemTypeId(),
@@ -1037,9 +1058,10 @@ export class PixiHud {
       screenWidth,
       screenHeight,
       hotbarItems,
+      armorItem: this.getArmorHotbarItem(),
       selectedHotbarIndex: inventory?.selectedHotbarIndex ?? 0,
-      hoveredSlotIndex: this.state.hoveredInventorySlotIndex,
-      heldSlotIndex: this.state.heldInventorySlotIndex,
+      hoveredSlotRef: this.state.hoveredInventorySlotRef,
+      heldSlotRef: this.state.heldInventorySlotRef,
     });
   }
 
@@ -1165,6 +1187,19 @@ export class PixiHud {
     );
   }
 
+  private getArmorHotbarItem() {
+    const armorTypeId = this.selectors.getPlayerEntity()?.armorTypeId ?? null;
+    return {
+      typeId: armorTypeId,
+      count: armorTypeId ? 1 : null,
+      showCountWhenOne: false,
+      ammoInMag: null,
+      magSize: null,
+      reserveMagCount: null,
+      reloadTicksRemaining: null,
+    };
+  }
+
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {
     const unlockedRecipeTypeIds = new Set(
       this.selectors.getInventory()?.unlockedRecipeTypeIds ?? [],
@@ -1206,6 +1241,9 @@ export class PixiHud {
     const item = getItemContent(itemTypeId);
     if (item?.weapon) {
       return "weapons";
+    }
+    if (item?.armor) {
+      return "armor";
     }
     if (this.isMagazineItemTypeId(itemTypeId)) {
       return "ammo";

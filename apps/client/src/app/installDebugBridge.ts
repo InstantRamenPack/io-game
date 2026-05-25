@@ -178,8 +178,8 @@ export function installDebugBridge({
         inventoryOpen: hudState.inventoryOpen,
         selectedCraft: hudState.selectedCraft,
         previewedCraft: hudState.previewedCraft,
-        hoveredInventorySlotIndex: hudState.hoveredInventorySlotIndex,
-        heldInventorySlotIndex: hudState.heldInventorySlotIndex,
+        hoveredInventorySlotRef: hudState.hoveredInventorySlotRef,
+        heldInventorySlotRef: hudState.heldInventorySlotRef,
       },
       buildings: worldEntities
         .filter((entity) => getResourceNamespace(entity.typeId) === "building")

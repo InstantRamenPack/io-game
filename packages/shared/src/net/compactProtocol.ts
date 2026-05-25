@@ -212,6 +212,9 @@ function compactEntity(entity: EntitySnapshot): unknown[] {
           entity.activeEffects.map(compactActiveEffect),
           q(entity.moveSpeed),
           entity.equippedItem ? compactEquippedItem(entity.equippedItem) : null,
+          entity.armorTypeId ?? null,
+          entity.armorTier ?? null,
+          entity.armorDamageReductionPct ?? null,
         ],
       ];
     case "enemy":
@@ -221,6 +224,9 @@ function compactEntity(entity: EntitySnapshot): unknown[] {
         [
           entity.targetId ?? null,
           entity.equippedItem ? compactEquippedItem(entity.equippedItem) : null,
+          entity.armorTypeId ?? null,
+          entity.armorTier ?? null,
+          entity.armorDamageReductionPct ?? null,
         ],
       ];
     case "building":
@@ -264,8 +270,16 @@ function expandEntity(value: unknown): EntitySnapshot | null {
   }
   switch (kind) {
     case "player": {
-      const [name, inventory, activeEffects, moveSpeed, equippedItem] =
-        extraValue;
+      const [
+        name,
+        inventory,
+        activeEffects,
+        moveSpeed,
+        equippedItem,
+        armorTypeId,
+        armorTier,
+        armorDamageReductionPct,
+      ] = extraValue;
       if (typeof name !== "string" || typeof moveSpeed !== "number") {
         return null;
       }
@@ -281,10 +295,28 @@ function expandEntity(value: unknown): EntitySnapshot | null {
         ...(equippedItem === null
           ? {}
           : { equippedItem: expandEquippedItem(equippedItem) }),
+        ...(typeof armorTypeId === "string"
+          ? { armorTypeId: armorTypeId as ResourceId }
+          : {}),
+        ...(armorTier === 1 ||
+        armorTier === 2 ||
+        armorTier === 3 ||
+        armorTier === 4
+          ? { armorTier }
+          : {}),
+        ...(typeof armorDamageReductionPct === "number"
+          ? { armorDamageReductionPct }
+          : {}),
       };
     }
     case "enemy": {
-      const [targetId, equippedItem] = extraValue;
+      const [
+        targetId,
+        equippedItem,
+        armorTypeId,
+        armorTier,
+        armorDamageReductionPct,
+      ] = extraValue;
       return {
         ...base,
         kind,
@@ -292,6 +324,18 @@ function expandEntity(value: unknown): EntitySnapshot | null {
         ...(equippedItem === null
           ? {}
           : { equippedItem: expandEquippedItem(equippedItem) }),
+        ...(typeof armorTypeId === "string"
+          ? { armorTypeId: armorTypeId as ResourceId }
+          : {}),
+        ...(armorTier === 1 ||
+        armorTier === 2 ||
+        armorTier === 3 ||
+        armorTier === 4
+          ? { armorTier }
+          : {}),
+        ...(typeof armorDamageReductionPct === "number"
+          ? { armorDamageReductionPct }
+          : {}),
       };
     }
     case "building": {

@@ -156,6 +156,11 @@
         "typeId": "item:landmine",
         "kind": "stackable",
         "amount": 1
+      },
+      {
+        "typeId": "item:blueprint_armor_t2",
+        "kind": "stackable",
+        "amount": 1
       }
     ],
     "rare": [
@@ -192,6 +197,11 @@
         "typeId": "item:cannon",
         "kind": "stackable",
         "amount": 1
+      },
+      {
+        "typeId": "item:blueprint_armor_t3",
+        "kind": "stackable",
+        "amount": 1
       }
     ],
     "epic": [
@@ -215,6 +225,11 @@
       {
         "typeId": "item:sniper",
         "kind": "weapon"
+      },
+      {
+        "typeId": "item:blueprint_armor_t4",
+        "kind": "stackable",
+        "amount": 1
       }
     ]
   },

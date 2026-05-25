@@ -88,6 +88,14 @@ export class DamageEffect extends Effect {
     };
     world.events.push(damageEvent);
 
+    const reflectionPct = target.getDamageReflectionPct();
+    if (reflectionPct > 0 && instigator.alive) {
+      const reflectedAmount = effectiveAmount * reflectionPct;
+      if (reflectedAmount > 0) {
+        instigator.applyDamage(world, reflectedAmount, target.id);
+      }
+    }
+
     if (!isFatal) {
       return;
     }
