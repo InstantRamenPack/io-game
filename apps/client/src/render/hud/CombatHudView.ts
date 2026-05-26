@@ -1,6 +1,6 @@
 import * as PIXI from "pixi.js";
-import type {CombatHudModel} from "@client/render/hud/hudPresentationModels.ts";
-import {drawRoundedRect} from "@client/render/pixi/PixiGraphicUtils.ts";
+import type { CombatHudModel } from "@client/render/hud/hudPresentationModels.ts";
+import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 
 const HEALTH_ROW_HEIGHT = 28;
 const COMBAT_ROW_HEIGHT = 30;
