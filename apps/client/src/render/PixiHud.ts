@@ -27,12 +27,7 @@ import type {
 } from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
-import { ChestPromptView } from "@client/render/hud/ChestPromptView.ts";
-import { CraftingStationPromptView } from "@client/render/hud/CraftingStationPromptView.ts";
-import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
-import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
-import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
-import { UseItemPromptView } from "@client/render/hud/UseItemPromptView.ts";
+import { HoldActionPromptView } from "@client/render/hud/HoldActionPromptView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
   computeHotbarActiveIndex,
@@ -97,15 +92,20 @@ export class PixiHud {
   private tooltipView?: HudTooltipView;
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
-  private recyclerPromptView?: RecyclerPromptView;
-  private towerRepairPromptView?: TowerRepairPromptView;
-  private itemPickupPromptView?: ItemPickupPromptView;
-  private chestPromptView?: ChestPromptView;
-  private craftingStationPromptView?: CraftingStationPromptView;
+  private recyclerPromptView?: HoldActionPromptView;
+  private towerRepairPromptView?: HoldActionPromptView;
+  private itemPickupPromptView?: HoldActionPromptView;
+  private chestPromptView?: HoldActionPromptView;
+  private craftingStationPromptView?: HoldActionPromptView;
   private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
   private useItemHoldStartMs: number | null = null;
-  private useItemPromptView?: UseItemPromptView;
+  private useItemPromptView?: HoldActionPromptView;
+  private dragGhostContainer?: PIXI.Container;
+  private dragGhostIcon?: PIXI.Sprite;
+  private dragGhostCount?: PIXI.Text;
+  private lastPointerScreenX = 0;
+  private lastPointerScreenY = 0;
   private bossHealthBar?: BossHealthBar;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
@@ -254,13 +254,14 @@ export class PixiHud {
   }
 
   public handlePointerInput(pointer: PointerInput): boolean {
+    this.lastPointerScreenX = pointer.screenX;
+    this.lastPointerScreenY = pointer.screenY;
     if (!this.visible) {
       return false;
     }
 
     const inventory = this.selectors.getInventory();
     const hotbarItems = toHotbarSlotItems(inventory?.hotbarSlots ?? []);
-    const armorItem = this.getArmorHotbarItem();
 
     if (this.state.chestOpen && this.chestView) {
       return this.chestHudCoordinator.handlePointerInput({
@@ -293,6 +294,23 @@ export class PixiHud {
             to.source,
             to.index,
           );
+        },
+        findFirstEmptySlot: (source) => {
+          if (source === "hotbar") {
+            const inventory = this.selectors.getInventory();
+            if (!inventory) return null;
+            const index = inventory.hotbarSlots.findIndex(
+              (slot) => slot.kind === "empty",
+            );
+            return index >= 0 ? index : null;
+          }
+          const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+            this.state,
+            this.selectors,
+          );
+          if (!chestSlots) return null;
+          const index = chestSlots.findIndex((slot) => slot.kind === "empty");
+          return index >= 0 ? index : null;
         },
         markDirty: () => this.markDirty(),
       });
@@ -341,21 +359,10 @@ export class PixiHud {
         state: this.state,
         pointer,
         hotbarItems,
-        armorItem,
         getSlotRefAtPoint: (screenX, screenY) =>
           this.hotbarEditView?.getSlotRefAtPoint(screenX, screenY) ?? null,
-        queueInventoryMove: (from, to) => {
-          if (from.source === "hotbar" && to.source === "hotbar") {
-            this.gameClient.queueInventoryMove(from.index, to.index);
-            return;
-          }
-          this.gameClient.queueArmorMove(
-            from.source,
-            from.index,
-            to.source,
-            to.index,
-          );
-        },
+        queueInventoryMove: (from, to) =>
+          this.gameClient.queueInventoryMove(from.index, to.index),
         markDirty: () => this.markDirty(),
       });
     }
@@ -460,8 +467,14 @@ export class PixiHud {
           this.gameClient.renderer.getItemTexture(typeId),
       });
       this.combatHudView = new CombatHudView({
-        ammoTextureProvider: () =>
-          this.gameClient.renderer.getItemTexture("item:pistol_mag"),
+        ammoFilledTextureProvider: () =>
+          PIXI.Texture.from("/hud/bullet-filled.png"),
+        ammoEmptyTextureProvider: () =>
+          PIXI.Texture.from("/hud/bullet-empty.png"),
+        armorFilledTextureProvider: () =>
+          PIXI.Texture.from("/hud/armor-filled.png"),
+        armorEmptyTextureProvider: () =>
+          PIXI.Texture.from("/hud/armor-empty.png"),
       });
       this.hotbarView = new HotbarView({
         slotCount: HOTBAR_SLOT_COUNT,
@@ -494,12 +507,16 @@ export class PixiHud {
       this.tooltipView = new HudTooltipView();
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
-      this.recyclerPromptView = new RecyclerPromptView();
-      this.towerRepairPromptView = new TowerRepairPromptView();
-      this.useItemPromptView = new UseItemPromptView();
-      this.itemPickupPromptView = new ItemPickupPromptView();
-      this.chestPromptView = new ChestPromptView();
-      this.craftingStationPromptView = new CraftingStationPromptView();
+      this.recyclerPromptView = new HoldActionPromptView("Hold E to recycle");
+      this.towerRepairPromptView = new HoldActionPromptView("Hold E to repair");
+      this.useItemPromptView = new HoldActionPromptView("Hold E to use");
+      this.itemPickupPromptView = new HoldActionPromptView(
+        "Press E to pick up",
+      );
+      this.chestPromptView = new HoldActionPromptView("Press E to open chest");
+      this.craftingStationPromptView = new HoldActionPromptView(
+        "Press E to open crafting menu",
+      );
       this.bossHealthBar = new BossHealthBar();
 
       this.hunkBadge = new PIXI.Container();
@@ -543,6 +560,22 @@ export class PixiHud {
         this.bossHealthBar.container,
         this.tooltipView.container,
       );
+      this.dragGhostContainer = new PIXI.Container();
+      this.dragGhostIcon = new PIXI.Sprite();
+      this.dragGhostIcon.anchor.set(0.5);
+      this.dragGhostCount = new PIXI.Text(
+        "",
+        new PIXI.TextStyle({
+          fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+          fontSize: 12,
+          fill: 0xf3f6ee,
+          stroke: { color: 0x0c120b, width: 3 },
+        }),
+      );
+      this.dragGhostCount.anchor.set(1, 1);
+      this.dragGhostContainer.addChild(this.dragGhostIcon, this.dragGhostCount);
+      this.dragGhostContainer.visible = false;
+      this.root.addChild(this.dragGhostContainer);
     }
 
     if (this.root.parent !== parent) {
@@ -603,11 +636,7 @@ export class PixiHud {
 
     const inventory = this.selectors.getInventory();
     const hotbarItems = this.getHotbarItems();
-    this.inventoryEditCoordinator.sanitizeState(
-      this.state,
-      hotbarItems,
-      this.getArmorHotbarItem(),
-    );
+    this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
 
     const nowMs = performance.now();
     const hotbarActiveIndex = computeHotbarActiveIndex({
@@ -729,7 +758,6 @@ export class PixiHud {
         inventory,
         hotbarActiveIndex,
         hotbarItems,
-        armorItem: this.getArmorHotbarItem(),
       });
       this.statusPanel.container.visible = this.state.sectorFeedOpen;
     }
@@ -776,6 +804,10 @@ export class PixiHud {
 
     this.syncBossHealthBar(app.screen.width, app.screen.height);
     this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
+    const actionPromptAnchorBottomY =
+      this.combatHudView?.container.y !== undefined
+        ? this.combatHudView.container.y - 10
+        : app.screen.height - 140;
     this.syncRecyclerPrompt(
       app.screen.width,
       app.screen.height,
@@ -784,32 +816,46 @@ export class PixiHud {
       nearPickup,
       nearChest,
       nearCraftingStation,
+      actionPromptAnchorBottomY,
     );
-    this.syncRepairPrompt(app.screen.width, app.screen.height, nowMs);
+    this.syncRepairPrompt(
+      app.screen.width,
+      app.screen.height,
+      nowMs,
+      actionPromptAnchorBottomY,
+    );
     this.syncUseItemPrompt(
       app.screen.width,
       app.screen.height,
       nowMs,
       inventory,
       useItemActive,
+      actionPromptAnchorBottomY,
     );
     this.syncItemPickupPrompt(
       app.screen.width,
       app.screen.height,
+      nowMs,
       recyclerActive,
+      actionPromptAnchorBottomY,
     );
     this.syncChestPrompt(
       app.screen.width,
       app.screen.height,
+      nowMs,
       nearPickup,
       nearChest,
+      actionPromptAnchorBottomY,
     );
     this.syncCraftingStationPrompt(
       app.screen.width,
       app.screen.height,
+      nowMs,
       nearCraftingStation,
+      actionPromptAnchorBottomY,
     );
     this.syncHunkBadge(inventory);
+    this.syncDragGhost();
   }
 
   public markDirty(): void {
@@ -889,6 +935,7 @@ export class PixiHud {
     nearPickup: boolean,
     nearChest: boolean,
     nearCraftingStation: boolean,
+    anchorBottomY: number,
   ): void {
     if (!this.recyclerPromptView) {
       return;
@@ -912,11 +959,12 @@ export class PixiHud {
 
     this.recyclerPromptView.sync({
       visible: near,
-      itemLabel,
+      text: `Hold E to recycle ${itemLabel}`.trim(),
       holdStartMs: this.recyclerHoldStartMs,
       nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
     });
   }
 
@@ -924,6 +972,7 @@ export class PixiHud {
     screenWidth: number,
     screenHeight: number,
     nowMs: number,
+    anchorBottomY: number,
   ): void {
     if (!this.towerRepairPromptView) {
       return;
@@ -933,27 +982,31 @@ export class PixiHud {
     if (!tower) {
       this.towerRepairPromptView.sync({
         visible: false,
-        towerLabel: "",
-        repairCost: 0,
+        text: "",
         holdStartMs: null,
         nowMs,
         screenWidth,
         screenHeight,
+        anchorBottomY,
+        canProgress: false,
       });
       return;
     }
 
     const towerLabel = this.selectors.formatTypeLabel(tower.typeId);
     const repairCost = getTowerRepairCost(tower);
+    const canAfford =
+      this.selectors.countInventoryType("item:hunk") >= repairCost;
 
     this.towerRepairPromptView.sync({
       visible: true,
-      towerLabel,
-      repairCost,
+      text: `Hold E to repair ${towerLabel} (${repairCost} hunk)`,
       holdStartMs: this.repairHoldStartMs,
       nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
+      canProgress: canAfford,
     });
   }
 
@@ -963,6 +1016,7 @@ export class PixiHud {
     nowMs: number,
     inventory: InventorySnapshot | undefined,
     visible: boolean,
+    anchorBottomY: number,
   ): void {
     if (!this.useItemPromptView) {
       return;
@@ -970,12 +1024,12 @@ export class PixiHud {
     if (!visible || !inventory) {
       this.useItemPromptView.sync({
         visible: false,
-        verb: "use",
-        itemLabel: "",
+        text: "",
         holdStartMs: null,
         nowMs,
         screenWidth,
         screenHeight,
+        anchorBottomY,
       });
       return;
     }
@@ -983,12 +1037,12 @@ export class PixiHud {
     if (!slot || slot.kind === "empty") {
       this.useItemPromptView.sync({
         visible: false,
-        verb: "use",
-        itemLabel: "",
+        text: "",
         holdStartMs: null,
         nowMs,
         screenWidth,
         screenHeight,
+        anchorBottomY,
       });
       return;
     }
@@ -997,19 +1051,21 @@ export class PixiHud {
     const itemLabel = this.selectors.formatTypeLabel(typeId);
     this.useItemPromptView.sync({
       visible: true,
-      verb,
-      itemLabel,
+      text: `Hold E to ${verb} ${itemLabel}`,
       holdStartMs: this.useItemHoldStartMs,
       nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
     });
   }
 
   private syncItemPickupPrompt(
     screenWidth: number,
     screenHeight: number,
+    nowMs: number,
     recyclerActive: boolean,
+    anchorBottomY: number,
   ): void {
     if (!this.itemPickupPromptView) {
       return;
@@ -1018,9 +1074,12 @@ export class PixiHud {
     if (recyclerActive) {
       this.itemPickupPromptView.sync({
         visible: false,
-        itemLabel: "",
+        text: "",
+        holdStartMs: null,
+        nowMs,
         screenWidth,
         screenHeight,
+        anchorBottomY,
       });
       return;
     }
@@ -1035,40 +1094,55 @@ export class PixiHud {
 
     this.itemPickupPromptView.sync({
       visible: nearest !== null,
-      itemLabel,
+      text: `Press E to pick up ${itemLabel}`.trim(),
+      holdStartMs: null,
+      nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
     });
   }
 
   private syncChestPrompt(
     screenWidth: number,
     screenHeight: number,
+    nowMs: number,
     nearPickup: boolean,
     nearChest: boolean,
+    anchorBottomY: number,
   ): void {
     if (!this.chestPromptView) {
       return;
     }
     this.chestPromptView.sync({
       visible: nearChest && !nearPickup,
+      text: "Press E to open chest",
+      holdStartMs: null,
+      nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
     });
   }
 
   private syncCraftingStationPrompt(
     screenWidth: number,
     screenHeight: number,
+    nowMs: number,
     nearCraftingStation: boolean,
+    anchorBottomY: number,
   ): void {
     if (!this.craftingStationPromptView) {
       return;
     }
     this.craftingStationPromptView.sync({
       visible: nearCraftingStation,
+      text: "Press E to open crafting menu",
+      holdStartMs: null,
+      nowMs,
       screenWidth,
       screenHeight,
+      anchorBottomY,
     });
   }
 
@@ -1145,11 +1219,64 @@ export class PixiHud {
       screenWidth,
       screenHeight,
       hotbarItems,
-      armorItem: this.getArmorHotbarItem(),
       selectedHotbarIndex: inventory?.selectedHotbarIndex ?? 0,
       hoveredSlotRef: this.state.hoveredInventorySlotRef,
       heldSlotRef: this.state.heldInventorySlotRef,
     });
+  }
+
+  private syncDragGhost(): void {
+    if (
+      !this.dragGhostContainer ||
+      !this.dragGhostIcon ||
+      !this.dragGhostCount
+    ) {
+      return;
+    }
+    const item = this.getHeldDragItem();
+    if (!item?.typeId) {
+      this.dragGhostContainer.visible = false;
+      return;
+    }
+    this.dragGhostContainer.visible = true;
+    this.dragGhostIcon.texture = this.gameClient.renderer.getItemTexture(
+      item.typeId,
+    );
+    this.dragGhostIcon.width = 34;
+    this.dragGhostIcon.height = 34;
+    this.dragGhostContainer.position.set(
+      this.lastPointerScreenX + 12,
+      this.lastPointerScreenY + 12,
+    );
+    if (item.count !== null && item.count > 1) {
+      this.dragGhostCount.text = String(item.count);
+      this.dragGhostCount.visible = true;
+      this.dragGhostCount.position.set(20, 20);
+    } else {
+      this.dragGhostCount.visible = false;
+      this.dragGhostCount.text = "";
+    }
+    this.dragGhostContainer.zIndex = 99999;
+  }
+
+  private getHeldDragItem() {
+    const hotbarItems = this.getHotbarItems();
+    if (this.state.inventoryOpen && this.state.heldInventorySlotRef) {
+      return hotbarItems[this.state.heldInventorySlotRef.index] ?? null;
+    }
+    if (this.state.chestOpen && this.state.heldChestSlotRef) {
+      if (this.state.heldChestSlotRef.source === "hotbar") {
+        return hotbarItems[this.state.heldChestSlotRef.index] ?? null;
+      }
+      const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+        this.state,
+        this.selectors,
+      );
+      if (!chestSlots) return null;
+      const chestItems = toHotbarSlotItems(chestSlots);
+      return chestItems[this.state.heldChestSlotRef.index] ?? null;
+    }
+    return null;
   }
 
   private syncChestView(screenWidth: number, screenHeight: number): void {
@@ -1272,19 +1399,6 @@ export class PixiHud {
     return toHotbarSlotItems(
       this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots(),
     );
-  }
-
-  private getArmorHotbarItem() {
-    const armorTypeId = this.selectors.getPlayerEntity()?.armorTypeId ?? null;
-    return {
-      typeId: armorTypeId,
-      count: armorTypeId ? 1 : null,
-      showCountWhenOne: false,
-      ammoInMag: null,
-      magSize: null,
-      reserveMagCount: null,
-      reloadTicksRemaining: null,
-    };
   }
 
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {

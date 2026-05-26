@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
+import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
+import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -220,6 +222,34 @@ describe("inventory authority", () => {
       .all()
       .filter((entity) => entity instanceof ItemEntity);
     expect(pickups.length).toBeGreaterThan(0);
+  });
+
+  test("repair_tower consumes hunk and restores tower to full hp", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const tower = new CommsTower(runtime.world.allocEntityId());
+    tower.x = player.x + 20;
+    tower.y = player.y;
+    tower.hp = 100;
+    runtime.world.spawn(tower);
+
+    const initialHunks = player.inventory.countType(hunkItemId);
+    const expectedCost = Math.ceil(
+      (tower.maxHp - tower.hp) / TOWER_REPAIR_HP_PER_COST_UNIT,
+    );
+
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "repair_tower",
+      towerId: tower.id,
+    });
+
+    expect(tower.hp).toBe(tower.maxHp);
+    expect(tower.alive).toBe(true);
+    expect(player.inventory.countType(hunkItemId)).toBe(
+      initialHunks - expectedCost,
+    );
   });
 
   test("pickup action collects overlapping item", () => {

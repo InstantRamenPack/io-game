@@ -6,13 +6,11 @@ export function sanitizeHotbarEditState(options: {
   hoveredSlotRef: InventorySlotRef | null;
   heldSlotRef: InventorySlotRef | null;
   hotbarItems: HotbarSlotItem[];
-  armorItem: HotbarSlotItem;
 }): {
   hoveredSlotRef: InventorySlotRef | null;
   heldSlotRef: InventorySlotRef | null;
 } {
-  const { inventoryOpen, hoveredSlotRef, heldSlotRef, hotbarItems, armorItem } =
-    options;
+  const { inventoryOpen, hoveredSlotRef, heldSlotRef, hotbarItems } = options;
   if (!inventoryOpen) {
     return {
       hoveredSlotRef: null,
@@ -24,17 +22,11 @@ export function sanitizeHotbarEditState(options: {
     if (!ref) {
       return false;
     }
-    if (ref.source === "armor") {
-      return ref.index === 0;
-    }
     return ref.index >= 0 && ref.index < hotbarItems.length;
   };
   const hasItem = (ref: InventorySlotRef | null): boolean => {
     if (!ref) {
       return false;
-    }
-    if (ref.source === "armor") {
-      return armorItem.typeId !== null;
     }
     return Boolean(hotbarItems[ref.index]?.typeId);
   };

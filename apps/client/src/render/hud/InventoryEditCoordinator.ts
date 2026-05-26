@@ -6,6 +6,12 @@ import type { InventorySlotRef } from "@client/render/hud/InventoryView.ts";
 
 export class InventoryEditCoordinator {
   private draggedInventorySlotRef: InventorySlotRef | null = null;
+  private pointerDown: {
+    ref: InventorySlotRef;
+    screenX: number;
+    screenY: number;
+  } | null = null;
+  private static readonly DRAG_THRESHOLD_PX = 8;
 
   public open(state: HudInteractionState): void {
     state.inventoryOpen = true;
@@ -24,14 +30,12 @@ export class InventoryEditCoordinator {
   public sanitizeState(
     state: HudInteractionState,
     hotbarItems: HotbarSlotItem[],
-    armorItem: HotbarSlotItem,
   ): void {
     const { hoveredSlotRef, heldSlotRef } = sanitizeHotbarEditState({
       inventoryOpen: state.inventoryOpen,
       hoveredSlotRef: state.hoveredInventorySlotRef,
       heldSlotRef: state.heldInventorySlotRef,
       hotbarItems,
-      armorItem,
     });
 
     state.hoveredInventorySlotRef = hoveredSlotRef;
@@ -45,7 +49,6 @@ export class InventoryEditCoordinator {
     state: HudInteractionState;
     pointer: PointerInput;
     hotbarItems: HotbarSlotItem[];
-    armorItem: HotbarSlotItem;
     getSlotRefAtPoint: (
       screenX: number,
       screenY: number,
@@ -57,7 +60,6 @@ export class InventoryEditCoordinator {
       state,
       pointer,
       hotbarItems,
-      armorItem,
       getSlotRefAtPoint,
       queueInventoryMove,
       markDirty,
@@ -72,6 +74,17 @@ export class InventoryEditCoordinator {
     }
 
     if (pointer.kind === "move") {
+      if (
+        this.pointerDown &&
+        this.draggedInventorySlotRef === null &&
+        state.heldInventorySlotRef
+      ) {
+        const dx = pointer.screenX - this.pointerDown.screenX;
+        const dy = pointer.screenY - this.pointerDown.screenY;
+        if (Math.hypot(dx, dy) >= InventoryEditCoordinator.DRAG_THRESHOLD_PX) {
+          this.draggedInventorySlotRef = this.pointerDown.ref;
+        }
+      }
       return true;
     }
 
@@ -86,31 +99,35 @@ export class InventoryEditCoordinator {
         this.clearDragState(state);
         markDirty();
       }
+      this.pointerDown = null;
       this.draggedInventorySlotRef = null;
       return true;
     }
 
     if (hoveredSlotRef === null) {
       this.clearDragState(state);
+      this.pointerDown = null;
       markDirty();
       return true;
     }
 
-    const item =
-      hoveredSlotRef.source === "armor"
-        ? armorItem
-        : hotbarItems[hoveredSlotRef.index];
+    const item = hotbarItems[hoveredSlotRef.index];
     if (state.heldInventorySlotRef !== null) {
       if (
         state.heldInventorySlotRef.source === hoveredSlotRef.source &&
         state.heldInventorySlotRef.index === hoveredSlotRef.index
       ) {
-        this.draggedInventorySlotRef = hoveredSlotRef;
+        this.pointerDown = {
+          ref: hoveredSlotRef,
+          screenX: pointer.screenX,
+          screenY: pointer.screenY,
+        };
         return true;
       }
 
       queueInventoryMove(state.heldInventorySlotRef, hoveredSlotRef);
       this.clearDragState(state);
+      this.pointerDown = null;
       markDirty();
       return true;
     }
@@ -120,7 +137,11 @@ export class InventoryEditCoordinator {
     }
 
     state.heldInventorySlotRef = hoveredSlotRef;
-    this.draggedInventorySlotRef = hoveredSlotRef;
+    this.pointerDown = {
+      ref: hoveredSlotRef,
+      screenX: pointer.screenX,
+      screenY: pointer.screenY,
+    };
     markDirty();
     return true;
   }
@@ -128,5 +149,6 @@ export class InventoryEditCoordinator {
   private clearDragState(state: HudInteractionState): void {
     state.heldInventorySlotRef = null;
     this.draggedInventorySlotRef = null;
+    this.pointerDown = null;
   }
 }

@@ -20,3 +20,7 @@ export const MAX_CHEST_INDEX = CHEST_SLOT_COUNT - 1;
 export const RECYCLER_INTERACT_PADDING =
   interactionsConfig.recyclerInteractPadding;
 export const TOWER_INTERACT_PADDING = interactionsConfig.towerInteractPadding;
+export const INTERACT_HOLD_DURATION_MS =
+  interactionsConfig.interactHoldDurationMs;
+export const TOWER_REPAIR_HP_PER_COST_UNIT =
+  interactionsConfig.towerRepairHpPerCostUnit;

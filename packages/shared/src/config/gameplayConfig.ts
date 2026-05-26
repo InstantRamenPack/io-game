@@ -113,6 +113,8 @@ const InteractionsConfigSchema = z.object({
   chestSlotCount: PositiveIntSchema,
   recyclerInteractPadding: NonNegativeFiniteNumberSchema,
   towerInteractPadding: NonNegativeFiniteNumberSchema,
+  interactHoldDurationMs: PositiveIntSchema,
+  towerRepairHpPerCostUnit: PositiveFiniteNumberSchema,
 });
 
 const PickupPoolConfigSchema = z.object({

@@ -2,9 +2,23 @@ import { Assets, Graphics, Texture } from "pixi.js";
 import type { Application } from "pixi.js";
 import { isJsonObject, type JsonValue } from "@shared/json.ts";
 
+export type HudTextureId =
+  | "armor-filled"
+  | "armor-empty"
+  | "bullet-filled"
+  | "bullet-empty";
+
+const HUD_TEXTURE_URLS: Record<HudTextureId, string> = {
+  "armor-filled": "/hud/armor-filled.png",
+  "armor-empty": "/hud/armor-empty.png",
+  "bullet-filled": "/hud/bullet-filled.png",
+  "bullet-empty": "/hud/bullet-empty.png",
+};
+
 export class PixiAssetStore {
   private readonly itemTextures = new Map<string, Texture>();
   private readonly itemSpriteTextures = new Map<string, Texture>();
+  private readonly hudTextures = new Map<HudTextureId, Texture>();
   private readonly particleTextures = new Map<string, Texture>();
   private placeholderItemTexture: Texture | null = null;
   private itemIconMap: Record<string, string> = {};
@@ -12,6 +26,7 @@ export class PixiAssetStore {
   public async load(app: Application): Promise<void> {
     await this.loadItemIcons();
     await this.loadItemSprites();
+    await this.loadHudTextures();
     this.buildParticleTextures(app);
   }
 
@@ -30,6 +45,10 @@ export class PixiAssetStore {
       this.placeholderItemTexture ??
       Texture.WHITE
     );
+  }
+
+  public getHudTexture(id: HudTextureId): Texture {
+    return this.hudTextures.get(id) ?? Texture.WHITE;
   }
 
   public getParticleTexture(kind: "soft-circle" | "ring"): Texture {
@@ -89,6 +108,19 @@ export class PixiAssetStore {
       if (url) {
         this.itemSpriteTextures.set(typeId, Texture.from(url));
       }
+    }
+  }
+
+  private async loadHudTextures(): Promise<void> {
+    await Promise.all(
+      Object.values(HUD_TEXTURE_URLS).map(async (url) => {
+        await Assets.load(url);
+      }),
+    );
+
+    this.hudTextures.clear();
+    for (const [id, url] of Object.entries(HUD_TEXTURE_URLS)) {
+      this.hudTextures.set(id as HudTextureId, Texture.from(url));
     }
   }
 

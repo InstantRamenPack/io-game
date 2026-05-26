@@ -215,13 +215,7 @@ export class Player extends Entity {
   }
 
   public canEquipSelectedArmorFromAttack(): boolean {
-    const selectedSlot =
-      this.inventory.hotbarSlots[this.inventory.selectedHotbarIndex];
-    return (
-      selectedSlot?.kind === "buildable" &&
-      !!getArmorStats(selectedSlot.typeId) &&
-      !this.equippedArmorTypeId
-    );
+    return false;
   }
 
   public getEquippedArmorTypeId(): ResourceId | undefined {
@@ -574,9 +568,7 @@ export class Player extends Entity {
           break;
         case "attack":
           this.setAimTheta(actionMessage.theta);
-          if (!this.tryEquipSelectedArmorFromAttack()) {
-            this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
-          }
+          this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
           break;
         case "craft":
           this.craft(world, actionMessage.craft.itemTypeId);
@@ -786,7 +778,16 @@ export class Player extends Entity {
     }
     const item = new itemEntry.ctor();
     if (item instanceof ArmorItem) {
-      this.moveHotbarToArmor(selectedIndex, 0);
+      if (this.equippedArmorTypeId) {
+        selectedSlot.typeId = this.equippedArmorTypeId;
+        selectedSlot.count = 1;
+      } else {
+        selectedSlot.count -= 1;
+        if (selectedSlot.count <= 0) {
+          this.inventory.hotbarSlots[selectedIndex] = null;
+        }
+      }
+      this.equippedArmorTypeId = typeId;
       return;
     }
     if (!(item instanceof ConsumableItem)) {
@@ -950,23 +951,6 @@ export class Player extends Entity {
       return;
     }
     this.moveArmorToHotbar(action.fromIndex, action.toIndex);
-  }
-
-  private tryEquipSelectedArmorFromAttack(): boolean {
-    if (!this.canEquipSelectedArmorFromAttack()) {
-      return false;
-    }
-    const selectedIndex = this.inventory.selectedHotbarIndex;
-    const slot = this.inventory.hotbarSlots[selectedIndex];
-    if (!slot || slot.kind !== "buildable") {
-      return false;
-    }
-    this.equippedArmorTypeId = slot.typeId;
-    slot.count -= 1;
-    if (slot.count <= 0) {
-      this.inventory.hotbarSlots[selectedIndex] = null;
-    }
-    return true;
   }
 
   private moveHotbarToArmor(

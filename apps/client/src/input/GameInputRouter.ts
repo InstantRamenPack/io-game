@@ -1,14 +1,11 @@
 import type { InputContext } from "@client/input/InputContext.ts";
 import type { InputCommand } from "@client/input/InputCommand.ts";
+import { INTERACT_HOLD_DURATION_MS } from "@shared/gameplay/constants.ts";
 
 type RouterOptions = {
   getContext: () => InputContext;
   dispatch: (command: InputCommand) => void;
 };
-
-const RECYCLE_HOLD_DURATION_MS = 750;
-const REPAIR_HOLD_DURATION_MS = 750;
-const USE_ITEM_HOLD_DURATION_MS = 750;
 
 export class GameInputRouter {
   private eHoldInterval: ReturnType<typeof setInterval> | null = null;
@@ -17,9 +14,9 @@ export class GameInputRouter {
   private eNextRecycleAtMs: number | null = null;
   private eItemHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private eItemHoldFired = false;
-  private fHoldTimer: ReturnType<typeof setTimeout> | null = null;
-  private fHoldFired = false;
-  private fHoldTowerId: number | null = null;
+  private eRepairHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private eRepairHoldFired = false;
+  private eRepairHoldTowerId: number | null = null;
 
   constructor(private readonly options: RouterOptions) {}
 
@@ -45,19 +42,15 @@ export class GameInputRouter {
         }
       }
       this.eItemHoldFired = false;
-      return;
-    }
-
-    if (key === "f") {
-      if (this.fHoldTimer !== null) {
-        clearTimeout(this.fHoldTimer);
-        this.fHoldTimer = null;
+      if (this.eRepairHoldTimer !== null) {
+        clearTimeout(this.eRepairHoldTimer);
+        this.eRepairHoldTimer = null;
       }
-      if (!this.fHoldFired) {
+      if (!this.eRepairHoldFired) {
         this.options.dispatch({ type: "cancelRepairHold" });
       }
-      this.fHoldFired = false;
-      this.fHoldTowerId = null;
+      this.eRepairHoldFired = false;
+      this.eRepairHoldTowerId = null;
     }
   }
 
@@ -144,6 +137,26 @@ export class GameInputRouter {
         this.options.dispatch({ type: "openCraftingMenu" });
         return;
       }
+      if (context.nearDamagedTower !== null) {
+        if (this.eRepairHoldTimer !== null) {
+          clearTimeout(this.eRepairHoldTimer);
+        }
+        this.eRepairHoldFired = false;
+        this.eRepairHoldTowerId = context.nearDamagedTower;
+        this.options.dispatch({ type: "startRepairHold" });
+        this.eRepairHoldTimer = setTimeout(() => {
+          this.eRepairHoldTimer = null;
+          this.eRepairHoldFired = true;
+          if (this.eRepairHoldTowerId !== null) {
+            this.options.dispatch({
+              type: "repairTower",
+              towerId: this.eRepairHoldTowerId,
+            });
+          }
+          this.eRepairHoldTowerId = null;
+        }, INTERACT_HOLD_DURATION_MS);
+        return;
+      }
       if (context.nearRecyclerWithItem) {
         this.eKeyHeld = true;
         this.startRecycleLoop();
@@ -157,35 +170,10 @@ export class GameInputRouter {
           this.eItemHoldTimer = null;
           this.eItemHoldFired = true;
           this.options.dispatch({ type: "useConsumable", typeId });
-        }, USE_ITEM_HOLD_DURATION_MS);
+        }, INTERACT_HOLD_DURATION_MS);
         return;
       }
       this.options.dispatch({ type: "pickupNearestItem" });
-      return;
-    }
-
-    if (key === "f") {
-      const towerId = context.nearDamagedTower;
-      if (towerId !== null) {
-        event.preventDefault();
-        if (this.fHoldTimer !== null) {
-          clearTimeout(this.fHoldTimer);
-        }
-        this.fHoldFired = false;
-        this.fHoldTowerId = towerId;
-        this.options.dispatch({ type: "startRepairHold" });
-        this.fHoldTimer = setTimeout(() => {
-          this.fHoldTimer = null;
-          this.fHoldFired = true;
-          if (this.fHoldTowerId !== null) {
-            this.options.dispatch({
-              type: "repairTower",
-              towerId: this.fHoldTowerId,
-            });
-          }
-          this.fHoldTowerId = null;
-        }, REPAIR_HOLD_DURATION_MS);
-      }
       return;
     }
 
@@ -266,7 +254,7 @@ export class GameInputRouter {
       return;
     }
     if (this.eNextRecycleAtMs === null) {
-      this.eNextRecycleAtMs = nowMs + RECYCLE_HOLD_DURATION_MS;
+      this.eNextRecycleAtMs = nowMs + INTERACT_HOLD_DURATION_MS;
       this.eHoldFired = false;
       this.options.dispatch({ type: "startRecycleHold" });
     }
@@ -300,7 +288,7 @@ export class GameInputRouter {
         return;
       }
 
-      this.eNextRecycleAtMs += RECYCLE_HOLD_DURATION_MS;
+      this.eNextRecycleAtMs += INTERACT_HOLD_DURATION_MS;
       this.eHoldFired = false;
       this.options.dispatch({ type: "startRecycleHold" });
     }, 16);

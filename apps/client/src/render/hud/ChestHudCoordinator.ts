@@ -12,6 +12,12 @@ import { getItemContent } from "@shared/content/catalog.ts";
 
 export class ChestHudCoordinator {
   private draggedRef: ChestSlotRef | null = null;
+  private pointerDown: {
+    ref: ChestSlotRef;
+    screenX: number;
+    screenY: number;
+  } | null = null;
+  private static readonly DRAG_THRESHOLD_PX = 8;
 
   public open(state: HudInteractionState, chestEntityId: number): void {
     state.chestOpen = true;
@@ -57,6 +63,7 @@ export class ChestHudCoordinator {
     ) => ChestSlotRef | null;
     getSlotItem: (ref: ChestSlotRef) => { typeId: string | null } | null;
     queueChestMove: (from: ChestSlotRef, to: ChestSlotRef) => void;
+    findFirstEmptySlot: (source: "chest" | "hotbar") => number | null;
     markDirty: () => void;
   }): boolean {
     const {
@@ -65,6 +72,7 @@ export class ChestHudCoordinator {
       getSlotRefAtPoint,
       getSlotItem,
       queueChestMove,
+      findFirstEmptySlot,
       markDirty,
     } = options;
 
@@ -79,6 +87,17 @@ export class ChestHudCoordinator {
     }
 
     if (pointer.kind === "move") {
+      if (
+        this.pointerDown &&
+        this.draggedRef === null &&
+        state.heldChestSlotRef
+      ) {
+        const dx = pointer.screenX - this.pointerDown.screenX;
+        const dy = pointer.screenY - this.pointerDown.screenY;
+        if (Math.hypot(dx, dy) >= ChestHudCoordinator.DRAG_THRESHOLD_PX) {
+          this.draggedRef = this.pointerDown.ref;
+        }
+      }
       return true;
     }
 
@@ -91,29 +110,49 @@ export class ChestHudCoordinator {
       ) {
         queueChestMove(this.draggedRef, hoveredRef);
       }
+      this.pointerDown = null;
       this.clearDragState(state);
       markDirty();
       return true;
     }
 
     if (hoveredRef === null) {
+      this.pointerDown = null;
       this.clearDragState(state);
       markDirty();
       return true;
     }
 
     const item = getSlotItem(hoveredRef);
+    if (pointer.shiftKey && item?.typeId) {
+      const targetSource = hoveredRef.source === "chest" ? "hotbar" : "chest";
+      const targetIndex = findFirstEmptySlot(targetSource);
+      if (targetIndex !== null) {
+        queueChestMove(hoveredRef, {
+          source: targetSource,
+          index: targetIndex,
+        });
+        this.clearDragState(state);
+        markDirty();
+      }
+      return true;
+    }
     if (state.heldChestSlotRef !== null) {
       const held = state.heldChestSlotRef;
       if (
         held.source === hoveredRef.source &&
         held.index === hoveredRef.index
       ) {
-        this.draggedRef = hoveredRef;
+        this.pointerDown = {
+          ref: hoveredRef,
+          screenX: pointer.screenX,
+          screenY: pointer.screenY,
+        };
         return true;
       }
       queueChestMove(held, hoveredRef);
       this.clearDragState(state);
+      this.pointerDown = null;
       markDirty();
       return true;
     }
@@ -123,7 +162,11 @@ export class ChestHudCoordinator {
     }
 
     state.heldChestSlotRef = hoveredRef;
-    this.draggedRef = hoveredRef;
+    this.pointerDown = {
+      ref: hoveredRef,
+      screenX: pointer.screenX,
+      screenY: pointer.screenY,
+    };
     markDirty();
     return true;
   }
@@ -183,6 +226,7 @@ export class ChestHudCoordinator {
   private clearDragState(state: HudInteractionState): void {
     state.heldChestSlotRef = null;
     this.draggedRef = null;
+    this.pointerDown = null;
   }
 }
 

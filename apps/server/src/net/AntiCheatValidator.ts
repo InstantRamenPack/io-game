@@ -56,6 +56,7 @@ export class AntiCheatValidator {
       case "drop":
       case "pickup":
       case "recycle":
+      case "repair_tower":
       case "useConsumable":
         return true;
     }

@@ -80,7 +80,6 @@ export class GameplayHudCoordinator {
     inventory: InventorySnapshot | undefined;
     hotbarActiveIndex: number | null;
     hotbarItems: HotbarSlotItem[];
-    armorItem: HotbarSlotItem;
   }): void {
     const {
       statusPanel,
@@ -99,7 +98,6 @@ export class GameplayHudCoordinator {
       inventory,
       hotbarActiveIndex,
       hotbarItems,
-      armorItem,
     } = options;
     const activeEffectEntries = buildActiveEffectEntries({
       activeEffects: playerEntity?.activeEffects,
@@ -150,7 +148,7 @@ export class GameplayHudCoordinator {
       hotbarView.width,
     );
 
-    hotbarView.setSlots(hotbarItems, hotbarActiveIndex, armorItem);
+    hotbarView.setSlots(hotbarItems, hotbarActiveIndex);
   }
 
   public syncDayNight(options: {

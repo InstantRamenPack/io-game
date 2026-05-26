@@ -44,8 +44,9 @@ export class SelectedItemToastView {
       0,
       this.widthValue,
       this.heightValue,
-      12,
-      { color: 0x0a0f0b, alpha: 0.78 * alpha },
+      Math.floor(this.heightValue / 2),
+      { color: 0x2a2f35, alpha: 0.92 * alpha },
+      { width: 1, color: 0x89929b, alpha: 0.65 * alpha },
     );
 
     this.text.position.set(this.widthValue / 2, this.heightValue / 2);

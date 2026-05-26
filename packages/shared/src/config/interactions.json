@@ -8,5 +8,7 @@
   "chestInteractRadius": 160,
   "chestSlotCount": 30,
   "recyclerInteractPadding": 80,
-  "towerInteractPadding": 80
+  "towerInteractPadding": 80,
+  "interactHoldDurationMs": 750,
+  "towerRepairHpPerCostUnit": 50
 }

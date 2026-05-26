@@ -20,7 +20,6 @@ export type AppElements = {
   lobbyLeaveBtn: HTMLButtonElement | null;
   lobbyCodeInput: HTMLInputElement | null;
   lobbyCodeJoinBtn: HTMLButtonElement | null;
-  trainingGroundBanner: HTMLElement | null;
   gameStartPrompt: HTMLElement | null;
   matchCoreHud: HTMLElement | null;
   playerNameInput: HTMLInputElement | null;
@@ -71,7 +70,6 @@ export function getAppElements(): AppElements {
     lobbyCodeJoinBtn: document.getElementById(
       "lobby-code-join-btn",
     ) as HTMLButtonElement | null,
-    trainingGroundBanner: document.getElementById("training-ground-banner"),
     gameStartPrompt: document.getElementById("game-start-prompt"),
     matchCoreHud: document.getElementById("match-core-hud"),
     playerNameInput: document.getElementById(

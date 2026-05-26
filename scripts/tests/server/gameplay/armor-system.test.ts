@@ -20,7 +20,7 @@ const armorTier4Id = makeResourceId("item", "armor_t4");
 describe("armor system", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("equipped armor reduces incoming damage and tier 4 reflects chip damage", () => {
+  test("equipped armor via useConsumable reduces incoming damage and tier 4 reflects chip damage", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const enemy = spawnEnemy(runtime, "drifter", player.x + 20, player.y);
@@ -40,8 +40,8 @@ describe("armor system", () => {
     runtime.handleAction("client-1", {
       t: "action",
       seq: 2,
-      action: "attack",
-      theta: 0,
+      action: "useConsumable",
+      typeId: armorTier4Id,
     });
     tick(runtime, 1);
 
@@ -52,54 +52,56 @@ describe("armor system", () => {
     expect(enemy.hp).toBeLessThan(enemyHpBefore);
   });
 
-  test("drop action can drop equipped armor when selected hotbar slot is empty", () => {
+  test("equipping new armor returns previously equipped armor to the same slot", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
 
+    player.inventory.addStackable(armorTier4Id, 1);
     player.inventory.addStackable(armorTier1Id, 1);
-    const armorSlotIndex = player.inventory.hotbarSlots.findIndex(
-      (slot) => slot?.kind === "buildable" && slot.typeId === armorTier1Id,
+    const armorTier4SlotIndex = player.inventory.hotbarSlots.findIndex(
+      (slot) => slot?.kind === "buildable" && slot.typeId === armorTier4Id,
     );
-    expect(armorSlotIndex).toBeGreaterThanOrEqual(0);
+    expect(armorTier4SlotIndex).toBeGreaterThanOrEqual(0);
     runtime.handleAction("client-1", {
       t: "action",
       seq: 1,
       action: "selectHotbar",
-      index: armorSlotIndex,
+      index: armorTier4SlotIndex,
     });
     runtime.handleAction("client-1", {
       t: "action",
       seq: 2,
-      action: "attack",
-      theta: 0,
+      action: "useConsumable",
+      typeId: armorTier4Id,
     });
     tick(runtime, 1);
 
-    const emptySlotIndex = player.inventory.hotbarSlots.findIndex(
-      (slot) => slot === null,
+    const armorTier1SlotIndex = player.inventory.hotbarSlots.findIndex(
+      (slot) => slot?.kind === "buildable" && slot.typeId === armorTier1Id,
     );
-    expect(emptySlotIndex).toBeGreaterThanOrEqual(0);
+    expect(armorTier1SlotIndex).toBeGreaterThanOrEqual(0);
     runtime.handleAction("client-1", {
       t: "action",
       seq: 3,
       action: "selectHotbar",
-      index: emptySlotIndex,
+      index: armorTier1SlotIndex,
     });
     runtime.handleAction("client-1", {
       t: "action",
       seq: 4,
-      action: "drop",
-      dropWholeStack: true,
+      action: "useConsumable",
+      typeId: armorTier1Id,
     });
     tick(runtime, 1);
 
-    const pickups = runtime.world.entities
-      .all()
-      .filter((entity): entity is ItemEntity => entity instanceof ItemEntity);
-    const armorPickup = pickups.find(
-      (pickup) => pickup.contents.countType(armorTier1Id) > 0,
-    );
-    expect(armorPickup).toBeDefined();
+    expect(player.toSnapshot().armorTypeId).toBe(armorTier1Id);
+    const selectedSlot = player.inventory.hotbarSlots[armorTier1SlotIndex];
+    expect(selectedSlot?.kind).toBe("buildable");
+    if (!selectedSlot || selectedSlot.kind !== "buildable") {
+      throw new Error("expected buildable slot after armor swap");
+    }
+    expect(selectedSlot.typeId).toBe(armorTier4Id);
+    expect(selectedSlot.count).toBe(1);
   });
 
   test("armor can be moved between dedicated armor slot and hotbar", () => {
