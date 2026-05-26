@@ -46,7 +46,10 @@ export class InventoryEditCoordinator {
     pointer: PointerInput;
     hotbarItems: HotbarSlotItem[];
     armorItem: HotbarSlotItem;
-    getSlotRefAtPoint: (screenX: number, screenY: number) => InventorySlotRef | null;
+    getSlotRefAtPoint: (
+      screenX: number,
+      screenY: number,
+    ) => InventorySlotRef | null;
     queueInventoryMove: (from: InventorySlotRef, to: InventorySlotRef) => void;
     markDirty: () => void;
   }): boolean {
@@ -59,10 +62,7 @@ export class InventoryEditCoordinator {
       queueInventoryMove,
       markDirty,
     } = options;
-    const hoveredSlotRef = getSlotRefAtPoint(
-      pointer.screenX,
-      pointer.screenY,
-    );
+    const hoveredSlotRef = getSlotRefAtPoint(pointer.screenX, pointer.screenY);
     const sameHoveredRef =
       hoveredSlotRef?.source === state.hoveredInventorySlotRef?.source &&
       hoveredSlotRef?.index === state.hoveredInventorySlotRef?.index;

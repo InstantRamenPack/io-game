@@ -20,5 +20,9 @@
     ]
   },
   "rarityTier": "rare",
+  "spawnWeapons": {
+    "selection": "rotating",
+    "typeIds": ["item:katana", "item:spiked_spear", "item:fire_axe"]
+  },
   "deathLoot": {}
 }

@@ -1,10 +1,9 @@
-import { Enemy } from "@server/entities/Enemy.ts";
+import { createEnemySpawnWeapons, Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
-import { Taser } from "@server/items/weapons/Taser.ts";
 
 /**
  * Police enemy that rushes into melee range and stuns with a taser sweep.
@@ -14,7 +13,7 @@ export class Police extends Enemy {
 
   constructor(id: number) {
     super(id, {
-      weapons: [new Taser()],
+      weapons: createEnemySpawnWeapons(Police.typeId, 0).weapons,
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 630, {
           requireLineOfSight: true,

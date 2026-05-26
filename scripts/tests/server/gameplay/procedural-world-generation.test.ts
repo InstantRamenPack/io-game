@@ -40,6 +40,17 @@ const ACCESS_SAMPLE_SIZE = 32;
 const PLAYER_CLEARANCE = 24;
 const MIN_REACHABLE_OPEN_RATIO = 0.97;
 
+function isEpicWeaponBlueprint(typeId: ResourceId): boolean {
+  const item = getItemContent(typeId);
+  if (!item?.unlocksRecipeTypeId) {
+    return false;
+  }
+  const unlockedItem = getItemContent(item.unlocksRecipeTypeId);
+  return (
+    unlockedItem?.weapon !== undefined && unlockedItem.rarityTier === "epic"
+  );
+}
+
 describe("procedural survival extraction world", () => {
   beforeAll(bootstrapTestRegistries);
 
@@ -373,7 +384,7 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     expect(
       villageCrates.every((crateLoot) =>
-        crateLoot.every((slot) => !slot.typeId.startsWith("item:blueprint_")),
+        crateLoot.every((slot) => !isEpicWeaponBlueprint(slot.typeId)),
       ),
     ).toBe(true);
   });
@@ -429,6 +440,9 @@ describe("procedural survival extraction world", () => {
         }
         for (const slot of enemy.crateLoot) {
           if (!slot.typeId.startsWith("item:blueprint_")) {
+            continue;
+          }
+          if (!isEpicWeaponBlueprint(slot.typeId)) {
             continue;
           }
           observedBlueprintCounts.set(

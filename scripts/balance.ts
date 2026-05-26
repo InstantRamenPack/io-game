@@ -8,7 +8,7 @@ type BalanceFile = {
 type BalanceField = {
   key: string;
   label: string;
-  source: "item" | "weapon" | "projectile";
+  source: "item" | "weapon" | "projectile" | "enemy";
   path: string[];
   value: string | number | null;
   kind: "number" | "text";
@@ -30,7 +30,15 @@ type BalanceRow = {
   fields: BalanceField[];
 };
 
+type EnemyBalanceRow = {
+  enemyTypeId: string;
+  enemyLabel: string;
+  enemyFile: string;
+  fields: BalanceField[];
+};
+
 const itemContentDirectory = "packages/shared/src/content/item";
+const enemyContentDirectory = "packages/shared/src/content/enemy";
 const projectileContentDirectory = "packages/shared/src/content/projectile";
 
 const weaponFieldSpecs = [
@@ -73,6 +81,28 @@ const itemFieldSpecs = [
     key: "rarityTier",
     label: "Rarity",
     path: ["rarityTier"],
+    kind: "text",
+  },
+] as const;
+
+const enemyFieldSpecs = [
+  { key: "label", label: "Enemy Name", path: ["label"], kind: "text" },
+  {
+    key: "rarityTier",
+    label: "Rarity",
+    path: ["rarityTier"],
+    kind: "text",
+  },
+  {
+    key: "spawnWeaponSelection",
+    label: "Spawn Weapon Selection",
+    path: ["spawnWeapons", "selection"],
+    kind: "text",
+  },
+  {
+    key: "spawnWeaponTypeIds",
+    label: "Spawn Weapon Type IDs",
+    path: ["spawnWeapons", "typeIds"],
     kind: "text",
   },
 ] as const;
@@ -280,6 +310,25 @@ function makeItemField(
   };
 }
 
+function makeEnemyField(
+  spec: (typeof enemyFieldSpecs)[number],
+  data: JsonObject,
+): BalanceField {
+  const value = getValue(data, spec.path);
+  return {
+    key: `enemy.${spec.key}`,
+    label: spec.label,
+    source: "enemy",
+    path: [...spec.path],
+    value: Array.isArray(value)
+      ? value.join(", ")
+      : typeof value === "string"
+        ? value
+        : null,
+    kind: spec.kind,
+  };
+}
+
 function makeHunkCostField(data: JsonObject): BalanceField {
   return {
     key: "item.hunkCost",
@@ -404,8 +453,29 @@ async function loadBalanceRows(): Promise<BalanceRow[]> {
     });
 }
 
+async function loadEnemyBalanceRows(): Promise<EnemyBalanceRow[]> {
+  const enemyFiles = await readContentFiles(enemyContentDirectory);
+  return enemyFiles
+    .map((enemyFile) => {
+      const enemyResourceName = resourceNameFromPath(enemyFile.path);
+      const enemyLabel =
+        typeof enemyFile.data.label === "string"
+          ? enemyFile.data.label
+          : enemyResourceName;
+      return {
+        enemyTypeId: `enemy:${enemyResourceName}`,
+        enemyLabel,
+        enemyFile: enemyFile.path,
+        fields: enemyFieldSpecs.map((spec) =>
+          makeEnemyField(spec, enemyFile.data),
+        ),
+      };
+    })
+    .sort((a, b) => a.enemyLabel.localeCompare(b.enemyLabel));
+}
+
 function knownFieldForUpdate(
-  row: BalanceRow,
+  row: BalanceRow | EnemyBalanceRow,
   source: BalanceField["source"],
   path: string[],
 ): BalanceField | undefined {
@@ -430,7 +500,7 @@ function parseUpdateValue(value: unknown): number | string | null {
 function parseFieldUpdateValue(
   field: BalanceField,
   value: unknown,
-): number | string | null {
+): number | string | string[] | null {
   if (
     field.deleteOnBlank &&
     (value === null || (typeof value === "string" && value.trim() === ""))
@@ -442,6 +512,16 @@ function parseFieldUpdateValue(
   if (field.kind === "text") {
     if (typeof parsedValue !== "string" || parsedValue.trim().length === 0) {
       throw new Error(`${field.label} must be non-empty text.`);
+    }
+    if (field.key === "enemy.spawnWeaponTypeIds") {
+      const typeIds = parsedValue
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+      if (typeIds.length === 0) {
+        throw new Error(`${field.label} must include at least one type id.`);
+      }
+      return typeIds;
     }
     return parsedValue.trim();
   }
@@ -456,6 +536,7 @@ function parseFieldUpdateValue(
 async function saveUpdate(request: Request): Promise<Response> {
   const body = (await request.json()) as {
     weaponTypeId?: unknown;
+    enemyTypeId?: unknown;
     source?: unknown;
     path?: unknown;
     value?: unknown;
@@ -463,7 +544,7 @@ async function saveUpdate(request: Request): Promise<Response> {
 
   if (
     typeof body.weaponTypeId !== "string" ||
-    !["item", "weapon", "projectile"].includes(String(body.source)) ||
+    !["item", "weapon", "projectile", "enemy"].includes(String(body.source)) ||
     !Array.isArray(body.path) ||
     !body.path.every((part) => typeof part === "string")
   ) {
@@ -471,6 +552,40 @@ async function saveUpdate(request: Request): Promise<Response> {
   }
 
   const source = body.source as BalanceField["source"];
+  if (source === "enemy") {
+    const rows = await loadEnemyBalanceRows();
+    const row = rows.find(
+      (candidate) => candidate.enemyTypeId === body.weaponTypeId,
+    );
+    if (!row) {
+      return Response.json({ error: "Unknown enemy." }, { status: 404 });
+    }
+
+    const field = knownFieldForUpdate(row, source, body.path);
+    if (!field) {
+      return Response.json(
+        { error: "Unknown editable field." },
+        { status: 400 },
+      );
+    }
+
+    const targetFile = await readJsonFile(row.enemyFile);
+    setValue(
+      targetFile.data,
+      body.path,
+      parseFieldUpdateValue(field, body.value),
+    );
+    await Bun.write(
+      row.enemyFile,
+      `${JSON.stringify(targetFile.data, null, 2)}\n`,
+    );
+
+    return Response.json({
+      rows: await loadBalanceRows(),
+      enemyRows: await loadEnemyBalanceRows(),
+    });
+  }
+
   const rows = await loadBalanceRows();
   const row = rows.find(
     (candidate) => candidate.weaponTypeId === body.weaponTypeId,
@@ -506,7 +621,10 @@ async function saveUpdate(request: Request): Promise<Response> {
   }
   await Bun.write(targetPath, `${JSON.stringify(targetFile.data, null, 2)}\n`);
 
-  return Response.json({ rows: await loadBalanceRows() });
+  return Response.json({
+    rows: await loadBalanceRows(),
+    enemyRows: await loadEnemyBalanceRows(),
+  });
 }
 
 const port = parseIntegerEnv("BALANCE_PORT", 4179);
@@ -524,7 +642,10 @@ const server = Bun.serve({
     }
 
     if (request.method === "GET" && url.pathname === "/api/balance") {
-      return Response.json({ rows: await loadBalanceRows() });
+      return Response.json({
+        rows: await loadBalanceRows(),
+        enemyRows: await loadEnemyBalanceRows(),
+      });
     }
 
     if (request.method === "POST" && url.pathname === "/api/balance") {

@@ -15,7 +15,10 @@ import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
-import { getWeaponContent } from "@shared/content/catalog.ts";
+import {
+  getWeaponContent,
+  requireEntityContent,
+} from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import {
   getArmorStats,
@@ -28,6 +31,47 @@ type EnemyConfig = {
   weapons?: Weapon[];
   goals?: readonly Goal<Enemy>[];
 };
+
+const rotatingEnemySpawnWeaponIndexes = new Map<ResourceId, number>();
+
+export function createEnemySpawnWeapons(
+  enemyTypeId: ResourceId,
+  fallbackIndex: number,
+): { weapons: Weapon[] } {
+  const spawnWeapons = requireEntityContent(enemyTypeId).spawnWeapons;
+  if (!spawnWeapons) {
+    throw new Error(`Enemy ${enemyTypeId} must define spawnWeapons.`);
+  }
+
+  const selectedTypeIds =
+    spawnWeapons.selection === "all"
+      ? spawnWeapons.typeIds
+      : [
+          spawnWeapons.typeIds[
+            (rotatingEnemySpawnWeaponIndexes.get(enemyTypeId) ??
+              fallbackIndex) % spawnWeapons.typeIds.length
+          ]!,
+        ];
+  if (spawnWeapons.selection === "rotating") {
+    rotatingEnemySpawnWeaponIndexes.set(
+      enemyTypeId,
+      (rotatingEnemySpawnWeaponIndexes.get(enemyTypeId) ?? fallbackIndex) + 1,
+    );
+  }
+
+  return {
+    weapons: selectedTypeIds.map((typeId) => {
+      const itemEntry = itemTypeRegistry.require(typeId);
+      const item = new itemEntry.ctor();
+      if (!item.isWeaponItem()) {
+        throw new Error(
+          `Enemy ${enemyTypeId} spawn weapon is not a weapon: ${typeId}`,
+        );
+      }
+      return item as Weapon;
+    }),
+  };
+}
 
 /**
  * Hostile entity with goal-driven targeting and movement state.

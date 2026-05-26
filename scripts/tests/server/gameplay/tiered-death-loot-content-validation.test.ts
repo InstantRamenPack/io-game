@@ -27,6 +27,22 @@ describe("tiered death loot content validation", () => {
     ).toThrow(/must define deathLoot/);
   });
 
+  test("rejects enemy spawn weapons without at least one valid type id", () => {
+    expect(() =>
+      makeParsedEntityContentEntry("enemy", "test_enemy", {
+        label: "Test Enemy",
+        maxHp: 100,
+        moveSpeed: 10,
+        rarityTier: "common",
+        deathLoot: {},
+        spawnWeapons: {
+          selection: "rotating",
+          typeIds: [],
+        },
+      }),
+    ).toThrow(/spawnWeapons[\s\S]*typeIds[\s\S]*Too small/);
+  });
+
   test("rejects weapon item content missing rarity tier", () => {
     expect(() =>
       makeParsedItemContentEntry("test_weapon", {

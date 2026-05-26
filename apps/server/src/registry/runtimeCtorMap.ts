@@ -53,15 +53,10 @@ import { HealEffect } from "@server/effects/builtin/HealEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
 import { SpeedEffect } from "@server/effects/builtin/SpeedEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
-import { BlueprintBasicRifleItem } from "@server/items/blueprints/BlueprintBasicRifleItem.ts";
 import { BlueprintHalberdItem } from "@server/items/blueprints/BlueprintHalberdItem.ts";
 import { BlueprintHeavyPistolItem } from "@server/items/blueprints/BlueprintHeavyPistolItem.ts";
-import { BlueprintKatanaItem } from "@server/items/blueprints/BlueprintKatanaItem.ts";
 import { BlueprintLmgItem } from "@server/items/blueprints/BlueprintLmgItem.ts";
-import { BlueprintMachinePistolItem } from "@server/items/blueprints/BlueprintMachinePistolItem.ts";
-import { BlueprintSaboteurSwordItem } from "@server/items/blueprints/BlueprintSaboteurSwordItem.ts";
 import { BlueprintSniperItem } from "@server/items/blueprints/BlueprintSniperItem.ts";
-import { BlueprintSpikedSpearItem } from "@server/items/blueprints/BlueprintSpikedSpearItem.ts";
 import { CrossbowMagazineItem } from "@server/items/magazines/CrossbowMagazineItem.ts";
 import { DroneMagazineItem } from "@server/items/magazines/DroneMagazineItem.ts";
 import { PistolMagazineItem } from "@server/items/magazines/PistolMagazineItem.ts";
@@ -184,15 +179,10 @@ export const itemRuntimeCtors = [
   CrudeBandageItem,
   MedkitItem,
   SpeedPotionItem,
-  BlueprintBasicRifleItem,
   BlueprintHalberdItem,
   BlueprintHeavyPistolItem,
-  BlueprintKatanaItem,
   BlueprintLmgItem,
-  BlueprintMachinePistolItem,
-  BlueprintSaboteurSwordItem,
   BlueprintSniperItem,
-  BlueprintSpikedSpearItem,
   PistolMagazineItem,
   RifleMagazineItem,
   CrossbowMagazineItem,

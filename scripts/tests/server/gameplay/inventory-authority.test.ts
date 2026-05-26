@@ -19,10 +19,10 @@ const hunkItemId = makeResourceId("item", "hunk");
 const crudeBandageItemId = makeResourceId("item", "crude_bandage");
 const speedPotionItemId = makeResourceId("item", "speed_potion");
 const speedEffectId = makeResourceId("effect", "speed");
-const basicRifleItemId = makeResourceId("item", "basic_rifle");
-const basicRifleBlueprintItemId = makeResourceId(
+const heavyPistolItemId = makeResourceId("item", "heavy_pistol");
+const heavyPistolBlueprintItemId = makeResourceId(
   "item",
-  "blueprint_basic_rifle",
+  "blueprint_heavy_pistol",
 );
 
 function addWallAndFindSlot(
@@ -65,31 +65,31 @@ describe("inventory authority", () => {
 
     expect(
       inventory.grantItemCtor(
-        itemTypeRegistry.require(basicRifleItemId).ctor,
+        itemTypeRegistry.require(heavyPistolItemId).ctor,
         1,
       ),
     ).toBe(true);
-    expect(inventory.countType(basicRifleItemId)).toBe(1);
+    expect(inventory.countType(heavyPistolItemId)).toBe(1);
 
     expect(
       inventory.grantItemCtor(
-        itemTypeRegistry.require(basicRifleBlueprintItemId).ctor,
+        itemTypeRegistry.require(heavyPistolBlueprintItemId).ctor,
         1,
       ),
     ).toBe(true);
-    expect(inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
-    expect(inventory.countType(basicRifleBlueprintItemId)).toBe(0);
+    expect(inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
+    expect(inventory.countType(heavyPistolBlueprintItemId)).toBe(0);
   });
 
   test("inventory acquisition transfer unlocks blueprints without storing them", () => {
     const target = new Inventory();
     const source = new Inventory();
-    source.addStackable(basicRifleBlueprintItemId, 1);
+    source.addStackable(heavyPistolBlueprintItemId, 1);
     source.addStackable(hunkItemId, 2);
 
     expect(target.absorbInventoryByAcquisitionRules(source)).toBe(true);
-    expect(target.isRecipeUnlocked(basicRifleItemId)).toBe(true);
-    expect(target.countType(basicRifleBlueprintItemId)).toBe(0);
+    expect(target.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
+    expect(target.countType(heavyPistolBlueprintItemId)).toBe(0);
     expect(target.getResourceCount(hunkItemId)).toBe(2);
   });
 
@@ -101,7 +101,7 @@ describe("inventory authority", () => {
     teammate.y = collector.y;
 
     const pickupInventory = new Inventory();
-    pickupInventory.addStackable(basicRifleBlueprintItemId, 1);
+    pickupInventory.addStackable(heavyPistolBlueprintItemId, 1);
     const pickup = new ItemEntity(
       runtime.world.allocEntityId(),
       pickupInventory,
@@ -110,11 +110,11 @@ describe("inventory authority", () => {
     pickup.y = collector.y;
     runtime.world.spawn(pickup);
 
-    expect(collector.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(false);
-    expect(teammate.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(false);
+    expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
+    expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
     tick(runtime, 1);
-    expect(collector.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
-    expect(teammate.inventory.isRecipeUnlocked(basicRifleItemId)).toBe(true);
+    expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
+    expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
   });
 
@@ -261,7 +261,7 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(hunkItemId)).toBe(before + 3);
   });
 
-  test("medical pickups collect as bandages instead of healing directly", () => {
+  test("medical pickups require pickup action and collect as bandages instead of healing directly", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     player.hp = 50;
@@ -277,6 +277,11 @@ describe("inventory authority", () => {
     runtime.world.ensureSpatialIndex();
 
     tick(runtime, 1);
+    expect(runtime.world.entities.has(pickup.id)).toBe(true);
+    expect(player.hp).toBe(50);
+    expect(player.inventory.countType(crudeBandageItemId)).toBe(0);
+
+    enqueueAction(runtime, { t: "action", seq: 1, action: "pickup" });
 
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
     expect(player.hp).toBe(50);

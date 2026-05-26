@@ -1,9 +1,8 @@
-import { Enemy } from "@server/entities/Enemy.ts";
+import { createEnemySpawnWeapons, Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 
 /**
  * Default ranged enemy that keeps distance and fires basic bullets.
@@ -17,7 +16,7 @@ export class Shoota extends Enemy {
    */
   constructor(id: number) {
     super(id, {
-      weapons: [new BasicGun()],
+      weapons: createEnemySpawnWeapons(Shoota.typeId, 0).weapons,
       goals: [
         new TargetEntityGoal<Enemy>(0, Player, 720, {
           requireLineOfSight: true,

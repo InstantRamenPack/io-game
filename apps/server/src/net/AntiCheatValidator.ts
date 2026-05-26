@@ -118,14 +118,17 @@ export class AntiCheatValidator {
     if (actionMessage.action !== "armorMove") {
       return false;
     }
-    const { fromSource, fromIndex, toSource, toIndex } = actionMessage.armorMove;
+    const { fromSource, fromIndex, toSource, toIndex } =
+      actionMessage.armorMove;
     const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
     const isValidFrom =
       fromSource === "hotbar"
         ? fromIndex >= 0 && fromIndex < hotbarSlotCount
         : fromIndex === 0;
     const isValidTo =
-      toSource === "hotbar" ? toIndex >= 0 && toIndex < hotbarSlotCount : toIndex === 0;
+      toSource === "hotbar"
+        ? toIndex >= 0 && toIndex < hotbarSlotCount
+        : toIndex === 0;
     return isValidFrom && isValidTo && fromSource !== toSource;
   }
 }

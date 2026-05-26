@@ -204,6 +204,8 @@
             placeholder="Filter weapons or bullets"
           />
           <select id="attack-style">
+            <option value="weapons">Weapons</option>
+            <option value="enemies">Enemies</option>
             <option value="">All attacks</option>
             <option value="shoot">Shoot</option>
             <option value="swing">Swing</option>
@@ -249,6 +251,20 @@
         { kind: "derived", key: "dpsNoReload", label: "DPS No Reload" },
         { kind: "derived", key: "dpsWithReload", label: "DPS With Reload" },
       ];
+      const enemyColumns = [
+        { kind: "field", key: "enemy.label" },
+        { kind: "meta", key: "enemyTypeId", label: "Enemy Type" },
+        { kind: "field", key: "enemy.rarityTier" },
+        { kind: "field", key: "enemy.spawnWeaponSelection" },
+        { kind: "field", key: "enemy.spawnWeaponTypeIds" },
+        { kind: "field", key: "procedural.forestCorner" },
+        { kind: "field", key: "procedural.forestEdge" },
+        { kind: "field", key: "procedural.village.civilian" },
+        { kind: "field", key: "procedural.village.scavenger" },
+        { kind: "field", key: "procedural.village.military" },
+        { kind: "field", key: "procedural.village.extraction_fortified" },
+        { kind: "field", key: "waves.enabled" },
+      ];
 
       const headerRow = document.querySelector("#header-row");
       const rowsBody = document.querySelector("#balance-rows");
@@ -258,6 +274,7 @@
       const rarityTiers = ["common", "uncommon", "rare", "epic", "legendary"];
 
       let rows = [];
+      let enemyRows = [];
       let fieldLabels = new Map();
       let sortState = { key: "item.label", direction: "asc" };
       let draggedColumnKey = null;
@@ -267,9 +284,10 @@
       }
 
       function renderHeader() {
-        const headers = columns.map((column) => {
+        const activeColumns = columnsForCurrentMode();
+        const headers = activeColumns.map((column) => {
           const th = document.createElement("th");
-          th.draggable = true;
+          th.draggable = attackStyleSelect.value !== "enemies";
           th.dataset.columnKey = column.key;
 
           const label = document.createElement("span");
@@ -336,6 +354,9 @@
       }
 
       function moveColumn(fromKey, toKey) {
+        if (attackStyleSelect.value === "enemies") {
+          return;
+        }
         if (!fromKey || fromKey === toKey) {
           return;
         }
@@ -381,6 +402,22 @@
       function matchesFilters(row) {
         const query = searchInput.value.trim().toLowerCase();
         const style = attackStyleSelect.value;
+        if (style === "enemies") {
+          if (!query) {
+            return true;
+          }
+          return [
+            row.enemyLabel,
+            row.enemyTypeId,
+            fieldByKey(row, "enemy.label")?.value,
+            fieldByKey(row, "enemy.spawnWeaponTypeIds")?.value,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
+        }
+        if (style === "weapons") {
+          return true;
+        }
         if (style && row.attackStyle !== style) {
           return false;
         }
@@ -397,7 +434,7 @@
           row.projectileTypeId,
         ]
           .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(query));
+          .some((value) => String(value).toLowerCase().includes(query));
       }
 
       function makeFixedCell(value) {
@@ -426,8 +463,22 @@
           return td;
         }
 
-        if (field.key === "item.rarityTier") {
+        if (
+          field.key === "item.rarityTier" ||
+          field.key === "enemy.rarityTier"
+        ) {
           return makeRarityCell(row, field);
+        }
+        if (field.key === "enemy.spawnWeaponSelection") {
+          return makeOptionCell(row, field, ["rotating", "all"]);
+        }
+        if (
+          field.key === "procedural.forestCorner" ||
+          field.key === "procedural.forestEdge" ||
+          field.key.startsWith("procedural.village.") ||
+          field.key === "waves.enabled"
+        ) {
+          return makeOptionCell(row, field, ["true", "false"]);
         }
 
         td.contentEditable = "true";
@@ -469,12 +520,16 @@
       }
 
       function makeRarityCell(row, field) {
+        return makeOptionCell(row, field, rarityTiers);
+      }
+
+      function makeOptionCell(row, field, options) {
         const td = document.createElement("td");
         const select = document.createElement("select");
         select.className = "cell-select";
         select.dataset.originalValue = String(field.value ?? "");
 
-        for (const rarity of rarityTiers) {
+        for (const rarity of options) {
           const option = document.createElement("option");
           option.value = rarity;
           option.textContent = rarity;
@@ -531,10 +586,10 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            weaponTypeId: row.weaponTypeId,
             source: field.source,
             path: field.path,
             value,
+            weaponTypeId: row.weaponTypeId ?? row.enemyTypeId,
           }),
         });
         const payload = await response.json();
@@ -545,6 +600,7 @@
         }
 
         rows = payload.rows;
+        enemyRows = payload.enemyRows ?? [];
         refreshFieldLabels();
         originalElement.dataset.originalValue = rawValue;
         cell.className = "changed";
@@ -553,10 +609,20 @@
       }
 
       function renderRows() {
-        const sortColumn = columns.find(
+        const activeRows =
+          attackStyleSelect.value === "enemies" ? enemyRows : rows;
+        const activeColumns = columnsForCurrentMode();
+        if (!activeColumns.some((column) => column.key === sortState.key)) {
+          sortState =
+            attackStyleSelect.value === "enemies"
+              ? { key: "enemy.label", direction: "asc" }
+              : { key: "item.label", direction: "asc" };
+          renderHeader();
+        }
+        const sortColumn = activeColumns.find(
           (column) => column.key === sortState.key,
         );
-        const visibleRows = rows.filter(matchesFilters).sort((a, b) => {
+        const visibleRows = activeRows.filter(matchesFilters).sort((a, b) => {
           if (!sortColumn) {
             return 0;
           }
@@ -569,18 +635,26 @@
         const renderedRows = visibleRows.map((row) => {
           const tr = document.createElement("tr");
           tr.replaceChildren(
-            ...columns.map((column) => makeColumnCell(row, column)),
+            ...activeColumns.map((column) => makeColumnCell(row, column)),
           );
           return tr;
         });
 
         rowsBody.replaceChildren(...renderedRows);
-        setStatus(`${visibleRows.length} of ${rows.length} weapons`);
+        setStatus(
+          attackStyleSelect.value === "enemies"
+            ? `${visibleRows.length} of ${enemyRows.length} enemies`
+            : `${visibleRows.length} of ${rows.length} weapons`,
+        );
+      }
+
+      function columnsForCurrentMode() {
+        return attackStyleSelect.value === "enemies" ? enemyColumns : columns;
       }
 
       function refreshFieldLabels() {
         fieldLabels = new Map();
-        for (const row of rows) {
+        for (const row of [...rows, ...enemyRows]) {
           for (const field of row.fields) {
             fieldLabels.set(field.key, field.label);
           }
@@ -591,13 +665,17 @@
         const response = await fetch("/api/balance");
         const payload = await response.json();
         rows = payload.rows;
+        enemyRows = payload.enemyRows ?? [];
         refreshFieldLabels();
         renderHeader();
         renderRows();
       }
 
       searchInput.addEventListener("input", renderRows);
-      attackStyleSelect.addEventListener("change", renderRows);
+      attackStyleSelect.addEventListener("change", () => {
+        renderHeader();
+        renderRows();
+      });
 
       await loadRows();
     </script>
