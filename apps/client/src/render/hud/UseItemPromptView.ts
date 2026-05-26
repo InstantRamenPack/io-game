@@ -46,8 +46,15 @@ export class UseItemPromptView {
     screenWidth: number;
     screenHeight: number;
   }): void {
-    const { visible, verb, itemLabel, holdStartMs, nowMs, screenWidth, screenHeight } =
-      options;
+    const {
+      visible,
+      verb,
+      itemLabel,
+      holdStartMs,
+      nowMs,
+      screenWidth,
+      screenHeight,
+    } = options;
 
     this.container.visible = visible;
     if (!visible) {

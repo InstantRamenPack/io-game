@@ -676,7 +676,9 @@ export class PixiHud {
           const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
           if (!slot || slot.kind !== "buildable") return false;
           const typeId = slot.typeId as ResourceId;
-          return !!(getItemContent(typeId)?.consumable || getArmorStats(typeId));
+          return !!(
+            getItemContent(typeId)?.consumable || getArmorStats(typeId)
+          );
         })());
 
     if (
