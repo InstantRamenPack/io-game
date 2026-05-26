@@ -118,21 +118,6 @@
         cursor: grab;
       }
 
-      th.drag-over {
-        background: #dbe7f2;
-      }
-
-      .column-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-      }
-
-      .sort-mark {
-        color: #6a7782;
-        font-size: 11px;
-      }
-
       th:first-child,
       td:first-child {
         position: sticky;
@@ -151,43 +136,16 @@
         border-bottom: 0;
       }
 
-      td.meta {
-        color: #5a6670;
-      }
-
-      td.missing {
-        color: #9aa4ad;
-      }
-
       td[contenteditable="true"] {
         min-width: 72px;
         background: #fffdf3;
         cursor: text;
       }
 
-      select.cell-select {
-        width: 100%;
-        min-width: 104px;
-        height: 26px;
-        border: 0;
-        border-radius: 4px;
-        background: #fffdf3;
-        font: inherit;
-      }
-
       td[contenteditable="true"]:focus {
         outline: 2px solid #2b7fff;
         outline-offset: -2px;
         background: #ffffff;
-      }
-
-      td.changed {
-        background: #eaf7ef;
-      }
-
-      td.error {
-        background: #ffecec;
-        color: #9d1c20;
       }
     </style>
   </head>
