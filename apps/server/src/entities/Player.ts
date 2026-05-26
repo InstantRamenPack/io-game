@@ -35,6 +35,7 @@ import {
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
+import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
@@ -784,6 +785,10 @@ export class Player extends Entity {
       return;
     }
     const item = new itemEntry.ctor();
+    if (item instanceof ArmorItem) {
+      this.moveHotbarToArmor(selectedIndex, 0);
+      return;
+    }
     if (!(item instanceof ConsumableItem)) {
       return;
     }

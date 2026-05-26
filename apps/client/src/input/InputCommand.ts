@@ -22,4 +22,6 @@ export type InputCommand =
   | { type: "repairTower"; towerId: number }
   | { type: "openChest"; chestEntityId: number }
   | { type: "openCraftingMenu" }
-  | { type: "useConsumable"; typeId: ResourceId };
+  | { type: "useConsumable"; typeId: ResourceId }
+  | { type: "startUseItemHold" }
+  | { type: "cancelUseItemHold" };

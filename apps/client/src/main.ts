@@ -29,6 +29,9 @@ import {
   ClientRuntimeConfigSchema,
   type ClientRuntimeConfig,
 } from "@shared/config/ClientRuntimeConfig.ts";
+import { getItemContent } from "@shared/content/catalog.ts";
+import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Browser entrypoint for the client application.
@@ -213,6 +216,17 @@ new GameInputRouter({
         selectors.getPlayerEntity(),
         selectors.getTrackedBuildings(),
       )?.id ?? null,
+    selectedUsableTypeId: (() => {
+      const inv = selectors.getInventory();
+      if (!inv) return null;
+      const slot = inv.hotbarSlots[inv.selectedHotbarIndex];
+      if (!slot || slot.kind !== "buildable") return null;
+      const typeId = slot.typeId as ResourceId;
+      if (getItemContent(typeId)?.consumable || getArmorStats(typeId)) {
+        return typeId;
+      }
+      return null;
+    })(),
   }),
   dispatch: (command) => {
     switch (command.type) {
@@ -293,6 +307,13 @@ new GameInputRouter({
         return;
       case "useConsumable":
         gameClient.queueUseConsumable(command.typeId);
+        hudController.setUseItemHoldStartMs(null);
+        return;
+      case "startUseItemHold":
+        hudController.setUseItemHoldStartMs(performance.now());
+        return;
+      case "cancelUseItemHold":
+        hudController.setUseItemHoldStartMs(null);
         return;
     }
   },

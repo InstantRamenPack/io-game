@@ -8,12 +8,15 @@ type RouterOptions = {
 
 const RECYCLE_HOLD_DURATION_MS = 750;
 const REPAIR_HOLD_DURATION_MS = 750;
+const USE_ITEM_HOLD_DURATION_MS = 750;
 
 export class GameInputRouter {
   private eHoldInterval: ReturnType<typeof setInterval> | null = null;
   private eHoldFired = false;
   private eKeyHeld = false;
   private eNextRecycleAtMs: number | null = null;
+  private eItemHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private eItemHoldFired = false;
   private fHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private fHoldFired = false;
   private fHoldTowerId: number | null = null;
@@ -34,6 +37,14 @@ export class GameInputRouter {
       this.options.dispatch({ type: "cancelRecycleHold" });
       this.eHoldFired = false;
       this.eNextRecycleAtMs = null;
+      if (this.eItemHoldTimer !== null) {
+        clearTimeout(this.eItemHoldTimer);
+        this.eItemHoldTimer = null;
+        if (!this.eItemHoldFired) {
+          this.options.dispatch({ type: "cancelUseItemHold" });
+        }
+      }
+      this.eItemHoldFired = false;
       return;
     }
 
@@ -136,6 +147,17 @@ export class GameInputRouter {
       if (context.nearRecyclerWithItem) {
         this.eKeyHeld = true;
         this.startRecycleLoop();
+        return;
+      }
+      if (context.selectedUsableTypeId !== null) {
+        this.eItemHoldFired = false;
+        const typeId = context.selectedUsableTypeId;
+        this.options.dispatch({ type: "startUseItemHold" });
+        this.eItemHoldTimer = setTimeout(() => {
+          this.eItemHoldTimer = null;
+          this.eItemHoldFired = true;
+          this.options.dispatch({ type: "useConsumable", typeId });
+        }, USE_ITEM_HOLD_DURATION_MS);
         return;
       }
       this.options.dispatch({ type: "pickupNearestItem" });

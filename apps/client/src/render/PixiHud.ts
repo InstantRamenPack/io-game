@@ -32,6 +32,7 @@ import { CraftingStationPromptView } from "@client/render/hud/CraftingStationPro
 import { ItemPickupPromptView } from "@client/render/hud/ItemPickupPromptView.ts";
 import { RecyclerPromptView } from "@client/render/hud/RecyclerPromptView.ts";
 import { TowerRepairPromptView } from "@client/render/hud/TowerRepairPromptView.ts";
+import { UseItemPromptView } from "@client/render/hud/UseItemPromptView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
   computeHotbarActiveIndex,
@@ -53,6 +54,7 @@ import {
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
+import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { InventorySnapshot } from "@shared/net/snapshots.ts";
@@ -102,6 +104,8 @@ export class PixiHud {
   private craftingStationPromptView?: CraftingStationPromptView;
   private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
+  private useItemHoldStartMs: number | null = null;
+  private useItemPromptView?: UseItemPromptView;
   private bossHealthBar?: BossHealthBar;
   private hunkBadge?: PIXI.Container;
   private hunkBadgeBg?: PIXI.Graphics;
@@ -441,6 +445,11 @@ export class PixiHud {
     this.repairHoldStartMs = ms;
     this.markDirty();
   }
+
+  public setUseItemHoldStartMs(ms: number | null): void {
+    this.useItemHoldStartMs = ms;
+    this.markDirty();
+  }
   public attach(parent: PIXI.Container): void {
     if (!this.root) {
       this.root = new PIXI.Container();
@@ -487,6 +496,7 @@ export class PixiHud {
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
       this.recyclerPromptView = new RecyclerPromptView();
       this.towerRepairPromptView = new TowerRepairPromptView();
+      this.useItemPromptView = new UseItemPromptView();
       this.itemPickupPromptView = new ItemPickupPromptView();
       this.chestPromptView = new ChestPromptView();
       this.craftingStationPromptView = new CraftingStationPromptView();
@@ -526,6 +536,7 @@ export class PixiHud {
         this.selectedItemToastView.container,
         this.recyclerPromptView.container,
         this.towerRepairPromptView.container,
+        this.useItemPromptView.container,
         this.itemPickupPromptView.container,
         this.chestPromptView.container,
         this.craftingStationPromptView.container,
@@ -654,6 +665,20 @@ export class PixiHud {
       this.repairHoldStartMs !== null ||
       this.selectors.getNearDamagedTower() !== null;
 
+    const useItemActive =
+      !nearPickup &&
+      !nearChest &&
+      !nearCraftingStation &&
+      !recyclerActive &&
+      (this.useItemHoldStartMs !== null ||
+        (() => {
+          if (!inventory) return false;
+          const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+          if (!slot || slot.kind !== "buildable") return false;
+          const typeId = slot.typeId as ResourceId;
+          return !!(getItemContent(typeId)?.consumable || getArmorStats(typeId));
+        })());
+
     if (
       !this.dirty &&
       !force &&
@@ -661,6 +686,7 @@ export class PixiHud {
       !selectionToastVisible &&
       !recyclerActive &&
       !repairActive &&
+      !useItemActive &&
       !bossAlive
     ) {
       return;
@@ -758,6 +784,13 @@ export class PixiHud {
       nearCraftingStation,
     );
     this.syncRepairPrompt(app.screen.width, app.screen.height, nowMs);
+    this.syncUseItemPrompt(
+      app.screen.width,
+      app.screen.height,
+      nowMs,
+      inventory,
+      useItemActive,
+    );
     this.syncItemPickupPrompt(
       app.screen.width,
       app.screen.height,
@@ -916,6 +949,55 @@ export class PixiHud {
       towerLabel,
       repairCost,
       holdStartMs: this.repairHoldStartMs,
+      nowMs,
+      screenWidth,
+      screenHeight,
+    });
+  }
+
+  private syncUseItemPrompt(
+    screenWidth: number,
+    screenHeight: number,
+    nowMs: number,
+    inventory: InventorySnapshot | undefined,
+    visible: boolean,
+  ): void {
+    if (!this.useItemPromptView) {
+      return;
+    }
+    if (!visible || !inventory) {
+      this.useItemPromptView.sync({
+        visible: false,
+        verb: "use",
+        itemLabel: "",
+        holdStartMs: null,
+        nowMs,
+        screenWidth,
+        screenHeight,
+      });
+      return;
+    }
+    const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
+    if (!slot || slot.kind === "empty") {
+      this.useItemPromptView.sync({
+        visible: false,
+        verb: "use",
+        itemLabel: "",
+        holdStartMs: null,
+        nowMs,
+        screenWidth,
+        screenHeight,
+      });
+      return;
+    }
+    const typeId = slot.typeId as ResourceId;
+    const verb = getArmorStats(typeId) ? "equip" : "use";
+    const itemLabel = this.selectors.formatTypeLabel(typeId);
+    this.useItemPromptView.sync({
+      visible: true,
+      verb,
+      itemLabel,
+      holdStartMs: this.useItemHoldStartMs,
       nowMs,
       screenWidth,
       screenHeight,
