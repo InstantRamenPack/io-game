@@ -111,11 +111,18 @@ export class PickupSystem implements System {
           continue;
         }
 
+        const isBlueprint = this.isBlueprintPickup(candidate);
         const transferable = this.buildAutoPickupInventory(candidate);
         if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
         }
         this.unlockBlueprintPickupRecipesForPlayers(candidate, players);
+        if (isBlueprint) {
+          const label = this.getBlueprintLabel(candidate);
+          world.broadcastSystemMessage(
+            `${player.name} found a ${label}! Recipe unlocked for all players.`,
+          );
+        }
         world.despawn(candidate.id);
       }
     }
@@ -344,6 +351,18 @@ export class PickupSystem implements System {
         player.inventory.unlockRecipe(unlockedRecipeTypeId);
       }
     }
+  }
+
+  private getBlueprintLabel(pickup: ItemEntity): string {
+    for (const [typeId, amount] of pickup.contents.resources.entries()) {
+      if (amount > 0) {
+        const label = getItemContent(typeId)?.label;
+        if (label) {
+          return label;
+        }
+      }
+    }
+    return "Blueprint";
   }
 
   private getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {

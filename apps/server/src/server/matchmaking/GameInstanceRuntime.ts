@@ -75,6 +75,8 @@ export class GameInstanceRuntime {
       world: this.world,
       playerIdByClientId: this.playerIdByClientId,
     });
+    this.world.broadcastSystemMessage = (text) =>
+      this.chatService.broadcastSystemMessage(text);
 
     const infraSystem = new InfrastructureSystem();
     this.world.infrastructureSystem = infraSystem;

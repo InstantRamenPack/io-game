@@ -70,6 +70,7 @@ export class World {
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
   public benchmarkSink?: WorldBenchmarkSink;
+  public broadcastSystemMessage: (text: string) => void = () => {};
   public readonly dungeonRoomsByZone = new Map<
     string,
     Array<{
