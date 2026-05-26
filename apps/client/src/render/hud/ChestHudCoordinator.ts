@@ -8,6 +8,7 @@ import {
 } from "@client/render/hud/chestInteraction.ts";
 import type { InventorySlotSnapshot } from "@shared/net/snapshots.ts";
 import { CHEST_SLOT_COUNT } from "@shared/gameplay/constants.ts";
+import { getItemContent } from "@shared/content/catalog.ts";
 
 export class ChestHudCoordinator {
   private draggedRef: ChestSlotRef | null = null;
@@ -156,7 +157,10 @@ export class ChestHudCoordinator {
     const inventory = selectors.getInventory();
     const selectedSlot =
       inventory?.hotbarSlots[inventory.selectedHotbarIndex ?? 0] ?? null;
-    if (selectedSlot?.kind === "buildable") {
+    if (
+      selectedSlot?.kind === "buildable" &&
+      !!getItemContent(selectedSlot.typeId)?.buildsEntityTypeId
+    ) {
       queueBuildPlacement(pointer.worldX, pointer.worldY);
       return true;
     }
