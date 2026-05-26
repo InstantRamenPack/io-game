@@ -811,7 +811,10 @@ export class PixiHud {
           : null,
       inventory: this.selectors.getInventory(),
       getInventorySlotRect: (slotIndex) =>
-        this.hotbarEditView?.getSlotRect({ source: "hotbar", index: slotIndex }) ?? null,
+        this.hotbarEditView?.getSlotRect({
+          source: "hotbar",
+          index: slotIndex,
+        }) ?? null,
       craftingMenuOpen: this.state.craftingMenuOpen,
       hoveredCraftItemTypeId:
         this.craftingHudCoordinator.getHoveredCraftItemTypeId(),

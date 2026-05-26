@@ -14,5 +14,9 @@
     ]
   },
   "rarityTier": "uncommon",
+  "spawnWeapons": {
+    "selection": "rotating",
+    "typeIds": ["item:carbine", "item:crossbow"]
+  },
   "deathLoot": {}
 }

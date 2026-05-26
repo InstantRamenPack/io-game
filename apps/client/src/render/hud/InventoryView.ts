@@ -269,7 +269,10 @@ export class InventoryView {
     }
   }
 
-  public getSlotRefAtPoint(screenX: number, screenY: number): InventorySlotRef | null {
+  public getSlotRefAtPoint(
+    screenX: number,
+    screenY: number,
+  ): InventorySlotRef | null {
     for (const [slotKey, rect] of this.slotRects) {
       if (
         screenX >= rect.x &&

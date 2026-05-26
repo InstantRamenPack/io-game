@@ -14,5 +14,9 @@
     ]
   },
   "rarityTier": "common",
+  "spawnWeapons": {
+    "selection": "rotating",
+    "typeIds": ["item:basic_gun"]
+  },
   "deathLoot": {}
 }

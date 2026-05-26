@@ -362,7 +362,12 @@ export class GameClient {
     toSource: "hotbar" | "armor",
     toIndex: number,
   ): void {
-    this.actionDispatcher.queueArmorMove(fromSource, fromIndex, toSource, toIndex);
+    this.actionDispatcher.queueArmorMove(
+      fromSource,
+      fromIndex,
+      toSource,
+      toIndex,
+    );
   }
 
   public queueSelectHotbarIndex(index: number): void {

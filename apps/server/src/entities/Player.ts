@@ -964,12 +964,19 @@ export class Player extends Entity {
     return true;
   }
 
-  private moveHotbarToArmor(fromHotbarIndex: number, toArmorIndex: number): void {
+  private moveHotbarToArmor(
+    fromHotbarIndex: number,
+    toArmorIndex: number,
+  ): void {
     if (toArmorIndex !== 0) {
       return;
     }
     const selectedSlot = this.inventory.hotbarSlots[fromHotbarIndex];
-    if (!selectedSlot || selectedSlot.kind !== "buildable" || selectedSlot.count <= 0) {
+    if (
+      !selectedSlot ||
+      selectedSlot.kind !== "buildable" ||
+      selectedSlot.count <= 0
+    ) {
       return;
     }
     if (!getArmorStats(selectedSlot.typeId)) {
@@ -1010,7 +1017,10 @@ export class Player extends Entity {
     this.equippedArmorTypeId = incomingArmorTypeId;
   }
 
-  private moveArmorToHotbar(fromArmorIndex: number, toHotbarIndex: number): void {
+  private moveArmorToHotbar(
+    fromArmorIndex: number,
+    toHotbarIndex: number,
+  ): void {
     if (fromArmorIndex !== 0 || !this.equippedArmorTypeId) {
       return;
     }

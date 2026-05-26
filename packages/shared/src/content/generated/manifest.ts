@@ -61,15 +61,10 @@ import itemblueprintArmorT1Json from "@shared/content/item/blueprint_armor_t1.js
 import itemblueprintArmorT2Json from "@shared/content/item/blueprint_armor_t2.json";
 import itemblueprintArmorT3Json from "@shared/content/item/blueprint_armor_t3.json";
 import itemblueprintArmorT4Json from "@shared/content/item/blueprint_armor_t4.json";
-import itemblueprintBasicRifleJson from "@shared/content/item/blueprint_basic_rifle.json";
 import itemblueprintHalberdJson from "@shared/content/item/blueprint_halberd.json";
 import itemblueprintHeavyPistolJson from "@shared/content/item/blueprint_heavy_pistol.json";
-import itemblueprintKatanaJson from "@shared/content/item/blueprint_katana.json";
 import itemblueprintLmgJson from "@shared/content/item/blueprint_lmg.json";
-import itemblueprintMachinePistolJson from "@shared/content/item/blueprint_machine_pistol.json";
-import itemblueprintSaboteurSwordJson from "@shared/content/item/blueprint_saboteur_sword.json";
 import itemblueprintSniperJson from "@shared/content/item/blueprint_sniper.json";
-import itemblueprintSpikedSpearJson from "@shared/content/item/blueprint_spiked_spear.json";
 import itemcannonJson from "@shared/content/item/cannon.json";
 import itemcarbineJson from "@shared/content/item/carbine.json";
 import itemchestJson from "@shared/content/item/chest.json";
@@ -205,15 +200,10 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("blueprint_armor_t2", itemblueprintArmorT2Json),
   makeParsedItemContentEntry("blueprint_armor_t3", itemblueprintArmorT3Json),
   makeParsedItemContentEntry("blueprint_armor_t4", itemblueprintArmorT4Json),
-  makeParsedItemContentEntry("blueprint_basic_rifle", itemblueprintBasicRifleJson),
   makeParsedItemContentEntry("blueprint_halberd", itemblueprintHalberdJson),
   makeParsedItemContentEntry("blueprint_heavy_pistol", itemblueprintHeavyPistolJson),
-  makeParsedItemContentEntry("blueprint_katana", itemblueprintKatanaJson),
   makeParsedItemContentEntry("blueprint_lmg", itemblueprintLmgJson),
-  makeParsedItemContentEntry("blueprint_machine_pistol", itemblueprintMachinePistolJson),
-  makeParsedItemContentEntry("blueprint_saboteur_sword", itemblueprintSaboteurSwordJson),
   makeParsedItemContentEntry("blueprint_sniper", itemblueprintSniperJson),
-  makeParsedItemContentEntry("blueprint_spiked_spear", itemblueprintSpikedSpearJson),
   makeParsedItemContentEntry("cannon", itemcannonJson),
   makeParsedItemContentEntry("carbine", itemcarbineJson),
   makeParsedItemContentEntry("chest", itemchestJson),

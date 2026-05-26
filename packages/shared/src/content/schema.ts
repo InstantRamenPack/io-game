@@ -116,6 +116,11 @@ export const EntityCombatContentSchema = z.object({
   attackMinIntervalTicks: z.number().int().nonnegative().default(0),
 });
 
+export const EnemySpawnWeaponsContentSchema = z.object({
+  selection: z.enum(["rotating", "all"]),
+  typeIds: z.array(ResourceIdSchema).min(1),
+});
+
 export const EntityCapabilitiesContentSchema = z.object({
   container: z
     .object({
@@ -256,6 +261,7 @@ export const EntityContentSchema = z.object({
       // placeholder container for strict enemy death-loot presence
     })
     .optional(),
+  spawnWeapons: EnemySpawnWeaponsContentSchema.optional(),
 });
 
 export const EffectContentSchema = z.object({
@@ -279,6 +285,9 @@ export type VisibilityBlockerContent = z.infer<
   typeof VisibilityBlockerContentSchema
 >;
 export type EntityCombatContent = z.infer<typeof EntityCombatContentSchema>;
+export type EnemySpawnWeaponsContent = z.infer<
+  typeof EnemySpawnWeaponsContentSchema
+>;
 export type EntityCapabilitiesContent = z.infer<
   typeof EntityCapabilitiesContentSchema
 >;

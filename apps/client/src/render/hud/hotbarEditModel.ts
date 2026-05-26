@@ -41,6 +41,7 @@ export function sanitizeHotbarEditState(options: {
 
   return {
     hoveredSlotRef: isValidRef(hoveredSlotRef) ? hoveredSlotRef : null,
-    heldSlotRef: isValidRef(heldSlotRef) && hasItem(heldSlotRef) ? heldSlotRef : null,
+    heldSlotRef:
+      isValidRef(heldSlotRef) && hasItem(heldSlotRef) ? heldSlotRef : null,
   };
 }
