@@ -24,9 +24,7 @@ These rules apply to every task in this repo unless the user explicitly override
 
 - Use Bun-native commands by default.
 - Use `rg` / `rg --files` for search and file discovery.
-- After code edits, run `bun run format` on the whole repo. Do not run or recommend `bun run lint` as the formatting step.
-- Always format the entire codebase with `bun run format`; do not format only the files you touched.
-- `bun run format` runs ESLint fixes and Prettier writes for the full repo. Treat resulting unrelated changes as real workspace changes and report them.
+- Pre-commit hooks run `bun run format` for commits. Do not run or recommend `bun run lint` as a substitute for formatting.
 - Use `bun run typecheck` as the default static correctness check.
 - Use focused tests or benchmarks for the touched behavior instead of only broad checks.
 - Use `bun run build` when validating client/build integration or release-impacting changes.
