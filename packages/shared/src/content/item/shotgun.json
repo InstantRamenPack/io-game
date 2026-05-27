@@ -1,0 +1,30 @@
+{
+  "label": "Shotgun",
+  "hint": "Short-range scattergun with brutal close-range burst.",
+  "description": "Fires ten pellets across a 60 degree cone. The five-shell tube reloads slowly.",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 18,
+    "projectileTypeId": "projectile:shotgun_pellet",
+    "magSize": 5,
+    "reloadTicks": 90,
+    "spreadDeg": 0,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 18,
+        "y": 5
+      },
+      "holdRotationDeg": -5,
+      "scale": 1.18,
+      "handedness": "right",
+      "recoilDistance": 18,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "magItemTypeId": "item:shotgun_mag"
+  },
+  "recycle": {
+    "hunkValue": 16
+  },
+  "rarityTier": "rare"
+}

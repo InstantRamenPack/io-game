@@ -1,0 +1,15 @@
+{
+  "label": "Firecracker Spark",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 70,
+    "range": 600,
+    "damage": 8,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 8,
+      "height": 8
+    }
+  }
+}

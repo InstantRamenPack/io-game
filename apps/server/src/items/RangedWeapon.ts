@@ -109,6 +109,24 @@ export class RangedWeapon extends Weapon {
         ? 0
         : (world.randomNumberGenerator() - 0.5) * this.spread;
     const angle = baseAngle + spreadOffset;
+    this.fireProjectileAtAngle(world, owner, projectileOwnerId, angle);
+
+    this.ammoInMag--;
+    this.resetCooldown();
+
+    if (this.ammoInMag <= 0 && this.canReload(owner)) {
+      this.reloadTicksRemaining = this.reloadTicks;
+    }
+
+    return true;
+  }
+
+  protected fireProjectileAtAngle(
+    world: World,
+    owner: Entity,
+    projectileOwnerId: number,
+    angle: number,
+  ): void {
     const directionX = Math.cos(angle);
     const directionY = Math.sin(angle);
     const ProjectileCtor = this.resolveProjectileType();
@@ -135,15 +153,6 @@ export class RangedWeapon extends Weapon {
     );
     projectile.remainingRange *= this.rangeMultiplier;
     world.spawn(projectile);
-
-    this.ammoInMag--;
-    this.resetCooldown();
-
-    if (this.ammoInMag <= 0 && this.canReload(owner)) {
-      this.reloadTicksRemaining = this.reloadTicks;
-    }
-
-    return true;
   }
 
   protected resolveProjectileOwnerId(
@@ -204,7 +213,7 @@ export class RangedWeapon extends Weapon {
     };
   }
 
-  private resolveProjectileType(): RegistrableProjectileCtor {
+  protected resolveProjectileType(): RegistrableProjectileCtor {
     const projectileEntry = entityTypeRegistry.require(this.projectileTypeId);
     if (projectileEntry.kind !== "projectile") {
       throw new Error(
@@ -231,7 +240,7 @@ export class RangedWeapon extends Weapon {
     return this.ownerId !== undefined ? world.get(this.ownerId) : undefined;
   }
 
-  private canReload(owner: Entity | undefined): boolean {
+  protected canReload(owner: Entity | undefined): boolean {
     if (owner?.hasInfiniteReloadMags()) {
       return true;
     }

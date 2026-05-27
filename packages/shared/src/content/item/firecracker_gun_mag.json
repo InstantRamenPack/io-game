@@ -1,0 +1,21 @@
+{
+  "label": "Firecracker Gun Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for Firecracker Gun.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "pickupSpawn": {
+    "pools": ["mag"]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

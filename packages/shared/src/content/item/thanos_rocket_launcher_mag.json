@@ -1,0 +1,21 @@
+{
+  "label": "Thanos Rocket Launcher Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for Thanos Rocket Launcher.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "pickupSpawn": {
+    "pools": ["mag"]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

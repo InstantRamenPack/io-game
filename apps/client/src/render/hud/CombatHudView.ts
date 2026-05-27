@@ -6,11 +6,15 @@ const HEALTH_ROW_HEIGHT = 28;
 const COMBAT_ROW_HEIGHT = 30;
 const ROW_GAP = 6;
 const PAD_X = 10;
-const ARMOR_ICON_SIZE = 12;
+const ARMOR_ICON_SIZE = 20;
 const ARMOR_ICON_GAP = 4;
 const AMMO_ICON_WIDTH = 8;
 const AMMO_ICON_HEIGHT = 20;
 const AMMO_ICON_GAP = 5;
+const MAG_ICON_SIZE = 20;
+const MAG_ICON_GAP = 5;
+const MAG_LIMIT = 3;
+const SECTION_GAP = 10;
 
 export class CombatHudView {
   public readonly container = new PIXI.Container();
@@ -19,25 +23,28 @@ export class CombatHudView {
   private readonly healthFill = new PIXI.Graphics();
   private readonly combatRowFrame = new PIXI.Graphics();
   private readonly healthText: PIXI.Text;
-  private readonly armorCountText: PIXI.Text;
-  private readonly reserveText: PIXI.Text;
   private readonly ammoSprites: PIXI.Sprite[] = [];
+  private readonly magSprites: PIXI.Sprite[] = [];
   private readonly armorSprites: PIXI.Sprite[] = [];
   private readonly ammoFilledTextureProvider: () => PIXI.Texture;
   private readonly ammoEmptyTextureProvider: () => PIXI.Texture;
+  private readonly magTextureProvider: (typeId: string) => PIXI.Texture;
   private readonly armorFilledTextureProvider: () => PIXI.Texture;
   private readonly armorEmptyTextureProvider: () => PIXI.Texture;
+  private readonly magOverflowText: PIXI.Text;
   private widthValue = 0;
   private heightValue = 0;
 
   constructor(options: {
     ammoFilledTextureProvider: () => PIXI.Texture;
     ammoEmptyTextureProvider: () => PIXI.Texture;
+    magTextureProvider: (typeId: string) => PIXI.Texture;
     armorFilledTextureProvider: () => PIXI.Texture;
     armorEmptyTextureProvider: () => PIXI.Texture;
   }) {
     this.ammoFilledTextureProvider = options.ammoFilledTextureProvider;
     this.ammoEmptyTextureProvider = options.ammoEmptyTextureProvider;
+    this.magTextureProvider = options.magTextureProvider;
     this.armorFilledTextureProvider = options.armorFilledTextureProvider;
     this.armorEmptyTextureProvider = options.armorEmptyTextureProvider;
 
@@ -52,25 +59,17 @@ export class CombatHudView {
     });
     this.healthText.anchor.set(0.5);
 
-    this.armorCountText = new PIXI.Text({
-      text: "0",
+    this.magOverflowText = new PIXI.Text({
+      text: "+",
       style: new PIXI.TextStyle({
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 12,
-        fill: 0xcfd9ea,
-      }),
-    });
-    this.armorCountText.anchor.set(0, 0.5);
-
-    this.reserveText = new PIXI.Text({
-      text: "0 mags",
-      style: new PIXI.TextStyle({
-        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-        fontSize: 12,
+        fontSize: 16,
         fill: 0xd9e3d0,
+        stroke: { color: 0x0c120b, width: 3 },
       }),
     });
-    this.reserveText.anchor.set(1, 0.5);
+    this.magOverflowText.anchor.set(0, 0.5);
+    this.magOverflowText.visible = false;
 
     this.container.addChild(
       this.combatRowFrame,
@@ -78,8 +77,7 @@ export class CombatHudView {
       this.healthTrack,
       this.healthFill,
       this.healthText,
-      this.armorCountText,
-      this.reserveText,
+      this.magOverflowText,
     );
   }
 
@@ -89,7 +87,9 @@ export class CombatHudView {
     this.container.visible = Boolean(model) && this.widthValue > 0;
     if (!model || this.widthValue <= 0) {
       this.hideAmmoSprites();
+      this.hideMagSprites();
       this.hideArmorSprites();
+      this.magOverflowText.visible = false;
       return;
     }
 
@@ -122,51 +122,21 @@ export class CombatHudView {
       { width: 1, color: 0x59606b, alpha: 0.65 },
     );
 
-    const armorSlots = 10;
-    const armorFilled = Math.max(
-      0,
-      Math.min(
-        armorSlots,
-        Math.round((model.armorDamageReductionPct / 0.35) * armorSlots),
-      ),
-    );
-    this.ensureArmorSpriteCount(armorSlots);
-    const armorStartX = PAD_X;
-    for (let i = 0; i < armorSlots; i += 1) {
-      const sprite = this.armorSprites[i];
-      if (!sprite) continue;
-      sprite.visible = true;
-      sprite.texture =
-        i < armorFilled
-          ? this.armorFilledTextureProvider()
-          : this.armorEmptyTextureProvider();
-      sprite.width = ARMOR_ICON_SIZE;
-      sprite.height = ARMOR_ICON_SIZE;
-      sprite.position.set(
-        armorStartX + i * (ARMOR_ICON_SIZE + ARMOR_ICON_GAP),
-        Math.floor((COMBAT_ROW_HEIGHT - ARMOR_ICON_SIZE) / 2),
-      );
-      sprite.alpha = i < armorFilled ? 0.98 : 0.65;
-    }
+    this.drawAmmoAndMags(model);
+    this.drawArmor(model);
+  }
 
-    this.armorCountText.text = String(armorFilled);
-    this.armorCountText.position.set(
-      armorStartX + armorSlots * (ARMOR_ICON_SIZE + ARMOR_ICON_GAP) + 4,
-      COMBAT_ROW_HEIGHT / 2,
-    );
-
+  private drawAmmoAndMags(model: CombatHudModel): void {
     const ammo = model.ammo;
     if (!ammo) {
-      this.reserveText.text = "0 mags";
       this.hideAmmoSprites();
+      this.hideMagSprites();
+      this.magOverflowText.visible = false;
       return;
     }
 
     this.ensureAmmoSpriteCount(ammo.magSize);
-    const totalBulletWidth =
-      ammo.magSize * AMMO_ICON_WIDTH +
-      Math.max(0, ammo.magSize - 1) * AMMO_ICON_GAP;
-    const bulletStartX = this.widthValue - PAD_X - totalBulletWidth;
+    const bulletStartX = PAD_X;
     for (let i = 0; i < this.ammoSprites.length; i += 1) {
       const sprite = this.ammoSprites[i];
       if (!sprite) continue;
@@ -185,8 +155,68 @@ export class CombatHudView {
       sprite.alpha = i < ammo.ammoInMag ? 0.98 : 0.62;
     }
 
-    this.reserveText.text = `${Math.max(0, ammo.reserveMagCount ?? 0)} mags`;
-    this.reserveText.position.set(bulletStartX - 8, COMBAT_ROW_HEIGHT / 2);
+    const reserveMagCount = Math.max(0, ammo.reserveMagCount ?? 0);
+    const visibleMagCount = Math.min(MAG_LIMIT, reserveMagCount);
+    this.ensureMagSpriteCount(MAG_LIMIT);
+    const totalBulletWidth =
+      ammo.magSize * AMMO_ICON_WIDTH +
+      Math.max(0, ammo.magSize - 1) * AMMO_ICON_GAP;
+    const magStartX = bulletStartX + totalBulletWidth + SECTION_GAP;
+    for (let i = 0; i < this.magSprites.length; i += 1) {
+      const sprite = this.magSprites[i];
+      if (!sprite) continue;
+      sprite.visible = i < visibleMagCount && Boolean(ammo.magItemTypeId);
+      if (!sprite.visible || !ammo.magItemTypeId) continue;
+      sprite.texture = this.magTextureProvider(ammo.magItemTypeId);
+      sprite.width = MAG_ICON_SIZE;
+      sprite.height = MAG_ICON_SIZE;
+      sprite.position.set(
+        magStartX + i * (MAG_ICON_SIZE + MAG_ICON_GAP),
+        Math.floor((COMBAT_ROW_HEIGHT - MAG_ICON_SIZE) / 2),
+      );
+      sprite.alpha = 0.98;
+    }
+
+    this.magOverflowText.visible =
+      reserveMagCount >= MAG_LIMIT + 1 && Boolean(ammo.magItemTypeId);
+    if (this.magOverflowText.visible) {
+      this.magOverflowText.position.set(
+        magStartX + MAG_LIMIT * (MAG_ICON_SIZE + MAG_ICON_GAP),
+        COMBAT_ROW_HEIGHT / 2,
+      );
+    }
+  }
+
+  private drawArmor(model: CombatHudModel): void {
+    const armorSlots = 10;
+    const armorFilled = Math.max(
+      0,
+      Math.min(
+        armorSlots,
+        Math.round((model.armorDamageReductionPct / 0.35) * armorSlots),
+      ),
+    );
+    this.ensureArmorSpriteCount(armorSlots);
+    const totalArmorWidth =
+      armorSlots * ARMOR_ICON_SIZE +
+      Math.max(0, armorSlots - 1) * ARMOR_ICON_GAP;
+    const armorStartX = this.widthValue - PAD_X - totalArmorWidth;
+    for (let i = 0; i < armorSlots; i += 1) {
+      const sprite = this.armorSprites[i];
+      if (!sprite) continue;
+      sprite.visible = true;
+      sprite.texture =
+        i < armorFilled
+          ? this.armorFilledTextureProvider()
+          : this.armorEmptyTextureProvider();
+      sprite.width = ARMOR_ICON_SIZE;
+      sprite.height = ARMOR_ICON_SIZE;
+      sprite.position.set(
+        armorStartX + i * (ARMOR_ICON_SIZE + ARMOR_ICON_GAP),
+        Math.floor((COMBAT_ROW_HEIGHT - ARMOR_ICON_SIZE) / 2),
+      );
+      sprite.alpha = i < armorFilled ? 0.98 : 0.65;
+    }
   }
 
   private drawHealthRow(hp: number, maxHp: number, y: number): void {
@@ -246,6 +276,18 @@ export class CombatHudView {
     }
   }
 
+  private ensureMagSpriteCount(count: number): void {
+    while (this.magSprites.length < count) {
+      const sprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+      this.magSprites.push(sprite);
+      this.container.addChild(sprite);
+    }
+    for (let i = count; i < this.magSprites.length; i += 1) {
+      const sprite = this.magSprites[i];
+      if (sprite) sprite.visible = false;
+    }
+  }
+
   private ensureArmorSpriteCount(count: number): void {
     while (this.armorSprites.length < count) {
       const sprite = new PIXI.Sprite(this.armorEmptyTextureProvider());
@@ -260,6 +302,10 @@ export class CombatHudView {
 
   private hideAmmoSprites(): void {
     for (const sprite of this.ammoSprites) sprite.visible = false;
+  }
+
+  private hideMagSprites(): void {
+    for (const sprite of this.magSprites) sprite.visible = false;
   }
 
   private hideArmorSprites(): void {

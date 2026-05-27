@@ -18,7 +18,8 @@
       "recoilDistance": 18,
       "swingAngleDeg": 0,
       "jabDistance": 0
-    }
+    },
+    "magItemTypeId": "item:thanos_rocket_launcher_mag"
   },
   "rarityTier": "legendary"
 }

@@ -1,0 +1,15 @@
+{
+  "label": "Firecracker Shell",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 55,
+    "range": 400,
+    "damage": 12,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 14,
+      "height": 14
+    }
+  }
+}

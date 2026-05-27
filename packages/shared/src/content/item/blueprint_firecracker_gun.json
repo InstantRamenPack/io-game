@@ -1,0 +1,14 @@
+{
+  "label": "Firecracker Gun Blueprint",
+  "unlocksRecipeTypeId": "item:firecracker_gun",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "custom",
+      "symbol": "BlueprintFirecrackerGunItem",
+      "importPath": "apps/server/src/items/blueprints/BlueprintFirecrackerGunItem.ts"
+    }
+  }
+}

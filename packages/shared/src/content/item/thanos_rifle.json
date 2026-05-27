@@ -18,7 +18,8 @@
       "recoilDistance": 12,
       "swingAngleDeg": 0,
       "jabDistance": 0
-    }
+    },
+    "magItemTypeId": "item:thanos_rifle_mag"
   },
   "rarityTier": "legendary"
 }

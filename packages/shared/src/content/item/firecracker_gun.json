@@ -1,0 +1,44 @@
+{
+  "label": "Firecracker Gun",
+  "hint": "Volatile launcher that bursts into a fan of firecracker sparks.",
+  "description": "Fires a main firecracker shell that splits into five smaller shots on impact or after 400 units. Each shot kicks the shooter backward.",
+  "recipe": {
+    "hint": "Explosive fan-fire weapon. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:blueprint_firecracker_gun",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 180
+      }
+    ]
+  },
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 24,
+    "projectileTypeId": "projectile:firecracker_bullet",
+    "magSize": 3,
+    "reloadTicks": 110,
+    "spreadDeg": 0,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 20,
+        "y": 5
+      },
+      "holdRotationDeg": -4,
+      "scale": 1.15,
+      "handedness": "right",
+      "recoilDistance": 20,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "magItemTypeId": "item:firecracker_gun_mag"
+  },
+  "recycle": {
+    "hunkValue": 18
+  },
+  "rarityTier": "epic"
+}

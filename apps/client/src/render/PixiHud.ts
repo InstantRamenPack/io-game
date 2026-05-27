@@ -471,6 +471,8 @@ export class PixiHud {
           PIXI.Texture.from("/hud/bullet-filled.png"),
         ammoEmptyTextureProvider: () =>
           PIXI.Texture.from("/hud/bullet-empty.png"),
+        magTextureProvider: (typeId) =>
+          this.gameClient.renderer.getItemTexture(typeId),
         armorFilledTextureProvider: () =>
           PIXI.Texture.from("/hud/armor-filled.png"),
         armorEmptyTextureProvider: () =>

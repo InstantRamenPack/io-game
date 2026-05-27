@@ -1,0 +1,15 @@
+{
+  "label": "Shotgun Pellet",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "projectile": {
+    "speed": 70,
+    "range": 450,
+    "damage": 7,
+    "maxHits": 1,
+    "hitbox": {
+      "width": 8,
+      "height": 8
+    }
+  }
+}

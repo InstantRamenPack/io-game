@@ -12,6 +12,7 @@ export class ThanosRifle extends RangedWeapon {
       w.magSize,
       w.reloadTicks,
       w.spreadDeg,
+      w.magItemTypeId,
     );
   }
 }

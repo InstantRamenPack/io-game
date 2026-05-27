@@ -1,0 +1,21 @@
+{
+  "label": "Shotgun Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for Shotgun.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "pickupSpawn": {
+    "pools": ["mag"]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

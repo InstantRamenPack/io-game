@@ -16,6 +16,7 @@ import type {
 
 export type CombatHudAmmoModel = {
   typeId: ResourceId;
+  magItemTypeId: ResourceId | null;
   ammoInMag: number;
   magSize: number;
   reserveMagCount: number | null;
@@ -180,8 +181,13 @@ function buildAmmoModel(
     return null;
   }
 
+  const weaponContent = getWeaponContent(activeSlot.typeId);
   return {
     typeId: activeSlot.typeId,
+    magItemTypeId:
+      weaponContent?.attackStyle === "shoot"
+        ? (weaponContent.magItemTypeId ?? null)
+        : null,
     ammoInMag:
       typeof activeSlot.ammoInMag === "number" ? activeSlot.ammoInMag : 0,
     magSize: activeSlot.magSize,

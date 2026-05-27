@@ -8,11 +8,20 @@
   "item:basic_sword": "/sprites/basic_sword.png",
   "item:cleaver": "/sprites/cleaver.png",
   "item:crossbow": "/sprites/crossbow.png",
+  "item:crossbow_mag": "/sprites/generated/crossbow_mag.png",
+  "item:drone_mag": "/sprites/generated/drone_mag.png",
+  "item:firecracker_gun_mag": "/sprites/generated/firecracker_gun_mag.png",
   "item:hunk": "/sprites/hunk.png",
   "item:katana": "/sprites/katana.png",
   "item:lead_pipe": "/sprites/lead_pipe.png",
+  "item:pistol_mag": "/sprites/generated/pistol_mag.png",
+  "item:rifle_mag": "/sprites/generated/rifle_mag.png",
   "item:scissors": "/sprites/scissors.png",
+  "item:shotgun_mag": "/sprites/generated/shotgun_mag.png",
   "item:sniper": "/sprites/sniper.png",
+  "item:sniper_mag": "/sprites/generated/sniper_mag.png",
   "item:spiked_spear": "/sprites/spiked_spear.png",
-  "item:taser": "/sprites/taser.png"
+  "item:taser": "/sprites/taser.png",
+  "item:thanos_rifle_mag": "/sprites/generated/thanos_rifle_mag.png",
+  "item:thanos_rocket_launcher_mag": "/sprites/generated/thanos_rocket_launcher_mag.png"
 }
