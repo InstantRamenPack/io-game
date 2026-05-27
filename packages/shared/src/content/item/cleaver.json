@@ -23,9 +23,7 @@
     }
   },
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rarityTier": "common",
   "recipe": {

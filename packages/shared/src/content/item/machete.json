@@ -36,9 +36,7 @@
     "hunkValue": 6
   },
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rarityTier": "uncommon"
 }

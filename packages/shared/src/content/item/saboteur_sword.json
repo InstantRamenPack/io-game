@@ -32,8 +32,6 @@
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   }
 }

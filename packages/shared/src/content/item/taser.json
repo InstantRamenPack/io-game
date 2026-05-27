@@ -24,9 +24,7 @@
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "recipe": {
     "hint": "Short-range stun weapon for controlling rushes.",
