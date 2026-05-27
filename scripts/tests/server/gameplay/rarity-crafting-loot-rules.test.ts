@@ -15,6 +15,10 @@ describe("rarity crafting and loot rules", () => {
       if (item.rarityTier !== "common" && item.rarityTier !== "uncommon") {
         continue;
       }
+      // fists should not be craftable
+      if (typeId === "item:fists") {
+        continue;
+      }
 
       expect(item.recipe, `${typeId} should be craftable`).toBeDefined();
       expect(
