@@ -6,6 +6,7 @@ import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { HeavyPistol } from "@server/items/weapons/HeavyPistol.ts";
 import { Lmg } from "@server/items/weapons/Lmg.ts";
+import { FirecrackerGun } from "@server/items/weapons/FirecrackerGun.ts";
 import { Sniper } from "@server/items/weapons/Sniper.ts";
 
 type SniperWeaponCtor = new () => Weapon;
@@ -14,6 +15,7 @@ const SNIPER_WEAPON_POOL: readonly SniperWeaponCtor[] = [
   Sniper,
   HeavyPistol,
   Lmg,
+  FirecrackerGun,
 ];
 
 /**

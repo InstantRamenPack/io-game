@@ -15,6 +15,7 @@ import {
   getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { bootstrapTestRegistries } from "@tests/helpers/worldFixtures.ts";
 
 const ENEMY_CTORS = [
   Drifter,
@@ -31,6 +32,7 @@ const ENEMY_CTORS = [
 
 describe("enemy rarity weapon coverage", () => {
   test("weapon-bearing enemies only equip weapons from their own rarity tier", () => {
+    bootstrapTestRegistries();
     for (const EnemyCtor of ENEMY_CTORS) {
       const enemyTier = getEntityRarityTier(EnemyCtor.typeId);
       expect(
@@ -51,6 +53,7 @@ describe("enemy rarity weapon coverage", () => {
   });
 
   test("every weapon item is equipped by at least one enemy variant", () => {
+    bootstrapTestRegistries();
     const observedWeaponTypeIds = new Set<ResourceId>();
     for (const EnemyCtor of ENEMY_CTORS) {
       for (let index = 0; index < 24; index += 1) {
@@ -75,5 +78,9 @@ describe("enemy rarity weapon coverage", () => {
     expect(observedWeaponTypeIds.size).toBeLessThanOrEqual(
       authoredWeaponTypeIds.length,
     );
+    expect(observedWeaponTypeIds.has("item:shotgun" as ResourceId)).toBe(true);
+    expect(
+      observedWeaponTypeIds.has("item:firecracker_gun" as ResourceId),
+    ).toBe(true);
   });
 });

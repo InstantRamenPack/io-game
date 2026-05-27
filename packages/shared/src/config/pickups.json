@@ -37,7 +37,8 @@
       "item:blueprint_halberd",
       "item:blueprint_heavy_pistol",
       "item:blueprint_lmg",
-      "item:blueprint_sniper"
+      "item:blueprint_sniper",
+      "item:blueprint_firecracker_gun"
     ],
     "medical": ["item:crude_bandage"]
   }

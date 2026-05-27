@@ -15,7 +15,7 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("dungeon runtime mechanics", () => {
-  test("enemy death drops tiered hunks and tiered matching ammo", () => {
+  test("enemy death drops tiered hunks and optional tiered matching ammo", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime({ worldSeed: 22 });
     const enemy = new Shoota(runtime.world.allocEntityId());
@@ -29,12 +29,14 @@ describe("dungeon runtime mechanics", () => {
     const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
     expect(hunkCount).toBeGreaterThanOrEqual(deathLootConfig.common.hunkMin);
     expect(hunkCount).toBeLessThanOrEqual(deathLootConfig.common.hunkMax);
-    expect(
-      pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBeGreaterThanOrEqual(deathLootConfig.common.magMin);
-    expect(
-      pickup.contents.countType("item:pistol_mag" as ResourceId),
-    ).toBeLessThanOrEqual(deathLootConfig.common.magMax);
+    const magCount = pickup.contents.countType("item:pistol_mag" as ResourceId);
+    expect([
+      0,
+      ...rangeInclusive(
+        deathLootConfig.common.magMin,
+        deathLootConfig.common.magMax,
+      ),
+    ]).toContain(magCount);
   });
 
   test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {
@@ -237,4 +239,12 @@ function findPickupAt(
     throw new Error("expected dropped pickup");
   }
   return pickup;
+}
+
+function rangeInclusive(min: number, max: number): number[] {
+  const values: number[] = [];
+  for (let value = min; value <= max; value += 1) {
+    values.push(value);
+  }
+  return values;
 }

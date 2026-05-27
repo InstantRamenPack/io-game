@@ -10,9 +10,6 @@
       }
     ]
   },
-  "pickupSpawn": {
-    "pools": ["mag"]
-  },
   "runtime": {
     "server": {
       "classKind": "magazine"

@@ -22,7 +22,12 @@
   "rarityTier": "rare",
   "spawnWeapons": {
     "selection": "rotating",
-    "typeIds": ["item:basic_rifle", "item:machine_pistol", "item:drone_shooter"]
+    "typeIds": [
+      "item:basic_rifle",
+      "item:machine_pistol",
+      "item:drone_shooter",
+      "item:shotgun"
+    ]
   },
   "deathLoot": {}
 }
