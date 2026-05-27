@@ -18,10 +18,10 @@
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 40,
+    "cooldownTicks": 50,
     "projectileTypeId": "projectile:sniper_bullet",
     "magSize": 1,
-    "reloadTicks": 100,
+    "reloadTicks": 50,
     "spreadDeg": 0,
     "magItemTypeId": "item:sniper_mag",
     "equippedRender": {

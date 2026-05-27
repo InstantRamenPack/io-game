@@ -5,7 +5,7 @@
     "cooldownTicks": 8,
     "projectileTypeId": "projectile:thanos_bullet",
     "magSize": 8,
-    "reloadTicks": 80,
+    "reloadTicks": 30,
     "spreadDeg": 4,
     "equippedRender": {
       "holdOffset": {

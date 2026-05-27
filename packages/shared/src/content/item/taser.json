@@ -8,7 +8,7 @@
     "range": 60,
     "damage": 1,
     "knockback": 20,
-    "sweepArcDeg": 95,
+    "sweepArcDeg": 90,
     "equippedRender": {
       "holdOffset": {
         "x": 10,
@@ -24,7 +24,9 @@
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "recipe": {
     "hint": "Short-range stun weapon for controlling rushes.",

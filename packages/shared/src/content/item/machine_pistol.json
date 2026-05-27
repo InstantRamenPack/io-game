@@ -6,8 +6,8 @@
     "attackStyle": "shoot",
     "cooldownTicks": 2,
     "projectileTypeId": "projectile:machine_pistol_bullet",
-    "magSize": 20,
-    "reloadTicks": 30,
+    "magSize": 16,
+    "reloadTicks": 20,
     "spreadDeg": 10,
     "magItemTypeId": "item:pistol_mag",
     "equippedRender": {

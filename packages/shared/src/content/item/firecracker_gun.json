@@ -18,10 +18,10 @@
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 24,
+    "cooldownTicks": 12,
     "projectileTypeId": "projectile:firecracker_bullet",
     "magSize": 3,
-    "reloadTicks": 110,
+    "reloadTicks": 50,
     "spreadDeg": 0,
     "equippedRender": {
       "holdOffset": {

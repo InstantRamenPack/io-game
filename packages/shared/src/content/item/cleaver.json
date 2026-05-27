@@ -8,7 +8,7 @@
     "range": 50,
     "damage": 10,
     "knockback": 10,
-    "sweepArcDeg": 95,
+    "sweepArcDeg": 90,
     "equippedRender": {
       "holdOffset": {
         "x": 36,
@@ -23,7 +23,9 @@
     }
   },
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "rarityTier": "common",
   "recipe": {

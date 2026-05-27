@@ -16,8 +16,8 @@
     "attackStyle": "shoot",
     "cooldownTicks": 3,
     "projectileTypeId": "projectile:carbine_bullet",
-    "magSize": 20,
-    "reloadTicks": 30,
+    "magSize": 12,
+    "reloadTicks": 20,
     "spreadDeg": 3,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
@@ -38,6 +38,8 @@
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   }
 }

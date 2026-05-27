@@ -8,7 +8,7 @@
     "range": 50,
     "damage": 50,
     "knockback": 24,
-    "sweepArcDeg": 95,
+    "sweepArcDeg": 90,
     "equippedRender": {
       "holdOffset": {
         "x": 36,

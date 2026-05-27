@@ -18,10 +18,10 @@
   },
   "weapon": {
     "attackStyle": "shoot",
-    "cooldownTicks": 2,
+    "cooldownTicks": 1,
     "projectileTypeId": "projectile:lmg_bullet",
-    "magSize": 50,
-    "reloadTicks": 100,
+    "magSize": 16,
+    "reloadTicks": 50,
     "spreadDeg": 4,
     "magItemTypeId": "item:rifle_mag",
     "equippedRender": {
