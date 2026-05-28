@@ -5,6 +5,7 @@ import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { requireWeaponContent } from "@shared/content/catalog.ts";
+import type { EnemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import type {
   EquippedItemSnapshot,
   WeaponSnapshot,
@@ -18,10 +19,13 @@ export abstract class Weapon extends Item {
   /** Fixed-tick cooldown until next fire. */
   protected cooldownTicks = 0;
   private cooldownTicksPerUse: number;
+  private baselineCooldownTicksPerUse: number;
+  private enemyDayNerfApplied = false;
 
   protected constructor(cooldownTicksPerUse: number) {
     super();
     this.cooldownTicksPerUse = Math.max(1, Math.floor(cooldownTicksPerUse));
+    this.baselineCooldownTicksPerUse = this.cooldownTicksPerUse;
   }
 
   /** Advances cooldown state by one fixed tick. */
@@ -62,6 +66,40 @@ export abstract class Weapon extends Item {
 
   public scaleAttackRange(_multiplier: number): void {
     // Weapons without explicit range ignore enemy range tuning.
+  }
+
+  public captureEnemyTuningBaseline(): void {
+    this.baselineCooldownTicksPerUse = this.cooldownTicksPerUse;
+  }
+
+  public syncEnemyDayNerf(
+    applyNerf: boolean,
+    tuning: EnemyTuningConfig,
+  ): void {
+    if (applyNerf === this.enemyDayNerfApplied) {
+      return;
+    }
+    this.enemyDayNerfApplied = applyNerf;
+    if (applyNerf) {
+      const weaponContent = requireWeaponContent(this.typeId);
+      const cooldownMultiplier =
+        weaponContent.attackStyle === "shoot"
+          ? tuning.rangedWeaponCooldownMultiplier
+          : tuning.meleeWeaponCooldownMultiplier;
+      this.cooldownTicksPerUse = Math.max(
+        1,
+        Math.floor(this.baselineCooldownTicksPerUse * cooldownMultiplier),
+      );
+      this.scaleAttackRange(tuning.weaponAttackRangeMultiplier);
+      return;
+    }
+
+    this.cooldownTicksPerUse = this.baselineCooldownTicksPerUse;
+    this.resetEnemyAttackRangeToBaseline();
+  }
+
+  protected resetEnemyAttackRangeToBaseline(): void {
+    // Ranged weapons override this to restore projectile range.
   }
 
   public toSnapshot(): WeaponSnapshot {

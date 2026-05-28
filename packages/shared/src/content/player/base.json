@@ -62,10 +62,6 @@
         {
           "typeId": "item:cannon",
           "amount": 2
-        },
-        {
-          "typeId": "item:crafting_station",
-          "amount": 1
         }
       ]
     }

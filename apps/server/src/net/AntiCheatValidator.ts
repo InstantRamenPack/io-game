@@ -94,7 +94,7 @@ export class AntiCheatValidator {
     const { chestEntityId, fromSource, fromIndex, toSource, toIndex } =
       actionMessage.chestMove;
     const hotbarSlotCount = playerEntity.inventory.hotbarSlots.length;
-    const chestEntity = world.entities.get<Chest>(chestEntityId);
+    const chestEntity = world.entities.get(chestEntityId);
     const chestSlotCount =
       chestEntity && isContainerEntity(chestEntity)
         ? chestEntity.chestSlots.length

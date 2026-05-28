@@ -628,6 +628,9 @@ function makeSnapshot(
       phaseElapsedMs: tickNumber * 50,
       dayDurationMs: 120000,
       nightDurationMs: 60000,
+      waveEnemiesRemaining: 0,
+      waveSpawnsPending: 0,
+      waveThreatTotal: 0,
     },
     extraction: {
       stage: "locked",

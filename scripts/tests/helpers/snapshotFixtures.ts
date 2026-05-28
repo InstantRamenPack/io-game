@@ -176,6 +176,9 @@ export function makeDayNightSnapshot(tick = 0): DayNightSnapshot {
     phaseElapsedMs: tick * 50,
     dayDurationMs: 120000,
     nightDurationMs: 60000,
+    waveEnemiesRemaining: 0,
+    waveSpawnsPending: 0,
+    waveThreatTotal: 0,
   };
 }
 

@@ -1,9 +1,8 @@
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
-import { Player } from "@server/entities/Player.ts";
+import { createCombatTargetGoal } from "@server/goals/builtin/combatTargetGoals.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
-import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
 import { BasicDagger } from "@server/items/weapons/BasicDagger.ts";
@@ -35,9 +34,7 @@ export class Drifter extends Enemy {
     super(id, {
       weapons: [Drifter.createSpawnWeapon()],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 720, {
-          requireLineOfSight: true,
-        }),
+        createCombatTargetGoal(0, 720),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
         new AttackAtGoal<Enemy>(3, 0),

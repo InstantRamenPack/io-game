@@ -89,3 +89,25 @@ These rules apply to every task in this repo unless the user explicitly override
 - Do not amend commits or perform destructive git operations unless explicitly requested.
 - If unexpected changes appear, stop and ask how to proceed.
 - Final reports should state what changed, what was verified, and what remains uncertain or unverified.
+
+## Learned User Preferences
+
+- Prefer reusing standard base weapons for enemies and tuning per-enemy damage via `combat.damageMultiplier` in enemy content JSON instead of creating enemy-specific item variants.
+- Blueprint world pickups require explicit interact (E) with UI showing which recipe unlocks; do not auto-pickup blueprints on contact.
+- When referring to world-gen “legendary bosses,” select by `rarityTier: "legendary"` rather than hardcoding a specific enemy id.
+- Enemies should target players and buildings with equal priority; do not make chests structures that draw enemy aggro.
+- Wave enemies use finite aggro (not infinite) and spawn near map center so buildings draw aggro when players stay distant.
+- Night ends only when all wave enemies are killed.
+- At night, and when electricity or lights are down, enemies fight at full range and speed with day-time combat nerfs removed.
+- Recycling uses a drag-and-button modal below crafting in the tower UI, not press-E interact.
+- Energy and comms towers are buildings but cannot be obtained through regular gameplay; only three uncraftable starter towers spawn at match start.
+
+## Learned Workspace Facts
+
+- Blueprint unlocks are lobby-wide and permanent for all players in the lobby, including players who join after the pickup.
+- World generation places exactly two legendary-tier enemies: one in the dungeon boss room and one at extraction; they are excluded from procedural enemy pools, and additional legendary spawns come from boss/night waves (`packages/shared/src/world/legendaryBoss.ts`).
+- Dungeon generation forces exactly one boss room; the boss room primary spawn uses `spawnRole: "legendary_boss"` in procedural content.
+- Twelve non-extraction villages are placed randomly one-by-one with reroll on extraction, center, or dungeon overlap; tiers are assigned after placement by distance rank (closest quartile low, middle quartile medium, furthest quartile high).
+- Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
+- Crafting and recycling share one tower; the map starts with three uncraftable starter towers (combined craft/recycle, energy, comms).
+- When night ends, worldgen-placed enemies respawn the same way procedural crates do.

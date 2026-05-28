@@ -7,8 +7,9 @@ export class DayNightIndicator {
   public readonly container: PIXI.Container;
   private readonly graphic: PIXI.Graphics;
   private readonly label: PIXI.Text;
-  private readonly barWidth = 220;
-  private readonly barHeight = 14;
+  private readonly detail: PIXI.Text;
+  private readonly barWidth = 200;
+  private readonly barHeight = 10;
   private readonly barGap = 6;
   private readonly textDayColor = 0x2d4f37;
   private readonly textNightColor = 0xcfe7d1;
@@ -18,7 +19,11 @@ export class DayNightIndicator {
     this.container = new PIXI.Container();
     this.graphic = new PIXI.Graphics();
     this.label = new PIXI.Text("", new PIXI.TextStyle(labelStyle));
-    this.container.addChild(this.graphic, this.label);
+    this.detail = new PIXI.Text(
+      "",
+      new PIXI.TextStyle({ ...labelStyle, fontSize: 12 }),
+    );
+    this.container.addChild(this.graphic, this.label, this.detail);
   }
 
   public sync(
@@ -32,11 +37,6 @@ export class DayNightIndicator {
 
     this.container.visible = true;
 
-    const totalDuration = dayNight.nightDurationMs + dayNight.dayDurationMs;
-    const baseCycleElapsed =
-      dayNight.phase === "night"
-        ? dayNight.phaseElapsedMs
-        : dayNight.nightDurationMs + dayNight.phaseElapsedMs;
     const driftMs =
       latestSnapshotReceivedAt !== undefined
         ? Math.max(0, performance.now() - latestSnapshotReceivedAt)
@@ -48,36 +48,49 @@ export class DayNightIndicator {
       this.textNightColor,
       contrastBlend,
     );
-    const cycleElapsed =
-      totalDuration > 0 ? (baseCycleElapsed + driftMs) % totalDuration : 0;
-    const progress =
-      totalDuration > 0
-        ? Math.min(1, Math.max(0, cycleElapsed / totalDuration))
-        : 0;
 
-    const nightWidth =
-      totalDuration > 0
-        ? Math.max(
-            1,
-            Math.round(
-              (dayNight.nightDurationMs / totalDuration) * this.barWidth,
-            ),
-          )
-        : Math.floor(this.barWidth / 2);
-    const dayWidth = this.barWidth - nightWidth;
-    const centerX = Math.round(this.barWidth / 2);
-
-    this.label.text = `Day ${dayNight.dayCount + 1} · ${dayNight.phase}`;
+    const phaseLabel = dayNight.phase === "night" ? "Night" : "Day";
+    this.label.text = `${phaseLabel} ${dayNight.dayCount + 1}`;
     this.label.style.fill = labelColor;
 
-    const contentWidth = Math.max(this.barWidth, this.label.width);
-    const labelX = Math.max(
+    const waveThreat =
+      dayNight.waveEnemiesRemaining + dayNight.waveSpawnsPending;
+    if (dayNight.phase === "night") {
+      if (waveThreat <= 0) {
+        this.detail.text = "Wave cleared — dawn soon";
+      } else {
+        const parts: string[] = [];
+        if (dayNight.waveEnemiesRemaining > 0) {
+          parts.push(
+            `${dayNight.waveEnemiesRemaining} wave enem${dayNight.waveEnemiesRemaining === 1 ? "y" : "ies"}`,
+          );
+        }
+        if (dayNight.waveSpawnsPending > 0) {
+          parts.push(
+            `${dayNight.waveSpawnsPending} spawn batch${dayNight.waveSpawnsPending === 1 ? "" : "es"} left`,
+          );
+        }
+        this.detail.text = parts.join(" · ");
+      }
+    } else {
+      this.detail.text = "Hold the hub until night falls";
+    }
+    this.detail.style.fill = labelColor;
+
+    const contentWidth = Math.max(
+      this.barWidth,
+      this.label.width,
+      this.detail.width,
+    );
+    const labelX = Math.max(0, Math.round((contentWidth - this.label.width) / 2));
+    const detailX = Math.max(
       0,
-      Math.round((contentWidth - this.label.width) / 2),
+      Math.round((contentWidth - this.detail.width) / 2),
     );
     const barX = Math.max(0, Math.round((contentWidth - this.barWidth) / 2));
-    const barY = this.label.height + this.barGap;
+    const barY = this.label.height + 4 + this.detail.height + this.barGap;
     this.label.position.set(labelX, 0);
+    this.detail.position.set(detailX, this.label.height + 4);
 
     drawRoundedRect(
       this.graphic,
@@ -85,34 +98,37 @@ export class DayNightIndicator {
       barY,
       this.barWidth,
       this.barHeight,
-      6,
+      5,
       { color: 0x0b140b, alpha: 0.85 },
     );
 
-    const cycleOffset = progress * this.barWidth;
-    const cycleStart = centerX - cycleOffset;
-
-    const drawClipped = (x: number, width: number, color: number): void => {
-      const start = Math.max(0, Math.round(x));
-      const end = Math.min(this.barWidth, Math.round(x + width));
-      if (end <= start) {
-        return;
-      }
+    if (dayNight.phase === "night" && waveThreat > 0) {
+      const total = Math.max(1, dayNight.waveThreatTotal);
+      const clearedFraction = Math.min(
+        1,
+        Math.max(0, 1 - waveThreat / total),
+      );
+      const fillWidth = Math.max(
+        4,
+        Math.round(this.barWidth * clearedFraction),
+      );
       this.graphic
-        .rect(barX + start, barY, end - start, this.barHeight)
-        .fill({ color, alpha: 0.95 });
-    };
-
-    for (let index = -1; index <= 1; index += 1) {
-      const segmentStart = cycleStart + index * this.barWidth;
-      drawClipped(segmentStart, nightWidth, 0x6a5de3);
-      drawClipped(segmentStart + nightWidth, dayWidth, 0xf2c84b);
+        .rect(barX, barY, fillWidth, this.barHeight)
+        .fill({ color: 0x8b3a3a, alpha: 0.95 });
+    } else if (dayNight.phase === "night") {
+      this.graphic
+        .rect(barX, barY, this.barWidth, this.barHeight)
+        .fill({ color: 0x3d8b5a, alpha: 0.95 });
+    } else {
+      const phaseDuration = dayNight.dayDurationMs;
+      const elapsed = Math.min(dayNight.phaseElapsedMs + driftMs, phaseDuration);
+      const progress =
+        phaseDuration > 0 ? Math.min(1, Math.max(0, elapsed / phaseDuration)) : 0;
+      const fillWidth = Math.max(4, Math.round(this.barWidth * progress));
+      this.graphic
+        .rect(barX, barY, fillWidth, this.barHeight)
+        .fill({ color: 0xf2c84b, alpha: 0.95 });
     }
-
-    this.graphic
-      .moveTo(barX + centerX, barY - 2)
-      .lineTo(barX + centerX, barY + this.barHeight + 2)
-      .stroke({ width: 2, color: labelColor, alpha: 0.9 });
   }
 
   public setPosition(x: number, y: number): void {
@@ -120,7 +136,13 @@ export class DayNightIndicator {
   }
 
   public get width(): number {
-    return Math.max(this.barWidth, this.label.width);
+    return Math.max(this.barWidth, this.label.width, this.detail.width);
+  }
+
+  public get height(): number {
+    return (
+      this.label.height + 4 + this.detail.height + this.barGap + this.barHeight
+    );
   }
 
   private computeNightBlend(

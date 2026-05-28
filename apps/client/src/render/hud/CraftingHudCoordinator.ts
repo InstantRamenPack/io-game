@@ -34,6 +34,8 @@ export class CraftingHudCoordinator {
   public close(state: HudInteractionState): void {
     state.craftingMenuOpen = false;
     state.previewedCraft = state.selectedCraft;
+    state.recycleHotbarIndex = null;
+    state.heldCraftOutputTypeId = null;
     this.hoveredCraftItemTypeId = null;
     this.hoveredCraftPreview = false;
   }
@@ -134,7 +136,12 @@ export class CraftingHudCoordinator {
     screenY: number;
     canSubmitCraft: (itemTypeId: ResourceId) => boolean;
     queueCraftItem: (itemTypeId: ResourceId) => void;
-    isCraftButtonAtPoint: (screenX: number, screenY: number) => boolean;
+    isCraftOutputAtPoint: (screenX: number, screenY: number) => boolean;
+    isRecycleButtonAtPoint: (screenX: number, screenY: number) => boolean;
+    isRecycleDropAtPoint: (screenX: number, screenY: number) => boolean;
+    canRecycleHotbarIndex: (index: number) => boolean;
+    queueRecycleHotbarIndex: (index: number) => void;
+    getSelectedHotbarIndex: () => number;
     getCraftAtPoint: (screenX: number, screenY: number) => ResourceId | null;
     getTabAtPoint: (screenX: number, screenY: number) => CraftingTabId | null;
   }): boolean {
@@ -144,10 +151,39 @@ export class CraftingHudCoordinator {
       screenY,
       canSubmitCraft,
       queueCraftItem,
-      isCraftButtonAtPoint,
+      isCraftOutputAtPoint,
+      isRecycleButtonAtPoint,
+      isRecycleDropAtPoint,
+      canRecycleHotbarIndex,
+      queueRecycleHotbarIndex,
+      getSelectedHotbarIndex,
       getCraftAtPoint,
       getTabAtPoint,
     } = options;
+
+    if (isRecycleButtonAtPoint(screenX, screenY)) {
+      if (
+        state.recycleHotbarIndex !== null &&
+        canRecycleHotbarIndex(state.recycleHotbarIndex)
+      ) {
+        queueRecycleHotbarIndex(state.recycleHotbarIndex);
+        state.recycleHotbarIndex = null;
+      }
+      return true;
+    }
+
+    if (isRecycleDropAtPoint(screenX, screenY)) {
+      if (state.recycleHotbarIndex !== null) {
+        state.recycleHotbarIndex = null;
+        return true;
+      }
+      const selectedIndex = getSelectedHotbarIndex();
+      if (canRecycleHotbarIndex(selectedIndex)) {
+        state.recycleHotbarIndex = selectedIndex;
+      }
+      return true;
+    }
+
     const clickedTab = getTabAtPoint(screenX, screenY);
     if (clickedTab) {
       state.craftingTab = clickedTab;
@@ -156,11 +192,11 @@ export class CraftingHudCoordinator {
       return true;
     }
 
-    if (isCraftButtonAtPoint(screenX, screenY)) {
+    if (isCraftOutputAtPoint(screenX, screenY)) {
       const craftTarget = state.previewedCraft;
       state.selectedCraft = craftTarget;
       if (canSubmitCraft(craftTarget)) {
-        queueCraftItem(craftTarget);
+        state.heldCraftOutputTypeId = craftTarget;
       }
       return true;
     }
@@ -238,7 +274,7 @@ export class CraftingHudCoordinator {
         typeId: itemTypeId,
         label: formatTypeLabel(itemTypeId),
         description:
-          recipe.hint ?? "Assemble this item at a nearby crafting station.",
+          recipe.hint ?? "Assemble this item at the tower hub.",
         costsLabel: formatCosts(recipe.costs),
         outputAmount: recipe.outputAmount,
         available: hasRecipeResources(itemTypeId),

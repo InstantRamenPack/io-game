@@ -33,6 +33,25 @@ export class WaveSystem implements System {
     return this.nightCycleCounter;
   }
 
+  public canEndNight(world: World): boolean {
+    if (!this.waveSpawner) {
+      return true;
+    }
+    return this.waveSpawner.canEndNight(world);
+  }
+
+  public countAliveWaveEnemies(world: World): number {
+    return this.waveSpawner?.countAliveWaveEnemies(world) ?? 0;
+  }
+
+  public getPendingWaveSpawnCount(): number {
+    return this.waveSpawner?.getPendingWaveEnemyCount() ?? 0;
+  }
+
+  public getNightWaveThreatTotal(): number {
+    return this.waveSpawner?.getNightWaveThreatTotal() ?? 0;
+  }
+
   public update(world: World, _deltaMs: number): void {
     if (!this.waveSpawner) {
       return;

@@ -43,6 +43,10 @@ describe("enemy rarity weapon coverage", () => {
       for (let index = 0; index < 12; index += 1) {
         const enemy = new EnemyCtor(index + 1);
         for (const weapon of enemy.weapons) {
+          if (EnemyCtor === Saboteur) {
+            expect(weapon.typeId).toBe("item:basic_sword");
+            continue;
+          }
           expect(
             getWeaponRarityTier(weapon.typeId),
             `${EnemyCtor.typeId} equipped ${weapon.typeId}`,

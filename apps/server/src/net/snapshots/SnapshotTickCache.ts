@@ -33,7 +33,11 @@ export class SnapshotTickCache {
 
   public prepare(world: World): void {
     this.preparedTick = world.tick;
-    this.preparedDayNight = world.dayNightSystem.toSnapshot();
+    this.preparedDayNight = world.dayNightSystem.toSnapshot(
+      world.waveSystem.countAliveWaveEnemies(world),
+      world.waveSystem.getPendingWaveSpawnCount(),
+      world.waveSystem.getNightWaveThreatTotal(),
+    );
     this.preparedExtraction = world.extractionSystem?.toSnapshot() ?? null;
     this.preparedInfrastructure =
       world.infrastructureSystem?.toSnapshot() ?? null;

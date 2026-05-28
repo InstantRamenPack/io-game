@@ -94,6 +94,16 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueRecycleHotbarIndex(index: number): void {
+    this.sendAction({
+      action: "selectHotbar",
+      index,
+    });
+    this.sendAction({
+      action: "recycle",
+    });
+  }
+
   public queueRepairTower(towerId: number): void {
     this.sendAction({
       action: "repair_tower",

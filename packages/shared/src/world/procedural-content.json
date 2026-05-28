@@ -13,7 +13,6 @@
       "item:carbine",
       "item:crossbow",
       "item:machete",
-      "item:saboteur_sword",
       "item:taser"
     ],
     "rare": [
@@ -68,10 +67,6 @@
       },
       {
         "typeId": "item:machete",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:saboteur_sword",
         "kind": "weapon"
       },
       {
@@ -182,19 +177,19 @@
     "home": {
       "buildings": [
         {
-          "typeId": "building:recycler",
+          "typeId": "building:hub",
           "offsetX": 0,
-          "offsetY": -160
+          "offsetY": -250
         },
         {
-          "typeId": "building:crafting_station",
-          "offsetX": -224,
-          "offsetY": 0
+          "typeId": "building:energy_tower",
+          "offsetX": -217,
+          "offsetY": 125
         },
         {
-          "typeId": "building:chest",
-          "offsetX": 224,
-          "offsetY": 0
+          "typeId": "building:comms_tower",
+          "offsetX": 217,
+          "offsetY": 125
         }
       ],
       "loot": [

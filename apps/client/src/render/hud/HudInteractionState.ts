@@ -22,4 +22,6 @@ export type HudInteractionState = {
   heldInventorySlotRef: InventorySlotRef | null;
   hoveredChestSlotRef: ChestSlotRef | null;
   heldChestSlotRef: ChestSlotRef | null;
+  recycleHotbarIndex: number | null;
+  heldCraftOutputTypeId: ResourceId | null;
 };

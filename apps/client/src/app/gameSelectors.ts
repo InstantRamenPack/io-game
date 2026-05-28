@@ -93,16 +93,18 @@ export function createGameSelectors(
     );
   }
 
-  function getChests(): ClientEntity[] {
+  function getHubs(): ClientEntity[] {
     return getTrackedBuildings().filter(
-      (entity) => getEntityCapabilities(entity.typeId)?.container !== undefined,
+      (entity) => entity.typeId === "building:hub",
     );
   }
 
+  function getChests(): ClientEntity[] {
+    return getHubs();
+  }
+
   function getRecyclers(): ClientEntity[] {
-    return getTrackedBuildings().filter(
-      (entity) => entity.typeId === "building:recycler",
-    );
+    return getHubs();
   }
 
   function getPickups(): ClientEntity[] {

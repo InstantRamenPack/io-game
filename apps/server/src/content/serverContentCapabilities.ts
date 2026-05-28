@@ -21,6 +21,7 @@ import type {
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
+import { Hub } from "@server/entities/buildings/Hub.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
@@ -189,17 +190,20 @@ export function isDebugAdminPlayerName(name: string): boolean {
 }
 
 export function isRecyclerEntity(entity: Entity): boolean {
-  return entity instanceof Recycler;
+  return (
+    entity instanceof Recycler ||
+    getEntityCapabilities(entity.typeId)?.recycler === true
+  );
 }
 
 export function isCraftingStationEntity(entity: Entity): boolean {
   return getEntityCapabilities(entity.typeId)?.craftingStation === true;
 }
 
-export function isContainerEntity(entity: Entity): entity is Chest {
+export function isContainerEntity(entity: Entity): entity is Chest | Hub {
   return (
     getEntityCapabilities(entity.typeId)?.container !== undefined &&
-    entity instanceof Chest
+    (entity instanceof Chest || entity instanceof Hub)
   );
 }
 

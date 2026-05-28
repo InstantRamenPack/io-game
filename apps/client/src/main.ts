@@ -18,7 +18,6 @@ import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
 import { isKeyboardTextEntryTarget } from "@client/input/isKeyboardTextEntryTarget.ts";
-import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import { getNearestPickup } from "@client/render/hud/pickupInteraction.ts";
 import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
 import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInteraction.ts";
@@ -151,13 +150,6 @@ if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
   window.gameClient = gameClient;
 }
 
-let recyclerHoldActive = false;
-
-function cancelRecyclerHold(): void {
-  recyclerHoldActive = false;
-  hudController.setRecyclerHoldStartMs(null);
-}
-
 let repairHoldActive = false;
 
 function cancelRepairHold(): void {
@@ -166,17 +158,6 @@ function cancelRepairHold(): void {
 }
 
 gameClient.onWorldUpdated(() => {
-  if (
-    recyclerHoldActive &&
-    !isNearRecyclerWithItem(
-      selectors.getPlayerEntity(),
-      selectors.getRecyclers(),
-      selectors.getInventory(),
-    )
-  ) {
-    cancelRecyclerHold();
-  }
-
   if (
     repairHoldActive &&
     getNearDamagedTower(
@@ -196,11 +177,6 @@ new GameInputRouter({
     craftingOpen: hudController.isCraftingMenuOpen(),
     chestOpen: hudController.isChestOpen(),
     textEntryActive: isKeyboardTextEntryTarget(document.activeElement),
-    nearRecyclerWithItem: isNearRecyclerWithItem(
-      selectors.getPlayerEntity(),
-      selectors.getRecyclers(),
-      selectors.getInventory(),
-    ),
     nearPickup:
       getNearestPickup(selectors.getPlayerEntity(), selectors.getPickups()) !==
       null,
@@ -258,6 +234,7 @@ new GameInputRouter({
         }
         return;
       case "closeChest":
+      case "closeHubTower":
         hudController.closeChest();
         return;
       case "moveCraftSelection":
@@ -277,21 +254,6 @@ new GameInputRouter({
         return;
       case "openChest":
         hudController.openChest(command.chestEntityId);
-        return;
-      case "openCraftingMenu":
-        hudController.toggleCraftingMenu();
-        return;
-      case "startRecycleHold":
-        recyclerHoldActive = true;
-        hudController.setRecyclerHoldStartMs(performance.now());
-        return;
-      case "cancelRecycleHold":
-        cancelRecyclerHold();
-        return;
-      case "recycleItem":
-        gameClient.queueRecycle();
-        recyclerHoldActive = false;
-        hudController.setRecyclerHoldStartMs(null);
         return;
       case "startRepairHold":
         repairHoldActive = true;

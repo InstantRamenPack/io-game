@@ -79,8 +79,11 @@ export function createEnemySpawnWeapons(
 /**
  * Hostile entity with goal-driven targeting and movement state.
  */
+export type EnemySpawnSource = "layout" | "wave" | "forest_camp";
+
 export class Enemy extends GoalControlledEntity {
   public static readonly kind = "enemy" as const;
+  public spawnSource?: EnemySpawnSource;
   private equippedArmorTypeId?: ResourceId;
 
   /**
@@ -95,7 +98,7 @@ export class Enemy extends GoalControlledEntity {
     super(id, { maxHp: content.maxHp, moveSpeed: content.moveSpeed });
     this.weapons = [...(config.weapons ?? [])];
     for (const weapon of this.weapons) {
-      applyEnemyWeaponTuning(weapon);
+      weapon.captureEnemyTuningBaseline();
     }
     this.damageMultiplier = content.combat.damageMultiplier;
     this.registerGoals([...(config.goals ?? []), new WanderGoal<Enemy>(100)]);
@@ -148,6 +151,18 @@ export class Enemy extends GoalControlledEntity {
 
   public override hasInfiniteReloadMags(): boolean {
     return true;
+  }
+
+  public override tick(world: World): void {
+    this.syncEnemyWeaponTuning(world);
+    super.tick(world);
+  }
+
+  private syncEnemyWeaponTuning(world: World): void {
+    const applyDayNerf = !world.isCombatEmpowered();
+    for (const weapon of this.weapons) {
+      weapon.syncEnemyDayNerf(applyDayNerf, enemyTuningConfig);
+    }
   }
 
   public override handleDeath(world: World): void {
@@ -222,12 +237,3 @@ export class Enemy extends GoalControlledEntity {
   }
 }
 
-function applyEnemyWeaponTuning(weapon: Weapon): void {
-  const weaponContent = getWeaponContent(weapon.typeId);
-  const cooldownMultiplier =
-    weaponContent?.attackStyle === "shoot"
-      ? enemyTuningConfig.rangedWeaponCooldownMultiplier
-      : enemyTuningConfig.meleeWeaponCooldownMultiplier;
-  weapon.scaleCooldownTicksPerUse(cooldownMultiplier);
-  weapon.scaleAttackRange(enemyTuningConfig.weaponAttackRangeMultiplier);
-}

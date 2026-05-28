@@ -282,11 +282,10 @@ const WavesConfigSchema = z.object({
   waves: z.array(NightWaveConfigSchema),
   randomWaves: RandomWavesConfigSchema,
   defaultMessageTemplate: z.string().min(1),
-  homePerimeter: z.object({
-    halfSize: PositiveFiniteNumberSchema,
-    spawnBuffer: NonNegativeFiniteNumberSchema,
+  waveSpawn: z.object({
+    minRadius: PositiveFiniteNumberSchema,
+    maxRadius: PositiveFiniteNumberSchema,
   }),
-  targetPriority: z.number().int(),
 });
 
 function parseConfig<T>(

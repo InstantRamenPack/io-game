@@ -129,9 +129,8 @@
     ]
   },
   "defaultMessageTemplate": "Wave {nightCycle} approaching! Enemies incoming!",
-  "homePerimeter": {
-    "halfSize": 2048,
-    "spawnBuffer": 400
-  },
-  "targetPriority": -1
+  "waveSpawn": {
+    "minRadius": 600,
+    "maxRadius": 900
+  }
 }

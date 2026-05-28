@@ -8,10 +8,6 @@ type RouterOptions = {
 };
 
 export class GameInputRouter {
-  private eHoldInterval: ReturnType<typeof setInterval> | null = null;
-  private eHoldFired = false;
-  private eKeyHeld = false;
-  private eNextRecycleAtMs: number | null = null;
   private eItemHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private eItemHoldFired = false;
   private eRepairHoldTimer: ReturnType<typeof setTimeout> | null = null;
@@ -29,11 +25,6 @@ export class GameInputRouter {
     const key = event.key.toLowerCase();
 
     if (key === "e") {
-      this.eKeyHeld = false;
-      this.stopRecycleLoop();
-      this.options.dispatch({ type: "cancelRecycleHold" });
-      this.eHoldFired = false;
-      this.eNextRecycleAtMs = null;
       if (this.eItemHoldTimer !== null) {
         clearTimeout(this.eItemHoldTimer);
         this.eItemHoldTimer = null;
@@ -114,12 +105,8 @@ export class GameInputRouter {
 
     if (key === "e") {
       event.preventDefault();
-      if (context.chestOpen) {
-        this.options.dispatch({ type: "closeChest" });
-        return;
-      }
-      if (context.craftingOpen) {
-        this.options.dispatch({ type: "closeCraftingMenu" });
+      if (context.craftingOpen || context.chestOpen) {
+        this.options.dispatch({ type: "closeHubTower" });
         return;
       }
       if (context.nearPickup) {
@@ -131,10 +118,6 @@ export class GameInputRouter {
           type: "openChest",
           chestEntityId: context.nearChest,
         });
-        return;
-      }
-      if (context.nearCraftingStation && !context.craftingOpen) {
-        this.options.dispatch({ type: "openCraftingMenu" });
         return;
       }
       if (context.nearDamagedTower !== null) {
@@ -157,11 +140,6 @@ export class GameInputRouter {
         }, INTERACT_HOLD_DURATION_MS);
         return;
       }
-      if (context.nearRecyclerWithItem) {
-        this.eKeyHeld = true;
-        this.startRecycleLoop();
-        return;
-      }
       if (context.selectedUsableTypeId !== null) {
         this.eItemHoldFired = false;
         const typeId = context.selectedUsableTypeId;
@@ -179,8 +157,8 @@ export class GameInputRouter {
 
     if (key === "h") {
       event.preventDefault();
-      if (context.chestOpen) {
-        this.options.dispatch({ type: "closeChest" });
+      if (context.chestOpen || context.craftingOpen) {
+        this.options.dispatch({ type: "closeHubTower" });
         return;
       }
       this.options.dispatch({
@@ -199,21 +177,15 @@ export class GameInputRouter {
     }
 
     if (key === "escape") {
-      if (context.chestOpen) {
+      if (context.chestOpen || context.craftingOpen) {
         event.preventDefault();
-        this.options.dispatch({ type: "closeChest" });
+        this.options.dispatch({ type: "closeHubTower" });
         return;
       }
 
       if (context.inventoryOpen) {
         event.preventDefault();
         this.options.dispatch({ type: "closeInventory" });
-        return;
-      }
-
-      if (context.craftingOpen) {
-        event.preventDefault();
-        this.options.dispatch({ type: "closeCraftingMenu" });
       }
       return;
     }
@@ -243,62 +215,5 @@ export class GameInputRouter {
     const ordinal = rawDigit === 0 ? 10 : rawDigit;
     event.preventDefault();
     this.options.dispatch({ type: "selectHotbarOrdinal", ordinal });
-  }
-
-  private startRecycleLoop(): void {
-    const context = this.options.getContext();
-    const nowMs = performance.now();
-    if (!context.nearRecyclerWithItem) {
-      this.options.dispatch({ type: "cancelRecycleHold" });
-      this.eNextRecycleAtMs = null;
-      return;
-    }
-    if (this.eNextRecycleAtMs === null) {
-      this.eNextRecycleAtMs = nowMs + INTERACT_HOLD_DURATION_MS;
-      this.eHoldFired = false;
-      this.options.dispatch({ type: "startRecycleHold" });
-    }
-    if (this.eHoldInterval !== null) {
-      return;
-    }
-
-    this.eHoldInterval = setInterval(() => {
-      if (!this.eKeyHeld) {
-        this.stopRecycleLoop();
-        return;
-      }
-
-      const tickContext = this.options.getContext();
-      if (!tickContext.nearRecyclerWithItem) {
-        this.options.dispatch({ type: "cancelRecycleHold" });
-        this.stopRecycleLoop();
-        return;
-      }
-
-      const tickNowMs = performance.now();
-      if (this.eNextRecycleAtMs === null || tickNowMs < this.eNextRecycleAtMs) {
-        return;
-      }
-
-      this.eHoldFired = true;
-      this.options.dispatch({ type: "recycleItem" });
-
-      if (!this.eKeyHeld) {
-        this.stopRecycleLoop();
-        return;
-      }
-
-      this.eNextRecycleAtMs += INTERACT_HOLD_DURATION_MS;
-      this.eHoldFired = false;
-      this.options.dispatch({ type: "startRecycleHold" });
-    }, 16);
-  }
-
-  private stopRecycleLoop(): void {
-    if (this.eHoldInterval !== null) {
-      clearInterval(this.eHoldInterval);
-      this.eHoldInterval = null;
-    }
-    this.eNextRecycleAtMs = null;
   }
 }

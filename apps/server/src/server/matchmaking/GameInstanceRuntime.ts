@@ -23,7 +23,11 @@ import {
 } from "@server/server/starterLoadout.ts";
 import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
-import { loadMap, refreshLoot } from "@server/systems/MapLoader.ts";
+import {
+  loadMap,
+  refreshLayoutEnemies,
+  refreshLoot,
+} from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
 
@@ -96,7 +100,7 @@ export class GameInstanceRuntime {
       kind: this.isPlayground ? "lobby" : "match",
     });
     if (!this.isPlayground) {
-      infraSystem.spawnTowers(this.world);
+      infraSystem.registerTowersFromWorld(this.world);
     }
   }
 
@@ -247,6 +251,7 @@ export class GameInstanceRuntime {
 
     if (isDawn) {
       refreshLoot(this.world);
+      refreshLayoutEnemies(this.world);
 
       // Respawn all dead players at the start of a new day
       for (const [clientId, playerId] of this.playerIdByClientId) {

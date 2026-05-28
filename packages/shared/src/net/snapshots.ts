@@ -162,6 +162,9 @@ export const DayNightSnapshotSchema = z.object({
   phaseElapsedMs: NonNegativeIntSchema,
   dayDurationMs: PositiveIntSchema,
   nightDurationMs: PositiveIntSchema,
+  waveEnemiesRemaining: NonNegativeIntSchema,
+  waveSpawnsPending: NonNegativeIntSchema,
+  waveThreatTotal: NonNegativeIntSchema,
 });
 
 export const ExtractionStageSchema = z.enum([

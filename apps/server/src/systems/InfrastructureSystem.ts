@@ -1,9 +1,8 @@
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
+import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import type { InfrastructureSnapshot } from "@shared/net/snapshots.ts";
-import { infrastructureConfig } from "@shared/config/gameplayConfig.ts";
 
 export class InfrastructureSystem implements System {
   private energyTowerId: number | null = null;
@@ -11,22 +10,21 @@ export class InfrastructureSystem implements System {
   private cachedEnergyActive = true;
   private cachedCommsActive = true;
 
-  public spawnTowers(world: World): void {
-    const { w, h } = world.gameConfig.worldSize;
-    const cx = w / 2;
-    const cy = h / 2;
+  public registerTowersFromWorld(world: World): void {
+    this.energyTowerId = null;
+    this.commsTowerId = null;
 
-    const energyTower = new EnergyTower(world.allocEntityId());
-    energyTower.x = cx - infrastructureConfig.towerXOffset;
-    energyTower.y = cy;
-    world.spawn(energyTower);
-    this.energyTowerId = energyTower.id;
+    for (const entity of world.entities.all()) {
+      if (entity instanceof EnergyTower && this.energyTowerId === null) {
+        this.energyTowerId = entity.id;
+      }
+      if (entity instanceof CommsTower && this.commsTowerId === null) {
+        this.commsTowerId = entity.id;
+      }
+    }
 
-    const commsTower = new CommsTower(world.allocEntityId());
-    commsTower.x = cx + infrastructureConfig.towerXOffset;
-    commsTower.y = cy;
-    world.spawn(commsTower);
-    this.commsTowerId = commsTower.id;
+    this.cachedEnergyActive = this.energyTowerId !== null;
+    this.cachedCommsActive = this.commsTowerId !== null;
   }
 
   public update(world: World, _deltaMs: number): void {

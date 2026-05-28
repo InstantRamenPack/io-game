@@ -8,9 +8,19 @@ import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Player } from "@server/entities/Player.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
+import type { Entity } from "@server/entities/Entity.ts";
+
+const BUILDING_DAMAGE_MULTIPLIER = 2;
 
 export class Saboteur extends Enemy {
   public static override readonly resourceName = "saboteur";
+
+  public override getOutgoingDamageMultiplier(target: Entity): number {
+    const baseMultiplier = super.getOutgoingDamageMultiplier(target);
+    return target instanceof Building
+      ? baseMultiplier * BUILDING_DAMAGE_MULTIPLIER
+      : baseMultiplier;
+  }
 
   constructor(id: number) {
     super(id, {

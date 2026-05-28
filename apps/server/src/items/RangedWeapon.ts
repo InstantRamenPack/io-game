@@ -27,6 +27,7 @@ export class RangedWeapon extends Weapon {
   public spread: number;
   public magItemTypeId?: ResourceId;
   private rangeMultiplier = 1;
+  private baselineRangeMultiplier = 1;
 
   /** Reload timer in fixed ticks. */
   protected reloadTicksRemaining = 0;
@@ -196,8 +197,17 @@ export class RangedWeapon extends Weapon {
     return this.resolveProjectileType().definition.range * this.rangeMultiplier;
   }
 
+  public override captureEnemyTuningBaseline(): void {
+    super.captureEnemyTuningBaseline();
+    this.baselineRangeMultiplier = this.rangeMultiplier;
+  }
+
   public override scaleAttackRange(multiplier: number): void {
     this.rangeMultiplier *= multiplier;
+  }
+
+  protected override resetEnemyAttackRangeToBaseline(): void {
+    this.rangeMultiplier = this.baselineRangeMultiplier;
   }
 
   public override toEquippedItemSnapshot(

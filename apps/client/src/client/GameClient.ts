@@ -386,6 +386,10 @@ export class GameClient {
     this.actionDispatcher.queueRecycle();
   }
 
+  public queueRecycleHotbarIndex(index: number): void {
+    this.actionDispatcher.queueRecycleHotbarIndex(index);
+  }
+
   public queueRepairTower(towerId: number): void {
     this.actionDispatcher.queueRepairTower(towerId);
   }

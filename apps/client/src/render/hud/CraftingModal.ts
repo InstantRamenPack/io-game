@@ -6,13 +6,13 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const CRAFT_MODAL_TILE_GAP = 12;
 const CRAFT_MODAL_TILE_MIN_WIDTH = 92;
-const CRAFT_MODAL_PREVIEW_ICON_SIZE = 132;
-const CRAFT_BUTTON_WIDTH = 176;
-const CRAFT_BUTTON_HEIGHT = 48;
 const CRAFT_MODAL_MAX_TILES = 64;
 const CRAFT_MODAL_SCROLLBAR_WIDTH = 6;
 const CRAFT_TAB_HEIGHT = 30;
 const CRAFT_TAB_GAP = 8;
+const HUB_COLUMN_GAP = 14;
+const CRAFT_OUTPUT_SLOT_SIZE = 72;
+const CRAFT_OUTPUT_COLUMN_WIDTH = 90;
 
 export type CraftingModalTab = {
   id: CraftingTabId;
@@ -112,76 +112,56 @@ export class CraftingModal {
   public readonly container: PIXI.Container;
   private readonly background: PIXI.Graphics;
   private readonly leftPane: PIXI.Graphics;
-  private readonly rightPane: PIXI.Graphics;
-  private readonly divider: PIXI.Graphics;
   private readonly leftTitle: PIXI.Text;
-  private readonly rightTitle: PIXI.Text;
+  private readonly outputTitle: PIXI.Text;
+  private readonly craftOutputFrame: PIXI.Graphics;
+  private readonly craftOutputIcon: PIXI.Sprite;
+  private readonly craftOutputHint: PIXI.Text;
+  private readonly craftOutputCosts: PIXI.Text;
   private readonly tabBar: PIXI.Container;
   private readonly tabBackgrounds = new Map<CraftingTabId, PIXI.Graphics>();
   private readonly tabLabels = new Map<CraftingTabId, PIXI.Text>();
-  private readonly previewFrame: PIXI.Graphics;
-  private readonly previewSprite: PIXI.Sprite;
-  private readonly previewLabel: PIXI.Text;
-  private readonly previewStatus: PIXI.Text;
-  private readonly previewDescription: PIXI.Text;
-  private readonly previewOutput: PIXI.Text;
-  private readonly previewCosts: PIXI.Text;
-  private readonly craftButton: PIXI.Graphics;
-  private readonly craftButtonLabel: PIXI.Text;
   private readonly tileViewportMask: PIXI.Graphics;
   private readonly tileViews: CraftTileView[] = [];
   private readonly tileRects = new Map<ResourceId, Rect>();
   private readonly tabRects = new Map<CraftingTabId, Rect>();
-  private craftButtonRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private craftOutputRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
-  private previewRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private scrollRowOffset = 0;
 
   constructor(styles: CraftingModalStyles) {
     this.container = new PIXI.Container();
     this.background = new PIXI.Graphics();
     this.leftPane = new PIXI.Graphics();
-    this.rightPane = new PIXI.Graphics();
-    this.divider = new PIXI.Graphics();
     this.leftTitle = new PIXI.Text("Craftables", styles.titleStyle);
-    this.rightTitle = new PIXI.Text("Details", styles.titleStyle);
+    this.outputTitle = new PIXI.Text("Output", styles.titleStyle);
     this.tabBar = new PIXI.Container();
-    this.previewFrame = new PIXI.Graphics();
-    this.previewSprite = new PIXI.Sprite();
-    this.previewSprite.anchor.set(0.5);
-    this.previewLabel = new PIXI.Text("", styles.detailTitleStyle);
-    this.previewStatus = new PIXI.Text("", styles.detailBodyStyle);
-    this.previewDescription = new PIXI.Text("", styles.detailBodyStyle);
-    this.previewOutput = new PIXI.Text("", styles.detailBodyStyle);
-    this.previewCosts = new PIXI.Text("", styles.detailBodyStyle);
-    this.craftButton = new PIXI.Graphics();
-    this.craftButtonLabel = new PIXI.Text("", styles.detailBodyStyle);
-    this.craftButtonLabel.anchor.set(0.5);
+    this.craftOutputFrame = new PIXI.Graphics();
+    this.craftOutputIcon = new PIXI.Sprite();
+    this.craftOutputIcon.anchor.set(0.5);
+    this.craftOutputHint = new PIXI.Text(
+      "Drag to hotbar",
+      styles.detailBodyStyle,
+    );
+    this.craftOutputCosts = new PIXI.Text("", styles.detailBodyStyle);
     this.tileViewportMask = new PIXI.Graphics();
 
     this.container.addChild(
       this.background,
       this.leftPane,
-      this.rightPane,
-      this.divider,
       this.leftTitle,
-      this.rightTitle,
+      this.outputTitle,
       this.tabBar,
-      this.previewFrame,
-      this.previewSprite,
-      this.previewLabel,
-      this.previewStatus,
-      this.previewDescription,
-      this.previewOutput,
-      this.previewCosts,
-      this.craftButton,
-      this.craftButtonLabel,
+      this.craftOutputFrame,
+      this.craftOutputIcon,
+      this.craftOutputHint,
+      this.craftOutputCosts,
       this.tileViewportMask,
     );
 
-    this.previewDescription.style.wordWrap = true;
-    this.previewOutput.style.wordWrap = true;
-    this.previewCosts.style.wordWrap = true;
+    this.craftOutputCosts.style.wordWrap = true;
+    this.craftOutputCosts.style.wordWrapWidth = CRAFT_OUTPUT_COLUMN_WIDTH - 8;
+    this.craftOutputHint.style.align = "center";
 
     for (let index = 0; index < CRAFT_MODAL_MAX_TILES; index += 1) {
       const tileView = new CraftTileView(styles.tileLabelStyle);
@@ -202,6 +182,7 @@ export class CraftingModal {
     iconProvider: (typeId: ResourceId) => PIXI.Texture;
     craftButtonEnabled: boolean;
     previewStatusLabel: string;
+    companionColumnWidth?: number | null;
     visible: boolean;
   }): void {
     const {
@@ -215,6 +196,7 @@ export class CraftingModal {
       iconProvider,
       craftButtonEnabled,
       previewStatusLabel,
+      companionColumnWidth,
       visible,
     } = options;
 
@@ -222,13 +204,20 @@ export class CraftingModal {
     this.tileRects.clear();
     this.tabRects.clear();
     if (!visible) {
-      this.craftButtonRect = { x: 0, y: 0, width: 0, height: 0 };
+      this.craftOutputRect = { x: 0, y: 0, width: 0, height: 0 };
       this.modalRect = { x: 0, y: 0, width: 0, height: 0 };
-      this.previewRect = { x: 0, y: 0, width: 0, height: 0 };
       return;
     }
 
-    let modalWidth = Math.min(860, screenWidth - 32);
+    const dockedColumnWidth = companionColumnWidth ?? 0;
+    const dockedColumnGap = dockedColumnWidth > 0 ? HUB_COLUMN_GAP : 0;
+    const availableLeftWidth =
+      screenWidth - 32 - dockedColumnWidth - dockedColumnGap;
+
+    let modalWidth =
+      dockedColumnWidth > 0
+        ? Math.min(620, availableLeftWidth)
+        : Math.min(780, screenWidth - 32);
     if (modalWidth < 520) {
       modalWidth = Math.max(320, screenWidth - 16);
     }
@@ -238,7 +227,8 @@ export class CraftingModal {
       modalHeight = Math.max(300, screenHeight - 16);
     }
 
-    const modalX = Math.floor((screenWidth - modalWidth) / 2);
+    const totalModalWidth = modalWidth + dockedColumnGap + dockedColumnWidth;
+    const modalX = Math.floor((screenWidth - totalModalWidth) / 2);
     const modalY = Math.floor((screenHeight - modalHeight) / 2);
     this.modalRect = {
       x: modalX,
@@ -248,9 +238,9 @@ export class CraftingModal {
     };
     this.container.position.set(modalX, modalY);
 
-    const leftWidth = Math.floor(modalWidth * 0.6);
-    const rightWidth = modalWidth - leftWidth;
+    const outputColumnX = modalWidth - CRAFT_OUTPUT_COLUMN_WIDTH - 22;
     const paneHeight = modalHeight;
+    const mainPaneHeight = paneHeight - 20;
 
     drawRoundedRect(
       this.background,
@@ -266,33 +256,18 @@ export class CraftingModal {
       this.leftPane,
       10,
       10,
-      leftWidth - 15,
-      paneHeight - 20,
+      modalWidth - 20,
+      mainPaneHeight,
       14,
       { color: 0x101913, alpha: 0.84 },
     );
-    drawRoundedRect(
-      this.rightPane,
-      leftWidth,
-      10,
-      rightWidth - 10,
-      paneHeight - 20,
-      14,
-      { color: 0x0d1410, alpha: 0.9 },
-    );
-
-    this.divider.clear();
-    this.divider
-      .moveTo(leftWidth, 22)
-      .lineTo(leftWidth, paneHeight - 22)
-      .stroke({ width: 1, color: 0x2a4164, alpha: 0.85 });
 
     this.leftTitle.position.set(26, 24);
-    this.rightTitle.position.set(leftWidth + 22, 24);
+    this.outputTitle.position.set(outputColumnX + 8, 24);
 
     const leftInnerX = 26;
     const tabsY = 58;
-    const leftInnerWidth = leftWidth - leftInnerX - 22;
+    const gridInnerWidth = outputColumnX - leftInnerX - CRAFT_MODAL_TILE_GAP;
     this.syncTabs(
       tabs,
       activeTab,
@@ -300,23 +275,23 @@ export class CraftingModal {
       modalY,
       leftInnerX,
       tabsY,
-      leftInnerWidth,
+      gridInnerWidth,
     );
     const leftInnerY = tabsY + CRAFT_TAB_HEIGHT + 14;
-    const leftInnerHeight = paneHeight - leftInnerY - 22;
+    const leftInnerHeight = mainPaneHeight - leftInnerY + 10;
     this.tileViewportMask.clear();
     this.tileViewportMask
-      .rect(leftInnerX, leftInnerY, leftInnerWidth, leftInnerHeight)
+      .rect(leftInnerX, leftInnerY, gridInnerWidth, leftInnerHeight)
       .fill({ color: 0xffffff, alpha: 1 });
     const columns = Math.max(
       2,
       Math.floor(
-        (leftInnerWidth + CRAFT_MODAL_TILE_GAP) /
+        (gridInnerWidth + CRAFT_MODAL_TILE_GAP) /
           (CRAFT_MODAL_TILE_MIN_WIDTH + CRAFT_MODAL_TILE_GAP),
       ),
     );
     const tileWidth = Math.floor(
-      (leftInnerWidth - (columns - 1) * CRAFT_MODAL_TILE_GAP) / columns,
+      (gridInnerWidth - (columns - 1) * CRAFT_MODAL_TILE_GAP) / columns,
     );
     const tileHeight = Math.max(110, tileWidth + 22);
     const rowCount = Math.ceil(entries.length / columns);
@@ -368,7 +343,7 @@ export class CraftingModal {
 
     if (maxScrollRowOffset > 0) {
       const scrollbarX =
-        leftInnerX + leftInnerWidth - CRAFT_MODAL_SCROLLBAR_WIDTH;
+        leftInnerX + gridInnerWidth - CRAFT_MODAL_SCROLLBAR_WIDTH;
       const scrollbarHeight = leftInnerHeight;
       const thumbHeight = Math.max(
         28,
@@ -401,102 +376,63 @@ export class CraftingModal {
 
     const previewEntry =
       entries.find((entry) => entry.typeId === previewedCraft) ?? entries[0];
-    if (!previewEntry) {
-      return;
+
+    const outputSlotX = outputColumnX + 6;
+    const outputSlotY =
+      leftInnerY +
+      Math.max(0, Math.floor((leftInnerHeight - CRAFT_OUTPUT_SLOT_SIZE) / 2));
+    this.craftOutputRect = {
+      x: modalX + outputSlotX,
+      y: modalY + outputSlotY,
+      width: CRAFT_OUTPUT_SLOT_SIZE,
+      height: CRAFT_OUTPUT_SLOT_SIZE,
+    };
+
+    if (previewEntry) {
+      const outputReady = craftButtonEnabled && previewEntry.available;
+      drawRoundedRect(
+        this.craftOutputFrame,
+        outputSlotX,
+        outputSlotY,
+        CRAFT_OUTPUT_SLOT_SIZE,
+        CRAFT_OUTPUT_SLOT_SIZE,
+        12,
+        { color: outputReady ? 0x1f3f66 : 0x151517, alpha: 0.96 },
+        {
+          width: 3,
+          color: outputReady ? 0x6ea8ff : 0x4a5a72,
+          alpha: 0.95,
+        },
+      );
+      const iconSize = CRAFT_OUTPUT_SLOT_SIZE - 28;
+      this.craftOutputIcon.texture = iconProvider(previewEntry.typeId);
+      this.craftOutputIcon.width = iconSize;
+      this.craftOutputIcon.height = iconSize;
+      this.craftOutputIcon.position.set(
+        outputSlotX + CRAFT_OUTPUT_SLOT_SIZE / 2,
+        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE / 2 - 4,
+      );
+      this.craftOutputIcon.visible = true;
+      this.craftOutputHint.text = outputReady
+        ? "Drag to hotbar"
+        : previewStatusLabel;
+      this.craftOutputHint.style.fill = outputReady ? 0xa8c4ef : 0xd78a76;
+      this.craftOutputHint.position.set(
+        outputSlotX + CRAFT_OUTPUT_SLOT_SIZE / 2,
+        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 6,
+      );
+      this.craftOutputHint.anchor.set(0.5, 0);
+      this.craftOutputCosts.text = `Costs: ${previewEntry.costsLabel}`;
+      this.craftOutputCosts.position.set(
+        outputColumnX,
+        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 28,
+      );
+    } else {
+      this.craftOutputFrame.clear();
+      this.craftOutputIcon.visible = false;
+      this.craftOutputHint.text = "Select a recipe";
+      this.craftOutputCosts.text = "";
     }
-
-    const previewLeft = leftWidth + 26;
-    const previewTop = 60;
-    const detailWidth = modalWidth - previewLeft - 26;
-    this.previewRect = {
-      x: modalX + previewLeft,
-      y: modalY + previewTop,
-      width: detailWidth,
-      height: CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
-    };
-
-    drawRoundedRect(
-      this.previewFrame,
-      previewLeft,
-      previewTop,
-      detailWidth,
-      CRAFT_MODAL_PREVIEW_ICON_SIZE + 26,
-      14,
-      { color: 0x17233a, alpha: 0.92 },
-      { width: 2, color: 0x6ea8ff, alpha: 0.75 },
-    );
-
-    this.previewSprite.texture = iconProvider(previewEntry.typeId);
-    this.previewSprite.width = CRAFT_MODAL_PREVIEW_ICON_SIZE;
-    this.previewSprite.height = CRAFT_MODAL_PREVIEW_ICON_SIZE;
-    this.previewSprite.position.set(
-      previewLeft + detailWidth / 2,
-      previewTop + (CRAFT_MODAL_PREVIEW_ICON_SIZE + 26) / 2,
-    );
-
-    this.previewLabel.text = previewEntry.label;
-    this.previewLabel.position.set(previewLeft, previewTop + 182);
-
-    this.previewStatus.text = previewStatusLabel;
-    this.previewStatus.style.fill = craftButtonEnabled
-      ? 0x6ea8ff
-      : previewEntry.available
-        ? 0xc7b27c
-        : 0xd78a76;
-    this.previewStatus.position.set(previewLeft, previewTop + 216);
-
-    this.previewDescription.text = previewEntry.description;
-    this.previewDescription.style.wordWrapWidth = detailWidth;
-    this.previewDescription.position.set(previewLeft, previewTop + 250);
-
-    const buttonY =
-      this.previewDescription.y + this.previewDescription.height + 18;
-    const buttonWidth = Math.min(detailWidth, CRAFT_BUTTON_WIDTH);
-    this.craftButtonRect = {
-      x: modalX + previewLeft,
-      y: modalY + buttonY,
-      width: buttonWidth,
-      height: CRAFT_BUTTON_HEIGHT,
-    };
-
-    drawRoundedRect(
-      this.craftButton,
-      previewLeft,
-      buttonY,
-      buttonWidth,
-      CRAFT_BUTTON_HEIGHT,
-      12,
-      {
-        color: craftButtonEnabled ? 0x1f3f66 : 0x1a201b,
-        alpha: craftButtonEnabled ? 0.96 : 0.85,
-      },
-      {
-        width: 2,
-        color: craftButtonEnabled ? 0x6ea8ff : 0x5b625a,
-        alpha: 0.95,
-      },
-    );
-
-    this.craftButtonLabel.text = craftButtonEnabled ? "Craft" : "Unavailable";
-    this.craftButtonLabel.style.fill = craftButtonEnabled ? 0xf1f6ef : 0x8e958c;
-    this.craftButtonLabel.position.set(
-      previewLeft + buttonWidth / 2,
-      buttonY + CRAFT_BUTTON_HEIGHT / 2,
-    );
-
-    this.previewOutput.text = `Output: ${previewEntry.outputAmount}`;
-    this.previewOutput.style.wordWrapWidth = detailWidth;
-    this.previewOutput.position.set(
-      previewLeft,
-      buttonY + CRAFT_BUTTON_HEIGHT + 18,
-    );
-
-    this.previewCosts.text = `Costs: ${previewEntry.costsLabel}`;
-    this.previewCosts.style.wordWrapWidth = detailWidth;
-    this.previewCosts.position.set(
-      previewLeft,
-      this.previewOutput.y + this.previewOutput.height + 12,
-    );
   }
 
   public containsPoint(screenX: number, screenY: number): boolean {
@@ -521,8 +457,12 @@ export class CraftingModal {
     return null;
   }
 
-  public isCraftButtonAtPoint(screenX: number, screenY: number): boolean {
-    return isPointInRect(screenX, screenY, this.craftButtonRect);
+  public isCraftOutputAtPoint(screenX: number, screenY: number): boolean {
+    return isPointInRect(screenX, screenY, this.craftOutputRect);
+  }
+
+  public isCraftButtonAtPoint(_screenX: number, _screenY: number): boolean {
+    return false;
   }
 
   public getPreviewedCraftAtPoint(
@@ -530,9 +470,11 @@ export class CraftingModal {
     screenY: number,
     previewedCraft: ResourceId,
   ): ResourceId | null {
-    return isPointInRect(screenX, screenY, this.previewRect)
-      ? previewedCraft
-      : null;
+    return this.isCraftOutputAtPoint(screenX, screenY) ? previewedCraft : null;
+  }
+
+  public getModalRect(): Rect {
+    return this.modalRect;
   }
 
   public getCraftRect(typeId: ResourceId): Rect | null {
@@ -547,10 +489,14 @@ export class CraftingModal {
     return true;
   }
 
-  public getPreviewRect(): Rect | null {
-    return this.previewRect.width > 0 && this.previewRect.height > 0
-      ? this.previewRect
+  public getCraftOutputRect(): Rect | null {
+    return this.craftOutputRect.width > 0 && this.craftOutputRect.height > 0
+      ? this.craftOutputRect
       : null;
+  }
+
+  public getPreviewRect(): Rect | null {
+    return this.getCraftOutputRect();
   }
 
   private syncTabs(

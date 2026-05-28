@@ -5,8 +5,6 @@ import {
   type SpawnableEntityCtor,
 } from "@server/runtime/ctorGuards.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
-import { Player } from "@server/entities/Player.ts";
-import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import {
   wavesConfig,
   type NightWaveConfig,
@@ -38,6 +36,7 @@ export class WaveSpawner {
   private readonly chatService: WaveChatBroadcaster | null;
   private readonly legendaryBossResourceNames: ReadonlySet<string>;
   private pendingSpawns: PendingSpawn[] = [];
+  private nightWaveThreatTotal = 0;
 
   /**
    * Creates a wave spawner with the given configuration.
@@ -83,6 +82,22 @@ export class WaveSpawner {
     chatService: WaveChatBroadcaster | null = null,
   ): WaveSpawner {
     return new WaveSpawner(wavesConfig, chatService);
+  }
+
+  public canEndNight(world: World): boolean {
+    return (
+      this.countAliveWaveEnemies(world) === 0 && this.pendingSpawns.length === 0
+    );
+  }
+
+  public countAliveWaveEnemies(world: World): number {
+    let count = 0;
+    for (const entity of world.entities.all()) {
+      if (entity instanceof Enemy && entity.alive && entity.spawnSource === "wave") {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   /**
@@ -134,6 +149,25 @@ export class WaveSpawner {
           ),
       );
     }
+
+    this.nightWaveThreatTotal = this.getPendingWaveEnemyCount();
+  }
+
+  public getNightWaveThreatTotal(): number {
+    return this.nightWaveThreatTotal;
+  }
+
+  public getPendingWaveEnemyCount(): number {
+    return this.pendingSpawns.reduce(
+      (sum, pending) => sum + pending.spawn.count,
+      0,
+    );
+  }
+
+  public getRemainingWaveThreat(world: World): number {
+    return (
+      this.countAliveWaveEnemies(world) + this.getPendingWaveEnemyCount()
+    );
   }
 
   /**
@@ -169,13 +203,7 @@ export class WaveSpawner {
   }
 
   /**
-   * Internal method to spawn multiple entities of the same type at a location.
-   * When x/y are not specified in spawnConfig, entities spawn at a random point
-   * just outside the home sector perimeter so they always approach from a fresh angle.
-   * Wave-spawned enemies receive an infinite-range TargetEntityGoal (priority -1) so
-   * they pursue players across the entire map regardless of their class-default aggro.
-   * @param world The world to spawn into
-   * @param spawnConfig Configuration for this spawn
+   * Spawns wave enemies near map center so buildings draw aggro when players stay distant.
    */
   private spawnEntities(world: World, spawnConfig: WaveSpawnConfig): void {
     const entityCtor = this.entityCtorByResourceName.get(
@@ -191,8 +219,7 @@ export class WaveSpawner {
 
     const worldCenterX = world.gameConfig.worldSize.w / 2;
     const worldCenterY = world.gameConfig.worldSize.h / 2;
-    const sectorHalf = this.wavesConfig.homePerimeter.halfSize;
-    const buffer = this.wavesConfig.homePerimeter.spawnBuffer;
+    const { minRadius, maxRadius } = this.wavesConfig.waveSpawn;
 
     let baseX: number;
     let baseY: number;
@@ -201,28 +228,11 @@ export class WaveSpawner {
       baseX = spawnConfig.x;
       baseY = spawnConfig.y;
     } else {
-      const side = Math.floor(world.randomNumberGenerator() * 4);
-      const t = world.randomNumberGenerator();
-      const edgeMin = worldCenterX - sectorHalf;
-      const edgeSpan = sectorHalf * 2;
-      switch (side) {
-        case 0: // North
-          baseX = edgeMin + t * edgeSpan;
-          baseY = worldCenterY - sectorHalf - buffer;
-          break;
-        case 1: // South
-          baseX = edgeMin + t * edgeSpan;
-          baseY = worldCenterY + sectorHalf + buffer;
-          break;
-        case 2: // West
-          baseX = worldCenterX - sectorHalf - buffer;
-          baseY = edgeMin + t * edgeSpan;
-          break;
-        default: // East
-          baseX = worldCenterX + sectorHalf + buffer;
-          baseY = edgeMin + t * edgeSpan;
-          break;
-      }
+      const angle = world.randomNumberGenerator() * Math.PI * 2;
+      const radiusSpan = Math.max(0, maxRadius - minRadius);
+      const radius = minRadius + world.randomNumberGenerator() * radiusSpan;
+      baseX = worldCenterX + Math.cos(angle) * radius;
+      baseY = worldCenterY + Math.sin(angle) * radius;
     }
 
     for (let i = 0; i < spawnConfig.count; i++) {
@@ -237,23 +247,11 @@ export class WaveSpawner {
       entity.x = Math.max(0, Math.min(entity.x, world.gameConfig.worldSize.w));
       entity.y = Math.max(0, Math.min(entity.y, world.gameConfig.worldSize.h));
 
-      world.spawn(entity);
-
-      // Priority -1 overrides the class-default TargetEntityGoal (priority 0).
-      // 9000px covers the full home sector from any perimeter spawn point (~4950px max),
-      // ensuring wave enemies always find players without affecting non-wave enemies.
       if (entity instanceof Enemy) {
-        entity.goalSelector.add(
-          new TargetEntityGoal<Enemy>(
-            this.wavesConfig.targetPriority,
-            Player,
-            9000,
-            {
-              requireLineOfSight: true,
-            },
-          ),
-        );
+        entity.spawnSource = "wave";
       }
+
+      world.spawn(entity);
     }
   }
 

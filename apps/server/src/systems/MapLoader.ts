@@ -1,9 +1,16 @@
 import { z } from "zod";
 import { Building } from "@server/entities/Building.ts";
 import { Crate } from "@server/entities/enemies/Crate.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
+const DAMAGEABLE_HOME_TOWER_TYPE_IDS = new Set<ResourceId>([
+  "building:hub" as ResourceId,
+  "building:energy_tower" as ResourceId,
+  "building:comms_tower" as ResourceId,
+]);
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
@@ -101,7 +108,10 @@ function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
   }
   entity.rotation = spec.rotation ?? 0;
 
-  if (entity instanceof Building) {
+  if (
+    entity instanceof Building &&
+    !DAMAGEABLE_HOME_TOWER_TYPE_IDS.has(entity.typeId)
+  ) {
     entity.hp = 0;
     entity.maxHp = 0;
   }
@@ -121,8 +131,12 @@ function snapToTileCenter(value: number): number {
 function spawnProceduralEntity(
   world: World,
   spec: ProceduralSpawnSpec,
+  spawnSource?: Enemy["spawnSource"],
 ): Entity {
   const entity = spawnMapEntity(world, spec);
+  if (entity instanceof Enemy && spawnSource) {
+    entity.spawnSource = spawnSource;
+  }
   if (
     entity instanceof Crate &&
     wouldOverlapExistingStructureOrBuilding(world, entity)
@@ -237,7 +251,7 @@ function loadProceduralLayout(
         world.deferredExtractionLegendaryBoss = spec;
         continue;
       }
-      spawnProceduralEntity(world, spec);
+      spawnProceduralEntity(world, spec, "layout");
     }
     for (const spec of sector.loot) {
       spawnProceduralLootCrate(world, spec);
@@ -278,7 +292,7 @@ function loadLobbyLayout(world: World): void {
   world.proceduralLayout = null;
   world.gameConfig.worldSize = { ...worldgenConfig.lobbyWorldSize };
   spawnMapEntity(world, {
-    typeId: "building:crafting_station" as ResourceId,
+    typeId: "building:hub" as ResourceId,
     x: worldgenConfig.lobbyWorldSize.w / 2,
     y: worldgenConfig.lobbyWorldSize.h / 2 + 56,
   });
@@ -315,6 +329,33 @@ export function refreshLoot(world: World): void {
   for (const sector of world.proceduralLayout.sectors) {
     for (const spec of sector.loot) {
       spawnProceduralLootCrate(world, spec);
+    }
+  }
+}
+
+/**
+ * Respawns procedural layout enemies at dawn, mirroring crate refresh scope.
+ */
+export function refreshLayoutEnemies(world: World): void {
+  if (!world.proceduralLayout) {
+    return;
+  }
+
+  for (const entity of world.entities.all()) {
+    if (entity instanceof Enemy && entity.spawnSource === "layout") {
+      world.despawn(entity.id);
+    }
+  }
+
+  for (const sector of world.proceduralLayout.sectors) {
+    for (const spec of sector.enemies) {
+      if (
+        sector.archetype === "extraction" &&
+        isLegendaryBossTypeId(spec.typeId)
+      ) {
+        continue;
+      }
+      spawnProceduralEntity(world, spec, "layout");
     }
   }
 }

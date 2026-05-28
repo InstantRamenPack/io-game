@@ -5,13 +5,12 @@ import type {
   PointerInput,
 } from "@client/client/clientTypes.ts";
 import {
-  CraftingModal,
   type CraftingModalEntry,
   type CraftingModalTab,
 } from "@client/render/hud/CraftingModal.ts";
 import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
-import { ChestView } from "@client/render/hud/ChestView.ts";
+import { HubModalView } from "@client/render/hud/HubModalView.ts";
 import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
 import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
 import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
@@ -33,7 +32,6 @@ import {
   computeHotbarActiveIndex,
   toHotbarSlotItems,
 } from "@client/render/hud/hotbarModel.ts";
-import { isNearRecyclerWithItem } from "@client/render/hud/recyclerInteraction.ts";
 import {
   getNearestPickup,
   getPickupItemLabel,
@@ -45,6 +43,7 @@ import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
+  getItemRecycleHunkValue,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
@@ -86,17 +85,14 @@ export class PixiHud {
   private combatHudView?: CombatHudView;
   private hotbarView?: HotbarView;
   private hotbarEditView?: InventoryView;
-  private chestView?: ChestView;
-  private craftModalView?: CraftingModal;
+  private hubModalView?: HubModalView;
   private tooltipView?: HudTooltipView;
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
-  private recyclerPromptView?: HoldActionPromptView;
   private towerRepairPromptView?: HoldActionPromptView;
   private itemPickupPromptView?: HoldActionPromptView;
   private chestPromptView?: HoldActionPromptView;
   private craftingStationPromptView?: HoldActionPromptView;
-  private recyclerHoldStartMs: number | null = null;
   private repairHoldStartMs: number | null = null;
   private useItemHoldStartMs: number | null = null;
   private useItemPromptView?: HoldActionPromptView;
@@ -164,6 +160,8 @@ export class PixiHud {
       heldInventorySlotRef: null,
       hoveredChestSlotRef: null,
       heldChestSlotRef: null,
+      recycleHotbarIndex: null,
+      heldCraftOutputTypeId: null,
     };
   }
 
@@ -176,13 +174,23 @@ export class PixiHud {
   }
 
   public toggleCraftingMenu(): void {
-    if (this.state.craftingMenuOpen) {
-      this.craftingHudCoordinator.close(this.state);
-    } else {
-      this.craftingHudCoordinator.open(this.state);
-      if (this.state.inventoryOpen) {
-        this.inventoryEditCoordinator.close(this.state);
-      }
+    if (this.state.craftingMenuOpen || this.state.chestOpen) {
+      this.closeHubTower();
+      return;
+    }
+
+    const hub = findNearestChest(
+      this.selectors.getPlayerEntity(),
+      this.selectors.getChests(),
+    );
+    if (hub) {
+      this.openHubTower(hub.id);
+      return;
+    }
+
+    this.craftingHudCoordinator.open(this.state);
+    if (this.state.inventoryOpen) {
+      this.inventoryEditCoordinator.close(this.state);
     }
     this.markDirty();
   }
@@ -227,6 +235,9 @@ export class PixiHud {
   }
 
   public queueSelectedCraft(): void {
+    if (!this.describeCraftAvailability(this.state.selectedCraft).enabled) {
+      return;
+    }
     this.gameClient.queueCraftItem(this.state.selectedCraft);
     this.markDirty();
   }
@@ -236,16 +247,16 @@ export class PixiHud {
     screenY: number,
     deltaY: number,
   ): boolean {
-    if (!this.state.craftingMenuOpen || !this.craftModalView) {
+    if (!this.state.craftingMenuOpen || !this.hubModalView) {
       return false;
     }
-    if (!this.craftModalView.containsPoint(screenX, screenY)) {
+    if (!this.hubModalView.containsPoint(screenX, screenY)) {
       return false;
     }
     if (deltaY === 0) {
       return false;
     }
-    const changed = this.craftModalView.scrollBy(deltaY / 240);
+    const changed = this.hubModalView.scrollBy(deltaY / 240);
     if (changed) {
       this.markDirty();
     }
@@ -262,68 +273,41 @@ export class PixiHud {
     const inventory = this.selectors.getInventory();
     const hotbarItems = toHotbarSlotItems(inventory?.hotbarSlots ?? []);
 
-    if (this.state.chestOpen && this.chestView) {
-      return this.chestHudCoordinator.handlePointerInput({
-        state: this.state,
-        pointer,
-        getSlotRefAtPoint: (screenX, screenY) =>
-          this.chestView?.getSlotRefAtPoint(screenX, screenY) ?? null,
-        getSlotItem: (ref) => {
-          if (ref.source === "hotbar") {
-            return hotbarItems[ref.index] ?? null;
-          }
-          const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
-            this.state,
-            this.selectors,
-          );
-          const slot = chestSlots?.[ref.index];
-          if (!slot || slot.kind === "empty") {
-            return null;
-          }
-          return { typeId: slot.typeId };
-        },
-        queueChestMove: (from, to) => {
-          if (this.state.openChestEntityId === null) {
-            return;
-          }
-          this.gameClient.queueChestMove(
-            this.state.openChestEntityId,
-            from.source,
-            from.index,
-            to.source,
-            to.index,
-          );
-        },
-        findFirstEmptySlot: (source) => {
-          if (source === "hotbar") {
-            const inventory = this.selectors.getInventory();
-            if (!inventory) return null;
-            const index = inventory.hotbarSlots.findIndex(
-              (slot) => slot.kind === "empty",
-            );
-            return index >= 0 ? index : null;
-          }
-          const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
-            this.state,
-            this.selectors,
-          );
-          if (!chestSlots) return null;
-          const index = chestSlots.findIndex((slot) => slot.kind === "empty");
-          return index >= 0 ? index : null;
-        },
-        markDirty: () => this.markDirty(),
-      });
-    }
+    if (this.state.craftingMenuOpen && this.hubModalView) {
+      if (pointer.kind === "up" && this.state.heldCraftOutputTypeId) {
+        const craftTypeId = this.state.heldCraftOutputTypeId;
+        const hotbarTarget = this.hubModalView?.getSlotRefAtPoint(
+          pointer.screenX,
+          pointer.screenY,
+        );
+        if (
+          hotbarTarget?.source === "hotbar" &&
+          this.describeCraftAvailability(craftTypeId).enabled
+        ) {
+          this.gameClient.queueCraftItem(craftTypeId);
+        }
+        this.state.heldCraftOutputTypeId = null;
+        this.markDirty();
+        return true;
+      }
 
-    if (this.state.craftingMenuOpen && this.craftModalView) {
+      if (
+        this.state.chestOpen &&
+        this.hubModalView &&
+        (this.state.heldChestSlotRef ||
+          this.hubModalView.getSlotRefAtPoint(pointer.screenX, pointer.screenY))
+      ) {
+        return this.handleChestPointerInput(pointer, hotbarItems);
+      }
+
       if (pointer.kind === "move") {
         return this.craftingHudCoordinator.handlePointerMove({
           state: this.state,
           pointer,
           getCraftAtPoint: (screenX, screenY) =>
-            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+            this.hubModalView?.getCraftAtPoint(screenX, screenY) ?? null,
           getPreviewedCraftAtPoint: (screenX, screenY, previewedCraft) =>
-            this.craftModalView?.getPreviewedCraftAtPoint(
+            this.hubModalView?.getPreviewedCraftAtPoint(
               screenX,
               screenY,
               previewedCraft,
@@ -331,26 +315,50 @@ export class PixiHud {
         });
       }
       if (pointer.kind === "down") {
-        return this.craftingHudCoordinator.handleCraftModalPointerDown({
-          state: this.state,
-          screenX: pointer.screenX,
-          screenY: pointer.screenY,
-          canSubmitCraft: (itemTypeId) =>
-            this.selectors.hasRecipeResources(
-              this.getRecipeForItem(itemTypeId),
-            ),
-          queueCraftItem: (itemTypeId) =>
-            this.gameClient.queueCraftItem(itemTypeId),
-          isCraftButtonAtPoint: (screenX, screenY) =>
-            this.craftModalView?.isCraftButtonAtPoint(screenX, screenY) ??
-            false,
-          getCraftAtPoint: (screenX, screenY) =>
-            this.craftModalView?.getCraftAtPoint(screenX, screenY) ?? null,
-          getTabAtPoint: (screenX, screenY) =>
-            this.craftModalView?.getTabAtPoint(screenX, screenY) ?? null,
-        });
+        const handledCraftingPointer =
+          this.craftingHudCoordinator.handleCraftModalPointerDown({
+            state: this.state,
+            screenX: pointer.screenX,
+            screenY: pointer.screenY,
+            canSubmitCraft: (itemTypeId) =>
+              this.describeCraftAvailability(itemTypeId).enabled,
+            queueCraftItem: (itemTypeId) =>
+              this.gameClient.queueCraftItem(itemTypeId),
+            isCraftOutputAtPoint: (screenX, screenY) =>
+              this.hubModalView?.isCraftOutputAtPoint(screenX, screenY) ??
+              false,
+            isRecycleButtonAtPoint: (screenX, screenY) =>
+              this.hubModalView?.isRecycleButtonAtPoint(screenX, screenY) ??
+              false,
+            isRecycleDropAtPoint: (screenX, screenY) =>
+              this.hubModalView?.isRecycleDropAtPoint(screenX, screenY) ??
+              false,
+            canRecycleHotbarIndex: (index) => this.canRecycleHotbarIndex(index),
+            queueRecycleHotbarIndex: (index) =>
+              this.gameClient.queueRecycleHotbarIndex(index),
+            getSelectedHotbarIndex: () =>
+              this.selectors.getInventory()?.selectedHotbarIndex ?? 0,
+            getCraftAtPoint: (screenX, screenY) =>
+              this.hubModalView?.getCraftAtPoint(screenX, screenY) ?? null,
+            getTabAtPoint: (screenX, screenY) =>
+              this.hubModalView?.getTabAtPoint(screenX, screenY) ?? null,
+          });
+        if (handledCraftingPointer) {
+          return true;
+        }
+        if (this.state.chestOpen && this.hubModalView) {
+          return this.handleChestPointerInput(pointer, hotbarItems);
+        }
+        return this.hubModalView.containsPoint(
+          pointer.screenX,
+          pointer.screenY,
+        );
       }
       return true;
+    }
+
+    if (this.state.chestOpen && this.hubModalView) {
+      return this.handleChestPointerInput(pointer, hotbarItems);
     }
 
     if (this.state.inventoryOpen && this.hotbarEditView) {
@@ -412,6 +420,65 @@ export class PixiHud {
     return false;
   }
 
+  private handleChestPointerInput(
+    pointer: PointerInput,
+    hotbarItems: ReturnType<typeof toHotbarSlotItems>,
+  ): boolean {
+    if (!this.hubModalView) {
+      return false;
+    }
+    return this.chestHudCoordinator.handlePointerInput({
+      state: this.state,
+      pointer,
+      getSlotRefAtPoint: (screenX, screenY) =>
+        this.hubModalView?.getSlotRefAtPoint(screenX, screenY) ?? null,
+      getSlotItem: (ref) => {
+        if (ref.source === "hotbar") {
+          return hotbarItems[ref.index] ?? null;
+        }
+        const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+          this.state,
+          this.selectors,
+        );
+        const slot = chestSlots?.[ref.index];
+        if (!slot || slot.kind === "empty") {
+          return null;
+        }
+        return { typeId: slot.typeId };
+      },
+      queueChestMove: (from, to) => {
+        if (this.state.openChestEntityId === null) {
+          return;
+        }
+        this.gameClient.queueChestMove(
+          this.state.openChestEntityId,
+          from.source,
+          from.index,
+          to.source,
+          to.index,
+        );
+      },
+      findFirstEmptySlot: (source) => {
+        if (source === "hotbar") {
+          const inventory = this.selectors.getInventory();
+          if (!inventory) return null;
+          const index = inventory.hotbarSlots.findIndex(
+            (slot) => slot.kind === "empty",
+          );
+          return index >= 0 ? index : null;
+        }
+        const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+          this.state,
+          this.selectors,
+        );
+        if (!chestSlots) return null;
+        const index = chestSlots.findIndex((slot) => slot.kind === "empty");
+        return index >= 0 ? index : null;
+      },
+      markDirty: () => this.markDirty(),
+    });
+  }
+
   public isCraftingMenuOpen(): boolean {
     return this.state.craftingMenuOpen;
   }
@@ -425,13 +492,31 @@ export class PixiHud {
   }
 
   public closeChest(): void {
-    this.chestHudCoordinator.close(this.state);
-    this.markDirty();
+    this.closeHubTower();
   }
 
   public openChest(chestEntityId: number): void {
-    this.chestHudCoordinator.open(this.state, chestEntityId);
+    this.openHubTower(chestEntityId);
+  }
+
+  public openHubTower(hubEntityId: number): void {
+    this.chestHudCoordinator.open(this.state, hubEntityId);
+    if (!this.state.craftingMenuOpen) {
+      this.craftingHudCoordinator.open(this.state);
+    }
+    if (this.state.inventoryOpen) {
+      this.inventoryEditCoordinator.close(this.state);
+    }
     this.markDirty();
+  }
+
+  public closeHubTower(): void {
+    const wasOpen = this.state.chestOpen || this.state.craftingMenuOpen;
+    this.chestHudCoordinator.close(this.state);
+    this.craftingHudCoordinator.close(this.state);
+    if (wasOpen) {
+      this.markDirty();
+    }
   }
 
   public setVisible(visible: boolean): void {
@@ -439,11 +524,6 @@ export class PixiHud {
       return;
     }
     this.visible = visible;
-    this.markDirty();
-  }
-
-  public setRecyclerHoldStartMs(ms: number | null): void {
-    this.recyclerHoldStartMs = ms;
     this.markDirty();
   }
 
@@ -487,36 +567,37 @@ export class PixiHud {
         iconProvider: (typeId) =>
           this.gameClient.renderer.getItemTexture(typeId),
       });
-      this.chestView = new ChestView({
+      this.hubModalView = new HubModalView({
         iconProvider: (typeId) =>
           this.gameClient.renderer.getItemTexture(typeId),
-      });
-      this.craftModalView = new CraftingModal({
-        titleStyle: new PIXI.TextStyle(this.titleStyle),
-        detailTitleStyle: new PIXI.TextStyle({
-          ...this.bodyStrongStyle,
-          fontSize: 22,
-        }),
-        detailBodyStyle: new PIXI.TextStyle(this.bodyStyle),
-        tileLabelStyle: new PIXI.TextStyle({
-          fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
-          fontSize: 12,
-          fill: 0xf1f6ef,
-          align: "center",
-        }),
+        craftingStyles: {
+          titleStyle: new PIXI.TextStyle(this.titleStyle),
+          detailTitleStyle: new PIXI.TextStyle({
+            ...this.bodyStrongStyle,
+            fontSize: 22,
+          }),
+          detailBodyStyle: new PIXI.TextStyle(this.bodyStyle),
+          tileLabelStyle: new PIXI.TextStyle({
+            fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+            fontSize: 12,
+            fill: 0xf1f6ef,
+            align: "center",
+          }),
+        },
       });
       this.tooltipView = new HudTooltipView();
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
-      this.recyclerPromptView = new HoldActionPromptView("Hold E to recycle");
       this.towerRepairPromptView = new HoldActionPromptView("Hold E to repair");
       this.useItemPromptView = new HoldActionPromptView("Hold E to use");
       this.itemPickupPromptView = new HoldActionPromptView(
         "Press E to pick up",
       );
-      this.chestPromptView = new HoldActionPromptView("Press E to open chest");
+      this.chestPromptView = new HoldActionPromptView(
+        "Press E at the tower hub",
+      );
       this.craftingStationPromptView = new HoldActionPromptView(
-        "Press E to open crafting menu",
+        "Press E at the tower hub",
       );
       this.bossHealthBar = new BossHealthBar();
 
@@ -548,11 +629,9 @@ export class PixiHud {
         this.hotbarView.container,
         this.hunkBadge,
         this.hotbarEditView.container,
-        this.chestView.container,
-        this.craftModalView.container,
+        this.hubModalView.container,
         this.dayNightIndicator.container,
         this.selectedItemToastView.container,
-        this.recyclerPromptView.container,
         this.towerRepairPromptView.container,
         this.useItemPromptView.container,
         this.itemPickupPromptView.container,
@@ -635,6 +714,18 @@ export class PixiHud {
       this.markDirty();
     }
 
+    const hubStillNearby =
+      findNearestChest(
+        this.selectors.getPlayerEntity(),
+        this.selectors.getChests(),
+      ) !== null;
+    if (
+      (this.state.craftingMenuOpen || this.state.chestOpen) &&
+      !hubStillNearby
+    ) {
+      this.closeHubTower();
+    }
+
     const inventory = this.selectors.getInventory();
     const hotbarItems = this.getHotbarItems();
     this.inventoryEditCoordinator.sanitizeState(this.state, hotbarItems);
@@ -665,27 +756,13 @@ export class PixiHud {
       this.selectors.getPlayerEntity(),
       this.selectors.getChests(),
     );
-    const nearChest = nearestChest !== null && !this.state.chestOpen;
+    const nearHub =
+      nearestChest !== null &&
+      !this.state.chestOpen &&
+      !this.state.craftingMenuOpen;
+    const nearChest = nearHub;
 
-    const nearCraftingStation =
-      !nearPickup &&
-      !nearChest &&
-      !this.state.craftingMenuOpen &&
-      hasNearbyCraftingStation(
-        this.selectors.getPlayerEntity(),
-        this.selectors.getCraftingStations(),
-      );
-
-    const recyclerActive =
-      !nearPickup &&
-      !nearChest &&
-      !nearCraftingStation &&
-      (this.recyclerHoldStartMs !== null ||
-        isNearRecyclerWithItem(
-          this.selectors.getPlayerEntity(),
-          this.selectors.getRecyclers(),
-          inventory,
-        ));
+    const nearCraftingStation = false;
 
     const bossAlive = this.selectors
       .getWorldEntities()
@@ -699,7 +776,6 @@ export class PixiHud {
       !nearPickup &&
       !nearChest &&
       !nearCraftingStation &&
-      !recyclerActive &&
       (this.useItemHoldStartMs !== null ||
         (() => {
           if (!inventory) return false;
@@ -716,7 +792,6 @@ export class PixiHud {
       !force &&
       !sizeChanged &&
       !selectionToastVisible &&
-      !recyclerActive &&
       !repairActive &&
       !useItemActive &&
       !bossAlive
@@ -729,11 +804,7 @@ export class PixiHud {
     this.dirty = false;
 
     this.syncHotbarEditView(app.screen.width, app.screen.height, hotbarItems);
-    this.syncChestView(app.screen.width, app.screen.height);
-    const craftEntries = this.syncCraftModal(
-      app.screen.width,
-      app.screen.height,
-    );
+    const craftEntries = this.syncHubModal(app.screen.width, app.screen.height);
 
     if (
       this.statusPanel &&
@@ -809,16 +880,6 @@ export class PixiHud {
       this.combatHudView?.container.y !== undefined
         ? this.combatHudView.container.y - 10
         : app.screen.height - 140;
-    this.syncRecyclerPrompt(
-      app.screen.width,
-      app.screen.height,
-      nowMs,
-      inventory,
-      nearPickup,
-      nearChest,
-      nearCraftingStation,
-      actionPromptAnchorBottomY,
-    );
     this.syncRepairPrompt(
       app.screen.width,
       app.screen.height,
@@ -837,7 +898,6 @@ export class PixiHud {
       app.screen.width,
       app.screen.height,
       nowMs,
-      recyclerActive,
       actionPromptAnchorBottomY,
     );
     this.syncChestPrompt(
@@ -902,9 +962,8 @@ export class PixiHud {
         this.craftingHudCoordinator.getHoveredCraftItemTypeId(),
       hoveredCraftPreview: this.craftingHudCoordinator.isHoveredCraftPreview(),
       craftEntries,
-      getCraftRect: (typeId) =>
-        this.craftModalView?.getCraftRect(typeId) ?? null,
-      getCraftPreviewRect: () => this.craftModalView?.getPreviewRect() ?? null,
+      getCraftRect: (typeId) => this.hubModalView?.getCraftRect(typeId) ?? null,
+      getCraftPreviewRect: () => this.hubModalView?.getPreviewRect() ?? null,
     });
 
     this.tooltipView.sync(tooltipState?.content ?? null);
@@ -926,47 +985,6 @@ export class PixiHud {
       Math.max(12, screenHeight - this.tooltipView.height - 12),
     );
     this.tooltipView.setPosition(tooltipX, tooltipY);
-  }
-
-  private syncRecyclerPrompt(
-    screenWidth: number,
-    screenHeight: number,
-    nowMs: number,
-    inventory: InventorySnapshot | undefined,
-    nearPickup: boolean,
-    nearChest: boolean,
-    nearCraftingStation: boolean,
-    anchorBottomY: number,
-  ): void {
-    if (!this.recyclerPromptView) {
-      return;
-    }
-
-    const player = this.selectors.getPlayerEntity();
-    const recyclers = this.selectors.getRecyclers();
-    const near =
-      !nearPickup &&
-      !nearChest &&
-      !nearCraftingStation &&
-      isNearRecyclerWithItem(player, recyclers, inventory);
-
-    let itemLabel = "";
-    if (near && inventory) {
-      const slot = inventory.hotbarSlots[inventory.selectedHotbarIndex];
-      if (slot && slot.kind !== "empty") {
-        itemLabel = this.selectors.formatTypeLabel(slot.typeId);
-      }
-    }
-
-    this.recyclerPromptView.sync({
-      visible: near,
-      text: `Hold E to recycle ${itemLabel}`.trim(),
-      holdStartMs: this.recyclerHoldStartMs,
-      nowMs,
-      screenWidth,
-      screenHeight,
-      anchorBottomY,
-    });
   }
 
   private syncRepairPrompt(
@@ -1065,23 +1083,9 @@ export class PixiHud {
     screenWidth: number,
     screenHeight: number,
     nowMs: number,
-    recyclerActive: boolean,
     anchorBottomY: number,
   ): void {
     if (!this.itemPickupPromptView) {
-      return;
-    }
-
-    if (recyclerActive) {
-      this.itemPickupPromptView.sync({
-        visible: false,
-        text: "",
-        holdStartMs: null,
-        nowMs,
-        screenWidth,
-        screenHeight,
-        anchorBottomY,
-      });
       return;
     }
 
@@ -1117,7 +1121,7 @@ export class PixiHud {
     }
     this.chestPromptView.sync({
       visible: nearChest && !nearPickup,
-      text: "Press E to open chest",
+      text: "Press E at the tower hub",
       holdStartMs: null,
       nowMs,
       screenWidth,
@@ -1138,7 +1142,7 @@ export class PixiHud {
     }
     this.craftingStationPromptView.sync({
       visible: nearCraftingStation,
-      text: "Press E to open crafting menu",
+      text: "Press E at the tower hub",
       holdStartMs: null,
       nowMs,
       screenWidth,
@@ -1265,6 +1269,17 @@ export class PixiHud {
     if (this.state.inventoryOpen && this.state.heldInventorySlotRef) {
       return hotbarItems[this.state.heldInventorySlotRef.index] ?? null;
     }
+    if (this.state.heldCraftOutputTypeId) {
+      return {
+        typeId: this.state.heldCraftOutputTypeId,
+        count: 1,
+        showCountWhenOne: false,
+        ammoInMag: null,
+        magSize: null,
+        reserveMagCount: null,
+        reloadTicksRemaining: null,
+      };
+    }
     if (this.state.chestOpen && this.state.heldChestSlotRef) {
       if (this.state.heldChestSlotRef.source === "hotbar") {
         return hotbarItems[this.state.heldChestSlotRef.index] ?? null;
@@ -1280,31 +1295,11 @@ export class PixiHud {
     return null;
   }
 
-  private syncChestView(screenWidth: number, screenHeight: number): void {
-    if (!this.chestView) {
-      return;
-    }
-    const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
-      this.state,
-      this.selectors,
-    );
-    const inventory = this.selectors.getInventory();
-    this.chestView.sync({
-      visible: this.state.chestOpen,
-      screenWidth,
-      screenHeight,
-      chestSlots: chestSlots ?? [],
-      hotbarSlots: inventory?.hotbarSlots ?? emptyHotbarSlots(),
-      hoveredRef: this.state.hoveredChestSlotRef,
-      heldRef: this.state.heldChestSlotRef,
-    });
-  }
-
-  private syncCraftModal(
+  private syncHubModal(
     screenWidth: number,
     screenHeight: number,
   ): CraftingModalEntry[] {
-    if (!this.craftModalView) {
+    if (!this.hubModalView) {
       return [];
     }
 
@@ -1336,10 +1331,27 @@ export class PixiHud {
       this.state.previewedCraft,
     );
 
-    this.craftModalView.sync({
+    const inventory = this.selectors.getInventory();
+    const recycleHotbarIndex = this.state.recycleHotbarIndex;
+    const recycleSlot =
+      recycleHotbarIndex !== null
+        ? inventory?.hotbarSlots[recycleHotbarIndex]
+        : null;
+    const recycleItemLabel =
+      recycleSlot && recycleSlot.kind !== "empty"
+        ? this.selectors.formatTypeLabel(recycleSlot.typeId)
+        : "";
+    const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+      this.state,
+      this.selectors,
+    );
+
+    this.hubModalView.sync({
       screenWidth,
       screenHeight,
-      entries: craftEntries,
+      craftingVisible: this.state.craftingMenuOpen,
+      storageVisible: this.state.chestOpen,
+      craftEntries,
       tabs: craftTabs,
       activeTab: this.state.craftingTab,
       selectedCraft: this.state.selectedCraft,
@@ -1347,7 +1359,23 @@ export class PixiHud {
       iconProvider: (typeId) => this.gameClient.renderer.getItemTexture(typeId),
       craftButtonEnabled: craftAvailability.enabled,
       previewStatusLabel: craftAvailability.statusLabel,
-      visible: this.state.craftingMenuOpen,
+      recycleHotbarIndex,
+      recycleItemLabel,
+      recycleEnabled:
+        recycleHotbarIndex !== null &&
+        this.canRecycleHotbarIndex(recycleHotbarIndex) &&
+        this.hasNearbyCraftingStation(),
+      recycleIconProvider: (index) => {
+        const slot = inventory?.hotbarSlots[index];
+        if (!slot || slot.kind === "empty") {
+          return null;
+        }
+        return this.gameClient.renderer.getItemTexture(slot.typeId);
+      },
+      chestSlots: chestSlots ?? [],
+      hotbarSlots: inventory?.hotbarSlots ?? emptyHotbarSlots(),
+      hoveredChestRef: this.state.hoveredChestSlotRef,
+      heldChestRef: this.state.heldChestSlotRef,
     });
 
     return craftEntries;
@@ -1371,7 +1399,7 @@ export class PixiHud {
     if (!this.hasNearbyCraftingStation()) {
       return {
         enabled: false,
-        statusLabel: "Move closer to a crafting station",
+        statusLabel: "Move closer to the tower hub",
       };
     }
 
@@ -1400,6 +1428,20 @@ export class PixiHud {
     return toHotbarSlotItems(
       this.selectors.getInventory()?.hotbarSlots ?? emptyHotbarSlots(),
     );
+  }
+
+  private canRecycleHotbarIndex(index: number): boolean {
+    const inventory = this.selectors.getInventory();
+    const slot = inventory?.hotbarSlots[index];
+    if (!slot || slot.kind === "empty") {
+      return false;
+    }
+    const typeId = slot.typeId;
+    const recycleValue = getItemRecycleHunkValue(typeId);
+    if (recycleValue !== undefined) {
+      return recycleValue > 0;
+    }
+    return !(slot.kind === "weapon" && getItemContent(typeId)?.hidden);
   }
 
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {

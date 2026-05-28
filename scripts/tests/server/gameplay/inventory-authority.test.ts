@@ -6,10 +6,8 @@ import {
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
-import { Chest } from "@server/entities/buildings/Chest.ts";
+import { Hub } from "@server/entities/buildings/Hub.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
-import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Crate } from "@server/entities/enemies/Crate.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
@@ -193,7 +191,7 @@ describe("inventory authority", () => {
   test("mag crafting requires obtaining the corresponding gun first", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const station = new CraftingStation(runtime.world.allocEntityId());
+    const station = new Hub(runtime.world.allocEntityId());
     station.x = player.x;
     station.y = player.y;
     runtime.world.spawn(station);
@@ -252,7 +250,7 @@ describe("inventory authority", () => {
   test("chest move too far does not mutate", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const chest = new Chest(runtime.world.allocEntityId(), 1, player.id);
+    const chest = new Hub(runtime.world.allocEntityId());
     chest.x = player.x + 1000;
     chest.y = player.y;
     runtime.world.spawn(chest);
@@ -276,7 +274,7 @@ describe("inventory authority", () => {
   test("chest move valid transfers item", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const chest = new Chest(runtime.world.allocEntityId(), 1, player.id);
+    const chest = new Hub(runtime.world.allocEntityId());
     chest.x = player.x + 20;
     chest.y = player.y;
     runtime.world.spawn(chest);
@@ -510,13 +508,13 @@ describe("inventory authority", () => {
     expect(runtime.world.entities.has(pickup.id)).toBe(true);
   });
 
-  test("recycle near recycler grants hunks", () => {
+  test("recycle near hub grants hunks", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const recycler = new Recycler(runtime.world.allocEntityId());
-    recycler.x = player.x + 10;
-    recycler.y = player.y;
-    runtime.world.spawn(recycler);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = player.x + 10;
+    hub.y = player.y;
+    runtime.world.spawn(hub);
     const wallSlotIndex = addWallAndFindSlot(player);
     player.inventory.setSelectedHotbarIndex(wallSlotIndex);
     const before = player.inventory.getResourceCount(hunkItemId);
@@ -526,18 +524,18 @@ describe("inventory authority", () => {
     );
   });
 
-  test("recycle away from recycler does nothing", () => {
+  test("recycle away from hub does nothing", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     for (const entity of runtime.world.entities.all()) {
-      if (entity instanceof Recycler) {
+      if (entity instanceof Hub) {
         runtime.world.despawn(entity.id);
       }
     }
-    const recycler = new Recycler(runtime.world.allocEntityId());
-    recycler.x = player.x + 2000;
-    recycler.y = player.y;
-    runtime.world.spawn(recycler);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = player.x + 2000;
+    hub.y = player.y;
+    runtime.world.spawn(hub);
     const wallSlotIndex = addWallAndFindSlot(player);
     player.inventory.setSelectedHotbarIndex(wallSlotIndex);
     const before = player.inventory.getResourceCount(hunkItemId);

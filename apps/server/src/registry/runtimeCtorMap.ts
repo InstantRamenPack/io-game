@@ -1,11 +1,9 @@
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
-import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
+import { Hub } from "@server/entities/buildings/Hub.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
-import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
 import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
@@ -67,8 +65,6 @@ import { CrudeBandageItem } from "@server/items/medical/CrudeBandageItem.ts";
 import { MedkitItem } from "@server/items/medical/MedkitItem.ts";
 import { SpeedPotionItem } from "@server/items/medical/SpeedPotionItem.ts";
 import { CannonItem } from "@server/items/structures/CannonItem.ts";
-import { ChestItem } from "@server/items/structures/ChestItem.ts";
-import { CraftingStationItem } from "@server/items/structures/CraftingStationItem.ts";
 import { LandmineItem } from "@server/items/structures/LandmineItem.ts";
 import { WallItem } from "@server/items/structures/WallItem.ts";
 import { BaseballBat } from "@server/items/weapons/BaseballBat.ts";
@@ -90,7 +86,6 @@ import { Lmg } from "@server/items/weapons/Lmg.ts";
 import { Machete } from "@server/items/weapons/Machete.ts";
 import { MachinePistol } from "@server/items/weapons/MachinePistol.ts";
 import { Scissors } from "@server/items/weapons/Scissors.ts";
-import { SaboteurSword } from "@server/items/weapons/SaboteurSword.ts";
 import { SpikedSpear } from "@server/items/weapons/SpikedSpear.ts";
 import { Taser } from "@server/items/weapons/Taser.ts";
 import { Sniper } from "@server/items/weapons/Sniper.ts";
@@ -122,10 +117,9 @@ export const entityRuntimeCtors = [
   CommandPost,
   Dungeon,
   Cannon,
-  Chest,
   CommsTower,
   Crate,
-  CraftingStation,
+  Hub,
   EnergyTower,
   FenceH,
   FenceV,
@@ -133,7 +127,6 @@ export const entityRuntimeCtors = [
   DungeonWall,
   MarketStall,
   Landmine,
-  Recycler,
   Tree,
   VehicleWreck,
   Tripwire,
@@ -171,7 +164,6 @@ export const itemRuntimeCtors = [
   SpikedSpear,
   Taser,
   DroneShooter,
-  SaboteurSword,
   ThanosFist,
   ThanosRifle,
   ThanosRocketLauncher,
@@ -190,8 +182,6 @@ export const itemRuntimeCtors = [
   SniperMagazineItem,
   WallItem,
   CannonItem,
-  ChestItem,
-  CraftingStationItem,
   LandmineItem,
 ] as const;
 

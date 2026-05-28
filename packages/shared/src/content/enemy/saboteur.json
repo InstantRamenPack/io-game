@@ -22,7 +22,7 @@
   "rarityTier": "uncommon",
   "spawnWeapons": {
     "selection": "rotating",
-    "typeIds": ["item:saboteur_sword"]
+    "typeIds": ["item:basic_sword"]
   },
   "deathLoot": {}
 }

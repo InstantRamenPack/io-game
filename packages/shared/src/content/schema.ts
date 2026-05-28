@@ -148,6 +148,7 @@ export const EntityCapabilitiesContentSchema = z.object({
     })
     .optional(),
   craftingStation: z.boolean().default(false),
+  recycler: z.boolean().default(false),
   repairable: z
     .object({
       costItemTypeId: ResourceIdSchema.default("item:hunk"),

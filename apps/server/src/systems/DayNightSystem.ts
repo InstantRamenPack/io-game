@@ -28,11 +28,16 @@ export class DayNightSystem implements System {
     this.phase = config.startPhase ?? "day";
   }
 
-  public update(_world: World, _deltaMs: number): void {
+  public update(world: World, _deltaMs: number): void {
     this.phaseElapsedTicks += 1;
     let phaseDurationTicks = this.getPhaseDurationTicks();
 
     while (this.phaseElapsedTicks >= phaseDurationTicks) {
+      if (this.phase === "night" && !world.canEndNight()) {
+        this.phaseElapsedTicks = phaseDurationTicks - 1;
+        break;
+      }
+
       this.phaseElapsedTicks -= phaseDurationTicks;
       if (this.phase === "night") {
         this.phase = "day";
@@ -56,13 +61,20 @@ export class DayNightSystem implements System {
     }
   }
 
-  public toSnapshot(): DayNightSnapshot {
+  public toSnapshot(
+    waveEnemiesRemaining = 0,
+    waveSpawnsPending = 0,
+    waveThreatTotal = 0,
+  ): DayNightSnapshot {
     return {
       dayCount: this.dayCount,
       phase: this.phase,
       phaseElapsedMs: this.ticksToMs(this.phaseElapsedTicks),
       dayDurationMs: this.ticksToMs(this.dayDurationTicks),
       nightDurationMs: this.ticksToMs(this.nightDurationTicks),
+      waveEnemiesRemaining,
+      waveSpawnsPending,
+      waveThreatTotal,
     };
   }
 

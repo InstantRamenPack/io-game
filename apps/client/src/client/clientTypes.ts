@@ -47,6 +47,7 @@ export type GameClientHudApi = {
     toIndex: number,
   ): void;
   queueUseConsumable(typeId: ResourceId): void;
+  queueRecycleHotbarIndex(index: number): void;
   stopHoldFire(): void;
   setMovementSuppression(
     reason: MovementSuppressionReason,

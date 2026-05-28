@@ -10,6 +10,8 @@ import { toHotbarSlotItems } from "@client/render/hud/hotbarModel.ts";
 const CHEST_COLS = 10;
 const CHEST_ROWS = 3;
 const HOTBAR_SLOTS = 10;
+const RECYCLE_SECTION_HEIGHT = 88;
+const RECYCLE_BUTTON_HEIGHT = 44;
 
 type SlotSource = "chest" | "hotbar";
 
@@ -86,10 +88,20 @@ export class ChestView {
   private readonly title: PIXI.Text;
   private readonly helper: PIXI.Text;
   private readonly sectionLabel: PIXI.Text;
+  private readonly recycleSection: PIXI.Graphics;
+  private readonly recycleTitle: PIXI.Text;
+  private readonly recycleDrop: PIXI.Graphics;
+  private readonly recycleIcon: PIXI.Sprite;
+  private readonly recycleSlotLabel: PIXI.Text;
+  private readonly recycleButton: PIXI.Graphics;
+  private readonly recycleButtonLabel: PIXI.Text;
   private readonly chestSlotViews: ChestSlotView[] = [];
   private readonly hotbarSlotViews: ChestSlotView[] = [];
   private readonly chestSlotRects = new Map<number, Rect>();
   private readonly hotbarSlotRects = new Map<number, Rect>();
+  private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private recycleDropRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private recycleButtonRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private readonly slotSize = 52;
   private readonly gap = 6;
   private readonly padding = 20;
@@ -103,7 +115,7 @@ export class ChestView {
     });
 
     this.title = new PIXI.Text(
-      "Chest",
+      "Hub Storage",
       new PIXI.TextStyle({
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
         fontSize: 22,
@@ -111,7 +123,7 @@ export class ChestView {
       }),
     );
     this.helper = new PIXI.Text(
-      "Drag items to transfer  •  E or Esc closes",
+      "Drag items between storage and hotbar  •  drag crafted output to hotbar",
       new PIXI.TextStyle({
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
         fontSize: 11,
@@ -127,6 +139,37 @@ export class ChestView {
         letterSpacing: 0.8,
       }),
     );
+    this.recycleSection = new PIXI.Graphics();
+    this.recycleTitle = new PIXI.Text(
+      "Recycle",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 11,
+        fill: 0x8dcf9a,
+        letterSpacing: 0.8,
+      }),
+    );
+    this.recycleDrop = new PIXI.Graphics();
+    this.recycleIcon = new PIXI.Sprite();
+    this.recycleIcon.anchor.set(0.5);
+    this.recycleSlotLabel = new PIXI.Text(
+      "Drag an item here",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 13,
+        fill: 0xe8f5e7,
+      }),
+    );
+    this.recycleButton = new PIXI.Graphics();
+    this.recycleButtonLabel = new PIXI.Text(
+      "Recycle",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 13,
+        fill: 0xf1f6ef,
+      }),
+    );
+    this.recycleButtonLabel.anchor.set(0.5);
 
     this.container.addChild(
       this.backdrop,
@@ -134,6 +177,13 @@ export class ChestView {
       this.title,
       this.helper,
       this.sectionLabel,
+      this.recycleSection,
+      this.recycleTitle,
+      this.recycleDrop,
+      this.recycleIcon,
+      this.recycleSlotLabel,
+      this.recycleButton,
+      this.recycleButtonLabel,
     );
 
     for (let i = 0; i < CHEST_SLOT_COUNT; i++) {
@@ -165,6 +215,12 @@ export class ChestView {
     hotbarSlots: readonly InventorySlotSnapshot[];
     hoveredRef: ChestSlotRef | null;
     heldRef: ChestSlotRef | null;
+    dockRightOfModal?: Rect | null;
+    stackBelowModal?: Rect | null;
+    recycleHotbarIndex: number | null;
+    recycleItemLabel: string;
+    recycleEnabled: boolean;
+    recycleIconProvider: (hotbarIndex: number) => PIXI.Texture | null;
   }): void {
     const {
       visible,
@@ -174,12 +230,21 @@ export class ChestView {
       hotbarSlots,
       hoveredRef,
       heldRef,
+      dockRightOfModal,
+      stackBelowModal,
+      recycleHotbarIndex,
+      recycleItemLabel,
+      recycleEnabled,
+      recycleIconProvider,
     } = options;
 
     this.container.visible = visible;
     this.chestSlotRects.clear();
     this.hotbarSlotRects.clear();
     if (!visible) {
+      this.modalRect = { x: 0, y: 0, width: 0, height: 0 };
+      this.recycleDropRect = { x: 0, y: 0, width: 0, height: 0 };
+      this.recycleButtonRect = { x: 0, y: 0, width: 0, height: 0 };
       return;
     }
 
@@ -188,7 +253,9 @@ export class ChestView {
     const hotbarGridWidth =
       HOTBAR_SLOTS * this.slotSize + (HOTBAR_SLOTS - 1) * this.gap;
     const contentWidth = Math.max(chestGridWidth, hotbarGridWidth);
-    const modalWidth = contentWidth + this.padding * 2;
+    const modalWidth = stackBelowModal
+      ? stackBelowModal.width
+      : contentWidth + this.padding * 2;
 
     const chestGridHeight =
       CHEST_ROWS * this.slotSize + (CHEST_ROWS - 1) * this.gap;
@@ -201,21 +268,41 @@ export class ChestView {
       this.gap * 3 +
       sectionLabelH +
       this.slotSize +
+      this.gap * 3 +
+      RECYCLE_SECTION_HEIGHT +
       this.padding;
 
-    const modalX = Math.floor((screenWidth - modalWidth) / 2);
-    const modalY = Math.floor((screenHeight - modalHeight) / 2);
+    const modalX = stackBelowModal
+      ? stackBelowModal.x
+      : dockRightOfModal
+        ? dockRightOfModal.x + dockRightOfModal.width + 14
+        : Math.floor((screenWidth - modalWidth) / 2);
+    const modalY = stackBelowModal
+      ? stackBelowModal.y + stackBelowModal.height + 14
+      : dockRightOfModal
+        ? dockRightOfModal.y
+        : Math.floor((screenHeight - modalHeight) / 2);
     this.container.position.set(modalX, modalY);
+    this.modalRect = {
+      x: modalX,
+      y: modalY,
+      width: modalWidth,
+      height: modalHeight,
+    };
 
-    drawRoundedRect(
-      this.backdrop,
-      -12,
-      -12,
-      modalWidth + 24,
-      modalHeight + 24,
-      24,
-      { color: 0x020402, alpha: 0.55 },
-    );
+    if (!dockRightOfModal && !stackBelowModal) {
+      drawRoundedRect(
+        this.backdrop,
+        -12,
+        -12,
+        modalWidth + 24,
+        modalHeight + 24,
+        24,
+        { color: 0x020402, alpha: 0.55 },
+      );
+    } else {
+      this.backdrop.clear();
+    }
     drawRoundedRect(
       this.panel,
       0,
@@ -286,6 +373,131 @@ export class ChestView {
         });
       }
     }
+
+    const recycleTop = hotbarStartY + this.slotSize + this.gap * 3;
+    const recycleInnerX = this.padding;
+    const recycleInnerWidth = modalWidth - this.padding * 2;
+    drawRoundedRect(
+      this.recycleSection,
+      recycleInnerX,
+      recycleTop,
+      recycleInnerWidth,
+      RECYCLE_SECTION_HEIGHT,
+      12,
+      { color: 0x101913, alpha: 0.9 },
+      { width: 1, color: 0x3d8b5a, alpha: 0.65 },
+    );
+    this.recycleTitle.position.set(recycleInnerX + 12, recycleTop + 8);
+
+    const dropSize = 48;
+    const dropX = recycleInnerX + 12;
+    const dropY = recycleTop + 30;
+    this.recycleDropRect = {
+      x: modalX + dropX,
+      y: modalY + dropY,
+      width: dropSize,
+      height: dropSize,
+    };
+    drawRoundedRect(
+      this.recycleDrop,
+      dropX,
+      dropY,
+      dropSize,
+      dropSize,
+      10,
+      { color: 0x17233a, alpha: 0.95 },
+      {
+        width: 2,
+        color: recycleHotbarIndex !== null ? 0x6ea8ff : 0x4a5a72,
+        alpha: 0.9,
+      },
+    );
+
+    const recycleTexture =
+      recycleHotbarIndex !== null
+        ? recycleIconProvider(recycleHotbarIndex)
+        : null;
+    if (recycleTexture) {
+      this.recycleIcon.texture = recycleTexture;
+      this.recycleIcon.width = 34;
+      this.recycleIcon.height = 34;
+      this.recycleIcon.position.set(dropX + dropSize / 2, dropY + dropSize / 2);
+      this.recycleIcon.visible = true;
+      this.recycleSlotLabel.text = recycleItemLabel;
+    } else {
+      this.recycleIcon.visible = false;
+      this.recycleSlotLabel.text = "Drag an item here";
+    }
+    this.recycleSlotLabel.position.set(dropX + dropSize + 12, dropY + 5);
+
+    const recycleButtonWidth = 138;
+    const recycleButtonX =
+      recycleInnerX + recycleInnerWidth - recycleButtonWidth - 12;
+    const recycleButtonY = dropY + 2;
+    this.recycleButtonRect = {
+      x: modalX + recycleButtonX,
+      y: modalY + recycleButtonY,
+      width: recycleButtonWidth,
+      height: RECYCLE_BUTTON_HEIGHT,
+    };
+    drawRoundedRect(
+      this.recycleButton,
+      recycleButtonX,
+      recycleButtonY,
+      recycleButtonWidth,
+      RECYCLE_BUTTON_HEIGHT,
+      12,
+      {
+        color: recycleEnabled ? 0x24402f : 0x1a201b,
+        alpha: recycleEnabled ? 0.96 : 0.85,
+      },
+      {
+        width: 2,
+        color: recycleEnabled ? 0x6fcf8a : 0x5b625a,
+        alpha: 0.95,
+      },
+    );
+    this.recycleButtonLabel.style.fill = recycleEnabled ? 0xf1f6ef : 0x8e958c;
+    this.recycleButtonLabel.position.set(
+      recycleButtonX + recycleButtonWidth / 2,
+      recycleButtonY + RECYCLE_BUTTON_HEIGHT / 2,
+    );
+  }
+
+  public getPreferredSize(): { width: number; height: number } {
+    const chestGridWidth =
+      CHEST_COLS * this.slotSize + (CHEST_COLS - 1) * this.gap;
+    const hotbarGridWidth =
+      HOTBAR_SLOTS * this.slotSize + (HOTBAR_SLOTS - 1) * this.gap;
+    const chestGridHeight =
+      CHEST_ROWS * this.slotSize + (CHEST_ROWS - 1) * this.gap;
+    const titleH = 52;
+    const sectionLabelH = 20;
+    return {
+      width: Math.max(chestGridWidth, hotbarGridWidth) + this.padding * 2,
+      height:
+        this.padding +
+        titleH +
+        chestGridHeight +
+        this.gap * 3 +
+        sectionLabelH +
+        this.slotSize +
+        this.gap * 3 +
+        RECYCLE_SECTION_HEIGHT +
+        this.padding,
+    };
+  }
+
+  public isRecycleDropAtPoint(screenX: number, screenY: number): boolean {
+    return pointInRect(screenX, screenY, this.recycleDropRect);
+  }
+
+  public isRecycleButtonAtPoint(screenX: number, screenY: number): boolean {
+    return pointInRect(screenX, screenY, this.recycleButtonRect);
+  }
+
+  public containsPoint(screenX: number, screenY: number): boolean {
+    return pointInRect(screenX, screenY, this.modalRect);
   }
 
   public getSlotRefAtPoint(

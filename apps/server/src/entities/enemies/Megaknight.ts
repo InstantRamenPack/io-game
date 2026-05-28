@@ -1,9 +1,8 @@
 import { Enemy } from "@server/entities/Enemy.ts";
-import { Player } from "@server/entities/Player.ts";
+import { createCombatTargetGoal } from "@server/goals/builtin/combatTargetGoals.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { JumpAttackGoal } from "@server/goals/builtin/JumpAttackGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
-import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 
 const BASE_SIZE = 40;
 const MIN_SIZE = 12;
@@ -16,9 +15,7 @@ export class Megaknight extends Enemy {
     super(id, {
       weapons: [],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 900, {
-          requireLineOfSight: true,
-        }),
+        createCombatTargetGoal(0, 900),
         new LookAtTargetGoal<Enemy>(1),
         new JumpAttackGoal<Enemy>(
           2,

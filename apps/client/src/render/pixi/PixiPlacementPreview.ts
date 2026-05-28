@@ -26,7 +26,7 @@ const INVALID_OVERLAY_COLOR = 0xd14c4c;
 const PREVIEW_STYLE_BY_TYPE: Record<string, PreviewStyle> = {
   "building:wall": { color: 0x8b6f57, shape: "rounded", radius: 4 },
   "building:cannon": { color: 0xc78d2d, shape: "rect" },
-  "building:crafting_station": { color: 0x4b77b9, shape: "rounded", radius: 6 },
+  "building:hub": { color: 0x6b4a2f, shape: "rounded", radius: 4 },
   "building:landmine": { color: 0x454545, shape: "circle" },
 };
 

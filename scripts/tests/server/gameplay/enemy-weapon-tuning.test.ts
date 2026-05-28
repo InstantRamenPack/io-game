@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
+import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import {
@@ -12,6 +13,7 @@ import {
   makeRuntime,
   spawnEnemy,
   spawnPlayerLikeDynamic,
+  spawnWall,
   tick,
 } from "@tests/helpers/worldFixtures.ts";
 
@@ -48,10 +50,23 @@ describe("enemy weapon tuning", () => {
     );
   });
 
+  test("saboteur uses the basic sword and doubles damage against buildings", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    const saboteur = spawnEnemy(runtime, "saboteur", 100, 100) as Saboteur;
+    const player = spawnPlayerLikeDynamic(runtime, 120, 100);
+    const wall = spawnWall(runtime, 140, 100);
+    expect(saboteur.weapons[0]?.typeId).toBe("item:basic_sword");
+    expect(saboteur.getOutgoingDamageMultiplier(player)).toBe(1);
+    expect(saboteur.getOutgoingDamageMultiplier(wall)).toBe(2);
+  });
+
   test("shoota carries the regular gun with enemy-only cadence and range nerfs", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
+    runtime.world.dayNightSystem.setPhase("day");
     const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
+    tick(runtime, 1);
     const weapon = shoota.weapons[0];
     expect(weapon?.typeId).toBe("item:basic_gun");
 
@@ -108,7 +123,9 @@ describe("enemy weapon tuning", () => {
   test("ranged enemies pursue targets beyond weapon range without firing", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
+    runtime.world.dayNightSystem.setPhase("day");
     const shoota = spawnEnemy(runtime, "shoota", 6160, 500) as Enemy;
+    tick(runtime, 1);
     const projectileContent = requireProjectileContent(
       "projectile:basic_bullet",
     );

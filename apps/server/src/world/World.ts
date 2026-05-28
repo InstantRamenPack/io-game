@@ -75,6 +75,18 @@ export class World {
   public readonly focusedTrace: FocusedServerTrace;
   public benchmarkSink?: WorldBenchmarkSink;
   public broadcastSystemMessage: (text: string) => void = () => {};
+
+  /** Night or energy-off removes day combat nerfs on enemies. */
+  public isCombatEmpowered(): boolean {
+    return (
+      this.dayNightSystem.isNight() ||
+      !(this.infrastructureSystem?.isEnergyActive() ?? true)
+    );
+  }
+
+  public canEndNight(): boolean {
+    return this.waveSystem.canEndNight(this);
+  }
   public readonly dungeonRoomsByZone = new Map<
     string,
     Array<{
@@ -384,6 +396,9 @@ export class World {
       0,
       Math.min(camp.y + Math.sin(angle) * radius, this.gameConfig.worldSize.h),
     );
+    if (entity instanceof Enemy) {
+      entity.spawnSource = "forest_camp";
+    }
     this.spawn(entity);
   }
 

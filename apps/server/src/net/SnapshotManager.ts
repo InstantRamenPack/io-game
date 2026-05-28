@@ -67,7 +67,12 @@ export class SnapshotManager {
 
     const player = world.get<Player>(playerId);
     const dayNight =
-      this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
+      this.tickCache.getDayNightSnapshot() ??
+      world.dayNightSystem.toSnapshot(
+        world.waveSystem.countAliveWaveEnemies(world),
+        world.waveSystem.getPendingWaveSpawnCount(),
+        world.waveSystem.getNightWaveThreatTotal(),
+      );
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
     const infrastructure =
@@ -233,7 +238,12 @@ export class SnapshotManager {
     }
 
     const dayNight =
-      this.tickCache.getDayNightSnapshot() ?? world.dayNightSystem.toSnapshot();
+      this.tickCache.getDayNightSnapshot() ??
+      world.dayNightSystem.toSnapshot(
+        world.waveSystem.countAliveWaveEnemies(world),
+        world.waveSystem.getPendingWaveSpawnCount(),
+        world.waveSystem.getNightWaveThreatTotal(),
+      );
     const extraction =
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
     const infrastructure =

@@ -613,6 +613,9 @@ function compactDayNight(dayNight: WorldSnapshot["dayNight"]): unknown[] {
     dayNight.phaseElapsedMs,
     dayNight.dayDurationMs,
     dayNight.nightDurationMs,
+    dayNight.waveEnemiesRemaining,
+    dayNight.waveSpawnsPending,
+    dayNight.waveThreatTotal,
   ];
 }
 
@@ -620,8 +623,16 @@ function expandDayNight(value: unknown): WorldSnapshot["dayNight"] | null {
   if (!Array.isArray(value)) {
     return null;
   }
-  const [dayCount, phase, phaseElapsedMs, dayDurationMs, nightDurationMs] =
-    value;
+  const [
+    dayCount,
+    phase,
+    phaseElapsedMs,
+    dayDurationMs,
+    nightDurationMs,
+    waveEnemiesRemaining = 0,
+    waveSpawnsPending = 0,
+    waveThreatTotal = 0,
+  ] = value;
   if (
     typeof dayCount !== "number" ||
     typeof phase !== "number" ||
@@ -637,6 +648,11 @@ function expandDayNight(value: unknown): WorldSnapshot["dayNight"] | null {
     phaseElapsedMs,
     dayDurationMs,
     nightDurationMs,
+    waveEnemiesRemaining:
+      typeof waveEnemiesRemaining === "number" ? waveEnemiesRemaining : 0,
+    waveSpawnsPending:
+      typeof waveSpawnsPending === "number" ? waveSpawnsPending : 0,
+    waveThreatTotal: typeof waveThreatTotal === "number" ? waveThreatTotal : 0,
   };
 }
 

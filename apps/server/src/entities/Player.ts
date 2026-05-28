@@ -48,7 +48,9 @@ import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import type { World } from "@server/world/World.ts";
 import { isBuildingCtor, isStructureCtor } from "@server/runtime/ctorGuards.ts";
-import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
+import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
+import type { Hub } from "@server/entities/buildings/Hub.ts";
+import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
 const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
@@ -901,7 +903,7 @@ export class Player extends Entity {
       return;
     }
 
-    const chestEntity = world.entities.get<Chest>(chestEntityId);
+    const chestEntity = world.entities.get(chestEntityId);
     if (!chestEntity || !isContainerEntity(chestEntity)) {
       return;
     }
@@ -1049,7 +1051,7 @@ export class Player extends Entity {
   private extractSlotValue(
     source: "hotbar" | "chest",
     index: number,
-    chest: Chest,
+    chest: Chest | Hub,
   ): ChestSlot {
     if (source === "chest") {
       return chest.getSlot(index);
@@ -1067,7 +1069,7 @@ export class Player extends Entity {
   private writeSlotValue(
     source: "hotbar" | "chest",
     index: number,
-    chest: Chest,
+    chest: Chest | Hub,
     value: ChestSlot,
   ): void {
     if (source === "chest") {

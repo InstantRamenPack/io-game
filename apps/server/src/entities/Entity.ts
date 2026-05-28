@@ -373,6 +373,14 @@ export abstract class Entity {
     return 1;
   }
 
+  /**
+   * Scales outgoing damage from this entity before target armor is applied.
+   * @param _target Entity receiving damage.
+   */
+  public getOutgoingDamageMultiplier(_target: Entity): number {
+    return this.damageMultiplier;
+  }
+
   public getDamageReflectionPct(): number {
     return 0;
   }

@@ -1,10 +1,9 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import { BomberExplosionAreaEffect } from "@server/effects/area/BomberExplosionAreaEffect.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
-import { Player } from "@server/entities/Player.ts";
+import { createCombatTargetGoal } from "@server/goals/builtin/combatTargetGoals.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
-import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 import type { World } from "@server/world/World.ts";
 
 const TRIGGER_RADIUS = 42;
@@ -16,9 +15,7 @@ export class Bomber extends Enemy {
     super(id, {
       weapons: [],
       goals: [
-        new TargetEntityGoal<Enemy>(0, Player, 825, {
-          requireLineOfSight: true,
-        }),
+        createCombatTargetGoal(0, 825),
         new LookAtTargetGoal<Enemy>(1),
         new GoToTargetGoal<Enemy>(2, 20),
       ],
