@@ -1,11 +1,16 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { makeResourceId } from "@shared/ids/ResourceId.ts";
+import {
+  getAllItemContentEntries,
+  getItemContent,
+} from "@shared/content/catalog.ts";
+import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
+import { Crate } from "@server/entities/enemies/Crate.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
@@ -123,6 +128,38 @@ describe("inventory authority", () => {
     expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
+  });
+
+  test("map-loaded blueprint crates store concrete blueprint item ids", () => {
+    const { runtime } = makeRuntime({ worldSeed: 1337 });
+    const expectedBlueprintTypeIds = new Set(
+      getAllItemContentEntries()
+        .filter(([, item]) => {
+          if (!item.unlocksRecipeTypeId) {
+            return false;
+          }
+          const unlockedItem = getItemContent(item.unlocksRecipeTypeId);
+          return (
+            unlockedItem?.weapon !== undefined &&
+            unlockedItem.rarityTier === "epic"
+          );
+        })
+        .map(([typeId]) => typeId),
+    );
+    const observedBlueprintTypeIds = new Set<ResourceId>();
+
+    for (const entity of runtime.world.entities.all()) {
+      if (!(entity instanceof Crate)) {
+        continue;
+      }
+      for (const blueprintTypeId of expectedBlueprintTypeIds) {
+        if (entity.contents.countType(blueprintTypeId) > 0) {
+          observedBlueprintTypeIds.add(blueprintTypeId);
+        }
+      }
+    }
+
+    expect(observedBlueprintTypeIds).toEqual(expectedBlueprintTypeIds);
   });
 
   test("new players start with the content-authored hunk count", () => {

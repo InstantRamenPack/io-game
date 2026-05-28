@@ -2,9 +2,7 @@ import { getItemContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
-import {
-  WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
-} from "@server/content/serverContentCapabilities.ts";
+import { WORLD_BLUEPRINT_PICKUP_TYPE_IDS } from "@server/content/serverContentCapabilities.ts";
 import type { World } from "@server/world/World.ts";
 
 export function isBlueprintPickup(pickup: ItemEntity): boolean {

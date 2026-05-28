@@ -1,9 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { getItemContent } from "@shared/content/catalog.ts";
-import {
-  getResourceNamespace,
-  isResourceId,
-} from "@shared/ids/ResourceId.ts";
+import { getResourceNamespace, isResourceId } from "@shared/ids/ResourceId.ts";
 
 export function isPlayerNearPickup(
   player: ClientEntity,
@@ -57,10 +54,7 @@ export function getPickupItemLabel(
     }
   }
   if (inv.resources.length > 0 && inv.resources[0]) {
-    return formatBlueprintPickupLabel(
-      inv.resources[0].typeId,
-      formatTypeLabel,
-    );
+    return formatBlueprintPickupLabel(inv.resources[0].typeId, formatTypeLabel);
   }
   return "item";
 }

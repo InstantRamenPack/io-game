@@ -548,11 +548,7 @@ export function generateProceduralWorldLayout(
   );
   syncExtractionSectorHelipadReferences(extractionSector, extraction);
   extractionSector.enemies.push(
-    spawn(
-      legendaryBossPlacements.extraction,
-      extraction.x,
-      extraction.y,
-    ),
+    spawn(legendaryBossPlacements.extraction, extraction.x, extraction.y),
   );
   assertWorldGenLegendaryBossInvariants(
     sectors,
@@ -958,7 +954,10 @@ function finalizeSectorSpawnCollections(
   buildings: ProceduralSpawnSpec[],
   enemies: ProceduralSpawnSpec[],
 ): void {
-  const staticSpawns = pruneOverlappingStaticSpawns([...structures, ...buildings]);
+  const staticSpawns = pruneOverlappingStaticSpawns([
+    ...structures,
+    ...buildings,
+  ]);
   const keptParentKeys = new Set(
     staticSpawns.map((spec) => `${spec.typeId}@${spec.x},${spec.y}`),
   );
@@ -2164,16 +2163,14 @@ function placeAndBuildVillages(
   const randomVillageCount = PROCEDURAL_TARGET_VILLAGE_COUNT - 1;
   const eligibleSectors = listRandomVillageEligibleSectors(context);
   const guaranteedSectors = shuffle(context.rng, eligibleSectors);
-  const guaranteedCount = Math.min(randomVillageCount, guaranteedSectors.length);
+  const guaranteedCount = Math.min(
+    randomVillageCount,
+    guaranteedSectors.length,
+  );
 
   for (let index = 0; index < guaranteedCount; index += 1) {
     placed.push(
-      placeVillageInSector(
-        context,
-        guaranteedSectors[index]!,
-        placed,
-        index,
-      ),
+      placeVillageInSector(context, guaranteedSectors[index]!, placed, index),
     );
   }
   for (let index = guaranteedCount; index < randomVillageCount; index += 1) {
@@ -2237,7 +2234,11 @@ function placeVillageInSector(
   placed: readonly ProceduralVillagePlan[],
   index: number,
 ): ProceduralVillagePlan {
-  for (let attempt = 0; attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
     const center = randomVillageCenterInSector(context.rng, sector);
     const village = createVillagePlan(
       sector.id,
@@ -2265,7 +2266,11 @@ function placeRandomVillage(
   placed: readonly ProceduralVillagePlan[],
   index: number,
 ): ProceduralVillagePlan {
-  for (let attempt = 0; attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
     const center = snapPoint({
       x: context.rng() * PROCEDURAL_WORLD_SIZE.w,
       y: context.rng() * PROCEDURAL_WORLD_SIZE.h,
@@ -2588,7 +2593,8 @@ function findVillageHelipadFeature(
 ): ProceduralPoiFeature | undefined {
   return sector.features.find(
     (feature) =>
-      feature.role === "village_helipad" && feature.id === `${village.id}_helipad`,
+      feature.role === "village_helipad" &&
+      feature.id === `${village.id}_helipad`,
   );
 }
 
@@ -2664,7 +2670,9 @@ function partitionAroundCentralRect(
       maxY: inner.maxY,
     });
   }
-  return partitions.filter((rect) => rect.maxX - rect.minX >= 320 && rect.maxY - rect.minY >= 320);
+  return partitions.filter(
+    (rect) => rect.maxX - rect.minX >= 320 && rect.maxY - rect.minY >= 320,
+  );
 }
 
 function createExtractionFortifiedVillageRooms(
@@ -2686,7 +2694,10 @@ function createExtractionFortifiedVillageRooms(
     return [helipadRoom];
   }
 
-  let leaves = partitionAroundCentralRect(insetRect(village, 96), helipadLeaf);
+  const leaves = partitionAroundCentralRect(
+    insetRect(village, 96),
+    helipadLeaf,
+  );
   while (leaves.length < otherRoles.length) {
     const index = leaves
       .map((leaf, leafIndex) => ({
@@ -3108,7 +3119,11 @@ function addVillageEnemies(
         room.maxY - 64,
       ),
     );
-    if (!blockedRect || room.role === "helipad" || !overlapsRect(enemySpec, blockedRect)) {
+    if (
+      !blockedRect ||
+      room.role === "helipad" ||
+      !overlapsRect(enemySpec, blockedRect)
+    ) {
       enemies.push(enemySpec);
     }
   }

@@ -178,5 +178,4 @@ export class PickupSystem implements System {
 
     return transferable;
   }
-
 }

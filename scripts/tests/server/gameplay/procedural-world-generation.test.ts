@@ -681,9 +681,9 @@ describe("procedural survival extraction world", () => {
 
     expect(getLegendaryBossTypeIds().length).toBeGreaterThan(0);
     expect(countLegendaryBossSpawns(allEnemies)).toBe(2);
-    expect(layout.dungeon.rooms.filter((room) => room.role === "boss")).toHaveLength(
-      1,
-    );
+    expect(
+      layout.dungeon.rooms.filter((room) => room.role === "boss"),
+    ).toHaveLength(1);
 
     const dungeonSector = layout.sectors.find(
       (sector) => sector.archetype === "dungeon",
@@ -693,7 +693,9 @@ describe("procedural survival extraction world", () => {
     )!;
 
     expect(
-      dungeonSector.enemies.filter((enemy) => enemy.typeId === placements.dungeon),
+      dungeonSector.enemies.filter(
+        (enemy) => enemy.typeId === placements.dungeon,
+      ),
     ).toHaveLength(1);
     expect(
       extractionSector.enemies.filter(
@@ -702,10 +704,7 @@ describe("procedural survival extraction world", () => {
     ).toHaveLength(1);
 
     for (const sector of layout.sectors) {
-      if (
-        sector.archetype !== "dungeon" &&
-        sector.archetype !== "extraction"
-      ) {
+      if (sector.archetype !== "dungeon" && sector.archetype !== "extraction") {
         expect(countLegendaryBossSpawns(sector.enemies)).toBe(0);
       }
     }
@@ -747,11 +746,13 @@ describe("procedural survival extraction world", () => {
       ).length,
     ).toBe(0);
     expect(dungeonSector?.enemies.length).toBeGreaterThanOrEqual(10);
-    expect(layout.dungeon.rooms.filter((room) => room.role === "boss")).toHaveLength(
-      1,
-    );
     expect(
-      dungeonSector?.enemies.filter((enemy) => isLegendaryBossTypeId(enemy.typeId)),
+      layout.dungeon.rooms.filter((room) => room.role === "boss"),
+    ).toHaveLength(1);
+    expect(
+      dungeonSector?.enemies.filter((enemy) =>
+        isLegendaryBossTypeId(enemy.typeId),
+      ),
     ).toHaveLength(1);
     expect(entityTypeIds(dungeonSector!)).toEqual(
       expect.arrayContaining(["enemy:megaknight", "enemy:sniper"]),

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Player } from "@server/entities/Player.ts";
+import type { Player } from "@server/entities/Player.ts";
 import type { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { extractionConfig } from "@shared/config/gameplayConfig.ts";
 import {
@@ -82,8 +82,7 @@ describe("extraction helipad", () => {
       Math.ceil(
         extractionConfig.boardTimerGoalMs /
           (1000 / runtime.world.gameConfig.tickRate),
-      ) +
-      5;
+      ) + 5;
     for (let tick = 0; tick < ticksForGoal; tick += 1) {
       parkPlayersOnHelipad(runtime, [first.player, second.player]);
       runtime.tick();
