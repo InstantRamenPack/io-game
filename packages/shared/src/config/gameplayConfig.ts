@@ -362,6 +362,15 @@ export const wavesConfig = parseConfig(
   wavesRaw,
 );
 
+/** Night when extraction's world-gen legendary boss is spawned (matches final tier floor). */
+export function getExtractionLegendaryBossUnlockNightCycle(): number {
+  const tierFloors = wavesConfig.randomWaves.tierFloors;
+  if (tierFloors.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(...tierFloors.map((floor) => floor.nightCycle));
+}
+
 export const GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR: JsonObject = Object.freeze({
   runtime: runtimeConfig as JsonObject,
   interactions: interactionsConfig as JsonObject,

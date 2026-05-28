@@ -33,8 +33,9 @@ export function applyBlueprintPickupWorldEffects(
     return;
   }
 
-  for (const player of world.entities.queryInstances(Player)) {
-    for (const unlockedRecipeTypeId of unlockedRecipeTypeIds) {
+  for (const unlockedRecipeTypeId of unlockedRecipeTypeIds) {
+    world.recordSessionRecipeUnlock(unlockedRecipeTypeId);
+    for (const player of world.entities.queryInstances(Player)) {
       player.inventory.unlockRecipe(unlockedRecipeTypeId);
     }
   }

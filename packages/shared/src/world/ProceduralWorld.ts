@@ -607,17 +607,14 @@ function guaranteeVillageBlueprintCrates(
     );
   });
   const midBlueprintIds = allBlueprintIds.filter(
-    (id) =>
-      !epicBlueprintIds.includes(id) && !basicBlueprintIds.includes(id),
+    (id) => !epicBlueprintIds.includes(id) && !basicBlueprintIds.includes(id),
   );
 
   // Fallback: if a pool is empty, widen to the next broader pool
   const safeBasic =
     basicBlueprintIds.length > 0 ? basicBlueprintIds : allBlueprintIds;
-  const safeMid =
-    midBlueprintIds.length > 0 ? midBlueprintIds : safeBasic;
-  const safeEpic =
-    epicBlueprintIds.length > 0 ? epicBlueprintIds : safeMid;
+  const safeMid = midBlueprintIds.length > 0 ? midBlueprintIds : safeBasic;
+  const safeEpic = epicBlueprintIds.length > 0 ? epicBlueprintIds : safeMid;
 
   // How many blueprint crates to guarantee per village, and which pools to draw
   // from per slot, based on the village's loot tier.
@@ -644,9 +641,7 @@ function guaranteeVillageBlueprintCrates(
   let epicCursor = 0;
 
   // Sort villages to get a stable ordering for the epic cursor
-  const sortedVillages = [...villages].sort((a, b) =>
-    a.id.localeCompare(b.id),
-  );
+  const sortedVillages = [...villages].sort((a, b) => a.id.localeCompare(b.id));
 
   for (const village of sortedVillages) {
     const sector = sectors.find(

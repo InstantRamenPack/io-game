@@ -18,7 +18,11 @@ import {
   type ProceduralSpawnSpec,
   type ProceduralWorldLayout,
 } from "@shared/world/ProceduralWorld.ts";
-import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
+import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
+import {
+  getExtractionLegendaryBossUnlockNightCycle,
+  worldgenConfig,
+} from "@shared/config/gameplayConfig.ts";
 
 const StaticSpawnSchema = z.object({
   typeId: ResourceIdSchema,
@@ -226,6 +230,13 @@ function loadProceduralLayout(
       spawnProceduralEntity(world, spec);
     }
     for (const spec of sector.enemies) {
+      if (
+        sector.archetype === "extraction" &&
+        isLegendaryBossTypeId(spec.typeId)
+      ) {
+        world.deferredExtractionLegendaryBoss = spec;
+        continue;
+      }
       spawnProceduralEntity(world, spec);
     }
     for (const spec of sector.loot) {
@@ -277,6 +288,21 @@ function loadLobbyLayout(world: World): void {
  * Despawns all loot crates and re-spawns them from the stored procedural layout.
  * Called at dawn so each new day has fresh loot throughout the world.
  */
+export function trySpawnDeferredExtractionLegendaryBoss(
+  world: World,
+  nightCycle: number,
+): void {
+  const deferred = world.deferredExtractionLegendaryBoss;
+  if (!deferred) {
+    return;
+  }
+  if (nightCycle < getExtractionLegendaryBossUnlockNightCycle()) {
+    return;
+  }
+  spawnProceduralEntity(world, deferred);
+  world.deferredExtractionLegendaryBoss = null;
+}
+
 export function refreshLoot(world: World): void {
   if (!world.proceduralLayout) return;
 

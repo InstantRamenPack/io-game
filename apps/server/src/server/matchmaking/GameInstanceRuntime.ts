@@ -185,6 +185,7 @@ export class GameInstanceRuntime {
     }
 
     this.world.spawn(playerEntity);
+    this.world.applySessionRecipeUnlocks(playerEntity.inventory);
     this.playerIdByClientId.set(clientId, playerId);
     this.lastProcessedInputSequenceByClientId.set(clientId, -1);
     this.lastProcessedActionSequenceByClientId.set(clientId, -1);

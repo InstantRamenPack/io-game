@@ -2,15 +2,18 @@ import Denque from "denque";
 import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { worldConfig } from "@shared/config/gameplayConfig.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import {
   getSectorForPoint,
   type ProceduralForestCamp,
+  type ProceduralSpawnSpec,
   type ProceduralWorldLayout,
 } from "@shared/world/ProceduralWorld.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
+import type { Inventory } from "@server/items/Inventory.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
@@ -66,6 +69,7 @@ export class World {
   public extractionSystem: ExtractionSystem | null = null;
   public infrastructureSystem: InfrastructureSystem | null = null;
   public proceduralLayout: ProceduralWorldLayout | null = null;
+  public deferredExtractionLegendaryBoss: ProceduralSpawnSpec | null = null;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
@@ -87,6 +91,7 @@ export class World {
   private readonly pickupSystem = new PickupSystem();
   private readonly playerBuildingSpawnTickById = new Map<number, number>();
   private readonly nextForestCampRespawnTickById = new Map<string, number>();
+  private readonly sessionUnlockedRecipeTypeIds = new Set<ResourceId>();
   private spatialDirty = true;
 
   /**
@@ -380,6 +385,28 @@ export class World {
       Math.min(camp.y + Math.sin(angle) * radius, this.gameConfig.worldSize.h),
     );
     this.spawn(entity);
+  }
+
+  /**
+   * Records a recipe unlock for the whole session and applies it to one inventory.
+   * Used when players join or reconnect after a blueprint was already found.
+   */
+  public applySessionRecipeUnlocks(inventory: Inventory): void {
+    for (const recipeTypeId of this.sessionUnlockedRecipeTypeIds) {
+      inventory.unlockRecipe(recipeTypeId);
+    }
+  }
+
+  /**
+   * Permanently unlocks a recipe for every player in this world instance.
+   * Returns true when this recipe was newly unlocked for the session.
+   */
+  public recordSessionRecipeUnlock(recipeTypeId: ResourceId): boolean {
+    if (this.sessionUnlockedRecipeTypeIds.has(recipeTypeId)) {
+      return false;
+    }
+    this.sessionUnlockedRecipeTypeIds.add(recipeTypeId);
+    return true;
   }
 
   private decayOuterPlayerBuildings(deltaMs: number): void {

@@ -1,6 +1,7 @@
 import type { World } from "@server/world/World.ts";
 import type { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import type { System } from "@server/systems/System.ts";
+import { trySpawnDeferredExtractionLegendaryBoss } from "@server/systems/MapLoader.ts";
 import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
 type WaveSystemConfig = {
@@ -41,6 +42,7 @@ export class WaveSystem implements System {
     if (!this.lastIsNight && isNight) {
       this.nightCycleCounter += 1;
       this.waveSpawner.onNightStart(this.nightCycleCounter);
+      trySpawnDeferredExtractionLegendaryBoss(world, this.nightCycleCounter);
     }
 
     this.lastIsNight = isNight;

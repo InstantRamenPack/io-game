@@ -13,6 +13,7 @@ import {
   type WavesConfig,
   type WaveSpawnConfig,
 } from "@shared/config/gameplayConfig.ts";
+import { getLegendaryBossTypeIds } from "@shared/world/legendaryBoss.ts";
 
 type WaveChatBroadcaster = {
   broadcastSystemMessage?: (text: string) => void;
@@ -35,6 +36,7 @@ export class WaveSpawner {
   private readonly wavesConfig: WavesConfig;
   private readonly entityCtorByResourceName: Map<string, SpawnableEntityCtor>;
   private readonly chatService: WaveChatBroadcaster | null;
+  private readonly legendaryBossResourceNames: ReadonlySet<string>;
   private pendingSpawns: PendingSpawn[] = [];
 
   /**
@@ -50,6 +52,9 @@ export class WaveSpawner {
     this.wavesConfig = wavesConfig;
     this.chatService = chatService;
     this.entityCtorByResourceName = this.buildEntityLookup();
+    this.legendaryBossResourceNames = new Set(
+      getLegendaryBossTypeIds().map((typeId) => typeId.replace(/^enemy:/, "")),
+    );
   }
 
   /**
@@ -260,8 +265,9 @@ export class WaveSpawner {
     const randomWaves = this.wavesConfig.randomWaves;
     const floorConfig = this.resolveTierFloor(nightCycle);
     const allowedTierSet = new Set(floorConfig.allowedTiers);
-    const weightedPool = randomWaves.enemyWeights.filter((entry) =>
-      allowedTierSet.has(entry.tier),
+    const weightedPool = this.filterWaveEnemyWeights(
+      randomWaves.enemyWeights,
+      (entry) => allowedTierSet.has(entry.tier),
     );
     const counts = new Map<string, number>();
     const rng = this.createNightCycleRandom(nightCycle);
@@ -273,7 +279,8 @@ export class WaveSpawner {
       if (!count) {
         continue;
       }
-      const tierPool = randomWaves.enemyWeights.filter(
+      const tierPool = this.filterWaveEnemyWeights(
+        randomWaves.enemyWeights,
         (entry) => entry.tier === tier,
       );
       for (let index = 0; index < count; index += 1) {
@@ -344,6 +351,17 @@ export class WaveSpawner {
       state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
       return state / 0x100000000;
     };
+  }
+
+  private filterWaveEnemyWeights<T extends { entityType: string }>(
+    pool: readonly T[],
+    predicate: (entry: T) => boolean,
+  ): T[] {
+    return pool.filter(
+      (entry) =>
+        predicate(entry) &&
+        !this.legendaryBossResourceNames.has(entry.entityType),
+    );
   }
 
   private pickWeightedEntity(

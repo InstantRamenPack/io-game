@@ -60,11 +60,6 @@
         "entityType": "megaknight",
         "tier": "epic",
         "weight": 1
-      },
-      {
-        "entityType": "thanos",
-        "tier": "legendary",
-        "weight": 0.25
       }
     ],
     "tierFloors": [
@@ -127,10 +122,9 @@
           "common": 4,
           "uncommon": 4,
           "rare": 3,
-          "epic": 2,
-          "legendary": 1
+          "epic": 3
         },
-        "allowedTiers": ["common", "uncommon", "rare", "epic", "legendary"]
+        "allowedTiers": ["common", "uncommon", "rare", "epic"]
       }
     ]
   },
