@@ -1,4 +1,9 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
+import { getItemContent } from "@shared/content/catalog.ts";
+import {
+  getResourceNamespace,
+  isResourceId,
+} from "@shared/ids/ResourceId.ts";
 
 export function isPlayerNearPickup(
   player: ClientEntity,
@@ -48,11 +53,35 @@ export function getPickupItemLabel(
   }
   for (const slot of inv.hotbarSlots) {
     if (slot && slot.kind !== "empty") {
-      return formatTypeLabel(slot.typeId);
+      return formatBlueprintPickupLabel(slot.typeId, formatTypeLabel);
     }
   }
   if (inv.resources.length > 0 && inv.resources[0]) {
-    return formatTypeLabel(inv.resources[0].typeId);
+    return formatBlueprintPickupLabel(
+      inv.resources[0].typeId,
+      formatTypeLabel,
+    );
   }
   return "item";
+}
+
+function formatBlueprintPickupLabel(
+  typeId: string,
+  formatTypeLabel: (typeId: string) => string,
+): string {
+  if (getResourceNamespace(typeId) !== "blueprint") {
+    return formatTypeLabel(typeId);
+  }
+
+  if (!isResourceId(typeId)) {
+    return formatTypeLabel(typeId);
+  }
+
+  const blueprintContent = getItemContent(typeId);
+  const recipeTypeId = blueprintContent?.unlocksRecipeTypeId;
+  if (recipeTypeId) {
+    return `blueprint for ${formatTypeLabel(recipeTypeId)}`;
+  }
+
+  return formatTypeLabel(typeId);
 }

@@ -12,6 +12,7 @@ import {
   worldgenConfig,
 } from "@shared/config/gameplayConfig.ts";
 import { COMPAT_MANIFEST } from "@shared/config/compat.ts";
+import { getLegendaryBossTypeIds } from "@shared/world/legendaryBoss.ts";
 
 describe("shared gameplay config", () => {
   test("runtime config exposes positive authoritative dimensions and cadence", () => {
@@ -75,9 +76,7 @@ describe("shared gameplay config", () => {
 
   test("extraction and day-night timers define reachable progression", () => {
     expect("finalWaveCycle" in extractionConfig).toBe(false);
-    expect(extractionConfig.chopperTimerGoalMs).toBeLessThan(
-      extractionConfig.boardTimerGoalMs,
-    );
+    expect(extractionConfig.boardTimerGoalMs).toBe(10_000);
     expect(dayNightConfig.nightDurationMs).toBeLessThan(
       dayNightConfig.dayDurationMs,
     );
@@ -142,5 +141,10 @@ describe("shared gameplay config", () => {
       interactions: interactionsConfig,
       waves: wavesConfig,
     });
+  });
+
+  test("content defines at least one legendary-tier enemy for world generation", () => {
+    expect(getLegendaryBossTypeIds().length).toBeGreaterThan(0);
+    expect(getLegendaryBossTypeIds()).toContain("enemy:thanos");
   });
 });

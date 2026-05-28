@@ -24,8 +24,10 @@ export class HelipadOverlay {
 
   constructor() {
     this.container = new Container();
-    this.container.x = extractionConfig.fallbackHelipad.x;
-    this.container.y = extractionConfig.fallbackHelipad.y;
+    this.setWorldPosition(
+      extractionConfig.fallbackHelipad.x,
+      extractionConfig.fallbackHelipad.y,
+    );
     this.container.zIndex = 5;
 
     this.ring = new Graphics();
@@ -62,6 +64,11 @@ export class HelipadOverlay {
     this.container.addChild(this.timerText);
 
     this.container.visible = false;
+  }
+
+  public setWorldPosition(x: number, y: number): void {
+    this.container.x = x;
+    this.container.y = y;
   }
 
   public update(state: ExtractionSnapshot | null, deltaMs: number): void {
@@ -105,26 +112,31 @@ export class HelipadOverlay {
         const allOn =
           state.totalAlivePlayers > 0 &&
           state.playersOnPad >= state.totalAlivePlayers;
-        const remaining = Math.ceil(
-          (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
+        const remaining = Math.max(
+          0,
+          Math.ceil(
+            (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
+          ),
         );
-        this.labelText.text = allOn ? "EXTRACTING..." : "WAITING FOR TEAM";
+        this.labelText.text = allOn ? "EXTRACTING..." : "RETURN TO HELIPAD";
         this.labelText.style.fill = allOn ? 0x88ffaa : 0xffdd44;
-        this.timerText.text = `${remaining}s`;
-        this.timerText.style.fontSize = 28;
+        this.timerText.text = allOn
+          ? `${remaining}s`
+          : `${state.playersOnPad}/${state.totalAlivePlayers} on pad`;
+        this.timerText.style.fontSize = allOn ? 28 : 20;
         break;
       }
 
       case "chopper_incoming": {
-        const hasEnemies = state.enemiesInRadius > 0;
-        const remaining = Math.ceil(
-          (extractionConfig.chopperTimerGoalMs - state.chopperElapsedMs) / 1000,
+        const remaining = Math.max(
+          0,
+          Math.ceil(
+            (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
+          ),
         );
-        this.labelText.text = hasEnemies
-          ? `ENEMIES NEARBY! (${state.enemiesInRadius})`
-          : "CHOPPER INCOMING";
-        this.labelText.style.fill = hasEnemies ? 0xff4422 : 0x44aaff;
-        this.timerText.text = hasEnemies ? "HOLD THEM OFF!" : `${remaining}s`;
+        this.labelText.text = "EXTRACTING...";
+        this.labelText.style.fill = 0x88ffaa;
+        this.timerText.text = `${remaining}s`;
         this.timerText.style.fontSize = 28;
         break;
       }

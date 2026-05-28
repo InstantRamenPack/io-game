@@ -95,7 +95,7 @@ describe("inventory authority", () => {
     expect(target.getResourceCount(hunkItemId)).toBe(2);
   });
 
-  test("auto-picking a blueprint unlocks the recipe for every player", () => {
+  test("blueprint pickups require pickup action and unlock the recipe for every player", () => {
     const { runtime } = makeRuntime();
     const { player: collector } = connectTestClient(runtime, "client-1");
     const { player: teammate } = connectTestClient(runtime, "client-2");
@@ -115,6 +115,11 @@ describe("inventory authority", () => {
     expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
     expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
     tick(runtime, 1);
+    expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
+    expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(false);
+    expect(runtime.world.entities.has(pickup.id)).toBe(true);
+
+    enqueueAction(runtime, { t: "action", seq: 1, action: "pickup" });
     expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(runtime.world.entities.has(pickup.id)).toBe(false);

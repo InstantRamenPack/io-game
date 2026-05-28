@@ -292,13 +292,24 @@ export class PixiWorldView {
     const seed = map?.seed ?? null;
     if (seed === this.lastMapSeed) {
       this.mapState = map;
+      this.syncHelipadOverlayPosition(map);
       this.recomputeVisibilityState();
       return;
     }
     this.lastMapSeed = seed;
     this.mapState = map;
+    this.syncHelipadOverlayPosition(map);
     this.recomputeVisibilityState();
     this.drawGridGeometry();
+  }
+
+  private syncHelipadOverlayPosition(map: MapSnapshot | null): void {
+    const helipadMarker = map?.markers.find(
+      (marker) => marker.id === "extraction_helipad",
+    );
+    if (helipadMarker) {
+      this.helipadOverlay.setWorldPosition(helipadMarker.x, helipadMarker.y);
+    }
   }
 
   public updatePlayerVisibility(player: { x: number; y: number } | null): void {

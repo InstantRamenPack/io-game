@@ -3,7 +3,7 @@
   "gridSize": 3,
   "sectorBands": [5120, 2560, 5120],
   "tileSize": 16,
-  "targetVillageCount": 10,
+  "targetVillageCount": 13,
   "villageCenterMargin": {
     "x": 720,
     "y": 560

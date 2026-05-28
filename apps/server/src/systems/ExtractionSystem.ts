@@ -97,35 +97,29 @@ export class ExtractionSystem implements System {
       case "active":
         if (allOnPad) {
           this.stage = "board_timer";
+          this.boardElapsedMs = 0;
         }
         break;
 
       case "board_timer":
-        if (allOnPad) {
-          this.boardElapsedMs = Math.min(
-            this.boardElapsedMs + deltaMs,
-            extractionConfig.boardTimerGoalMs,
-          );
-          if (this.boardElapsedMs >= extractionConfig.boardTimerGoalMs) {
-            this.stage = "chopper_incoming";
-            this.chopperElapsedMs = 0;
-          }
+        if (!allOnPad) {
+          this.stage = "active";
+          this.boardElapsedMs = 0;
+          break;
+        }
+        this.boardElapsedMs = Math.min(
+          this.boardElapsedMs + deltaMs,
+          extractionConfig.boardTimerGoalMs,
+        );
+        if (this.boardElapsedMs >= extractionConfig.boardTimerGoalMs) {
+          this.stage = "complete";
+          this.completed = true;
         }
         break;
 
       case "chopper_incoming":
-        if (enemiesInRadius > 0) {
-          this.chopperElapsedMs = 0;
-        } else {
-          this.chopperElapsedMs = Math.min(
-            this.chopperElapsedMs + deltaMs,
-            extractionConfig.chopperTimerGoalMs,
-          );
-          if (this.chopperElapsedMs >= extractionConfig.chopperTimerGoalMs) {
-            this.stage = "complete";
-            this.completed = true;
-          }
-        }
+        this.stage = "complete";
+        this.completed = true;
         break;
 
       case "complete":
