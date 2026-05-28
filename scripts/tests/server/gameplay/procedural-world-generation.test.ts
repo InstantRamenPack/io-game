@@ -175,8 +175,22 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("every generated village has exactly one one-item blueprint crate", () => {
+  test("every generated village has blueprint crates scaled to loot tier", () => {
     const layout = generateProceduralWorldLayout(1337);
+
+    const epicBlueprintCount = getAllItemContentEntries().filter(([, item]) => {
+      if (!item.unlocksRecipeTypeId) return false;
+      return (
+        getItemContent(item.unlocksRecipeTypeId)?.weapon !== undefined &&
+        getItemContent(item.unlocksRecipeTypeId)?.rarityTier === "epic"
+      );
+    }).length;
+    const expectedBlueprintCrateCount: Record<string, number> = {
+      common: 1,
+      uncommon: 2,
+      rare: 2,
+      epic: epicBlueprintCount,
+    };
 
     for (const village of layout.villages) {
       const sector = layout.sectors.find(
@@ -202,10 +216,11 @@ describe("procedural survival extraction world", () => {
         ),
       );
 
+      const expectedCount = expectedBlueprintCrateCount[village.lootTier] ?? 1;
       expect(
         blueprintCrates,
-        `${village.id} should have exactly one blueprint crate`,
-      ).toHaveLength(1);
+        `${village.id} (${village.lootTier}) should have ${expectedCount} blueprint crate(s)`,
+      ).toHaveLength(expectedCount);
       for (const crate of villageCrates) {
         expect(
           crate.crateLoot ?? [],
@@ -507,9 +522,10 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("procedural crates place exactly one blueprint for each epic weapon", () => {
-    const layout = generateProceduralWorldLayout(1337);
-    const expectedBlueprintTypeIds = new Set(
+  test("procedural crates place each epic blueprint at least once", () => {
+    // Run several seeds so hash variation doesn't produce false negatives
+    const seeds = [1337, 1338, 1339, 4242];
+    const epicBlueprintTypeIds = new Set(
       getAllItemContentEntries()
         .filter(([, item]) => {
           if (!item.unlocksRecipeTypeId) {
@@ -522,34 +538,30 @@ describe("procedural survival extraction world", () => {
         })
         .map(([typeId]) => typeId),
     );
-    const observedBlueprintCounts = new Map<ResourceId, number>();
 
-    for (const sector of layout.sectors) {
-      for (const enemy of sector.enemies) {
-        if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
-          continue;
-        }
-        for (const slot of enemy.crateLoot) {
-          if (!slot.typeId.startsWith("blueprint:")) {
+    for (const seed of seeds) {
+      const layout = generateProceduralWorldLayout(seed);
+      const observedBlueprintTypeIds = new Set<ResourceId>();
+
+      for (const sector of layout.sectors) {
+        for (const enemy of sector.enemies) {
+          if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
             continue;
           }
-          if (!isEpicWeaponBlueprint(slot.typeId)) {
-            continue;
+          for (const slot of enemy.crateLoot) {
+            if (isEpicWeaponBlueprint(slot.typeId)) {
+              observedBlueprintTypeIds.add(slot.typeId);
+            }
           }
-          observedBlueprintCounts.set(
-            slot.typeId,
-            (observedBlueprintCounts.get(slot.typeId) ?? 0) +
-              (slot.amount ?? 1),
-          );
         }
       }
-    }
 
-    expect(new Set(observedBlueprintCounts.keys())).toEqual(
-      expectedBlueprintTypeIds,
-    );
-    for (const count of observedBlueprintCounts.values()) {
-      expect(count).toBe(1);
+      for (const typeId of epicBlueprintTypeIds) {
+        expect(
+          observedBlueprintTypeIds.has(typeId),
+          `seed ${seed}: ${typeId} should appear at least once`,
+        ).toBe(true);
+      }
     }
   });
 

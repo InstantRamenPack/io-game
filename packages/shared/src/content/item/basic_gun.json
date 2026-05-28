@@ -1,7 +1,7 @@
 {
   "label": "Glock 17",
   "hint": "Reliable 9mm sidearm with a fast reload and low recoil.",
-  "description": "Standard service pistol. Starter firearm for close and mid-range fights.",
+  "description": "Standard service pistol. Starter firearm for close and mid-range fights. Requires a blueprint to craft.",
   "recipe": {
     "hint": "Reliable 9mm sidearm for close and mid-range fights.",
     "outputAmount": 1,

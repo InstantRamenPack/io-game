@@ -267,6 +267,26 @@ function loadLobbyLayout(world: World): void {
 }
 
 /**
+ * Despawns all loot crates and re-spawns them from the stored procedural layout.
+ * Called at dawn so each new day has fresh loot throughout the world.
+ */
+export function refreshLoot(world: World): void {
+  if (!world.proceduralLayout) return;
+
+  for (const entity of world.entities.all()) {
+    if (entity.typeId === ("enemy:crate" as ResourceId)) {
+      world.despawn(entity.id);
+    }
+  }
+
+  for (const sector of world.proceduralLayout.sectors) {
+    for (const spec of sector.loot) {
+      spawnProceduralLootCrate(world, spec);
+    }
+  }
+}
+
+/**
  * Spawns all map structures and initial enemies from data-backed zones.
  */
 export function loadMap(

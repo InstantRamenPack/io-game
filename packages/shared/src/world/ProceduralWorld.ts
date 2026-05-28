@@ -531,45 +531,76 @@ function guaranteeVillageBlueprintCrates(
   sectors: ProceduralSector[],
   villages: readonly ProceduralVillagePlan[],
 ): void {
-  const fillerBlueprints = getAllItemContentEntries()
+  const allBlueprintIds = getAllItemContentEntries()
     .filter(([, item]) => item.unlocksRecipeTypeId)
-    .map(([typeId]) => typeId)
-    .filter((typeId) => !EPIC_BLUEPRINT_TYPE_IDS.includes(typeId));
-  const blueprintPool = [...EPIC_BLUEPRINT_TYPE_IDS, ...fillerBlueprints];
-  if (blueprintPool.length === 0) {
+    .map(([typeId]) => typeId);
+
+  if (allBlueprintIds.length === 0) {
     return;
   }
-  const worldCenter = proceduralWorldCenter();
-  const sortedVillages = [...villages].sort(
-    (left, right) =>
-      distanceSquared(
-        right.center.x,
-        right.center.y,
-        worldCenter.x,
-        worldCenter.y,
-      ) -
-      distanceSquared(
-        left.center.x,
-        left.center.y,
-        worldCenter.x,
-        worldCenter.y,
-      ),
+
+  // Partition blueprints by the rarity of what they unlock
+  const epicBlueprintIds = EPIC_BLUEPRINT_TYPE_IDS;
+  const basicBlueprintIds = allBlueprintIds.filter((typeId) => {
+    const item = getItemContent(typeId);
+    if (!item?.unlocksRecipeTypeId) return false;
+    const unlockedItem = getItemContent(item.unlocksRecipeTypeId as ResourceId);
+    return (
+      unlockedItem?.weapon !== undefined &&
+      (unlockedItem.rarityTier === "common" ||
+        unlockedItem.rarityTier === "uncommon")
+    );
+  });
+  const midBlueprintIds = allBlueprintIds.filter(
+    (id) =>
+      !epicBlueprintIds.includes(id) && !basicBlueprintIds.includes(id),
   );
 
-  for (let index = 0; index < sortedVillages.length; index += 1) {
-    const village = sortedVillages[index]!;
+  // Fallback: if a pool is empty, widen to the next broader pool
+  const safeBasic =
+    basicBlueprintIds.length > 0 ? basicBlueprintIds : allBlueprintIds;
+  const safeMid =
+    midBlueprintIds.length > 0 ? midBlueprintIds : safeBasic;
+  const safeEpic =
+    epicBlueprintIds.length > 0 ? epicBlueprintIds : safeMid;
+
+  // How many blueprint crates to guarantee per village, and which pools to draw
+  // from per slot, based on the village's loot tier.
+  // The epic-tier village receives one crate for each epic blueprint type so
+  // every epic blueprint is guaranteed to appear regardless of how many rare
+  // villages exist in a given seed.
+  const epicCount = safeEpic.length;
+  const TIER_SPECS: Record<
+    string,
+    { count: number; epicSlots: number; basicSlots: number; midSlots: number }
+  > = {
+    common: { count: 1, basicSlots: 1, midSlots: 0, epicSlots: 0 },
+    uncommon: { count: 2, basicSlots: 1, midSlots: 1, epicSlots: 0 },
+    rare: { count: 2, basicSlots: 0, midSlots: 1, epicSlots: 1 },
+    epic: {
+      count: epicCount,
+      basicSlots: 0,
+      midSlots: 0,
+      epicSlots: epicCount,
+    },
+  };
+
+  // Deterministic cyclic counter for rare-village epic slots
+  let epicCursor = 0;
+
+  // Sort villages to get a stable ordering for the epic cursor
+  const sortedVillages = [...villages].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  );
+
+  for (const village of sortedVillages) {
     const sector = sectors.find(
       (candidate) => candidate.id === village.sectorId,
     );
     if (!sector) {
       continue;
     }
-    const blueprintTypeId =
-      index < EPIC_BLUEPRINT_TYPE_IDS.length
-        ? EPIC_BLUEPRINT_TYPE_IDS[index]!
-        : (fillerBlueprints[
-            (index - EPIC_BLUEPRINT_TYPE_IDS.length) % fillerBlueprints.length
-          ] ?? blueprintPool[index % blueprintPool.length]!);
+
     const villageCrates = sector.enemies.filter(
       (spawn) =>
         spawn.typeId === "enemy:crate" &&
@@ -578,30 +609,67 @@ function guaranteeVillageBlueprintCrates(
         spawn.y >= village.minY &&
         spawn.y <= village.maxY,
     );
+
+    // Strip any existing blueprint loot from all village crates
     for (const crate of villageCrates) {
       crate.crateLoot = (crate.crateLoot ?? [])
         .filter((slot) => !slot.typeId.startsWith("blueprint:"))
         .slice(0, 1)
         .map((slot) => ({ ...slot, amount: 1 }));
     }
-    const blueprintCrate =
-      villageCrates.find((crate) => crate.label?.includes("interior_parent")) ??
-      villageCrates[0];
-    const blueprintLoot = [
-      { typeId: blueprintTypeId, kind: "stackable" as const, amount: 1 },
-    ];
-    if (blueprintCrate) {
-      blueprintCrate.crateLoot = blueprintLoot;
-      continue;
-    }
-    sector.enemies.push(
-      crateSpawn(
-        "enemy:crate",
-        village.center.x,
-        village.center.y,
-        blueprintLoot,
+
+    const spec = TIER_SPECS[village.lootTier] ?? TIER_SPECS["common"]!;
+
+    // Use village position as a deterministic hash for basic/mid variety
+    const hash = Math.abs(
+      Math.imul(
+        (village.center.x | 0) ^ 0x9e3779b9,
+        (village.center.y | 0) ^ 0x85ebca6b,
       ),
     );
+
+    // Build the ordered list of blueprint type IDs for this village
+    const slots: ResourceId[] = [];
+    for (let i = 0; i < spec.basicSlots; i += 1) {
+      slots.push(safeBasic[(hash + i) % safeBasic.length]!);
+    }
+    for (let i = 0; i < spec.midSlots; i += 1) {
+      slots.push(safeMid[(hash + i) % safeMid.length]!);
+    }
+    for (let i = 0; i < spec.epicSlots; i += 1) {
+      slots.push(safeEpic[epicCursor % safeEpic.length]!);
+      epicCursor += 1;
+    }
+
+    // Prefer the interior crate, then fall back to other crates in order
+    const priorityCrate = villageCrates.find((c) =>
+      c.label?.includes("interior_parent"),
+    );
+    const crateQueue = [
+      priorityCrate,
+      ...villageCrates.filter((c) => c !== priorityCrate),
+    ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+
+    for (let i = 0; i < slots.length; i += 1) {
+      const blueprintTypeId = slots[i]!;
+      const blueprintLoot = [
+        { typeId: blueprintTypeId, kind: "stackable" as const, amount: 1 },
+      ];
+
+      const crate = crateQueue[i];
+      if (crate) {
+        crate.crateLoot = blueprintLoot;
+      } else {
+        sector.enemies.push(
+          crateSpawn(
+            "enemy:crate",
+            village.center.x,
+            village.center.y,
+            blueprintLoot,
+          ),
+        );
+      }
+    }
   }
 }
 

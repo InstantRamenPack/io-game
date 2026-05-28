@@ -1,0 +1,6 @@
+{
+  "label": "Blueprint: M4A1",
+  "hint": "Crafting schematic for the M4A1.",
+  "description": "Unlocks the M4A1 recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:carbine"
+}

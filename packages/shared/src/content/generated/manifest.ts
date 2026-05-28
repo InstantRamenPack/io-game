@@ -104,6 +104,8 @@ import blueprintarmorT1Json from "@shared/content/blueprint/armor_t1.json";
 import blueprintarmorT2Json from "@shared/content/blueprint/armor_t2.json";
 import blueprintarmorT3Json from "@shared/content/blueprint/armor_t3.json";
 import blueprintarmorT4Json from "@shared/content/blueprint/armor_t4.json";
+import blueprintbasicGunJson from "@shared/content/blueprint/basic_gun.json";
+import blueprintcarbineJson from "@shared/content/blueprint/carbine.json";
 import blueprintfirecrackerGunJson from "@shared/content/blueprint/firecracker_gun.json";
 import blueprinthalberdJson from "@shared/content/blueprint/halberd.json";
 import blueprintheavyPistolJson from "@shared/content/blueprint/heavy_pistol.json";
@@ -266,6 +268,8 @@ export const blueprintContentEntries = [
   makeParsedBlueprintContentEntry("armor_t2", blueprintarmorT2Json),
   makeParsedBlueprintContentEntry("armor_t3", blueprintarmorT3Json),
   makeParsedBlueprintContentEntry("armor_t4", blueprintarmorT4Json),
+  makeParsedBlueprintContentEntry("basic_gun", blueprintbasicGunJson),
+  makeParsedBlueprintContentEntry("carbine", blueprintcarbineJson),
   makeParsedBlueprintContentEntry("firecracker_gun", blueprintfirecrackerGunJson),
   makeParsedBlueprintContentEntry("halberd", blueprinthalberdJson),
   makeParsedBlueprintContentEntry("heavy_pistol", blueprintheavyPistolJson),

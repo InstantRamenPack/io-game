@@ -1,0 +1,6 @@
+{
+  "label": "Blueprint: Glock 17",
+  "hint": "Crafting schematic for the Glock 17.",
+  "description": "Unlocks the Glock 17 recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:basic_gun"
+}
