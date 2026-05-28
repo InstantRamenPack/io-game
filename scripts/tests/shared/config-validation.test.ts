@@ -110,15 +110,12 @@ describe("shared gameplay config", () => {
       1,
     );
     expect(floorsByNight.get(6)?.floors.epic ?? 0).toBeGreaterThanOrEqual(1);
-    expect(floorsByNight.get(7)?.floors.legendary ?? 0).toBeGreaterThanOrEqual(
-      1,
-    );
+    expect(floorsByNight.get(7)?.floors.epic ?? 0).toBeGreaterThanOrEqual(3);
     expect(
       wavesConfig.randomWaves.enemyWeights.some(
-        (weight) =>
-          weight.entityType === "thanos" && weight.tier === "legendary",
+        (weight) => weight.entityType === "thanos",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       wavesConfig.randomWaves.enemyWeights.map((weight) => weight.entityType),
     ).toEqual(expect.arrayContaining(["saboteur", "wallbreaker"]));

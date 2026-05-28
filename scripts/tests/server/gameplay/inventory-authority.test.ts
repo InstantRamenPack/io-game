@@ -130,6 +130,27 @@ describe("inventory authority", () => {
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
   });
 
+  test("blueprint unlocks persist for players who join after pickup", () => {
+    const { runtime } = makeRuntime();
+    const { player: collector } = connectTestClient(runtime, "client-1");
+
+    const pickupInventory = new Inventory();
+    pickupInventory.addStackable(heavyPistolBlueprintItemId, 1);
+    const pickup = new ItemEntity(
+      runtime.world.allocEntityId(),
+      pickupInventory,
+    );
+    pickup.x = collector.x;
+    pickup.y = collector.y;
+    runtime.world.spawn(pickup);
+
+    enqueueAction(runtime, { t: "action", seq: 1, action: "pickup" });
+    expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
+
+    const { player: lateJoiner } = connectTestClient(runtime, "client-3");
+    expect(lateJoiner.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
+  });
+
   test("map-loaded blueprint crates store concrete blueprint item ids", () => {
     const { runtime } = makeRuntime({ worldSeed: 1337 });
     const expectedBlueprintTypeIds = new Set(
