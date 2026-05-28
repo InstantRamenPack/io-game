@@ -20,8 +20,14 @@ export class HudPanel {
   constructor(titleStyle: TextStyleOptions, bodyStyle: TextStyleOptions) {
     this.container = new PIXI.Container();
     this.background = new PIXI.Graphics();
-    this.titleText = new PIXI.Text("", new PIXI.TextStyle(titleStyle));
-    this.bodyText = new PIXI.Text("", new PIXI.TextStyle(bodyStyle));
+    this.titleText = new PIXI.Text({
+      text: "",
+      style: new PIXI.TextStyle(titleStyle),
+    });
+    this.bodyText = new PIXI.Text({
+      text: "",
+      style: new PIXI.TextStyle(bodyStyle),
+    });
     this.container.addChild(this.background);
     this.container.addChild(this.titleText);
     this.container.addChild(this.bodyText);

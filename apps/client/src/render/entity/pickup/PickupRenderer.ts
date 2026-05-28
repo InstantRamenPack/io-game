@@ -18,16 +18,16 @@ export class PickupRenderer extends BaseEntityRenderer {
     super(pixiRenderer, options);
     this.itemSprite = new Sprite(Texture.EMPTY);
     this.itemSprite.anchor.set(0.5, 0.5);
-    this.stackCountText = new Text(
-      "",
-      new TextStyle({
+    this.stackCountText = new Text({
+      text: "",
+      style: new TextStyle({
         fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
         fontSize: 12,
         fontWeight: "700",
         fill: 0xf4f8ef,
         stroke: { color: 0x0c120b, width: 3 },
       }),
-    );
+    });
     this.stackCountText.anchor.set(1, 1);
     this.entityContainer.addChild(this.itemSprite, this.stackCountText);
   }

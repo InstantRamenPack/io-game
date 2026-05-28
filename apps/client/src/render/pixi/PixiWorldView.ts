@@ -155,14 +155,14 @@ export class PixiWorldView {
   private readonly baseVisionOverlay = new BaseVisionOverlay();
   private readonly lightsOutOverlay = new PixiLightsOutOverlay();
   private readonly minimapGraphic = new Graphics();
-  private readonly minimapLabel = new Text(
-    "",
-    new TextStyle({
+  private readonly minimapLabel = new Text({
+    text: "",
+    style: new TextStyle({
       fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
       fontSize: 10,
       fill: 0xe8f5e7,
     }),
-  );
+  });
   private minimapPlayers: readonly MinimapPlayerMarker[] = [];
   private pendingExtractionState: ExtractionSnapshot | null = null;
   private infrastructureState: InfrastructureSnapshot = {

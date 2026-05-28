@@ -4,6 +4,7 @@ import type {
   EquippedRenderContext,
   EquippedStaticSyncInput,
 } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
+import { drawCircle } from "@client/render/pixi/PixiGraphicUtils.ts";
 import * as PIXI from "pixi.js";
 
 type PunchSide = "left" | "right";
@@ -74,11 +75,11 @@ export class FistsEquippedRenderer implements EquippedItemRenderer {
   }
 
   private drawHand(graphics: PIXI.Graphics): void {
-    graphics.clear();
-    graphics.lineStyle(2, HAND_STROKE_COLOR, 1);
-    graphics.beginFill(HAND_FILL_COLOR, 1);
-    graphics.drawCircle(0, 0, HAND_RADIUS);
-    graphics.endFill();
+    drawCircle(graphics, 0, 0, HAND_RADIUS, HAND_FILL_COLOR, {
+      color: HAND_STROKE_COLOR,
+      width: 2,
+      alpha: 1,
+    });
   }
 
   private syncHandPositions(

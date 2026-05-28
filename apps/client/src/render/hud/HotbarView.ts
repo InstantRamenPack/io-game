@@ -42,9 +42,12 @@ class HotbarSlotView {
     this.activeOutline = new PIXI.Graphics();
     this.icon = new PIXI.Sprite();
     this.icon.anchor.set(0.5);
-    this.countText = new PIXI.Text("", options.countStyle);
+    this.countText = new PIXI.Text({ text: "", style: options.countStyle });
     this.countText.anchor.set(1, 1);
-    this.shortcutText = new PIXI.Text("", options.shortcutStyle);
+    this.shortcutText = new PIXI.Text({
+      text: "",
+      style: options.shortcutStyle,
+    });
     this.ammoBarTrack = new PIXI.Graphics();
     this.ammoBarFill = new PIXI.Graphics();
 
