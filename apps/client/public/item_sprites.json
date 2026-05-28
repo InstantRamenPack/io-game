@@ -26,6 +26,7 @@
   "mag:machine_pistol": "/sprites/generated/machine_pistol.png",
   "mag:shotgun": "/sprites/generated/shotgun.png",
   "mag:sniper": "/sprites/generated/sniper.png",
+  "mag:thanos_machine_gun": "/sprites/generated/thanos_machine_gun.png",
   "mag:thanos_rifle": "/sprites/generated/thanos_rifle.png",
   "mag:thanos_rocket_launcher": "/sprites/generated/thanos_rocket_launcher.png"
 }

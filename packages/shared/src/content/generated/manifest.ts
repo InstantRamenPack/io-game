@@ -84,6 +84,7 @@ import itemspeedPotionJson from "@shared/content/item/speed_potion.json";
 import itemspikedSpearJson from "@shared/content/item/spiked_spear.json";
 import itemtaserJson from "@shared/content/item/taser.json";
 import itemthanosFistJson from "@shared/content/item/thanos_fist.json";
+import itemthanosMachineGunJson from "@shared/content/item/thanos_machine_gun.json";
 import itemthanosRifleJson from "@shared/content/item/thanos_rifle.json";
 import itemthanosRocketLauncherJson from "@shared/content/item/thanos_rocket_launcher.json";
 import itemwallJson from "@shared/content/item/wall.json";
@@ -98,6 +99,7 @@ import maglmgJson from "@shared/content/mag/lmg.json";
 import magmachinePistolJson from "@shared/content/mag/machine_pistol.json";
 import magshotgunJson from "@shared/content/mag/shotgun.json";
 import magsniperJson from "@shared/content/mag/sniper.json";
+import magthanosMachineGunJson from "@shared/content/mag/thanos_machine_gun.json";
 import magthanosRifleJson from "@shared/content/mag/thanos_rifle.json";
 import magthanosRocketLauncherJson from "@shared/content/mag/thanos_rocket_launcher.json";
 import blueprintarmorT1Json from "@shared/content/blueprint/armor_t1.json";
@@ -240,6 +242,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("spiked_spear", itemspikedSpearJson),
   makeParsedItemContentEntry("taser", itemtaserJson),
   makeParsedItemContentEntry("thanos_fist", itemthanosFistJson),
+  makeParsedItemContentEntry("thanos_machine_gun", itemthanosMachineGunJson),
   makeParsedItemContentEntry("thanos_rifle", itemthanosRifleJson),
   makeParsedItemContentEntry("thanos_rocket_launcher", itemthanosRocketLauncherJson),
   makeParsedItemContentEntry("wall", itemwallJson),
@@ -258,6 +261,7 @@ export const magContentEntries = [
   makeParsedMagContentEntry("machine_pistol", magmachinePistolJson),
   makeParsedMagContentEntry("shotgun", magshotgunJson),
   makeParsedMagContentEntry("sniper", magsniperJson),
+  makeParsedMagContentEntry("thanos_machine_gun", magthanosMachineGunJson),
   makeParsedMagContentEntry("thanos_rifle", magthanosRifleJson),
   makeParsedMagContentEntry("thanos_rocket_launcher", magthanosRocketLauncherJson),
 ] as const;

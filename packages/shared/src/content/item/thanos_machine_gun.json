@@ -1,0 +1,25 @@
+{
+  "label": "Thanos Machine Gun",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 1,
+    "projectileTypeId": "projectile:thanos_bullet",
+    "magSize": 120,
+    "reloadTicks": 1,
+    "spreadDeg": 0,
+    "equippedRender": {
+      "holdOffset": {
+        "x": 20,
+        "y": 4
+      },
+      "holdRotationDeg": -8,
+      "scale": 1.4,
+      "handedness": "right",
+      "recoilDistance": 16,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "magItemTypeId": "mag:thanos_machine_gun"
+  },
+  "rarityTier": "legendary"
+}
