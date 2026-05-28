@@ -13,6 +13,10 @@ export abstract class BlueprintItem extends Item {
     return false;
   }
 
+  public override requiresManualPickup(): boolean {
+    return true;
+  }
+
   public override canGrantToInventory(
     _targetInventory: Inventory,
     _amount: number,

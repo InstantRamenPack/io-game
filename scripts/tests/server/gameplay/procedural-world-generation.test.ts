@@ -3,11 +3,18 @@ import proceduralContentJson from "@shared/world/procedural-content.json";
 import {
   PROCEDURAL_GRID_SIZE,
   PROCEDURAL_SECTOR_BANDS,
+  PROCEDURAL_TARGET_VILLAGE_COUNT,
   PROCEDURAL_WORLD_SIZE,
   REQUIRED_DUNGEON_ROOM_ROLES,
   generateProceduralWorldLayout,
   pointInRect,
 } from "@shared/world/ProceduralWorld.ts";
+import {
+  countLegendaryBossSpawns,
+  getLegendaryBossTypeIds,
+  isLegendaryBossTypeId,
+  resolveWorldGenLegendaryBossPlacements,
+} from "@shared/world/legendaryBoss.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import {
   getAllItemContentEntries,
@@ -118,11 +125,30 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("non-dungeon areas are village and forest driven with distance-based village tiers", () => {
+  test("places villages randomly outside home, dungeon, and non-extraction sectors", () => {
     const layout = generateProceduralWorldLayout(1337);
 
-    expect(layout.villages.length).toBeGreaterThanOrEqual(9);
-    expect(layout.villages.length).toBeLessThanOrEqual(11);
+    expect(layout.villages).toHaveLength(PROCEDURAL_TARGET_VILLAGE_COUNT);
+    expect(
+      layout.villages.filter(
+        (village) => village.kind === "extraction_fortified",
+      ),
+    ).toHaveLength(1);
+    for (const village of layout.villages) {
+      expect(village.sectorId).not.toBe(layout.centerSectorId);
+      expect(village.sectorId).not.toBe(layout.dungeonSectorId);
+      if (village.kind === "extraction_fortified") {
+        expect(village.sectorId).toBe(layout.extractionSectorId);
+      } else {
+        expect(village.sectorId).not.toBe(layout.extractionSectorId);
+      }
+    }
+  });
+
+  test("non-dungeon areas are village and forest driven with rank-based village tiers", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    expect(layout.villages).toHaveLength(PROCEDURAL_TARGET_VILLAGE_COUNT);
     expect(layout.forestCamps.length).toBeGreaterThanOrEqual(12);
     expect(
       layout.villages.some(
@@ -231,15 +257,67 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("extraction point spawns inside the fortified extraction village", () => {
+  test("extraction point matches the fortified village helipad feature", () => {
     const layout = generateProceduralWorldLayout(1337);
+    const extractionSector = layout.sectors.find(
+      (sector) => sector.id === layout.extractionSectorId,
+    );
     const extractionVillage = layout.villages.find(
-      (village) => village.lootTier === "epic",
+      (village) => village.kind === "extraction_fortified",
     );
 
+    expect(extractionSector).toBeDefined();
     expect(extractionVillage).toBeDefined();
-    if (!extractionVillage) return;
-    expect(pointInRect(layout.extraction, extractionVillage)).toBe(true);
+    if (!extractionSector || !extractionVillage) return;
+
+    const helipadFeature = extractionSector.features.find(
+      (feature) =>
+        feature.role === "village_helipad" &&
+        feature.id === `${extractionVillage.id}_helipad`,
+    );
+    expect(helipadFeature).toBeDefined();
+    if (!helipadFeature) return;
+
+    expect(layout.extraction.x).toBe(helipadFeature.center.x);
+    expect(layout.extraction.y).toBe(helipadFeature.center.y);
+    expect(extractionVillage.center.x).toBe(extractionSector.center.x);
+    expect(extractionVillage.center.y).toBe(extractionSector.center.y);
+
+    const helipadMarker = layout.minimapMarkers.find(
+      (marker) => marker.id === "extraction_helipad",
+    );
+    expect(helipadMarker?.x).toBe(layout.extraction.x);
+    expect(helipadMarker?.y).toBe(layout.extraction.y);
+  });
+
+  test("fortified extraction helipad leaf blocks house structures from overlapping", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const extractionSector = layout.sectors.find(
+      (sector) => sector.id === layout.extractionSectorId,
+    );
+    const extractionVillage = layout.villages.find(
+      (village) => village.kind === "extraction_fortified",
+    );
+    expect(extractionSector).toBeDefined();
+    expect(extractionVillage).toBeDefined();
+    if (!extractionSector || !extractionVillage) return;
+
+    const helipadLeaf = {
+      minX: extractionVillage.center.x - 460,
+      minY: extractionVillage.center.y - 360,
+      maxX: extractionVillage.center.x + 460,
+      maxY: extractionVillage.center.y + 360,
+    };
+    const houseStructures = extractionSector.structures.filter((structure) =>
+      structure.typeId.startsWith("structure:house_"),
+    );
+    for (const structure of houseStructures) {
+      const hitboxes = resolveProceduralSpawnHitboxes(structure);
+      const overlapsHelipad = hitboxes.some((rect) =>
+        proceduralRectsOverlap(helipadLeaf, rect),
+      );
+      expect(overlapsHelipad).toBe(false);
+    }
   });
 
   test("village rooms select varied authored templates deterministically", () => {
@@ -608,6 +686,42 @@ describe("procedural survival extraction world", () => {
     }
   });
 
+  test("world generation places exactly two legendary bosses in dungeon and extraction", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const placements = resolveWorldGenLegendaryBossPlacements(1337);
+    const allEnemies = layout.sectors.flatMap((sector) => sector.enemies);
+
+    expect(getLegendaryBossTypeIds().length).toBeGreaterThan(0);
+    expect(countLegendaryBossSpawns(allEnemies)).toBe(2);
+    expect(
+      layout.dungeon.rooms.filter((room) => room.role === "boss"),
+    ).toHaveLength(1);
+
+    const dungeonSector = layout.sectors.find(
+      (sector) => sector.archetype === "dungeon",
+    )!;
+    const extractionSector = layout.sectors.find(
+      (sector) => sector.archetype === "extraction",
+    )!;
+
+    expect(
+      dungeonSector.enemies.filter(
+        (enemy) => enemy.typeId === placements.dungeon,
+      ),
+    ).toHaveLength(1);
+    expect(
+      extractionSector.enemies.filter(
+        (enemy) => enemy.typeId === placements.extraction,
+      ),
+    ).toHaveLength(1);
+
+    for (const sector of layout.sectors) {
+      if (sector.archetype !== "dungeon" && sector.archetype !== "extraction") {
+        expect(countLegendaryBossSpawns(sector.enemies)).toBe(0);
+      }
+    }
+  });
+
   test("dungeon contains all required room roles with role-specific content", () => {
     const layout = generateProceduralWorldLayout(1337);
     const roles = new Set(layout.dungeon.rooms.map((room) => room.role));
@@ -644,9 +758,16 @@ describe("procedural survival extraction world", () => {
       ).length,
     ).toBe(0);
     expect(dungeonSector?.enemies.length).toBeGreaterThanOrEqual(10);
-    expect(entityTypeIds(dungeonSector!)).toContain("enemy:thanos");
+    expect(
+      layout.dungeon.rooms.filter((room) => room.role === "boss"),
+    ).toHaveLength(1);
+    expect(
+      dungeonSector?.enemies.filter((enemy) =>
+        isLegendaryBossTypeId(enemy.typeId),
+      ),
+    ).toHaveLength(1);
     expect(entityTypeIds(dungeonSector!)).toEqual(
-      expect.arrayContaining(["enemy:ranger", "enemy:stalker"]),
+      expect.arrayContaining(["enemy:megaknight", "enemy:sniper"]),
     );
     expect(
       dungeonSector?.buildings.some(
@@ -1156,12 +1277,6 @@ function boundsForResolvedSpawnHitboxes(
 function villagesAreTieredByDistance(
   layout: ReturnType<typeof generateProceduralWorldLayout>,
 ): boolean {
-  const tierRank = new Map([
-    ["low", 0],
-    ["medium", 1],
-    ["high", 2],
-    ["boss", 3],
-  ]);
   const center = {
     x: layout.worldSize.w / 2,
     y: layout.worldSize.h / 2,
@@ -1180,14 +1295,19 @@ function villagesAreTieredByDistance(
       return aDistance - bDistance;
     });
 
-  for (let index = 1; index < villages.length; index += 1) {
-    const previous = tierRank.get(villages[index - 1]!.danger);
-    const current = tierRank.get(villages[index]!.danger);
-    if (previous === undefined || current === undefined || current < previous) {
-      return false;
-    }
+  if (villages.length !== 12) {
+    return false;
   }
-  return true;
+
+  const expectedTiers = [
+    ...Array.from({ length: 4 }, () => "low"),
+    ...Array.from({ length: 4 }, () => "medium"),
+    ...Array.from({ length: 4 }, () => "high"),
+  ] as const;
+
+  return villages.every(
+    (village, index) => village.danger === expectedTiers[index],
+  );
 }
 
 function pointWithinCamp(
@@ -1272,6 +1392,18 @@ type ProceduralRectLike = {
   maxX: number;
   maxY: number;
 };
+
+function proceduralRectsOverlap(
+  left: ProceduralRectLike,
+  right: ProceduralRectLike,
+): boolean {
+  return !(
+    left.maxX <= right.minX ||
+    right.maxX <= left.minX ||
+    left.maxY <= right.minY ||
+    right.maxY <= left.minY
+  );
+}
 
 function resolveProceduralSpawnHitboxes(
   spec: ReturnType<

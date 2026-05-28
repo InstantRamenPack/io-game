@@ -145,6 +145,13 @@ function addLootSlotToInventory(
   inventory: Inventory,
   slot: ProceduralCrateLootSlot,
 ): void {
+  if (slot.kind === "stackable") {
+    if (!inventory.addStackable(slot.typeId, slot.amount ?? 1)) {
+      throw new Error(`Could not create procedural crate loot ${slot.typeId}.`);
+    }
+    return;
+  }
+
   const itemEntry = requireItemLikeTypeEntry(slot.typeId);
   if (!inventory.grantItemCtor(itemEntry.ctor, slot.amount ?? 1)) {
     throw new Error(`Could not create procedural crate loot ${slot.typeId}.`);

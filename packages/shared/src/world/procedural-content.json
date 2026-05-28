@@ -170,8 +170,7 @@
       "enemy:commander",
       "enemy:stalker",
       "enemy:sniper",
-      "enemy:megaknight",
-      "enemy:thanos"
+      "enemy:megaknight"
     ]
   },
   "interiorSpawnChances": {
@@ -478,7 +477,7 @@
     "boss": {
       "enemies": [
         {
-          "typeId": "enemy:thanos",
+          "spawnRole": "legendary_boss",
           "offsetX": 0,
           "offsetY": -80
         },

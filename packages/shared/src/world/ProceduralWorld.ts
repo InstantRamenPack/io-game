@@ -11,7 +11,23 @@ import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import proceduralContentJson from "@shared/world/procedural-content.json";
-import { worldgenConfig } from "@shared/config/gameplayConfig.ts";
+import {
+  countLegendaryBossSpawns,
+  getLegendaryBossTypeIds,
+  resolveWorldGenLegendaryBossPlacements,
+  type WorldGenLegendaryBossPlacements,
+} from "@shared/world/legendaryBoss.ts";
+import {
+  extractionConfig,
+  worldgenConfig,
+} from "@shared/config/gameplayConfig.ts";
+
+export {
+  getLegendaryBossTypeIds,
+  isLegendaryBossTypeId,
+  resolveWorldGenLegendaryBossPlacements,
+  type WorldGenLegendaryBossPlacements,
+} from "@shared/world/legendaryBoss.ts";
 
 export const PROCEDURAL_WORLD_SEED = worldgenConfig.seed;
 export const PROCEDURAL_GRID_SIZE = worldgenConfig.gridSize;
@@ -252,6 +268,14 @@ export type ProceduralWorldLayout = {
   minimapMarkers: ProceduralMapMarker[];
 };
 
+type ProceduralDungeonEnemySpawn = {
+  offsetX: number;
+  offsetY: number;
+  margin?: number;
+  typeId?: string;
+  spawnRole?: "legendary_boss";
+};
+
 type ProceduralContentSpawn = {
   typeId: string;
   offsetX: number;
@@ -280,7 +304,7 @@ type ProceduralRewardTier = Exclude<RarityTier, "legendary">;
 type RarityWeightTable = Partial<Record<RarityTier, number>>;
 
 type ProceduralDungeonRoomContent = {
-  enemies?: ProceduralContentSpawn[];
+  enemies?: ProceduralDungeonEnemySpawn[];
   buildings?: ProceduralContentSpawn[];
   loot?: ProceduralContentLoot[];
   crates?: ProceduralContentCrate[];
@@ -349,6 +373,7 @@ const WAVE_ONLY_ENEMY_TYPE_IDS = new Set<ResourceId>([
   "enemy:saboteur",
   "enemy:wallbreaker",
 ]);
+const LEGENDARY_BOSS_TYPE_IDS = new Set<ResourceId>(getLegendaryBossTypeIds());
 const ENEMY_TYPE_IDS_BY_RARITY = buildEnemyTypeIdsByRarity();
 const EPIC_BLUEPRINT_TYPE_IDS = getEpicBlueprintTypeIds();
 
@@ -364,7 +389,11 @@ function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
     if (!typeId.startsWith("enemy:") || !content.rarityTier) {
       continue;
     }
-    if (typeId === "enemy:crate" || WAVE_ONLY_ENEMY_TYPE_IDS.has(typeId)) {
+    if (
+      typeId === "enemy:crate" ||
+      WAVE_ONLY_ENEMY_TYPE_IDS.has(typeId) ||
+      LEGENDARY_BOSS_TYPE_IDS.has(typeId)
+    ) {
       continue;
     }
     result[content.rarityTier].push(typeId);
@@ -476,6 +505,7 @@ export function generateProceduralWorldLayout(
     dungeonCoord.row,
     dungeonCoord.col,
   );
+  const legendaryBossPlacements = resolveWorldGenLegendaryBossPlacements(seed);
   const sectors: ProceduralSector[] = [];
   for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
     for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
@@ -483,23 +513,48 @@ export function generateProceduralWorldLayout(
       if (!archetype) {
         throw new Error(`Missing sector archetype for ${row}:${col}`);
       }
-      sectors.push(createSector(seed, rng, row, col, archetype, dungeon));
+      sectors.push(
+        createSector(
+          seed,
+          rng,
+          row,
+          col,
+          archetype,
+          dungeon,
+          legendaryBossPlacements,
+        ),
+      );
     }
   }
 
   const homeBounds = insetRect(sectorRect(1, 1), 280);
   const extractionSector = requireSector(sectors, "extraction");
-  const villages = sectors.flatMap((sector) => sector.villages);
+  const villages = placeAndBuildVillages({
+    seed,
+    rng: seedrandom(`${seed}:villages`),
+    sectors,
+    centerSectorId: sectorKey(1, 1),
+    extractionSectorId: sectorKey(extractionCoord.row, extractionCoord.col),
+    dungeonSectorId: sectorKey(dungeonCoord.row, dungeonCoord.col),
+  });
   guaranteeVillageBlueprintCrates(sectors, villages);
   const extractionVillage =
     extractionSector.villages.find(
       (village) => village.kind === "extraction_fortified",
     ) ?? null;
-  const extraction = {
-    x: extractionVillage?.center.x ?? extractionSector.center.x,
-    y: extractionVillage?.center.y ?? extractionSector.center.y,
-    radius: 160,
-  };
+  const extraction = resolveExtractionHelipad(
+    extractionSector,
+    extractionVillage,
+  );
+  syncExtractionSectorHelipadReferences(extractionSector, extraction);
+  extractionSector.enemies.push(
+    spawn(legendaryBossPlacements.extraction, extraction.x, extraction.y),
+  );
+  assertWorldGenLegendaryBossInvariants(
+    sectors,
+    legendaryBossPlacements,
+    dungeon,
+  );
   const forestCamps = sectors.flatMap((sector) => sector.forestCamps);
   const minimapMarkers = sectors.flatMap((sector) => sector.minimapMarkers);
 
@@ -703,6 +758,7 @@ function createSector(
   col: number,
   archetype: SectorArchetype,
   dungeon: ProceduralDungeonPlan,
+  legendaryBossPlacements: WorldGenLegendaryBossPlacements,
 ): ProceduralSector {
   const rect = sectorRect(row, col);
   const center = snapPoint({
@@ -786,26 +842,6 @@ function createSector(
         "boss",
         "epic",
       ),
-    );
-    const extractionVillage = createVillagePlan(
-      rng,
-      sectorKey(row, col),
-      "extraction_fortified",
-      rect,
-      center,
-      isCornerCoord(row, col),
-      0,
-    );
-    villages.push(extractionVillage);
-    addVillageContent(
-      rng,
-      archetype,
-      extractionVillage,
-      structures,
-      enemies,
-      loot,
-      features,
-      markers,
     );
     addMilitaryFence(structures, center, 960, 720);
     addFeature(
@@ -918,7 +954,13 @@ function createSector(
         room.role === "boss" || room.role === "mini_boss" ? "major" : "route",
         room.role === "entrance",
       );
-      addDungeonRoomContent(room, enemies, loot, buildings);
+      addDungeonRoomContent(
+        room,
+        enemies,
+        loot,
+        buildings,
+        legendaryBossPlacements.dungeon,
+      );
     }
   } else {
     addVillageAndForestSectorContent(
@@ -933,7 +975,6 @@ function createSector(
       loot,
       features,
       markers,
-      villages,
       forestCamps,
     );
   }
@@ -950,6 +991,37 @@ function createSector(
     ),
   );
 
+  finalizeSectorSpawnCollections(structures, buildings, enemies);
+
+  return {
+    id: sectorKey(row, col),
+    row,
+    col,
+    archetype,
+    label: labelForArchetype(archetype),
+    ...rect,
+    center,
+    landmark,
+    rewardArea,
+    traversalConnections: adjacentSectorIds(row, col),
+    structures,
+    buildings,
+    enemies,
+    loot,
+    features,
+    minimapMarkers: markers,
+    villages,
+    forestCamps,
+    hasLightsOut: archetype !== "home",
+    allowsFastBuildingDecay: archetype !== "home",
+  };
+}
+
+function finalizeSectorSpawnCollections(
+  structures: ProceduralSpawnSpec[],
+  buildings: ProceduralSpawnSpec[],
+  enemies: ProceduralSpawnSpec[],
+): void {
   const staticSpawns = pruneOverlappingStaticSpawns([
     ...structures,
     ...buildings,
@@ -968,33 +1040,16 @@ function createSector(
     const parentKey = interiorParentKeyFromLabel(spec.label);
     return parentKey === null || keptParentKeys.has(parentKey);
   });
-
-  return {
-    id: sectorKey(row, col),
-    row,
-    col,
-    archetype,
-    label: labelForArchetype(archetype),
-    ...rect,
-    center,
-    landmark,
-    rewardArea,
-    traversalConnections: adjacentSectorIds(row, col),
-    structures: filteredStructures.filter((spec) =>
-      structureTypeIds.has(spec.typeId),
-    ),
-    buildings: filteredStructures.filter(
-      (spec) => !structureTypeIds.has(spec.typeId),
-    ),
-    enemies: filteredEnemies,
-    loot,
-    features,
-    minimapMarkers: markers,
-    villages,
-    forestCamps,
-    hasLightsOut: archetype !== "home",
-    allowsFastBuildingDecay: archetype !== "home",
-  };
+  structures.length = 0;
+  structures.push(
+    ...filteredStructures.filter((spec) => structureTypeIds.has(spec.typeId)),
+  );
+  buildings.length = 0;
+  buildings.push(
+    ...filteredStructures.filter((spec) => !structureTypeIds.has(spec.typeId)),
+  );
+  enemies.length = 0;
+  enemies.push(...filteredEnemies);
 }
 
 function pruneOverlappingStaticSpawns(
@@ -1477,7 +1532,7 @@ function assignDungeonRoomRoles(
     rolesByLayout.set(depthOrdered[depthIndex]!, requiredByDepth[index]!);
   }
 
-  return layouts.map((layout, index) => {
+  const rooms = layouts.map((layout, index) => {
     const role = rolesByLayout.get(layout) ?? "combat";
     return {
       id: `dungeon_${role}_${index}`,
@@ -1502,6 +1557,34 @@ function assignDungeonRoomRoles(
       centerY: layout.centerY,
     };
   });
+  ensureExactlyOneBossRoom(rooms, entrances);
+  return rooms;
+}
+
+function ensureExactlyOneBossRoom(
+  rooms: ProceduralDungeonRoom[],
+  entrances: readonly ProceduralDungeonEntrance[],
+): void {
+  const bossRooms = rooms.filter((room) => room.role === "boss");
+  if (bossRooms.length === 1) {
+    return;
+  }
+
+  const deepest = [...rooms].sort(
+    (left, right) =>
+      dungeonRoomEntranceDepth(right, entrances) -
+      dungeonRoomEntranceDepth(left, entrances),
+  )[0]!;
+  for (const room of rooms) {
+    if (room.role === "boss" && room.id !== deepest.id) {
+      room.role = "combat";
+    }
+  }
+  deepest.role = "boss";
+
+  if (rooms.filter((room) => room.role === "boss").length !== 1) {
+    throw new Error("Failed to assign exactly one dungeon boss room.");
+  }
 }
 
 function dungeonRoomEntranceDepth(
@@ -1847,6 +1930,7 @@ function addDungeonRoomContent(
   enemies: ProceduralSpawnSpec[],
   loot: ProceduralLootSpec[],
   buildings: ProceduralSpawnSpec[],
+  dungeonLegendaryBossTypeId: ResourceId,
 ): void {
   const point = (offsetX: number, offsetY: number, margin = 96) =>
     dungeonRoomContentPoint(room, offsetX, offsetY, margin);
@@ -1893,15 +1977,11 @@ function addDungeonRoomContent(
   for (const enemy of content.enemies ?? []) {
     roomEnemySpawns.push(
       roomSpawn(
-        selectEnemyTypeIdByRarityWeights(
-          seededRng(`${room.id}:${enemy.offsetX}:${enemy.offsetY}:enemy`),
+        resolveDungeonEnemyTypeId(
+          enemy,
+          room,
           enemyWeights,
-          {
-            excludedTypeIds: new Set<ResourceId>([
-              "enemy:saboteur",
-              "enemy:wallbreaker",
-            ]),
-          },
+          dungeonLegendaryBossTypeId,
         ),
         enemy.offsetX,
         enemy.offsetY,
@@ -1950,6 +2030,78 @@ function addDungeonRoomContent(
           };
         }),
       ),
+    );
+  }
+}
+
+function resolveDungeonEnemyTypeId(
+  enemy: ProceduralDungeonEnemySpawn,
+  room: ProceduralDungeonRoom,
+  enemyWeights: RarityWeightTable,
+  dungeonLegendaryBossTypeId: ResourceId,
+): ResourceId {
+  if (enemy.spawnRole === "legendary_boss") {
+    return dungeonLegendaryBossTypeId;
+  }
+  if (enemy.typeId) {
+    return enemy.typeId as ResourceId;
+  }
+  return selectEnemyTypeIdByRarityWeights(
+    seededRng(`${room.id}:${enemy.offsetX}:${enemy.offsetY}:enemy`),
+    enemyWeights,
+    proceduralEnemyExclusions(),
+  );
+}
+
+function proceduralEnemyExclusions(): {
+  excludedTypeIds: ReadonlySet<ResourceId>;
+} {
+  return {
+    excludedTypeIds: new Set<ResourceId>([
+      "enemy:saboteur",
+      "enemy:wallbreaker",
+      ...LEGENDARY_BOSS_TYPE_IDS,
+    ]),
+  };
+}
+
+function assertWorldGenLegendaryBossInvariants(
+  sectors: readonly ProceduralSector[],
+  placements: WorldGenLegendaryBossPlacements,
+  dungeon: ProceduralDungeonPlan,
+): void {
+  const allEnemies = sectors.flatMap((sector) => sector.enemies);
+  const totalLegendaryBosses = countLegendaryBossSpawns(allEnemies);
+  if (totalLegendaryBosses !== 2) {
+    throw new Error(
+      `Expected exactly 2 legendary boss spawns at world generation, found ${totalLegendaryBosses}.`,
+    );
+  }
+
+  const bossRooms = dungeon.rooms.filter((room) => room.role === "boss");
+  if (bossRooms.length !== 1) {
+    throw new Error(
+      `Expected exactly 1 dungeon boss room, found ${bossRooms.length}.`,
+    );
+  }
+
+  const dungeonSector = requireSector(sectors, "dungeon");
+  const extractionSector = requireSector(sectors, "extraction");
+  const dungeonBossCount = dungeonSector.enemies.filter(
+    (enemy) => enemy.typeId === placements.dungeon,
+  ).length;
+  const extractionBossCount = extractionSector.enemies.filter(
+    (enemy) => enemy.typeId === placements.extraction,
+  ).length;
+
+  if (dungeonBossCount !== 1) {
+    throw new Error(
+      `Expected exactly 1 dungeon legendary boss (${placements.dungeon}), found ${dungeonBossCount}.`,
+    );
+  }
+  if (extractionBossCount !== 1) {
+    throw new Error(
+      `Expected exactly 1 extraction legendary boss (${placements.extraction}), found ${extractionBossCount}.`,
     );
   }
 }
@@ -2016,35 +2168,8 @@ function addVillageAndForestSectorContent(
   loot: ProceduralLootSpec[],
   features: ProceduralPoiFeature[],
   markers: ProceduralMapMarker[],
-  villages: ProceduralVillagePlan[],
   forestCamps: ProceduralForestCamp[],
 ): void {
-  const villageCount = isCorner ? 2 : archetype === "forest" ? 1 : 1;
-  const villageKind = villageKindForArchetype(archetype, isCorner);
-  const anchors = createVillageAnchors(rect, center, villageCount);
-  anchors.forEach((anchor, index) => {
-    const village = createVillagePlan(
-      rng,
-      sectorId,
-      villageKind,
-      rect,
-      anchor,
-      isCorner,
-      index,
-    );
-    villages.push(village);
-    addVillageContent(
-      rng,
-      archetype,
-      village,
-      structures,
-      enemies,
-      loot,
-      features,
-      markers,
-    );
-  });
-
   addForest(structures, rng, rect, forestTreeCount(rect, isCorner));
   const campCount = isCorner ? 3 : 2;
   for (let index = 0; index < campCount; index += 1) {
@@ -2088,143 +2213,286 @@ function villageKindForArchetype(
   return "civilian";
 }
 
-function createVillageAnchors(
-  rect: ProceduralRect,
-  center: ProceduralPoint,
-  count: number,
-): ProceduralPoint[] {
-  if (count === 1) {
-    return [center];
+type VillagePlacementContext = {
+  seed: number;
+  rng: seedrandom.PRNG;
+  sectors: ProceduralSector[];
+  centerSectorId: string;
+  extractionSectorId: string;
+  dungeonSectorId: string;
+};
+
+const VILLAGE_PLACEMENT_MAX_ATTEMPTS = 256;
+
+function placeAndBuildVillages(
+  context: VillagePlacementContext,
+): ProceduralVillagePlan[] {
+  const placed: ProceduralVillagePlan[] = [];
+  const randomVillageCount = PROCEDURAL_TARGET_VILLAGE_COUNT - 1;
+  const eligibleSectors = listRandomVillageEligibleSectors(context);
+  const guaranteedSectors = shuffle(context.rng, eligibleSectors);
+  const guaranteedCount = Math.min(
+    randomVillageCount,
+    guaranteedSectors.length,
+  );
+
+  for (let index = 0; index < guaranteedCount; index += 1) {
+    placed.push(
+      placeVillageInSector(context, guaranteedSectors[index]!, placed, index),
+    );
   }
-  return [
-    snapPoint({
-      x: rect.minX + (rect.maxX - rect.minX) * 0.34,
-      y: rect.minY + (rect.maxY - rect.minY) * 0.38,
-    }),
-    snapPoint({
-      x: rect.minX + (rect.maxX - rect.minX) * 0.68,
-      y: rect.minY + (rect.maxY - rect.minY) * 0.66,
-    }),
-  ];
+  for (let index = guaranteedCount; index < randomVillageCount; index += 1) {
+    placed.push(placeRandomVillage(context, placed, index));
+  }
+
+  const extractionSector = requireSector(context.sectors, "extraction");
+  placed.push(
+    placeExtractionVillage(context.rng, extractionSector, placed.length),
+  );
+
+  assignVillageTiers(placed, context);
+
+  const touchedSectorIds = new Set<string>();
+  for (const village of placed) {
+    const sector = context.sectors.find(
+      (candidate) => candidate.id === village.sectorId,
+    );
+    if (!sector) {
+      throw new Error(`Missing sector for village ${village.id}`);
+    }
+    sector.villages.push(village);
+    touchedSectorIds.add(sector.id);
+    addVillageContent(
+      seedrandom(`${context.seed}:village:${village.id}`),
+      sector.archetype,
+      village,
+      sector.structures,
+      sector.enemies,
+      sector.loot,
+      sector.features,
+      sector.minimapMarkers,
+    );
+  }
+
+  for (const sector of context.sectors) {
+    if (!touchedSectorIds.has(sector.id)) {
+      continue;
+    }
+    finalizeSectorSpawnCollections(
+      sector.structures,
+      sector.buildings,
+      sector.enemies,
+    );
+  }
+
+  return placed;
+}
+
+function listRandomVillageEligibleSectors(
+  context: VillagePlacementContext,
+): ProceduralSector[] {
+  return context.sectors.filter(
+    (sector) => !isForbiddenRandomVillageSector(sector.id, context),
+  );
+}
+
+function placeVillageInSector(
+  context: VillagePlacementContext,
+  sector: ProceduralSector,
+  placed: readonly ProceduralVillagePlan[],
+  index: number,
+): ProceduralVillagePlan {
+  for (
+    let attempt = 0;
+    attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const center = randomVillageCenterInSector(context.rng, sector);
+    const village = createVillagePlan(
+      sector.id,
+      villageKindForArchetype(
+        sector.archetype,
+        isCornerCoord(sector.row, sector.col),
+      ),
+      sector,
+      center,
+      isCornerCoord(sector.row, sector.col),
+      index,
+    );
+    if (placed.some((existing) => villagesOverlap(existing, village))) {
+      continue;
+    }
+    return village;
+  }
+  throw new Error(
+    `Failed to place village ${index} in ${sector.id} for seed ${context.seed} after ${VILLAGE_PLACEMENT_MAX_ATTEMPTS} attempts`,
+  );
+}
+
+function placeRandomVillage(
+  context: VillagePlacementContext,
+  placed: readonly ProceduralVillagePlan[],
+  index: number,
+): ProceduralVillagePlan {
+  for (
+    let attempt = 0;
+    attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const center = snapPoint({
+      x: context.rng() * PROCEDURAL_WORLD_SIZE.w,
+      y: context.rng() * PROCEDURAL_WORLD_SIZE.h,
+    });
+    const sector = context.sectors.find((candidate) =>
+      pointInRect(center, candidate),
+    );
+    if (!sector || isForbiddenRandomVillageSector(sector.id, context)) {
+      continue;
+    }
+    const village = createVillagePlan(
+      sector.id,
+      villageKindForArchetype(
+        sector.archetype,
+        isCornerCoord(sector.row, sector.col),
+      ),
+      sector,
+      center,
+      isCornerCoord(sector.row, sector.col),
+      index,
+    );
+    if (placed.some((existing) => villagesOverlap(existing, village))) {
+      continue;
+    }
+    return village;
+  }
+  throw new Error(
+    `Failed to place village ${index} for seed ${context.seed} after ${VILLAGE_PLACEMENT_MAX_ATTEMPTS} attempts`,
+  );
+}
+
+function placeExtractionVillage(
+  _rng: seedrandom.PRNG,
+  sector: ProceduralSector,
+  index: number,
+): ProceduralVillagePlan {
+  return createVillagePlan(
+    sector.id,
+    "extraction_fortified",
+    sector,
+    sector.center,
+    isCornerCoord(sector.row, sector.col),
+    index,
+  );
+}
+
+function isForbiddenRandomVillageSector(
+  sectorId: string,
+  context: Pick<
+    VillagePlacementContext,
+    "centerSectorId" | "extractionSectorId" | "dungeonSectorId"
+  >,
+): boolean {
+  return (
+    sectorId === context.centerSectorId ||
+    sectorId === context.extractionSectorId ||
+    sectorId === context.dungeonSectorId
+  );
+}
+
+function randomVillageCenterInSector(
+  rng: seedrandom.PRNG,
+  sector: ProceduralRect,
+): ProceduralPoint {
+  const bounds = villageCenterBounds(sector);
+  return snapPoint({
+    x: bounds.minX + rng() * (bounds.maxX - bounds.minX),
+    y: bounds.minY + rng() * (bounds.maxY - bounds.minY),
+  });
+}
+
+function villagesOverlap(
+  left: ProceduralVillagePlan,
+  right: ProceduralVillagePlan,
+): boolean {
+  return !(
+    left.maxX <= right.minX ||
+    right.maxX <= left.minX ||
+    left.maxY <= right.minY ||
+    right.maxY <= left.minY
+  );
+}
+
+const NON_EXTRACTION_VILLAGES_PER_TIER = 4;
+
+function assignVillageTiers(
+  villages: ProceduralVillagePlan[],
+  _context: VillagePlacementContext,
+): void {
+  const worldCenter = proceduralWorldCenter();
+  const ranked = villages
+    .filter((village) => village.kind !== "extraction_fortified")
+    .slice()
+    .sort((left, right) => {
+      const leftDistance = Math.hypot(
+        left.center.x - worldCenter.x,
+        left.center.y - worldCenter.y,
+      );
+      const rightDistance = Math.hypot(
+        right.center.x - worldCenter.x,
+        right.center.y - worldCenter.y,
+      );
+      return leftDistance - rightDistance;
+    });
+
+  for (let index = 0; index < ranked.length; index += 1) {
+    const village = ranked[index]!;
+    const tier =
+      index < NON_EXTRACTION_VILLAGES_PER_TIER
+        ? { danger: "low" as const, lootTier: "common" as const }
+        : index < NON_EXTRACTION_VILLAGES_PER_TIER * 2
+          ? { danger: "medium" as const, lootTier: "uncommon" as const }
+          : { danger: "high" as const, lootTier: "rare" as const };
+    village.danger = tier.danger;
+    village.lootTier = tier.lootTier;
+  }
+
+  for (const village of villages) {
+    if (village.kind === "extraction_fortified") {
+      village.danger = "boss";
+      village.lootTier = "epic";
+    }
+  }
 }
 
 function createVillagePlan(
-  rng: seedrandom.PRNG,
   sectorId: string,
   kind: ProceduralVillageKind,
   sector: ProceduralRect,
-  anchor: ProceduralPoint,
+  center: ProceduralPoint,
   isCorner: boolean,
   index: number,
 ): ProceduralVillagePlan {
   const width = kind === "extraction_fortified" ? 1760 : isCorner ? 1520 : 1180;
   const height = kind === "extraction_fortified" ? 1360 : isCorner ? 1180 : 920;
-  const center = snapPoint({
-    x: clamp(
-      anchor.x + (rng() - 0.5) * 360,
-      sector.minX + worldgenConfig.villageCenterMargin.x,
-      sector.maxX - worldgenConfig.villageCenterMargin.x,
-    ),
-    y: clamp(
-      anchor.y + (rng() - 0.5) * 360,
-      sector.minY + worldgenConfig.villageCenterMargin.y,
-      sector.maxY - worldgenConfig.villageCenterMargin.y,
-    ),
+  const bounds = villageCenterBounds(sector);
+  const snappedCenter = snapPoint({
+    x: clamp(center.x, bounds.minX, bounds.maxX),
+    y: clamp(center.y, bounds.minY, bounds.maxY),
   });
-  const { danger, lootTier } =
-    kind === "extraction_fortified"
-      ? { danger: "boss" as const, lootTier: "epic" as const }
-      : villageTierForDistance(center);
   const poiRoles = createVillagePoiRoles(kind, isCorner);
   return {
     id: `${sectorId}_village_${index}`,
     sectorId,
     kind,
-    center,
-    danger,
-    lootTier,
+    center: snappedCenter,
+    danger: "low",
+    lootTier: "common",
     poiRoles,
-    minX: snapEdge(center.x - width / 2),
-    minY: snapEdge(center.y - height / 2),
-    maxX: snapEdge(center.x + width / 2),
-    maxY: snapEdge(center.y + height / 2),
+    minX: snapEdge(snappedCenter.x - width / 2),
+    minY: snapEdge(snappedCenter.y - height / 2),
+    maxX: snapEdge(snappedCenter.x + width / 2),
+    maxY: snapEdge(snappedCenter.y + height / 2),
   };
-}
-
-function villageTierForDistance(
-  center: ProceduralPoint,
-): Pick<ProceduralVillagePlan, "danger" | "lootTier"> {
-  const worldCenter = proceduralWorldCenter();
-  const distance = Math.hypot(
-    center.x - worldCenter.x,
-    center.y - worldCenter.y,
-  );
-  const { min, max } = possibleVillageCenterDistanceRange();
-  const bandWidth = (max - min) / 3;
-  if (distance < min + bandWidth) {
-    return { danger: "low", lootTier: "common" };
-  }
-  if (distance < min + bandWidth * 2) {
-    return { danger: "medium", lootTier: "uncommon" };
-  }
-  return { danger: "high", lootTier: "rare" };
-}
-
-function possibleVillageCenterDistanceRange(): { min: number; max: number } {
-  const worldCenter = proceduralWorldCenter();
-  let min = Number.POSITIVE_INFINITY;
-  let max = 0;
-
-  for (let row = 0; row < PROCEDURAL_GRID_SIZE; row += 1) {
-    for (let col = 0; col < PROCEDURAL_GRID_SIZE; col += 1) {
-      if (row === 1 && col === 1) {
-        continue;
-      }
-      for (const bounds of possibleVillageCenterRects(row, col)) {
-        const closest = snapPoint({
-          x: clamp(worldCenter.x, bounds.minX, bounds.maxX),
-          y: clamp(worldCenter.y, bounds.minY, bounds.maxY),
-        });
-        min = Math.min(
-          min,
-          Math.hypot(closest.x - worldCenter.x, closest.y - worldCenter.y),
-        );
-        for (const corner of rectCorners(bounds)) {
-          const snappedCorner = snapPoint(corner);
-          max = Math.max(
-            max,
-            Math.hypot(
-              snappedCorner.x - worldCenter.x,
-              snappedCorner.y - worldCenter.y,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  return { min, max };
-}
-
-function possibleVillageCenterRects(
-  row: number,
-  col: number,
-): ProceduralRect[] {
-  const sector = sectorRect(row, col);
-  const sectorCenter = snapPoint({
-    x: (sector.minX + sector.maxX) / 2,
-    y: (sector.minY + sector.maxY) / 2,
-  });
-  const centerBounds = villageCenterBounds(sector);
-  const villageCount = isCornerCoord(row, col) ? 2 : 1;
-  return createVillageAnchors(sector, sectorCenter, villageCount).map(
-    (anchor) => ({
-      minX: clamp(anchor.x - 180, centerBounds.minX, centerBounds.maxX),
-      minY: clamp(anchor.y - 180, centerBounds.minY, centerBounds.maxY),
-      maxX: clamp(anchor.x + 180, centerBounds.minX, centerBounds.maxX),
-      maxY: clamp(anchor.y + 180, centerBounds.minY, centerBounds.maxY),
-    }),
-  );
 }
 
 function villageCenterBounds(sector: ProceduralRect): ProceduralRect {
@@ -2241,15 +2509,6 @@ function proceduralWorldCenter(): ProceduralPoint {
     x: PROCEDURAL_WORLD_SIZE.w / 2,
     y: PROCEDURAL_WORLD_SIZE.h / 2,
   };
-}
-
-function rectCorners(rect: ProceduralRect): ProceduralPoint[] {
-  return [
-    { x: rect.minX, y: rect.minY },
-    { x: rect.maxX, y: rect.minY },
-    { x: rect.minX, y: rect.maxY },
-    { x: rect.maxX, y: rect.maxY },
-  ];
 }
 
 function createVillagePoiRoles(
@@ -2305,7 +2564,14 @@ function addVillageContent(
     village.lootTier,
   );
 
-  const rooms = createBspVillageRooms(rng, village, village.poiRoles);
+  const helipadReserve =
+    village.kind === "extraction_fortified"
+      ? reserveExtractionHelipadLeaf(village)
+      : null;
+  const rooms =
+    village.kind === "extraction_fortified"
+      ? createExtractionFortifiedVillageRooms(rng, village, village.poiRoles)
+      : createBspVillageRooms(rng, village, village.poiRoles);
   for (const room of rooms) {
     addVillagePoiBlock(
       rng,
@@ -2317,6 +2583,7 @@ function addVillageContent(
       loot,
       features,
       markers,
+      helipadReserve,
     );
   }
 }
@@ -2365,6 +2632,184 @@ type VillageTemplateEnemy = VillageTemplateOffset & {
 
 const VILLAGE_ROOM_TEMPLATES = PROCEDURAL_CONTENT.villageRoomTemplates;
 const INTERIOR_SPAWN_CHANCES = PROCEDURAL_CONTENT.interiorSpawnChances;
+const EXTRACTION_HELIPAD_LEAF_WIDTH = 920;
+const EXTRACTION_HELIPAD_LEAF_HEIGHT = 720;
+const HOUSE_STRUCTURE_TYPE_IDS = new Set<ResourceId>([
+  "structure:house_s",
+  "structure:house_m",
+  "structure:house_l",
+]);
+
+function resolveExtractionHelipad(
+  extractionSector: ProceduralSector,
+  extractionVillage: ProceduralVillagePlan | null,
+): ProceduralPoint & { radius: number } {
+  const helipadCenter =
+    (extractionVillage
+      ? findVillageHelipadFeature(extractionSector, extractionVillage)?.center
+      : null) ?? extractionSector.center;
+  return {
+    x: helipadCenter.x,
+    y: helipadCenter.y,
+    radius: extractionConfig.fallbackHelipad.radius,
+  };
+}
+
+function findVillageHelipadFeature(
+  sector: ProceduralSector,
+  village: ProceduralVillagePlan,
+): ProceduralPoiFeature | undefined {
+  return sector.features.find(
+    (feature) =>
+      feature.role === "village_helipad" &&
+      feature.id === `${village.id}_helipad`,
+  );
+}
+
+function syncExtractionSectorHelipadReferences(
+  extractionSector: ProceduralSector,
+  extraction: ProceduralPoint & { radius: number },
+): void {
+  const helipadMarker = extractionSector.minimapMarkers.find(
+    (marker) => marker.id === "extraction_helipad",
+  );
+  if (helipadMarker) {
+    helipadMarker.x = extraction.x;
+    helipadMarker.y = extraction.y;
+  }
+  for (const feature of extractionSector.features) {
+    if (feature.id === "extraction_pad" || feature.role === "helipad") {
+      const halfWidth = (feature.maxX - feature.minX) / 2;
+      const halfHeight = (feature.maxY - feature.minY) / 2;
+      feature.center = snapPoint({ x: extraction.x, y: extraction.y });
+      feature.minX = snap(extraction.x - halfWidth);
+      feature.minY = snap(extraction.y - halfHeight);
+      feature.maxX = snap(extraction.x + halfWidth);
+      feature.maxY = snap(extraction.y + halfHeight);
+    }
+  }
+}
+
+function reserveExtractionHelipadLeaf(
+  village: ProceduralVillagePlan,
+): ProceduralRect {
+  return {
+    minX: snapEdge(village.center.x - EXTRACTION_HELIPAD_LEAF_WIDTH / 2),
+    minY: snapEdge(village.center.y - EXTRACTION_HELIPAD_LEAF_HEIGHT / 2),
+    maxX: snapEdge(village.center.x + EXTRACTION_HELIPAD_LEAF_WIDTH / 2),
+    maxY: snapEdge(village.center.y + EXTRACTION_HELIPAD_LEAF_HEIGHT / 2),
+  };
+}
+
+function partitionAroundCentralRect(
+  outer: ProceduralRect,
+  inner: ProceduralRect,
+): ProceduralRect[] {
+  const partitions: ProceduralRect[] = [];
+  if (inner.minY > outer.minY) {
+    partitions.push({
+      minX: outer.minX,
+      minY: outer.minY,
+      maxX: outer.maxX,
+      maxY: inner.minY,
+    });
+  }
+  if (inner.maxY < outer.maxY) {
+    partitions.push({
+      minX: outer.minX,
+      minY: inner.maxY,
+      maxX: outer.maxX,
+      maxY: outer.maxY,
+    });
+  }
+  if (inner.minX > outer.minX) {
+    partitions.push({
+      minX: outer.minX,
+      minY: inner.minY,
+      maxX: inner.minX,
+      maxY: inner.maxY,
+    });
+  }
+  if (inner.maxX < outer.maxX) {
+    partitions.push({
+      minX: inner.maxX,
+      minY: inner.minY,
+      maxX: outer.maxX,
+      maxY: inner.maxY,
+    });
+  }
+  return partitions.filter(
+    (rect) => rect.maxX - rect.minX >= 320 && rect.maxY - rect.minY >= 320,
+  );
+}
+
+function createExtractionFortifiedVillageRooms(
+  rng: seedrandom.PRNG,
+  village: ProceduralVillagePlan,
+  roles: readonly ProceduralVillagePoiRole[],
+): VillageRoom[] {
+  const helipadLeaf = reserveExtractionHelipadLeaf(village);
+  const helipadRoom: VillageRoom = {
+    ...helipadLeaf,
+    center: snapPoint({
+      x: (helipadLeaf.minX + helipadLeaf.maxX) / 2,
+      y: (helipadLeaf.minY + helipadLeaf.maxY) / 2,
+    }),
+    role: "helipad",
+  };
+  const otherRoles = roles.filter((role) => role !== "helipad");
+  if (otherRoles.length === 0) {
+    return [helipadRoom];
+  }
+
+  const leaves = partitionAroundCentralRect(
+    insetRect(village, 96),
+    helipadLeaf,
+  );
+  while (leaves.length < otherRoles.length) {
+    const index = leaves
+      .map((leaf, leafIndex) => ({
+        leafIndex,
+        area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY),
+      }))
+      .sort((left, right) => right.area - left.area)[0]?.leafIndex;
+    if (index === undefined) {
+      break;
+    }
+    const leaf = leaves.splice(index, 1)[0]!;
+    const width = leaf.maxX - leaf.minX;
+    const height = leaf.maxY - leaf.minY;
+    if (Math.max(width, height) < 520) {
+      leaves.push(leaf);
+      break;
+    }
+    const vertical = width > height;
+    const ratio = 0.42 + rng() * 0.16;
+    if (vertical) {
+      const splitX = snapEdge(leaf.minX + width * ratio);
+      leaves.push(
+        { ...leaf, maxX: splitX - 64 },
+        { ...leaf, minX: splitX + 64 },
+      );
+    } else {
+      const splitY = snapEdge(leaf.minY + height * ratio);
+      leaves.push(
+        { ...leaf, maxY: splitY - 64 },
+        { ...leaf, minY: splitY + 64 },
+      );
+    }
+  }
+
+  const otherRooms = leaves.slice(0, otherRoles.length).map((leaf, index) => ({
+    ...leaf,
+    center: snapPoint({
+      x: (leaf.minX + leaf.maxX) / 2,
+      y: (leaf.minY + leaf.maxY) / 2,
+    }),
+    role: otherRoles[index]!,
+  }));
+  return [helipadRoom, ...otherRooms];
+}
 
 function createBspVillageRooms(
   rng: seedrandom.PRNG,
@@ -2426,6 +2871,7 @@ function addVillagePoiBlock(
   loot: ProceduralLootSpec[],
   features: ProceduralPoiFeature[],
   markers: ProceduralMapMarker[],
+  blockedRects: ProceduralRect | null = null,
 ): void {
   const roleFeature = villageRoleFeature(room.role);
   addFeature(
@@ -2455,9 +2901,10 @@ function addVillagePoiBlock(
     structures,
     enemies,
     loot,
+    blockedRects && room.role !== "helipad" ? blockedRects : null,
   );
 
-  addVillageEnemies(rng, village, room, enemies);
+  addVillageEnemies(rng, village, room, enemies, blockedRects);
 }
 
 function villageLabel(kind: ProceduralVillageKind): string {
@@ -2529,7 +2976,21 @@ function applyVillageRoomTemplate(
   structures: ProceduralSpawnSpec[],
   enemies: ProceduralSpawnSpec[],
   loot: ProceduralLootSpec[],
+  blockedRect: ProceduralRect | null = null,
 ): void {
+  const shouldBlockSpawn = (
+    spec: ProceduralSpawnSpec,
+    typeId?: string,
+  ): boolean => {
+    if (!blockedRect || room.role === "helipad") {
+      return false;
+    }
+    if (typeId && !HOUSE_STRUCTURE_TYPE_IDS.has(typeId as ResourceId)) {
+      return false;
+    }
+    return overlapsRect(spec, blockedRect);
+  };
+
   for (const structure of template.structures ?? []) {
     if ("kind" in structure) {
       addMilitaryFence(
@@ -2550,6 +3011,9 @@ function applyVillageRoomTemplate(
         : spawn(structure.typeId, x, y),
       template.id,
     );
+    if (shouldBlockSpawn(structureSpawn, structure.typeId)) {
+      continue;
+    }
     const parentKey = `${structureSpawn.typeId}@${structureSpawn.x},${structureSpawn.y}`;
     const doorwayRect = doorwayClearanceRect(structureSpawn);
     const acceptedInteriorSpawns: ProceduralSpawnSpec[] = [];
@@ -2638,34 +3102,40 @@ function applyVillageRoomTemplate(
     }
   }
   for (const crate of template.crates ?? []) {
-    enemies.push(
-      withTemplateLabel(
-        crateSpawn(
-          "enemy:crate",
-          room.center.x + crate.dx,
-          room.center.y + crate.dy,
-          crateLootForTier(rng, village.lootTier),
-        ),
-        template.id,
+    const crateSpec = withTemplateLabel(
+      crateSpawn(
+        "enemy:crate",
+        room.center.x + crate.dx,
+        room.center.y + crate.dy,
+        crateLootForTier(rng, village.lootTier),
       ),
+      template.id,
     );
+    if (!shouldBlockSpawn(crateSpec)) {
+      enemies.push(crateSpec);
+    }
   }
   for (const enemy of template.enemies ?? []) {
-    enemies.push(
-      withTemplateLabel(
-        spawn(enemy.typeId, room.center.x + enemy.dx, room.center.y + enemy.dy),
-        template.id,
-      ),
+    const enemySpec = withTemplateLabel(
+      spawn(enemy.typeId, room.center.x + enemy.dx, room.center.y + enemy.dy),
+      template.id,
     );
+    if (!shouldBlockSpawn(enemySpec)) {
+      enemies.push(enemySpec);
+    }
   }
   if (template.loot) {
-    loot.push(
-      villageLoot(
-        village,
-        room.center.x + template.loot.dx,
-        room.center.y + template.loot.dy,
-      ),
-    );
+    const lootX = room.center.x + template.loot.dx;
+    const lootY = room.center.y + template.loot.dy;
+    const lootBlocked =
+      blockedRect &&
+      lootX >= blockedRect.minX &&
+      lootX <= blockedRect.maxX &&
+      lootY >= blockedRect.minY &&
+      lootY <= blockedRect.maxY;
+    if (!lootBlocked) {
+      loot.push(villageLoot(village, lootX, lootY));
+    }
   }
 }
 
@@ -2674,6 +3144,7 @@ function addVillageEnemies(
   village: ProceduralVillagePlan,
   room: VillageRoom,
   enemies: ProceduralSpawnSpec[],
+  blockedRect: ProceduralRect | null = null,
 ): void {
   const baseCount =
     village.danger === "boss" ? 2 : village.danger === "high" ? 1 : 1;
@@ -2696,24 +3167,33 @@ function addVillageEnemies(
     PROCEDURAL_CONTENT.villageEnemyRarityWeights[village.lootTier];
   const startIndex = enemies.length;
   for (let index = 0; index < count; index += 1) {
-    const typeId = selectEnemyTypeIdByRarityWeights(rng, weights);
+    const typeId = selectEnemyTypeIdByRarityWeights(
+      rng,
+      weights,
+      proceduralEnemyExclusions(),
+    );
     const angle = rng() * Math.PI * 2;
     const radius = 80 + rng() * 180;
-    enemies.push(
-      spawn(
-        typeId,
-        clamp(
-          room.center.x + Math.cos(angle) * radius,
-          room.minX + 64,
-          room.maxX - 64,
-        ),
-        clamp(
-          room.center.y + Math.sin(angle) * radius,
-          room.minY + 64,
-          room.maxY - 64,
-        ),
+    const enemySpec = spawn(
+      typeId,
+      clamp(
+        room.center.x + Math.cos(angle) * radius,
+        room.minX + 64,
+        room.maxX - 64,
+      ),
+      clamp(
+        room.center.y + Math.sin(angle) * radius,
+        room.minY + 64,
+        room.maxY - 64,
       ),
     );
+    if (
+      !blockedRect ||
+      room.role === "helipad" ||
+      !overlapsRect(enemySpec, blockedRect)
+    ) {
+      enemies.push(enemySpec);
+    }
   }
   enforcePoliceSupportSpawn(enemies, startIndex, enemies.length);
 }
@@ -2725,6 +3205,10 @@ function selectEnemyTypeIdByRarityWeights(
     excludedTypeIds?: ReadonlySet<ResourceId>;
   } = {},
 ): ResourceId {
+  const excludedTypeIds = new Set<ResourceId>([
+    ...LEGENDARY_BOSS_TYPE_IDS,
+    ...(options.excludedTypeIds ?? []),
+  ]);
   const weightedTiers = Object.entries(weights)
     .map(([tier, weight]) => ({
       tier: tier as RarityTier,
@@ -2749,7 +3233,7 @@ function selectEnemyTypeIdByRarityWeights(
     roll -= weight;
     if (roll <= 0) {
       const pool = ENEMY_TYPE_IDS_BY_RARITY[tier].filter(
-        (typeId) => !options.excludedTypeIds?.has(typeId),
+        (typeId) => !excludedTypeIds.has(typeId),
       );
       if (pool.length === 0) {
         continue;
@@ -2760,7 +3244,7 @@ function selectEnemyTypeIdByRarityWeights(
 
   const fallbackPool = ENEMY_TYPE_IDS_BY_RARITY[
     weightedTiers.at(-1)!.tier
-  ].filter((typeId) => !options.excludedTypeIds?.has(typeId));
+  ].filter((typeId) => !excludedTypeIds.has(typeId));
   if (fallbackPool.length === 0) {
     return "enemy:drifter";
   }

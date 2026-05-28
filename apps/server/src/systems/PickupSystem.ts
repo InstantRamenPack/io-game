@@ -1,10 +1,5 @@
-import { getItemContent } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import {
-  requiresManualPickup,
-  WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
-} from "@server/content/serverContentCapabilities.ts";
+import { requiresManualPickup } from "@server/content/serverContentCapabilities.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -13,9 +8,10 @@ import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
- * Merges stackable pickups and auto-collects non-weapon, non-buildable pickups
- * on player overlap. World item creation is owned by generation-time crates and
- * enemy death drops.
+ * Merges stackable pickups and auto-collects stackables that do not require
+ * manual pickup on player overlap. Blueprints, weapons, buildings, and medical
+ * items stay manual via pickup action. World item creation is owned by
+ * generation-time crates and enemy death drops.
  */
 export class PickupSystem implements System {
   private readonly queryBuffer: Entity[] = [];
@@ -65,17 +61,9 @@ export class PickupSystem implements System {
           continue;
         }
 
-        const isBlueprint = this.isBlueprintPickup(candidate);
         const transferable = this.buildAutoPickupInventory(candidate);
         if (!player.inventory.absorbInventoryByAcquisitionRules(transferable)) {
           continue;
-        }
-        this.unlockBlueprintPickupRecipesForPlayers(candidate, players);
-        if (isBlueprint) {
-          const label = this.getBlueprintLabel(candidate);
-          world.broadcastSystemMessage(
-            `${player.name} found a ${label}! Recipe unlocked for all players.`,
-          );
         }
         world.despawn(candidate.id);
       }
@@ -138,12 +126,6 @@ export class PickupSystem implements System {
     }
   }
 
-  private isBlueprintPickup(pickup: ItemEntity): boolean {
-    return WORLD_BLUEPRINT_PICKUP_TYPE_IDS.some(
-      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-    );
-  }
-
   private shouldAutoPickup(pickup: ItemEntity): boolean {
     for (const [typeId, amount] of pickup.contents.resources.entries()) {
       if (amount > 0 && requiresManualPickup(typeId)) {
@@ -195,63 +177,5 @@ export class PickupSystem implements System {
     }
 
     return transferable;
-  }
-
-  private unlockBlueprintPickupRecipesForPlayers(
-    pickup: ItemEntity,
-    players: readonly Player[],
-  ): void {
-    const unlockedRecipeTypeIds = this.getBlueprintPickupRecipeTypeIds(pickup);
-    if (unlockedRecipeTypeIds.size === 0) {
-      return;
-    }
-
-    for (const player of players) {
-      for (const unlockedRecipeTypeId of unlockedRecipeTypeIds) {
-        player.inventory.unlockRecipe(unlockedRecipeTypeId);
-      }
-    }
-  }
-
-  private getBlueprintLabel(pickup: ItemEntity): string {
-    for (const [typeId, amount] of pickup.contents.resources.entries()) {
-      if (amount > 0) {
-        const label = getItemContent(typeId)?.label;
-        if (label) {
-          return label;
-        }
-      }
-    }
-    return "Blueprint";
-  }
-
-  private getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {
-    const unlockedRecipeTypeIds = new Set<ResourceId>(
-      pickup.contents.getUnlockedRecipeTypeIds(),
-    );
-
-    for (const [typeId, amount] of pickup.contents.resources.entries()) {
-      if (amount <= 0) {
-        continue;
-      }
-      const unlockedRecipeTypeId = getItemContent(typeId)?.unlocksRecipeTypeId;
-      if (unlockedRecipeTypeId) {
-        unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
-      }
-    }
-
-    for (const slot of pickup.contents.hotbarSlots) {
-      if (!slot || slot.kind === "weapon" || slot.count <= 0) {
-        continue;
-      }
-      const unlockedRecipeTypeId = getItemContent(
-        slot.typeId,
-      )?.unlocksRecipeTypeId;
-      if (unlockedRecipeTypeId) {
-        unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
-      }
-    }
-
-    return unlockedRecipeTypeIds;
   }
 }

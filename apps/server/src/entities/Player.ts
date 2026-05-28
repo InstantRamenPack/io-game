@@ -34,6 +34,10 @@ import {
   requireMovingEntityBaselineContent,
 } from "@server/entities/entityBaselineContent.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import {
+  applyBlueprintPickupWorldEffects,
+  isBlueprintPickup,
+} from "@server/items/blueprintPickupEffects.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
 import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
@@ -721,6 +725,11 @@ export class Player extends Entity {
     ) {
       return;
     }
+
+    if (isBlueprintPickup(nearestPickup)) {
+      applyBlueprintPickupWorldEffects(world, nearestPickup, this);
+    }
+
     world.despawn(nearestPickup.id);
   }
 
