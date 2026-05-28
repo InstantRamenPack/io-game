@@ -4,11 +4,12 @@ import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
+import { CraftingStation } from "@server/entities/buildings/CraftingStation.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
+import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -21,11 +22,10 @@ const hunkItemId = makeResourceId("item", "hunk");
 const crudeBandageItemId = makeResourceId("item", "crude_bandage");
 const speedPotionItemId = makeResourceId("item", "speed_potion");
 const speedEffectId = makeResourceId("effect", "speed");
+const basicGunItemId = makeResourceId("item", "basic_gun");
+const basicGunMagItemId = makeResourceId("mag", "basic_gun");
 const heavyPistolItemId = makeResourceId("item", "heavy_pistol");
-const heavyPistolBlueprintItemId = makeResourceId(
-  "item",
-  "blueprint_heavy_pistol",
-);
+const heavyPistolBlueprintItemId = makeResourceId("blueprint", "heavy_pistol");
 
 function addWallAndFindSlot(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -61,13 +61,13 @@ describe("inventory authority", () => {
     const inventory = new Inventory();
 
     expect(
-      inventory.grantItemCtor(itemTypeRegistry.require(hunkItemId).ctor, 3),
+      inventory.grantItemCtor(requireItemLikeTypeEntry(hunkItemId).ctor, 3),
     ).toBe(true);
     expect(inventory.getResourceCount(hunkItemId)).toBe(3);
 
     expect(
       inventory.grantItemCtor(
-        itemTypeRegistry.require(heavyPistolItemId).ctor,
+        requireItemLikeTypeEntry(heavyPistolItemId).ctor,
         1,
       ),
     ).toBe(true);
@@ -75,7 +75,7 @@ describe("inventory authority", () => {
 
     expect(
       inventory.grantItemCtor(
-        itemTypeRegistry.require(heavyPistolBlueprintItemId).ctor,
+        requireItemLikeTypeEntry(heavyPistolBlueprintItemId).ctor,
         1,
       ),
     ).toBe(true);
@@ -125,6 +125,32 @@ describe("inventory authority", () => {
     const { player } = connectTestClient(runtime);
 
     expect(player.inventory.getResourceCount(hunkItemId)).toBe(50);
+  });
+
+  test("mag crafting requires obtaining the corresponding gun first", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const station = new CraftingStation(runtime.world.allocEntityId());
+    station.x = player.x;
+    station.y = player.y;
+    runtime.world.spawn(station);
+    tick(runtime, 1);
+
+    player.craft(runtime.world, basicGunMagItemId);
+    expect(player.inventory.countType(basicGunMagItemId)).toBe(0);
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(50);
+
+    expect(
+      player.inventory.grantItemCtor(
+        requireItemLikeTypeEntry(basicGunItemId).ctor,
+        1,
+      ),
+    ).toBe(true);
+    expect(player.inventory.isRecipeUnlocked(basicGunMagItemId)).toBe(true);
+
+    player.craft(runtime.world, basicGunMagItemId);
+    expect(player.inventory.countType(basicGunMagItemId)).toBe(1);
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(30);
   });
 
   test("valid inventory move updates hotbar", () => {

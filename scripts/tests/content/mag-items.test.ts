@@ -22,7 +22,27 @@ const spriteMap = JSON.parse(
 ) as Record<string, string>;
 
 describe("mag item content", () => {
-  test("every shooting weapon reloads from an existing magazine item", () => {
+  test("legacy item namespace ammo, blueprint, and fists ids are deleted", () => {
+    const itemTypeIds = new Set(
+      getAllItemContentEntries().map(([typeId]) => typeId),
+    );
+
+    expect(itemTypeIds.has("item:fists" as ResourceId)).toBe(false);
+    for (const typeId of itemTypeIds) {
+      expect(
+        typeId.startsWith("item:blueprint_"),
+        `${typeId} should use the blueprint:* content namespace`,
+      ).toBe(false);
+      expect(
+        typeId.endsWith("_mag"),
+        `${typeId} should use the mag:* content namespace`,
+      ).toBe(false);
+    }
+  });
+
+  test("every shooting weapon reloads from its own namespaced magazine resource", () => {
+    const seenMagTypeIds = new Set<ResourceId>();
+
     for (const [typeId, item] of getAllItemContentEntries()) {
       if (item.weapon?.attackStyle !== "shoot") {
         continue;
@@ -33,6 +53,15 @@ describe("mag item content", () => {
         magItemTypeId,
         `${typeId} should declare a mag item so reload count and HUD icons share one source`,
       ).toBeDefined();
+      expect(
+        magItemTypeId?.startsWith("mag:"),
+        `${typeId} should reload from a mag:* resource, not an item:* resource`,
+      ).toBe(true);
+      expect(
+        seenMagTypeIds.has(magItemTypeId as ResourceId),
+        `${magItemTypeId} should not be shared by multiple shoot weapons`,
+      ).toBe(false);
+      seenMagTypeIds.add(magItemTypeId as ResourceId);
       expect(
         getItemContent(magItemTypeId as ResourceId),
         `${typeId} mag ${magItemTypeId} should exist as item content`,

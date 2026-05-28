@@ -62,6 +62,36 @@ describe("snapshot manager delta/full behavior", () => {
     expect(firstLateSnapshot.map).toBeDefined();
   });
 
+  test("full map snapshots include village marker risk and tier", () => {
+    const { runtime } = makeRuntime();
+    const { playerId } = connectTestClient(runtime);
+    const snapshot = stepAndSnapshot(runtime, playerId, 200);
+    const map = snapshot.map;
+    expect(map).toBeDefined();
+    if (!map) {
+      throw new Error("expected full snapshot to include static map metadata");
+    }
+
+    const riskTier = {
+      low: "common",
+      medium: "uncommon",
+      high: "rare",
+      boss: "epic",
+    } as const;
+    const villageFeatures = map.features.filter(
+      (feature) => feature.role === "village",
+    );
+    expect(villageFeatures.length).toBeGreaterThan(0);
+    for (const feature of villageFeatures) {
+      const marker = map.markers.find(
+        (candidate) => candidate.id === feature.id,
+      );
+      expect(marker).toBeDefined();
+      expect(marker?.risk).toBe(feature.risk);
+      expect(marker?.tier).toBe(riskTier[feature.risk]);
+    }
+  });
+
   test("changed entity emits delta and strips stable fields", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);

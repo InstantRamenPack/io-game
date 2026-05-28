@@ -7,10 +7,6 @@
     "outputAmount": 1,
     "costs": [
       {
-        "typeId": "item:blueprint_heavy_pistol",
-        "amount": 1
-      },
-      {
         "typeId": "item:hunk",
         "amount": 180
       }
@@ -23,7 +19,7 @@
     "magSize": 8,
     "reloadTicks": 20,
     "spreadDeg": 1,
-    "magItemTypeId": "item:pistol_mag",
+    "magItemTypeId": "mag:heavy_pistol",
     "equippedRender": {
       "holdOffset": {
         "x": 26,

@@ -1,10 +1,10 @@
 {
   "label": "Field Armor",
   "hint": "Reinforced mid-tier armor.",
-  "description": "Tier 2 armor. Reduces incoming damage by 16%.",
+  "description": "Tier 2 armor. Reduces incoming damage by 50%.",
   "armor": {
     "tier": 2,
-    "damageReductionPct": 0.16
+    "armorBars": 4
   },
   "recipe": {
     "hint": "Upgrade Scout Armor into Field Armor.",

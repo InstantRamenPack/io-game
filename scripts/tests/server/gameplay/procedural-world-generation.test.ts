@@ -15,10 +15,8 @@ import {
   getItemContent,
 } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  entityTypeRegistry,
-  itemTypeRegistry,
-} from "@server/registry/registries.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
@@ -49,6 +47,14 @@ function isEpicWeaponBlueprint(typeId: ResourceId): boolean {
   return (
     unlockedItem?.weapon !== undefined && unlockedItem.rarityTier === "epic"
   );
+}
+
+function isWeaponOrBlueprint(typeId: ResourceId): boolean {
+  const item = getItemContent(typeId);
+  if (!item) {
+    return false;
+  }
+  return item.weapon !== undefined || item.unlocksRecipeTypeId !== undefined;
 }
 
 describe("procedural survival extraction world", () => {
@@ -140,20 +146,85 @@ describe("procedural survival extraction world", () => {
           entry.villages.map((village) => village.danger),
         ),
       ),
-    ).toEqual(new Set(["low", "medium", "high"]));
+    ).toEqual(new Set(["low", "medium", "high", "boss"]));
     expect(
       new Set(
         tierLayouts.flatMap((entry) =>
           entry.villages.map((village) => village.lootTier),
         ),
       ),
-    ).toEqual(new Set(["common", "uncommon", "rare"]));
+    ).toEqual(new Set(["common", "uncommon", "rare", "epic"]));
     for (const tierLayout of tierLayouts) {
       expect(villagesAreTieredByDistance(tierLayout)).toBe(true);
     }
     expect(
       layout.villages.every((village) => village.poiRoles.length >= 4),
     ).toBe(true);
+  });
+
+  test("village minimap markers expose danger and loot tier metadata", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    for (const village of layout.villages) {
+      const marker = layout.minimapMarkers.find(
+        (candidate) => candidate.id === village.id,
+      );
+      expect(marker).toBeDefined();
+      expect(marker?.risk).toBe(village.danger);
+      expect(marker?.tier).toBe(village.lootTier);
+    }
+  });
+
+  test("every generated village has exactly one one-item blueprint crate", () => {
+    const layout = generateProceduralWorldLayout(1337);
+
+    for (const village of layout.villages) {
+      const sector = layout.sectors.find(
+        (candidate) => candidate.id === village.sectorId,
+      );
+      expect(
+        sector,
+        `${village.id} should belong to a generated sector`,
+      ).toBeDefined();
+      if (!sector) continue;
+
+      const villageCrates = sector.enemies.filter(
+        (spawn) =>
+          spawn.typeId === "enemy:crate" &&
+          spawn.x >= village.minX &&
+          spawn.x <= village.maxX &&
+          spawn.y >= village.minY &&
+          spawn.y <= village.maxY,
+      );
+      const blueprintCrates = villageCrates.filter((crate) =>
+        (crate.crateLoot ?? []).some((slot) =>
+          slot.typeId.startsWith("blueprint:"),
+        ),
+      );
+
+      expect(
+        blueprintCrates,
+        `${village.id} should have exactly one blueprint crate`,
+      ).toHaveLength(1);
+      for (const crate of villageCrates) {
+        expect(
+          crate.crateLoot ?? [],
+          `${village.id} crate ${crate.x},${crate.y} should contain one item`,
+        ).toHaveLength(1);
+        expect(crate.crateLoot?.[0]?.amount ?? 1).toBe(1);
+      }
+    }
+  });
+
+  test("extraction point spawns inside the fortified extraction village", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const extractionVillage = layout.villages.find(
+      (village) => village.lootTier === "epic",
+    );
+
+    expect(extractionVillage).toBeDefined();
+    if (!extractionVillage) return;
+    expect(pointInRect(layout.extraction, extractionVillage)).toBe(true);
   });
 
   test("village rooms select varied authored templates deterministically", () => {
@@ -315,6 +386,24 @@ describe("procedural survival extraction world", () => {
   test("village, forest camp, and crate loot authored pools stay deterministic", () => {
     const layout = generateProceduralWorldLayout(1337);
 
+    const allProceduralEnemyTypes = new Set(
+      [
+        layout,
+        generateProceduralWorldLayout(1338),
+        generateProceduralWorldLayout(1339),
+      ]
+        .flatMap((entry) => entry.sectors)
+        .flatMap((sector) => sector.enemies.map((enemy) => enemy.typeId)),
+    );
+    expect(
+      allProceduralEnemyTypes.has("enemy:saboteur"),
+      "saboteurs should be wave-only and never come from procedural spawn pools",
+    ).toBe(false);
+    expect(
+      allProceduralEnemyTypes.has("enemy:wallbreaker"),
+      "wallbreakers should be wave-only and never come from procedural spawn pools",
+    ).toBe(false);
+
     const villageEnemyTypes = new Set(
       layout.sectors
         .flatMap((sector) => sector.enemies.map((enemy) => enemy.typeId))
@@ -374,9 +463,6 @@ describe("procedural survival extraction world", () => {
       ),
     );
     expect(villageTierPools.size).toBeGreaterThan(1);
-    for (const crateLoot of villageCrates) {
-      expect(crateLoot.some((slot) => slot.typeId === "item:hunk")).toBe(true);
-    }
     expect(
       villageCrates.some((crateLoot) =>
         crateLoot.some((slot) => slot.kind === "weapon"),
@@ -384,7 +470,12 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
     expect(
       villageCrates.every((crateLoot) =>
-        crateLoot.every((slot) => !isEpicWeaponBlueprint(slot.typeId)),
+        crateLoot.every((slot) => isWeaponOrBlueprint(slot.typeId)),
+      ),
+    ).toBe(true);
+    expect(
+      villageCrates.some((crateLoot) =>
+        crateLoot.some((slot) => slot.typeId.startsWith("blueprint:")),
       ),
     ).toBe(true);
   });
@@ -439,7 +530,7 @@ describe("procedural survival extraction world", () => {
           continue;
         }
         for (const slot of enemy.crateLoot) {
-          if (!slot.typeId.startsWith("item:blueprint_")) {
+          if (!slot.typeId.startsWith("blueprint:")) {
             continue;
           }
           if (!isEpicWeaponBlueprint(slot.typeId)) {
@@ -459,6 +550,34 @@ describe("procedural survival extraction world", () => {
     );
     for (const count of observedBlueprintCounts.values()) {
       expect(count).toBe(1);
+    }
+  });
+
+  test("generated crate loot only contains weapons or blueprints", () => {
+    const layouts = [1337, 1338, 1339].map((seed) =>
+      generateProceduralWorldLayout(seed),
+    );
+
+    for (const layout of layouts) {
+      for (const sector of layout.sectors) {
+        for (const loot of sector.loot) {
+          expect(
+            isWeaponOrBlueprint(loot.typeId),
+            `${loot.typeId} should be valid crate loot because loose generated loot is loaded as a crate`,
+          ).toBe(true);
+        }
+        for (const enemy of sector.enemies) {
+          if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+            continue;
+          }
+          for (const slot of enemy.crateLoot) {
+            expect(
+              isWeaponOrBlueprint(slot.typeId),
+              `${slot.typeId} should be valid breakable crate loot`,
+            ).toBe(true);
+          }
+        }
+      }
     }
   });
 
@@ -732,7 +851,7 @@ describe("procedural survival extraction world", () => {
         expect(entityTypeRegistry.get(spec.typeId)).toBeDefined();
       }
       for (const loot of sector.loot) {
-        expect(itemTypeRegistry.get(loot.typeId)).toBeDefined();
+        expect(getItemLikeTypeEntry(loot.typeId)).toBeDefined();
       }
     }
   });
@@ -1029,16 +1148,25 @@ function villagesAreTieredByDistance(
     ["low", 0],
     ["medium", 1],
     ["high", 2],
+    ["boss", 3],
   ]);
   const center = {
     x: layout.worldSize.w / 2,
     y: layout.worldSize.h / 2,
   };
-  const villages = [...layout.villages].sort((a, b) => {
-    const aDistance = Math.hypot(a.center.x - center.x, a.center.y - center.y);
-    const bDistance = Math.hypot(b.center.x - center.x, b.center.y - center.y);
-    return aDistance - bDistance;
-  });
+  const villages = layout.villages
+    .filter((village) => village.kind !== "extraction_fortified")
+    .sort((a, b) => {
+      const aDistance = Math.hypot(
+        a.center.x - center.x,
+        a.center.y - center.y,
+      );
+      const bDistance = Math.hypot(
+        b.center.x - center.x,
+        b.center.y - center.y,
+      );
+      return aDistance - bDistance;
+    });
 
   for (let index = 1; index < villages.length; index += 1) {
     const previous = tierRank.get(villages[index - 1]!.danger);

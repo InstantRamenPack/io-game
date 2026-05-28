@@ -24,7 +24,7 @@ const rendererByAttackStyle: Record<AttackStyle, EquippedItemRenderer> = {
 
 const rendererByTypeId = new Map<ResourceId, EquippedItemRenderer>([
   [makeResourceId("item", "drone_shooter"), droneShooterEquippedRenderer],
-  [makeResourceId("item", "fists"), fistsEquippedRenderer],
+  [makeResourceId("player", "unarmed"), fistsEquippedRenderer],
   [makeResourceId("item", "katana"), katanaEquippedRenderer],
 ]);
 

@@ -11,6 +11,22 @@ import {
 describe("infrastructure failure loop", () => {
   beforeAll(bootstrapTestRegistries);
 
+  test("extraction starts active before any wave progression", () => {
+    const { runtime } = makeRuntime();
+    const { playerId } = connectTestClient(runtime);
+
+    runtime.tick();
+
+    const snapshot = runtime.snapshotManager.makeSnapshotForPlayer(
+      runtime.world,
+      playerId,
+      runtime.world.gameConfig.replication.interestRadius,
+    );
+    expect(snapshot.infrastructure.commsActive).toBe(true);
+    expect(snapshot.extraction.stage).toBe("active");
+    expect(snapshot.extraction.lockedReason).toBeUndefined();
+  });
+
   test("comms failure locks extraction in authoritative snapshots", () => {
     const { runtime } = makeRuntime();
     const { playerId } = connectTestClient(runtime);

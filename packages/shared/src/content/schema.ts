@@ -46,6 +46,18 @@ export const WeaponPresentationSchema = z.object({
   aimGuide: z.enum(["sniper"]).optional(),
 });
 
+export const ShootWeaponSpecialSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("shotgunFan"),
+    projectileCount: z.number().int().positive(),
+    arcDeg: z.number().finite().positive(),
+  }),
+  z.object({
+    kind: z.literal("firecrackerLauncher"),
+    selfKnockback: z.number().finite().nonnegative(),
+  }),
+]);
+
 export const ShootWeaponContentSchema = z.object({
   attackStyle: z.literal("shoot"),
   cooldownTicks: z.number().int().positive(),
@@ -56,6 +68,7 @@ export const ShootWeaponContentSchema = z.object({
   magItemTypeId: ResourceIdSchema.optional(),
   equippedRender: EquippedRenderSchema,
   presentation: WeaponPresentationSchema.optional(),
+  special: ShootWeaponSpecialSchema.optional(),
 });
 
 export const SwingWeaponContentSchema = z.object({
@@ -98,6 +111,13 @@ export const ProjectileContentSchema = z.object({
   presentation: z
     .object({
       serverDelayed: z.boolean().default(false),
+    })
+    .optional(),
+  split: z
+    .object({
+      projectileTypeId: ResourceIdSchema,
+      projectileCount: z.number().int().positive(),
+      arcDeg: z.number().finite().positive(),
     })
     .optional(),
 });
@@ -210,7 +230,7 @@ export const ItemContentSchema = z.object({
   armor: z
     .object({
       tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
-      damageReductionPct: z.number().finite().min(0).max(1),
+      armorBars: z.number().int().min(0).max(10),
       reflectDamagePct: z.number().finite().min(0).max(1).default(0),
     })
     .optional(),
@@ -246,6 +266,7 @@ export const EntityContentSchema = z.object({
   player: z
     .object({
       starterLoadout: PlayerStarterLoadoutSchema.optional(),
+      unarmedAttack: JabWeaponContentSchema.optional(),
       passiveHealing: z
         .object({
           outOfCombatTicks: z.number().int().positive(),
@@ -276,6 +297,7 @@ export type AttackStyle = z.infer<typeof AttackStyleSchema>;
 export type RarityTier = z.infer<typeof RarityTierSchema>;
 export type EquippedRender = z.infer<typeof EquippedRenderSchema>;
 export type WeaponPresentation = z.infer<typeof WeaponPresentationSchema>;
+export type ShootWeaponSpecial = z.infer<typeof ShootWeaponSpecialSchema>;
 export type ShootWeaponContent = z.infer<typeof ShootWeaponContentSchema>;
 export type SwingWeaponContent = z.infer<typeof SwingWeaponContentSchema>;
 export type JabWeaponContent = z.infer<typeof JabWeaponContentSchema>;

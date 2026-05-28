@@ -19,7 +19,7 @@
     "magSize": 12,
     "reloadTicks": 20,
     "spreadDeg": 3,
-    "magItemTypeId": "item:rifle_mag",
+    "magItemTypeId": "mag:carbine",
     "equippedRender": {
       "holdOffset": {
         "x": 20,

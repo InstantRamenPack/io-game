@@ -60,6 +60,22 @@ export function makeParsedItemContentEntry(
   return entry;
 }
 
+export function makeParsedMagContentEntry(
+  resourceName: string,
+  rawContent: JsonValue,
+): ItemContentEntry {
+  const typeId = makeResourceId("mag", resourceName);
+  return makeParsedContentEntry("item", typeId, rawContent, ItemContentSchema);
+}
+
+export function makeParsedBlueprintContentEntry(
+  resourceName: string,
+  rawContent: JsonValue,
+): ItemContentEntry {
+  const typeId = makeResourceId("blueprint", resourceName);
+  return makeParsedContentEntry("item", typeId, rawContent, ItemContentSchema);
+}
+
 export function makeParsedEntityContentEntry(
   kind: EntityKind,
   resourceName: string,

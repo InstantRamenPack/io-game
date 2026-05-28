@@ -7,6 +7,8 @@ import type { Inventory } from "@server/items/Inventory.ts";
  * Shared runtime base for blueprint items that unlock crafting recipes.
  */
 export abstract class BlueprintItem extends Item {
+  public static override readonly kind = "blueprint" as const;
+
   public override isStoredOnInventoryAcquisition(): boolean {
     return false;
   }

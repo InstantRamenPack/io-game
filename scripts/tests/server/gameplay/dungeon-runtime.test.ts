@@ -23,13 +23,13 @@ describe("dungeon runtime mechanics", () => {
     enemy.y = runtime.world.gameConfig.worldSize.h / 2;
     runtime.world.spawn(enemy);
 
-    enemy.applyDamage(runtime.world, enemy.maxHp, 0);
+    enemy.applyDamage(runtime.world, enemy.maxHp * 4, 0);
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
     const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
     expect(hunkCount).toBeGreaterThanOrEqual(deathLootConfig.common.hunkMin);
     expect(hunkCount).toBeLessThanOrEqual(deathLootConfig.common.hunkMax);
-    const magCount = pickup.contents.countType("item:pistol_mag" as ResourceId);
+    const magCount = pickup.contents.countType("mag:basic_gun" as ResourceId);
     expect([
       0,
       ...rangeInclusive(
@@ -219,7 +219,7 @@ function simulateWaveAndFirstDeathDrop(seed: number): {
     firstWaveEnemyX: waveEnemy.x,
     firstWaveEnemyY: waveEnemy.y,
     hunk: pickup.contents.countType("item:hunk" as ResourceId),
-    ammo: pickup.contents.countType("item:pistol_mag" as ResourceId),
+    ammo: pickup.contents.countType("mag:basic_gun" as ResourceId),
     weapon: pickup.contents.countType("item:basic_gun" as ResourceId),
   };
 }

@@ -45,7 +45,6 @@ import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
-  getWeaponContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
@@ -1442,14 +1441,14 @@ export class PixiHud {
 
   private getCraftingTabForItem(itemTypeId: ResourceId): CraftingTabId {
     const item = getItemContent(itemTypeId);
+    if (this.isMagazineItemTypeId(itemTypeId)) {
+      return "ammo";
+    }
     if (item?.weapon) {
       return "weapons";
     }
     if (item?.armor) {
       return "armor";
-    }
-    if (this.isMagazineItemTypeId(itemTypeId)) {
-      return "ammo";
     }
     if (item?.healing || item?.activeEffect || item?.consumable) {
       return "healing";
@@ -1458,13 +1457,7 @@ export class PixiHud {
   }
 
   private isMagazineItemTypeId(itemTypeId: ResourceId): boolean {
-    return CRAFTABLE_ITEM_TYPE_IDS.some((craftableTypeId) => {
-      const weaponContent = getWeaponContent(craftableTypeId);
-      return (
-        weaponContent?.attackStyle === "shoot" &&
-        weaponContent.magItemTypeId === itemTypeId
-      );
-    });
+    return itemTypeId.startsWith("mag:");
   }
 
   private syncCraftSelection(craftableTypeIds: readonly ResourceId[]): void {

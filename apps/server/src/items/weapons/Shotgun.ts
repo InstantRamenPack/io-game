@@ -4,11 +4,10 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import type { World } from "@server/world/World.ts";
 
-const PELLET_COUNT = 10;
-const SPREAD_ARC_RAD = Math.PI / 3;
-
 export class Shotgun extends RangedWeapon {
   public static override readonly resourceName = "shotgun";
+  private readonly projectileCount: number;
+  private readonly arcRad: number;
 
   constructor() {
     const weaponContent = requireShootWeaponRuntime(Shotgun.typeId);
@@ -20,6 +19,11 @@ export class Shotgun extends RangedWeapon {
       weaponContent.spreadDeg,
       weaponContent.magItemTypeId,
     );
+    if (weaponContent.special?.kind !== "shotgunFan") {
+      throw new Error(`Missing shotgun fan tuning for ${Shotgun.typeId}.`);
+    }
+    this.projectileCount = weaponContent.special.projectileCount;
+    this.arcRad = (weaponContent.special.arcDeg * Math.PI) / 180;
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {
@@ -34,9 +38,11 @@ export class Shotgun extends RangedWeapon {
 
     const baseAngle = normalizeAngle(theta);
     owner.rotation = baseAngle;
-    const startAngle = baseAngle - SPREAD_ARC_RAD / 2;
-    const step = SPREAD_ARC_RAD / (PELLET_COUNT - 1);
-    for (let i = 0; i < PELLET_COUNT; i += 1) {
+    const startAngle =
+      this.projectileCount === 1 ? baseAngle : baseAngle - this.arcRad / 2;
+    const step =
+      this.projectileCount === 1 ? 0 : this.arcRad / (this.projectileCount - 1);
+    for (let i = 0; i < this.projectileCount; i += 1) {
       this.fireProjectileAtAngle(
         world,
         owner,

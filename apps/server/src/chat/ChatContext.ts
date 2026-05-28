@@ -11,12 +11,14 @@ import { Structure } from "@server/entities/Structure.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import {
+  blueprintTypeRegistry,
   effectTypeRegistry,
   entityTypeRegistry,
   itemTypeRegistry,
+  magTypeRegistry,
   type EntityTypeEntry,
-  type ItemTypeEntry,
 } from "@server/registry/registries.ts";
+import type { ItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
   isBuildingCtor,
   isProjectileCtor,
@@ -152,9 +154,14 @@ export class ChatContext {
     return null;
   }
 
-  public resolveItemEntry(itemToken: string): ItemTypeEntry | null {
+  public resolveItemEntry(itemToken: string): ItemLikeTypeEntry | null {
     const normalized = this.normalizeEntityKey(itemToken);
-    for (const [typeId, entry] of itemTypeRegistry.entries()) {
+    const itemLikeEntries = [
+      ...itemTypeRegistry.entries(),
+      ...magTypeRegistry.entries(),
+      ...blueprintTypeRegistry.entries(),
+    ];
+    for (const [typeId, entry] of itemLikeEntries) {
       if (entry.content.hidden) {
         continue;
       }
@@ -210,7 +217,7 @@ export class ChatContext {
 
   public giveItemToPlayer(
     target: Player,
-    itemEntry: ItemTypeEntry,
+    itemEntry: ItemLikeTypeEntry,
     amount: number,
   ): boolean {
     return target.inventory.grantItemCtor(itemEntry.ctor, amount);

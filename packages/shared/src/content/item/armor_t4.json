@@ -1,10 +1,10 @@
 {
   "label": "Aegis Armor",
   "hint": "Top-tier reactive armor.",
-  "description": "Tier 4 armor. Reduces incoming damage by 35% and reflects 10% of mitigated damage.",
+  "description": "Tier 4 armor. Reduces incoming damage by 71% and reflects 10% of mitigated damage.",
   "armor": {
     "tier": 4,
-    "damageReductionPct": 0.35,
+    "armorBars": 10,
     "reflectDamagePct": 0.1
   },
   "recipe": {

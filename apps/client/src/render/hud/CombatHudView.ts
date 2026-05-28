@@ -1,6 +1,7 @@
 import * as PIXI from "pixi.js";
 import type { CombatHudModel } from "@client/render/hud/hudPresentationModels.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import { EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR } from "@shared/gameplay/rules/armorRules.ts";
 
 const HEALTH_ROW_HEIGHT = 28;
 const COMBAT_ROW_HEIGHT = 30;
@@ -189,12 +190,13 @@ export class CombatHudView {
 
   private drawArmor(model: CombatHudModel): void {
     const armorSlots = 10;
+    const armorBars = model.armorDamageReductionPct
+      ? (1 / (1 - model.armorDamageReductionPct) - 1) /
+        EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR
+      : 0;
     const armorFilled = Math.max(
       0,
-      Math.min(
-        armorSlots,
-        Math.round((model.armorDamageReductionPct / 0.35) * armorSlots),
-      ),
+      Math.min(armorSlots, Math.round(armorBars)),
     );
     this.ensureArmorSpriteCount(armorSlots);
     const totalArmorWidth =

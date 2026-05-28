@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Weapon Balance</title>
+    <title>Balance</title>
     <style>
       :root {
         color-scheme: light;
@@ -52,6 +52,30 @@
         display: flex;
         align-items: center;
         gap: 10px;
+      }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .tab {
+        height: 34px;
+        border: 1px solid #c9d1d8;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #40505d;
+        font: inherit;
+        font-size: 13px;
+        padding: 0 10px;
+        cursor: pointer;
+      }
+
+      .tab.active {
+        border-color: #2b7fff;
+        background: #e9f2ff;
+        color: #164f9f;
       }
 
       input[type="search"],
@@ -147,13 +171,34 @@
         outline-offset: -2px;
         background: #ffffff;
       }
+
+      .list-actions button,
+      .add-row button {
+        border: 1px solid #c9d1d8;
+        border-radius: 5px;
+        background: #ffffff;
+        color: #172026;
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 7px;
+        cursor: pointer;
+      }
+
+      .add-row input {
+        width: min(560px, 60vw);
+        height: 30px;
+        border: 1px solid #c9d1d8;
+        border-radius: 5px;
+        padding: 0 8px;
+        font: inherit;
+      }
     </style>
   </head>
   <body>
     <main>
       <header>
         <div>
-          <h1>Weapon Balance</h1>
+          <h1>Balance</h1>
         </div>
         <div class="controls">
           <input
@@ -161,14 +206,16 @@
             type="search"
             placeholder="Filter weapons or bullets"
           />
-          <select id="attack-style">
-            <option value="weapons">Weapons</option>
-            <option value="enemies">Enemies</option>
-            <option value="">All attacks</option>
-            <option value="shoot">Shoot</option>
-            <option value="swing">Swing</option>
-            <option value="jab">Jab</option>
-          </select>
+          <div id="tabs" class="tabs">
+            <button class="tab active" data-tab="weapons">Weapons</button>
+            <button class="tab" data-tab="ammo">Ammo</button>
+            <button class="tab" data-tab="enemies">Enemies</button>
+            <button class="tab" data-tab="waves">Waves</button>
+            <button class="tab" data-tab="world">Worldgen</button>
+            <button class="tab" data-tab="loot">Loot</button>
+            <button class="tab" data-tab="config">Config</button>
+            <button class="tab" data-tab="json">All JSON</button>
+          </div>
           <div id="status" class="status">Loading...</div>
         </div>
       </header>
@@ -189,12 +236,16 @@
         { kind: "meta", key: "attackStyle", label: "Attack" },
         { kind: "field", key: "item.rarityTier" },
         { kind: "field", key: "item.hunkCost" },
+        { kind: "field", key: "mag.hunkCost" },
         { kind: "field", key: "projectile.label" },
         { kind: "meta", key: "projectileTypeId", label: "Bullet Type" },
         { kind: "field", key: "weapon.cooldownTicks" },
         { kind: "field", key: "weapon.magSize" },
         { kind: "field", key: "weapon.reloadTicks" },
         { kind: "field", key: "weapon.spreadDeg" },
+        { kind: "field", key: "weapon.specialProjectileCount" },
+        { kind: "field", key: "weapon.specialArcDeg" },
+        { kind: "field", key: "weapon.specialSelfKnockback" },
         { kind: "field", key: "weapon.range" },
         { kind: "field", key: "weapon.damage" },
         { kind: "field", key: "weapon.knockback" },
@@ -206,6 +257,8 @@
         { kind: "field", key: "projectile.maxHits" },
         { kind: "field", key: "projectile.hitboxWidth" },
         { kind: "field", key: "projectile.hitboxHeight" },
+        { kind: "field", key: "projectile.splitProjectileCount" },
+        { kind: "field", key: "projectile.splitArcDeg" },
         { kind: "derived", key: "dpsNoReload", label: "DPS No Reload" },
         { kind: "derived", key: "dpsWithReload", label: "DPS With Reload" },
       ];
@@ -223,17 +276,59 @@
         { kind: "field", key: "procedural.village.extraction_fortified" },
         { kind: "field", key: "waves.enabled" },
       ];
+      const ammoColumns = [
+        { kind: "field", key: "mag.label" },
+        { kind: "meta", key: "magTypeId", label: "Ammo Type" },
+        { kind: "field", key: "mag.hunkCost" },
+      ];
+      const worldColumns = [
+        { kind: "meta", key: "configLabel", label: "Section" },
+        { kind: "meta", key: "configId", label: "Config" },
+        { kind: "field", key: "world.seed" },
+        { kind: "field", key: "world.targetVillageCount" },
+        { kind: "field", key: "world.lobbyWorldWidth" },
+        { kind: "field", key: "world.lobbyWorldHeight" },
+        { kind: "field", key: "world.weaponMaxActive" },
+        { kind: "field", key: "world.blueprintMaxActive" },
+        { kind: "field", key: "world.medicalMaxActive" },
+        { kind: "field", key: "world.spawnAttempts" },
+        { kind: "field", key: "world.randomEnabled" },
+        { kind: "field", key: "world.baseBudget" },
+        { kind: "field", key: "world.budgetPerNight" },
+        { kind: "field", key: "world.targetPriority" },
+        { kind: "field", key: "world.enemyDangerRadius" },
+        { kind: "field", key: "world.boardTimerGoalMs" },
+        { kind: "field", key: "world.chopperTimerGoalMs" },
+        { kind: "field", key: "world.crateChance" },
+        { kind: "field", key: "world.enemyChance" },
+        { kind: "field", key: "world.furnitureChance" },
+      ];
+      const listColumns = [
+        { kind: "meta", key: "label", label: "Domain List" },
+        { kind: "meta", key: "file", label: "File" },
+        { kind: "list", key: "entries", label: "Entries" },
+      ];
+      const jsonColumns = [
+        { kind: "meta", key: "file", label: "File" },
+        { kind: "meta", key: "pathLabel", label: "Path" },
+        { kind: "field", key: "json.value" },
+      ];
 
       const headerRow = document.querySelector("#header-row");
       const rowsBody = document.querySelector("#balance-rows");
       const searchInput = document.querySelector("#search");
-      const attackStyleSelect = document.querySelector("#attack-style");
+      const tabButtons = [...document.querySelectorAll(".tab")];
       const statusElement = document.querySelector("#status");
       const rarityTiers = ["common", "uncommon", "rare", "epic", "legendary"];
 
       let rows = [];
+      let ammoRows = [];
       let enemyRows = [];
+      let worldRows = [];
+      let listRows = [];
+      let jsonRows = [];
       let fieldLabels = new Map();
+      let activeTab = "weapons";
       let sortState = { key: "item.label", direction: "asc" };
       let draggedColumnKey = null;
 
@@ -245,7 +340,7 @@
         const activeColumns = columnsForCurrentMode();
         const headers = activeColumns.map((column) => {
           const th = document.createElement("th");
-          th.draggable = attackStyleSelect.value !== "enemies";
+          th.draggable = activeTab === "weapons";
           th.dataset.columnKey = column.key;
 
           const label = document.createElement("span");
@@ -312,7 +407,7 @@
       }
 
       function moveColumn(fromKey, toKey) {
-        if (attackStyleSelect.value === "enemies") {
+        if (activeTab !== "weapons") {
           return;
         }
         if (!fromKey || fromKey === toKey) {
@@ -359,7 +454,43 @@
 
       function matchesFilters(row) {
         const query = searchInput.value.trim().toLowerCase();
-        const style = attackStyleSelect.value;
+        const style = activeTab;
+        if (style === "waves" || style === "loot") {
+          if (!query) {
+            return true;
+          }
+          return [
+            row.label,
+            row.file,
+            ...row.entries.flatMap((entry) => [entry.label, entry.detail]),
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
+        }
+        if (style === "world" || style === "config") {
+          if (!query) {
+            return true;
+          }
+          return [
+            row.configLabel,
+            row.configId,
+            ...row.fields.map((field) => field.value),
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
+        }
+        if (style === "json") {
+          if (!query) {
+            return true;
+          }
+          return [
+            row.file,
+            row.pathLabel,
+            ...row.fields.map((field) => field.value),
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
+        }
         if (style === "enemies") {
           if (!query) {
             return true;
@@ -373,11 +504,22 @@
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
         }
-        if (style === "weapons") {
-          return true;
+        if (style === "ammo") {
+          if (!query) {
+            return true;
+          }
+          return [
+            row.magLabel,
+            row.magTypeId,
+            fieldByKey(row, "mag.label")?.value,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
         }
-        if (style && row.attackStyle !== style) {
-          return false;
+        if (style === "weapons") {
+          if (!query) {
+            return true;
+          }
         }
         if (!query) {
           return true;
@@ -434,7 +576,10 @@
           field.key === "procedural.forestCorner" ||
           field.key === "procedural.forestEdge" ||
           field.key.startsWith("procedural.village.") ||
-          field.key === "waves.enabled"
+          field.key === "waves.enabled" ||
+          field.key === "world.randomEnabled" ||
+          (field.key === "json.value" &&
+            (field.value === "true" || field.value === "false"))
         ) {
           return makeOptionCell(row, field, ["true", "false"]);
         }
@@ -468,6 +613,9 @@
       }
 
       function makeColumnCell(row, column) {
+        if (column.kind === "list") {
+          return makeListCell(row);
+        }
         if (column.kind === "field") {
           return makeEditableCell(row, fieldByKey(row, column.key));
         }
@@ -475,6 +623,61 @@
           return makeDerivedCell(row[column.key]);
         }
         return makeFixedCell(row[column.key]);
+      }
+
+      function makeListCell(row) {
+        const td = document.createElement("td");
+        td.className = "list-cell";
+        const items = document.createElement("div");
+        items.className = "list-items";
+
+        row.entries.forEach((entry, index) => {
+          const item = document.createElement("div");
+          item.className = "list-item";
+          const label = document.createElement("strong");
+          label.textContent = entry.label;
+          const detail = document.createElement("span");
+          detail.textContent = entry.detail;
+          const actions = document.createElement("div");
+          actions.className = "list-actions";
+          for (const [text, action, value] of [
+            ["Up", "move", "up"],
+            ["Down", "move", "down"],
+            ["Remove", "remove", null],
+          ]) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = text;
+            button.addEventListener("click", () => {
+              void saveListAction(row, action, index, value);
+            });
+            actions.append(button);
+          }
+          item.append(label, detail, actions);
+          items.append(item);
+        });
+
+        const addRow = document.createElement("div");
+        addRow.className = "add-row";
+        const input = document.createElement("input");
+        input.value = row.addTemplate;
+        const addButton = document.createElement("button");
+        addButton.type = "button";
+        addButton.textContent = "Add";
+        addButton.addEventListener("click", () => {
+          let value;
+          try {
+            value = JSON.parse(input.value);
+          } catch {
+            td.className = "list-cell error";
+            setStatus("Invalid JSON for list entry");
+            return;
+          }
+          void saveListAction(row, "add", null, value);
+        });
+        addRow.append(input, addButton);
+        td.append(items, addRow);
+        return td;
       }
 
       function makeRarityCell(row, field) {
@@ -548,6 +751,10 @@
             path: field.path,
             value,
             weaponTypeId: row.weaponTypeId ?? row.enemyTypeId,
+            enemyTypeId: row.enemyTypeId,
+            magTypeId: row.magTypeId,
+            configId: row.configId,
+            jsonId: row.jsonId,
           }),
         });
         const payload = await response.json();
@@ -558,7 +765,11 @@
         }
 
         rows = payload.rows;
+        ammoRows = payload.ammoRows ?? [];
         enemyRows = payload.enemyRows ?? [];
+        worldRows = payload.worldRows ?? [];
+        listRows = payload.listRows ?? [];
+        jsonRows = payload.jsonRows ?? [];
         refreshFieldLabels();
         originalElement.dataset.originalValue = rawValue;
         cell.className = "changed";
@@ -566,15 +777,63 @@
         renderRows();
       }
 
+      async function saveListAction(row, action, index, value) {
+        setStatus("Saving...");
+        const response = await fetch("/api/balance/list", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            listId: row.listId,
+            action,
+            index,
+            value,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(payload.error ?? "Save failed");
+          return;
+        }
+        rows = payload.rows;
+        ammoRows = payload.ammoRows ?? [];
+        enemyRows = payload.enemyRows ?? [];
+        worldRows = payload.worldRows ?? [];
+        listRows = payload.listRows ?? [];
+        jsonRows = payload.jsonRows ?? [];
+        refreshFieldLabels();
+        setStatus("Saved");
+        renderRows();
+      }
+
       function renderRows() {
         const activeRows =
-          attackStyleSelect.value === "enemies" ? enemyRows : rows;
+          activeTab === "json"
+            ? jsonRows
+            : activeTab === "waves"
+              ? listRows.filter((row) => row.tab === "waves")
+              : activeTab === "loot"
+                ? listRows.filter((row) => row.tab === "loot")
+                : activeTab === "world" || activeTab === "config"
+                  ? worldRows
+                  : activeTab === "ammo"
+                    ? ammoRows
+                    : activeTab === "enemies"
+                      ? enemyRows
+                      : rows;
         const activeColumns = columnsForCurrentMode();
         if (!activeColumns.some((column) => column.key === sortState.key)) {
           sortState =
-            attackStyleSelect.value === "enemies"
+            activeTab === "enemies"
               ? { key: "enemy.label", direction: "asc" }
-              : { key: "item.label", direction: "asc" };
+              : activeTab === "ammo"
+                ? { key: "mag.label", direction: "asc" }
+                : activeTab === "json"
+                  ? { key: "file", direction: "asc" }
+                  : activeTab === "waves" || activeTab === "loot"
+                    ? { key: "label", direction: "asc" }
+                    : activeTab === "world" || activeTab === "config"
+                      ? { key: "configLabel", direction: "asc" }
+                      : { key: "item.label", direction: "asc" };
           renderHeader();
         }
         const sortColumn = activeColumns.find(
@@ -600,19 +859,47 @@
 
         rowsBody.replaceChildren(...renderedRows);
         setStatus(
-          attackStyleSelect.value === "enemies"
-            ? `${visibleRows.length} of ${enemyRows.length} enemies`
-            : `${visibleRows.length} of ${rows.length} weapons`,
+          activeTab === "json"
+            ? `${visibleRows.length} of ${jsonRows.length} JSON fields`
+            : activeTab === "waves"
+              ? `${visibleRows.length} wave lists`
+              : activeTab === "loot"
+                ? `${visibleRows.length} loot lists`
+                : activeTab === "world" || activeTab === "config"
+                  ? `${visibleRows.length} of ${worldRows.length} config sections`
+                  : activeTab === "ammo"
+                    ? `${visibleRows.length} of ${ammoRows.length} ammo rows`
+                    : activeTab === "enemies"
+                      ? `${visibleRows.length} of ${enemyRows.length} enemies`
+                      : `${visibleRows.length} of ${rows.length} weapons`,
         );
       }
 
       function columnsForCurrentMode() {
-        return attackStyleSelect.value === "enemies" ? enemyColumns : columns;
+        if (activeTab === "ammo") {
+          return ammoColumns;
+        }
+        if (activeTab === "waves" || activeTab === "loot") {
+          return listColumns;
+        }
+        if (activeTab === "world" || activeTab === "config") {
+          return worldColumns;
+        }
+        if (activeTab === "json") {
+          return jsonColumns;
+        }
+        return activeTab === "enemies" ? enemyColumns : columns;
       }
 
       function refreshFieldLabels() {
         fieldLabels = new Map();
-        for (const row of [...rows, ...enemyRows]) {
+        for (const row of [
+          ...rows,
+          ...ammoRows,
+          ...enemyRows,
+          ...worldRows,
+          ...jsonRows,
+        ]) {
           for (const field of row.fields) {
             fieldLabels.set(field.key, field.label);
           }
@@ -623,16 +910,26 @@
         const response = await fetch("/api/balance");
         const payload = await response.json();
         rows = payload.rows;
+        ammoRows = payload.ammoRows ?? [];
         enemyRows = payload.enemyRows ?? [];
+        worldRows = payload.worldRows ?? [];
+        listRows = payload.listRows ?? [];
+        jsonRows = payload.jsonRows ?? [];
         refreshFieldLabels();
         renderHeader();
         renderRows();
       }
 
       searchInput.addEventListener("input", renderRows);
-      attackStyleSelect.addEventListener("change", () => {
-        renderHeader();
-        renderRows();
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          activeTab = button.dataset.tab;
+          for (const tabButton of tabButtons) {
+            tabButton.classList.toggle("active", tabButton === button);
+          }
+          renderHeader();
+          renderRows();
+        });
       });
 
       await loadRows();

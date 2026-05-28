@@ -1,7 +1,7 @@
 {
-  "label": "Thanos Rocket Launcher Magazine",
+  "label": "M4A1 Magazine",
   "recipe": {
-    "hint": "Fresh magazine for Thanos Rocket Launcher.",
+    "hint": "Fresh magazine for M4A1.",
     "outputAmount": 1,
     "costs": [
       {
@@ -9,9 +9,6 @@
         "amount": 20
       }
     ]
-  },
-  "pickupSpawn": {
-    "pools": ["mag"]
   },
   "runtime": {
     "server": {

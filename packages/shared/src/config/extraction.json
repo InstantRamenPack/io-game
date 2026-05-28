@@ -6,6 +6,5 @@
   },
   "enemyDangerRadius": 400,
   "boardTimerGoalMs": 45000,
-  "chopperTimerGoalMs": 20000,
-  "finalWaveCycle": 7
+  "chopperTimerGoalMs": 20000
 }

@@ -574,11 +574,12 @@ export class PixiWorldView {
         continue;
       }
       const radius = marker.importance === "major" ? 78 : 42;
+      const color = minimapMarkerColor(marker.archetype, marker.risk);
       g.circle(marker.x, marker.y, radius)
-        .fill({ color: minimapMarkerColor(marker.archetype), alpha: 0.22 })
+        .fill({ color, alpha: 0.22 })
         .stroke({
           width: marker.importance === "major" ? 5 : 3,
-          color: minimapMarkerColor(marker.archetype),
+          color,
           alpha: 0.38,
         });
     }
@@ -789,7 +790,7 @@ export class PixiWorldView {
       const my = y + marker.y * scaleY;
       const radius = marker.importance === "major" ? 3.5 : 2;
       g.circle(mx, my, radius).fill({
-        color: minimapMarkerColor(marker.archetype),
+        color: minimapMarkerColor(marker.archetype, marker.risk),
         alpha: marker.importance === "reward" ? 0.55 : 0.9,
       });
     }
@@ -976,7 +977,17 @@ function drawDungeonFloor(g: Graphics, map: MapSnapshot): void {
   }
 }
 
-function minimapMarkerColor(archetype: string): number {
+function minimapMarkerColor(archetype: string, risk?: string): number {
+  switch (risk) {
+    case "low":
+      return 0xffffff;
+    case "medium":
+      return 0x82df77;
+    case "high":
+    case "boss":
+      return 0xff7777;
+  }
+
   switch (archetype) {
     case "extraction":
       return 0xffdd55;

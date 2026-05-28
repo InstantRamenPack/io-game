@@ -9,10 +9,7 @@ import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Item } from "@server/items/Item.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-import {
-  itemTypeRegistry,
-  type RegistrableItemCtor,
-} from "@server/registry/registries.ts";
+import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
 type BuildableSlot = {
   kind: "buildable";
@@ -210,7 +207,7 @@ export class Inventory {
     return item.grantToInventory(this, amount);
   }
 
-  public grantItemCtor(ctor: RegistrableItemCtor, amount: number): boolean {
+  public grantItemCtor(ctor: new () => Item, amount: number): boolean {
     return this.grantItem(new ctor(), amount);
   }
 
@@ -295,7 +292,7 @@ export class Inventory {
   }
 
   private createItem(typeId: ResourceId): Item {
-    return new (itemTypeRegistry.require(typeId).ctor)();
+    return new (requireItemLikeTypeEntry(typeId).ctor)();
   }
 
   public getSelectedBuildable(): BuildableSlot | undefined {

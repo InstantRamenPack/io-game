@@ -11,7 +11,11 @@ import type {
   EntityRendererOptions,
 } from "@client/render/entity/EntityRenderer.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
-import { getItemContent, getWeaponContent } from "@shared/content/catalog.ts";
+import {
+  getItemContent,
+  getWeaponContent,
+  requireEntityContent,
+} from "@shared/content/catalog.ts";
 import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
 import type { WeaponContent } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -608,8 +612,19 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     const itemContent = getItemContent(typeId);
-    const weaponContent = getWeaponContent(typeId);
+    const weaponContent =
+      typeId === "player:unarmed"
+        ? requireEntityContent("player:base").player?.unarmedAttack
+        : getWeaponContent(typeId);
     if (!itemContent || !weaponContent) {
+      if (typeId === "player:unarmed" && weaponContent) {
+        this.equippedContentCache = {
+          typeId,
+          weaponContent,
+          texture: PIXI.Texture.WHITE,
+        };
+        return this.equippedContentCache;
+      }
       this.equippedContentCache = null;
       return undefined;
     }

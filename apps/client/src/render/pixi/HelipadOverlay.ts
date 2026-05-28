@@ -89,7 +89,7 @@ export class HelipadOverlay {
         this.labelText.text =
           state.lockedReason === "comms_offline"
             ? "COMMS OFFLINE"
-            : "FINAL WAVE REQUIRED";
+            : "EXTRACTION LOCKED";
         this.labelText.style.fill = 0xff6644;
         this.timerText.text = "";
         break;

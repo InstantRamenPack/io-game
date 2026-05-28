@@ -1,63 +1,33 @@
 {
   "lootByTier": {
     "common": [
-      "item:hunk",
-      "item:crude_bandage",
       "item:baseball_bat",
       "item:basic_dagger",
       "item:basic_gun",
       "item:basic_spear",
       "item:basic_sword",
       "item:cleaver",
-      "item:fists",
-      "item:scissors",
-      "item:pistol_mag",
-      "item:rifle_mag"
+      "item:scissors"
     ],
     "uncommon": [
-      "item:hunk",
-      "item:crude_bandage",
       "item:carbine",
       "item:crossbow",
       "item:machete",
       "item:saboteur_sword",
-      "item:taser",
-      "item:crossbow_mag",
-      "item:wall",
-      "item:chest",
-      "item:crafting_station",
-      "item:landmine"
+      "item:taser"
     ],
     "rare": [
-      "item:hunk",
       "item:basic_rifle",
       "item:drone_shooter",
       "item:fire_axe",
       "item:katana",
       "item:machine_pistol",
-      "item:spiked_spear",
-      "item:cannon"
+      "item:spiked_spear"
     ],
-    "epic": [
-      "item:hunk",
-      "item:halberd",
-      "item:heavy_pistol",
-      "item:lmg",
-      "item:sniper"
-    ]
+    "epic": ["item:halberd", "item:heavy_pistol", "item:lmg", "item:sniper"]
   },
   "crateLootByTier": {
     "common": [
-      {
-        "typeId": "item:hunk",
-        "kind": "stackable",
-        "amount": 4
-      },
-      {
-        "typeId": "item:crude_bandage",
-        "kind": "stackable",
-        "amount": 1
-      },
       {
         "typeId": "item:baseball_bat",
         "kind": "weapon"
@@ -83,35 +53,11 @@
         "kind": "weapon"
       },
       {
-        "typeId": "item:fists",
-        "kind": "weapon"
-      },
-      {
         "typeId": "item:scissors",
         "kind": "weapon"
-      },
-      {
-        "typeId": "item:pistol_mag",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:rifle_mag",
-        "kind": "stackable",
-        "amount": 1
       }
     ],
     "uncommon": [
-      {
-        "typeId": "item:hunk",
-        "kind": "stackable",
-        "amount": 7
-      },
-      {
-        "typeId": "item:crude_bandage",
-        "kind": "stackable",
-        "amount": 1
-      },
       {
         "typeId": "item:carbine",
         "kind": "weapon"
@@ -133,42 +79,12 @@
         "kind": "weapon"
       },
       {
-        "typeId": "item:crossbow_mag",
-        "kind": "stackable",
-        "amount": 2
-      },
-      {
-        "typeId": "item:wall",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:chest",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:crafting_station",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:landmine",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:blueprint_armor_t2",
+        "typeId": "blueprint:armor_t2",
         "kind": "stackable",
         "amount": 1
       }
     ],
     "rare": [
-      {
-        "typeId": "item:hunk",
-        "kind": "stackable",
-        "amount": 12
-      },
       {
         "typeId": "item:basic_rifle",
         "kind": "weapon"
@@ -194,22 +110,12 @@
         "kind": "weapon"
       },
       {
-        "typeId": "item:cannon",
-        "kind": "stackable",
-        "amount": 1
-      },
-      {
-        "typeId": "item:blueprint_armor_t3",
+        "typeId": "blueprint:armor_t3",
         "kind": "stackable",
         "amount": 1
       }
     ],
     "epic": [
-      {
-        "typeId": "item:hunk",
-        "kind": "stackable",
-        "amount": 18
-      },
       {
         "typeId": "item:halberd",
         "kind": "weapon"
@@ -227,7 +133,7 @@
         "kind": "weapon"
       },
       {
-        "typeId": "item:blueprint_armor_t4",
+        "typeId": "blueprint:armor_t4",
         "kind": "stackable",
         "amount": 1
       }
@@ -294,12 +200,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:hunk",
+          "typeId": "item:basic_spear",
           "offsetX": -128,
           "offsetY": 192,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "common",
-          "amount": 5
+          "amount": 1
         }
       ]
     },
@@ -323,12 +229,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:sniper_mag",
+          "typeId": "item:basic_rifle",
           "offsetX": 320,
           "offsetY": -192,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "rare",
-          "amount": 2
+          "amount": 1
         }
       ]
     }
@@ -349,12 +255,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:crude_bandage",
+          "typeId": "item:basic_spear",
           "offsetX": 160,
           "offsetY": 0,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "common",
-          "amount": 2
+          "amount": 1
         }
       ]
     },
@@ -378,12 +284,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:pistol_mag",
+          "typeId": "item:basic_spear",
           "offsetX": 0,
           "offsetY": 120,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "common",
-          "amount": 2
+          "amount": 1
         }
       ]
     },
@@ -422,12 +328,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:rifle_mag",
+          "typeId": "item:basic_spear",
           "offsetX": 0,
           "offsetY": 0,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "common",
-          "amount": 2
+          "amount": 1
         }
       ]
     },
@@ -440,28 +346,18 @@
             {
               "typeId": "item:sniper",
               "kind": "weapon"
-            },
-            {
-              "typeId": "item:sniper_mag",
-              "kind": "stackable",
-              "amount": 3
-            },
-            {
-              "typeId": "item:hunk",
-              "kind": "stackable",
-              "amount": 12
             }
           ]
         }
       ],
       "loot": [
         {
-          "typeId": "item:hunk",
+          "typeId": "item:crossbow",
           "offsetX": 80,
           "offsetY": 0,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "uncommon",
-          "amount": 8
+          "amount": 1
         }
       ]
     },
@@ -551,12 +447,12 @@
       ],
       "loot": [
         {
-          "typeId": "item:landmine",
+          "typeId": "item:crossbow",
           "offsetX": 0,
           "offsetY": 128,
-          "kind": "stackable",
+          "kind": "weapon",
           "rewardTier": "uncommon",
-          "amount": 2
+          "amount": 1
         }
       ]
     },
@@ -605,16 +501,6 @@
             {
               "typeId": "item:thanos_rifle",
               "kind": "weapon"
-            },
-            {
-              "typeId": "item:sniper_mag",
-              "kind": "stackable",
-              "amount": 4
-            },
-            {
-              "typeId": "item:hunk",
-              "kind": "stackable",
-              "amount": 20
             }
           ]
         }

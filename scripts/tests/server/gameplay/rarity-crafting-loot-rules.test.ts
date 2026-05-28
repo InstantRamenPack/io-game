@@ -7,6 +7,10 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { pickupsConfig } from "@shared/config/gameplayConfig.ts";
 
 describe("rarity crafting and loot rules", () => {
+  test("fists are not authored as an inventory item", () => {
+    expect(getItemContent("item:fists" as ResourceId)).toBeUndefined();
+  });
+
   test("common and uncommon weapons and buildings are immediately craftable", () => {
     for (const [typeId, item] of getAllItemContentEntries()) {
       if (!item.weapon && !item.buildsEntityTypeId) {
@@ -22,9 +26,7 @@ describe("rarity crafting and loot rules", () => {
 
       expect(item.recipe, `${typeId} should be craftable`).toBeDefined();
       expect(
-        item.recipe?.costs.some((cost) =>
-          cost.typeId.startsWith("item:blueprint_"),
-        ),
+        item.recipe?.costs.some((cost) => cost.typeId.startsWith("blueprint:")),
         `${typeId} should not require a blueprint`,
       ).toBe(false);
     }
@@ -43,16 +45,12 @@ describe("rarity crafting and loot rules", () => {
       if (item.rarityTier === "epic") {
         const blueprintCosts =
           item.recipe?.costs.filter((cost) =>
-            cost.typeId.startsWith("item:blueprint_"),
+            cost.typeId.startsWith("blueprint:"),
           ) ?? [];
         expect(
           blueprintCosts,
-          `${typeId} should need one blueprint`,
-        ).toHaveLength(1);
-        expect(
-          getItemContent(blueprintCosts[0]!.typeId as ResourceId)
-            ?.unlocksRecipeTypeId,
-        ).toBe(typeId);
+          `${typeId} should unlock from a blueprint but not consume one`,
+        ).toHaveLength(0);
       }
     }
   });
@@ -65,6 +63,7 @@ describe("rarity crafting and loot rules", () => {
     }
 
     for (const typeId of pickupsConfig.legacyOrder.blueprint) {
+      expect(typeId.startsWith("blueprint:")).toBe(true);
       const unlockedTypeId = getItemContent(
         typeId as ResourceId,
       )?.unlocksRecipeTypeId;
@@ -75,6 +74,7 @@ describe("rarity crafting and loot rules", () => {
     }
 
     for (const typeId of pickupsConfig.legacyOrder.mag) {
+      expect(typeId.startsWith("mag:")).toBe(true);
       const matchingWeapons = getAllItemContentEntries().filter(([, item]) => {
         const weapon = item.weapon;
         return (

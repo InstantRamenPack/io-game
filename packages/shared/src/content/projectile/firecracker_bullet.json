@@ -10,6 +10,11 @@
     "hitbox": {
       "width": 16,
       "height": 16
+    },
+    "split": {
+      "projectileTypeId": "projectile:small_firecracker_bullet",
+      "projectileCount": 5,
+      "arcDeg": 60
     }
   }
 }

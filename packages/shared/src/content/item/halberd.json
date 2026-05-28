@@ -7,10 +7,6 @@
     "outputAmount": 1,
     "costs": [
       {
-        "typeId": "item:blueprint_halberd",
-        "amount": 1
-      },
-      {
         "typeId": "item:hunk",
         "amount": 180
       }

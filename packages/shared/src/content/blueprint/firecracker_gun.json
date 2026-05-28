@@ -1,0 +1,7 @@
+{
+  "label": "Firecracker Gun Blueprint",
+  "unlocksRecipeTypeId": "item:firecracker_gun",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

@@ -8,10 +8,11 @@ type BalanceFile = {
 type BalanceField = {
   key: string;
   label: string;
-  source: "item" | "weapon" | "projectile" | "enemy";
+  source: "item" | "weapon" | "projectile" | "enemy" | "mag" | "world" | "json";
   path: string[];
   value: string | number | null;
   kind: "number" | "text";
+  file?: string;
   editableWhenMissing?: boolean;
   deleteOnBlank?: boolean;
 };
@@ -25,6 +26,8 @@ type BalanceRow = {
   projectileTypeId: string | null;
   projectileLabel: string | null;
   projectileFile: string | null;
+  magItemTypeId: string | null;
+  magFile: string | null;
   dpsNoReload: number | null;
   dpsWithReload: number | null;
   fields: BalanceField[];
@@ -37,9 +40,72 @@ type EnemyBalanceRow = {
   fields: BalanceField[];
 };
 
+type AmmoBalanceRow = {
+  magTypeId: string;
+  magLabel: string;
+  magFile: string;
+  fields: BalanceField[];
+};
+
+type WorldBalanceRow = {
+  configId: string;
+  configLabel: string;
+  file: string;
+  fields: BalanceField[];
+};
+
+type BalanceListEntry = {
+  label: string;
+  detail: string;
+  value: unknown;
+};
+
+type BalanceListRow = {
+  listId: string;
+  tab: "waves" | "loot";
+  label: string;
+  file: string;
+  path: string[];
+  itemKind:
+    | "waveEnemyWeight"
+    | "tierFloor"
+    | "typeId"
+    | "crateLoot"
+    | "pickupSpawnPool";
+  entries: BalanceListEntry[];
+  addTemplate: string;
+};
+
+type JsonBalanceRow = {
+  jsonId: string;
+  file: string;
+  pathLabel: string;
+  fields: BalanceField[];
+};
+
 const itemContentDirectory = "packages/shared/src/content/item";
+const magContentDirectory = "packages/shared/src/content/mag";
 const enemyContentDirectory = "packages/shared/src/content/enemy";
 const projectileContentDirectory = "packages/shared/src/content/projectile";
+const proceduralContentPath =
+  "packages/shared/src/world/procedural-content.json";
+const worldgenConfigPath = "packages/shared/src/config/worldgen.json";
+const wavesConfigPath = "packages/shared/src/config/waves.json";
+const extractionConfigPath = "packages/shared/src/config/extraction.json";
+const pickupsConfigPath = "packages/shared/src/config/pickups.json";
+const jsonEditableRoots = [
+  "packages/shared/src/config",
+  "packages/shared/src/content",
+] as const;
+const jsonEditableFiles = [proceduralContentPath] as const;
+const rarityTiers = [
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+] as const;
+const pickupSpawnPools = ["mag", "weapon", "blueprint", "medical"] as const;
 
 const weaponFieldSpecs = [
   {
@@ -50,6 +116,21 @@ const weaponFieldSpecs = [
   { key: "magSize", label: "Mag Size", path: ["weapon", "magSize"] },
   { key: "reloadTicks", label: "Reload", path: ["weapon", "reloadTicks"] },
   { key: "spreadDeg", label: "Spread", path: ["weapon", "spreadDeg"] },
+  {
+    key: "specialProjectileCount",
+    label: "Special Count",
+    path: ["weapon", "special", "projectileCount"],
+  },
+  {
+    key: "specialArcDeg",
+    label: "Special Arc",
+    path: ["weapon", "special", "arcDeg"],
+  },
+  {
+    key: "specialSelfKnockback",
+    label: "Self Knockback",
+    path: ["weapon", "special", "selfKnockback"],
+  },
   { key: "range", label: "Range", path: ["weapon", "range"] },
   { key: "damage", label: "Weapon Damage", path: ["weapon", "damage"] },
   { key: "knockback", label: "Knockback", path: ["weapon", "knockback"] },
@@ -72,6 +153,16 @@ const projectileFieldSpecs = [
     key: "hitboxHeight",
     label: "Hitbox H",
     path: ["projectile", "hitbox", "height"],
+  },
+  {
+    key: "splitProjectileCount",
+    label: "Split Count",
+    path: ["projectile", "split", "projectileCount"],
+  },
+  {
+    key: "splitArcDeg",
+    label: "Split Arc",
+    path: ["projectile", "split", "arcDeg"],
   },
 ] as const;
 
@@ -113,6 +204,131 @@ const hunkCostFieldSpec = {
   path: ["recipe", "costs", "item:hunk", "amount"],
 } as const;
 
+const worldBalanceSpecs = [
+  {
+    configId: "worldgen",
+    configLabel: "Worldgen",
+    file: worldgenConfigPath,
+    fields: [
+      { key: "seed", label: "Seed", path: ["seed"] },
+      {
+        key: "targetVillageCount",
+        label: "Village Count",
+        path: ["targetVillageCount"],
+      },
+      {
+        key: "lobbyWorldWidth",
+        label: "Lobby Width",
+        path: ["lobbyWorldSize", "w"],
+      },
+      {
+        key: "lobbyWorldHeight",
+        label: "Lobby Height",
+        path: ["lobbyWorldSize", "h"],
+      },
+    ],
+  },
+  {
+    configId: "loot",
+    configLabel: "Loot",
+    file: pickupsConfigPath,
+    fields: [
+      {
+        key: "weaponMaxActive",
+        label: "Weapon Pickups",
+        path: ["weapon", "maxActive"],
+      },
+      {
+        key: "blueprintMaxActive",
+        label: "Blueprint Pickups",
+        path: ["blueprint", "maxActive"],
+      },
+      {
+        key: "medicalMaxActive",
+        label: "Medical Pickups",
+        path: ["medical", "maxActive"],
+      },
+      {
+        key: "spawnAttempts",
+        label: "Spawn Attempts",
+        path: ["spawnAttempts"],
+      },
+    ],
+  },
+  {
+    configId: "waves",
+    configLabel: "Waves",
+    file: wavesConfigPath,
+    fields: [
+      {
+        key: "randomEnabled",
+        label: "Random Waves",
+        path: ["randomWaves", "enabled"],
+        kind: "text",
+      },
+      {
+        key: "baseBudget",
+        label: "Base Budget",
+        path: ["randomWaves", "baseBudget"],
+      },
+      {
+        key: "budgetPerNight",
+        label: "Budget/Night",
+        path: ["randomWaves", "budgetPerNight"],
+      },
+      {
+        key: "targetPriority",
+        label: "Target Priority",
+        path: ["targetPriority"],
+      },
+    ],
+  },
+  {
+    configId: "extraction",
+    configLabel: "Extraction",
+    file: extractionConfigPath,
+    fields: [
+      {
+        key: "enemyDangerRadius",
+        label: "Enemy Radius",
+        path: ["enemyDangerRadius"],
+      },
+      {
+        key: "boardTimerGoalMs",
+        label: "Board Timer",
+        path: ["boardTimerGoalMs"],
+      },
+      {
+        key: "chopperTimerGoalMs",
+        label: "Chopper Timer",
+        path: ["chopperTimerGoalMs"],
+      },
+    ],
+  },
+  {
+    configId: "villageLoot",
+    configLabel: "Village Loot",
+    file: proceduralContentPath,
+    fields: [
+      {
+        key: "crateChance",
+        label: "Interior Crate Chance",
+        path: ["interiorSpawnChances", "crate"],
+      },
+      {
+        key: "enemyChance",
+        label: "Interior Enemy Chance",
+        path: ["interiorSpawnChances", "enemy"],
+      },
+      {
+        key: "furnitureChance",
+        label: "Interior Furniture Chance",
+        path: ["interiorSpawnChances", "furniture"],
+      },
+    ],
+  },
+] as const;
+
 function parseIntegerEnv(name: string, fallback: number): number {
   const rawValue = process.env[name];
   if (rawValue === undefined) {
@@ -148,8 +364,69 @@ async function readContentFiles(directory: string): Promise<BalanceFile[]> {
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+async function collectJsonFiles(directory: string): Promise<string[]> {
+  const glob = new Bun.Glob("**/*.json");
+  const files: string[] = [];
+
+  for await (const filename of glob.scan(directory)) {
+    const path = `${directory}/${filename}`;
+    if (path.includes("/generated/")) {
+      continue;
+    }
+    files.push(path);
+  }
+
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
 function resourceNameFromPath(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1, -".json".length);
+}
+
+function typeIdForContentPath(path: string): string {
+  if (path.includes("/content/enemy/")) {
+    return `enemy:${resourceNameFromPath(path)}`;
+  }
+  if (path.includes("/content/blueprint/")) {
+    return `blueprint:${resourceNameFromPath(path)}`;
+  }
+  if (path.includes("/content/mag/")) {
+    return `mag:${resourceNameFromPath(path)}`;
+  }
+  return `item:${resourceNameFromPath(path)}`;
+}
+
+async function loadKnownTypeIds(): Promise<{
+  enemyTypeIds: Set<string>;
+  itemLikeTypeIds: Set<string>;
+  weaponTypeIds: Set<string>;
+  blueprintTypeIds: Set<string>;
+}> {
+  const [itemFiles, magFiles, enemyFiles, blueprintFiles] = await Promise.all([
+    readContentFiles(itemContentDirectory),
+    readContentFiles(magContentDirectory),
+    readContentFiles(enemyContentDirectory),
+    readContentFiles("packages/shared/src/content/blueprint"),
+  ]);
+  const enemyTypeIds = new Set(
+    enemyFiles.map((file) => typeIdForContentPath(file.path)),
+  );
+  const itemLikeTypeIds = new Set<string>();
+  const weaponTypeIds = new Set<string>();
+  const blueprintTypeIds = new Set<string>();
+
+  for (const file of [...itemFiles, ...magFiles, ...blueprintFiles]) {
+    const typeId = typeIdForContentPath(file.path);
+    itemLikeTypeIds.add(typeId);
+    if (file.path.includes("/content/blueprint/")) {
+      blueprintTypeIds.add(typeId);
+    }
+    if (file.data.weapon) {
+      weaponTypeIds.add(typeId);
+    }
+  }
+
+  return { enemyTypeIds, itemLikeTypeIds, weaponTypeIds, blueprintTypeIds };
 }
 
 function getValue(data: JsonObject, path: readonly string[]): unknown {
@@ -171,13 +448,52 @@ function setValue(
   let current: JsonObject = data;
   for (const key of path.slice(0, -1)) {
     const next = current[key];
-    if (!next || typeof next !== "object" || Array.isArray(next)) {
+    if (!next || typeof next !== "object") {
       throw new Error(`Cannot update missing object path ${path.join(".")}.`);
     }
     current = next as JsonObject;
   }
 
   current[path[path.length - 1]!] = value;
+}
+
+function replaceArrayEntry(
+  data: JsonObject,
+  path: readonly string[],
+  entries: unknown[],
+): void {
+  if (entries.length === 0) {
+    throw new Error("List must contain at least one entry.");
+  }
+  setValue(data, path, entries);
+}
+
+function collectPrimitiveFields(
+  value: unknown,
+  path: string[] = [],
+): Array<{ path: string[]; value: string | number | boolean | null }> {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return [{ path, value }];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) =>
+      collectPrimitiveFields(entry, [...path, String(index)]),
+    );
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value as JsonObject).flatMap(([key, entry]) =>
+      collectPrimitiveFields(entry, [...path, key]),
+    );
+  }
+
+  return [];
 }
 
 function hunkCostAmount(data: JsonObject): number | null {
@@ -342,6 +658,23 @@ function makeHunkCostField(data: JsonObject): BalanceField {
   };
 }
 
+function makeMagHunkCostField(
+  data: JsonObject | undefined,
+  file: string | null,
+): BalanceField {
+  return {
+    key: "mag.hunkCost",
+    label: "Ammo Hunk Cost",
+    source: "mag",
+    path: [...hunkCostFieldSpec.path],
+    value: data ? hunkCostAmount(data) : null,
+    kind: "number",
+    editableWhenMissing: Boolean(file),
+    deleteOnBlank: true,
+    file: file ?? undefined,
+  };
+}
+
 function numberField(fields: BalanceField[], key: string): number | undefined {
   const value = fields.find((field) => field.key === key)?.value;
   return typeof value === "number" ? value : undefined;
@@ -383,10 +716,14 @@ function calculateDps(
 }
 
 async function loadBalanceRows(): Promise<BalanceRow[]> {
-  const [itemFiles, projectileFiles] = await Promise.all([
+  const [itemFiles, magFiles, projectileFiles] = await Promise.all([
     readContentFiles(itemContentDirectory),
+    readContentFiles(magContentDirectory),
     readContentFiles(projectileContentDirectory),
   ]);
+  const magsByTypeId = new Map(
+    magFiles.map((file) => [`mag:${resourceNameFromPath(file.path)}`, file]),
+  );
   const projectilesByTypeId = new Map(
     projectileFiles.map((file) => [
       `projectile:${resourceNameFromPath(file.path)}`,
@@ -405,6 +742,11 @@ async function loadBalanceRows(): Promise<BalanceRow[]> {
       const projectileFile = projectileTypeId
         ? projectilesByTypeId.get(projectileTypeId)
         : undefined;
+      const magItemTypeId =
+        typeof weapon.magItemTypeId === "string" ? weapon.magItemTypeId : null;
+      const magFile = magItemTypeId
+        ? magsByTypeId.get(magItemTypeId)
+        : undefined;
       const projectileFields = projectileFile
         ? projectileFieldSpecs.map((spec) =>
             makeField(spec, "projectile", projectileFile.data),
@@ -416,6 +758,7 @@ async function loadBalanceRows(): Promise<BalanceRow[]> {
       const fields = [
         ...itemFieldSpecs.map((spec) => makeItemField(spec, weaponFile.data)),
         makeHunkCostField(weaponFile.data),
+        makeMagHunkCostField(magFile?.data, magFile?.path ?? null),
         ...weaponFieldSpecs.map((spec) =>
           makeField(spec, "weapon", weaponFile.data),
         ),
@@ -441,6 +784,8 @@ async function loadBalanceRows(): Promise<BalanceRow[]> {
             ? projectileFile.data.label
             : null,
         projectileFile: projectileFile?.path ?? null,
+        magItemTypeId,
+        magFile: magFile?.path ?? null,
         ...dps,
         fields,
       };
@@ -451,6 +796,32 @@ async function loadBalanceRows(): Promise<BalanceRow[]> {
       }
       return a.weaponLabel.localeCompare(b.weaponLabel);
     });
+}
+
+async function loadAmmoBalanceRows(): Promise<AmmoBalanceRow[]> {
+  const magFiles = await readContentFiles(magContentDirectory);
+  return magFiles
+    .map((magFile) => ({
+      magTypeId: typeIdForContentPath(magFile.path),
+      magLabel:
+        typeof magFile.data.label === "string"
+          ? magFile.data.label
+          : resourceNameFromPath(magFile.path),
+      magFile: magFile.path,
+      fields: [
+        {
+          key: "mag.label",
+          label: "Ammo Name",
+          source: "mag" as const,
+          path: ["label"],
+          value:
+            typeof magFile.data.label === "string" ? magFile.data.label : null,
+          kind: "text" as const,
+        },
+        makeMagHunkCostField(magFile.data, magFile.path),
+      ],
+    }))
+    .sort((a, b) => a.magLabel.localeCompare(b.magLabel));
 }
 
 async function loadEnemyBalanceRows(): Promise<EnemyBalanceRow[]> {
@@ -474,8 +845,280 @@ async function loadEnemyBalanceRows(): Promise<EnemyBalanceRow[]> {
     .sort((a, b) => a.enemyLabel.localeCompare(b.enemyLabel));
 }
 
+function listEntriesFor(
+  itemKind: BalanceListRow["itemKind"],
+  entries: unknown[],
+): BalanceListEntry[] {
+  return entries.map((entry) => {
+    if (itemKind === "waveEnemyWeight" && entry && typeof entry === "object") {
+      const object = entry as JsonObject;
+      return {
+        label: String(object.entityType ?? ""),
+        detail: `${String(object.tier ?? "")} / weight ${String(object.weight ?? "")}`,
+        value: entry,
+      };
+    }
+    if (itemKind === "tierFloor" && entry && typeof entry === "object") {
+      const object = entry as JsonObject;
+      return {
+        label: `Night ${String(object.nightCycle ?? "")}`,
+        detail: `allowed: ${Array.isArray(object.allowedTiers) ? object.allowedTiers.join(", ") : ""}`,
+        value: entry,
+      };
+    }
+    if (itemKind === "crateLoot" && entry && typeof entry === "object") {
+      const object = entry as JsonObject;
+      return {
+        label: String(object.typeId ?? ""),
+        detail: `${String(object.kind ?? "")}${object.amount === undefined ? "" : ` x${String(object.amount)}`}`,
+        value: entry,
+      };
+    }
+    return { label: String(entry), detail: "", value: entry };
+  });
+}
+
+function makeListRow(
+  tab: BalanceListRow["tab"],
+  label: string,
+  file: string,
+  path: string[],
+  itemKind: BalanceListRow["itemKind"],
+  entries: unknown,
+  addTemplate: string,
+): BalanceListRow {
+  if (!Array.isArray(entries)) {
+    throw new Error(`Expected ${label} to be a list.`);
+  }
+  return {
+    listId: `${file}:${path.join(".")}`,
+    tab,
+    label,
+    file,
+    path,
+    itemKind,
+    entries: listEntriesFor(itemKind, entries),
+    addTemplate,
+  };
+}
+
+function pushListRowIfArray(
+  rows: BalanceListRow[],
+  tab: BalanceListRow["tab"],
+  label: string,
+  file: string,
+  path: string[],
+  itemKind: BalanceListRow["itemKind"],
+  entries: unknown,
+  addTemplate: string,
+): void {
+  if (!Array.isArray(entries)) {
+    return;
+  }
+  rows.push(
+    makeListRow(tab, label, file, path, itemKind, entries, addTemplate),
+  );
+}
+
+async function loadBalanceListRows(): Promise<BalanceListRow[]> {
+  const [wavesFile, proceduralFile, pickupsFile, itemFiles, blueprintFiles] =
+    await Promise.all([
+      readJsonFile(wavesConfigPath),
+      readJsonFile(proceduralContentPath),
+      readJsonFile(pickupsConfigPath),
+      readContentFiles(itemContentDirectory),
+      readContentFiles("packages/shared/src/content/blueprint"),
+    ]);
+  const rows: BalanceListRow[] = [];
+
+  rows.push(
+    makeListRow(
+      "waves",
+      "Wave enemy weights",
+      wavesConfigPath,
+      ["randomWaves", "enemyWeights"],
+      "waveEnemyWeight",
+      getValue(wavesFile.data, ["randomWaves", "enemyWeights"]),
+      '{"entityType":"drifter","tier":"common","weight":1}',
+    ),
+    makeListRow(
+      "waves",
+      "Tier floors and allowed tiers",
+      wavesConfigPath,
+      ["randomWaves", "tierFloors"],
+      "tierFloor",
+      getValue(wavesFile.data, ["randomWaves", "tierFloors"]),
+      '{"nightCycle":1,"floors":{"common":1},"allowedTiers":["common"]}',
+    ),
+  );
+
+  for (const tier of rarityTiers) {
+    pushListRowIfArray(
+      rows,
+      "loot",
+      `Loot tier ${tier}`,
+      proceduralContentPath,
+      ["lootByTier", tier],
+      "typeId",
+      getValue(proceduralFile.data, ["lootByTier", tier]),
+      '"item:basic_spear"',
+    );
+    pushListRowIfArray(
+      rows,
+      "loot",
+      `Crate loot ${tier}`,
+      proceduralContentPath,
+      ["crateLootByTier", tier],
+      "crateLoot",
+      getValue(proceduralFile.data, ["crateLootByTier", tier]),
+      '{"typeId":"item:basic_spear","kind":"weapon"}',
+    );
+  }
+
+  for (const pool of ["corner", "edge"]) {
+    rows.push(
+      makeListRow(
+        "loot",
+        `Forest camp ${pool} enemies`,
+        proceduralContentPath,
+        ["forestCampEnemyTypes", pool],
+        "typeId",
+        getValue(proceduralFile.data, ["forestCampEnemyTypes", pool]),
+        '"enemy:drifter"',
+      ),
+    );
+  }
+
+  const villageEnemyPools = getValue(proceduralFile.data, [
+    "villageEnemyPools",
+  ]);
+  if (villageEnemyPools && typeof villageEnemyPools === "object") {
+    for (const pool of Object.keys(villageEnemyPools as JsonObject).sort()) {
+      rows.push(
+        makeListRow(
+          "loot",
+          `Village ${pool} enemies`,
+          proceduralContentPath,
+          ["villageEnemyPools", pool],
+          "typeId",
+          getValue(proceduralFile.data, ["villageEnemyPools", pool]),
+          '"enemy:drifter"',
+        ),
+      );
+    }
+  }
+
+  rows.push(
+    makeListRow(
+      "loot",
+      "Legacy blueprint pickup order",
+      pickupsConfigPath,
+      ["legacyOrder", "blueprint"],
+      "typeId",
+      getValue(pickupsFile.data, ["legacyOrder", "blueprint"]),
+      '"blueprint:halberd"',
+    ),
+  );
+
+  for (const file of [...itemFiles, ...blueprintFiles]) {
+    const pools = getValue(file.data, ["pickupSpawn", "pools"]);
+    if (Array.isArray(pools)) {
+      rows.push(
+        makeListRow(
+          "loot",
+          `${typeIdForContentPath(file.path)} spawn pools`,
+          file.path,
+          ["pickupSpawn", "pools"],
+          "pickupSpawnPool",
+          pools,
+          '"weapon"',
+        ),
+      );
+    }
+  }
+
+  return rows.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+async function loadWorldBalanceRows(): Promise<WorldBalanceRow[]> {
+  return Promise.all(
+    worldBalanceSpecs.map(async (spec) => {
+      const file = await readJsonFile(spec.file);
+      return {
+        configId: spec.configId,
+        configLabel: spec.configLabel,
+        file: spec.file,
+        fields: spec.fields.map((fieldSpec) => ({
+          key: `world.${fieldSpec.key}`,
+          label: fieldSpec.label,
+          source: "world" as const,
+          path: [...fieldSpec.path],
+          value: (() => {
+            const value = getValue(file.data, fieldSpec.path);
+            if (typeof value === "boolean") {
+              return String(value);
+            }
+            return typeof value === "number" || typeof value === "string"
+              ? value
+              : null;
+          })(),
+          kind:
+            ("kind" in fieldSpec ? fieldSpec.kind : undefined) ??
+            (typeof getValue(file.data, fieldSpec.path) === "string" ||
+            typeof getValue(file.data, fieldSpec.path) === "boolean"
+              ? "text"
+              : "number"),
+          file: spec.file,
+        })),
+      };
+    }),
+  );
+}
+
+async function loadJsonBalanceRows(): Promise<JsonBalanceRow[]> {
+  const paths = [
+    ...(await Promise.all(jsonEditableRoots.map(collectJsonFiles))).flat(),
+    ...jsonEditableFiles,
+  ];
+  const uniquePaths = [...new Set(paths)].sort((a, b) => a.localeCompare(b));
+  const rows: JsonBalanceRow[] = [];
+
+  for (const path of uniquePaths) {
+    const file = await readJsonFile(path);
+    for (const primitive of collectPrimitiveFields(file.data)) {
+      const pathLabel = primitive.path.join(".");
+      rows.push({
+        jsonId: `${path}:${pathLabel}`,
+        file: path,
+        pathLabel,
+        fields: [
+          {
+            key: "json.value",
+            label: "Value",
+            source: "json",
+            path: primitive.path,
+            value:
+              typeof primitive.value === "boolean"
+                ? String(primitive.value)
+                : primitive.value,
+            kind: typeof primitive.value === "number" ? "number" : "text",
+            file: path,
+          },
+        ],
+      });
+    }
+  }
+
+  return rows;
+}
+
 function knownFieldForUpdate(
-  row: BalanceRow | EnemyBalanceRow,
+  row:
+    | BalanceRow
+    | AmmoBalanceRow
+    | EnemyBalanceRow
+    | WorldBalanceRow
+    | JsonBalanceRow,
   source: BalanceField["source"],
   path: string[],
 ): BalanceField | undefined {
@@ -533,30 +1176,281 @@ function parseFieldUpdateValue(
   return parsedValue;
 }
 
+function assertRarityTier(value: string): void {
+  if (!rarityTiers.includes(value as (typeof rarityTiers)[number])) {
+    throw new Error(`Unknown rarity tier: ${value}.`);
+  }
+}
+
+function assertKnownTypeId(typeId: string, knownTypeIds: Set<string>): void {
+  if (!knownTypeIds.has(typeId)) {
+    throw new Error(`Unknown type id: ${typeId}.`);
+  }
+}
+
+function validateScalarField(
+  field: BalanceField,
+  value: number | string | boolean | string[] | null,
+  knownIds: Awaited<ReturnType<typeof loadKnownTypeIds>>,
+): void {
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new Error(`${field.label} must be finite.`);
+  }
+  if (
+    typeof value === "number" &&
+    field.key !== "world.targetPriority" &&
+    value < 0
+  ) {
+    throw new Error(`${field.label} must be zero or greater.`);
+  }
+  if (
+    (field.key === "item.rarityTier" || field.key === "enemy.rarityTier") &&
+    typeof value === "string"
+  ) {
+    assertRarityTier(value);
+  }
+  if (field.key === "enemy.spawnWeaponTypeIds" && Array.isArray(value)) {
+    for (const typeId of value) {
+      assertKnownTypeId(typeId, knownIds.weaponTypeIds);
+    }
+  }
+}
+
+function validateListEntry(
+  itemKind: BalanceListRow["itemKind"],
+  value: unknown,
+  knownIds: Awaited<ReturnType<typeof loadKnownTypeIds>>,
+): unknown {
+  if (itemKind === "waveEnemyWeight") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Wave enemy weight must be an object.");
+    }
+    const object = value as JsonObject;
+    if (typeof object.entityType !== "string") {
+      throw new Error("Wave enemy weight requires entityType.");
+    }
+    assertKnownTypeId(`enemy:${object.entityType}`, knownIds.enemyTypeIds);
+    if (typeof object.tier !== "string") {
+      throw new Error("Wave enemy weight requires tier.");
+    }
+    assertRarityTier(object.tier);
+    if (typeof object.weight !== "number" || object.weight <= 0) {
+      throw new Error("Wave enemy weight must be a positive number.");
+    }
+    return {
+      entityType: object.entityType,
+      tier: object.tier,
+      weight: object.weight,
+    };
+  }
+
+  if (itemKind === "tierFloor") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Tier floor must be an object.");
+    }
+    const object = value as JsonObject;
+    if (
+      !Number.isInteger(object.nightCycle) ||
+      Number(object.nightCycle) <= 0
+    ) {
+      throw new Error("Tier floor nightCycle must be a positive integer.");
+    }
+    if (
+      !object.floors ||
+      typeof object.floors !== "object" ||
+      Array.isArray(object.floors)
+    ) {
+      throw new Error("Tier floor requires floors.");
+    }
+    for (const [tier, floor] of Object.entries(object.floors as JsonObject)) {
+      assertRarityTier(tier);
+      if (!Number.isInteger(floor) || Number(floor) <= 0) {
+        throw new Error(`Tier floor for ${tier} must be a positive integer.`);
+      }
+    }
+    if (
+      !Array.isArray(object.allowedTiers) ||
+      object.allowedTiers.length === 0
+    ) {
+      throw new Error("Tier floor allowedTiers must be non-empty.");
+    }
+    for (const tier of object.allowedTiers) {
+      if (typeof tier !== "string") {
+        throw new Error("Tier floor allowedTiers must be tier strings.");
+      }
+      assertRarityTier(tier);
+    }
+    return {
+      nightCycle: object.nightCycle,
+      floors: object.floors,
+      allowedTiers: object.allowedTiers,
+    };
+  }
+
+  if (itemKind === "crateLoot") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Crate loot entry must be an object.");
+    }
+    const object = value as JsonObject;
+    if (typeof object.typeId !== "string") {
+      throw new Error("Crate loot entry requires typeId.");
+    }
+    assertKnownTypeId(object.typeId, knownIds.itemLikeTypeIds);
+    if (object.kind !== "weapon" && object.kind !== "stackable") {
+      throw new Error("Crate loot kind must be weapon or stackable.");
+    }
+    if (
+      object.amount !== undefined &&
+      (!Number.isInteger(object.amount) || Number(object.amount) <= 0)
+    ) {
+      throw new Error("Crate loot amount must be a positive integer.");
+    }
+    return object.amount === undefined
+      ? { typeId: object.typeId, kind: object.kind }
+      : { typeId: object.typeId, kind: object.kind, amount: object.amount };
+  }
+
+  if (itemKind === "pickupSpawnPool") {
+    if (
+      typeof value !== "string" ||
+      !pickupSpawnPools.includes(value as (typeof pickupSpawnPools)[number])
+    ) {
+      throw new Error("Pickup spawn pool is unknown.");
+    }
+    return value;
+  }
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error("List entry must be a non-empty type id.");
+  }
+  const typeId = value.trim();
+  const targetIds =
+    itemKind === "typeId" ? knownIdsForTypeId(typeId, knownIds) : null;
+  assertKnownTypeId(typeId, targetIds ?? knownIds.itemLikeTypeIds);
+  return typeId;
+}
+
+function knownIdsForTypeId(
+  typeId: string,
+  knownIds: Awaited<ReturnType<typeof loadKnownTypeIds>>,
+): Set<string> {
+  if (typeId.startsWith("enemy:")) {
+    return knownIds.enemyTypeIds;
+  }
+  return knownIds.itemLikeTypeIds;
+}
+
+async function balancePayload(): Promise<JsonObject> {
+  return {
+    rows: await loadBalanceRows(),
+    ammoRows: await loadAmmoBalanceRows(),
+    enemyRows: await loadEnemyBalanceRows(),
+    worldRows: await loadWorldBalanceRows(),
+    listRows: await loadBalanceListRows(),
+    jsonRows: await loadJsonBalanceRows(),
+  };
+}
+
 async function saveUpdate(request: Request): Promise<Response> {
   const body = (await request.json()) as {
     weaponTypeId?: unknown;
+    magTypeId?: unknown;
     enemyTypeId?: unknown;
+    configId?: unknown;
+    jsonId?: unknown;
     source?: unknown;
     path?: unknown;
     value?: unknown;
   };
 
+  const source = body.source as BalanceField["source"];
+  const hasValidIdentifier =
+    source === "json"
+      ? typeof body.jsonId === "string"
+      : source === "world"
+        ? typeof body.configId === "string"
+        : source === "enemy"
+          ? typeof body.enemyTypeId === "string" ||
+            typeof body.weaponTypeId === "string"
+          : source === "mag"
+            ? typeof body.magTypeId === "string" ||
+              typeof body.weaponTypeId === "string"
+            : typeof body.weaponTypeId === "string";
   if (
-    typeof body.weaponTypeId !== "string" ||
-    !["item", "weapon", "projectile", "enemy"].includes(String(body.source)) ||
+    !["item", "weapon", "projectile", "enemy", "mag", "world", "json"].includes(
+      String(body.source),
+    ) ||
+    !hasValidIdentifier ||
     !Array.isArray(body.path) ||
     !body.path.every((part) => typeof part === "string")
   ) {
     return Response.json({ error: "Invalid save request." }, { status: 400 });
   }
 
-  const source = body.source as BalanceField["source"];
+  const knownIds = await loadKnownTypeIds();
+
+  if (source === "json") {
+    const rows = await loadJsonBalanceRows();
+    const row = rows.find((candidate) => candidate.jsonId === body.jsonId);
+    if (!row) {
+      return Response.json({ error: "Unknown JSON field." }, { status: 404 });
+    }
+    const field = knownFieldForUpdate(row, source, body.path);
+    if (!field?.file) {
+      return Response.json(
+        { error: "Unknown editable field." },
+        { status: 400 },
+      );
+    }
+
+    const targetFile = await readJsonFile(field.file);
+    const currentValue = getValue(targetFile.data, body.path);
+    const parsedValue =
+      typeof currentValue === "boolean"
+        ? String(body.value) === "true"
+        : parseFieldUpdateValue(field, body.value);
+    validateScalarField(field, parsedValue, knownIds);
+    setValue(targetFile.data, body.path, parsedValue);
+    await Bun.write(
+      field.file,
+      `${JSON.stringify(targetFile.data, null, 2)}\n`,
+    );
+    return Response.json(await balancePayload());
+  }
+
+  if (source === "world") {
+    const rows = await loadWorldBalanceRows();
+    const row = rows.find((candidate) => candidate.configId === body.configId);
+    if (!row) {
+      return Response.json({ error: "Unknown world config." }, { status: 404 });
+    }
+    const field = knownFieldForUpdate(row, source, body.path);
+    if (!field?.file) {
+      return Response.json(
+        { error: "Unknown editable field." },
+        { status: 400 },
+      );
+    }
+    const targetFile = await readJsonFile(field.file);
+    const parsedValue =
+      field.value === "true" || field.value === "false"
+        ? String(body.value) === "true"
+        : parseFieldUpdateValue(field, body.value);
+    validateScalarField(field, parsedValue, knownIds);
+    setValue(targetFile.data, body.path, parsedValue);
+    await Bun.write(
+      field.file,
+      `${JSON.stringify(targetFile.data, null, 2)}\n`,
+    );
+    return Response.json(await balancePayload());
+  }
   if (source === "enemy") {
     const rows = await loadEnemyBalanceRows();
-    const row = rows.find(
-      (candidate) => candidate.enemyTypeId === body.weaponTypeId,
-    );
+    const enemyTypeId =
+      typeof body.enemyTypeId === "string"
+        ? body.enemyTypeId
+        : body.weaponTypeId;
+    const row = rows.find((candidate) => candidate.enemyTypeId === enemyTypeId);
     if (!row) {
       return Response.json({ error: "Unknown enemy." }, { status: 404 });
     }
@@ -570,20 +1464,45 @@ async function saveUpdate(request: Request): Promise<Response> {
     }
 
     const targetFile = await readJsonFile(row.enemyFile);
-    setValue(
-      targetFile.data,
-      body.path,
-      parseFieldUpdateValue(field, body.value),
-    );
+    const parsedValue = parseFieldUpdateValue(field, body.value);
+    validateScalarField(field, parsedValue, knownIds);
+    setValue(targetFile.data, body.path, parsedValue);
     await Bun.write(
       row.enemyFile,
       `${JSON.stringify(targetFile.data, null, 2)}\n`,
     );
 
-    return Response.json({
-      rows: await loadBalanceRows(),
-      enemyRows: await loadEnemyBalanceRows(),
-    });
+    return Response.json(await balancePayload());
+  }
+
+  if (source === "mag" && typeof body.magTypeId === "string") {
+    const rows = await loadAmmoBalanceRows();
+    const row = rows.find(
+      (candidate) => candidate.magTypeId === body.magTypeId,
+    );
+    if (!row) {
+      return Response.json({ error: "Unknown ammo." }, { status: 404 });
+    }
+    const field = knownFieldForUpdate(row, source, body.path);
+    if (!field) {
+      return Response.json(
+        { error: "Unknown editable field." },
+        { status: 400 },
+      );
+    }
+    const targetFile = await readJsonFile(row.magFile);
+    const parsedValue = parseFieldUpdateValue(field, body.value);
+    validateScalarField(field, parsedValue, knownIds);
+    if (field.key === "mag.hunkCost") {
+      setHunkCost(targetFile.data, parsedValue as number | null);
+    } else {
+      setValue(targetFile.data, body.path, parsedValue);
+    }
+    await Bun.write(
+      row.magFile,
+      `${JSON.stringify(targetFile.data, null, 2)}\n`,
+    );
+    return Response.json(await balancePayload());
   }
 
   const rows = await loadBalanceRows();
@@ -604,7 +1523,9 @@ async function saveUpdate(request: Request): Promise<Response> {
       ? row.weaponFile
       : source === "weapon"
         ? row.weaponFile
-        : row.projectileFile;
+        : source === "mag"
+          ? row.magFile
+          : row.projectileFile;
   if (!targetPath) {
     return Response.json(
       { error: "Weapon has no projectile file." },
@@ -614,17 +1535,88 @@ async function saveUpdate(request: Request): Promise<Response> {
 
   const targetFile = await readJsonFile(targetPath);
   const parsedValue = parseFieldUpdateValue(field, body.value);
+  validateScalarField(field, parsedValue, knownIds);
   if (field.key === "item.hunkCost") {
+    setHunkCost(targetFile.data, parsedValue as number | null);
+  } else if (field.key === "mag.hunkCost") {
     setHunkCost(targetFile.data, parsedValue as number | null);
   } else {
     setValue(targetFile.data, body.path, parsedValue);
   }
   await Bun.write(targetPath, `${JSON.stringify(targetFile.data, null, 2)}\n`);
 
-  return Response.json({
-    rows: await loadBalanceRows(),
-    enemyRows: await loadEnemyBalanceRows(),
-  });
+  return Response.json(await balancePayload());
+}
+
+async function saveListUpdate(request: Request): Promise<Response> {
+  const body = (await request.json()) as {
+    listId?: unknown;
+    action?: unknown;
+    index?: unknown;
+    value?: unknown;
+  };
+  if (
+    typeof body.listId !== "string" ||
+    !["add", "remove", "move"].includes(String(body.action))
+  ) {
+    return Response.json({ error: "Invalid list request." }, { status: 400 });
+  }
+
+  const listRow = (await loadBalanceListRows()).find(
+    (row) => row.listId === body.listId,
+  );
+  if (!listRow) {
+    return Response.json({ error: "Unknown list." }, { status: 404 });
+  }
+
+  const targetFile = await readJsonFile(listRow.file);
+  const currentValue = getValue(targetFile.data, listRow.path);
+  if (!Array.isArray(currentValue)) {
+    return Response.json({ error: "Target list is missing." }, { status: 400 });
+  }
+  const entries = [...currentValue];
+  const knownIds = await loadKnownTypeIds();
+
+  if (body.action === "add") {
+    entries.push(validateListEntry(listRow.itemKind, body.value, knownIds));
+  } else {
+    if (
+      !Number.isInteger(body.index) ||
+      Number(body.index) < 0 ||
+      Number(body.index) >= entries.length
+    ) {
+      return Response.json({ error: "Invalid list index." }, { status: 400 });
+    }
+    const index = Number(body.index);
+    if (body.action === "remove") {
+      entries.splice(index, 1);
+    } else {
+      const direction =
+        body.value === "up" ? -1 : body.value === "down" ? 1 : 0;
+      if (direction === 0) {
+        return Response.json(
+          { error: "Invalid move direction." },
+          { status: 400 },
+        );
+      }
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= entries.length) {
+        return Response.json(await balancePayload());
+      }
+      const [entry] = entries.splice(index, 1);
+      entries.splice(targetIndex, 0, entry);
+    }
+  }
+
+  for (const entry of entries) {
+    validateListEntry(listRow.itemKind, entry, knownIds);
+  }
+  replaceArrayEntry(targetFile.data, listRow.path, entries);
+  await Bun.write(
+    listRow.file,
+    `${JSON.stringify(targetFile.data, null, 2)}\n`,
+  );
+  return Response.json(await balancePayload());
 }
 
 const port = parseIntegerEnv("BALANCE_PORT", 4179);
@@ -642,15 +1634,23 @@ const server = Bun.serve({
     }
 
     if (request.method === "GET" && url.pathname === "/api/balance") {
-      return Response.json({
-        rows: await loadBalanceRows(),
-        enemyRows: await loadEnemyBalanceRows(),
-      });
+      return Response.json(await balancePayload());
     }
 
     if (request.method === "POST" && url.pathname === "/api/balance") {
       try {
         return await saveUpdate(request);
+      } catch (error) {
+        return Response.json(
+          { error: error instanceof Error ? error.message : "Save failed." },
+          { status: 400 },
+        );
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/balance/list") {
+      try {
+        return await saveListUpdate(request);
       } catch (error) {
         return Response.json(
           { error: error instanceof Error ? error.message : "Save failed." },
@@ -667,7 +1667,7 @@ const url = `http://127.0.0.1:${server.port}`;
 console.log(`[balance] serving ${url}`);
 console.log("[balance] set BALANCE_PORT to use a different port");
 
-if (process.platform === "darwin") {
+if (process.platform === "darwin" && process.env.BALANCE_OPEN !== "0") {
   Bun.spawn(["open", url], {
     stdout: "ignore",
     stderr: "ignore",

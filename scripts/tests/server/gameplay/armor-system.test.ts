@@ -4,6 +4,10 @@ import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { getItemContent } from "@shared/content/catalog.ts";
+import {
+  EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR,
+  getArmorStats,
+} from "@shared/gameplay/rules/armorRules.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import { isRecipeBlueprintLocked } from "@shared/content/catalog.ts";
 import {
@@ -19,6 +23,30 @@ const armorTier4Id = makeResourceId("item", "armor_t4");
 
 describe("armor system", () => {
   beforeAll(bootstrapTestRegistries);
+
+  test("armor bars author effective health increase while damage reduction is derived for combat and UI", () => {
+    const tiers = [
+      { typeId: armorTier1Id, armorBars: 2 },
+      { typeId: makeResourceId("item", "armor_t2"), armorBars: 4 },
+      { typeId: makeResourceId("item", "armor_t3"), armorBars: 7 },
+      { typeId: armorTier4Id, armorBars: 10 },
+    ];
+
+    for (const { typeId, armorBars } of tiers) {
+      const content = getItemContent(typeId);
+      const stats = getArmorStats(typeId);
+
+      expect(content?.armor?.armorBars).toBe(armorBars);
+      expect(stats?.effectiveHealthIncreasePct).toBeCloseTo(
+        armorBars * EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR,
+        5,
+      );
+      expect(stats?.damageReductionPct).toBeCloseTo(
+        1 - 1 / (1 + armorBars * EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR),
+        5,
+      );
+    }
+  });
 
   test("equipped armor via useConsumable reduces incoming damage and tier 4 reflects chip damage", () => {
     const { runtime } = makeRuntime();
@@ -48,7 +76,10 @@ describe("armor system", () => {
     const hpBefore = player.hp;
     const enemyHpBefore = enemy.hp;
     new DamageEffect(100).apply(runtime.world, enemy, player);
-    expect(player.hp).toBeCloseTo(hpBefore - 65, 5);
+    expect(player.hp).toBeCloseTo(
+      hpBefore - 100 / (1 + 10 * EFFECTIVE_HEALTH_INCREASE_PER_ARMOR_BAR),
+      5,
+    );
     expect(enemy.hp).toBeLessThan(enemyHpBefore);
   });
 

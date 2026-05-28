@@ -13,7 +13,10 @@ import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
+import {
+  getItemLikeTypeEntry,
+  requireItemLikeTypeEntry,
+} from "@server/registry/itemLikeRegistry.ts";
 import type { EnemySnapshot } from "@shared/net/snapshots.ts";
 import {
   getWeaponContent,
@@ -61,7 +64,7 @@ export function createEnemySpawnWeapons(
 
   return {
     weapons: selectedTypeIds.map((typeId) => {
-      const itemEntry = itemTypeRegistry.require(typeId);
+      const itemEntry = requireItemLikeTypeEntry(typeId);
       const item = new itemEntry.ctor();
       if (!item.isWeaponItem()) {
         throw new Error(
@@ -118,7 +121,7 @@ export class Enemy extends GoalControlledEntity {
 
   public override getDamageReductionMultiplier(): number {
     const armorStats = this.getEquippedArmorStats();
-    return armorStats ? 1 - armorStats.damageReductionPct : 1;
+    return armorStats?.damageMultiplier ?? 1;
   }
 
   public override getDamageReflectionPct(): number {
@@ -162,9 +165,13 @@ export class Enemy extends GoalControlledEntity {
       getEnemyDeathHunkDropAmount(lootConfig.rarityTier, rng),
     );
 
-    const rangedWeaponForMags = this.weapons.find(
+    const rangedWeaponsForMags = this.weapons.filter(
       (weapon) => getWeaponContent(weapon.typeId)?.attackStyle === "shoot",
     );
+    const rangedWeaponForMags =
+      rangedWeaponsForMags[
+        Math.floor(rng() * Math.max(1, rangedWeaponsForMags.length))
+      ];
     if (rangedWeaponForMags) {
       const weaponContent = getWeaponContent(rangedWeaponForMags.typeId);
       const magItemTypeId =
@@ -192,7 +199,7 @@ export class Enemy extends GoalControlledEntity {
       if (!selectedWeapon) {
         return;
       }
-      const itemEntry = itemTypeRegistry.get(selectedWeapon.typeId);
+      const itemEntry = getItemLikeTypeEntry(selectedWeapon.typeId);
       if (itemEntry) {
         inventory.grantItemCtor(itemEntry.ctor, 1);
       }

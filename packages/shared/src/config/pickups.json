@@ -25,20 +25,19 @@
       "item:scissors",
       "item:basic_gun",
       "item:basic_sword",
-      "item:fists",
       "item:machete",
       "item:taser",
       "item:saboteur_sword",
       "item:carbine",
       "item:crossbow"
     ],
-    "mag": ["item:pistol_mag", "item:rifle_mag", "item:crossbow_mag"],
+    "mag": [],
     "blueprint": [
-      "item:blueprint_halberd",
-      "item:blueprint_heavy_pistol",
-      "item:blueprint_lmg",
-      "item:blueprint_sniper",
-      "item:blueprint_firecracker_gun"
+      "blueprint:halberd",
+      "blueprint:heavy_pistol",
+      "blueprint:lmg",
+      "blueprint:sniper",
+      "blueprint:firecracker_gun"
     ],
     "medical": ["item:crude_bandage"]
   }

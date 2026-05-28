@@ -74,15 +74,55 @@ describe("shared gameplay config", () => {
   });
 
   test("extraction and day-night timers define reachable progression", () => {
-    expect(extractionConfig.finalWaveCycle).toBeLessThanOrEqual(
-      wavesConfig.proceduralAfterNightCycle,
-    );
+    expect("finalWaveCycle" in extractionConfig).toBe(false);
     expect(extractionConfig.chopperTimerGoalMs).toBeLessThan(
       extractionConfig.boardTimerGoalMs,
     );
     expect(dayNightConfig.nightDurationMs).toBeLessThan(
       dayNightConfig.dayDurationMs,
     );
+  });
+
+  test("wave generation is driven by weighted random JSON with tier floors", () => {
+    expect(wavesConfig.waves).toHaveLength(0);
+    expect(wavesConfig.randomWaves.enabled).toBe(true);
+    expect(wavesConfig.randomWaves.enemyWeights.length).toBeGreaterThan(0);
+    expect(wavesConfig.randomWaves.tierFloors.length).toBeGreaterThanOrEqual(7);
+
+    const floorsByNight = new Map(
+      wavesConfig.randomWaves.tierFloors.map((floor) => [
+        floor.nightCycle,
+        floor,
+      ]),
+    );
+    expect(floorsByNight.get(1)).toMatchObject({
+      floors: { common: 1 },
+      allowedTiers: ["common"],
+    });
+    expect(floorsByNight.get(2)?.floors.uncommon ?? 0).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(floorsByNight.get(3)?.floors.uncommon ?? 0).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(floorsByNight.get(4)?.floors.rare ?? 0).toBeGreaterThanOrEqual(1);
+    expect(floorsByNight.get(5)?.floors.rare ?? 0).toBeGreaterThanOrEqual(1);
+    expect(floorsByNight.get(5)?.floors.uncommon ?? 0).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(floorsByNight.get(6)?.floors.epic ?? 0).toBeGreaterThanOrEqual(1);
+    expect(floorsByNight.get(7)?.floors.legendary ?? 0).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(
+      wavesConfig.randomWaves.enemyWeights.some(
+        (weight) =>
+          weight.entityType === "thanos" && weight.tier === "legendary",
+      ),
+    ).toBe(true);
+    expect(
+      wavesConfig.randomWaves.enemyWeights.map((weight) => weight.entityType),
+    ).toEqual(expect.arrayContaining(["saboteur", "wallbreaker"]));
   });
 
   test("world generation config keeps the sector grid and world size aligned", () => {

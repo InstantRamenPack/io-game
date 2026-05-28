@@ -1,7 +1,7 @@
 {
-  "label": "Thanos Rifle Magazine",
+  "label": "Glock 17 Magazine",
   "recipe": {
-    "hint": "Fresh magazine for Thanos Rifle.",
+    "hint": "Fresh magazine for Glock 17.",
     "outputAmount": 1,
     "costs": [
       {
@@ -9,9 +9,6 @@
         "amount": 20
       }
     ]
-  },
-  "pickupSpawn": {
-    "pools": ["mag"]
   },
   "runtime": {
     "server": {

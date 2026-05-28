@@ -2,6 +2,7 @@ import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
   requireEntityContent,
   isRecipeBlueprintLocked,
+  getWeaponContent,
 } from "@shared/content/catalog.ts";
 import {
   CRAFTING_STATION_INTERACT_PADDING,
@@ -37,18 +38,12 @@ import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
 import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import type { Weapon } from "@server/items/Weapon.ts";
+import { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
-import {
-  entityTypeRegistry,
-  itemTypeRegistry,
-} from "@server/registry/registries.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import type { World } from "@server/world/World.ts";
-import {
-  isBuildingCtor,
-  isStructureCtor,
-  isWeaponCtor,
-} from "@server/runtime/ctorGuards.ts";
+import { isBuildingCtor, isStructureCtor } from "@server/runtime/ctorGuards.ts";
 import type { Chest, ChestSlot } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
@@ -206,7 +201,7 @@ export class Player extends Entity {
       return 0;
     }
     const armorStats = this.getEquippedArmorStats();
-    return armorStats ? 1 - armorStats.damageReductionPct : 1;
+    return armorStats?.damageMultiplier ?? 1;
   }
 
   public override getDamageReflectionPct(): number {
@@ -313,7 +308,7 @@ export class Player extends Entity {
       return;
     }
 
-    const outputEntry = itemTypeRegistry.get(itemTypeId);
+    const outputEntry = getItemLikeTypeEntry(itemTypeId);
     const recipe = outputEntry?.content.recipe;
     if (!outputEntry || !recipe) {
       if (shouldTrace) {
@@ -326,7 +321,7 @@ export class Player extends Entity {
     }
 
     if (
-      isRecipeBlueprintLocked(itemTypeId) &&
+      (isRecipeBlueprintLocked(itemTypeId) || itemTypeId.startsWith("mag:")) &&
       !this.inventory.isRecipeUnlocked(itemTypeId)
     ) {
       if (shouldTrace) {
@@ -385,7 +380,7 @@ export class Player extends Entity {
       return;
     }
 
-    const itemEntry = itemTypeRegistry.get(itemTypeId);
+    const itemEntry = getItemLikeTypeEntry(itemTypeId);
     const targetEntityTypeId = itemEntry?.content.buildsEntityTypeId;
     if (!targetEntityTypeId) {
       return;
@@ -772,7 +767,7 @@ export class Player extends Entity {
     ) {
       return;
     }
-    const itemEntry = itemTypeRegistry.get(typeId);
+    const itemEntry = getItemLikeTypeEntry(typeId);
     if (!itemEntry) {
       return;
     }
@@ -1082,11 +1077,15 @@ export class Player extends Entity {
       };
       return;
     }
-    const entry = itemTypeRegistry.get(value.typeId);
-    if (entry && isWeaponCtor(entry.ctor)) {
+    const entry = getItemLikeTypeEntry(value.typeId);
+    if (
+      entry &&
+      getWeaponContent(value.typeId) &&
+      entry.ctor.prototype instanceof Weapon
+    ) {
       this.inventory.hotbarSlots[index] = {
         kind: "weapon",
-        weapon: new entry.ctor(),
+        weapon: new entry.ctor() as Weapon,
       };
     }
   }

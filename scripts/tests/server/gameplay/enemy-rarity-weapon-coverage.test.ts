@@ -66,7 +66,7 @@ describe("enemy rarity weapon coverage", () => {
 
     const authoredWeaponTypeIds = getAllItemContentEntries()
       .filter(([, item]) => item.weapon !== undefined)
-      .filter(([typeId]) => !typeId.startsWith("item:blueprint_"))
+      .filter(([typeId]) => !typeId.startsWith("blueprint:"))
       .map(([typeId]) => typeId);
 
     expect(

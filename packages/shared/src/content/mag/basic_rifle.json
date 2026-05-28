@@ -1,7 +1,7 @@
 {
-  "label": "Rifle Magazine",
+  "label": "AK-47 Magazine",
   "recipe": {
-    "hint": "High-capacity magazine for the rifle.",
+    "hint": "Fresh magazine for AK-47.",
     "outputAmount": 1,
     "costs": [
       {
@@ -10,7 +10,9 @@
       }
     ]
   },
-  "pickupSpawn": {
-    "pools": ["mag"]
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
   }
 }

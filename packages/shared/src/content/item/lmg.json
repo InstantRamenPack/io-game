@@ -7,10 +7,6 @@
     "outputAmount": 1,
     "costs": [
       {
-        "typeId": "item:blueprint_lmg",
-        "amount": 1
-      },
-      {
         "typeId": "item:hunk",
         "amount": 220
       }
@@ -23,7 +19,7 @@
     "magSize": 16,
     "reloadTicks": 50,
     "spreadDeg": 4,
-    "magItemTypeId": "item:rifle_mag",
+    "magItemTypeId": "mag:lmg",
     "equippedRender": {
       "holdOffset": {
         "x": 14,

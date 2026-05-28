@@ -82,7 +82,8 @@ export class WaveSpawner {
 
   /**
    * Called when a night cycle begins. Queues all spawns for the current night.
-   * Cycles 1–7 are loaded from the JSON config; cycles 8+ are generated procedurally.
+   * Authored waves can still override a specific night; otherwise weighted
+   * random waves are generated from shared JSON.
    * @param nightCycle The night cycle number (1-indexed)
    */
   public onNightStart(nightCycle: number): void {
@@ -96,7 +97,7 @@ export class WaveSpawner {
 
     if (waveConfig) {
       resolvedConfig = waveConfig;
-    } else if (nightCycle > this.wavesConfig.proceduralAfterNightCycle) {
+    } else if (this.wavesConfig.randomWaves.enabled) {
       resolvedConfig = this.generateRandomWave(nightCycle);
     } else {
       console.warn(
@@ -252,55 +253,50 @@ export class WaveSpawner {
   }
 
   /**
-   * Procedurally generates a scaled wave config for night cycles beyond the 7 fixed waves.
-   * Enemy counts grow by 20% per wave. Elite types unlock progressively after wave 9.
-   * Spawns are distributed evenly across 7 delay buckets spanning the first quarter of night.
-   * @param nightCycle The night cycle number (must be > 7)
+   * Generates a deterministic weighted wave from shared JSON knobs.
+   * @param nightCycle The night cycle number
    */
   private generateRandomWave(nightCycle: number): NightWaveConfig {
-    const scale = 1.0 + (nightCycle - 7) * 0.2;
+    const randomWaves = this.wavesConfig.randomWaves;
+    const floorConfig = this.resolveTierFloor(nightCycle);
+    const allowedTierSet = new Set(floorConfig.allowedTiers);
+    const weightedPool = randomWaves.enemyWeights.filter((entry) =>
+      allowedTierSet.has(entry.tier),
+    );
+    const counts = new Map<string, number>();
+    const rng = this.createNightCycleRandom(nightCycle);
+    const increment = (entityType: string, amount = 1): void => {
+      counts.set(entityType, (counts.get(entityType) ?? 0) + amount);
+    };
 
-    type EnemyEntry = { entityType: string; count: number };
-    const pool: EnemyEntry[] = [
-      { entityType: "drifter", count: Math.round(10 * scale) },
-      { entityType: "shoota", count: Math.round(6 * scale) },
-      { entityType: "bomber", count: Math.round(3 * scale) },
-      { entityType: "police", count: Math.round(3 * scale) },
-      { entityType: "saboteur", count: Math.round(4 * scale) },
-      { entityType: "wallbreaker", count: Math.round(2 * scale) },
-      ...(nightCycle >= 9
-        ? [
-            {
-              entityType: "commander",
-              count: Math.round((nightCycle - 8) * 0.5),
-            },
-          ]
-        : []),
-      ...(nightCycle >= 10
-        ? [
-            {
-              entityType: "megaknight",
-              count: Math.round((nightCycle - 9) * 0.8),
-            },
-          ]
-        : []),
-      ...(nightCycle >= 12
-        ? [
-            {
-              entityType: "stalker",
-              count: Math.round((nightCycle - 11) * 0.6),
-            },
-          ]
-        : []),
-      ...(nightCycle >= 13
-        ? [{ entityType: "sniper", count: Math.round((nightCycle - 12) * 0.5) }]
-        : []),
-    ].filter((e) => e.count > 0);
+    for (const [tier, count] of Object.entries(floorConfig.floors)) {
+      if (!count) {
+        continue;
+      }
+      const tierPool = randomWaves.enemyWeights.filter(
+        (entry) => entry.tier === tier,
+      );
+      for (let index = 0; index < count; index += 1) {
+        increment(this.pickWeightedEntity(tierPool, rng));
+      }
+    }
 
-    const DELAY_BUCKETS = [0, 40, 80, 120, 160, 210, 260] as const;
+    const floorTotal = Object.values(floorConfig.floors).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0,
+    );
+    const targetBudget =
+      randomWaves.baseBudget +
+      Math.max(0, nightCycle - 1) * randomWaves.budgetPerNight;
+    const randomBudget = Math.max(0, targetBudget - floorTotal);
+    for (let index = 0; index < randomBudget; index += 1) {
+      increment(this.pickWeightedEntity(weightedPool, rng));
+    }
+
+    const DELAY_BUCKETS = randomWaves.bucketDelayTicks;
     const spawns: WaveSpawnConfig[] = [];
 
-    for (const { entityType, count } of pool) {
+    for (const [entityType, count] of counts) {
       const perBucket = Math.floor(count / DELAY_BUCKETS.length);
       let remainder = count % DELAY_BUCKETS.length;
 
@@ -316,8 +312,60 @@ export class WaveSpawner {
     return {
       nightCycle,
       spawns,
-      message: `🌙 Wave ${nightCycle} — ${scale.toFixed(1)}x difficulty — Prepare for the horde!`,
+      message: this.wavesConfig.defaultMessageTemplate.replace(
+        "{nightCycle}",
+        String(nightCycle),
+      ),
     };
+  }
+
+  private resolveTierFloor(
+    nightCycle: number,
+  ): WavesConfig["randomWaves"]["tierFloors"][number] {
+    const floors = [...this.wavesConfig.randomWaves.tierFloors].sort(
+      (left, right) => left.nightCycle - right.nightCycle,
+    );
+    let resolved = floors[0];
+    for (const floor of floors) {
+      if (floor.nightCycle > nightCycle) {
+        break;
+      }
+      resolved = floor;
+    }
+    if (!resolved) {
+      throw new Error("Random wave config needs at least one tier floor.");
+    }
+    return resolved;
+  }
+
+  private createNightCycleRandom(nightCycle: number): () => number {
+    let state = (0x9e3779b9 ^ Math.imul(nightCycle, 0x85ebca6b)) >>> 0;
+    return () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 0x100000000;
+    };
+  }
+
+  private pickWeightedEntity(
+    pool: readonly WavesConfig["randomWaves"]["enemyWeights"][number][],
+    randomNumber: () => number,
+  ): string {
+    if (pool.length === 0) {
+      throw new Error("Random wave pool is empty for the selected tier floor.");
+    }
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = randomNumber() * totalWeight;
+    for (const entry of pool) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        return entry.entityType;
+      }
+    }
+    const fallback = pool[pool.length - 1] ?? pool[0];
+    if (!fallback) {
+      throw new Error("Random wave pool is empty.");
+    }
+    return fallback.entityType;
   }
 
   /**

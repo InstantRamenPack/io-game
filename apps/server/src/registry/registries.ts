@@ -33,6 +33,10 @@ export type RegistrableEntityCtor<T extends Entity = Entity> = EntityCtor<T> &
   RuntimeTypeMetadata<EntityKind>;
 export type RegistrableItemCtor<T extends Item = Item> = ItemCtor<T> &
   RuntimeTypeMetadata<"item">;
+export type RegistrableMagCtor<T extends Item = Item> = ItemCtor<T> &
+  RuntimeTypeMetadata<"mag">;
+export type RegistrableBlueprintCtor<T extends Item = Item> = ItemCtor<T> &
+  RuntimeTypeMetadata<"blueprint">;
 export type RegistrableEffectCtor<T extends Effect = Effect> = EffectCtor<T> &
   RuntimeTypeMetadata<"effect">;
 export type RegistrableProjectileCtor<T extends Projectile = Projectile> =
@@ -54,6 +58,18 @@ export type ItemTypeEntry = {
   ctor: RegistrableItemCtor;
 };
 
+export type MagTypeEntry = {
+  typeId: ResourceId;
+  content: ItemContent;
+  ctor: RegistrableMagCtor;
+};
+
+export type BlueprintTypeEntry = {
+  typeId: ResourceId;
+  content: ItemContent;
+  ctor: RegistrableBlueprintCtor;
+};
+
 export type EffectTypeEntry = {
   typeId: ResourceId;
   content: EffectContent;
@@ -62,4 +78,6 @@ export type EffectTypeEntry = {
 
 export const entityTypeRegistry = new TypeRegistry<EntityTypeEntry>();
 export const itemTypeRegistry = new TypeRegistry<ItemTypeEntry>();
+export const magTypeRegistry = new TypeRegistry<MagTypeEntry>();
+export const blueprintTypeRegistry = new TypeRegistry<BlueprintTypeEntry>();
 export const effectTypeRegistry = new TypeRegistry<EffectTypeEntry>();

@@ -3,7 +3,7 @@ import type { Inventory } from "@server/items/Inventory.ts";
 import type { ItemRequirement } from "@shared/content/schema.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
+import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { requireWeaponContent } from "@shared/content/catalog.ts";
 import type {
   EquippedItemSnapshot,
@@ -108,7 +108,7 @@ export abstract class Weapon extends Item {
     costs: readonly ItemRequirement[],
   ): boolean {
     const slotsFreedByCosts = costs.reduce((total, cost) => {
-      const costEntry = itemTypeRegistry.get(cost.typeId);
+      const costEntry = getItemLikeTypeEntry(cost.typeId);
       return (
         total +
         (costEntry

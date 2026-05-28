@@ -4,7 +4,7 @@ import type { ItemRequirement } from "@shared/content/schema.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 
 export class Item {
-  public static readonly kind = "item" as const;
+  public static readonly kind: string = "item";
   public static readonly resourceName: string = "";
 
   public static get typeId(): ResourceId {

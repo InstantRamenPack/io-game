@@ -1,0 +1,18 @@
+{
+  "label": "Thanos Rifle Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for Thanos Rifle.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

@@ -1,6 +1,9 @@
 import { requirePlayerStarterLoadout } from "@shared/content/catalog.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
+import {
+  getItemLikeTypeEntry,
+  requireItemLikeTypeEntry,
+} from "@server/registry/itemLikeRegistry.ts";
 import type { Player } from "@server/entities/Player.ts";
 
 const PLAYER_BASE_TYPE_ID = makeResourceId("player", "base");
@@ -10,7 +13,7 @@ export function applyPlayerStarterLoadout(player: Player): void {
   const starterLoadout = requirePlayerStarterLoadout(PLAYER_BASE_TYPE_ID);
 
   for (const weaponTypeId of starterLoadout.weapons) {
-    const weaponEntry = itemTypeRegistry.require(weaponTypeId);
+    const weaponEntry = requireItemLikeTypeEntry(weaponTypeId);
     if (!new weaponEntry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout weapon ${weaponTypeId} is not a weapon item type.`,
@@ -24,7 +27,7 @@ export function applyPlayerStarterLoadout(player: Player): void {
   }
 
   for (const stackable of starterLoadout.stackables) {
-    const itemEntry = itemTypeRegistry.require(stackable.typeId);
+    const itemEntry = requireItemLikeTypeEntry(stackable.typeId);
     if (new itemEntry.ctor().isWeaponItem()) {
       throw new Error(
         `Starter loadout stackable ${stackable.typeId} cannot be a weapon item type.`,
@@ -44,7 +47,7 @@ export function validatePlayerStarterLoadout(): void {
   const starterLoadout = requirePlayerStarterLoadout(PLAYER_BASE_TYPE_ID);
 
   for (const weaponTypeId of starterLoadout.weapons) {
-    const entry = itemTypeRegistry.get(weaponTypeId);
+    const entry = getItemLikeTypeEntry(weaponTypeId);
     if (!entry) {
       throw new Error(
         `Starter loadout references unknown weapon item ${weaponTypeId}.`,
@@ -58,7 +61,7 @@ export function validatePlayerStarterLoadout(): void {
   }
 
   for (const stackable of starterLoadout.stackables) {
-    const entry = itemTypeRegistry.get(stackable.typeId);
+    const entry = getItemLikeTypeEntry(stackable.typeId);
     if (!entry) {
       throw new Error(
         `Starter loadout references unknown stackable item ${stackable.typeId}.`,
@@ -83,7 +86,7 @@ export function applyPlayerNonLobbySpawnLoadout(player: Player): void {
     return;
   }
 
-  const itemEntry = itemTypeRegistry.require(hunkStack.typeId);
+  const itemEntry = requireItemLikeTypeEntry(hunkStack.typeId);
   if (new itemEntry.ctor().isWeaponItem()) {
     throw new Error("Starter loadout hunk stackable cannot be a weapon item.");
   }

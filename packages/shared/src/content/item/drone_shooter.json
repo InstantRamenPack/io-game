@@ -9,7 +9,7 @@
     "magSize": 5,
     "reloadTicks": 30,
     "spreadDeg": 0,
-    "magItemTypeId": "item:drone_mag",
+    "magItemTypeId": "mag:drone_shooter",
     "equippedRender": {
       "holdOffset": {
         "x": 15,

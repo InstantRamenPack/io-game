@@ -6,10 +6,8 @@ import type { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  entityTypeRegistry,
-  itemTypeRegistry,
-} from "@server/registry/registries.ts";
+import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
 import {
@@ -147,7 +145,7 @@ function addLootSlotToInventory(
   inventory: Inventory,
   slot: ProceduralCrateLootSlot,
 ): void {
-  const itemEntry = itemTypeRegistry.require(slot.typeId);
+  const itemEntry = requireItemLikeTypeEntry(slot.typeId);
   if (!inventory.grantItemCtor(itemEntry.ctor, slot.amount ?? 1)) {
     throw new Error(`Could not create procedural crate loot ${slot.typeId}.`);
   }

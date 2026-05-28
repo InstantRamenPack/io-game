@@ -19,7 +19,7 @@
     "magSize": 8,
     "reloadTicks": 30,
     "spreadDeg": 2,
-    "magItemTypeId": "item:crossbow_mag",
+    "magItemTypeId": "mag:crossbow",
     "equippedRender": {
       "holdOffset": {
         "x": 30,

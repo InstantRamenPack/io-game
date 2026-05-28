@@ -7,10 +7,6 @@
     "outputAmount": 1,
     "costs": [
       {
-        "typeId": "item:blueprint_sniper",
-        "amount": 1
-      },
-      {
         "typeId": "item:hunk",
         "amount": 200
       }
@@ -23,7 +19,7 @@
     "magSize": 1,
     "reloadTicks": 50,
     "spreadDeg": 0,
-    "magItemTypeId": "item:sniper_mag",
+    "magItemTypeId": "mag:sniper",
     "equippedRender": {
       "holdOffset": {
         "x": 22,

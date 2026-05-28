@@ -1,6 +1,5 @@
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-import type { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { Player } from "@server/entities/Player.ts";
 import type {
   ExtractionLockedReason,
@@ -14,9 +13,8 @@ export const HELIPAD_Y = extractionConfig.fallbackHelipad.y;
 export const HELIPAD_RADIUS = extractionConfig.fallbackHelipad.radius;
 
 export class ExtractionSystem implements System {
-  private readonly waveSystem: WaveSystem;
-  private stage: ExtractionStage = "locked";
-  private lockedReason: ExtractionLockedReason | undefined = "final_wave";
+  private stage: ExtractionStage = "active";
+  private lockedReason: ExtractionLockedReason | undefined;
   private boardElapsedMs = 0;
   private chopperElapsedMs = 0;
   private completed = false;
@@ -25,9 +23,7 @@ export class ExtractionSystem implements System {
   private cachedTotalAlivePlayers = 0;
   private cachedEnemiesInRadius = 0;
 
-  constructor(waveSystem: WaveSystem) {
-    this.waveSystem = waveSystem;
-  }
+  constructor(_waveSystem?: unknown) {}
 
   public isComplete(): boolean {
     return this.completed;
@@ -42,9 +38,6 @@ export class ExtractionSystem implements System {
       y: HELIPAD_Y,
       radius: HELIPAD_RADIUS,
     };
-
-    const finalWaveActive =
-      this.waveSystem.getNightCycleCounter() >= extractionConfig.finalWaveCycle;
 
     let totalAlivePlayers = 0;
     let playersOnPad = 0;
@@ -81,14 +74,6 @@ export class ExtractionSystem implements System {
     this.cachedPlayersOnPad = playersOnPad;
     this.cachedTotalAlivePlayers = totalAlivePlayers;
     this.cachedEnemiesInRadius = enemiesInRadius;
-
-    if (!finalWaveActive) {
-      this.stage = "locked";
-      this.lockedReason = "final_wave";
-      this.boardElapsedMs = 0;
-      this.chopperElapsedMs = 0;
-      return;
-    }
 
     if (
       world.infrastructureSystem &&

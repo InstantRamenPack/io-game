@@ -1,16 +1,18 @@
 {
   "label": "Crossbow Magazine",
   "recipe": {
-    "hint": "Restocks the crossbow with a fresh magazine.",
+    "hint": "Fresh magazine for Crossbow.",
     "outputAmount": 1,
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 12
+        "amount": 20
       }
     ]
   },
-  "pickupSpawn": {
-    "pools": ["mag"]
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
   }
 }

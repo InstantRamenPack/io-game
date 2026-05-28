@@ -9,6 +9,11 @@
     "magSize": 5,
     "reloadTicks": 30,
     "spreadDeg": 0,
+    "special": {
+      "kind": "shotgunFan",
+      "projectileCount": 10,
+      "arcDeg": 60
+    },
     "equippedRender": {
       "holdOffset": {
         "x": 18,
@@ -21,7 +26,7 @@
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "magItemTypeId": "item:shotgun_mag"
+    "magItemTypeId": "mag:shotgun"
   },
   "recycle": {
     "hunkValue": 16

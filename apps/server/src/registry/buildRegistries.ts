@@ -11,14 +11,20 @@ import type {
   EffectTypeEntry,
   EntityTypeEntry,
   ItemTypeEntry,
+  MagTypeEntry,
+  BlueprintTypeEntry,
   RegistrableEffectCtor,
   RegistrableEntityCtor,
+  RegistrableBlueprintCtor,
   RegistrableItemCtor,
+  RegistrableMagCtor,
 } from "@server/registry/registries.ts";
 import {
+  blueprintRuntimeCtors,
   effectRuntimeCtors,
   entityRuntimeCtors,
   itemRuntimeCtors,
+  magRuntimeCtors,
 } from "@server/registry/runtimeRegistry.ts";
 
 function assertUniqueRuntimeTypeIds(
@@ -78,6 +84,24 @@ function buildItemTypeEntry(ctor: RegistrableItemCtor): ItemTypeEntry {
   };
 }
 
+function buildMagTypeEntry(ctor: RegistrableMagCtor): MagTypeEntry {
+  return {
+    typeId: ctor.typeId,
+    content: requireItemContent(ctor.typeId),
+    ctor,
+  };
+}
+
+function buildBlueprintTypeEntry(
+  ctor: RegistrableBlueprintCtor,
+): BlueprintTypeEntry {
+  return {
+    typeId: ctor.typeId,
+    content: requireItemContent(ctor.typeId),
+    ctor,
+  };
+}
+
 function buildEffectTypeEntry(ctor: RegistrableEffectCtor): EffectTypeEntry {
   return {
     typeId: ctor.typeId,
@@ -100,10 +124,38 @@ export function buildItemTypeEntries(): readonly ItemTypeEntry[] {
   assertUniqueRuntimeTypeIds(itemRuntimeCtors, "item");
   assertRuntimeCoverage(
     "item",
-    getAllItemContentEntries().map(([typeId]) => typeId),
+    getAllItemContentEntries()
+      .map(([typeId]) => typeId)
+      .filter((typeId) => typeId.startsWith("item:")),
     itemRuntimeCtors.map((ctor) => ctor.typeId),
   );
-  return itemRuntimeCtors.map(buildItemTypeEntry);
+  return itemRuntimeCtors.map((ctor) =>
+    buildItemTypeEntry(ctor as RegistrableItemCtor),
+  );
+}
+
+export function buildMagTypeEntries(): readonly MagTypeEntry[] {
+  assertUniqueRuntimeTypeIds(magRuntimeCtors, "mag");
+  assertRuntimeCoverage(
+    "mag",
+    getAllItemContentEntries()
+      .map(([typeId]) => typeId)
+      .filter((typeId) => typeId.startsWith("mag:")),
+    magRuntimeCtors.map((ctor) => ctor.typeId),
+  );
+  return magRuntimeCtors.map(buildMagTypeEntry);
+}
+
+export function buildBlueprintTypeEntries(): readonly BlueprintTypeEntry[] {
+  assertUniqueRuntimeTypeIds(blueprintRuntimeCtors, "blueprint");
+  assertRuntimeCoverage(
+    "blueprint",
+    getAllItemContentEntries()
+      .map(([typeId]) => typeId)
+      .filter((typeId) => typeId.startsWith("blueprint:")),
+    blueprintRuntimeCtors.map((ctor) => ctor.typeId),
+  );
+  return blueprintRuntimeCtors.map(buildBlueprintTypeEntry);
 }
 
 export function buildEffectTypeEntries(): readonly EffectTypeEntry[] {

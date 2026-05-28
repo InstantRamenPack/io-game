@@ -22,7 +22,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Chest } from "@server/entities/buildings/Chest.ts";
 import { Recycler } from "@server/entities/buildings/Recycler.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
+import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
 export const HUNK_ITEM_TYPE_ID = "item:hunk" as ResourceId;
 
@@ -210,7 +210,7 @@ export function getRepairableCapability(
 }
 
 export function requiresManualPickup(typeId: ResourceId): boolean {
-  const itemEntry = itemTypeRegistry.get(typeId);
+  const itemEntry = getItemLikeTypeEntry(typeId);
   if (!itemEntry) {
     return false;
   }

@@ -9,6 +9,8 @@ type ContentKind =
   | "effect"
   | "enemy"
   | "item"
+  | "mag"
+  | "blueprint"
   | "pickup"
   | "player"
   | "projectile";
@@ -96,6 +98,8 @@ type CoverageDiagnostics = {
   runtime: {
     entity: CoverageGroup;
     item: CoverageGroup;
+    mag: CoverageGroup;
+    blueprint: CoverageGroup;
     effect: CoverageGroup;
     entries: RuntimeCoverageEntry[];
   };
@@ -114,6 +118,8 @@ type ScaffoldSummary = {
 type RuntimeRegistry = {
   entityRuntimeCtors: SourceClassEntry[];
   itemRuntimeCtors: SourceClassEntry[];
+  magRuntimeCtors: SourceClassEntry[];
+  blueprintRuntimeCtors: SourceClassEntry[];
   effectRuntimeCtors: SourceClassEntry[];
 };
 
@@ -147,6 +153,18 @@ const CONTENT_CATEGORY_DEFINITIONS: readonly ContentCategoryDefinition[] = [
     exportName: "itemContentEntries",
     parserExpression: (resourceName, importName) =>
       `makeParsedItemContentEntry(${JSON.stringify(resourceName)}, ${importName})`,
+  },
+  {
+    directory: "mag",
+    exportName: "magContentEntries",
+    parserExpression: (resourceName, importName) =>
+      `makeParsedMagContentEntry(${JSON.stringify(resourceName)}, ${importName})`,
+  },
+  {
+    directory: "blueprint",
+    exportName: "blueprintContentEntries",
+    parserExpression: (resourceName, importName) =>
+      `makeParsedBlueprintContentEntry(${JSON.stringify(resourceName)}, ${importName})`,
   },
   {
     directory: "pickup",
@@ -331,6 +349,8 @@ function inferServerKindFromPath(filePath: string): ContentKind | null {
   if (normalized.includes("/entities/structures/")) return "structure";
   if (normalized.includes("/entities/enemies/")) return "enemy";
   if (normalized.includes("/entities/projectiles/")) return "projectile";
+  if (normalized.includes("/items/magazines/")) return "mag";
+  if (normalized.includes("/items/blueprints/")) return "blueprint";
   if (normalized.includes("/items/")) return "item";
   if (normalized.includes("/effects/builtin/")) return "effect";
   return null;
@@ -449,6 +469,8 @@ function resolveRuntimeSymbol(resource: ContentResource): string {
   const base = toPascalCase(resource.resourceName);
   if (resource.kind === "projectile") return base;
   if (resource.kind === "effect") return `${base}Effect`;
+  if (resource.kind === "mag") return `${base}MagazineItem`;
+  if (resource.kind === "blueprint") return `Blueprint${base}Item`;
   if (resource.kind === "item") {
     const classKind = resource.rawContent.runtime?.server?.classKind;
     if (classKind === "magazine") return `${base}Item`;
@@ -503,6 +525,20 @@ function resolveRuntimePath(
         `${symbol}.ts`,
       );
     }
+  }
+  if (resource.kind === "mag") {
+    return path.join(
+      repoRoot,
+      "apps/server/src/items/magazines",
+      `${symbol}.ts`,
+    );
+  }
+  if (resource.kind === "blueprint") {
+    return path.join(
+      repoRoot,
+      "apps/server/src/items/blueprints",
+      `${symbol}.ts`,
+    );
   }
   throw new Error(
     `Missing runtime class for ${resource.typeId}. Add a handwritten class or runtime.server import metadata.`,
@@ -567,7 +603,7 @@ function buildRuntimeScaffold(
     ].join("\n");
   }
 
-  if (resource.kind === "item") {
+  if (resource.kind === "item" || resource.kind === "mag") {
     const classKind = getRequiredItemClassKind(resource);
     if (classKind === "material") {
       return [
@@ -617,6 +653,18 @@ function buildRuntimeScaffold(
     }
   }
 
+  if (resource.kind === "blueprint") {
+    return [
+      SCAFFOLD_HEADER,
+      'import { BlueprintItem } from "@server/items/BlueprintItem.ts";',
+      "",
+      `export class ${symbol} extends BlueprintItem {`,
+      `  public static override readonly resourceName = ${JSON.stringify(resource.resourceName)};`,
+      "}",
+      "",
+    ].join("\n");
+  }
+
   throw new Error(
     `Cannot scaffold ${resource.typeId}; add a handwritten class.`,
   );
@@ -631,7 +679,11 @@ async function ensureRuntimeClass(
   const existing = classIndex.get(resource.typeId);
   if (existing) return existing;
 
-  if (!["item", "projectile", "effect"].includes(resource.kind)) {
+  if (
+    !["item", "mag", "blueprint", "projectile", "effect"].includes(
+      resource.kind,
+    )
+  ) {
     throw new Error(
       `Missing handwritten runtime class for ${resource.typeId}.`,
     );
@@ -688,6 +740,8 @@ async function writeGeneratedRuntimeRegistry(
   const allEntries = [
     ...registry.entityRuntimeCtors,
     ...registry.itemRuntimeCtors,
+    ...registry.magRuntimeCtors,
+    ...registry.blueprintRuntimeCtors,
     ...registry.effectRuntimeCtors,
   ];
   const outputPath = path.join(repoRoot, GENERATED_SERVER_REGISTRY_PATH);
@@ -698,6 +752,13 @@ async function writeGeneratedRuntimeRegistry(
     buildRuntimeCtorArray("entityRuntimeCtors", registry.entityRuntimeCtors),
     "",
     buildRuntimeCtorArray("itemRuntimeCtors", registry.itemRuntimeCtors),
+    "",
+    buildRuntimeCtorArray("magRuntimeCtors", registry.magRuntimeCtors),
+    "",
+    buildRuntimeCtorArray(
+      "blueprintRuntimeCtors",
+      registry.blueprintRuntimeCtors,
+    ),
     "",
     buildRuntimeCtorArray("effectRuntimeCtors", registry.effectRuntimeCtors),
     "",
@@ -932,6 +993,8 @@ async function buildRegistries(
   const runtimeRegistry: RuntimeRegistry = {
     entityRuntimeCtors: [],
     itemRuntimeCtors: [],
+    magRuntimeCtors: [],
+    blueprintRuntimeCtors: [],
     effectRuntimeCtors: [],
   };
 
@@ -952,6 +1015,22 @@ async function buildRegistries(
         scaffolded,
       );
       runtimeRegistry.itemRuntimeCtors.push(entry);
+    } else if (resource.kind === "mag") {
+      const entry = await ensureRuntimeClass(
+        repoRoot,
+        resource,
+        classIndex,
+        scaffolded,
+      );
+      runtimeRegistry.magRuntimeCtors.push(entry);
+    } else if (resource.kind === "blueprint") {
+      const entry = await ensureRuntimeClass(
+        repoRoot,
+        resource,
+        classIndex,
+        scaffolded,
+      );
+      runtimeRegistry.blueprintRuntimeCtors.push(entry);
     } else if (resource.kind === "effect") {
       const entry = await ensureRuntimeClass(
         repoRoot,
@@ -983,6 +1062,12 @@ async function buildRegistries(
   runtimeRegistry.itemRuntimeCtors.sort((left, right) =>
     left.resourceName.localeCompare(right.resourceName),
   );
+  runtimeRegistry.magRuntimeCtors.sort((left, right) =>
+    left.resourceName.localeCompare(right.resourceName),
+  );
+  runtimeRegistry.blueprintRuntimeCtors.sort((left, right) =>
+    left.resourceName.localeCompare(right.resourceName),
+  );
   runtimeRegistry.effectRuntimeCtors.sort((left, right) =>
     left.resourceName.localeCompare(right.resourceName),
   );
@@ -996,6 +1081,8 @@ async function buildRegistries(
     runtimeEntries: [
       ...runtimeRegistry.entityRuntimeCtors,
       ...runtimeRegistry.itemRuntimeCtors,
+      ...runtimeRegistry.magRuntimeCtors,
+      ...runtimeRegistry.blueprintRuntimeCtors,
       ...runtimeRegistry.effectRuntimeCtors,
     ].map((entry) => ({
       kind: entry.kind,
@@ -1010,6 +1097,8 @@ async function buildRegistries(
         ...classEntries,
         ...runtimeRegistry.entityRuntimeCtors,
         ...runtimeRegistry.itemRuntimeCtors,
+        ...runtimeRegistry.magRuntimeCtors,
+        ...runtimeRegistry.blueprintRuntimeCtors,
         ...runtimeRegistry.effectRuntimeCtors,
       ],
       rendererClassEntries,
@@ -1037,6 +1126,18 @@ async function runCoverageChecks(
   const itemRuntimeTypeIds = runtimeEntries
     .filter((entry) => entry.kind === "item")
     .map((entry) => entry.typeId);
+  const magContentTypeIds = contentResources
+    .filter((entry) => entry.kind === "mag")
+    .map((entry) => entry.typeId);
+  const magRuntimeTypeIds = runtimeEntries
+    .filter((entry) => entry.kind === "mag")
+    .map((entry) => entry.typeId);
+  const blueprintContentTypeIds = contentResources
+    .filter((entry) => entry.kind === "blueprint")
+    .map((entry) => entry.typeId);
+  const blueprintRuntimeTypeIds = runtimeEntries
+    .filter((entry) => entry.kind === "blueprint")
+    .map((entry) => entry.typeId);
   const effectContentTypeIds = contentResources
     .filter((entry) => entry.kind === "effect")
     .map((entry) => entry.typeId);
@@ -1055,6 +1156,11 @@ async function runCoverageChecks(
     runtime: {
       entity: buildCoverageGroup(entityContentTypeIds, entityRuntimeTypeIds),
       item: buildCoverageGroup(itemContentTypeIds, itemRuntimeTypeIds),
+      mag: buildCoverageGroup(magContentTypeIds, magRuntimeTypeIds),
+      blueprint: buildCoverageGroup(
+        blueprintContentTypeIds,
+        blueprintRuntimeTypeIds,
+      ),
       effect: buildCoverageGroup(effectContentTypeIds, effectRuntimeTypeIds),
       entries: [...runtimeEntries],
     },
@@ -1077,6 +1183,14 @@ async function runCoverageChecks(
   assertCoverageGroupPasses(
     "runtime item constructors",
     diagnostics.runtime.item,
+  );
+  assertCoverageGroupPasses(
+    "runtime mag constructors",
+    diagnostics.runtime.mag,
+  );
+  assertCoverageGroupPasses(
+    "runtime blueprint constructors",
+    diagnostics.runtime.blueprint,
   );
   assertCoverageGroupPasses(
     "runtime effect constructors",
@@ -1127,7 +1241,9 @@ async function writeContentManifest(
     "import {",
     "  makeParsedEffectContentEntry,",
     "  makeParsedEntityContentEntry,",
+    "  makeParsedBlueprintContentEntry,",
     "  makeParsedItemContentEntry,",
+    "  makeParsedMagContentEntry,",
     '} from "@shared/content/parseContent.ts";',
     "",
     ...arrayBlocks.flatMap((block, index) =>

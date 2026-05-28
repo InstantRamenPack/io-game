@@ -18,6 +18,26 @@
       "outOfCombatTicks": 100,
       "hpPerTick": 0.02
     },
+    "unarmedAttack": {
+      "attackStyle": "jab",
+      "cooldownTicks": 6,
+      "range": 20,
+      "damage": 5,
+      "knockback": 4,
+      "jabWidth": 18,
+      "equippedRender": {
+        "holdOffset": {
+          "x": 13,
+          "y": 5
+        },
+        "holdRotationDeg": 0,
+        "scale": 1,
+        "handedness": "right",
+        "recoilDistance": 0,
+        "swingAngleDeg": 0,
+        "jabDistance": 14
+      }
+    },
     "starterLoadout": {
       "selectedHotbarIndex": 1,
       "weapons": [
@@ -30,18 +50,6 @@
         {
           "typeId": "item:hunk",
           "amount": 50
-        },
-        {
-          "typeId": "item:pistol_mag",
-          "amount": 2
-        },
-        {
-          "typeId": "item:crossbow_mag",
-          "amount": 2
-        },
-        {
-          "typeId": "item:drone_mag",
-          "amount": 2
         },
         {
           "typeId": "item:landmine",

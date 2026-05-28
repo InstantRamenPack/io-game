@@ -172,10 +172,7 @@ export const ExtractionStageSchema = z.enum([
   "complete",
 ]);
 
-export const ExtractionLockedReasonSchema = z.enum([
-  "final_wave",
-  "comms_offline",
-]);
+export const ExtractionLockedReasonSchema = z.enum(["comms_offline"]);
 
 export const ExtractionSnapshotSchema = z.object({
   stage: ExtractionStageSchema,
@@ -200,6 +197,8 @@ export const MapMarkerSnapshotSchema = z.object({
   discoveredByDefault: z.boolean(),
   x: z.number().finite(),
   y: z.number().finite(),
+  risk: z.enum(["low", "medium", "high", "boss"]).optional(),
+  tier: z.enum(["common", "uncommon", "rare", "epic"]).optional(),
 });
 
 export const MapSectorSnapshotSchema = z.object({

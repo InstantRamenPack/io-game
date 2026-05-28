@@ -650,11 +650,7 @@ function compactExtraction(extraction: WorldSnapshot["extraction"]): unknown[] {
   }[extraction.stage];
   return [
     stageCode,
-    extraction.lockedReason === "comms_offline"
-      ? 1
-      : extraction.lockedReason === "final_wave"
-        ? 0
-        : null,
+    extraction.lockedReason === "comms_offline" ? 0 : null,
     extraction.boardElapsedMs,
     extraction.chopperElapsedMs,
     extraction.playersOnPad,
@@ -695,11 +691,7 @@ function expandExtraction(value: unknown): WorldSnapshot["extraction"] | null {
   }
   return {
     stage: stages[stage] ?? "locked",
-    ...(lockedReason === 0
-      ? { lockedReason: "final_wave" as const }
-      : lockedReason === 1
-        ? { lockedReason: "comms_offline" as const }
-        : {}),
+    ...(lockedReason === 0 ? { lockedReason: "comms_offline" as const } : {}),
     boardElapsedMs,
     chopperElapsedMs,
     playersOnPad,
@@ -887,7 +879,7 @@ function compactMarker(marker: MapMarkerSnapshot): unknown[] {
     reward: 2,
     route: 3,
   }[marker.importance];
-  return [
+  const compacted: unknown[] = [
     marker.id,
     marker.label,
     marker.archetype,
@@ -896,14 +888,37 @@ function compactMarker(marker: MapMarkerSnapshot): unknown[] {
     q(marker.x),
     q(marker.y),
   ];
+  if (marker.risk !== undefined || marker.tier !== undefined) {
+    compacted.push(
+      marker.risk === undefined
+        ? null
+        : ({ low: 0, medium: 1, high: 2, boss: 3 } as const)[marker.risk],
+      marker.tier === undefined
+        ? null
+        : ({ common: 0, uncommon: 1, rare: 2, epic: 3 } as const)[marker.tier],
+    );
+  }
+  return compacted;
 }
 
 function expandMarker(value: unknown): MapMarkerSnapshot | null {
   if (!Array.isArray(value)) {
     return null;
   }
-  const [id, label, archetype, importance, discoveredByDefault, x, y] = value;
+  const [
+    id,
+    label,
+    archetype,
+    importance,
+    discoveredByDefault,
+    x,
+    y,
+    risk,
+    tier,
+  ] = value;
   const importanceValues = ["sector", "major", "reward", "route"] as const;
+  const riskValues = ["low", "medium", "high", "boss"] as const;
+  const tierValues = ["common", "uncommon", "rare", "epic"] as const;
   return typeof id === "string" &&
     typeof label === "string" &&
     typeof archetype === "string" &&
@@ -916,6 +931,12 @@ function expandMarker(value: unknown): MapMarkerSnapshot | null {
         discoveredByDefault: discoveredByDefault === 1,
         x: dq(Number(x)),
         y: dq(Number(y)),
+        ...(typeof risk === "number" && riskValues[risk] !== undefined
+          ? { risk: riskValues[risk] }
+          : {}),
+        ...(typeof tier === "number" && tierValues[tier] !== undefined
+          ? { tier: tierValues[tier] }
+          : {}),
       }
     : null;
 }

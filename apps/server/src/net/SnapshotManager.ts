@@ -17,8 +17,7 @@ import type { World } from "@server/world/World.ts";
 const MAX_DELTA_REMOVED_IDS = 96;
 
 const LOCKED_EXTRACTION: ExtractionSnapshot = {
-  stage: "locked",
-  lockedReason: "final_wave",
+  stage: "active",
   boardElapsedMs: 0,
   chopperElapsedMs: 0,
   playersOnPad: 0,
@@ -433,6 +432,8 @@ function makeMapSnapshot(world: World): MapSnapshot | undefined {
       discoveredByDefault: marker.discoveredByDefault,
       x: marker.x,
       y: marker.y,
+      ...(marker.risk === undefined ? {} : { risk: marker.risk }),
+      ...(marker.tier === undefined ? {} : { tier: marker.tier }),
     })),
   };
 }

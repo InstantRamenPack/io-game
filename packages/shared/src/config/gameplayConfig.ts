@@ -177,7 +177,6 @@ const ExtractionConfigSchema = z.object({
   enemyDangerRadius: PositiveFiniteNumberSchema,
   boardTimerGoalMs: PositiveIntSchema,
   chopperTimerGoalMs: PositiveIntSchema,
-  finalWaveCycle: PositiveIntSchema,
 });
 
 const DayNightConfigSchema = z.object({
@@ -258,9 +257,30 @@ const NightWaveConfigSchema = z.object({
   message: z.string().optional(),
 });
 
+const RandomWaveEnemyWeightSchema = z.object({
+  entityType: z.string().min(1),
+  tier: RarityTierSchema,
+  weight: PositiveFiniteNumberSchema,
+});
+
+const RandomWaveTierFloorSchema = z.object({
+  nightCycle: PositiveIntSchema,
+  floors: z.partialRecord(RarityTierSchema, NonNegativeIntSchema),
+  allowedTiers: z.array(RarityTierSchema).min(1),
+});
+
+const RandomWavesConfigSchema = z.object({
+  enabled: z.boolean(),
+  baseBudget: PositiveIntSchema,
+  budgetPerNight: NonNegativeIntSchema,
+  bucketDelayTicks: z.array(NonNegativeIntSchema).min(1),
+  enemyWeights: z.array(RandomWaveEnemyWeightSchema).min(1),
+  tierFloors: z.array(RandomWaveTierFloorSchema).min(1),
+});
+
 const WavesConfigSchema = z.object({
   waves: z.array(NightWaveConfigSchema),
-  proceduralAfterNightCycle: PositiveIntSchema,
+  randomWaves: RandomWavesConfigSchema,
   defaultMessageTemplate: z.string().min(1),
   homePerimeter: z.object({
     halfSize: PositiveFiniteNumberSchema,

@@ -4,10 +4,9 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import type { World } from "@server/world/World.ts";
 
-const SELF_KNOCKBACK = 24;
-
 export class FirecrackerGun extends RangedWeapon {
   public static override readonly resourceName = "firecracker_gun";
+  private readonly selfKnockback: number;
 
   constructor() {
     const weaponContent = requireShootWeaponRuntime(FirecrackerGun.typeId);
@@ -19,6 +18,12 @@ export class FirecrackerGun extends RangedWeapon {
       weaponContent.spreadDeg,
       weaponContent.magItemTypeId,
     );
+    if (weaponContent.special?.kind !== "firecrackerLauncher") {
+      throw new Error(
+        `Missing firecracker launcher tuning for ${FirecrackerGun.typeId}.`,
+      );
+    }
+    this.selfKnockback = weaponContent.special.selfKnockback;
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {
@@ -28,8 +33,8 @@ export class FirecrackerGun extends RangedWeapon {
 
     const angle = normalizeAngle(theta);
     owner.applyImpulse(
-      -Math.cos(angle) * SELF_KNOCKBACK,
-      -Math.sin(angle) * SELF_KNOCKBACK,
+      -Math.cos(angle) * this.selfKnockback,
+      -Math.sin(angle) * this.selfKnockback,
     );
     return true;
   }

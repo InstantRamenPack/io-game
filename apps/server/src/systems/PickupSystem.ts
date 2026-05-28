@@ -1,80 +1,34 @@
 import { getItemContent } from "@shared/content/catalog.ts";
-import { pickupsConfig } from "@shared/config/gameplayConfig.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
-  getWorldWeaponPickupTypeIds,
   requiresManualPickup,
   WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
-  WORLD_MEDICAL_PICKUP_TYPE_IDS,
 } from "@server/content/serverContentCapabilities.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { itemTypeRegistry } from "@server/registry/registries.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
- * Spawns consumable pickups (mags, weapons, blueprints, medical) and auto-collects
- * non-weapon, non-buildable pickups on player overlap.
+ * Merges stackable pickups and auto-collects non-weapon, non-buildable pickups
+ * on player overlap. World item creation is owned by generation-time crates and
+ * enemy death drops.
  */
 export class PickupSystem implements System {
-  private weaponAccumulatedMs = 0;
-  private blueprintAccumulatedMs = 0;
-  private medicalAccumulatedMs = 0;
   private readonly queryBuffer: Entity[] = [];
-  private readonly spawnQueryBuffer: Entity[] = [];
   private readonly removedPickupIds = new Set<number>();
 
   public update(world: World, deltaMs: number): void {
+    void deltaMs;
     this.mergeOverlappingStackablePickups(
       world,
       world.entities.queryInstances(ItemEntity),
     );
 
-    let activeWeaponPickupCount = 0;
-    let activeBlueprintPickupCount = 0;
-    let activeMedicalPickupCount = 0;
-    for (const pickup of world.entities.queryInstances(ItemEntity)) {
-      if (this.isWeaponPickup(pickup)) {
-        activeWeaponPickupCount += 1;
-      } else if (this.isBlueprintPickup(pickup)) {
-        activeBlueprintPickupCount += 1;
-      } else if (this.isMedicalPickup(pickup)) {
-        activeMedicalPickupCount += 1;
-      }
-    }
-
     this.collectAutoPickups(world, world.entities.queryInstances(Player));
-
-    this.weaponAccumulatedMs += deltaMs;
-    while (this.weaponAccumulatedMs >= pickupsConfig.weapon.intervalMs) {
-      this.weaponAccumulatedMs -= pickupsConfig.weapon.intervalMs;
-      if (activeWeaponPickupCount < pickupsConfig.weapon.maxActive) {
-        this.spawnRandomWeaponPickup(world);
-        activeWeaponPickupCount += 1;
-      }
-    }
-
-    this.blueprintAccumulatedMs += deltaMs;
-    while (this.blueprintAccumulatedMs >= pickupsConfig.blueprint.intervalMs) {
-      this.blueprintAccumulatedMs -= pickupsConfig.blueprint.intervalMs;
-      if (activeBlueprintPickupCount < pickupsConfig.blueprint.maxActive) {
-        this.spawnRandomBlueprintPickup(world);
-        activeBlueprintPickupCount += 1;
-      }
-    }
-
-    this.medicalAccumulatedMs += deltaMs;
-    while (this.medicalAccumulatedMs >= pickupsConfig.medical.intervalMs) {
-      this.medicalAccumulatedMs -= pickupsConfig.medical.intervalMs;
-      if (activeMedicalPickupCount < pickupsConfig.medical.maxActive) {
-        this.spawnRandomMedicalPickup(world);
-        activeMedicalPickupCount += 1;
-      }
-    }
   }
 
   private collectAutoPickups(world: World, players: readonly Player[]): void {
@@ -182,100 +136,6 @@ export class PickupSystem implements System {
         this.removedPickupIds.add(candidate.id);
       }
     }
-  }
-
-  private spawnRandomWeaponPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, getWorldWeaponPickupTypeIds());
-    if (!typeId) {
-      return;
-    }
-    const weaponEntry = itemTypeRegistry.get(typeId);
-    if (!weaponEntry) {
-      return;
-    }
-    const inventory = new Inventory();
-    inventory.grantItemCtor(weaponEntry.ctor, 1);
-    this.trySpawnPickup(world, inventory);
-  }
-
-  private spawnRandomBlueprintPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(
-      world,
-      WORLD_BLUEPRINT_PICKUP_TYPE_IDS,
-    );
-    if (!typeId) {
-      return;
-    }
-    const inventory = new Inventory();
-    inventory.addStackable(typeId, 1);
-    this.trySpawnPickup(world, inventory);
-  }
-
-  private spawnRandomMedicalPickup(world: World): void {
-    const typeId = this.pickRandomTypeId(world, WORLD_MEDICAL_PICKUP_TYPE_IDS);
-    if (!typeId) {
-      return;
-    }
-    const inventory = new Inventory();
-    inventory.addStackable(typeId, 1);
-    this.trySpawnPickup(world, inventory);
-  }
-
-  private trySpawnPickup(world: World, inventory: Inventory): boolean {
-    for (let attempt = 0; attempt < pickupsConfig.spawnAttempts; attempt += 1) {
-      const pickup = new ItemEntity(world.allocEntityId(), inventory);
-      pickup.x = world.randomNumberGenerator() * world.gameConfig.worldSize.w;
-      pickup.y = world.randomNumberGenerator() * world.gameConfig.worldSize.h;
-
-      const bounds = pickup.getWorldBounds();
-      if (
-        bounds.minX < 0 ||
-        bounds.minY < 0 ||
-        bounds.maxX > world.gameConfig.worldSize.w ||
-        bounds.maxY > world.gameConfig.worldSize.h
-      ) {
-        continue;
-      }
-
-      const overlapCandidates = world.spatial.queryBox(
-        bounds.minX,
-        bounds.minY,
-        bounds.maxX,
-        bounds.maxY,
-        this.spawnQueryBuffer,
-      );
-      let overlapsEntity = false;
-      for (const entity of overlapCandidates) {
-        if (
-          doResolvedRectSetsOverlap(
-            pickup.getWorldHitboxes(),
-            entity.getWorldHitboxes(),
-          )
-        ) {
-          overlapsEntity = true;
-          break;
-        }
-      }
-      if (overlapsEntity) {
-        continue;
-      }
-
-      world.spawn(pickup);
-      return true;
-    }
-    return false;
-  }
-
-  private isMedicalPickup(pickup: ItemEntity): boolean {
-    return WORLD_MEDICAL_PICKUP_TYPE_IDS.some(
-      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-    );
-  }
-
-  private isWeaponPickup(pickup: ItemEntity): boolean {
-    return getWorldWeaponPickupTypeIds().some(
-      (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-    );
   }
 
   private isBlueprintPickup(pickup: ItemEntity): boolean {
@@ -393,16 +253,5 @@ export class PickupSystem implements System {
     }
 
     return unlockedRecipeTypeIds;
-  }
-
-  private pickRandomTypeId<T extends ResourceId>(
-    world: World,
-    typeIds: readonly T[],
-  ): T | undefined {
-    if (typeIds.length === 0) {
-      return undefined;
-    }
-    const index = Math.floor(world.randomNumberGenerator() * typeIds.length);
-    return typeIds[index] ?? typeIds[0];
   }
 }

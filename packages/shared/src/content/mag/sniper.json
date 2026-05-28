@@ -1,0 +1,18 @@
+{
+  "label": "Remington 700 Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for Remington 700.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "label": "M249 SAW Magazine",
+  "recipe": {
+    "hint": "Fresh magazine for M249 SAW.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 20
+      }
+    ]
+  },
+  "runtime": {
+    "server": {
+      "classKind": "magazine"
+    }
+  }
+}

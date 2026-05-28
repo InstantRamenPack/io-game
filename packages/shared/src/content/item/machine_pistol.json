@@ -9,7 +9,7 @@
     "magSize": 16,
     "reloadTicks": 20,
     "spreadDeg": 10,
-    "magItemTypeId": "item:pistol_mag",
+    "magItemTypeId": "mag:machine_pistol",
     "equippedRender": {
       "holdOffset": {
         "x": 28,

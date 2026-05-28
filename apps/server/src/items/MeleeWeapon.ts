@@ -12,6 +12,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { requireWeaponContent } from "@shared/content/catalog.ts";
+import type { AttackStyle } from "@shared/content/schema.ts";
 
 type MeleeAim = {
   directionX: number;
@@ -106,7 +107,7 @@ export abstract class MeleeWeapon extends Weapon {
         sourceId: instigator?.id ?? owner.id,
         x: owner.x,
         y: owner.y,
-        attackStyle: requireWeaponContent(this.typeId).attackStyle,
+        attackStyle: this.getAttackStyleForEvent(),
       },
     };
     world.events.push(attackEvent);
@@ -115,6 +116,10 @@ export abstract class MeleeWeapon extends Weapon {
     // expectations and remote spectators can observe attack animations even on whiff.
     this.resetCooldown();
     return true;
+  }
+
+  protected getAttackStyleForEvent(): AttackStyle {
+    return requireWeaponContent(this.typeId).attackStyle;
   }
 
   protected applyHitEffects(world: World, owner: Entity, target: Entity): void {

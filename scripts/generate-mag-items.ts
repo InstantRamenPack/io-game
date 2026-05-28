@@ -23,6 +23,7 @@ type ItemContent = {
 
 const repoRoot = process.cwd();
 const itemContentDir = path.join(repoRoot, "packages/shared/src/content/item");
+const magContentDir = path.join(repoRoot, "packages/shared/src/content/mag");
 const iconMapPath = path.join(repoRoot, "apps/client/public/item_icons.json");
 const spriteMapPath = path.join(
   repoRoot,
@@ -38,9 +39,9 @@ const generatedSpriteDir = path.join(
 );
 
 const explicitIconPaths: Record<string, string> = {
-  "item:pistol_mag": "/icons/pistol_ammo.png",
-  "item:rifle_mag": "/icons/rifle_ammo.png",
-  "item:sniper_mag": "/icons/sniper_ammo.png",
+  "mag:basic_gun": "/icons/pistol_ammo.png",
+  "mag:basic_rifle": "/icons/rifle_ammo.png",
+  "mag:sniper": "/icons/sniper_ammo.png",
 };
 
 const generatedIconSources: Record<string, string> = {
@@ -70,7 +71,7 @@ function getResourceName(typeId: string): string {
 }
 
 function inferMagTypeId(weaponTypeId: string): string {
-  return `item:${getResourceName(weaponTypeId)}_mag`;
+  return `mag:${getResourceName(weaponTypeId)}`;
 }
 
 function inferIconFamily(
@@ -101,9 +102,6 @@ function buildMagContent(
           amount: 20,
         },
       ],
-    },
-    pickupSpawn: {
-      pools: ["mag"],
     },
     runtime: {
       server: {
@@ -163,11 +161,12 @@ async function main(): Promise<void> {
     }
 
     const resourceName = getResourceName(magTypeId);
-    const filePath = path.join(itemContentDir, `${resourceName}.json`);
+    const filePath = path.join(magContentDir, `${resourceName}.json`);
     const content = buildMagContent(
       magTypeId,
       magWeaponLabels.get(magTypeId) ?? weaponTypeIds,
     );
+    await mkdir(magContentDir, { recursive: true });
     await writeFile(filePath, formatJson(content));
     items.set(magTypeId, { filePath, content });
   }
@@ -177,26 +176,25 @@ async function main(): Promise<void> {
   await mkdir(generatedIconDir, { recursive: true });
   await mkdir(generatedSpriteDir, { recursive: true });
   for (const [magTypeId, weaponTypeIds] of magWeaponTypeIds) {
-    const explicitPath = explicitIconPaths[magTypeId];
-    if (explicitPath) {
-      iconMap[magTypeId] = explicitPath;
-      continue;
-    }
-
     const iconFamily = inferIconFamily(magTypeId, weaponTypeIds);
-    const sourceFileName = generatedIconSources[iconFamily] ?? "rifle_ammo.png";
+    const explicitPath = explicitIconPaths[magTypeId];
+    const sourceFileName = explicitPath
+      ? explicitPath.slice("/icons/".length)
+      : (generatedIconSources[iconFamily] ?? "rifle_ammo.png");
     const generatedFileName = `${getResourceName(magTypeId)}.png`;
+    if (!explicitPath) {
+      await copyFile(
+        path.join(repoRoot, "apps/client/public/icons", sourceFileName),
+        path.join(generatedIconDir, generatedFileName),
+      );
+    }
     await copyFile(
       path.join(repoRoot, "apps/client/public/icons", sourceFileName),
-      path.join(generatedIconDir, generatedFileName),
+      path.join(generatedSpriteDir, generatedFileName),
     );
-    iconMap[magTypeId] = `/icons/generated/${generatedFileName}`;
+    iconMap[magTypeId] =
+      explicitPath ?? `/icons/generated/${generatedFileName}`;
     spriteMap[magTypeId] = `/sprites/generated/${generatedFileName}`;
-  }
-
-  for (const magTypeId of magWeaponTypeIds.keys()) {
-    const resourceName = getResourceName(magTypeId);
-    spriteMap[magTypeId] = `/sprites/generated/${resourceName}.png`;
   }
 
   const sortedIconMap = Object.fromEntries(

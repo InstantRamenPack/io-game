@@ -7,6 +7,7 @@ import {
   getWeaponContent,
   getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
+import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import type { RarityTier } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
@@ -96,10 +97,11 @@ export function buildInventoryTooltipContent(
   if (slot.kind === "buildable") {
     lines.push(`Stack: ${slot.count}`);
     const armor = getItemContent(slot.typeId)?.armor;
-    if (armor) {
+    const armorStats = getArmorStats(slot.typeId);
+    if (armor && armorStats) {
       lines.push(
         `Armor Tier ${armor.tier}`,
-        `Damage Reduction: ${Math.round(armor.damageReductionPct * 100)}%`,
+        `Damage Reduction: ${Math.round(armorStats.damageReductionPct * 100)}%`,
       );
     }
   }

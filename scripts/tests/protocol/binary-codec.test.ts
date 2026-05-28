@@ -10,6 +10,7 @@ import {
   makePlayerSnapshot,
   makeSnapshot,
 } from "@tests/helpers/snapshotFixtures.ts";
+import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 
 describe("binary protocol codec", () => {
   test("bitpacked input round-trips within angle quantization tolerance", () => {
@@ -60,6 +61,55 @@ describe("binary protocol codec", () => {
       expect(decoded.snapshot.removedEntityIds).toEqual([99, 100]);
       expect(decoded.snapshot.entities[0]?.x).toBeCloseTo(100.1, 1);
       expect(decoded.snapshot.entities[0]?.y).toBeCloseTo(200.5, 1);
+    }
+  });
+
+  test("compact map markers preserve village risk and tier metadata", () => {
+    const snapshot = {
+      ...makeSnapshot(26, [makePlayerSnapshot(1, 100, 200)], { full: true }),
+      map: {
+        seed: 1337,
+        sectorSize: 4096,
+        centerSectorId: "sector_1_1",
+        extractionSectorId: "sector_0_0",
+        dungeonSectorId: "sector_2_2",
+        dungeonBounds: { minX: 0, minY: 0, maxX: 100, maxY: 100 },
+        militarySectorId: "sector_0_1",
+        forestSectorId: "sector_1_0",
+        sectors: [],
+        features: [],
+        markers: [
+          {
+            id: "sector_0_0_village_0",
+            label: "Fortified Village",
+            archetype: "extraction",
+            importance: "major",
+            discoveredByDefault: true,
+            x: 1200,
+            y: 1300,
+            risk: "boss",
+            tier: "epic",
+          },
+          {
+            id: "sector_0_1_village_0",
+            label: "Village",
+            archetype: "military",
+            importance: "major",
+            discoveredByDefault: false,
+            x: 2400,
+            y: 2600,
+            risk: "medium",
+            tier: "uncommon",
+          },
+        ],
+      },
+    } satisfies WorldSnapshot;
+    const encoded = encodeServerToClientMessage({ t: "snapshot", snapshot });
+    const decoded = parseServerToClientMessage(encoded);
+
+    expect(decoded?.t).toBe("snapshot");
+    if (decoded?.t === "snapshot") {
+      expect(decoded.snapshot.map?.markers).toEqual(snapshot.map.markers);
     }
   });
 

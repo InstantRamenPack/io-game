@@ -1,135 +1,140 @@
 {
-  "waves": [
-    {
-      "nightCycle": 1,
-      "spawns": [
-        { "entityType": "drifter", "delayTicks": 0, "count": 3 },
-        { "entityType": "drifter", "delayTicks": 120, "count": 1 },
-        { "entityType": "shoota", "delayTicks": 120, "count": 2 }
-      ]
-    },
-    {
-      "nightCycle": 2,
-      "spawns": [
-        { "entityType": "drifter", "delayTicks": 0, "count": 3 },
-        { "entityType": "shoota", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 100, "count": 1 },
-        { "entityType": "shoota", "delayTicks": 100, "count": 1 },
-        { "entityType": "stalker", "delayTicks": 100, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 200, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 200, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 200, "count": 1 }
-      ]
-    },
-    {
-      "nightCycle": 3,
-      "spawns": [
-        { "entityType": "drifter", "delayTicks": 0, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 0, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 70, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 70, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 70, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 140, "count": 1 },
-        { "entityType": "shoota", "delayTicks": 140, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 140, "count": 1 },
-        { "entityType": "stalker", "delayTicks": 140, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 210, "count": 1 },
-        { "entityType": "police", "delayTicks": 210, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 210, "count": 1 }
-      ]
-    },
-    {
-      "nightCycle": 4,
-      "spawns": [
-        { "entityType": "megaknight", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 0, "count": 2 },
-        { "entityType": "sniper", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 60, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 60, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 60, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 120, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 120, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 120, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 120, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 180, "count": 1 },
-        { "entityType": "police", "delayTicks": 180, "count": 2 },
-        { "entityType": "stalker", "delayTicks": 180, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 180, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 250, "count": 1 },
-        { "entityType": "commander", "delayTicks": 250, "count": 1 }
-      ]
-    },
-    {
-      "nightCycle": 5,
-      "spawns": [
-        { "entityType": "megaknight", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 0, "count": 2 },
-        { "entityType": "stalker", "delayTicks": 0, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 50, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 50, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 50, "count": 1 },
-        { "entityType": "sniper", "delayTicks": 50, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 100, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 100, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 100, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 100, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 150, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 150, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 150, "count": 1 },
-        { "entityType": "police", "delayTicks": 150, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 150, "count": 1 },
-        { "entityType": "megaknight", "delayTicks": 200, "count": 1 },
-        { "entityType": "police", "delayTicks": 200, "count": 1 },
-        { "entityType": "stalker", "delayTicks": 200, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 200, "count": 1 },
-        { "entityType": "commander", "delayTicks": 200, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 260, "count": 1 }
-      ]
-    },
-    {
-      "nightCycle": 6,
-      "message": "🌊 THE HORDE ARRIVES! WAVE 6 — BRACE YOURSELVES!",
-      "spawns": [
-        { "entityType": "drifter", "delayTicks": 0, "count": 3 },
-        { "entityType": "shoota", "delayTicks": 0, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 0, "count": 2 },
-        { "entityType": "drifter", "delayTicks": 40, "count": 3 },
-        { "entityType": "shoota", "delayTicks": 40, "count": 2 },
-        { "entityType": "bomber", "delayTicks": 40, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 40, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 80, "count": 3 },
-        { "entityType": "shoota", "delayTicks": 80, "count": 2 },
-        { "entityType": "bomber", "delayTicks": 80, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 80, "count": 1 },
-        { "entityType": "sniper", "delayTicks": 80, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 120, "count": 2 },
-        { "entityType": "shoota", "delayTicks": 120, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 120, "count": 2 },
-        { "entityType": "police", "delayTicks": 120, "count": 2 },
-        { "entityType": "saboteur", "delayTicks": 120, "count": 2 },
-        { "entityType": "drifter", "delayTicks": 160, "count": 1 },
-        { "entityType": "shoota", "delayTicks": 160, "count": 1 },
-        { "entityType": "bomber", "delayTicks": 160, "count": 1 },
-        { "entityType": "police", "delayTicks": 160, "count": 1 },
-        { "entityType": "saboteur", "delayTicks": 160, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 160, "count": 1 },
-        { "entityType": "drifter", "delayTicks": 200, "count": 1 },
-        { "entityType": "police", "delayTicks": 200, "count": 1 },
-        { "entityType": "commander", "delayTicks": 200, "count": 1 },
-        { "entityType": "stalker", "delayTicks": 200, "count": 1 },
-        { "entityType": "wallbreaker", "delayTicks": 260, "count": 1 },
-        { "entityType": "commander", "delayTicks": 260, "count": 1 }
-      ]
-    },
-    {
-      "nightCycle": 7,
-      "message": "☠️ THANOS HAS ARRIVED! THE FINAL BOSS IS HERE!",
-      "spawns": [{ "entityType": "thanos", "delayTicks": 0, "count": 1 }]
-    }
-  ],
-  "proceduralAfterNightCycle": 7,
-  "defaultMessageTemplate": "🌙 Wave {nightCycle} approaching! Enemies incoming!",
+  "waves": [],
+  "randomWaves": {
+    "enabled": true,
+    "baseBudget": 6,
+    "budgetPerNight": 3,
+    "bucketDelayTicks": [0, 45, 90, 135, 180, 225, 270],
+    "enemyWeights": [
+      {
+        "entityType": "drifter",
+        "tier": "common",
+        "weight": 6
+      },
+      {
+        "entityType": "shoota",
+        "tier": "common",
+        "weight": 4
+      },
+      {
+        "entityType": "police",
+        "tier": "uncommon",
+        "weight": 3
+      },
+      {
+        "entityType": "ranger",
+        "tier": "uncommon",
+        "weight": 3
+      },
+      {
+        "entityType": "bomber",
+        "tier": "uncommon",
+        "weight": 2
+      },
+      {
+        "entityType": "saboteur",
+        "tier": "rare",
+        "weight": 2
+      },
+      {
+        "entityType": "wallbreaker",
+        "tier": "rare",
+        "weight": 2
+      },
+      {
+        "entityType": "stalker",
+        "tier": "rare",
+        "weight": 2
+      },
+      {
+        "entityType": "sniper",
+        "tier": "epic",
+        "weight": 1
+      },
+      {
+        "entityType": "commander",
+        "tier": "epic",
+        "weight": 1
+      },
+      {
+        "entityType": "megaknight",
+        "tier": "epic",
+        "weight": 1
+      },
+      {
+        "entityType": "thanos",
+        "tier": "legendary",
+        "weight": 0.25
+      }
+    ],
+    "tierFloors": [
+      {
+        "nightCycle": 1,
+        "floors": {
+          "common": 1
+        },
+        "allowedTiers": ["common"]
+      },
+      {
+        "nightCycle": 2,
+        "floors": {
+          "common": 2,
+          "uncommon": 1
+        },
+        "allowedTiers": ["common", "uncommon"]
+      },
+      {
+        "nightCycle": 3,
+        "floors": {
+          "common": 2,
+          "uncommon": 2,
+          "rare": 1
+        },
+        "allowedTiers": ["common", "uncommon", "rare"]
+      },
+      {
+        "nightCycle": 4,
+        "floors": {
+          "common": 3,
+          "uncommon": 2,
+          "rare": 2
+        },
+        "allowedTiers": ["common", "uncommon", "rare"]
+      },
+      {
+        "nightCycle": 5,
+        "floors": {
+          "common": 3,
+          "uncommon": 3,
+          "rare": 2,
+          "epic": 1
+        },
+        "allowedTiers": ["common", "uncommon", "rare", "epic"]
+      },
+      {
+        "nightCycle": 6,
+        "floors": {
+          "common": 4,
+          "uncommon": 3,
+          "rare": 3,
+          "epic": 1
+        },
+        "allowedTiers": ["common", "uncommon", "rare", "epic"]
+      },
+      {
+        "nightCycle": 7,
+        "floors": {
+          "common": 4,
+          "uncommon": 4,
+          "rare": 3,
+          "epic": 2,
+          "legendary": 1
+        },
+        "allowedTiers": ["common", "uncommon", "rare", "epic", "legendary"]
+      }
+    ]
+  },
+  "defaultMessageTemplate": "Wave {nightCycle} approaching! Enemies incoming!",
   "homePerimeter": {
     "halfSize": 2048,
     "spawnBuffer": 400

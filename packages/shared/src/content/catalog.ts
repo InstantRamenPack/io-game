@@ -3,6 +3,8 @@ import {
   effectContentEntries,
   enemyContentEntries,
   itemContentEntries,
+  magContentEntries,
+  blueprintContentEntries,
   pickupContentEntries,
   playerContentEntries,
   projectileContentEntries,
@@ -28,7 +30,11 @@ import {
 } from "@shared/ids/ResourceId.ts";
 import type { JsonObject } from "@shared/json.ts";
 
-const itemContents = new Map<ResourceId, ItemContent>(itemContentEntries);
+const itemContents = new Map<ResourceId, ItemContent>([
+  ...itemContentEntries,
+  ...magContentEntries,
+  ...blueprintContentEntries,
+]);
 
 const entityContents = new Map<ResourceId, EntityContent>([
   ...playerContentEntries,
@@ -132,7 +138,7 @@ export function getWeaponContent(
 export function getArmorContent(typeId: ResourceId):
   | {
       tier: 1 | 2 | 3 | 4;
-      damageReductionPct: number;
+      armorBars: number;
       reflectDamagePct: number;
     }
   | undefined {

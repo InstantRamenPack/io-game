@@ -3,6 +3,7 @@ import {
   getAllEntityContentEntries,
   getAllItemContentEntries,
   getEntityContent,
+  getItemContent,
   getWeaponContent,
 } from "@shared/content/catalog.ts";
 import type { RarityTier } from "@shared/content/schema.ts";
@@ -139,6 +140,8 @@ export type ProceduralMapMarker = ProceduralPoint & {
   archetype: SectorArchetype;
   importance: "sector" | "major" | "reward" | "route";
   discoveredByDefault: boolean;
+  risk?: ProceduralPoiFeature["risk"];
+  tier?: ProceduralRewardTier;
 };
 
 export type ProceduralPoiFeature = ProceduralRect & {
@@ -342,6 +345,10 @@ const FILLER_ARCHETYPES: readonly SectorArchetype[] = [
 const DUNGEON_HALLWAY_WIDTH = 96;
 const DUNGEON_FILL_CELL_SIZE = 32;
 const LOOT_BY_TIER = PROCEDURAL_CONTENT.lootByTier;
+const WAVE_ONLY_ENEMY_TYPE_IDS = new Set<ResourceId>([
+  "enemy:saboteur",
+  "enemy:wallbreaker",
+]);
 const ENEMY_TYPE_IDS_BY_RARITY = buildEnemyTypeIdsByRarity();
 const EPIC_BLUEPRINT_TYPE_IDS = getEpicBlueprintTypeIds();
 
@@ -357,7 +364,7 @@ function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
     if (!typeId.startsWith("enemy:") || !content.rarityTier) {
       continue;
     }
-    if (typeId === "enemy:crate") {
+    if (typeId === "enemy:crate" || WAVE_ONLY_ENEMY_TYPE_IDS.has(typeId)) {
       continue;
     }
     result[content.rarityTier].push(typeId);
@@ -408,6 +415,7 @@ function addSectorAuthoredContent(
     );
   }
   for (const lootEntry of content.loot ?? []) {
+    assertCrateLootTypeId(lootEntry.typeId as ResourceId);
     loot.push(
       lootSpec(
         lootEntry.typeId,
@@ -481,13 +489,17 @@ export function generateProceduralWorldLayout(
 
   const homeBounds = insetRect(sectorRect(1, 1), 280);
   const extractionSector = requireSector(sectors, "extraction");
+  const villages = sectors.flatMap((sector) => sector.villages);
+  guaranteeVillageBlueprintCrates(sectors, villages);
+  const extractionVillage =
+    extractionSector.villages.find(
+      (village) => village.kind === "extraction_fortified",
+    ) ?? null;
   const extraction = {
-    x: extractionSector.center.x,
-    y: extractionSector.center.y,
+    x: extractionVillage?.center.x ?? extractionSector.center.x,
+    y: extractionVillage?.center.y ?? extractionSector.center.y,
     radius: 160,
   };
-  const villages = sectors.flatMap((sector) => sector.villages);
-  placeEpicBlueprintCrates(sectors, villages);
   const forestCamps = sectors.flatMap((sector) => sector.forestCamps);
   const minimapMarkers = sectors.flatMap((sector) => sector.minimapMarkers);
 
@@ -515,65 +527,79 @@ export function generateProceduralWorldLayout(
   };
 }
 
-function placeEpicBlueprintCrates(
+function guaranteeVillageBlueprintCrates(
   sectors: ProceduralSector[],
   villages: readonly ProceduralVillagePlan[],
 ): void {
-  if (EPIC_BLUEPRINT_TYPE_IDS.length === 0) {
+  const fillerBlueprints = getAllItemContentEntries()
+    .filter(([, item]) => item.unlocksRecipeTypeId)
+    .map(([typeId]) => typeId)
+    .filter((typeId) => !EPIC_BLUEPRINT_TYPE_IDS.includes(typeId));
+  const blueprintPool = [...EPIC_BLUEPRINT_TYPE_IDS, ...fillerBlueprints];
+  if (blueprintPool.length === 0) {
     return;
   }
   const worldCenter = proceduralWorldCenter();
-  const farVillages = [...villages]
-    .filter((village) => village.lootTier !== "common")
-    .sort(
-      (left, right) =>
-        distanceSquared(
-          right.center.x,
-          right.center.y,
-          worldCenter.x,
-          worldCenter.y,
-        ) -
-        distanceSquared(
-          left.center.x,
-          left.center.y,
-          worldCenter.x,
-          worldCenter.y,
-        ),
-    );
-  if (farVillages.length === 0) {
-    return;
-  }
+  const sortedVillages = [...villages].sort(
+    (left, right) =>
+      distanceSquared(
+        right.center.x,
+        right.center.y,
+        worldCenter.x,
+        worldCenter.y,
+      ) -
+      distanceSquared(
+        left.center.x,
+        left.center.y,
+        worldCenter.x,
+        worldCenter.y,
+      ),
+  );
 
-  for (let index = 0; index < EPIC_BLUEPRINT_TYPE_IDS.length; index += 1) {
-    const village = farVillages[index % farVillages.length]!;
+  for (let index = 0; index < sortedVillages.length; index += 1) {
+    const village = sortedVillages[index]!;
     const sector = sectors.find(
       (candidate) => candidate.id === village.sectorId,
     );
     if (!sector) {
       continue;
     }
-    const angle = (Math.PI * 2 * index) / EPIC_BLUEPRINT_TYPE_IDS.length;
+    const blueprintTypeId =
+      index < EPIC_BLUEPRINT_TYPE_IDS.length
+        ? EPIC_BLUEPRINT_TYPE_IDS[index]!
+        : (fillerBlueprints[
+            (index - EPIC_BLUEPRINT_TYPE_IDS.length) % fillerBlueprints.length
+          ] ?? blueprintPool[index % blueprintPool.length]!);
+    const villageCrates = sector.enemies.filter(
+      (spawn) =>
+        spawn.typeId === "enemy:crate" &&
+        spawn.x >= village.minX &&
+        spawn.x <= village.maxX &&
+        spawn.y >= village.minY &&
+        spawn.y <= village.maxY,
+    );
+    for (const crate of villageCrates) {
+      crate.crateLoot = (crate.crateLoot ?? [])
+        .filter((slot) => !slot.typeId.startsWith("blueprint:"))
+        .slice(0, 1)
+        .map((slot) => ({ ...slot, amount: 1 }));
+    }
+    const blueprintCrate =
+      villageCrates.find((crate) => crate.label?.includes("interior_parent")) ??
+      villageCrates[0];
+    const blueprintLoot = [
+      { typeId: blueprintTypeId, kind: "stackable" as const, amount: 1 },
+    ];
+    if (blueprintCrate) {
+      blueprintCrate.crateLoot = blueprintLoot;
+      continue;
+    }
     sector.enemies.push(
       crateSpawn(
         "enemy:crate",
-        clamp(
-          village.center.x + Math.cos(angle) * 180,
-          village.minX + 96,
-          village.maxX - 96,
-        ),
-        clamp(
-          village.center.y + Math.sin(angle) * 180,
-          village.minY + 96,
-          village.maxY - 96,
-        ),
-        [
-          { typeId: "item:hunk" as ResourceId, kind: "stackable", amount: 12 },
-          {
-            typeId: EPIC_BLUEPRINT_TYPE_IDS[index]!,
-            kind: "stackable",
-            amount: 1,
-          },
-        ],
+        village.center.x,
+        village.center.y,
+        blueprintLoot,
       ),
     );
   }
@@ -689,6 +715,8 @@ function createSector(
         center.y,
         "major",
         true,
+        "boss",
+        "epic",
       ),
     );
     const extractionVillage = createVillagePlan(
@@ -1777,7 +1805,8 @@ function addDungeonRoomContent(
     kind: ProceduralLootSpec["kind"],
     rewardTier: ProceduralLootSpec["rewardTier"],
     amount: number,
-  ) => {
+  ): ProceduralLootSpec | undefined => {
+    assertCrateLootTypeId(typeId as ResourceId);
     const position = point(offsetX, offsetY);
     return lootSpec(typeId, position.x, position.y, kind, rewardTier, amount);
   };
@@ -1826,27 +1855,32 @@ function addDungeonRoomContent(
     );
   }
   for (const roomLootEntry of content.loot ?? []) {
-    loot.push(
-      roomLoot(
-        roomLootEntry.typeId,
-        roomLootEntry.offsetX,
-        roomLootEntry.offsetY,
-        roomLootEntry.kind,
-        roomLootEntry.rewardTier,
-        roomLootEntry.amount,
-      ),
+    const spec = roomLoot(
+      roomLootEntry.typeId,
+      roomLootEntry.offsetX,
+      roomLootEntry.offsetY,
+      roomLootEntry.kind,
+      roomLootEntry.rewardTier,
+      roomLootEntry.amount,
     );
+    if (spec) {
+      loot.push(spec);
+    }
   }
   for (const crate of content.crates ?? []) {
     enemies.push(
       roomCrate(
         crate.offsetX,
         crate.offsetY,
-        crate.loot.map((slot) => ({
-          typeId: slot.typeId as ResourceId,
-          kind: slot.kind,
-          amount: slot.amount,
-        })),
+        crate.loot.map((slot) => {
+          const typeId = slot.typeId as ResourceId;
+          assertCrateLootTypeId(typeId);
+          return {
+            typeId,
+            kind: slot.kind,
+            amount: slot.amount,
+          };
+        }),
       ),
     );
   }
@@ -2029,7 +2063,10 @@ function createVillagePlan(
       sector.maxY - worldgenConfig.villageCenterMargin.y,
     ),
   });
-  const { danger, lootTier } = villageTierForDistance(center);
+  const { danger, lootTier } =
+    kind === "extraction_fortified"
+      ? { danger: "boss" as const, lootTier: "epic" as const }
+      : villageTierForDistance(center);
   const poiRoles = createVillagePoiRoles(kind, isCorner);
   return {
     id: `${sectorId}_village_${index}`,
@@ -2197,6 +2234,7 @@ function addVillageContent(
     true,
     "major",
     village.kind === "extraction_fortified",
+    village.lootTier,
   );
 
   const rooms = createBspVillageRooms(rng, village, village.poiRoles);
@@ -2337,6 +2375,7 @@ function addVillagePoiBlock(
     ["supply_cache", "armory", "market", "helipad"].includes(room.role),
     room.role === "supply_cache" || room.role === "armory" ? "reward" : "route",
     village.kind === "extraction_fortified" && room.role === "helipad",
+    village.lootTier,
   );
 
   const template = selectVillageRoomTemplate(rng, village.kind, room.role);
@@ -2691,6 +2730,12 @@ function villageLoot(
   y: number,
 ): ProceduralLootSpec {
   const pool = LOOT_BY_TIER[village.lootTier];
+  for (const typeId of pool) {
+    assertCrateLootTypeId(typeId);
+  }
+  if (pool.length === 0) {
+    throw new Error(`Missing crate loot pool for ${village.lootTier}.`);
+  }
   const index =
     Math.abs(Math.imul((x | 0) ^ 0x9e3779b9, (y | 0) ^ 0x85ebca6b)) %
     pool.length;
@@ -2709,9 +2754,18 @@ function crateLootForTier(
   rng: seedrandom.PRNG,
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  const explicitPool = PROCEDURAL_CONTENT.crateLootByTier[tier];
+  const explicitPool = PROCEDURAL_CONTENT.crateLootByTier[tier].filter(
+    (slot) => !slot.typeId.startsWith("blueprint:"),
+  );
+  for (const slot of explicitPool) {
+    assertCrateLootTypeId(slot.typeId);
+  }
   const knownTypeIds = new Set(explicitPool.map((slot) => slot.typeId));
   const derivedPool = LOOT_BY_TIER[tier]
+    .filter((typeId) => {
+      assertCrateLootTypeId(typeId);
+      return true;
+    })
     .filter((typeId) => !knownTypeIds.has(typeId))
     .map((typeId) => ({
       typeId,
@@ -2721,25 +2775,19 @@ function crateLootForTier(
       amount: getWeaponContent(typeId) ? undefined : 1,
     }));
   const pool = [...explicitPool, ...derivedPool];
-  const hunk = pool.find((slot) => slot.typeId === "item:hunk");
-  const optionalSlots = pool.filter((slot) => slot.typeId !== "item:hunk");
-  const loot: ProceduralCrateLootSlot[] = hunk ? [{ ...hunk }] : [];
-  const optionalCount = tier === "common" ? 1 : 2;
-  const usedIndexes = new Set<number>();
+  const slot = pool[Math.floor(rng() * pool.length)];
+  return slot ? [{ ...slot, amount: 1 }] : [];
+}
 
-  while (
-    loot.length < optionalCount + Number(Boolean(hunk)) &&
-    usedIndexes.size < optionalSlots.length
-  ) {
-    const index = Math.floor(rng() * optionalSlots.length);
-    if (usedIndexes.has(index)) {
-      continue;
-    }
-    usedIndexes.add(index);
-    loot.push({ ...optionalSlots[index]! });
+function isCrateLootTypeId(typeId: ResourceId): boolean {
+  const item = getItemContent(typeId);
+  return item?.weapon !== undefined || item?.unlocksRecipeTypeId !== undefined;
+}
+
+function assertCrateLootTypeId(typeId: ResourceId): void {
+  if (!isCrateLootTypeId(typeId)) {
+    throw new Error(`Crate loot must be a weapon or blueprint: ${typeId}.`);
   }
-
-  return loot;
 }
 
 function forestTreeCount(rect: ProceduralRect, isCorner: boolean): number {
@@ -2795,6 +2843,7 @@ function addFeature(
   hasReward: boolean,
   importance: ProceduralMapMarker["importance"],
   discoveredByDefault: boolean,
+  markerTier?: ProceduralMapMarker["tier"],
 ): void {
   const center = snapPoint({ x: centerX, y: centerY });
   const halfWidth = width / 2;
@@ -2820,6 +2869,8 @@ function addFeature(
       center.y,
       importance,
       discoveredByDefault,
+      risk,
+      markerTier,
     ),
   );
 }
@@ -2971,6 +3022,8 @@ function marker(
   y: number,
   importance: ProceduralMapMarker["importance"],
   discoveredByDefault: boolean,
+  risk?: ProceduralMapMarker["risk"],
+  tier?: ProceduralMapMarker["tier"],
 ): ProceduralMapMarker {
   return {
     id,
@@ -2980,6 +3033,8 @@ function marker(
     y: snap(y),
     importance,
     discoveredByDefault,
+    ...(risk === undefined ? {} : { risk }),
+    ...(tier === undefined ? {} : { tier }),
   };
 }
 
