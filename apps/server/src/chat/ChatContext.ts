@@ -24,6 +24,7 @@ import {
   isProjectileCtor,
   isSpawnableEntityCtor,
   isStructureCtor,
+  isTowerCtor,
 } from "@server/runtime/ctorGuards.ts";
 
 type FilterResult = {
@@ -297,6 +298,13 @@ export class ChatContext {
       building.x = position.x;
       building.y = position.y;
       return building;
+    }
+
+    if (entry.kind === "tower" && isTowerCtor(ctor)) {
+      const tower = new ctor(entityId, 1, player.id);
+      tower.x = position.x;
+      tower.y = position.y;
+      return tower;
     }
 
     if (entry.kind === "structure" && isStructureCtor(ctor)) {

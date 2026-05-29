@@ -1,8 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import {
-  getAllItemContentEntries,
-  getItemContent,
-} from "@shared/content/catalog.ts";
+import { getAllItemContentEntries } from "@shared/content/catalog.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
@@ -153,16 +150,7 @@ describe("inventory authority", () => {
     const { runtime } = makeRuntime({ worldSeed: 1337 });
     const expectedBlueprintTypeIds = new Set(
       getAllItemContentEntries()
-        .filter(([, item]) => {
-          if (!item.unlocksRecipeTypeId) {
-            return false;
-          }
-          const unlockedItem = getItemContent(item.unlocksRecipeTypeId);
-          return (
-            unlockedItem?.weapon !== undefined &&
-            unlockedItem.rarityTier === "epic"
-          );
-        })
+        .filter(([, item]) => item.unlocksRecipeTypeId)
         .map(([typeId]) => typeId),
     );
     const observedBlueprintTypeIds = new Set<ResourceId>();
@@ -309,6 +297,33 @@ describe("inventory authority", () => {
       .all()
       .filter((entity) => entity instanceof ItemEntity);
     expect(pickups.length).toBeGreaterThan(0);
+  });
+
+  test("destroyed hub stays in world and can be repaired with hunk", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = player.x + 20;
+    hub.y = player.y;
+    runtime.world.spawn(hub);
+
+    hub.hp = 0;
+    hub.handleDeath(runtime.world);
+
+    expect(runtime.world.entities.has(hub.id)).toBe(true);
+    expect(hub.alive).toBe(false);
+    expect(hub.hp).toBe(0);
+
+    player.inventory.addStackable(hunkItemId, 20);
+    enqueueAction(runtime, {
+      t: "action",
+      seq: 1,
+      action: "repair_tower",
+      towerId: hub.id,
+    });
+
+    expect(hub.alive).toBe(true);
+    expect(hub.hp).toBe(hub.maxHp);
   });
 
   test("repair_tower consumes hunk and restores tower to full hp", () => {

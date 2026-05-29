@@ -29,9 +29,7 @@ export class HubRenderer extends BaseEntityRenderer {
       .fill({ color: HUB_BAND, alpha });
 
     const cx = minX + width / 2;
-    graphics
-      .rect(cx - 3, minY - 14, 6, 16)
-      .fill({ color: HUB_STROKE, alpha });
+    graphics.rect(cx - 3, minY - 14, 6, 16).fill({ color: HUB_STROKE, alpha });
     graphics.circle(cx, minY - 16, 3).fill({ color: HUB_BAND, alpha });
   }
 

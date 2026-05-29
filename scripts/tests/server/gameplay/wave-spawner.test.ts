@@ -59,7 +59,9 @@ describe("wave spawner", () => {
     const maxRadius = wavesConfig.waveSpawn.maxRadius + 30;
     for (const enemy of waveEnemies) {
       const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
-      expect(distance).toBeGreaterThanOrEqual(wavesConfig.waveSpawn.minRadius - 30);
+      expect(distance).toBeGreaterThanOrEqual(
+        wavesConfig.waveSpawn.minRadius - 30,
+      );
       expect(distance).toBeLessThanOrEqual(maxRadius);
     }
   });

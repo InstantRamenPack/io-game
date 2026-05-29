@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Cannon",
+  "hint": "Crafting schematic for the Cannon.",
+  "description": "Unlocks the Cannon recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:cannon",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

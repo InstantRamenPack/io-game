@@ -402,6 +402,7 @@ export class ClientEntity {
         }
         break;
       case "building":
+      case "tower":
         this.label =
           isFullSnapshot || "label" in snapshot
             ? snapshot.label
@@ -563,6 +564,7 @@ function getDiscontinuityDistance(kind: EntityKind): number {
     case "projectile":
       return 384;
     case "building":
+    case "tower":
     case "structure":
     case "pickup":
       return 96;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
-import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
+import type { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import {

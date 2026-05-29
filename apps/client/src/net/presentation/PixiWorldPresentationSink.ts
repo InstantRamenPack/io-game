@@ -191,7 +191,9 @@ function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
   }
 
   return (
-    (entity.kind === "building" || entity.kind === "structure") &&
+    (entity.kind === "building" ||
+      entity.kind === "tower" ||
+      entity.kind === "structure") &&
     getEntityContent(entity.typeId)?.collisionMode === "static"
   );
 }

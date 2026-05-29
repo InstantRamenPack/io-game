@@ -101,6 +101,7 @@ These rules apply to every task in this repo unless the user explicitly override
 - At night, and when electricity or lights are down, enemies fight at full range and speed with day-time combat nerfs removed.
 - Recycling uses a drag-and-button modal below crafting in the tower UI, not press-E interact.
 - Energy and comms towers are buildings but cannot be obtained through regular gameplay; only three uncraftable starter towers spawn at match start.
+- Saboteurs use `item:basic_sword` and deal normal damage to players but 2× damage to buildings.
 
 ## Learned Workspace Facts
 
@@ -111,3 +112,6 @@ These rules apply to every task in this repo unless the user explicitly override
 - Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
 - Crafting and recycling share one tower; the map starts with three uncraftable starter towers (combined craft/recycle, energy, comms).
 - When night ends, worldgen-placed enemies respawn the same way procedural crates do.
+- Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` blueprints were removed.
+- Armor rarities: Scout common, Field uncommon, Juggernaut rare, Aegis epic.
+- Blueprint placement is deterministic in `procedural-content.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; village crates hold one item and each village has one blueprint plus at least one craft.

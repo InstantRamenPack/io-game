@@ -93,7 +93,11 @@ export class WaveSpawner {
   public countAliveWaveEnemies(world: World): number {
     let count = 0;
     for (const entity of world.entities.all()) {
-      if (entity instanceof Enemy && entity.alive && entity.spawnSource === "wave") {
+      if (
+        entity instanceof Enemy &&
+        entity.alive &&
+        entity.spawnSource === "wave"
+      ) {
         count += 1;
       }
     }
@@ -165,9 +169,7 @@ export class WaveSpawner {
   }
 
   public getRemainingWaveThreat(world: World): number {
-    return (
-      this.countAliveWaveEnemies(world) + this.getPendingWaveEnemyCount()
-    );
+    return this.countAliveWaveEnemies(world) + this.getPendingWaveEnemyCount();
   }
 
   /**

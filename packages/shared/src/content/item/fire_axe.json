@@ -2,6 +2,16 @@
   "label": "Fire Axe",
   "hint": "Heavy axe head with brutal fracturing power. Slow but devastating.",
   "description": "High-damage swing weapon that always fractures targets. The long cooldown demands patience.",
+  "recipe": {
+    "hint": "Heavy fracturing axe. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 140
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 20,

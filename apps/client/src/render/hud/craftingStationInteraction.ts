@@ -21,7 +21,7 @@ export function isPlayerNearCraftingStation(
   player: ClientEntity | undefined,
   station: ClientEntity,
 ): boolean {
-  if (!player) {
+  if (!player || !station.alive) {
     return false;
   }
 

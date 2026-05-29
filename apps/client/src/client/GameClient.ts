@@ -32,6 +32,7 @@ import {
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle, shortestAngleDelta } from "@shared/math/angle.ts";
+import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
 import type {
   InputMovement,
   LobbyStateMessage,
@@ -39,7 +40,6 @@ import type {
   GameOverMessage,
 } from "@shared/net/protocol.ts";
 import type {
-  DayNightSnapshot,
   ExtractionSnapshot,
   InfrastructureSnapshot,
   WorldSnapshot,
@@ -583,7 +583,7 @@ export class GameClient {
       spatialIndex: true,
       preview: true,
     });
-    this.renderer.setGridNightBlend(this.computeNightBlend(snapshot.dayNight));
+    this.renderer.setGridNightBlend(computeClientNightBlend(snapshot.dayNight));
     this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
 
     if (this.worldState?.clientWorld) {
@@ -1032,32 +1032,6 @@ export class GameClient {
   private getLocalActiveWeapon(): LocalWeaponState | undefined {
     const player = this.getLocalPlayerEntity();
     return player?.equippedItem;
-  }
-
-  private computeNightBlend(dayNight: DayNightSnapshot): number {
-    const phaseDuration =
-      dayNight.phase === "night"
-        ? dayNight.nightDurationMs
-        : dayNight.dayDurationMs;
-    if (phaseDuration <= 0) {
-      return dayNight.phase === "night" ? 1 : 0;
-    }
-
-    const elapsed = Math.max(
-      0,
-      Math.min(dayNight.phaseElapsedMs, phaseDuration),
-    );
-    const transitionMs = Math.max(
-      1000,
-      Math.min(15000, Math.floor(phaseDuration * 0.2)),
-    );
-
-    if (elapsed >= phaseDuration - transitionMs) {
-      const t = (elapsed - (phaseDuration - transitionMs)) / transitionMs;
-      return dayNight.phase === "night" ? 1 - t : t;
-    }
-
-    return dayNight.phase === "night" ? 1 : 0;
   }
 
   private computeThetaFromWorldPoint(

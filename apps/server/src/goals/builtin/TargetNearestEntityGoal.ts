@@ -47,7 +47,9 @@ export class TargetNearestEntityGoal<
   ) {
     super(priority, ["target"]);
     if (targetCtors.length === 0) {
-      throw new Error("TargetNearestEntityGoal requires at least one target type.");
+      throw new Error(
+        "TargetNearestEntityGoal requires at least one target type.",
+      );
     }
     this.targetCtors = targetCtors;
     this.aggroRange = aggroRange;

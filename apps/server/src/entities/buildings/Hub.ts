@@ -1,13 +1,14 @@
-import { Building } from "@server/entities/Building.ts";
 import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
+import { Tower } from "@server/entities/buildings/Tower.ts";
 import type {
   BuildingSnapshot,
   InventorySlotSnapshot,
+  TowerSnapshot,
 } from "@shared/net/snapshots.ts";
 import { CHEST_SLOT_COUNT } from "@shared/net/snapshots.ts";
 
 /** Home-sector tower hub: crafting, recycling, and shared storage. */
-export class Hub extends Building {
+export class Hub extends Tower {
   public static override readonly resourceName = "hub";
   public readonly chestSlots: ChestSlot[] = Array.from(
     { length: CHEST_SLOT_COUNT },
@@ -29,9 +30,10 @@ export class Hub extends Building {
   }
 
   public override toSnapshot(): BuildingSnapshot {
-    const snapshot = super.toSnapshot();
-    return {
+    const snapshot = super.toSnapshot() as unknown as TowerSnapshot;
+    const towerSnapshot: TowerSnapshot = {
       ...snapshot,
+      kind: "tower",
       chestSlots: this.chestSlots.map(
         (slot): InventorySlotSnapshot =>
           slot === null
@@ -41,5 +43,6 @@ export class Hub extends Building {
               : { kind: "weapon", typeId: slot.typeId },
       ),
     };
+    return towerSnapshot as unknown as BuildingSnapshot;
   }
 }

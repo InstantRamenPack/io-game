@@ -2,6 +2,16 @@
   "label": "Katana",
   "hint": "Two rapid cuts followed by a devastating thrust.",
   "description": "Blueprint melee weapon with high damage, medium reach, and a three-hit combo that ends in a heavier stab.",
+  "recipe": {
+    "hint": "Combo melee blade. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 140
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 8,

@@ -317,7 +317,11 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   protected getEntityZIndex(entity: ClientEntity, visualY: number): number {
-    if (entity.kind === "building" || entity.kind === "structure") {
+    if (
+      entity.kind === "building" ||
+      entity.kind === "tower" ||
+      entity.kind === "structure"
+    ) {
       return WORLD_STATIC_Z_BUCKET + visualY;
     }
     return visualY;

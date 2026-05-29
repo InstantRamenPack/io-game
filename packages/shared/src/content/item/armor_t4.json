@@ -13,5 +13,6 @@
       { "typeId": "item:armor_t3", "amount": 1 },
       { "typeId": "item:hunk", "amount": 95 }
     ]
-  }
+  },
+  "rarityTier": "epic"
 }

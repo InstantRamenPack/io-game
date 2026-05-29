@@ -150,7 +150,6 @@ export class CraftingHudCoordinator {
       screenX,
       screenY,
       canSubmitCraft,
-      queueCraftItem,
       isCraftOutputAtPoint,
       isRecycleButtonAtPoint,
       isRecycleDropAtPoint,
@@ -273,8 +272,7 @@ export class CraftingHudCoordinator {
       return {
         typeId: itemTypeId,
         label: formatTypeLabel(itemTypeId),
-        description:
-          recipe.hint ?? "Assemble this item at the tower hub.",
+        description: recipe.hint ?? "Assemble this item at the tower hub.",
         costsLabel: formatCosts(recipe.costs),
         outputAmount: recipe.outputAmount,
         available: hasRecipeResources(itemTypeId),

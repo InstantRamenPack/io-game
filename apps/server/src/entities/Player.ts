@@ -296,6 +296,9 @@ export class Player extends Entity {
     const shouldTrace = world.focusedTrace.matchesEntity(this);
     const nearbyCraftingStations = this.getNearbyCraftingStations(world);
     const nearCraftingStation = nearbyCraftingStations.some((station) => {
+      if (!station.alive) {
+        return false;
+      }
       const bounds = station.getWorldBounds();
       return (
         this.x >= bounds.minX - CRAFTING_STATION_INTERACT_PADDING &&
@@ -815,7 +818,7 @@ export class Player extends Entity {
       bounds.maxX + pad,
       bounds.maxY + pad,
     )) {
-      if (!isRecyclerEntity(candidate)) {
+      if (!isRecyclerEntity(candidate) || !candidate.alive) {
         continue;
       }
       const rb = candidate.getHitboxBounds();
@@ -905,6 +908,9 @@ export class Player extends Entity {
 
     const chestEntity = world.entities.get(chestEntityId);
     if (!chestEntity || !isContainerEntity(chestEntity)) {
+      return;
+    }
+    if (!chestEntity.alive) {
       return;
     }
 
@@ -1109,6 +1115,7 @@ export class Player extends Entity {
         this.x + CRAFTING_STATION_QUERY_RADIUS,
         this.y + CRAFTING_STATION_QUERY_RADIUS,
       )
-      .filter(isCraftingStationEntity);
+      .filter(isCraftingStationEntity)
+      .filter((station) => station.alive);
   }
 }

@@ -1,5 +1,17 @@
 {
   "label": "Cannon Item",
+  "hint": "Deployable area-denial cannon.",
+  "description": "Places a stationary cannon that fires explosive shells. Requires a blueprint to craft.",
   "buildsEntityTypeId": "building:cannon",
+  "recipe": {
+    "hint": "Deployable explosive cannon. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 150
+      }
+    ]
+  },
   "rarityTier": "rare"
 }

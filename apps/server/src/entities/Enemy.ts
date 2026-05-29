@@ -236,4 +236,3 @@ export class Enemy extends GoalControlledEntity {
       : null;
   }
 }
-

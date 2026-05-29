@@ -72,10 +72,7 @@ export abstract class Weapon extends Item {
     this.baselineCooldownTicksPerUse = this.cooldownTicksPerUse;
   }
 
-  public syncEnemyDayNerf(
-    applyNerf: boolean,
-    tuning: EnemyTuningConfig,
-  ): void {
+  public syncEnemyDayNerf(applyNerf: boolean, tuning: EnemyTuningConfig): void {
     if (applyNerf === this.enemyDayNerfApplied) {
       return;
     }

@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Scorpion vz. 61",
+  "hint": "Crafting schematic for the Scorpion vz. 61.",
+  "description": "Unlocks the Scorpion vz. 61 recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:machine_pistol",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

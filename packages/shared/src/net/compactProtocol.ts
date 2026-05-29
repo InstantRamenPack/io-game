@@ -26,18 +26,20 @@ const ENTITY_KIND_TO_CODE = {
   player: 1,
   enemy: 2,
   building: 3,
-  structure: 4,
-  projectile: 5,
-  pickup: 6,
+  tower: 4,
+  structure: 5,
+  projectile: 6,
+  pickup: 7,
 } as const;
 
 const ENTITY_CODE_TO_KIND = {
   1: "player",
   2: "enemy",
   3: "building",
-  4: "structure",
-  5: "projectile",
-  6: "pickup",
+  4: "tower",
+  5: "structure",
+  6: "projectile",
+  7: "pickup",
 } as const;
 
 type EntityKindCode = keyof typeof ENTITY_CODE_TO_KIND;
@@ -239,6 +241,16 @@ function compactEntity(entity: EntitySnapshot): unknown[] {
           entity.chestSlots?.map(compactInventorySlot) ?? null,
         ],
       ];
+    case "tower":
+      return [
+        ENTITY_KIND_TO_CODE.tower,
+        base,
+        [
+          entity.label,
+          entity.tier,
+          entity.chestSlots?.map(compactInventorySlot) ?? null,
+        ],
+      ];
     case "structure":
       return [ENTITY_KIND_TO_CODE.structure, base, [entity.label]];
     case "projectile":
@@ -338,7 +350,8 @@ function expandEntity(value: unknown): EntitySnapshot | null {
           : {}),
       };
     }
-    case "building": {
+    case "building":
+    case "tower": {
       const [label, tier, chestSlots] = extraValue;
       if (typeof label !== "string" || typeof tier !== "number") {
         return null;

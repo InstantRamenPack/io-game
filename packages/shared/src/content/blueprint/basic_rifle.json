@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: AK-47",
+  "hint": "Crafting schematic for the AK-47.",
+  "description": "Unlocks the AK-47 recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:basic_rifle",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

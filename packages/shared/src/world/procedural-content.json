@@ -9,18 +9,14 @@
       "item:cleaver",
       "item:scissors"
     ],
-    "uncommon": [
-      "item:carbine",
-      "item:crossbow",
-      "item:machete",
-      "item:taser"
-    ],
+    "uncommon": ["item:carbine", "item:crossbow", "item:machete", "item:taser"],
     "rare": [
       "item:basic_rifle",
       "item:drone_shooter",
       "item:fire_axe",
       "item:katana",
       "item:machine_pistol",
+      "item:shotgun",
       "item:spiked_spear"
     ],
     "epic": ["item:halberd", "item:heavy_pistol", "item:lmg", "item:sniper"]
@@ -72,11 +68,6 @@
       {
         "typeId": "item:taser",
         "kind": "weapon"
-      },
-      {
-        "typeId": "blueprint:armor_t2",
-        "kind": "stackable",
-        "amount": 1
       }
     ],
     "rare": [
@@ -101,13 +92,12 @@
         "kind": "weapon"
       },
       {
-        "typeId": "item:spiked_spear",
+        "typeId": "item:shotgun",
         "kind": "weapon"
       },
       {
-        "typeId": "blueprint:armor_t3",
-        "kind": "stackable",
-        "amount": 1
+        "typeId": "item:spiked_spear",
+        "kind": "weapon"
       }
     ],
     "epic": [
@@ -126,13 +116,66 @@
       {
         "typeId": "item:sniper",
         "kind": "weapon"
-      },
-      {
-        "typeId": "blueprint:armor_t4",
-        "kind": "stackable",
-        "amount": 1
       }
     ]
+  },
+  "blueprintPlacement": {
+    "villagesPerDistanceTier": 4,
+    "crateRules": {
+      "itemsPerCrate": 1,
+      "ensureVillageHasCrate": true
+    },
+    "villageTierSlots": {
+      "common": {
+        "armorBlueprintTypeId": "blueprint:armor_t2",
+        "weaponBlueprintPool": "rareWeapon",
+        "weaponBlueprintCount": 3
+      },
+      "uncommon": {
+        "armorBlueprintTypeId": "blueprint:armor_t3",
+        "weaponBlueprintPool": "rareWeapon",
+        "weaponBlueprintCount": 3
+      },
+      "rare": {
+        "armorBlueprintTypeId": "blueprint:armor_t4",
+        "weaponBlueprintPool": "epicWeapon",
+        "weaponBlueprintCount": 3
+      },
+      "epic": {
+        "weaponBlueprintPool": "epicWeapon",
+        "weaponBlueprintCount": 1
+      }
+    },
+    "dungeonSlots": {
+      "rareWeaponBlueprintPool": "rareWeapon",
+      "rareWeaponBlueprintCount": 2,
+      "epicWeaponBlueprintPool": "epicWeapon",
+      "epicWeaponBlueprintCount": 1
+    },
+    "weaponBlueprintPools": {
+      "rareWeapon": {
+        "unlockedRarityTier": "rare",
+        "excludeBlueprintTypeIds": [
+          "blueprint:armor_t2",
+          "blueprint:armor_t3",
+          "blueprint:armor_t4"
+        ]
+      },
+      "epicWeapon": {
+        "unlockedRarityTier": "epic",
+        "requireWeapon": true,
+        "excludeBlueprintTypeIds": ["blueprint:armor_t4"]
+      }
+    }
+  },
+  "villageGeneration": {
+    "bspSplitGap": 160,
+    "bspMinLeafAxis": 720,
+    "bspVillageInset": 96,
+    "bspMinPartitionAxis": 320,
+    "bspRingPartitionMinAxis": 208,
+    "sectorEdgeMargin": 64,
+    "extractionVillageHeight": 1728
   },
   "forestCampEnemyTypes": {
     "corner": ["enemy:police", "enemy:ranger", "enemy:stalker"],
@@ -177,17 +220,17 @@
     "home": {
       "buildings": [
         {
-          "typeId": "building:hub",
+          "typeId": "tower:hub",
           "offsetX": 0,
           "offsetY": -250
         },
         {
-          "typeId": "building:energy_tower",
+          "typeId": "tower:energy",
           "offsetX": -217,
           "offsetY": 125
         },
         {
-          "typeId": "building:comms_tower",
+          "typeId": "tower:comms",
           "offsetX": 217,
           "offsetY": 125
         }
@@ -391,6 +434,18 @@
           "typeId": "enemy:police",
           "offsetX": 0,
           "offsetY": -120
+        }
+      ],
+      "crates": [
+        {
+          "offsetX": 0,
+          "offsetY": 96,
+          "loot": [
+            {
+              "typeId": "item:carbine",
+              "kind": "weapon"
+            }
+          ]
         }
       ],
       "loot": [

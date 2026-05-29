@@ -1,0 +1,9 @@
+{
+  "label": "Blueprint: Shotgun",
+  "hint": "Crafting schematic for the Shotgun.",
+  "description": "Unlocks the Shotgun recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:shotgun",
+  "pickupSpawn": {
+    "pools": ["blueprint"]
+  }
+}

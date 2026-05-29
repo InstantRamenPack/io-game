@@ -17,5 +17,11 @@
       "costItemTypeId": "item:hunk",
       "hpPerCostUnit": 50
     }
+  },
+  "runtime": {
+    "renderer": {
+      "symbol": "CommsTowerRenderer",
+      "importPath": "apps/client/src/render/entity/building/CommsTowerRenderer.ts"
+    }
   }
 }

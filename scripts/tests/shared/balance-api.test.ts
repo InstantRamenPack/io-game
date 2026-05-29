@@ -45,7 +45,7 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
     rows: unknown[];
     ammoRows: unknown[];
     enemyRows: unknown[];
-    worldRows: unknown[];
+    worldRows: Array<{ configId: string }>;
     listRows: Array<{ tab: string; label: string }>;
     jsonRows: unknown[];
   };
@@ -72,6 +72,14 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
   expect(
     payload.listRows.some(
       (row) => row.label === "Legacy blueprint pickup order",
+    ),
+  ).toBe(true);
+  expect(
+    payload.worldRows.some((row) => row.configId === "blueprintPlacement"),
+  ).toBe(true);
+  expect(
+    payload.listRows.some((row) =>
+      row.label.startsWith("Blueprint pool excludes "),
     ),
   ).toBe(true);
 });

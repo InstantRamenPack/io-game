@@ -2,6 +2,16 @@
   "label": "Drone Shooter",
   "hint": "Launches a slow homing explosive drone.",
   "description": "Area-denial launcher with small magazine bursts.",
+  "recipe": {
+    "hint": "Homing drone launcher. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 150
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 25,

@@ -21,7 +21,7 @@ export function isPlayerNearChest(
   player: ClientEntity | undefined,
   chest: ClientEntity,
 ): boolean {
-  if (!player) {
+  if (!player || !chest.alive) {
     return false;
   }
   const bounds = getEntityWorldBounds(chest);

@@ -2,6 +2,16 @@
   "label": "AK-47",
   "hint": "Accurate automatic rifle with a large magazine.",
   "description": "Longer-range firearm for sustained pressure. Requires a blueprint to craft.",
+  "recipe": {
+    "hint": "Accurate automatic rifle with a large magazine. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 150
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 5,

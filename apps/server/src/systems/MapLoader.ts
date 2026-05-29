@@ -7,9 +7,9 @@ import type { Inventory } from "@server/items/Inventory.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const DAMAGEABLE_HOME_TOWER_TYPE_IDS = new Set<ResourceId>([
-  "building:hub" as ResourceId,
-  "building:energy_tower" as ResourceId,
-  "building:comms_tower" as ResourceId,
+  "tower:hub" as ResourceId,
+  "tower:energy" as ResourceId,
+  "tower:comms" as ResourceId,
 ]);
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
@@ -208,7 +208,11 @@ function wouldOverlapExistingStructureOrBuilding(
       continue;
     }
     const candidateKind = entityTypeRegistry.require(candidate.typeId).kind;
-    if (candidateKind !== "structure" && candidateKind !== "building") {
+    if (
+      candidateKind !== "structure" &&
+      candidateKind !== "building" &&
+      candidateKind !== "tower"
+    ) {
       continue;
     }
     const candidateBounds = candidate.getWorldBounds();
@@ -292,7 +296,7 @@ function loadLobbyLayout(world: World): void {
   world.proceduralLayout = null;
   world.gameConfig.worldSize = { ...worldgenConfig.lobbyWorldSize };
   spawnMapEntity(world, {
-    typeId: "building:hub" as ResourceId,
+    typeId: "tower:hub" as ResourceId,
     x: worldgenConfig.lobbyWorldSize.w / 2,
     y: worldgenConfig.lobbyWorldSize.h / 2 + 56,
   });

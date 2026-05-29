@@ -9,5 +9,6 @@
   "recipe": {
     "hint": "Basic armor shell.",
     "costs": [{ "typeId": "item:hunk", "amount": 25 }]
-  }
+  },
+  "rarityTier": "common"
 }

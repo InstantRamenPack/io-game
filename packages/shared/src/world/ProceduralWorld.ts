@@ -322,6 +322,44 @@ type ProceduralContent = {
     ProceduralRewardTier,
     readonly ProceduralCrateLootSlot[]
   >;
+  blueprintPlacement: {
+    villagesPerDistanceTier: number;
+    crateRules: {
+      itemsPerCrate: number;
+      ensureVillageHasCrate: boolean;
+    };
+    villageTierSlots: Record<
+      ProceduralRewardTier | "epic",
+      {
+        armorBlueprintTypeId?: ResourceId;
+        weaponBlueprintPool: string;
+        weaponBlueprintCount: number;
+      }
+    >;
+    dungeonSlots: {
+      rareWeaponBlueprintPool: string;
+      rareWeaponBlueprintCount: number;
+      epicWeaponBlueprintPool: string;
+      epicWeaponBlueprintCount: number;
+    };
+    weaponBlueprintPools: Record<
+      string,
+      {
+        unlockedRarityTier: RarityTier;
+        requireWeapon?: boolean;
+        excludeBlueprintTypeIds: readonly ResourceId[];
+      }
+    >;
+  };
+  villageGeneration: {
+    bspSplitGap: number;
+    bspMinLeafAxis: number;
+    bspVillageInset: number;
+    bspMinPartitionAxis: number;
+    bspRingPartitionMinAxis: number;
+    sectorEdgeMargin: number;
+    extractionVillageHeight: number;
+  };
   forestCampEnemyTypes: {
     corner: readonly ResourceId[];
     edge: readonly ResourceId[];
@@ -375,7 +413,9 @@ const WAVE_ONLY_ENEMY_TYPE_IDS = new Set<ResourceId>([
 ]);
 const LEGENDARY_BOSS_TYPE_IDS = new Set<ResourceId>(getLegendaryBossTypeIds());
 const ENEMY_TYPE_IDS_BY_RARITY = buildEnemyTypeIdsByRarity();
-const EPIC_BLUEPRINT_TYPE_IDS = getEpicBlueprintTypeIds();
+const BLUEPRINT_PLACEMENT = PROCEDURAL_CONTENT.blueprintPlacement;
+const VILLAGE_GENERATION = PROCEDURAL_CONTENT.villageGeneration;
+const VILLAGE_CRATE_PLACEMENT_MAX_ATTEMPTS = 256;
 
 function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
   const result: Record<RarityTier, ResourceId[]> = {
@@ -401,20 +441,378 @@ function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
   return result;
 }
 
-function getEpicBlueprintTypeIds(): ResourceId[] {
+function getAllBlueprintTypeIds(): ResourceId[] {
   return getAllItemContentEntries()
-    .filter(([, item]) => {
-      if (!item.unlocksRecipeTypeId) {
-        return false;
-      }
-      const unlockedItem = getAllItemContentEntries().find(
-        ([typeId]) => typeId === item.unlocksRecipeTypeId,
-      )?.[1];
-      return (
-        unlockedItem?.weapon !== undefined && unlockedItem.rarityTier === "epic"
+    .filter(([, item]) => item.unlocksRecipeTypeId !== undefined)
+    .map(([typeId]) => typeId)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function resolveBlueprintPool(poolKey: string): ResourceId[] {
+  const pool = BLUEPRINT_PLACEMENT.weaponBlueprintPools[poolKey];
+  if (!pool) {
+    throw new Error(`Unknown weapon blueprint pool "${poolKey}".`);
+  }
+  return getAllBlueprintTypeIds().filter((typeId) => {
+    if (pool.excludeBlueprintTypeIds.includes(typeId)) {
+      return false;
+    }
+    const unlockedTypeId = getItemContent(typeId)?.unlocksRecipeTypeId;
+    if (!unlockedTypeId) {
+      return false;
+    }
+    const unlocked = getItemContent(unlockedTypeId);
+    if (!unlocked || unlocked.rarityTier !== pool.unlockedRarityTier) {
+      return false;
+    }
+    if (pool.requireWeapon === true && !unlocked.weapon) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function consumeBlueprintPool(
+  rng: seedrandom.PRNG,
+  poolKey: string,
+  count: number,
+  shuffledPools: Map<string, ResourceId[]>,
+  poolCounters: Map<string, number>,
+): ResourceId[] {
+  if (!shuffledPools.has(poolKey)) {
+    shuffledPools.set(poolKey, shuffle(rng, resolveBlueprintPool(poolKey)));
+  }
+  const pool = shuffledPools.get(poolKey)!;
+  let poolIndex = poolCounters.get(poolKey) ?? 0;
+  const consumed: ResourceId[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const blueprintTypeId = pool[poolIndex++];
+    if (!blueprintTypeId) {
+      throw new Error(`Blueprint pool "${poolKey}" exhausted.`);
+    }
+    consumed.push(blueprintTypeId);
+  }
+  poolCounters.set(poolKey, poolIndex);
+  return consumed;
+}
+
+function assignVillageTierBlueprintSlots(
+  rng: seedrandom.PRNG,
+  villages: readonly ProceduralVillagePlan[],
+  tierKey: "common" | "uncommon" | "rare",
+  villageAssignments: Map<string, ResourceId>,
+  shuffledPools: Map<string, ResourceId[]>,
+  poolCounters: Map<string, number>,
+): void {
+  const tierSlot = BLUEPRINT_PLACEMENT.villageTierSlots[tierKey];
+  const villageOrder = shuffle(rng, [...villages]);
+  let villageIndex = 0;
+
+  if (tierSlot.armorBlueprintTypeId) {
+    const armorVillage = villageOrder[villageIndex++];
+    if (armorVillage) {
+      villageAssignments.set(armorVillage.id, tierSlot.armorBlueprintTypeId);
+    }
+  }
+
+  const weaponBlueprints = consumeBlueprintPool(
+    rng,
+    tierSlot.weaponBlueprintPool,
+    tierSlot.weaponBlueprintCount,
+    shuffledPools,
+    poolCounters,
+  );
+  for (const blueprintTypeId of weaponBlueprints) {
+    const village = villageOrder[villageIndex++];
+    if (!village) {
+      throw new Error(
+        `Not enough ${tierKey} villages for blueprint placement.`,
       );
-    })
-    .map(([typeId]) => typeId);
+    }
+    villageAssignments.set(village.id, blueprintTypeId);
+  }
+}
+
+function blueprintCrateLoot(typeId: ResourceId): ProceduralCrateLootSlot[] {
+  return [
+    {
+      typeId,
+      kind: "stackable",
+      amount: BLUEPRINT_PLACEMENT.crateRules.itemsPerCrate,
+    },
+  ];
+}
+
+function normalizeCrateLootSpec(crate: ProceduralSpawnSpec): void {
+  const loot = crate.crateLoot ?? [];
+  if (loot.length === 0) {
+    return;
+  }
+  const itemsPerCrate = BLUEPRINT_PLACEMENT.crateRules.itemsPerCrate;
+  const preferred =
+    loot.find((slot) => !slot.typeId.startsWith("blueprint:")) ?? loot[0]!;
+  crate.crateLoot = [{ ...preferred, amount: itemsPerCrate }];
+}
+
+function stripBlueprintsFromAllCrates(sectors: ProceduralSector[]): void {
+  for (const sector of sectors) {
+    for (const enemy of sector.enemies) {
+      if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        continue;
+      }
+      enemy.crateLoot = enemy.crateLoot.filter(
+        (slot) => !slot.typeId.startsWith("blueprint:"),
+      );
+      normalizeCrateLootSpec(enemy);
+    }
+  }
+}
+
+function getVillageCrates(
+  sector: ProceduralSector,
+  village: ProceduralVillagePlan,
+): ProceduralSpawnSpec[] {
+  return sector.enemies.filter(
+    (spawn) =>
+      spawn.typeId === "enemy:crate" &&
+      spawn.x >= village.minX &&
+      spawn.x <= village.maxX &&
+      spawn.y >= village.minY &&
+      spawn.y <= village.maxY,
+  );
+}
+
+function selectBlueprintCrate(
+  crates: readonly ProceduralSpawnSpec[],
+): ProceduralSpawnSpec {
+  return (
+    crates.find((crate) => crate.label?.includes("interior_parent")) ??
+    crates[0]!
+  );
+}
+
+function defaultVillageCrateLoot(
+  village: ProceduralVillagePlan,
+): ProceduralCrateLootSlot[] {
+  const rng = seedrandom(`${village.id}:crate_fallback`);
+  return crateLootForTier(rng, village.lootTier);
+}
+
+function assignDeterministicBlueprintPlacements(
+  seed: number,
+  sectors: ProceduralSector[],
+  villages: readonly ProceduralVillagePlan[],
+): void {
+  const allBlueprintIds = getAllBlueprintTypeIds();
+  if (allBlueprintIds.length === 0) {
+    return;
+  }
+
+  stripBlueprintsFromAllCrates(sectors);
+
+  const rng = seedrandom(`${seed}:blueprint-placement`);
+  const worldCenter = proceduralWorldCenter();
+  const villagesPerTier = BLUEPRINT_PLACEMENT.villagesPerDistanceTier;
+  const rankedVillages = villages
+    .filter((village) => village.kind !== "extraction_fortified")
+    .slice()
+    .sort((left, right) => {
+      const leftDistance = Math.hypot(
+        left.center.x - worldCenter.x,
+        left.center.y - worldCenter.y,
+      );
+      const rightDistance = Math.hypot(
+        right.center.x - worldCenter.x,
+        right.center.y - worldCenter.y,
+      );
+      return leftDistance - rightDistance;
+    });
+
+  const commonVillages = rankedVillages.slice(0, villagesPerTier);
+  const uncommonVillages = rankedVillages.slice(
+    villagesPerTier,
+    villagesPerTier * 2,
+  );
+  const rareVillages = rankedVillages.slice(
+    villagesPerTier * 2,
+    villagesPerTier * 3,
+  );
+  const extractionVillage = villages.find(
+    (village) => village.kind === "extraction_fortified",
+  );
+
+  const shuffledPools = new Map<string, ResourceId[]>();
+  const poolCounters = new Map<string, number>();
+  const villageAssignments = new Map<string, ResourceId>();
+
+  assignVillageTierBlueprintSlots(
+    rng,
+    commonVillages,
+    "common",
+    villageAssignments,
+    shuffledPools,
+    poolCounters,
+  );
+  assignVillageTierBlueprintSlots(
+    rng,
+    uncommonVillages,
+    "uncommon",
+    villageAssignments,
+    shuffledPools,
+    poolCounters,
+  );
+  assignVillageTierBlueprintSlots(
+    rng,
+    rareVillages,
+    "rare",
+    villageAssignments,
+    shuffledPools,
+    poolCounters,
+  );
+
+  const extractionSlot = BLUEPRINT_PLACEMENT.villageTierSlots.epic;
+  if (extractionVillage) {
+    const [extractionBlueprint] = consumeBlueprintPool(
+      rng,
+      extractionSlot.weaponBlueprintPool,
+      extractionSlot.weaponBlueprintCount,
+      shuffledPools,
+      poolCounters,
+    );
+    if (!extractionBlueprint) {
+      throw new Error("Extraction blueprint pool exhausted.");
+    }
+    villageAssignments.set(extractionVillage.id, extractionBlueprint);
+  }
+
+  const dungeonSlots = BLUEPRINT_PLACEMENT.dungeonSlots;
+  const dungeonBlueprints: ResourceId[] = [
+    ...consumeBlueprintPool(
+      rng,
+      dungeonSlots.rareWeaponBlueprintPool,
+      dungeonSlots.rareWeaponBlueprintCount,
+      shuffledPools,
+      poolCounters,
+    ),
+    ...consumeBlueprintPool(
+      rng,
+      dungeonSlots.epicWeaponBlueprintPool,
+      dungeonSlots.epicWeaponBlueprintCount,
+      shuffledPools,
+      poolCounters,
+    ),
+  ];
+
+  for (const village of villages) {
+    const blueprintTypeId = villageAssignments.get(village.id);
+    if (!blueprintTypeId) {
+      continue;
+    }
+
+    const sector = sectors.find(
+      (candidate) => candidate.id === village.sectorId,
+    );
+    if (!sector) {
+      continue;
+    }
+
+    let crates = getVillageCrates(sector, village);
+    if (crates.length === 0) {
+      if (!BLUEPRINT_PLACEMENT.crateRules.ensureVillageHasCrate) {
+        throw new Error(`${village.id} has no crate for blueprint placement.`);
+      }
+      crates = [
+        placeVillageCrateWithRetry(
+          seedrandom(`${seed}:blueprint-crate:${village.id}`),
+          sector,
+          village,
+          defaultVillageCrateLoot(village),
+        ),
+      ];
+    }
+
+    const blueprintCrate = selectBlueprintCrate(crates);
+    blueprintCrate.crateLoot = blueprintCrateLoot(blueprintTypeId);
+
+    for (const crate of crates) {
+      if (crate === blueprintCrate) {
+        continue;
+      }
+      normalizeCrateLootSpec(crate);
+      if (!crate.crateLoot || crate.crateLoot.length === 0) {
+        crate.crateLoot = defaultVillageCrateLoot(village);
+      }
+    }
+  }
+
+  const dungeonSector = sectors.find(
+    (sector) => sector.archetype === "dungeon",
+  );
+  if (!dungeonSector) {
+    throw new Error("Expected dungeon sector for blueprint placement.");
+  }
+
+  const dungeonCrates = dungeonSector.enemies
+    .filter((enemy) => enemy.typeId === "enemy:crate")
+    .slice()
+    .sort((left, right) => left.x - right.x || left.y - right.y);
+
+  if (dungeonCrates.length < dungeonBlueprints.length) {
+    throw new Error(
+      `Dungeon needs ${dungeonBlueprints.length} crates for blueprint placement.`,
+    );
+  }
+
+  for (let index = 0; index < dungeonBlueprints.length; index += 1) {
+    const blueprintTypeId = dungeonBlueprints[index];
+    if (!blueprintTypeId) {
+      continue;
+    }
+    dungeonCrates[index]!.crateLoot = blueprintCrateLoot(blueprintTypeId);
+  }
+
+  for (
+    let index = dungeonBlueprints.length;
+    index < dungeonCrates.length;
+    index += 1
+  ) {
+    normalizeCrateLootSpec(dungeonCrates[index]!);
+  }
+
+  for (const sector of sectors) {
+    for (const enemy of sector.enemies) {
+      if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        continue;
+      }
+      normalizeCrateLootSpec(enemy);
+    }
+  }
+
+  const observed = new Map<ResourceId, number>();
+  for (const sector of sectors) {
+    for (const enemy of sector.enemies) {
+      if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        continue;
+      }
+      for (const slot of enemy.crateLoot) {
+        if (!slot.typeId.startsWith("blueprint:")) {
+          continue;
+        }
+        observed.set(slot.typeId, (observed.get(slot.typeId) ?? 0) + 1);
+      }
+    }
+  }
+
+  if (observed.size !== allBlueprintIds.length) {
+    throw new Error(
+      `Blueprint placement mismatch: placed ${observed.size}, expected ${allBlueprintIds.length}.`,
+    );
+  }
+  for (const typeId of allBlueprintIds) {
+    if (observed.get(typeId) !== 1) {
+      throw new Error(`Blueprint ${typeId} should appear exactly once.`);
+    }
+  }
 }
 
 function addSectorAuthoredContent(
@@ -537,7 +935,7 @@ export function generateProceduralWorldLayout(
     extractionSectorId: sectorKey(extractionCoord.row, extractionCoord.col),
     dungeonSectorId: sectorKey(dungeonCoord.row, dungeonCoord.col),
   });
-  guaranteeVillageBlueprintCrates(sectors, villages);
+  assignDeterministicBlueprintPlacements(seed, sectors, villages);
   const extractionVillage =
     extractionSector.villages.find(
       (village) => village.kind === "extraction_fortified",
@@ -580,147 +978,6 @@ export function generateProceduralWorldLayout(
     forestCamps,
     minimapMarkers,
   };
-}
-
-function guaranteeVillageBlueprintCrates(
-  sectors: ProceduralSector[],
-  villages: readonly ProceduralVillagePlan[],
-): void {
-  const allBlueprintIds = getAllItemContentEntries()
-    .filter(([, item]) => item.unlocksRecipeTypeId)
-    .map(([typeId]) => typeId);
-
-  if (allBlueprintIds.length === 0) {
-    return;
-  }
-
-  // Partition blueprints by the rarity of what they unlock
-  const epicBlueprintIds = EPIC_BLUEPRINT_TYPE_IDS;
-  const basicBlueprintIds = allBlueprintIds.filter((typeId) => {
-    const item = getItemContent(typeId);
-    if (!item?.unlocksRecipeTypeId) return false;
-    const unlockedItem = getItemContent(item.unlocksRecipeTypeId as ResourceId);
-    return (
-      unlockedItem?.weapon !== undefined &&
-      (unlockedItem.rarityTier === "common" ||
-        unlockedItem.rarityTier === "uncommon")
-    );
-  });
-  const midBlueprintIds = allBlueprintIds.filter(
-    (id) => !epicBlueprintIds.includes(id) && !basicBlueprintIds.includes(id),
-  );
-
-  // Fallback: if a pool is empty, widen to the next broader pool
-  const safeBasic =
-    basicBlueprintIds.length > 0 ? basicBlueprintIds : allBlueprintIds;
-  const safeMid = midBlueprintIds.length > 0 ? midBlueprintIds : safeBasic;
-  const safeEpic = epicBlueprintIds.length > 0 ? epicBlueprintIds : safeMid;
-
-  // How many blueprint crates to guarantee per village, and which pools to draw
-  // from per slot, based on the village's loot tier.
-  // The epic-tier village receives one crate for each epic blueprint type so
-  // every epic blueprint is guaranteed to appear regardless of how many rare
-  // villages exist in a given seed.
-  const epicCount = safeEpic.length;
-  const TIER_SPECS: Record<
-    string,
-    { count: number; epicSlots: number; basicSlots: number; midSlots: number }
-  > = {
-    common: { count: 1, basicSlots: 1, midSlots: 0, epicSlots: 0 },
-    uncommon: { count: 2, basicSlots: 1, midSlots: 1, epicSlots: 0 },
-    rare: { count: 2, basicSlots: 0, midSlots: 1, epicSlots: 1 },
-    epic: {
-      count: epicCount,
-      basicSlots: 0,
-      midSlots: 0,
-      epicSlots: epicCount,
-    },
-  };
-
-  // Deterministic cyclic counter for rare-village epic slots
-  let epicCursor = 0;
-
-  // Sort villages to get a stable ordering for the epic cursor
-  const sortedVillages = [...villages].sort((a, b) => a.id.localeCompare(b.id));
-
-  for (const village of sortedVillages) {
-    const sector = sectors.find(
-      (candidate) => candidate.id === village.sectorId,
-    );
-    if (!sector) {
-      continue;
-    }
-
-    const villageCrates = sector.enemies.filter(
-      (spawn) =>
-        spawn.typeId === "enemy:crate" &&
-        spawn.x >= village.minX &&
-        spawn.x <= village.maxX &&
-        spawn.y >= village.minY &&
-        spawn.y <= village.maxY,
-    );
-
-    // Strip any existing blueprint loot from all village crates
-    for (const crate of villageCrates) {
-      crate.crateLoot = (crate.crateLoot ?? [])
-        .filter((slot) => !slot.typeId.startsWith("blueprint:"))
-        .slice(0, 1)
-        .map((slot) => ({ ...slot, amount: 1 }));
-    }
-
-    const spec = TIER_SPECS[village.lootTier] ?? TIER_SPECS["common"]!;
-
-    // Use village position as a deterministic hash for basic/mid variety
-    const hash = Math.abs(
-      Math.imul(
-        (village.center.x | 0) ^ 0x9e3779b9,
-        (village.center.y | 0) ^ 0x85ebca6b,
-      ),
-    );
-
-    // Build the ordered list of blueprint type IDs for this village
-    const slots: ResourceId[] = [];
-    for (let i = 0; i < spec.basicSlots; i += 1) {
-      slots.push(safeBasic[(hash + i) % safeBasic.length]!);
-    }
-    for (let i = 0; i < spec.midSlots; i += 1) {
-      slots.push(safeMid[(hash + i) % safeMid.length]!);
-    }
-    for (let i = 0; i < spec.epicSlots; i += 1) {
-      slots.push(safeEpic[epicCursor % safeEpic.length]!);
-      epicCursor += 1;
-    }
-
-    // Prefer the interior crate, then fall back to other crates in order
-    const priorityCrate = villageCrates.find((c) =>
-      c.label?.includes("interior_parent"),
-    );
-    const crateQueue = [
-      priorityCrate,
-      ...villageCrates.filter((c) => c !== priorityCrate),
-    ].filter((c): c is NonNullable<typeof c> => c !== undefined);
-
-    for (let i = 0; i < slots.length; i += 1) {
-      const blueprintTypeId = slots[i]!;
-      const blueprintLoot = [
-        { typeId: blueprintTypeId, kind: "stackable" as const, amount: 1 },
-      ];
-
-      const crate = crateQueue[i];
-      if (crate) {
-        crate.crateLoot = blueprintLoot;
-      } else {
-        sector.enemies.push(
-          crateSpawn(
-            "enemy:crate",
-            village.center.x,
-            village.center.y,
-            blueprintLoot,
-          ),
-        );
-      }
-    }
-  }
 }
 
 export function sectorKey(row: number, col: number): string {
@@ -1281,6 +1538,337 @@ function boundsForResolvedHitboxes(
     maxX: Math.max(...hitboxes.map((hitbox) => hitbox.maxX)),
     maxY: Math.max(...hitboxes.map((hitbox) => hitbox.maxY)),
   };
+}
+
+function clampRect(
+  rect: ProceduralRect,
+  bounds: ProceduralRect,
+): ProceduralRect {
+  return {
+    minX: Math.max(rect.minX, bounds.minX),
+    minY: Math.max(rect.minY, bounds.minY),
+    maxX: Math.min(rect.maxX, bounds.maxX),
+    maxY: Math.min(rect.maxY, bounds.maxY),
+  };
+}
+
+function rectAxisLength(rect: ProceduralRect, axis: "x" | "y"): number {
+  return axis === "x" ? rect.maxX - rect.minX : rect.maxY - rect.minY;
+}
+
+function isValidVillagePartition(rect: ProceduralRect): boolean {
+  return (
+    rectAxisLength(rect, "x") >= VILLAGE_GENERATION.bspMinPartitionAxis &&
+    rectAxisLength(rect, "y") >= VILLAGE_GENERATION.bspMinPartitionAxis
+  );
+}
+
+function clampVillageToSector(
+  village: ProceduralVillagePlan,
+  sector: ProceduralRect,
+): ProceduralVillagePlan {
+  const margin = VILLAGE_GENERATION.sectorEdgeMargin;
+  const bounds: ProceduralRect = {
+    minX: sector.minX + margin,
+    minY: sector.minY + margin,
+    maxX: sector.maxX - margin,
+    maxY: sector.maxY - margin,
+  };
+  const clamped = clampRect(village, bounds);
+  return {
+    ...village,
+    minX: clamped.minX,
+    minY: clamped.minY,
+    maxX: clamped.maxX,
+    maxY: clamped.maxY,
+    center: snapPoint({
+      x: (clamped.minX + clamped.maxX) / 2,
+      y: (clamped.minY + clamped.maxY) / 2,
+    }),
+  };
+}
+
+function villageRoomBounds(village: ProceduralVillagePlan): ProceduralRect {
+  return insetRect(village, VILLAGE_GENERATION.bspVillageInset);
+}
+
+function splitBspLeafAlongAxis(
+  rng: seedrandom.PRNG,
+  leaf: ProceduralRect,
+  vertical: boolean,
+): [ProceduralRect, ProceduralRect] | null {
+  const width = leaf.maxX - leaf.minX;
+  const height = leaf.maxY - leaf.minY;
+  if (vertical) {
+    if (width < VILLAGE_GENERATION.bspMinLeafAxis) {
+      return null;
+    }
+  } else if (height < VILLAGE_GENERATION.bspMinLeafAxis) {
+    return null;
+  }
+  const halfGap = VILLAGE_GENERATION.bspSplitGap / 2;
+  const ratio = 0.42 + rng() * 0.16;
+  if (vertical) {
+    const splitX = snapEdge(leaf.minX + width * ratio);
+    return [
+      { ...leaf, maxX: splitX - halfGap },
+      { ...leaf, minX: splitX + halfGap },
+    ];
+  }
+  const splitY = snapEdge(leaf.minY + height * ratio);
+  return [
+    { ...leaf, maxY: splitY - halfGap },
+    { ...leaf, minY: splitY + halfGap },
+  ];
+}
+
+function trySplitBspLeaf(
+  rng: seedrandom.PRNG,
+  leaf: ProceduralRect,
+  bounds: ProceduralRect,
+): [ProceduralRect, ProceduralRect] | null {
+  const verticalFirst = rectAxisLength(leaf, "x") > rectAxisLength(leaf, "y");
+  for (const vertical of [verticalFirst, !verticalFirst]) {
+    const split = splitBspLeafAlongAxis(rng, leaf, vertical);
+    if (!split) {
+      continue;
+    }
+    const validSplit = split
+      .map((partition) => clampRect(partition, bounds))
+      .filter(isValidVillagePartition);
+    if (validSplit.length === 2) {
+      return [validSplit[0]!, validSplit[1]!];
+    }
+  }
+  return null;
+}
+
+function largestLeafIndex(leaves: readonly ProceduralRect[]): number {
+  return (
+    leaves
+      .map((leaf, leafIndex) => ({
+        leafIndex,
+        area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY),
+      }))
+      .sort((left, right) => right.area - left.area)[0]?.leafIndex ?? 0
+  );
+}
+
+function partitionRectGrid(
+  bounds: ProceduralRect,
+  count: number,
+): ProceduralRect[] {
+  if (count <= 1) {
+    return [bounds];
+  }
+  const gap = VILLAGE_GENERATION.bspSplitGap;
+  const minAxis = VILLAGE_GENERATION.bspMinPartitionAxis;
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  for (let cols = Math.ceil(Math.sqrt(count)); cols <= count; cols += 1) {
+    const rows = Math.ceil(count / cols);
+    const cellWidth = (width - gap * (cols - 1)) / cols;
+    const cellHeight = (height - gap * (rows - 1)) / rows;
+    if (cellWidth < minAxis || cellHeight < minAxis) {
+      continue;
+    }
+    const cells: ProceduralRect[] = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        if (cells.length >= count) {
+          return cells;
+        }
+        cells.push({
+          minX: snapEdge(bounds.minX + col * (cellWidth + gap)),
+          minY: snapEdge(bounds.minY + row * (cellHeight + gap)),
+          maxX: snapEdge(bounds.minX + col * (cellWidth + gap) + cellWidth),
+          maxY: snapEdge(bounds.minY + row * (cellHeight + gap) + cellHeight),
+        });
+      }
+    }
+    if (cells.length >= count) {
+      return cells.slice(0, count);
+    }
+  }
+  return [bounds];
+}
+
+function expandBspLeavesToTarget(
+  rng: seedrandom.PRNG,
+  bounds: ProceduralRect,
+  leaves: ProceduralRect[],
+  targetCount: number,
+): ProceduralRect[] {
+  const current = leaves.map((leaf) => clampRect(leaf, bounds));
+  let guard = 0;
+  while (current.length < targetCount && guard < 64) {
+    guard += 1;
+    const index = largestLeafIndex(current);
+    const leaf = current[index]!;
+    const split = trySplitBspLeaf(rng, leaf, bounds);
+    if (split) {
+      current.splice(index, 1, ...split);
+      continue;
+    }
+    const needed = targetCount - current.length + 1;
+    const subdivisions = partitionRectGrid(leaf, needed);
+    if (subdivisions.length <= 1) {
+      break;
+    }
+    current.splice(index, 1, ...subdivisions);
+  }
+  return current.slice(0, targetCount).map((leaf) => clampRect(leaf, bounds));
+}
+
+function growBspLeaves(
+  rng: seedrandom.PRNG,
+  bounds: ProceduralRect,
+  targetCount: number,
+): ProceduralRect[] {
+  return expandBspLeavesToTarget(rng, bounds, [bounds], targetCount);
+}
+
+function finalizeVillageRoom(
+  leaf: ProceduralRect,
+  bounds: ProceduralRect,
+  role: ProceduralVillagePoiRole,
+): VillageRoom {
+  const clamped = clampRect(leaf, bounds);
+  return {
+    ...clamped,
+    center: snapPoint({
+      x: (clamped.minX + clamped.maxX) / 2,
+      y: (clamped.minY + clamped.maxY) / 2,
+    }),
+    role,
+  };
+}
+
+function spawnSpecsOverlap(
+  left: ProceduralSpawnSpec,
+  right: ProceduralSpawnSpec,
+): boolean {
+  const leftHitboxes = resolveSpawnHitboxes(left);
+  const rightHitboxes = resolveSpawnHitboxes(right);
+  if (!leftHitboxes || !rightHitboxes) {
+    return false;
+  }
+  return doResolvedRectSetsOverlap(leftHitboxes, rightHitboxes);
+}
+
+function spawnOverlapsAny(
+  candidate: ProceduralSpawnSpec,
+  others: readonly ProceduralSpawnSpec[],
+): boolean {
+  return others.some((other) => spawnSpecsOverlap(candidate, other));
+}
+
+function villageCratePlacementBounds(
+  village: ProceduralVillagePlan,
+): ProceduralRect {
+  return insetRect(village, VILLAGE_GENERATION.bspVillageInset + 32);
+}
+
+function placeVillageCrateWithRetry(
+  rng: seedrandom.PRNG,
+  sector: ProceduralSector,
+  village: ProceduralVillagePlan,
+  crateLoot: ProceduralCrateLootSlot[],
+): ProceduralSpawnSpec {
+  const placementBounds = villageCratePlacementBounds(village);
+  const blockers = [
+    ...sector.structures,
+    ...sector.buildings,
+    ...sector.enemies,
+  ];
+  for (
+    let attempt = 0;
+    attempt < VILLAGE_CRATE_PLACEMENT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const crateSpec = crateSpawn(
+      "enemy:crate",
+      snap(
+        placementBounds.minX +
+          rng() * (placementBounds.maxX - placementBounds.minX),
+      ),
+      snap(
+        placementBounds.minY +
+          rng() * (placementBounds.maxY - placementBounds.minY),
+      ),
+      crateLoot,
+    );
+    if (!spawnOverlapsAny(crateSpec, blockers)) {
+      sector.enemies.push(crateSpec);
+      return crateSpec;
+    }
+  }
+  throw new Error(
+    `Failed to place crate in ${village.id} after ${VILLAGE_CRATE_PLACEMENT_MAX_ATTEMPTS} attempts`,
+  );
+}
+
+function ensureVillageHasGroundLoot(
+  sector: ProceduralSector,
+  village: ProceduralVillagePlan,
+): void {
+  const hasLootInVillage = sector.loot.some(
+    (loot) =>
+      loot.x >= village.minX &&
+      loot.x <= village.maxX &&
+      loot.y >= village.minY &&
+      loot.y <= village.maxY,
+  );
+  if (hasLootInVillage) {
+    return;
+  }
+  sector.loot.push(villageLoot(village, village.center.x, village.center.y));
+}
+
+function ensureVillageHasCrate(
+  seed: number,
+  sector: ProceduralSector,
+  village: ProceduralVillagePlan,
+): void {
+  if (getVillageCrates(sector, village).length > 0) {
+    return;
+  }
+  placeVillageCrateWithRetry(
+    seedrandom(`${seed}:village-crate:${village.id}`),
+    sector,
+    village,
+    defaultVillageCrateLoot(village),
+  );
+}
+
+function pruneTreesOverlappingStructures(
+  structures: ProceduralSpawnSpec[],
+): void {
+  const structureSpecs = structures.filter(
+    (spec) => spec.typeId !== "structure:tree",
+  );
+  const structureBounds = structureSpecs
+    .map((spec) => resolveSpawnHitboxes(spec))
+    .filter(
+      (hitboxes): hitboxes is NonNullable<typeof hitboxes> => hitboxes !== null,
+    )
+    .map((hitboxes) => boundsForResolvedHitboxes(hitboxes));
+  if (structureBounds.length === 0) {
+    return;
+  }
+  const kept = structures.filter((spec) => {
+    if (spec.typeId !== "structure:tree") {
+      return true;
+    }
+    const treeHitboxes = resolveSpawnHitboxes(spec);
+    if (!treeHitboxes) {
+      return true;
+    }
+    const treeBounds = boundsForResolvedHitboxes(treeHitboxes);
+    return !structureBounds.some((bounds) => rectsOverlap(treeBounds, bounds));
+  });
+  structures.length = 0;
+  structures.push(...kept);
 }
 
 function createDungeonPlan(
@@ -2267,6 +2855,9 @@ function placeAndBuildVillages(
       sector.features,
       sector.minimapMarkers,
     );
+    pruneTreesOverlappingStructures(sector.structures);
+    ensureVillageHasCrate(context.seed, sector, village);
+    ensureVillageHasGroundLoot(sector, village);
   }
 
   for (const sector of context.sectors) {
@@ -2417,7 +3008,8 @@ function villagesOverlap(
   );
 }
 
-const NON_EXTRACTION_VILLAGES_PER_TIER = 4;
+const NON_EXTRACTION_VILLAGES_PER_TIER =
+  BLUEPRINT_PLACEMENT.villagesPerDistanceTier;
 
 function assignVillageTiers(
   villages: ProceduralVillagePlan[],
@@ -2459,6 +3051,28 @@ function assignVillageTiers(
   }
 }
 
+function villageFootprint(
+  kind: ProceduralVillageKind,
+  isCorner: boolean,
+  roleCount: number,
+): { width: number; height: number } {
+  if (kind === "extraction_fortified") {
+    return {
+      width: 1760,
+      height: VILLAGE_GENERATION.extractionVillageHeight,
+    };
+  }
+  const baseWidth = isCorner ? 1520 : 1180;
+  const baseHeight = isCorner ? 1180 : 920;
+  const extraRoles = Math.max(0, roleCount - 4);
+  const widthScale = 1 + extraRoles * 0.18;
+  const heightScale = 1 + extraRoles * 0.14;
+  return {
+    width: snapEdge(baseWidth * widthScale),
+    height: snapEdge(baseHeight * heightScale),
+  };
+}
+
 function createVillagePlan(
   sectorId: string,
   kind: ProceduralVillageKind,
@@ -2467,15 +3081,14 @@ function createVillagePlan(
   isCorner: boolean,
   index: number,
 ): ProceduralVillagePlan {
-  const width = kind === "extraction_fortified" ? 1760 : isCorner ? 1520 : 1180;
-  const height = kind === "extraction_fortified" ? 1360 : isCorner ? 1180 : 920;
+  const poiRoles = createVillagePoiRoles(kind, isCorner);
+  const { width, height } = villageFootprint(kind, isCorner, poiRoles.length);
   const bounds = villageCenterBounds(sector);
   const snappedCenter = snapPoint({
     x: clamp(center.x, bounds.minX, bounds.maxX),
     y: clamp(center.y, bounds.minY, bounds.maxY),
   });
-  const poiRoles = createVillagePoiRoles(kind, isCorner);
-  return {
+  const village: ProceduralVillagePlan = {
     id: `${sectorId}_village_${index}`,
     sectorId,
     kind,
@@ -2488,6 +3101,7 @@ function createVillagePlan(
     maxX: snapEdge(snappedCenter.x + width / 2),
     maxY: snapEdge(snappedCenter.y + height / 2),
   };
+  return clampVillageToSector(village, sector);
 }
 
 function villageCenterBounds(sector: ProceduralRect): ProceduralRect {
@@ -2514,11 +3128,12 @@ function createVillagePoiRoles(
     case "extraction_fortified":
       return [
         "helipad",
+        "house",
+        "house_cluster",
         "checkpoint",
         "command_post",
         "armory",
         "motor_pool",
-        "house_cluster",
       ];
     case "military":
       return ["checkpoint", "command_post", "armory", "barracks", "motor_pool"];
@@ -2696,6 +3311,13 @@ function reserveExtractionHelipadLeaf(
   };
 }
 
+function isValidRingPartition(rect: ProceduralRect): boolean {
+  return (
+    rectAxisLength(rect, "x") >= VILLAGE_GENERATION.bspMinPartitionAxis &&
+    rectAxisLength(rect, "y") >= VILLAGE_GENERATION.bspRingPartitionMinAxis
+  );
+}
+
 function partitionAroundCentralRect(
   outer: ProceduralRect,
   inner: ProceduralRect,
@@ -2734,7 +3356,8 @@ function partitionAroundCentralRect(
     });
   }
   return partitions.filter(
-    (rect) => rect.maxX - rect.minX >= 320 && rect.maxY - rect.minY >= 320,
+    (partition) =>
+      isValidVillagePartition(partition) || isValidRingPartition(partition),
   );
 }
 
@@ -2743,7 +3366,11 @@ function createExtractionFortifiedVillageRooms(
   village: ProceduralVillagePlan,
   roles: readonly ProceduralVillagePoiRole[],
 ): VillageRoom[] {
-  const helipadLeaf = reserveExtractionHelipadLeaf(village);
+  const roomBounds = villageRoomBounds(village);
+  const helipadLeaf = clampRect(
+    reserveExtractionHelipadLeaf(village),
+    roomBounds,
+  );
   const helipadRoom: VillageRoom = {
     ...helipadLeaf,
     center: snapPoint({
@@ -2757,52 +3384,19 @@ function createExtractionFortifiedVillageRooms(
     return [helipadRoom];
   }
 
-  const leaves = partitionAroundCentralRect(
-    insetRect(village, 96),
-    helipadLeaf,
+  const seedLeaves = partitionAroundCentralRect(roomBounds, helipadLeaf);
+  const leaves = expandBspLeavesToTarget(
+    rng,
+    roomBounds,
+    seedLeaves.length > 0 ? seedLeaves : [roomBounds],
+    otherRoles.length,
   );
-  while (leaves.length < otherRoles.length) {
-    const index = leaves
-      .map((leaf, leafIndex) => ({
-        leafIndex,
-        area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY),
-      }))
-      .sort((left, right) => right.area - left.area)[0]?.leafIndex;
-    if (index === undefined) {
-      break;
-    }
-    const leaf = leaves.splice(index, 1)[0]!;
-    const width = leaf.maxX - leaf.minX;
-    const height = leaf.maxY - leaf.minY;
-    if (Math.max(width, height) < 520) {
-      leaves.push(leaf);
-      break;
-    }
-    const vertical = width > height;
-    const ratio = 0.42 + rng() * 0.16;
-    if (vertical) {
-      const splitX = snapEdge(leaf.minX + width * ratio);
-      leaves.push(
-        { ...leaf, maxX: splitX - 64 },
-        { ...leaf, minX: splitX + 64 },
-      );
-    } else {
-      const splitY = snapEdge(leaf.minY + height * ratio);
-      leaves.push(
-        { ...leaf, maxY: splitY - 64 },
-        { ...leaf, minY: splitY + 64 },
-      );
-    }
-  }
 
-  const otherRooms = leaves.slice(0, otherRoles.length).map((leaf, index) => ({
-    ...leaf,
-    center: snapPoint({
-      x: (leaf.minX + leaf.maxX) / 2,
-      y: (leaf.minY + leaf.maxY) / 2,
-    }),
-    role: otherRoles[index]!,
-  }));
+  const otherRooms = leaves
+    .slice(0, otherRoles.length)
+    .map((leaf, index) =>
+      finalizeVillageRoom(leaf, roomBounds, otherRoles[index]!),
+    );
   return [helipadRoom, ...otherRooms];
 }
 
@@ -2811,49 +3405,13 @@ function createBspVillageRooms(
   village: ProceduralVillagePlan,
   roles: readonly ProceduralVillagePoiRole[],
 ): VillageRoom[] {
-  const leaves: ProceduralRect[] = [insetRect(village, 96)];
-  const target = roles.length;
-  while (leaves.length < target) {
-    const index = leaves
-      .map((leaf, i) => ({
-        i,
-        area: (leaf.maxX - leaf.minX) * (leaf.maxY - leaf.minY),
-      }))
-      .sort((a, b) => b.area - a.area)[0]?.i;
-    if (index === undefined) {
-      break;
-    }
-    const leaf = leaves.splice(index, 1)[0]!;
-    const width = leaf.maxX - leaf.minX;
-    const height = leaf.maxY - leaf.minY;
-    if (Math.max(width, height) < 520) {
-      leaves.push(leaf);
-      break;
-    }
-    const vertical = width > height;
-    const ratio = 0.42 + rng() * 0.16;
-    if (vertical) {
-      const splitX = snapEdge(leaf.minX + width * ratio);
-      leaves.push(
-        { ...leaf, maxX: splitX - 64 },
-        { ...leaf, minX: splitX + 64 },
-      );
-    } else {
-      const splitY = snapEdge(leaf.minY + height * ratio);
-      leaves.push(
-        { ...leaf, maxY: splitY - 64 },
-        { ...leaf, minY: splitY + 64 },
-      );
-    }
-  }
-  return leaves.slice(0, roles.length).map((leaf, index) => ({
-    ...leaf,
-    center: snapPoint({
-      x: (leaf.minX + leaf.maxX) / 2,
-      y: (leaf.minY + leaf.maxY) / 2,
-    }),
-    role: roles[index % roles.length]!,
-  }));
+  const roomBounds = villageRoomBounds(village);
+  const leaves = growBspLeaves(rng, roomBounds, roles.length);
+  return leaves
+    .slice(0, roles.length)
+    .map((leaf, index) =>
+      finalizeVillageRoom(leaf, roomBounds, roles[index % roles.length]!),
+    );
 }
 
 function addVillagePoiBlock(
@@ -3074,25 +3632,23 @@ function applyVillageRoomTemplate(
         }
       }
     }
-    if (rng() < INTERIOR_SPAWN_CHANCES.enemy) {
-      for (const enemy of structure.interiorEnemies ?? []) {
-        const enemySpec = withTemplateLabel(
-          spawn(
-            enemy.typeId,
-            rotatedOffsetX(x, enemy.dx, enemy.dy, rotation),
-            rotatedOffsetY(y, enemy.dx, enemy.dy, rotation),
-          ),
-          template.id,
-        );
-        enemySpec.label = appendInteriorParentKey(enemySpec.label, parentKey);
-        if (
-          canPlaceInsideStructure(enemySpec, structureSpawn) &&
-          (!doorwayRect || !overlapsRect(enemySpec, doorwayRect)) &&
-          !overlapsAcceptedInteriorSpawns(enemySpec, acceptedInteriorSpawns)
-        ) {
-          enemies.push(enemySpec);
-          acceptedInteriorSpawns.push(enemySpec);
-        }
+    for (const enemy of structure.interiorEnemies ?? []) {
+      const enemySpec = withTemplateLabel(
+        spawn(
+          enemy.typeId,
+          rotatedOffsetX(x, enemy.dx, enemy.dy, rotation),
+          rotatedOffsetY(y, enemy.dx, enemy.dy, rotation),
+        ),
+        template.id,
+      );
+      enemySpec.label = appendInteriorParentKey(enemySpec.label, parentKey);
+      if (
+        canPlaceInsideStructure(enemySpec, structureSpawn) &&
+        (!doorwayRect || !overlapsRect(enemySpec, doorwayRect)) &&
+        !overlapsAcceptedInteriorSpawns(enemySpec, acceptedInteriorSpawns)
+      ) {
+        enemies.push(enemySpec);
+        acceptedInteriorSpawns.push(enemySpec);
       }
     }
   }
@@ -3293,7 +3849,7 @@ function villageLoot(
     y,
     getWeaponContent(typeId) ? "weapon" : "stackable",
     village.lootTier,
-    village.lootTier === "common" ? 3 : 1,
+    1,
   );
 }
 
@@ -3308,6 +3864,7 @@ function crateLootForTier(
     assertCrateLootTypeId(slot.typeId);
   }
   const knownTypeIds = new Set(explicitPool.map((slot) => slot.typeId));
+  const itemsPerCrate = BLUEPRINT_PLACEMENT.crateRules.itemsPerCrate;
   const derivedPool = LOOT_BY_TIER[tier]
     .filter((typeId) => {
       assertCrateLootTypeId(typeId);
@@ -3319,11 +3876,11 @@ function crateLootForTier(
       kind: getWeaponContent(typeId)
         ? ("weapon" as const)
         : ("stackable" as const),
-      amount: getWeaponContent(typeId) ? undefined : 1,
+      amount: getWeaponContent(typeId) ? undefined : itemsPerCrate,
     }));
   const pool = [...explicitPool, ...derivedPool];
   const slot = pool[Math.floor(rng() * pool.length)];
-  return slot ? [{ ...slot, amount: 1 }] : [];
+  return slot ? [{ ...slot, amount: itemsPerCrate }] : [];
 }
 
 function isCrateLootTypeId(typeId: ResourceId): boolean {

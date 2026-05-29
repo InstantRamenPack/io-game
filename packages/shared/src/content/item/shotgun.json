@@ -2,6 +2,16 @@
   "label": "Shotgun",
   "hint": "Short-range scattergun with brutal close-range burst.",
   "description": "Fires ten pellets across a 60 degree cone. The five-shell tube reloads slowly.",
+  "recipe": {
+    "hint": "Close-range scattergun. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 140
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "shoot",
     "cooldownTicks": 12,

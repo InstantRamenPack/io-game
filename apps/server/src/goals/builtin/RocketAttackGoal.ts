@@ -6,10 +6,7 @@ import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 import { resolveInterceptPoint } from "@server/goals/math/InterceptSolver.ts";
 
-const KEY_BUILDING_TYPE_IDS = new Set([
-  "building:comms_tower",
-  "building:energy_tower",
-]);
+const KEY_BUILDING_TYPE_IDS = new Set(["tower:comms", "tower:energy"]);
 
 /**
  * Fires a rocket weapon when the target is behind a player-built building.

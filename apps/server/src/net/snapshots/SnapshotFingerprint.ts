@@ -42,6 +42,7 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
       );
       break;
     case "building":
+    case "tower":
       parts.push(
         snapshot.label,
         snapshot.tier,

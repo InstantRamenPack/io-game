@@ -1,5 +1,6 @@
 import {
   buildingContentEntries,
+  towerContentEntries,
   effectContentEntries,
   enemyContentEntries,
   itemContentEntries,
@@ -40,6 +41,7 @@ const entityContents = new Map<ResourceId, EntityContent>([
   ...playerContentEntries,
   ...enemyContentEntries,
   ...buildingContentEntries,
+  ...towerContentEntries,
   ...structureContentEntries,
   ...projectileContentEntries,
   ...pickupContentEntries,
@@ -278,6 +280,7 @@ export const CONTENT_COMPAT_DESCRIPTOR = Object.freeze({
     ...serializeEntries(sortResourceEntriesByTypeId(playerContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(enemyContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(buildingContentEntries)),
+    ...serializeEntries(sortResourceEntriesByTypeId(towerContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(structureContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(projectileContentEntries)),
     ...serializeEntries(sortResourceEntriesByTypeId(pickupContentEntries)),

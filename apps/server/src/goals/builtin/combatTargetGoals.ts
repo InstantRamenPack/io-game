@@ -10,7 +10,12 @@ export function createCombatTargetGoal(
   priority: number,
   aggroRange: number,
 ): TargetNearestEntityGoal<Enemy> {
-  return new TargetNearestEntityGoal<Enemy>(priority, [Player, Building], aggroRange, {
-    requireLineOfSight: true,
-  });
+  return new TargetNearestEntityGoal<Enemy>(
+    priority,
+    [Player, Building],
+    aggroRange,
+    {
+      requireLineOfSight: true,
+    },
+  );
 }

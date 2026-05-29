@@ -12,5 +12,6 @@
       { "typeId": "item:armor_t2", "amount": 1 },
       { "typeId": "item:hunk", "amount": 65 }
     ]
-  }
+  },
+  "rarityTier": "rare"
 }

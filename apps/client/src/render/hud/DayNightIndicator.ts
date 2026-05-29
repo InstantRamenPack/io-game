@@ -1,4 +1,5 @@
 import * as PIXI from "pixi.js";
+import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
 import type { DayNightSnapshot } from "@shared/net/snapshots.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
@@ -41,7 +42,7 @@ export class DayNightIndicator {
       latestSnapshotReceivedAt !== undefined
         ? Math.max(0, performance.now() - latestSnapshotReceivedAt)
         : 0;
-    const nightBlend = this.computeNightBlend(dayNight, driftMs);
+    const nightBlend = computeClientNightBlend(dayNight, driftMs);
     const contrastBlend = this.applyContrastLag(nightBlend);
     const labelColor = this.lerpColor(
       this.textDayColor,
@@ -82,7 +83,10 @@ export class DayNightIndicator {
       this.label.width,
       this.detail.width,
     );
-    const labelX = Math.max(0, Math.round((contentWidth - this.label.width) / 2));
+    const labelX = Math.max(
+      0,
+      Math.round((contentWidth - this.label.width) / 2),
+    );
     const detailX = Math.max(
       0,
       Math.round((contentWidth - this.detail.width) / 2),
@@ -104,10 +108,7 @@ export class DayNightIndicator {
 
     if (dayNight.phase === "night" && waveThreat > 0) {
       const total = Math.max(1, dayNight.waveThreatTotal);
-      const clearedFraction = Math.min(
-        1,
-        Math.max(0, 1 - waveThreat / total),
-      );
+      const clearedFraction = Math.min(1, Math.max(0, 1 - waveThreat / total));
       const fillWidth = Math.max(
         4,
         Math.round(this.barWidth * clearedFraction),
@@ -121,9 +122,14 @@ export class DayNightIndicator {
         .fill({ color: 0x3d8b5a, alpha: 0.95 });
     } else {
       const phaseDuration = dayNight.dayDurationMs;
-      const elapsed = Math.min(dayNight.phaseElapsedMs + driftMs, phaseDuration);
+      const elapsed = Math.min(
+        dayNight.phaseElapsedMs + driftMs,
+        phaseDuration,
+      );
       const progress =
-        phaseDuration > 0 ? Math.min(1, Math.max(0, elapsed / phaseDuration)) : 0;
+        phaseDuration > 0
+          ? Math.min(1, Math.max(0, elapsed / phaseDuration))
+          : 0;
       const fillWidth = Math.max(4, Math.round(this.barWidth * progress));
       this.graphic
         .rect(barX, barY, fillWidth, this.barHeight)
@@ -143,35 +149,6 @@ export class DayNightIndicator {
     return (
       this.label.height + 4 + this.detail.height + this.barGap + this.barHeight
     );
-  }
-
-  private computeNightBlend(
-    dayNight: DayNightSnapshot,
-    driftMs: number,
-  ): number {
-    const phaseDuration =
-      dayNight.phase === "night"
-        ? dayNight.nightDurationMs
-        : dayNight.dayDurationMs;
-    if (phaseDuration <= 0) {
-      return dayNight.phase === "night" ? 1 : 0;
-    }
-
-    const elapsed = Math.max(
-      0,
-      Math.min(dayNight.phaseElapsedMs + driftMs, phaseDuration),
-    );
-    const transitionMs = Math.max(
-      1000,
-      Math.min(15000, Math.floor(phaseDuration * 0.2)),
-    );
-
-    if (elapsed >= phaseDuration - transitionMs) {
-      const t = (elapsed - (phaseDuration - transitionMs)) / transitionMs;
-      return dayNight.phase === "night" ? 1 - t : t;
-    }
-
-    return dayNight.phase === "night" ? 1 : 0;
   }
 
   private applyContrastLag(blend: number): number {

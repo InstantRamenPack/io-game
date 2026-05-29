@@ -2,6 +2,16 @@
   "label": "Spiked Spear",
   "hint": "Piercing spear that causes bleeding.",
   "description": "Long jab with bleed pressure on top of direct damage.",
+  "recipe": {
+    "hint": "Bleeding spear. Blueprint required.",
+    "outputAmount": 1,
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 130
+      }
+    ]
+  },
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 12,

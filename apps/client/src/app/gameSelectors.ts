@@ -81,9 +81,10 @@ export function createGameSelectors(
   }
 
   function getTrackedBuildings(): ClientEntity[] {
-    return getWorldEntities().filter(
-      (entity) => getResourceNamespace(entity.typeId) === "building",
-    );
+    return getWorldEntities().filter((entity) => {
+      const namespace = getResourceNamespace(entity.typeId);
+      return namespace === "building" || namespace === "tower";
+    });
   }
 
   function getCraftingStations(): ClientEntity[] {
@@ -95,7 +96,7 @@ export function createGameSelectors(
 
   function getHubs(): ClientEntity[] {
     return getTrackedBuildings().filter(
-      (entity) => entity.typeId === "building:hub",
+      (entity) => entity.typeId === "tower:hub",
     );
   }
 

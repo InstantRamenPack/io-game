@@ -17,5 +17,11 @@
       "costItemTypeId": "item:hunk",
       "hpPerCostUnit": 50
     }
+  },
+  "runtime": {
+    "renderer": {
+      "symbol": "EnergyTowerRenderer",
+      "importPath": "apps/client/src/render/entity/building/EnergyTowerRenderer.ts"
+    }
   }
 }

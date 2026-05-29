@@ -32,17 +32,24 @@ describe("rarity crafting and loot rules", () => {
     }
   });
 
-  test("rare and legendary weapons are not craftable, while epic weapons require their own blueprint", () => {
+  test("legendary weapons are not craftable, while rare and epic blueprint targets require unlock", () => {
     for (const [typeId, item] of getAllItemContentEntries()) {
-      if (!item.weapon) {
+      const blueprintTypeIds = getAllItemContentEntries()
+        .filter(([, blueprint]) => blueprint.unlocksRecipeTypeId === typeId)
+        .map(([blueprintTypeId]) => blueprintTypeId);
+      if (blueprintTypeIds.length === 0) {
         continue;
       }
 
-      if (item.rarityTier === "rare" || item.rarityTier === "legendary") {
+      if (item.rarityTier === "legendary") {
         expect(item.recipe, `${typeId} should be drop-only`).toBeUndefined();
       }
 
-      if (item.rarityTier === "epic") {
+      if (item.rarityTier === "rare" || item.rarityTier === "epic") {
+        expect(
+          item.recipe,
+          `${typeId} should be craftable after blueprint unlock`,
+        ).toBeDefined();
         const blueprintCosts =
           item.recipe?.costs.filter((cost) =>
             cost.typeId.startsWith("blueprint:"),
@@ -55,7 +62,7 @@ describe("rarity crafting and loot rules", () => {
     }
   });
 
-  test("pickup pools only expose common and uncommon weapons and mags plus epic blueprints", () => {
+  test("pickup pools only expose common and uncommon weapons and mags plus rare and epic blueprints", () => {
     for (const typeId of pickupsConfig.legacyOrder.weapon) {
       const tier = getItemContent(typeId as ResourceId)?.rarityTier;
       expect(tier).toBeDefined();
@@ -68,9 +75,10 @@ describe("rarity crafting and loot rules", () => {
         typeId as ResourceId,
       )?.unlocksRecipeTypeId;
       expect(unlockedTypeId).toBeDefined();
-      expect(getItemContent(unlockedTypeId as ResourceId)?.rarityTier).toBe(
-        "epic",
-      );
+      const unlockedRarity = getItemContent(
+        unlockedTypeId as ResourceId,
+      )?.rarityTier;
+      expect(unlockedRarity === "rare" || unlockedRarity === "epic").toBe(true);
     }
 
     for (const typeId of pickupsConfig.legacyOrder.mag) {

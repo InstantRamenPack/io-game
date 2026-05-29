@@ -9,6 +9,7 @@ export const ENTITY_KINDS = [
   "player",
   "enemy",
   "building",
+  "tower",
   "structure",
   "projectile",
   "pickup",

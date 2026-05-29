@@ -133,6 +133,16 @@ export const BuildingSnapshotSchema = EntitySnapshotBaseSchema.extend({
     .optional(),
 });
 
+export const TowerSnapshotSchema = EntitySnapshotBaseSchema.extend({
+  kind: z.literal("tower"),
+  label: z.string(),
+  tier: z.number(),
+  chestSlots: z
+    .array(InventorySlotSnapshotSchema)
+    .length(CHEST_SLOT_COUNT)
+    .optional(),
+});
+
 export const StructureSnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("structure"),
   label: z.string(),
@@ -151,6 +161,7 @@ export const EntitySnapshotSchema = z.discriminatedUnion("kind", [
   PlayerSnapshotSchema,
   EnemySnapshotSchema,
   BuildingSnapshotSchema,
+  TowerSnapshotSchema,
   StructureSnapshotSchema,
   ProjectileSnapshotSchema,
   PickupSnapshotSchema,
@@ -322,6 +333,7 @@ export const SNAPSHOT_COMPAT_DESCRIPTOR = Object.freeze({
     EntitySnapshotBaseSchema,
     BuildingSnapshotSchema,
   ),
+  tower: extensionSchemaKeys(EntitySnapshotBaseSchema, TowerSnapshotSchema),
   structure: extensionSchemaKeys(
     EntitySnapshotBaseSchema,
     StructureSnapshotSchema,
@@ -355,6 +367,7 @@ export type EntitySnapshotBase = z.infer<typeof EntitySnapshotBaseSchema>;
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
 export type EnemySnapshot = z.infer<typeof EnemySnapshotSchema>;
 export type BuildingSnapshot = z.infer<typeof BuildingSnapshotSchema>;
+export type TowerSnapshot = z.infer<typeof TowerSnapshotSchema>;
 export type StructureSnapshot = z.infer<typeof StructureSnapshotSchema>;
 export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
 export type PickupSnapshot = z.infer<typeof PickupSnapshotSchema>;

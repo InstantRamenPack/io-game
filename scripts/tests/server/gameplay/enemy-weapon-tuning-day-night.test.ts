@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
-import { requireProjectileContent, requireWeaponContent } from "@shared/content/catalog.ts";
+import {
+  requireProjectileContent,
+  requireWeaponContent,
+} from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
 import {
   bootstrapTestRegistries,
@@ -18,7 +21,9 @@ describe("enemy weapon tuning day/night", () => {
     const weapon = shoota.weapons[0] as Enemy["weapons"][number] & {
       getProjectileRange(): number;
     };
-    const projectileContent = requireProjectileContent("projectile:basic_bullet");
+    const projectileContent = requireProjectileContent(
+      "projectile:basic_bullet",
+    );
     const weaponContent = requireWeaponContent("item:basic_gun");
     if (weaponContent.attackStyle !== "shoot") {
       throw new Error("expected basic gun to remain a shoot weapon");

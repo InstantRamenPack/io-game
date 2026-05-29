@@ -1,4 +1,5 @@
 import { Building } from "@server/entities/Building.ts";
+import { Tower } from "@server/entities/buildings/Tower.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
 import { Structure } from "@server/entities/Structure.ts";
@@ -38,6 +39,13 @@ export function isBuildingCtor(
   ctor: RegistrableEntityCtor,
 ): ctor is BuildingCtor {
   return ctor.prototype instanceof Building;
+}
+
+type TowerCtor = RegistrableEntityCtor &
+  (new (id: number, tier?: number, ownerId?: number) => Tower);
+
+export function isTowerCtor(ctor: RegistrableEntityCtor): ctor is TowerCtor {
+  return ctor.prototype instanceof Tower;
 }
 
 export function isStructureCtor(

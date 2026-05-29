@@ -33,7 +33,7 @@ export class Chest extends Building {
   }
 
   public override toSnapshot(): BuildingSnapshot {
-    const snapshot = super.toSnapshot();
+    const snapshot = super.toSnapshot() as BuildingSnapshot;
     return {
       ...snapshot,
       chestSlots: this.chestSlots.map(

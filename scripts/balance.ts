@@ -327,6 +327,209 @@ const worldBalanceSpecs = [
       },
     ],
   },
+  {
+    configId: "blueprintPlacement",
+    configLabel: "Blueprint Placement",
+    file: proceduralContentPath,
+    fields: [
+      {
+        key: "villagesPerDistanceTier",
+        label: "Villages / Distance Tier",
+        path: ["blueprintPlacement", "villagesPerDistanceTier"],
+      },
+      {
+        key: "itemsPerCrate",
+        label: "Items / Crate",
+        path: ["blueprintPlacement", "crateRules", "itemsPerCrate"],
+      },
+      {
+        key: "ensureVillageHasCrate",
+        label: "Ensure Village Crate",
+        path: ["blueprintPlacement", "crateRules", "ensureVillageHasCrate"],
+        kind: "text",
+      },
+      {
+        key: "commonArmorBlueprint",
+        label: "Common Armor Blueprint",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "common",
+          "armorBlueprintTypeId",
+        ],
+        kind: "text",
+      },
+      {
+        key: "commonWeaponBlueprintCount",
+        label: "Common Rare Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "common",
+          "weaponBlueprintCount",
+        ],
+      },
+      {
+        key: "commonWeaponBlueprintPool",
+        label: "Common Weapon BP Pool",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "common",
+          "weaponBlueprintPool",
+        ],
+        kind: "text",
+      },
+      {
+        key: "uncommonArmorBlueprint",
+        label: "Uncommon Armor Blueprint",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "uncommon",
+          "armorBlueprintTypeId",
+        ],
+        kind: "text",
+      },
+      {
+        key: "uncommonWeaponBlueprintCount",
+        label: "Uncommon Rare Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "uncommon",
+          "weaponBlueprintCount",
+        ],
+      },
+      {
+        key: "uncommonWeaponBlueprintPool",
+        label: "Uncommon Weapon BP Pool",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "uncommon",
+          "weaponBlueprintPool",
+        ],
+        kind: "text",
+      },
+      {
+        key: "rareArmorBlueprint",
+        label: "Rare Armor Blueprint",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "rare",
+          "armorBlueprintTypeId",
+        ],
+        kind: "text",
+      },
+      {
+        key: "rareWeaponBlueprintCount",
+        label: "Rare Epic Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "rare",
+          "weaponBlueprintCount",
+        ],
+      },
+      {
+        key: "rareWeaponBlueprintPool",
+        label: "Rare Weapon BP Pool",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "rare",
+          "weaponBlueprintPool",
+        ],
+        kind: "text",
+      },
+      {
+        key: "extractionWeaponBlueprintCount",
+        label: "Extraction Epic Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "epic",
+          "weaponBlueprintCount",
+        ],
+      },
+      {
+        key: "extractionWeaponBlueprintPool",
+        label: "Extraction Weapon BP Pool",
+        path: [
+          "blueprintPlacement",
+          "villageTierSlots",
+          "epic",
+          "weaponBlueprintPool",
+        ],
+        kind: "text",
+      },
+      {
+        key: "dungeonRareWeaponBlueprintCount",
+        label: "Dungeon Rare Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "dungeonSlots",
+          "rareWeaponBlueprintCount",
+        ],
+      },
+      {
+        key: "dungeonEpicWeaponBlueprintCount",
+        label: "Dungeon Epic Weapon BPs",
+        path: [
+          "blueprintPlacement",
+          "dungeonSlots",
+          "epicWeaponBlueprintCount",
+        ],
+      },
+      {
+        key: "dungeonRareWeaponBlueprintPool",
+        label: "Dungeon Rare BP Pool",
+        path: ["blueprintPlacement", "dungeonSlots", "rareWeaponBlueprintPool"],
+        kind: "text",
+      },
+      {
+        key: "dungeonEpicWeaponBlueprintPool",
+        label: "Dungeon Epic BP Pool",
+        path: ["blueprintPlacement", "dungeonSlots", "epicWeaponBlueprintPool"],
+        kind: "text",
+      },
+      {
+        key: "rareWeaponPoolRarity",
+        label: "Rare Weapon Pool Rarity",
+        path: [
+          "blueprintPlacement",
+          "weaponBlueprintPools",
+          "rareWeapon",
+          "unlockedRarityTier",
+        ],
+        kind: "text",
+      },
+      {
+        key: "epicWeaponPoolRarity",
+        label: "Epic Weapon Pool Rarity",
+        path: [
+          "blueprintPlacement",
+          "weaponBlueprintPools",
+          "epicWeapon",
+          "unlockedRarityTier",
+        ],
+        kind: "text",
+      },
+      {
+        key: "epicWeaponPoolRequireWeapon",
+        label: "Epic Pool Requires Weapon",
+        path: [
+          "blueprintPlacement",
+          "weaponBlueprintPools",
+          "epicWeapon",
+          "requireWeapon",
+        ],
+        kind: "text",
+      },
+    ],
+  },
 ] as const;
 
 function parseIntegerEnv(name: string, fallback: number): number {
@@ -972,6 +1175,29 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
       "crateLoot",
       getValue(proceduralFile.data, ["crateLootByTier", tier]),
       '{"typeId":"item:basic_spear","kind":"weapon"}',
+    );
+  }
+
+  for (const poolKey of ["rareWeapon", "epicWeapon"] as const) {
+    pushListRowIfArray(
+      rows,
+      "loot",
+      `Blueprint pool excludes ${poolKey}`,
+      proceduralContentPath,
+      [
+        "blueprintPlacement",
+        "weaponBlueprintPools",
+        poolKey,
+        "excludeBlueprintTypeIds",
+      ],
+      "typeId",
+      getValue(proceduralFile.data, [
+        "blueprintPlacement",
+        "weaponBlueprintPools",
+        poolKey,
+        "excludeBlueprintTypeIds",
+      ]),
+      '"blueprint:armor_t2"',
     );
   }
 

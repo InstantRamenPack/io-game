@@ -182,7 +182,10 @@ export function installDebugBridge({
         heldInventorySlotRef: hudState.heldInventorySlotRef,
       },
       buildings: worldEntities
-        .filter((entity) => getResourceNamespace(entity.typeId) === "building")
+        .filter((entity) => {
+          const namespace = getResourceNamespace(entity.typeId);
+          return namespace === "building" || namespace === "tower";
+        })
         .map((entity) => ({
           id: entity.id,
           label:

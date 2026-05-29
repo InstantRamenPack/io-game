@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 type ContentKind =
   | "building"
+  | "tower"
   | "structure"
   | "effect"
   | "enemy"
@@ -131,6 +132,12 @@ const CONTENT_CATEGORY_DEFINITIONS: readonly ContentCategoryDefinition[] = [
       `makeParsedEntityContentEntry("building", ${JSON.stringify(resourceName)}, ${importName})`,
   },
   {
+    directory: "tower",
+    exportName: "towerContentEntries",
+    parserExpression: (resourceName, importName) =>
+      `makeParsedEntityContentEntry("tower", ${JSON.stringify(resourceName)}, ${importName})`,
+  },
+  {
     directory: "structure",
     exportName: "structureContentEntries",
     parserExpression: (resourceName, importName) =>
@@ -188,6 +195,7 @@ const CONTENT_CATEGORY_DEFINITIONS: readonly ContentCategoryDefinition[] = [
 
 const ENTITY_CONTENT_KINDS = new Set<ContentKind>([
   "building",
+  "tower",
   "structure",
   "enemy",
   "pickup",
@@ -345,6 +353,13 @@ function inferServerKindFromPath(filePath: string): ContentKind | null {
   const normalized = filePath.split(path.sep).join("/");
   if (normalized.endsWith("/Player.ts")) return "player";
   if (normalized.endsWith("/ItemEntity.ts")) return "pickup";
+  if (
+    normalized.endsWith("/Hub.ts") ||
+    normalized.endsWith("/EnergyTower.ts") ||
+    normalized.endsWith("/CommsTower.ts")
+  ) {
+    return "tower";
+  }
   if (normalized.includes("/entities/buildings/")) return "building";
   if (normalized.includes("/entities/structures/")) return "structure";
   if (normalized.includes("/entities/enemies/")) return "enemy";
@@ -783,6 +798,7 @@ function resolveRendererPath(
   const hinted = resource.rawContent.runtime?.renderer?.importPath;
   if (hinted) return resolveSourcePath(repoRoot, hinted);
   let directory = "building";
+  if (resource.kind === "tower") directory = "tower";
   if (resource.kind === "enemy") directory = "enemy";
   if (resource.kind === "pickup") directory = "pickup";
   if (resource.kind === "player") directory = "player";

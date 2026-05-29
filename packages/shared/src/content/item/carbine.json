@@ -1,7 +1,7 @@
 {
   "label": "M4A1",
   "hint": "Lightweight carbine with decent range. Good stepping stone to heavier firearms.",
-  "description": "A compact automatic rifle with less stopping power than the AK-74. Easier to come by. Requires a blueprint to craft.",
+  "description": "A compact automatic rifle with less stopping power than the AK-74. Easier to come by.",
   "recipe": {
     "hint": "Compact M4A1 carbine, easier to craft than the full rifle.",
     "outputAmount": 1,
