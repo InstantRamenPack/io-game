@@ -35,6 +35,7 @@ export class CraftingHudCoordinator {
     state.craftingMenuOpen = false;
     state.previewedCraft = state.selectedCraft;
     state.recycleHotbarIndex = null;
+    state.recycleChestIndex = null;
     state.heldCraftOutputTypeId = null;
     this.hoveredCraftItemTypeId = null;
     this.hoveredCraftPreview = false;
@@ -141,6 +142,7 @@ export class CraftingHudCoordinator {
     isRecycleDropAtPoint: (screenX: number, screenY: number) => boolean;
     canRecycleHotbarIndex: (index: number) => boolean;
     queueRecycleHotbarIndex: (index: number) => void;
+    queueRecycleChestIndex: (index: number) => void;
     getSelectedHotbarIndex: () => number;
     getCraftAtPoint: (screenX: number, screenY: number) => ResourceId | null;
     getTabAtPoint: (screenX: number, screenY: number) => CraftingTabId | null;
@@ -155,6 +157,7 @@ export class CraftingHudCoordinator {
       isRecycleDropAtPoint,
       canRecycleHotbarIndex,
       queueRecycleHotbarIndex,
+      queueRecycleChestIndex,
       getSelectedHotbarIndex,
       getCraftAtPoint,
       getTabAtPoint,
@@ -167,13 +170,17 @@ export class CraftingHudCoordinator {
       ) {
         queueRecycleHotbarIndex(state.recycleHotbarIndex);
         state.recycleHotbarIndex = null;
+      } else if (state.recycleChestIndex !== null) {
+        queueRecycleChestIndex(state.recycleChestIndex);
+        state.recycleChestIndex = null;
       }
       return true;
     }
 
     if (isRecycleDropAtPoint(screenX, screenY)) {
-      if (state.recycleHotbarIndex !== null) {
+      if (state.recycleHotbarIndex !== null || state.recycleChestIndex !== null) {
         state.recycleHotbarIndex = null;
+        state.recycleChestIndex = null;
         return true;
       }
       const selectedIndex = getSelectedHotbarIndex();

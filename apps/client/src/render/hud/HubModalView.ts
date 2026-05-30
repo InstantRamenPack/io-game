@@ -51,9 +51,12 @@ export class HubModalView {
     hoveredChestRef: ChestSlotRef | null;
     heldChestRef: ChestSlotRef | null;
     recycleHotbarIndex: number | null;
+    recycleChestIndex: number | null;
     recycleItemLabel: string;
     recycleEnabled: boolean;
+    recycleDropHovered: boolean;
     recycleIconProvider: (hotbarIndex: number) => PIXI.Texture | null;
+    recycleChestIconProvider: (chestIndex: number) => PIXI.Texture | null;
   }): void {
     const dockStorageRight =
       options.craftingVisible &&
@@ -98,9 +101,12 @@ export class HubModalView {
       stackBelowModal:
         !dockStorageRight && options.craftingVisible ? craftingRect : null,
       recycleHotbarIndex: options.recycleHotbarIndex,
+      recycleChestIndex: options.recycleChestIndex,
       recycleItemLabel: options.recycleItemLabel,
       recycleEnabled: options.recycleEnabled,
+      recycleDropHovered: options.recycleDropHovered,
       recycleIconProvider: options.recycleIconProvider,
+      recycleChestIconProvider: options.recycleChestIconProvider,
     });
   }
 

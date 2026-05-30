@@ -23,5 +23,6 @@ export type HudInteractionState = {
   hoveredChestSlotRef: ChestSlotRef | null;
   heldChestSlotRef: ChestSlotRef | null;
   recycleHotbarIndex: number | null;
+  recycleChestIndex: number | null;
   heldCraftOutputTypeId: ResourceId | null;
 };

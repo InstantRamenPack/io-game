@@ -12,6 +12,7 @@ import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
 import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
 import { HubModalView } from "@client/render/hud/HubModalView.ts";
 import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
+import type { ChestSlotRef } from "@client/render/hud/ChestView.ts";
 import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
 import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
 import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
@@ -108,6 +109,7 @@ export class PixiHud {
   private hunkBadgeText?: PIXI.Text;
   private visible = false;
   private dirty = true;
+  private recycleDropHovered = false;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
 
@@ -161,6 +163,7 @@ export class PixiHud {
       hoveredChestSlotRef: null,
       heldChestSlotRef: null,
       recycleHotbarIndex: null,
+      recycleChestIndex: null,
       heldCraftOutputTypeId: null,
     };
   }
@@ -291,6 +294,36 @@ export class PixiHud {
         return true;
       }
 
+      if (this.state.chestOpen && this.state.heldChestSlotRef !== null) {
+        const overRecycle =
+          this.hubModalView?.isRecycleDropAtPoint(
+            pointer.screenX,
+            pointer.screenY,
+          ) ?? false;
+        if (overRecycle !== this.recycleDropHovered) {
+          this.recycleDropHovered = overRecycle;
+          this.markDirty();
+        }
+      } else if (this.recycleDropHovered) {
+        this.recycleDropHovered = false;
+        this.markDirty();
+      }
+
+      const heldForRecycle = this.state.heldChestSlotRef;
+      if (
+        pointer.kind === "up" &&
+        this.state.chestOpen &&
+        heldForRecycle !== null &&
+        (this.hubModalView?.isRecycleDropAtPoint(
+          pointer.screenX,
+          pointer.screenY,
+        ) ?? false)
+      ) {
+        this.tryRecycleHeldItem(heldForRecycle);
+        this.recycleDropHovered = false;
+        this.markDirty();
+      }
+
       if (
         this.state.chestOpen &&
         this.hubModalView &&
@@ -336,6 +369,23 @@ export class PixiHud {
             canRecycleHotbarIndex: (index) => this.canRecycleHotbarIndex(index),
             queueRecycleHotbarIndex: (index) =>
               this.gameClient.queueRecycleHotbarIndex(index),
+            queueRecycleChestIndex: (index) => {
+              if (this.state.openChestEntityId === null) return;
+              const inv = this.selectors.getInventory();
+              if (!inv) return;
+              const emptyIdx = inv.hotbarSlots.findIndex(
+                (s) => s.kind === "empty",
+              );
+              if (emptyIdx < 0) return;
+              this.gameClient.queueChestMove(
+                this.state.openChestEntityId,
+                "chest",
+                index,
+                "hotbar",
+                emptyIdx,
+              );
+              this.gameClient.queueRecycleHotbarIndex(emptyIdx);
+            },
             getSelectedHotbarIndex: () =>
               this.selectors.getInventory()?.selectedHotbarIndex ?? 0,
             getCraftAtPoint: (screenX, screenY) =>
@@ -514,6 +564,7 @@ export class PixiHud {
     const wasOpen = this.state.chestOpen || this.state.craftingMenuOpen;
     this.chestHudCoordinator.close(this.state);
     this.craftingHudCoordinator.close(this.state);
+    this.recycleDropHovered = false;
     if (wasOpen) {
       this.markDirty();
     }
@@ -1333,18 +1384,33 @@ export class PixiHud {
 
     const inventory = this.selectors.getInventory();
     const recycleHotbarIndex = this.state.recycleHotbarIndex;
-    const recycleSlot =
-      recycleHotbarIndex !== null
-        ? inventory?.hotbarSlots[recycleHotbarIndex]
-        : null;
-    const recycleItemLabel =
-      recycleSlot && recycleSlot.kind !== "empty"
-        ? this.selectors.formatTypeLabel(recycleSlot.typeId)
-        : "";
+    const recycleChestIndex = this.state.recycleChestIndex;
     const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
       this.state,
       this.selectors,
     );
+
+    let recycleItemLabel = "";
+    if (recycleHotbarIndex !== null) {
+      const slot = inventory?.hotbarSlots[recycleHotbarIndex];
+      if (slot && slot.kind !== "empty") {
+        recycleItemLabel = this.selectors.formatTypeLabel(slot.typeId);
+      }
+    } else if (recycleChestIndex !== null) {
+      const slot = chestSlots?.[recycleChestIndex];
+      if (slot && slot.kind !== "empty") {
+        recycleItemLabel = this.selectors.formatTypeLabel(slot.typeId);
+      }
+    }
+
+    const recycleEnabled =
+      ((recycleHotbarIndex !== null && this.canRecycleHotbarIndex(recycleHotbarIndex)) ||
+        (recycleChestIndex !== null &&
+          (() => {
+            const slot = chestSlots?.[recycleChestIndex];
+            return slot != null && slot.kind !== "empty" && this.canRecycleTypeId(slot.typeId);
+          })())) &&
+      this.hasNearbyCraftingStation();
 
     this.hubModalView.sync({
       screenWidth,
@@ -1360,16 +1426,18 @@ export class PixiHud {
       craftButtonEnabled: craftAvailability.enabled,
       previewStatusLabel: craftAvailability.statusLabel,
       recycleHotbarIndex,
+      recycleChestIndex,
       recycleItemLabel,
-      recycleEnabled:
-        recycleHotbarIndex !== null &&
-        this.canRecycleHotbarIndex(recycleHotbarIndex) &&
-        this.hasNearbyCraftingStation(),
+      recycleEnabled,
+      recycleDropHovered: this.recycleDropHovered,
       recycleIconProvider: (index) => {
         const slot = inventory?.hotbarSlots[index];
-        if (!slot || slot.kind === "empty") {
-          return null;
-        }
+        if (!slot || slot.kind === "empty") return null;
+        return this.gameClient.renderer.getItemTexture(slot.typeId);
+      },
+      recycleChestIconProvider: (index) => {
+        const slot = chestSlots?.[index];
+        if (!slot || slot.kind === "empty") return null;
         return this.gameClient.renderer.getItemTexture(slot.typeId);
       },
       chestSlots: chestSlots ?? [],
@@ -1442,6 +1510,37 @@ export class PixiHud {
       return recycleValue > 0;
     }
     return !(slot.kind === "weapon" && getItemContent(typeId)?.hidden);
+  }
+
+  private canRecycleTypeId(typeId: string): boolean {
+    const recycleValue = getItemRecycleHunkValue(typeId as ResourceId);
+    if (recycleValue !== undefined) {
+      return recycleValue > 0;
+    }
+    return !getItemContent(typeId as ResourceId)?.hidden;
+  }
+
+  private tryRecycleHeldItem(ref: ChestSlotRef): void {
+    if (ref.source === "hotbar") {
+      if (this.canRecycleHotbarIndex(ref.index)) {
+        this.state.recycleHotbarIndex = ref.index;
+        this.state.recycleChestIndex = null;
+      }
+      return;
+    }
+    const chestSlots = this.chestHudCoordinator.getOpenChestSlots(
+      this.state,
+      this.selectors,
+    );
+    const chestSlot = chestSlots?.[ref.index];
+    if (!chestSlot || chestSlot.kind === "empty") {
+      return;
+    }
+    if (!this.canRecycleTypeId(chestSlot.typeId)) {
+      return;
+    }
+    this.state.recycleChestIndex = ref.index;
+    this.state.recycleHotbarIndex = null;
   }
 
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {

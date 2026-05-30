@@ -160,6 +160,7 @@ export class ChestView {
         fill: 0xe8f5e7,
       }),
     );
+    this.recycleSlotLabel.anchor.set(0, 0.5);
     this.recycleButton = new PIXI.Graphics();
     this.recycleButtonLabel = new PIXI.Text(
       "Recycle",
@@ -218,9 +219,12 @@ export class ChestView {
     dockRightOfModal?: Rect | null;
     stackBelowModal?: Rect | null;
     recycleHotbarIndex: number | null;
+    recycleChestIndex: number | null;
     recycleItemLabel: string;
     recycleEnabled: boolean;
+    recycleDropHovered: boolean;
     recycleIconProvider: (hotbarIndex: number) => PIXI.Texture | null;
+    recycleChestIconProvider: (chestIndex: number) => PIXI.Texture | null;
   }): void {
     const {
       visible,
@@ -233,9 +237,12 @@ export class ChestView {
       dockRightOfModal,
       stackBelowModal,
       recycleHotbarIndex,
+      recycleChestIndex,
       recycleItemLabel,
       recycleEnabled,
+      recycleDropHovered,
       recycleIconProvider,
+      recycleChestIconProvider,
     } = options;
 
     this.container.visible = visible;
@@ -337,7 +344,7 @@ export class ChestView {
       if (slot) {
         slot.setLayout(x, y);
         slot.render({
-          item: chestItems[i] ?? emptySlotItem(),
+          item: recycleChestIndex === i ? emptySlotItem() : (chestItems[i] ?? emptySlotItem()),
           hovered: hoveredRef?.source === "chest" && hoveredRef.index === i,
           held: heldRef?.source === "chest" && heldRef.index === i,
         });
@@ -367,7 +374,7 @@ export class ChestView {
       if (slot) {
         slot.setLayout(x, y);
         slot.render({
-          item: hotbarItems[i] ?? emptySlotItem(),
+          item: recycleHotbarIndex === i ? emptySlotItem() : (hotbarItems[i] ?? emptySlotItem()),
           hovered: hoveredRef?.source === "hotbar" && hoveredRef.index === i,
           held: heldRef?.source === "hotbar" && heldRef.index === i,
         });
@@ -398,6 +405,12 @@ export class ChestView {
       width: dropSize,
       height: dropSize,
     };
+    const hasStaged = recycleHotbarIndex !== null || recycleChestIndex !== null;
+    const dropBorderColor = recycleDropHovered
+      ? 0x5cce6a
+      : hasStaged
+        ? 0x6ea8ff
+        : 0x4a5a72;
     drawRoundedRect(
       this.recycleDrop,
       dropX,
@@ -405,18 +418,16 @@ export class ChestView {
       dropSize,
       dropSize,
       10,
-      { color: 0x17233a, alpha: 0.95 },
-      {
-        width: 2,
-        color: recycleHotbarIndex !== null ? 0x6ea8ff : 0x4a5a72,
-        alpha: 0.9,
-      },
+      { color: recycleDropHovered ? 0x0f2a14 : 0x17233a, alpha: 0.95 },
+      { width: 2, color: dropBorderColor, alpha: 0.9 },
     );
 
     const recycleTexture =
       recycleHotbarIndex !== null
         ? recycleIconProvider(recycleHotbarIndex)
-        : null;
+        : recycleChestIndex !== null
+          ? recycleChestIconProvider(recycleChestIndex)
+          : null;
     if (recycleTexture) {
       this.recycleIcon.texture = recycleTexture;
       this.recycleIcon.width = 34;
@@ -428,7 +439,7 @@ export class ChestView {
       this.recycleIcon.visible = false;
       this.recycleSlotLabel.text = "Drag an item here";
     }
-    this.recycleSlotLabel.position.set(dropX + dropSize + 12, dropY + 5);
+    this.recycleSlotLabel.position.set(dropX + dropSize + 12, dropY + dropSize / 2);
 
     const recycleButtonWidth = 138;
     const recycleButtonX =

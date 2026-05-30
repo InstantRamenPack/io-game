@@ -425,7 +425,7 @@ export class CraftingModal {
       this.craftOutputCosts.text = `Costs: ${previewEntry.costsLabel}`;
       this.craftOutputCosts.position.set(
         outputColumnX,
-        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 28,
+        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 46,
       );
     } else {
       this.craftOutputFrame.clear();

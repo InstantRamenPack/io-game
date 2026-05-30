@@ -65,6 +65,7 @@ export class ChestHudCoordinator {
     queueChestMove: (from: ChestSlotRef, to: ChestSlotRef) => void;
     findFirstEmptySlot: (source: "chest" | "hotbar") => number | null;
     markDirty: () => void;
+    tryRecycleDrop?: (screenX: number, screenY: number, ref: ChestSlotRef) => boolean;
   }): boolean {
     const {
       state,
@@ -109,6 +110,11 @@ export class ChestHudCoordinator {
           this.draggedRef.index !== hoveredRef.index)
       ) {
         queueChestMove(this.draggedRef, hoveredRef);
+      } else if (hoveredRef === null) {
+        const dropRef = this.draggedRef ?? state.heldChestSlotRef;
+        if (dropRef) {
+          options.tryRecycleDrop?.(pointer.screenX, pointer.screenY, dropRef);
+        }
       }
       this.pointerDown = null;
       this.clearDragState(state);
