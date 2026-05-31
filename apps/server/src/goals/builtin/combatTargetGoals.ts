@@ -1,21 +1,21 @@
 import { Building } from "@server/entities/Building.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
-import { TargetNearestEntityGoal } from "@server/goals/builtin/TargetNearestEntityGoal.ts";
+import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
 
 /**
- * Shared player/building targeting for wave and generic combat enemies.
+ * Shared player-first, building-fallback targeting for generic combat enemies.
  */
-export function createCombatTargetGoal(
+export function createCombatTargetGoals(
   priority: number,
   aggroRange: number,
-): TargetNearestEntityGoal<Enemy> {
-  return new TargetNearestEntityGoal<Enemy>(
-    priority,
-    [Player, Building],
-    aggroRange,
-    {
+): readonly TargetEntityGoal<Enemy>[] {
+  return [
+    new TargetEntityGoal<Enemy>(priority, Player, aggroRange, {
       requireLineOfSight: true,
-    },
-  );
+    }),
+    new TargetEntityGoal<Enemy>(priority + 0.5, Building, aggroRange, {
+      requireLineOfSight: true,
+    }),
+  ];
 }

@@ -1,41 +1,56 @@
 import * as PIXI from "pixi.js";
-import type {GameSelectors} from "@client/app/gameSelectors.ts";
-import type {GameClientHudApi, PointerInput,} from "@client/client/clientTypes.ts";
-import {type CraftingModalEntry, type CraftingModalTab,} from "@client/render/hud/CraftingModal.ts";
-import {CombatHudView} from "@client/render/hud/CombatHudView.ts";
-import {CraftingHudCoordinator} from "@client/render/hud/CraftingHudCoordinator.ts";
-import {HubModalView} from "@client/render/hud/HubModalView.ts";
-import {ChestHudCoordinator} from "@client/render/hud/ChestHudCoordinator.ts";
-import type {ChestSlotRef} from "@client/render/hud/ChestView.ts";
-import {BossHealthBar} from "@client/render/hud/BossHealthBar.ts";
-import {DayNightIndicator} from "@client/render/hud/DayNightIndicator.ts";
-import {EffectIconView} from "@client/render/hud/EffectIconView.ts";
-import {GameplayHudCoordinator} from "@client/render/hud/GameplayHudCoordinator.ts";
-import {HudPanel} from "@client/render/hud/HudPanel.ts";
-import {HudTooltipCoordinator} from "@client/render/hud/HudTooltipCoordinator.ts";
-import {HudTooltipView} from "@client/render/hud/HudTooltipView.ts";
-import {HotbarView} from "@client/render/hud/HotbarView.ts";
-import type {CraftingTabId, HudInteractionState,} from "@client/render/hud/HudInteractionState.ts";
-import {InventoryEditCoordinator} from "@client/render/hud/InventoryEditCoordinator.ts";
-import {InventoryView} from "@client/render/hud/InventoryView.ts";
-import {HoldActionPromptView} from "@client/render/hud/HoldActionPromptView.ts";
-import {SelectedItemToastView} from "@client/render/hud/SelectedItemToastView.ts";
-import {computeHotbarActiveIndex, toHotbarSlotItems,} from "@client/render/hud/hotbarModel.ts";
-import {getNearestPickup, getPickupItemLabel,} from "@client/render/hud/pickupInteraction.ts";
-import {findNearestChest} from "@client/render/hud/chestInteraction.ts";
-import {getTowerRepairCost} from "@client/render/hud/towerRepairInteraction.ts";
-import type {TextStyleOptions} from "@client/render/renderTypes.ts";
+import type { GameSelectors } from "@client/app/gameSelectors.ts";
+import type {
+  GameClientHudApi,
+  PointerInput,
+} from "@client/client/clientTypes.ts";
+import {
+  type CraftingModalEntry,
+  type CraftingModalTab,
+} from "@client/render/hud/CraftingModal.ts";
+import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
+import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
+import { HubModalView } from "@client/render/hud/HubModalView.ts";
+import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
+import type { ChestSlotRef } from "@client/render/hud/ChestView.ts";
+import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
+import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
+import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
+import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
+import { HudPanel } from "@client/render/hud/HudPanel.ts";
+import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
+import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
+import { HotbarView } from "@client/render/hud/HotbarView.ts";
+import type {
+  CraftingTabId,
+  HudInteractionState,
+} from "@client/render/hud/HudInteractionState.ts";
+import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
+import { InventoryView } from "@client/render/hud/InventoryView.ts";
+import { HoldActionPromptView } from "@client/render/hud/HoldActionPromptView.ts";
+import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
+import {
+  computeHotbarActiveIndex,
+  toHotbarSlotItems,
+} from "@client/render/hud/hotbarModel.ts";
+import {
+  getNearestPickup,
+  getPickupItemLabel,
+} from "@client/render/hud/pickupInteraction.ts";
+import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
+import { getTowerRepairCost } from "@client/render/hud/towerRepairInteraction.ts";
+import type { TextStyleOptions } from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
   getItemRecycleHunkValue,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
-import {HOTBAR_SLOT_COUNT} from "@shared/gameplay/constants.ts";
-import {getArmorStats} from "@shared/gameplay/rules/armorRules.ts";
-import type {ItemRecipeContent} from "@shared/content/schema.ts";
-import type {ResourceId} from "@shared/ids/ResourceId.ts";
-import type {InventorySnapshot} from "@shared/net/snapshots.ts";
+import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
+import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
+import type { ItemRecipeContent } from "@shared/content/schema.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { InventorySnapshot } from "@shared/net/snapshots.ts";
 
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const CRAFTING_TABS: ReadonlyArray<{ id: CraftingTabId; label: string }> = [
@@ -807,9 +822,10 @@ export class PixiHud {
       this.selectors.getPlayerEntity(),
       this.selectors.getChests(),
     );
-    const nearChest = nearestChest !== null &&
-        !this.state.chestOpen &&
-        !this.state.craftingMenuOpen;
+    const nearChest =
+      nearestChest !== null &&
+      !this.state.chestOpen &&
+      !this.state.craftingMenuOpen;
 
     const nearCraftingStation = false;
 

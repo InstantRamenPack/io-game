@@ -1,6 +1,6 @@
 import { Enemy } from "@server/entities/Enemy.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
-import { createCombatTargetGoal } from "@server/goals/builtin/combatTargetGoals.ts";
+import { createCombatTargetGoals } from "@server/goals/builtin/combatTargetGoals.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
@@ -23,7 +23,7 @@ export class Thanos extends Enemy {
         new ThanosMachineGun(), // slot 3 — machine gun spray
       ],
       goals: [
-        createCombatTargetGoal(0, Number.POSITIVE_INFINITY),
+        ...createCombatTargetGoals(0, 1470),
         new LookAtTargetGoal<Enemy>(1),
         // Melee fist — highest attack priority, close range
         new AttackAtGoal<Enemy>(2, 0),

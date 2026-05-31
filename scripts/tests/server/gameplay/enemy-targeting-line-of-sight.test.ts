@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
+import { Hub } from "@server/entities/buildings/Hub.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
@@ -36,7 +37,48 @@ describe("enemy target line of sight", () => {
     expect(enemy.targetId).toBe(player.id);
   });
 
-  test("enemy does not lock onto player behind static structure", () => {
+  test("enemy prefers a visible player before falling back to a nearer building", () => {
+    const { runtime } = makeRuntime();
+    const player = spawnPlayerLikeDynamic(runtime, 6500, 500);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = 6150;
+    hub.y = 700;
+    runtime.world.spawn(hub);
+    const enemy = spawnEnemy(runtime, "police", 6100, 500) as Enemy;
+
+    tick(runtime, 1);
+
+    expect(enemy.targetId).toBe(player.id);
+
+    player.alive = false;
+    runtime.world.despawn(player.id);
+    tick(runtime, 1);
+
+    expect(enemy.targetId).toBe(hub.id);
+  });
+
+  test("wave enemy uses finite player-first aggro before falling back to buildings", () => {
+    const { runtime } = makeRuntime();
+    const player = spawnPlayerLikeDynamic(runtime, 6500, 500);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = 6150;
+    hub.y = 700;
+    runtime.world.spawn(hub);
+    const enemy = spawnEnemy(runtime, "police", 6100, 500) as Enemy;
+    enemy.spawnSource = "wave";
+
+    tick(runtime, 1);
+
+    expect(enemy.targetId).toBe(player.id);
+
+    player.x = 7600;
+    player.y = 500;
+    tick(runtime, 1);
+
+    expect(enemy.targetId).toBe(hub.id);
+  });
+
+  test("enemy targets blocking building when player is hidden behind it", () => {
     const { runtime } = makeRuntime();
     spawnPlayerLikeDynamic(runtime, playerStart.x, playerStart.y);
     const enemy = spawnEnemy(
@@ -45,11 +87,11 @@ describe("enemy target line of sight", () => {
       enemyStart.x,
       enemyStart.y,
     ) as Enemy;
-    spawnWall(runtime, wallStart.x, wallStart.y);
+    const wall = spawnWall(runtime, wallStart.x, wallStart.y);
 
     tick(runtime, 1);
 
-    expect(enemy.targetId).toBeUndefined();
+    expect(enemy.targetId).toBe(wall.id);
   });
 
   test("enemy keeps existing player lock when structure blocks sight for under one hundred ticks", () => {
@@ -118,9 +160,9 @@ describe("enemy target line of sight", () => {
     tick(runtime, 1);
     expect(enemy.targetId).toBe(player.id);
 
-    spawnWall(runtime, wallStart.x, wallStart.y);
+    const wall = spawnWall(runtime, wallStart.x, wallStart.y);
     tick(runtime, 100);
 
-    expect(enemy.targetId).toBeUndefined();
+    expect(enemy.targetId).toBe(wall.id);
   });
 });

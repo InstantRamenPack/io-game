@@ -1,5 +1,5 @@
 import { createEnemySpawnWeapons, Enemy } from "@server/entities/Enemy.ts";
-import { createCombatTargetGoal } from "@server/goals/builtin/combatTargetGoals.ts";
+import { createCombatTargetGoals } from "@server/goals/builtin/combatTargetGoals.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 /**
@@ -12,7 +12,7 @@ export class Commander extends Enemy {
     super(id, {
       weapons: createEnemySpawnWeapons(Commander.typeId, 0).weapons,
       goals: [
-        createCombatTargetGoal(0, 1080),
+        ...createCombatTargetGoals(0, 1080),
         new LookAtTargetGoal<Enemy>(1),
         new RangedAttackGoal<Enemy>(2, 0, 360, 48, 36, 0.65, 600),
       ],

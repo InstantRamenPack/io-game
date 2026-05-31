@@ -65,7 +65,11 @@ export class ChestHudCoordinator {
     queueChestMove: (from: ChestSlotRef, to: ChestSlotRef) => void;
     findFirstEmptySlot: (source: "chest" | "hotbar") => number | null;
     markDirty: () => void;
-    tryRecycleDrop?: (screenX: number, screenY: number, ref: ChestSlotRef) => boolean;
+    tryRecycleDrop?: (
+      screenX: number,
+      screenY: number,
+      ref: ChestSlotRef,
+    ) => boolean;
   }): boolean {
     const {
       state,
