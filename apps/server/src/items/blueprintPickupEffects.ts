@@ -5,6 +5,19 @@ import { Player } from "@server/entities/Player.ts";
 import { WORLD_BLUEPRINT_PICKUP_TYPE_IDS } from "@server/content/serverContentCapabilities.ts";
 import type { World } from "@server/world/World.ts";
 
+// Ordered chain of armor blueprint recipe IDs from lowest to highest tier.
+// When any armor blueprint is picked up, the player receives the lowest tier
+// not yet unlocked in the session, preventing skipped prerequisites.
+const ARMOR_BLUEPRINT_RECIPE_CHAIN: readonly ResourceId[] = [
+  "item:armor_t2" as ResourceId,
+  "item:armor_t3" as ResourceId,
+  "item:armor_t4" as ResourceId,
+];
+
+const ARMOR_BLUEPRINT_RECIPE_SET = new Set<ResourceId>(
+  ARMOR_BLUEPRINT_RECIPE_CHAIN,
+);
+
 export function isBlueprintPickup(pickup: ItemEntity): boolean {
   return WORLD_BLUEPRINT_PICKUP_TYPE_IDS.some(
     (typeId) => pickup.contents.getStackableCount(typeId) > 0,
@@ -28,22 +41,56 @@ export function applyBlueprintPickupWorldEffects(
   pickup: ItemEntity,
   collector: Player,
 ): void {
-  const unlockedRecipeTypeIds = getBlueprintPickupRecipeTypeIds(pickup);
-  if (unlockedRecipeTypeIds.size === 0) {
+  const rawRecipeTypeIds = getBlueprintPickupRecipeTypeIds(pickup);
+  if (rawRecipeTypeIds.size === 0) {
     return;
   }
 
-  for (const unlockedRecipeTypeId of unlockedRecipeTypeIds) {
-    world.recordSessionRecipeUnlock(unlockedRecipeTypeId);
-    for (const player of world.entities.queryInstances(Player)) {
-      player.inventory.unlockRecipe(unlockedRecipeTypeId);
+  // Resolve armor blueprints to the next unlocked tier; pass others through.
+  const effectiveRecipeTypeIds = new Set<ResourceId>();
+  for (const recipeTypeId of rawRecipeTypeIds) {
+    if (ARMOR_BLUEPRINT_RECIPE_SET.has(recipeTypeId)) {
+      const nextTier = ARMOR_BLUEPRINT_RECIPE_CHAIN.find(
+        (tier) => !world.isRecipeSessionUnlocked(tier),
+      );
+      if (nextTier !== undefined) {
+        effectiveRecipeTypeIds.add(nextTier);
+      }
+    } else {
+      effectiveRecipeTypeIds.add(recipeTypeId);
     }
   }
 
-  const label = getBlueprintPickupLabel(pickup);
+  if (effectiveRecipeTypeIds.size === 0) {
+    return;
+  }
+
+  for (const recipeTypeId of effectiveRecipeTypeIds) {
+    world.recordSessionRecipeUnlock(recipeTypeId);
+    for (const player of world.entities.queryInstances(Player)) {
+      player.inventory.unlockRecipe(recipeTypeId);
+    }
+  }
+
+  const label = resolveEffectiveBlueprintLabel(pickup, effectiveRecipeTypeIds);
   world.broadcastSystemMessage(
     `${collector.name} found a ${label}! Recipe unlocked for all players.`,
   );
+}
+
+function resolveEffectiveBlueprintLabel(
+  pickup: ItemEntity,
+  effectiveRecipeTypeIds: Set<ResourceId>,
+): string {
+  for (const tier of ARMOR_BLUEPRINT_RECIPE_CHAIN) {
+    if (effectiveRecipeTypeIds.has(tier)) {
+      const armorLabel = getItemContent(tier)?.label;
+      if (armorLabel) {
+        return `Blueprint: ${armorLabel}`;
+      }
+    }
+  }
+  return getBlueprintPickupLabel(pickup);
 }
 
 function getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {

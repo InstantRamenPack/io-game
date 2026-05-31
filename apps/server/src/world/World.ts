@@ -424,6 +424,10 @@ export class World {
     return true;
   }
 
+  public isRecipeSessionUnlocked(typeId: ResourceId): boolean {
+    return this.sessionUnlockedRecipeTypeIds.has(typeId);
+  }
+
   private decayOuterPlayerBuildings(deltaMs: number): void {
     if (!this.proceduralLayout || this.playerBuildingSpawnTickById.size === 0) {
       return;
