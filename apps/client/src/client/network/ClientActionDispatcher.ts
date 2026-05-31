@@ -1,6 +1,7 @@
 import type { InputManager } from "@client/input/InputManager.ts";
 import type { WsClient } from "@client/net/WsClient.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { CraftTargetInput } from "@shared/net/protocol.ts";
 
 type DispatcherOptions = {
   networkClient: WsClient;
@@ -19,10 +20,13 @@ export class ClientActionDispatcher {
     });
   }
 
-  public queueCraftItem(itemTypeId: ResourceId): void {
+  public queueCraftItem(
+    itemTypeId: ResourceId,
+    target?: CraftTargetInput,
+  ): void {
     this.sendAction({
       action: "craft",
-      craft: { itemTypeId },
+      craft: { itemTypeId, target },
     });
   }
 
@@ -135,7 +139,10 @@ export class ClientActionDispatcher {
   private sendAction(
     payload:
       | { action: "attack"; theta: number }
-      | { action: "craft"; craft: { itemTypeId: ResourceId } }
+      | {
+          action: "craft";
+          craft: { itemTypeId: ResourceId; target?: CraftTargetInput };
+        }
       | { action: "build"; build: { x: number; y: number } }
       | {
           action: "inventoryMove";

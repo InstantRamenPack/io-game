@@ -11,8 +11,7 @@ const CRAFT_MODAL_SCROLLBAR_WIDTH = 6;
 const CRAFT_TAB_HEIGHT = 30;
 const CRAFT_TAB_GAP = 8;
 const HUB_COLUMN_GAP = 14;
-const CRAFT_OUTPUT_SLOT_SIZE = 72;
-const CRAFT_OUTPUT_COLUMN_WIDTH = 90;
+const CRAFT_TAB_WIDTH = 112;
 
 export type CraftingModalTab = {
   id: CraftingTabId;
@@ -41,6 +40,7 @@ class CraftTileView {
   private readonly background: PIXI.Graphics;
   private readonly icon: PIXI.Sprite;
   private readonly label: PIXI.Text;
+  private readonly costs: PIXI.Text;
   private rect: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
   constructor(labelStyle: PIXI.TextStyle) {
@@ -50,16 +50,27 @@ class CraftTileView {
     this.icon.anchor.set(0.5);
     this.label = new PIXI.Text("", labelStyle);
     this.label.anchor.set(0.5, 0);
+    this.costs = new PIXI.Text(
+      "",
+      new PIXI.TextStyle({
+        fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+        fontSize: 11,
+        fill: 0xaeb7aa,
+      }),
+    );
+    this.costs.anchor.set(0.5, 0);
 
     this.container.addChild(this.background);
     this.container.addChild(this.icon);
     this.container.addChild(this.label);
+    this.container.addChild(this.costs);
   }
 
   public setLayout(x: number, y: number, width: number, height: number): void {
     this.rect = { x, y, width, height };
     this.container.position.set(x, y);
-    this.label.position.set(width / 2, height - 24);
+    this.label.position.set(width / 2, height - 38);
+    this.costs.position.set(width / 2, height - 19);
   }
 
   public render(
@@ -90,7 +101,7 @@ class CraftTileView {
         alpha: 0.75,
       });
 
-    const iconSize = Math.max(24, Math.min(width - 24, height - 54));
+    const iconSize = Math.max(24, Math.min(width - 24, height - 72));
     this.icon.texture = texture;
     this.icon.width = iconSize;
     this.icon.height = iconSize;
@@ -101,6 +112,10 @@ class CraftTileView {
     this.label.style.fill = entry.available ? 0xf1f6ef : 0x8b9188;
     this.label.style.wordWrap = true;
     this.label.style.wordWrapWidth = Math.max(0, width - 16);
+    this.costs.text = entry.costsLabel;
+    this.costs.style.fill = entry.available ? 0xaeb7aa : 0x737970;
+    this.costs.style.wordWrap = true;
+    this.costs.style.wordWrapWidth = Math.max(0, width - 14);
   }
 
   public getRect(): Rect {
@@ -113,55 +128,36 @@ export class CraftingModal {
   private readonly background: PIXI.Graphics;
   private readonly leftPane: PIXI.Graphics;
   private readonly leftTitle: PIXI.Text;
-  private readonly outputTitle: PIXI.Text;
-  private readonly craftOutputFrame: PIXI.Graphics;
-  private readonly craftOutputIcon: PIXI.Sprite;
-  private readonly craftOutputHint: PIXI.Text;
-  private readonly craftOutputCosts: PIXI.Text;
   private readonly tabBar: PIXI.Container;
+  private readonly tabViewportMask: PIXI.Graphics;
   private readonly tabBackgrounds = new Map<CraftingTabId, PIXI.Graphics>();
   private readonly tabLabels = new Map<CraftingTabId, PIXI.Text>();
   private readonly tileViewportMask: PIXI.Graphics;
   private readonly tileViews: CraftTileView[] = [];
   private readonly tileRects = new Map<ResourceId, Rect>();
   private readonly tabRects = new Map<CraftingTabId, Rect>();
-  private craftOutputRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private tabViewportRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private modalRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   private scrollRowOffset = 0;
+  private tabScrollOffset = 0;
 
   constructor(styles: CraftingModalStyles) {
     this.container = new PIXI.Container();
     this.background = new PIXI.Graphics();
     this.leftPane = new PIXI.Graphics();
     this.leftTitle = new PIXI.Text("Craftables", styles.titleStyle);
-    this.outputTitle = new PIXI.Text("Output", styles.titleStyle);
     this.tabBar = new PIXI.Container();
-    this.craftOutputFrame = new PIXI.Graphics();
-    this.craftOutputIcon = new PIXI.Sprite();
-    this.craftOutputIcon.anchor.set(0.5);
-    this.craftOutputHint = new PIXI.Text(
-      "Drag to hotbar",
-      styles.detailBodyStyle,
-    );
-    this.craftOutputCosts = new PIXI.Text("", styles.detailBodyStyle);
+    this.tabViewportMask = new PIXI.Graphics();
     this.tileViewportMask = new PIXI.Graphics();
 
     this.container.addChild(
       this.background,
       this.leftPane,
       this.leftTitle,
-      this.outputTitle,
       this.tabBar,
-      this.craftOutputFrame,
-      this.craftOutputIcon,
-      this.craftOutputHint,
-      this.craftOutputCosts,
+      this.tabViewportMask,
       this.tileViewportMask,
     );
-
-    this.craftOutputCosts.style.wordWrap = true;
-    this.craftOutputCosts.style.wordWrapWidth = CRAFT_OUTPUT_COLUMN_WIDTH - 8;
-    this.craftOutputHint.style.align = "center";
 
     for (let index = 0; index < CRAFT_MODAL_MAX_TILES; index += 1) {
       const tileView = new CraftTileView(styles.tileLabelStyle);
@@ -183,6 +179,7 @@ export class CraftingModal {
     craftButtonEnabled: boolean;
     previewStatusLabel: string;
     companionColumnWidth?: number | null;
+    height?: number | null;
     visible: boolean;
   }): void {
     const {
@@ -197,6 +194,7 @@ export class CraftingModal {
       craftButtonEnabled,
       previewStatusLabel,
       companionColumnWidth,
+      height,
       visible,
     } = options;
 
@@ -204,8 +202,8 @@ export class CraftingModal {
     this.tileRects.clear();
     this.tabRects.clear();
     if (!visible) {
-      this.craftOutputRect = { x: 0, y: 0, width: 0, height: 0 };
       this.modalRect = { x: 0, y: 0, width: 0, height: 0 };
+      this.tabViewportRect = { x: 0, y: 0, width: 0, height: 0 };
       return;
     }
 
@@ -222,7 +220,10 @@ export class CraftingModal {
       modalWidth = Math.max(320, screenWidth - 16);
     }
 
-    let modalHeight = Math.min(560, screenHeight - 32);
+    let modalHeight =
+      height !== undefined && height !== null
+        ? Math.min(height, screenHeight - 32)
+        : Math.min(560, screenHeight - 32);
     if (modalHeight < 360) {
       modalHeight = Math.max(300, screenHeight - 16);
     }
@@ -238,7 +239,6 @@ export class CraftingModal {
     };
     this.container.position.set(modalX, modalY);
 
-    const outputColumnX = modalWidth - CRAFT_OUTPUT_COLUMN_WIDTH - 22;
     const paneHeight = modalHeight;
     const mainPaneHeight = paneHeight - 20;
 
@@ -263,11 +263,10 @@ export class CraftingModal {
     );
 
     this.leftTitle.position.set(26, 24);
-    this.outputTitle.position.set(outputColumnX + 8, 24);
 
     const leftInnerX = 26;
     const tabsY = 58;
-    const gridInnerWidth = outputColumnX - leftInnerX - CRAFT_MODAL_TILE_GAP;
+    const gridInnerWidth = modalWidth - leftInnerX - 26;
     this.syncTabs(
       tabs,
       activeTab,
@@ -374,65 +373,8 @@ export class CraftingModal {
         .fill({ color: 0x6ea8ff, alpha: 0.95 });
     }
 
-    const previewEntry =
-      entries.find((entry) => entry.typeId === previewedCraft) ?? entries[0];
-
-    const outputSlotX = outputColumnX + 6;
-    const outputSlotY =
-      leftInnerY +
-      Math.max(0, Math.floor((leftInnerHeight - CRAFT_OUTPUT_SLOT_SIZE) / 2));
-    this.craftOutputRect = {
-      x: modalX + outputSlotX,
-      y: modalY + outputSlotY,
-      width: CRAFT_OUTPUT_SLOT_SIZE,
-      height: CRAFT_OUTPUT_SLOT_SIZE,
-    };
-
-    if (previewEntry) {
-      const outputReady = craftButtonEnabled && previewEntry.available;
-      drawRoundedRect(
-        this.craftOutputFrame,
-        outputSlotX,
-        outputSlotY,
-        CRAFT_OUTPUT_SLOT_SIZE,
-        CRAFT_OUTPUT_SLOT_SIZE,
-        12,
-        { color: outputReady ? 0x1f3f66 : 0x151517, alpha: 0.96 },
-        {
-          width: 3,
-          color: outputReady ? 0x6ea8ff : 0x4a5a72,
-          alpha: 0.95,
-        },
-      );
-      const iconSize = CRAFT_OUTPUT_SLOT_SIZE - 28;
-      this.craftOutputIcon.texture = iconProvider(previewEntry.typeId);
-      this.craftOutputIcon.width = iconSize;
-      this.craftOutputIcon.height = iconSize;
-      this.craftOutputIcon.position.set(
-        outputSlotX + CRAFT_OUTPUT_SLOT_SIZE / 2,
-        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE / 2 - 4,
-      );
-      this.craftOutputIcon.visible = true;
-      this.craftOutputHint.text = outputReady
-        ? "Drag to hotbar"
-        : previewStatusLabel;
-      this.craftOutputHint.style.fill = outputReady ? 0xa8c4ef : 0xd78a76;
-      this.craftOutputHint.position.set(
-        outputSlotX + CRAFT_OUTPUT_SLOT_SIZE / 2,
-        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 6,
-      );
-      this.craftOutputHint.anchor.set(0.5, 0);
-      this.craftOutputCosts.text = `Costs: ${previewEntry.costsLabel}`;
-      this.craftOutputCosts.position.set(
-        outputColumnX,
-        outputSlotY + CRAFT_OUTPUT_SLOT_SIZE + 46,
-      );
-    } else {
-      this.craftOutputFrame.clear();
-      this.craftOutputIcon.visible = false;
-      this.craftOutputHint.text = "Select a recipe";
-      this.craftOutputCosts.text = "";
-    }
+    void craftButtonEnabled;
+    void previewStatusLabel;
   }
 
   public containsPoint(screenX: number, screenY: number): boolean {
@@ -449,6 +391,9 @@ export class CraftingModal {
   }
 
   public getTabAtPoint(screenX: number, screenY: number): CraftingTabId | null {
+    if (!isPointInRect(screenX, screenY, this.tabViewportRect)) {
+      return null;
+    }
     for (const [tabId, rect] of this.tabRects.entries()) {
       if (isPointInRect(screenX, screenY, rect)) {
         return tabId;
@@ -458,7 +403,9 @@ export class CraftingModal {
   }
 
   public isCraftOutputAtPoint(screenX: number, screenY: number): boolean {
-    return isPointInRect(screenX, screenY, this.craftOutputRect);
+    void screenX;
+    void screenY;
+    return false;
   }
 
   public isCraftButtonAtPoint(_screenX: number, _screenY: number): boolean {
@@ -470,7 +417,10 @@ export class CraftingModal {
     screenY: number,
     previewedCraft: ResourceId,
   ): ResourceId | null {
-    return this.isCraftOutputAtPoint(screenX, screenY) ? previewedCraft : null;
+    void screenX;
+    void screenY;
+    void previewedCraft;
+    return null;
   }
 
   public getModalRect(): Rect {
@@ -489,10 +439,21 @@ export class CraftingModal {
     return true;
   }
 
+  public isTabBarAtPoint(screenX: number, screenY: number): boolean {
+    return isPointInRect(screenX, screenY, this.tabViewportRect);
+  }
+
+  public scrollTabsBy(deltaPx: number): boolean {
+    if (!Number.isFinite(deltaPx) || deltaPx === 0) {
+      return false;
+    }
+    const previous = this.tabScrollOffset;
+    this.tabScrollOffset = Math.max(0, this.tabScrollOffset + deltaPx);
+    return this.tabScrollOffset !== previous;
+  }
+
   public getCraftOutputRect(): Rect | null {
-    return this.craftOutputRect.width > 0 && this.craftOutputRect.height > 0
-      ? this.craftOutputRect
-      : null;
+    return null;
   }
 
   public getPreviewRect(): Rect | null {
@@ -511,9 +472,26 @@ export class CraftingModal {
     this.tabBar.position.set(0, 0);
     let tabX = x;
     const tabWidth = Math.max(
-      74,
+      CRAFT_TAB_WIDTH,
       Math.floor((width - (tabs.length - 1) * CRAFT_TAB_GAP) / tabs.length),
     );
+    const contentWidth =
+      tabs.length * tabWidth + Math.max(0, tabs.length - 1) * CRAFT_TAB_GAP;
+    const maxScrollOffset = Math.max(0, contentWidth - width);
+    this.tabScrollOffset = clamp(this.tabScrollOffset, 0, maxScrollOffset);
+    this.tabViewportRect = {
+      x: modalX + x,
+      y: modalY + y,
+      width,
+      height: CRAFT_TAB_HEIGHT,
+    };
+    this.tabViewportMask.clear();
+    this.tabViewportMask.rect(x, y, width, CRAFT_TAB_HEIGHT).fill({
+      color: 0xffffff,
+      alpha: 1,
+    });
+    this.tabBar.mask = this.tabViewportMask;
+    tabX -= this.tabScrollOffset;
 
     for (const tab of tabs) {
       let background = this.tabBackgrounds.get(tab.id);

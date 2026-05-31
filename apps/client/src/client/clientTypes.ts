@@ -1,6 +1,7 @@
 import type { Texture } from "pixi.js";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type { CraftTargetInput } from "@shared/net/protocol.ts";
 
 export type PerformanceRateState = {
   frameRate: number | null;
@@ -31,7 +32,7 @@ export type GameClientHudApi = {
     | undefined;
   queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void;
   queueSelectHotbarIndex(index: number): void;
-  queueCraftItem(itemTypeId: ResourceId): void;
+  queueCraftItem(itemTypeId: ResourceId, target?: CraftTargetInput): void;
   queueBuildPlacement(x: number, y: number): void;
   queueChestMove(
     chestEntityId: number,

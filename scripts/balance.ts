@@ -1197,7 +1197,7 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
         poolKey,
         "excludeBlueprintTypeIds",
       ]),
-      '"blueprint:armor_t2"',
+      '"blueprint:armor"',
     );
   }
 

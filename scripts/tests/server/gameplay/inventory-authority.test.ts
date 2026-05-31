@@ -26,6 +26,10 @@ const basicGunItemId = makeResourceId("item", "basic_gun");
 const basicGunMagItemId = makeResourceId("mag", "basic_gun");
 const heavyPistolItemId = makeResourceId("item", "heavy_pistol");
 const heavyPistolBlueprintItemId = makeResourceId("blueprint", "heavy_pistol");
+const armorBlueprintItemId = makeResourceId("blueprint", "armor");
+const armorTier2ItemId = makeResourceId("item", "armor_t2");
+const armorTier3ItemId = makeResourceId("item", "armor_t3");
+const armorTier4ItemId = makeResourceId("item", "armor_t4");
 
 function addWallAndFindSlot(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -123,6 +127,35 @@ describe("inventory authority", () => {
     expect(collector.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(teammate.inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
+  });
+
+  test("repeat armor blueprint pickups unlock the next locked armor tier", () => {
+    const { runtime } = makeRuntime();
+    const { player: collector } = connectTestClient(runtime, "client-1");
+
+    for (const [index, expectedRecipeId] of [
+      armorTier2ItemId,
+      armorTier3ItemId,
+      armorTier4ItemId,
+    ].entries()) {
+      const pickupInventory = new Inventory();
+      pickupInventory.addStackable(armorBlueprintItemId, 1);
+      const pickup = new ItemEntity(
+        runtime.world.allocEntityId(),
+        pickupInventory,
+      );
+      pickup.x = collector.x;
+      pickup.y = collector.y;
+      runtime.world.spawn(pickup);
+
+      enqueueAction(runtime, {
+        t: "action",
+        seq: index + 1,
+        action: "pickup",
+      });
+      expect(collector.inventory.isRecipeUnlocked(expectedRecipeId)).toBe(true);
+      expect(runtime.world.entities.has(pickup.id)).toBe(false);
+    }
   });
 
   test("blueprint unlocks persist for players who join after pickup", () => {

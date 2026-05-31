@@ -34,6 +34,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle, shortestAngleDelta } from "@shared/math/angle.ts";
 import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
 import type {
+  CraftTargetInput,
   InputMovement,
   LobbyStateMessage,
   GameCompleteMessage,
@@ -328,8 +329,11 @@ export class GameClient {
     this.sendAttackAction(theta, performance.now());
   }
 
-  public queueCraftItem(itemTypeId: ResourceId): void {
-    this.actionDispatcher.queueCraftItem(itemTypeId);
+  public queueCraftItem(
+    itemTypeId: ResourceId,
+    target?: CraftTargetInput,
+  ): void {
+    this.actionDispatcher.queueCraftItem(itemTypeId, target);
   }
 
   public queueBuildPlacement(x: number, y: number): void {

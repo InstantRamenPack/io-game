@@ -218,6 +218,7 @@ export const ItemContentSchema = z.object({
   hidden: z.boolean().default(false),
   recipe: ItemRecipeContentSchema.optional(),
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
+  unlocksRecipeTypeIds: z.array(ResourceIdSchema).optional(),
   buildsEntityTypeId: ResourceIdSchema.optional(),
   weapon: WeaponContentSchema.optional(),
   rarityTier: RarityTierSchema.optional(),

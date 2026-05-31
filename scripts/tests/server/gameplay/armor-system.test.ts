@@ -205,6 +205,27 @@ describe("armor system", () => {
   });
 
   test("armor recipes are sequential and blueprint-gated", () => {
+    const armorBlueprintId = makeResourceId("blueprint", "armor");
+    const armorBlueprint = getItemContent(armorBlueprintId);
+    expect(armorBlueprint?.rarityTier).toBe("rare");
+    expect(armorBlueprint?.unlocksRecipeTypeId).toBe(
+      makeResourceId("item", "armor_t2"),
+    );
+    expect(armorBlueprint?.unlocksRecipeTypeIds).toEqual([
+      makeResourceId("item", "armor_t2"),
+      makeResourceId("item", "armor_t3"),
+      makeResourceId("item", "armor_t4"),
+    ]);
+    expect(getItemContent(makeResourceId("blueprint", "armor_t2"))).toBe(
+      undefined,
+    );
+    expect(getItemContent(makeResourceId("blueprint", "armor_t3"))).toBe(
+      undefined,
+    );
+    expect(getItemContent(makeResourceId("blueprint", "armor_t4"))).toBe(
+      undefined,
+    );
+
     expect(isRecipeBlueprintLocked(makeResourceId("item", "armor_t1"))).toBe(
       false,
     );

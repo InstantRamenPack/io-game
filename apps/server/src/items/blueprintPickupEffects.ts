@@ -1,4 +1,7 @@
-import { getItemContent } from "@shared/content/catalog.ts";
+import {
+  getBlueprintUnlockedRecipeTypeIds,
+  getItemContent,
+} from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -102,8 +105,9 @@ function getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {
     if (amount <= 0) {
       continue;
     }
-    const unlockedRecipeTypeId = getItemContent(typeId)?.unlocksRecipeTypeId;
-    if (unlockedRecipeTypeId) {
+    for (const unlockedRecipeTypeId of getBlueprintUnlockedRecipeTypeIds(
+      typeId,
+    )) {
       unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
     }
   }
@@ -112,10 +116,9 @@ function getBlueprintPickupRecipeTypeIds(pickup: ItemEntity): Set<ResourceId> {
     if (!slot || slot.kind === "weapon" || slot.count <= 0) {
       continue;
     }
-    const unlockedRecipeTypeId = getItemContent(
+    for (const unlockedRecipeTypeId of getBlueprintUnlockedRecipeTypeIds(
       slot.typeId,
-    )?.unlocksRecipeTypeId;
-    if (unlockedRecipeTypeId) {
+    )) {
       unlockedRecipeTypeIds.add(unlockedRecipeTypeId);
     }
   }

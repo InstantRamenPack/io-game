@@ -135,9 +135,9 @@ export class CraftingHudCoordinator {
     state: HudInteractionState;
     screenX: number;
     screenY: number;
+    shiftKey: boolean;
     canSubmitCraft: (itemTypeId: ResourceId) => boolean;
     queueCraftItem: (itemTypeId: ResourceId) => void;
-    isCraftOutputAtPoint: (screenX: number, screenY: number) => boolean;
     isRecycleButtonAtPoint: (screenX: number, screenY: number) => boolean;
     isRecycleDropAtPoint: (screenX: number, screenY: number) => boolean;
     canRecycleHotbarIndex: (index: number) => boolean;
@@ -151,8 +151,9 @@ export class CraftingHudCoordinator {
       state,
       screenX,
       screenY,
+      shiftKey,
       canSubmitCraft,
-      isCraftOutputAtPoint,
+      queueCraftItem,
       isRecycleButtonAtPoint,
       isRecycleDropAtPoint,
       canRecycleHotbarIndex,
@@ -178,7 +179,10 @@ export class CraftingHudCoordinator {
     }
 
     if (isRecycleDropAtPoint(screenX, screenY)) {
-      if (state.recycleHotbarIndex !== null || state.recycleChestIndex !== null) {
+      if (
+        state.recycleHotbarIndex !== null ||
+        state.recycleChestIndex !== null
+      ) {
         state.recycleHotbarIndex = null;
         state.recycleChestIndex = null;
         return true;
@@ -198,15 +202,6 @@ export class CraftingHudCoordinator {
       return true;
     }
 
-    if (isCraftOutputAtPoint(screenX, screenY)) {
-      const craftTarget = state.previewedCraft;
-      state.selectedCraft = craftTarget;
-      if (canSubmitCraft(craftTarget)) {
-        state.heldCraftOutputTypeId = craftTarget;
-      }
-      return true;
-    }
-
     const clickedCraft = getCraftAtPoint(screenX, screenY);
     if (!clickedCraft) {
       return false;
@@ -216,6 +211,13 @@ export class CraftingHudCoordinator {
     this.hoveredCraftPreview = false;
     state.selectedCraft = clickedCraft;
     state.previewedCraft = clickedCraft;
+    if (canSubmitCraft(clickedCraft)) {
+      if (shiftKey) {
+        queueCraftItem(clickedCraft);
+      } else {
+        state.heldCraftOutputTypeId = clickedCraft;
+      }
+    }
     return true;
   }
 

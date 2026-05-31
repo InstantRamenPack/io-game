@@ -656,11 +656,17 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("every blueprint appears exactly once across villages, extraction, and dungeon", () => {
+  test("every non-repeatable blueprint appears exactly once and the repeatable armor blueprint appears three times across villages, extraction, and dungeon", () => {
     const seeds = [1337, 1338, 1339, 4242];
+    const repeatableArmorBlueprintTypeId = "blueprint:armor" as ResourceId;
     const allBlueprintTypeIds = getAllItemContentEntries()
-      .filter(([, item]) => item.unlocksRecipeTypeId)
+      .filter(
+        ([, item]) => item.unlocksRecipeTypeId || item.unlocksRecipeTypeIds,
+      )
       .map(([typeId]) => typeId);
+    const uniqueBlueprintTypeIds = allBlueprintTypeIds.filter(
+      (typeId) => typeId !== repeatableArmorBlueprintTypeId,
+    );
 
     for (const seed of seeds) {
       const layout = generateProceduralWorldLayout(seed);
@@ -684,7 +690,11 @@ describe("procedural survival extraction world", () => {
       }
 
       expect(observedBlueprintTypeIds.size).toBe(allBlueprintTypeIds.length);
-      for (const typeId of allBlueprintTypeIds) {
+      expect(
+        observedBlueprintTypeIds.get(repeatableArmorBlueprintTypeId),
+        `seed ${seed}: ${repeatableArmorBlueprintTypeId} should appear once per armor unlock tier`,
+      ).toBe(3);
+      for (const typeId of uniqueBlueprintTypeIds) {
         expect(
           observedBlueprintTypeIds.get(typeId),
           `seed ${seed}: ${typeId} should appear exactly once`,

@@ -1,9 +1,0 @@
-{
-  "label": "Blueprint: Juggernaut Armor",
-  "hint": "Unlocks Juggernaut Armor crafting.",
-  "description": "Unlocks the Juggernaut Armor recipe permanently for this session.",
-  "unlocksRecipeTypeId": "item:armor_t3",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  }
-}

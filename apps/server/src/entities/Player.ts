@@ -1,5 +1,6 @@
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import {
+  getItemContent,
   requireEntityContent,
   isRecipeBlueprintLocked,
   getWeaponContent,
@@ -16,7 +17,11 @@ import {
 } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import type { ActionMessage, InputMovement } from "@shared/net/protocol.ts";
+import type {
+  ActionMessage,
+  CraftTargetInput,
+  InputMovement,
+} from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import { Entity } from "@server/entities/Entity.ts";
@@ -42,6 +47,7 @@ import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
 import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import type { Item } from "@server/items/Item.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import { entityTypeRegistry } from "@server/registry/registries.ts";
@@ -62,6 +68,10 @@ type PlayerInputIntentState = {
   movement: InputMovement;
   receivedAtMs: number;
 };
+
+type ResolvedCraftTarget =
+  | { source: "hotbar"; index: number }
+  | { source: "chest"; index: number; chest: Chest | Hub };
 
 /**
  * Authoritative player entity driven by held movement state and queued actions.
@@ -292,7 +302,11 @@ export class Player extends Entity {
     });
   }
 
-  public craft(world: World, itemTypeId: ResourceId): void {
+  public craft(
+    world: World,
+    itemTypeId: ResourceId,
+    target?: CraftTargetInput,
+  ): void {
     const shouldTrace = world.focusedTrace.matchesEntity(this);
     const nearbyCraftingStations = this.getNearbyCraftingStations(world);
     const nearCraftingStation = nearbyCraftingStations.some((station) => {
@@ -354,12 +368,20 @@ export class Player extends Entity {
     }
 
     const outputItem = new outputEntry.ctor();
+    const craftTarget = this.resolveCraftTarget(world, target);
+    const canStoreTargetedCraftOutput =
+      craftTarget !== null &&
+      this.canStoreCraftOutputInTarget(
+        outputItem,
+        recipe.outputAmount,
+        craftTarget,
+      );
     const canStoreCraftOutput = outputItem.canGrantToInventoryAfterConsuming(
       this.inventory,
       recipe.outputAmount,
       recipe.costs,
     );
-    if (!canStoreCraftOutput) {
+    if (!canStoreCraftOutput && !canStoreTargetedCraftOutput) {
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
           itemTypeId,
@@ -371,7 +393,17 @@ export class Player extends Entity {
     }
 
     this.inventory.consumeTypes(recipe.costs);
-    outputItem.grantToInventory(this.inventory, recipe.outputAmount);
+    const grantedToTarget =
+      canStoreTargetedCraftOutput &&
+      craftTarget !== null &&
+      this.grantCraftOutputToTarget(
+        outputItem,
+        recipe.outputAmount,
+        craftTarget,
+      );
+    if (!grantedToTarget) {
+      outputItem.grantToInventory(this.inventory, recipe.outputAmount);
+    }
     if (shouldTrace) {
       world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
         itemTypeId,
@@ -575,7 +607,11 @@ export class Player extends Entity {
           this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
           break;
         case "craft":
-          this.craft(world, actionMessage.craft.itemTypeId);
+          this.craft(
+            world,
+            actionMessage.craft.itemTypeId,
+            actionMessage.craft.target,
+          );
           break;
         case "build":
           this.placeStructure(
@@ -1105,6 +1141,146 @@ export class Player extends Entity {
         weapon: new entry.ctor() as Weapon,
       };
     }
+  }
+
+  private resolveCraftTarget(
+    world: World,
+    target?: CraftTargetInput,
+  ): ResolvedCraftTarget | null {
+    if (!target) {
+      return null;
+    }
+    if (
+      target.source === "hotbar" &&
+      target.index >= 0 &&
+      target.index < this.inventory.hotbarSlots.length
+    ) {
+      return { source: "hotbar", index: target.index };
+    }
+    if (target.source !== "chest" || target.chestEntityId === undefined) {
+      return null;
+    }
+    const chestEntity = world.entities.get(target.chestEntityId);
+    if (!chestEntity || !isContainerEntity(chestEntity) || !chestEntity.alive) {
+      return null;
+    }
+    if (target.index < 0 || target.index >= chestEntity.chestSlots.length) {
+      return null;
+    }
+
+    const bounds = chestEntity.getWorldBounds();
+    if (
+      this.x < bounds.minX - CHEST_INTERACT_PADDING ||
+      this.x > bounds.maxX + CHEST_INTERACT_PADDING ||
+      this.y < bounds.minY - CHEST_INTERACT_PADDING ||
+      this.y > bounds.maxY + CHEST_INTERACT_PADDING
+    ) {
+      return null;
+    }
+    return { source: "chest", index: target.index, chest: chestEntity };
+  }
+
+  private canStoreCraftOutputInTarget(
+    outputItem: Item,
+    amount: number,
+    target: ResolvedCraftTarget,
+  ): boolean {
+    if (amount <= 0) {
+      return true;
+    }
+    const currentSlot = this.getCraftTargetSlot(target);
+    if (outputItem.isWeaponItem()) {
+      return amount === 1 && currentSlot === null;
+    }
+    if (!this.isHotbarStoredCraftOutput(outputItem.typeId)) {
+      return false;
+    }
+    return (
+      currentSlot === null ||
+      (currentSlot.kind === "buildable" &&
+        currentSlot.typeId === outputItem.typeId)
+    );
+  }
+
+  private grantCraftOutputToTarget(
+    outputItem: Item,
+    amount: number,
+    target: ResolvedCraftTarget,
+  ): boolean {
+    if (!this.canStoreCraftOutputInTarget(outputItem, amount, target)) {
+      return false;
+    }
+    if (amount <= 0) {
+      return true;
+    }
+    if (outputItem.isWeaponItem()) {
+      this.writeCraftTargetSlot(target, {
+        kind: "weapon",
+        typeId: outputItem.typeId,
+      });
+      return true;
+    }
+
+    const currentSlot = this.getCraftTargetSlot(target);
+    this.writeCraftTargetSlot(target, {
+      kind: "buildable",
+      typeId: outputItem.typeId,
+      count:
+        currentSlot?.kind === "buildable" &&
+        currentSlot.typeId === outputItem.typeId
+          ? currentSlot.count + amount
+          : amount,
+    });
+    return true;
+  }
+
+  private getCraftTargetSlot(target: ResolvedCraftTarget): ChestSlot {
+    if (target.source === "chest") {
+      return target.chest.getSlot(target.index);
+    }
+    const slot = this.inventory.hotbarSlots[target.index] ?? null;
+    if (slot === null) {
+      return null;
+    }
+    return slot.kind === "buildable"
+      ? { kind: "buildable", typeId: slot.typeId, count: slot.count }
+      : { kind: "weapon", typeId: slot.weapon.typeId };
+  }
+
+  private writeCraftTargetSlot(
+    target: ResolvedCraftTarget,
+    value: Exclude<ChestSlot, null>,
+  ): void {
+    if (target.source === "chest") {
+      target.chest.setSlot(target.index, value);
+      return;
+    }
+    if (value.kind === "buildable") {
+      this.inventory.hotbarSlots[target.index] = {
+        kind: "buildable",
+        typeId: value.typeId,
+        count: value.count,
+      };
+      return;
+    }
+    const entry = getItemLikeTypeEntry(value.typeId);
+    if (
+      entry &&
+      getWeaponContent(value.typeId) &&
+      entry.ctor.prototype instanceof Weapon
+    ) {
+      this.inventory.hotbarSlots[target.index] = {
+        kind: "weapon",
+        weapon: new entry.ctor() as Weapon,
+      };
+    }
+  }
+
+  private isHotbarStoredCraftOutput(typeId: ResourceId): boolean {
+    const content = getItemContent(typeId);
+    return Boolean(
+      content?.buildsEntityTypeId || content?.consumable || content?.armor,
+    );
   }
 
   private getNearbyCraftingStations(world: World): Entity[] {

@@ -95,18 +95,23 @@ export const CRAFTABLE_ITEM_TYPE_IDS = getItemTypeIds(
 );
 
 const BLUEPRINT_TYPE_IDS = getItemTypeIds(
-  (itemContent) => itemContent.unlocksRecipeTypeId !== undefined,
+  (itemContent) =>
+    itemContent.unlocksRecipeTypeId !== undefined ||
+    itemContent.unlocksRecipeTypeIds !== undefined,
 );
 
 const BLUEPRINT_LOCKED_RECIPE_TYPE_IDS = new Set<ResourceId>(
-  BLUEPRINT_TYPE_IDS.map(
-    (typeId) =>
-      requireMapValue(
-        itemContents,
-        typeId,
-        `Unknown blueprint item content: ${typeId}`,
-      ).unlocksRecipeTypeId as ResourceId,
-  ),
+  BLUEPRINT_TYPE_IDS.flatMap((typeId) => {
+    const content = requireMapValue(
+      itemContents,
+      typeId,
+      `Unknown blueprint item content: ${typeId}`,
+    );
+    return [
+      ...(content.unlocksRecipeTypeId ? [content.unlocksRecipeTypeId] : []),
+      ...(content.unlocksRecipeTypeIds ?? []),
+    ];
+  }),
 );
 
 export function getBlueprintUnlockedRecipeTypeId(
@@ -115,8 +120,21 @@ export function getBlueprintUnlockedRecipeTypeId(
   return getItemContent(typeId)?.unlocksRecipeTypeId;
 }
 
+export function getBlueprintUnlockedRecipeTypeIds(
+  typeId: ResourceId,
+): readonly ResourceId[] {
+  const content = getItemContent(typeId);
+  if (!content) {
+    return [];
+  }
+  return [
+    ...(content.unlocksRecipeTypeId ? [content.unlocksRecipeTypeId] : []),
+    ...(content.unlocksRecipeTypeIds ?? []),
+  ];
+}
+
 export function isBlueprintItemTypeId(typeId: ResourceId): boolean {
-  return getBlueprintUnlockedRecipeTypeId(typeId) !== undefined;
+  return getBlueprintUnlockedRecipeTypeIds(typeId).length > 0;
 }
 
 export function isRecipeBlueprintLocked(typeId: ResourceId): boolean {

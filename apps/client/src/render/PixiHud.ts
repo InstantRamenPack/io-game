@@ -1,57 +1,41 @@
 import * as PIXI from "pixi.js";
-import type { GameSelectors } from "@client/app/gameSelectors.ts";
-import type {
-  GameClientHudApi,
-  PointerInput,
-} from "@client/client/clientTypes.ts";
-import {
-  type CraftingModalEntry,
-  type CraftingModalTab,
-} from "@client/render/hud/CraftingModal.ts";
-import { CombatHudView } from "@client/render/hud/CombatHudView.ts";
-import { CraftingHudCoordinator } from "@client/render/hud/CraftingHudCoordinator.ts";
-import { HubModalView } from "@client/render/hud/HubModalView.ts";
-import { ChestHudCoordinator } from "@client/render/hud/ChestHudCoordinator.ts";
-import type { ChestSlotRef } from "@client/render/hud/ChestView.ts";
-import { BossHealthBar } from "@client/render/hud/BossHealthBar.ts";
-import { DayNightIndicator } from "@client/render/hud/DayNightIndicator.ts";
-import { EffectIconView } from "@client/render/hud/EffectIconView.ts";
-import { GameplayHudCoordinator } from "@client/render/hud/GameplayHudCoordinator.ts";
-import { HudPanel } from "@client/render/hud/HudPanel.ts";
-import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
-import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
-import { HotbarView } from "@client/render/hud/HotbarView.ts";
-import type {
-  CraftingTabId,
-  HudInteractionState,
-} from "@client/render/hud/HudInteractionState.ts";
-import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
-import { InventoryView } from "@client/render/hud/InventoryView.ts";
-import { HoldActionPromptView } from "@client/render/hud/HoldActionPromptView.ts";
-import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
-import {
-  computeHotbarActiveIndex,
-  toHotbarSlotItems,
-} from "@client/render/hud/hotbarModel.ts";
-import {
-  getNearestPickup,
-  getPickupItemLabel,
-} from "@client/render/hud/pickupInteraction.ts";
-import { findNearestChest } from "@client/render/hud/chestInteraction.ts";
-import { hasNearbyCraftingStation } from "@client/render/hud/craftingStationInteraction.ts";
-import { getTowerRepairCost } from "@client/render/hud/towerRepairInteraction.ts";
-import type { TextStyleOptions } from "@client/render/renderTypes.ts";
+import type {GameSelectors} from "@client/app/gameSelectors.ts";
+import type {GameClientHudApi, PointerInput,} from "@client/client/clientTypes.ts";
+import {type CraftingModalEntry, type CraftingModalTab,} from "@client/render/hud/CraftingModal.ts";
+import {CombatHudView} from "@client/render/hud/CombatHudView.ts";
+import {CraftingHudCoordinator} from "@client/render/hud/CraftingHudCoordinator.ts";
+import {HubModalView} from "@client/render/hud/HubModalView.ts";
+import {ChestHudCoordinator} from "@client/render/hud/ChestHudCoordinator.ts";
+import type {ChestSlotRef} from "@client/render/hud/ChestView.ts";
+import {BossHealthBar} from "@client/render/hud/BossHealthBar.ts";
+import {DayNightIndicator} from "@client/render/hud/DayNightIndicator.ts";
+import {EffectIconView} from "@client/render/hud/EffectIconView.ts";
+import {GameplayHudCoordinator} from "@client/render/hud/GameplayHudCoordinator.ts";
+import {HudPanel} from "@client/render/hud/HudPanel.ts";
+import {HudTooltipCoordinator} from "@client/render/hud/HudTooltipCoordinator.ts";
+import {HudTooltipView} from "@client/render/hud/HudTooltipView.ts";
+import {HotbarView} from "@client/render/hud/HotbarView.ts";
+import type {CraftingTabId, HudInteractionState,} from "@client/render/hud/HudInteractionState.ts";
+import {InventoryEditCoordinator} from "@client/render/hud/InventoryEditCoordinator.ts";
+import {InventoryView} from "@client/render/hud/InventoryView.ts";
+import {HoldActionPromptView} from "@client/render/hud/HoldActionPromptView.ts";
+import {SelectedItemToastView} from "@client/render/hud/SelectedItemToastView.ts";
+import {computeHotbarActiveIndex, toHotbarSlotItems,} from "@client/render/hud/hotbarModel.ts";
+import {getNearestPickup, getPickupItemLabel,} from "@client/render/hud/pickupInteraction.ts";
+import {findNearestChest} from "@client/render/hud/chestInteraction.ts";
+import {getTowerRepairCost} from "@client/render/hud/towerRepairInteraction.ts";
+import type {TextStyleOptions} from "@client/render/renderTypes.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
   getItemRecycleHunkValue,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
-import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
-import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
-import type { ItemRecipeContent } from "@shared/content/schema.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import type { InventorySnapshot } from "@shared/net/snapshots.ts";
+import {HOTBAR_SLOT_COUNT} from "@shared/gameplay/constants.ts";
+import {getArmorStats} from "@shared/gameplay/rules/armorRules.ts";
+import type {ItemRecipeContent} from "@shared/content/schema.ts";
+import type {ResourceId} from "@shared/ids/ResourceId.ts";
+import type {InventorySnapshot} from "@shared/net/snapshots.ts";
 
 const HOTBAR_SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const CRAFTING_TABS: ReadonlyArray<{ id: CraftingTabId; label: string }> = [
@@ -259,6 +243,13 @@ export class PixiHud {
     if (deltaY === 0) {
       return false;
     }
+    if (this.hubModalView.isCraftingTabsAtPoint(screenX, screenY)) {
+      const changed = this.hubModalView.scrollCraftingTabsBy(deltaY);
+      if (changed) {
+        this.markDirty();
+      }
+      return changed;
+    }
     const changed = this.hubModalView.scrollBy(deltaY / 240);
     if (changed) {
       this.markDirty();
@@ -284,10 +275,19 @@ export class PixiHud {
           pointer.screenY,
         );
         if (
-          hotbarTarget?.source === "hotbar" &&
+          hotbarTarget &&
           this.describeCraftAvailability(craftTypeId).enabled
         ) {
-          this.gameClient.queueCraftItem(craftTypeId);
+          this.gameClient.queueCraftItem(
+            craftTypeId,
+            hotbarTarget.source === "chest"
+              ? {
+                  source: "chest",
+                  index: hotbarTarget.index,
+                  chestEntityId: this.state.openChestEntityId ?? undefined,
+                }
+              : { source: "hotbar", index: hotbarTarget.index },
+          );
         }
         this.state.heldCraftOutputTypeId = null;
         this.markDirty();
@@ -317,7 +317,8 @@ export class PixiHud {
         (this.hubModalView?.isRecycleDropAtPoint(
           pointer.screenX,
           pointer.screenY,
-        ) ?? false)
+        ) ??
+          false)
       ) {
         this.tryRecycleHeldItem(heldForRecycle);
         this.recycleDropHovered = false;
@@ -353,13 +354,11 @@ export class PixiHud {
             state: this.state,
             screenX: pointer.screenX,
             screenY: pointer.screenY,
+            shiftKey: pointer.shiftKey,
             canSubmitCraft: (itemTypeId) =>
               this.describeCraftAvailability(itemTypeId).enabled,
             queueCraftItem: (itemTypeId) =>
               this.gameClient.queueCraftItem(itemTypeId),
-            isCraftOutputAtPoint: (screenX, screenY) =>
-              this.hubModalView?.isCraftOutputAtPoint(screenX, screenY) ??
-              false,
             isRecycleButtonAtPoint: (screenX, screenY) =>
               this.hubModalView?.isRecycleButtonAtPoint(screenX, screenY) ??
               false,
@@ -394,6 +393,7 @@ export class PixiHud {
               this.hubModalView?.getTabAtPoint(screenX, screenY) ?? null,
           });
         if (handledCraftingPointer) {
+          this.markDirty();
           return true;
         }
         if (this.state.chestOpen && this.hubModalView) {
@@ -807,11 +807,9 @@ export class PixiHud {
       this.selectors.getPlayerEntity(),
       this.selectors.getChests(),
     );
-    const nearHub =
-      nearestChest !== null &&
-      !this.state.chestOpen &&
-      !this.state.craftingMenuOpen;
-    const nearChest = nearHub;
+    const nearChest = nearestChest !== null &&
+        !this.state.chestOpen &&
+        !this.state.craftingMenuOpen;
 
     const nearCraftingStation = false;
 
@@ -1404,11 +1402,16 @@ export class PixiHud {
     }
 
     const recycleEnabled =
-      ((recycleHotbarIndex !== null && this.canRecycleHotbarIndex(recycleHotbarIndex)) ||
+      ((recycleHotbarIndex !== null &&
+        this.canRecycleHotbarIndex(recycleHotbarIndex)) ||
         (recycleChestIndex !== null &&
           (() => {
             const slot = chestSlots?.[recycleChestIndex];
-            return slot != null && slot.kind !== "empty" && this.canRecycleTypeId(slot.typeId);
+            return (
+              slot != null &&
+              slot.kind !== "empty" &&
+              this.canRecycleTypeId(slot.typeId)
+            );
           })())) &&
       this.hasNearbyCraftingStation();
 

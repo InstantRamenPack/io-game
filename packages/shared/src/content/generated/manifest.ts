@@ -97,9 +97,7 @@ import magsniperJson from "@shared/content/mag/sniper.json";
 import magthanosMachineGunJson from "@shared/content/mag/thanos_machine_gun.json";
 import magthanosRifleJson from "@shared/content/mag/thanos_rifle.json";
 import magthanosRocketLauncherJson from "@shared/content/mag/thanos_rocket_launcher.json";
-import blueprintarmorT2Json from "@shared/content/blueprint/armor_t2.json";
-import blueprintarmorT3Json from "@shared/content/blueprint/armor_t3.json";
-import blueprintarmorT4Json from "@shared/content/blueprint/armor_t4.json";
+import blueprintarmorJson from "@shared/content/blueprint/armor.json";
 import blueprintbasicRifleJson from "@shared/content/blueprint/basic_rifle.json";
 import blueprintcannonJson from "@shared/content/blueprint/cannon.json";
 import blueprintdroneShooterJson from "@shared/content/blueprint/drone_shooter.json";
@@ -267,9 +265,7 @@ export const magContentEntries = [
 
 
 export const blueprintContentEntries = [
-  makeParsedBlueprintContentEntry("armor_t2", blueprintarmorT2Json),
-  makeParsedBlueprintContentEntry("armor_t3", blueprintarmorT3Json),
-  makeParsedBlueprintContentEntry("armor_t4", blueprintarmorT4Json),
+  makeParsedBlueprintContentEntry("armor", blueprintarmorJson),
   makeParsedBlueprintContentEntry("basic_rifle", blueprintbasicRifleJson),
   makeParsedBlueprintContentEntry("cannon", blueprintcannonJson),
   makeParsedBlueprintContentEntry("drone_shooter", blueprintdroneShooterJson),

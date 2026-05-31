@@ -414,6 +414,9 @@ const WAVE_ONLY_ENEMY_TYPE_IDS = new Set<ResourceId>([
 const LEGENDARY_BOSS_TYPE_IDS = new Set<ResourceId>(getLegendaryBossTypeIds());
 const ENEMY_TYPE_IDS_BY_RARITY = buildEnemyTypeIdsByRarity();
 const BLUEPRINT_PLACEMENT = PROCEDURAL_CONTENT.blueprintPlacement;
+const REPEATABLE_BLUEPRINT_COUNTS = new Map<ResourceId, number>([
+  ["blueprint:armor" as ResourceId, 3],
+]);
 const VILLAGE_GENERATION = PROCEDURAL_CONTENT.villageGeneration;
 const VILLAGE_CRATE_PLACEMENT_MAX_ATTEMPTS = 256;
 
@@ -443,7 +446,11 @@ function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
 
 function getAllBlueprintTypeIds(): ResourceId[] {
   return getAllItemContentEntries()
-    .filter(([, item]) => item.unlocksRecipeTypeId !== undefined)
+    .filter(
+      ([, item]) =>
+        item.unlocksRecipeTypeId !== undefined ||
+        item.unlocksRecipeTypeIds !== undefined,
+    )
     .map(([typeId]) => typeId)
     .sort((left, right) => left.localeCompare(right));
 }
@@ -809,8 +816,11 @@ function assignDeterministicBlueprintPlacements(
     );
   }
   for (const typeId of allBlueprintIds) {
-    if (observed.get(typeId) !== 1) {
-      throw new Error(`Blueprint ${typeId} should appear exactly once.`);
+    const expectedCount = REPEATABLE_BLUEPRINT_COUNTS.get(typeId) ?? 1;
+    if (observed.get(typeId) !== expectedCount) {
+      throw new Error(
+        `Blueprint ${typeId} should appear ${expectedCount} time(s).`,
+      );
     }
   }
 }

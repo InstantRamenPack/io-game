@@ -48,8 +48,15 @@ const InputMovementSchema = z
   })
   .strict();
 
+const CraftTargetInputSchema = z.object({
+  source: z.enum(["hotbar", "chest"]),
+  index: z.number().int().min(0).max(MAX_CHEST_INDEX),
+  chestEntityId: EntityIdSchema.optional(),
+});
+
 const CraftInputSchema = z.object({
   itemTypeId: ResourceIdSchema,
+  target: CraftTargetInputSchema.optional(),
 });
 
 const BuildInputSchema = z.object({
@@ -406,6 +413,7 @@ export type MoveIntentKey = z.infer<typeof MoveIntentKeySchema>;
 export type HelloMessage = z.infer<typeof HelloMessageSchema>;
 export type InputMovement = z.infer<typeof InputMovementSchema>;
 export type InputIntentMessage = z.infer<typeof InputIntentMessageSchema>;
+export type CraftTargetInput = z.infer<typeof CraftTargetInputSchema>;
 export type ActionMessage = z.infer<typeof ActionMessageSchema>;
 type RespawnMessage = z.infer<typeof RespawnMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;

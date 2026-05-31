@@ -127,17 +127,17 @@
     },
     "villageTierSlots": {
       "common": {
-        "armorBlueprintTypeId": "blueprint:armor_t2",
+        "armorBlueprintTypeId": "blueprint:armor",
         "weaponBlueprintPool": "rareWeapon",
         "weaponBlueprintCount": 3
       },
       "uncommon": {
-        "armorBlueprintTypeId": "blueprint:armor_t3",
+        "armorBlueprintTypeId": "blueprint:armor",
         "weaponBlueprintPool": "rareWeapon",
         "weaponBlueprintCount": 3
       },
       "rare": {
-        "armorBlueprintTypeId": "blueprint:armor_t4",
+        "armorBlueprintTypeId": "blueprint:armor",
         "weaponBlueprintPool": "epicWeapon",
         "weaponBlueprintCount": 3
       },
@@ -155,16 +155,12 @@
     "weaponBlueprintPools": {
       "rareWeapon": {
         "unlockedRarityTier": "rare",
-        "excludeBlueprintTypeIds": [
-          "blueprint:armor_t2",
-          "blueprint:armor_t3",
-          "blueprint:armor_t4"
-        ]
+        "excludeBlueprintTypeIds": ["blueprint:armor"]
       },
       "epicWeapon": {
         "unlockedRarityTier": "epic",
         "requireWeapon": true,
-        "excludeBlueprintTypeIds": ["blueprint:armor_t4"]
+        "excludeBlueprintTypeIds": ["blueprint:armor"]
       }
     }
   },
