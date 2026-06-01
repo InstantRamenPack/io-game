@@ -1,3 +1,4 @@
 {
-  "label": "Knockback"
+  "label": "Knockback",
+  "impulseStrength": 15
 }

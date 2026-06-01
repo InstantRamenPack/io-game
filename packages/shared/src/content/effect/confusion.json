@@ -1,3 +1,5 @@
 {
-  "label": "Confused"
+  "label": "Confused",
+  "durationTicks": 200,
+  "speedMultiplier": 0.3
 }

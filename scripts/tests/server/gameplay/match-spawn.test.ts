@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
@@ -38,6 +39,29 @@ describe("match spawn placement", () => {
       expect(position.x).toBeLessThanOrEqual(homeBounds.maxX);
       expect(position.y).toBeGreaterThanOrEqual(homeBounds.minY);
       expect(position.y).toBeLessThanOrEqual(homeBounds.maxY);
+    }
+  });
+
+  test("match clients do not spawn inside starter tower blockers", () => {
+    const { runtime } = makeRuntime();
+    const players = Array.from({ length: 5 }, (_value, index) =>
+      connectTestClient(runtime, `client-${index + 1}`, `player-${index + 1}`),
+    );
+
+    for (const { player } of players) {
+      const playerHitboxes = player.getWorldHitboxes();
+      const overlappingBlockers = runtime.world.entities
+        .all()
+        .filter(
+          (entity) =>
+            entity.id !== player.id &&
+            entity.collisionMode !== "none" &&
+            doResolvedRectSetsOverlap(
+              playerHitboxes,
+              entity.getWorldHitboxes(),
+            ),
+        );
+      expect(overlappingBlockers).toHaveLength(0);
     }
   });
 

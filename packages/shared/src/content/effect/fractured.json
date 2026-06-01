@@ -1,3 +1,5 @@
 {
-  "label": "Fractured"
+  "label": "Fractured",
+  "durationTicks": 100,
+  "speedMultiplier": 0.7
 }

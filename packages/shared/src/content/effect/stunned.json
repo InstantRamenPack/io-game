@@ -1,3 +1,4 @@
 {
-  "label": "Stunned"
+  "label": "Stunned",
+  "durationTicks": 10
 }

@@ -1845,57 +1845,61 @@ async function saveListUpdate(request: Request): Promise<Response> {
   return Response.json(await balancePayload());
 }
 
-const port = parseIntegerEnv("BALANCE_PORT", 4179);
 const balancePageHtml = await Bun.file("scripts/balance-page.html").text();
 
-const server = Bun.serve({
-  port,
-  async fetch(request) {
-    const url = new URL(request.url);
+export async function balanceFetch(request: Request): Promise<Response> {
+  const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/") {
-      return new Response(balancePageHtml, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
+  if (request.method === "GET" && url.pathname === "/") {
+    return new Response(balancePageHtml, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/balance") {
+    return Response.json(await balancePayload());
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/balance") {
+    try {
+      return await saveUpdate(request);
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Save failed." },
+        { status: 400 },
+      );
     }
+  }
 
-    if (request.method === "GET" && url.pathname === "/api/balance") {
-      return Response.json(await balancePayload());
+  if (request.method === "POST" && url.pathname === "/api/balance/list") {
+    try {
+      return await saveListUpdate(request);
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Save failed." },
+        { status: 400 },
+      );
     }
+  }
 
-    if (request.method === "POST" && url.pathname === "/api/balance") {
-      try {
-        return await saveUpdate(request);
-      } catch (error) {
-        return Response.json(
-          { error: error instanceof Error ? error.message : "Save failed." },
-          { status: 400 },
-        );
-      }
-    }
+  return new Response("Not found", { status: 404 });
+}
 
-    if (request.method === "POST" && url.pathname === "/api/balance/list") {
-      try {
-        return await saveListUpdate(request);
-      } catch (error) {
-        return Response.json(
-          { error: error instanceof Error ? error.message : "Save failed." },
-          { status: 400 },
-        );
-      }
-    }
-
-    return new Response("Not found", { status: 404 });
-  },
-});
-
-const url = `http://127.0.0.1:${server.port}`;
-console.log(`[balance] serving ${url}`);
-console.log("[balance] set BALANCE_PORT to use a different port");
-
-if (process.platform === "darwin" && process.env.BALANCE_OPEN !== "0") {
-  Bun.spawn(["open", url], {
-    stdout: "ignore",
-    stderr: "ignore",
+if (import.meta.main) {
+  const port = parseIntegerEnv("BALANCE_PORT", 4179);
+  const server = Bun.serve({
+    port,
+    fetch: balanceFetch,
   });
+
+  const url = `http://127.0.0.1:${server.port}`;
+  console.log(`[balance] serving ${url}`);
+  console.log("[balance] set BALANCE_PORT to use a different port");
+
+  if (process.platform === "darwin" && process.env.BALANCE_OPEN !== "0") {
+    Bun.spawn(["open", url], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+  }
 }

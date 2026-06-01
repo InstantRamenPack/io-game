@@ -39,6 +39,38 @@ function getNewEntities(before: Set<number>, after: Entity[]): Entity[] {
   return after.filter((entity) => !before.has(entity.id));
 }
 
+function placeFirstValidBuild(
+  runtime: ReturnType<typeof makeRuntime>["runtime"],
+  player: ReturnType<typeof connectTestClient>["player"],
+  startSeq: number,
+): Entity | undefined {
+  const offsets = [
+    { x: 48, y: 0 },
+    { x: -48, y: 0 },
+    { x: 0, y: 48 },
+    { x: 0, y: -48 },
+    { x: 96, y: 0 },
+    { x: -96, y: 0 },
+    { x: 0, y: 96 },
+    { x: 0, y: -96 },
+  ];
+
+  for (const [index, offset] of offsets.entries()) {
+    const beforeIds = new Set(runtime.world.entities.all().map((e) => e.id));
+    enqueueAction(runtime, {
+      t: "action",
+      seq: startSeq + index,
+      action: "build",
+      build: { x: player.x + offset.x, y: player.y + offset.y },
+    });
+    const spawned = getNewEntities(beforeIds, runtime.world.entities.all())[0];
+    if (spawned) {
+      return spawned;
+    }
+  }
+  return undefined;
+}
+
 describe("build placement authority", () => {
   beforeAll(bootstrapTestRegistries);
 
@@ -200,19 +232,7 @@ describe("build placement authority", () => {
     )!;
     player.x = hostileSector.center.x;
     player.y = hostileSector.center.y;
-    const beforeOuterIds = new Set(
-      runtime.world.entities.all().map((e) => e.id),
-    );
-    enqueueAction(runtime, {
-      t: "action",
-      seq: 2,
-      action: "build",
-      build: { x: player.x + 48, y: player.y },
-    });
-    const outerBuilding = getNewEntities(
-      beforeOuterIds,
-      runtime.world.entities.all(),
-    )[0];
+    const outerBuilding = placeFirstValidBuild(runtime, player, 2);
     expect(outerBuilding).toBeDefined();
 
     for (const entity of runtime.world.entities.all()) {

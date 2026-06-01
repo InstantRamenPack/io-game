@@ -25,7 +25,7 @@ import {
 const ITEM_TYPES = [
   makeResourceId("item", "wall"),
   makeResourceId("item", "landmine"),
-  makeResourceId("item", "chest"),
+  makeResourceId("item", "cannon"),
 ];
 
 function randomVelocity(

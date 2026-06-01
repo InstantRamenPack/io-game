@@ -1,3 +1,6 @@
 {
-  "label": "Bleeding"
+  "label": "Bleeding",
+  "durationTicks": 30,
+  "pulseIntervalTicks": 3,
+  "pulseDamage": 2
 }

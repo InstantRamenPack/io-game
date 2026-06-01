@@ -292,6 +292,10 @@ export const EffectContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  durationTicks: z.number().int().positive().optional(),
+  pulseIntervalTicks: z.number().int().positive().optional(),
+  pulseDamage: z.number().finite().positive().optional(),
+  impulseStrength: z.number().finite().positive().optional(),
   speedMultiplier: z.number().finite().positive().optional(),
   runtime: RuntimeRegistrationSchema,
 });

@@ -2,11 +2,11 @@ import type { ProceduralWorldLayout } from "@shared/world/ProceduralWorld.ts";
 
 const PLAYER_SPAWN_OFFSET_Y = 100;
 const MATCH_BASE_SPAWN_OFFSETS = Object.freeze([
-  { x: -224, y: 128 },
-  { x: -96, y: 96 },
-  { x: 96, y: 96 },
-  { x: 224, y: 128 },
-  { x: 0, y: 208 },
+  { x: 0, y: 0 },
+  { x: -120, y: 0 },
+  { x: 120, y: 0 },
+  { x: -240, y: -40 },
+  { x: 240, y: -40 },
 ]);
 
 export function getPlayerSpawnPosition(worldSize: { w: number; h: number }): {
