@@ -130,6 +130,18 @@ async function main(): Promise<void> {
     });
   }
 
+  const magFileNames = (await readdir(magContentDir))
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort((left, right) => left.localeCompare(right));
+  for (const fileName of magFileNames) {
+    const filePath = path.join(magContentDir, fileName);
+    const typeId = `mag:${fileName.slice(0, -".json".length)}`;
+    items.set(typeId, {
+      filePath,
+      content: await readJson<ItemContent>(filePath),
+    });
+  }
+
   const magWeaponTypeIds = new Map<string, string[]>();
   const magWeaponLabels = new Map<string, string[]>();
 
