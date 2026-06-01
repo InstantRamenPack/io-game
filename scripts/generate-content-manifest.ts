@@ -440,7 +440,10 @@ async function refreshGeneratedMagItems(
   const itemFileNames = (await readdir(itemContentDir))
     .filter((fileName) => fileName.endsWith(".json"))
     .sort((left, right) => left.localeCompare(right));
-  const items = new Map<string, { filePath: string; content: RawContentJson }>();
+  const items = new Map<
+    string,
+    { filePath: string; content: RawContentJson }
+  >();
 
   for (const fileName of itemFileNames) {
     const filePath = path.join(itemContentDir, fileName);
