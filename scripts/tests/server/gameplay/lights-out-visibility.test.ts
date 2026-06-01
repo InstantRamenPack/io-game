@@ -4,7 +4,7 @@ import { toVisibilityBlocker } from "@client/net/presentation/PixiWorldPresentat
 import { countVisibilityShadowPolygonsForBenchmark } from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import { computeLightsOutPresentation } from "@client/render/pixi/PixiWorldView.ts";
 import {
-  makeBuildingSnapshot,
+  makeEnemySnapshot,
   makeStructureSnapshot,
 } from "@tests/helpers/snapshotFixtures.ts";
 import {
@@ -116,12 +116,11 @@ describe("lights-out visibility", () => {
 
   test("tripwire trigger hitboxes do not become lights-out blockers", () => {
     const tripwire = new ClientEntity(
-      makeBuildingSnapshot(91, 1000, 2000, {
-        typeId: "building:tripwire",
+      makeEnemySnapshot(91, 1000, 2000, {
+        typeId: "enemy:tripwire",
         hitboxes: [{ width: 220, height: 16, offsetX: 0, offsetY: 0 }],
         hp: 0,
         maxHp: 0,
-        label: "Tripwire",
       }),
       1,
       4,

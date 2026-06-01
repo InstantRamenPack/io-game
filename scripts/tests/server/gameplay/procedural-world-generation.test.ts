@@ -880,9 +880,7 @@ describe("procedural survival extraction world", () => {
       expect.arrayContaining(["enemy:megaknight", "enemy:sniper"]),
     );
     expect(
-      dungeonSector?.buildings.some(
-        (building) => building.typeId === "building:tripwire",
-      ),
+      dungeonSector?.enemies.some((enemy) => enemy.typeId === "enemy:tripwire"),
     ).toBe(true);
     const dungeonTripwires = Object.values(
       (
@@ -895,7 +893,7 @@ describe("procedural survival extraction world", () => {
       ).dungeonRoomContent,
     )
       .flatMap((room) => room.buildings ?? [])
-      .filter((building) => building.typeId === "building:tripwire");
+      .filter((building) => building.typeId === "enemy:tripwire");
     expect(dungeonTripwires.length).toBeGreaterThan(0);
     expect(
       dungeonTripwires.every(

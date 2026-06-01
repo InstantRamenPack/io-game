@@ -5,7 +5,7 @@ import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { Hub } from "@server/entities/buildings/Hub.ts";
 import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
 import { Landmine } from "@server/entities/buildings/Landmine.ts";
-import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
+import { Tripwire } from "@server/entities/enemies/Tripwire.ts";
 import { Wall } from "@server/entities/buildings/Wall.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { Commander } from "@server/entities/enemies/Commander.ts";

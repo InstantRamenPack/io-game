@@ -166,6 +166,8 @@ const EnemyTuningConfigSchema = z.object({
   meleeWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
   rangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
   weaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
+  nightRangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
+  nightWeaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
 });
 
 const ExtractionConfigSchema = z.object({

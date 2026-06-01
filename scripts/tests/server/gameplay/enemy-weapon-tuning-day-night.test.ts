@@ -14,7 +14,7 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("enemy weapon tuning day/night", () => {
-  test("nerfs apply during day with energy online and lift at night or power loss", () => {
+  test("day nerfs soften at night and lift only on daytime power loss", () => {
     bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
@@ -37,7 +37,17 @@ describe("enemy weapon tuning day/night", () => {
 
     runtime.world.dayNightSystem.setPhase("night");
     tick(runtime, 1);
-    expect(weapon.getProjectileRange()).toBe(projectileContent.range);
+    expect(weapon.getProjectileRange()).toBe(
+      projectileContent.range *
+        enemyTuningConfig.nightWeaponAttackRangeMultiplier,
+    );
+    expect(weapon.hit(runtime.world, shoota, 0)).toBe(true);
+    expect(weapon.toSnapshot().cooldownTicksRemaining).toBe(
+      Math.floor(
+        weaponContent.cooldownTicks *
+          enemyTuningConfig.nightRangedWeaponCooldownMultiplier,
+      ),
+    );
 
     runtime.world.dayNightSystem.setPhase("day");
     tick(runtime, 1);

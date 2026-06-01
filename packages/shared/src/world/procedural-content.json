@@ -409,14 +409,14 @@
       ],
       "buildings": [
         {
-          "typeId": "building:tripwire",
+          "typeId": "enemy:tripwire",
           "offsetX": -48,
           "offsetY": -64,
           "margin": 128,
           "orientation": "horizontal"
         },
         {
-          "typeId": "building:tripwire",
+          "typeId": "enemy:tripwire",
           "offsetX": -96,
           "offsetY": 0,
           "margin": 128,
@@ -470,20 +470,20 @@
       ],
       "buildings": [
         {
-          "typeId": "building:tripwire",
+          "typeId": "enemy:tripwire",
           "offsetX": -56,
           "offsetY": -64,
           "margin": 128,
           "orientation": "horizontal"
         },
         {
-          "typeId": "building:tripwire",
+          "typeId": "enemy:tripwire",
           "offsetX": 0,
           "offsetY": 0,
           "orientation": "vertical"
         },
         {
-          "typeId": "building:tripwire",
+          "typeId": "enemy:tripwire",
           "offsetX": 56,
           "offsetY": 64,
           "margin": 128,

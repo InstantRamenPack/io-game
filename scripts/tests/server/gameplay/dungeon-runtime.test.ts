@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { Crate } from "@server/entities/enemies/Crate.ts";
-import { Tripwire } from "@server/entities/buildings/Tripwire.ts";
+import { Tripwire } from "@server/entities/enemies/Tripwire.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
+import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import deathLootConfig from "@shared/content/death_loot.json";
@@ -105,6 +106,9 @@ describe("dungeon runtime mechanics", () => {
     tripwire.y = y;
     runtime.world.spawn(tripwire);
 
+    expect(tripwire.typeId).toBe("enemy:tripwire");
+    expect(tripwire.maxHp).toBe(0);
+
     tick(runtime, 1);
 
     expect(runtime.world.entities.has(tripwire.id)).toBe(false);
@@ -137,6 +141,28 @@ describe("dungeon runtime mechanics", () => {
     expect(player.activeEffects.map((effect) => effect.typeId)).toContain(
       "effect:bleeding",
     );
+  });
+
+  test("tripwire is not a building fallback target for enemies", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    for (const entity of runtime.world.entities.all()) {
+      runtime.world.despawn(entity.id);
+    }
+    const x = runtime.world.gameConfig.worldSize.w / 2;
+    const y = runtime.world.gameConfig.worldSize.h / 2;
+    const tripwire = new Tripwire(runtime.world.allocEntityId());
+    tripwire.x = x;
+    tripwire.y = y;
+    const wallbreaker = new Wallbreaker(runtime.world.allocEntityId());
+    wallbreaker.x = x + 100;
+    wallbreaker.y = y;
+    runtime.world.spawn(tripwire);
+    runtime.world.spawn(wallbreaker);
+
+    tick(runtime, 1);
+
+    expect(wallbreaker.targetId).toBeUndefined();
   });
 
   test("breaking a reward crate drops its contents as a pickup", () => {

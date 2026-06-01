@@ -2535,7 +2535,7 @@ function addDungeonRoomContent(
     orientation?: ProceduralContentSpawn["orientation"],
   ) => {
     const position = point(offsetX, offsetY, margin);
-    if (typeId === "building:tripwire") {
+    if (typeId === "enemy:tripwire") {
       if (!orientation) {
         throw new Error("procedural tripwire spawn requires orientation");
       }
@@ -2585,15 +2585,18 @@ function addDungeonRoomContent(
   enforcePoliceSupportSpawn(roomEnemySpawns);
   enemies.push(...roomEnemySpawns);
   for (const building of content.buildings ?? []) {
-    buildings.push(
-      roomSpawn(
-        building.typeId,
-        building.offsetX,
-        building.offsetY,
-        building.margin,
-        building.orientation,
-      ),
+    const spec = roomSpawn(
+      building.typeId,
+      building.offsetX,
+      building.offsetY,
+      building.margin,
+      building.orientation,
     );
+    if (spec.typeId === "enemy:tripwire") {
+      enemies.push(spec);
+    } else {
+      buildings.push(spec);
+    }
   }
   for (const roomLootEntry of content.loot ?? []) {
     const spec = roomLoot(
@@ -4163,7 +4166,7 @@ function tripwireSpawn(
 ): ProceduralSpawnSpec {
   const horizontal = orientation === "horizontal";
   return {
-    typeId: "building:tripwire" as ResourceId,
+    typeId: "enemy:tripwire" as ResourceId,
     x: snap(x),
     y: snap(y),
     rotation: horizontal ? 0 : Math.PI / 2,

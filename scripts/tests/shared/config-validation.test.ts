@@ -72,6 +72,16 @@ describe("shared gameplay config", () => {
     );
     expect(enemyTuningConfig.weaponAttackRangeMultiplier).toBeGreaterThan(0);
     expect(enemyTuningConfig.weaponAttackRangeMultiplier).toBeLessThan(1);
+    expect(
+      enemyTuningConfig.nightRangedWeaponCooldownMultiplier,
+    ).toBeGreaterThan(1);
+    expect(enemyTuningConfig.nightRangedWeaponCooldownMultiplier).toBeLessThan(
+      enemyTuningConfig.rangedWeaponCooldownMultiplier,
+    );
+    expect(enemyTuningConfig.nightWeaponAttackRangeMultiplier).toBeGreaterThan(
+      enemyTuningConfig.weaponAttackRangeMultiplier,
+    );
+    expect(enemyTuningConfig.nightWeaponAttackRangeMultiplier).toBeLessThan(1);
   });
 
   test("extraction and day-night timers define reachable progression", () => {

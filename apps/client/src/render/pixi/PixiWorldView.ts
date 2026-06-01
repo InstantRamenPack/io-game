@@ -6,7 +6,6 @@ import {
   type Container,
 } from "pixi.js";
 import { drawRect } from "@client/render/pixi/PixiGraphicUtils.ts";
-import { BaseVisionOverlay } from "@client/render/pixi/BaseVisionOverlay.ts";
 import { HelipadOverlay } from "@client/render/pixi/HelipadOverlay.ts";
 import {
   PixiPlacementPreview,
@@ -152,7 +151,6 @@ export class PixiWorldView {
   private readonly placementPreview = new PixiPlacementPreview();
   private readonly sniperAimGuide = new Graphics();
   private readonly helipadOverlay = new HelipadOverlay();
-  private readonly baseVisionOverlay = new BaseVisionOverlay();
   private readonly lightsOutOverlay = new PixiLightsOutOverlay();
   private readonly minimapGraphic = new Graphics();
   private readonly minimapLabel = new Text({
@@ -188,11 +186,9 @@ export class PixiWorldView {
   constructor(worldSize: WorldSize) {
     this.worldSize = worldSize;
     this.viewportController = new PixiViewportController(worldSize);
-    this.baseVisionOverlay.setWorldSize(worldSize.w, worldSize.h);
     this.sniperAimGuide.visible = false;
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
-    this.sceneGraph.entityLayer.addChild(this.baseVisionOverlay.container);
     this.sceneGraph.overlayLayer.addChild(this.lightsOutOverlay.container);
     this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
   }
@@ -238,7 +234,6 @@ export class PixiWorldView {
     this.worldSize = { ...worldSize };
     this.viewportController.setWorldSize(this.worldSize);
     this.cullingController.updateWorldSize(this.worldSize);
-    this.baseVisionOverlay.setWorldSize(worldSize.w, worldSize.h);
     this.invalidateGridLineCache();
     this.drawGridGeometry();
   }
@@ -270,7 +265,6 @@ export class PixiWorldView {
     );
     this.redrawMinimap(app);
     this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
-    this.baseVisionOverlay.update(deltaMs);
   }
 
   public updateExtractionState(state: ExtractionSnapshot | null): void {
@@ -282,9 +276,6 @@ export class PixiWorldView {
       energyActive: true,
       commsActive: true,
     };
-    this.baseVisionOverlay.setEnergyActive(
-      this.infrastructureState.energyActive,
-    );
     this.recomputeVisibilityState();
   }
 

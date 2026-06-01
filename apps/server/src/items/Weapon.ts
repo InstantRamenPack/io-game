@@ -11,6 +11,8 @@ import type {
   WeaponSnapshot,
 } from "@shared/net/snapshots.ts";
 
+export type EnemyWeaponTuningMode = "day" | "night" | "baseline";
+
 /**
  * Abstract weapon item that can perform attacks.
  * Subclasses implement specific attack behavior (ranged vs melee).
@@ -20,7 +22,7 @@ export abstract class Weapon extends Item {
   protected cooldownTicks = 0;
   private cooldownTicksPerUse: number;
   private baselineCooldownTicksPerUse: number;
-  private enemyDayNerfApplied = false;
+  private enemyTuningMode: EnemyWeaponTuningMode = "baseline";
 
   protected constructor(cooldownTicksPerUse: number) {
     super();
@@ -72,27 +74,41 @@ export abstract class Weapon extends Item {
     this.baselineCooldownTicksPerUse = this.cooldownTicksPerUse;
   }
 
-  public syncEnemyDayNerf(applyNerf: boolean, tuning: EnemyTuningConfig): void {
-    if (applyNerf === this.enemyDayNerfApplied) {
+  public syncEnemyTuning(
+    mode: EnemyWeaponTuningMode,
+    tuning: EnemyTuningConfig,
+  ): void {
+    if (mode === this.enemyTuningMode) {
       return;
     }
-    this.enemyDayNerfApplied = applyNerf;
-    if (applyNerf) {
-      const weaponContent = requireWeaponContent(this.typeId);
-      const cooldownMultiplier =
-        weaponContent.attackStyle === "shoot"
-          ? tuning.rangedWeaponCooldownMultiplier
-          : tuning.meleeWeaponCooldownMultiplier;
-      this.cooldownTicksPerUse = Math.max(
-        1,
-        Math.floor(this.baselineCooldownTicksPerUse * cooldownMultiplier),
-      );
-      this.scaleAttackRange(tuning.weaponAttackRangeMultiplier);
-      return;
-    }
+    this.enemyTuningMode = mode;
 
     this.cooldownTicksPerUse = this.baselineCooldownTicksPerUse;
     this.resetEnemyAttackRangeToBaseline();
+    if (mode === "baseline") {
+      return;
+    }
+
+    const weaponContent = requireWeaponContent(this.typeId);
+    const cooldownMultiplier =
+      mode === "day"
+        ? weaponContent.attackStyle === "shoot"
+          ? tuning.rangedWeaponCooldownMultiplier
+          : tuning.meleeWeaponCooldownMultiplier
+        : weaponContent.attackStyle === "shoot"
+          ? tuning.nightRangedWeaponCooldownMultiplier
+          : 1;
+    this.cooldownTicksPerUse = Math.max(
+      1,
+      Math.floor(this.baselineCooldownTicksPerUse * cooldownMultiplier),
+    );
+    if (mode === "day") {
+      this.scaleAttackRange(tuning.weaponAttackRangeMultiplier);
+      return;
+    }
+    if (weaponContent.attackStyle === "shoot") {
+      this.scaleAttackRange(tuning.nightWeaponAttackRangeMultiplier);
+    }
   }
 
   protected resetEnemyAttackRangeToBaseline(): void {

@@ -1,15 +1,15 @@
-import { Building } from "@server/entities/Building.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 
-export class Tripwire extends Building {
+export class Tripwire extends Enemy {
   public static override readonly resourceName = "tripwire";
   private triggered = false;
 
-  constructor(id: number, tier = 1, ownerId?: number) {
-    super(id, tier, ownerId);
+  constructor(id: number) {
+    super(id, {});
   }
 
   public override tick(world: World): void {

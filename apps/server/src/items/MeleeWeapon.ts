@@ -39,6 +39,7 @@ type AttackHitCandidate = {
 export abstract class MeleeWeapon extends Weapon {
   public range: number;
   public hitEffects: Effect[];
+  private baselineRange: number;
 
   protected constructor(
     cooldownTicks: number,
@@ -47,6 +48,7 @@ export abstract class MeleeWeapon extends Weapon {
   ) {
     super(cooldownTicks);
     this.range = range;
+    this.baselineRange = range;
     this.hitEffects = hitEffects;
   }
 
@@ -82,6 +84,15 @@ export abstract class MeleeWeapon extends Weapon {
 
   public override scaleAttackRange(multiplier: number): void {
     this.range *= multiplier;
+  }
+
+  public override captureEnemyTuningBaseline(): void {
+    super.captureEnemyTuningBaseline();
+    this.baselineRange = this.range;
+  }
+
+  protected override resetEnemyAttackRangeToBaseline(): void {
+    this.range = this.baselineRange;
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {

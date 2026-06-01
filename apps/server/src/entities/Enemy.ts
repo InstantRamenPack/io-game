@@ -159,9 +159,13 @@ export class Enemy extends GoalControlledEntity {
   }
 
   private syncEnemyWeaponTuning(world: World): void {
-    const applyDayNerf = !world.isCombatEmpowered();
+    const tuningMode = world.dayNightSystem.isNight()
+      ? "night"
+      : world.isCombatEmpowered()
+        ? "baseline"
+        : "day";
     for (const weapon of this.weapons) {
-      weapon.syncEnemyDayNerf(applyDayNerf, enemyTuningConfig);
+      weapon.syncEnemyTuning(tuningMode, enemyTuningConfig);
     }
   }
 
