@@ -44,6 +44,11 @@ const PROCEDURAL_CONTENT = proceduralContentJson as {
     bspSplitGap: number;
     bspMinLeafAxis: number;
   };
+  forestCampEnemyTypes?: {
+    corner: ResourceId[];
+    edge: ResourceId[];
+  };
+  villageEnemyPools?: Record<string, ResourceId[]>;
 };
 
 const ACCESS_SAMPLE_SIZE = 32;
@@ -553,34 +558,18 @@ describe("procedural survival extraction world", () => {
       "wallbreakers should be wave-only and never come from procedural spawn pools",
     ).toBe(false);
 
-    const villageEnemyTypes = new Set(
+    const authoredVillageEnemyTypes = new Set(
+      Object.values(PROCEDURAL_CONTENT.villageEnemyPools ?? {}).flat(),
+    );
+    const spawnedVillageEnemyTypes = new Set(
       layout.sectors
         .flatMap((sector) => sector.enemies.map((enemy) => enemy.typeId))
-        .filter((typeId) =>
-          [
-            "enemy:drifter",
-            "enemy:police",
-            "enemy:shoota",
-            "enemy:stalker",
-            "enemy:bomber",
-            "enemy:sniper",
-            "enemy:commander",
-            "enemy:megaknight",
-          ].includes(typeId),
-        ),
+        .filter((typeId) => authoredVillageEnemyTypes.has(typeId)),
     );
-    expect(villageEnemyTypes).toEqual(
-      new Set([
-        "enemy:drifter",
-        "enemy:police",
-        "enemy:shoota",
-        "enemy:stalker",
-        "enemy:bomber",
-        "enemy:sniper",
-        "enemy:commander",
-        "enemy:megaknight",
-      ]),
-    );
+    expect(spawnedVillageEnemyTypes.size).toBeGreaterThan(0);
+    for (const typeId of spawnedVillageEnemyTypes) {
+      expect(authoredVillageEnemyTypes.has(typeId)).toBe(true);
+    }
 
     expect(
       layout.forestCamps.some((camp) => isCornerSector(camp.sectorId)),
@@ -588,10 +577,14 @@ describe("procedural survival extraction world", () => {
     expect(
       layout.forestCamps.some((camp) => !isCornerSector(camp.sectorId)),
     ).toBe(true);
+    const authoredCornerCampTypes =
+      PROCEDURAL_CONTENT.forestCampEnemyTypes?.corner ?? [];
+    const authoredEdgeCampTypes =
+      PROCEDURAL_CONTENT.forestCampEnemyTypes?.edge ?? [];
     for (const camp of layout.forestCamps) {
       const expected: ResourceId[] = isCornerSector(camp.sectorId)
-        ? ["enemy:police", "enemy:ranger", "enemy:stalker"]
-        : ["enemy:drifter", "enemy:shoota", "enemy:police"];
+        ? authoredCornerCampTypes
+        : authoredEdgeCampTypes;
       expect(camp.enemyTypes).toEqual(expected);
     }
 

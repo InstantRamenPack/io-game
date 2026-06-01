@@ -1,5 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { getAllItemContentEntries } from "@shared/content/catalog.ts";
+import {
+  getAllItemContentEntries,
+  getItemContent,
+  requirePlayerStarterLoadout,
+} from "@shared/content/catalog.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
@@ -30,6 +34,17 @@ const armorBlueprintItemId = makeResourceId("blueprint", "armor");
 const armorTier2ItemId = makeResourceId("item", "armor_t2");
 const armorTier3ItemId = makeResourceId("item", "armor_t3");
 const armorTier4ItemId = makeResourceId("item", "armor_t4");
+const playerBaseTypeId = makeResourceId("player", "base");
+
+function getStarterHunkAmount(): number {
+  const hunkStack = requirePlayerStarterLoadout(playerBaseTypeId).stackables.find(
+    (stackable) => stackable.typeId === hunkItemId,
+  );
+  if (!hunkStack) {
+    throw new Error("expected starter loadout to include hunk stack");
+  }
+  return hunkStack.amount;
+}
 
 function addWallAndFindSlot(
   player: ReturnType<typeof connectTestClient>["player"],
@@ -206,7 +221,9 @@ describe("inventory authority", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
 
-    expect(player.inventory.getResourceCount(hunkItemId)).toBe(50);
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(
+      getStarterHunkAmount(),
+    );
   });
 
   test("mag crafting requires obtaining the corresponding gun first", () => {
@@ -218,9 +235,10 @@ describe("inventory authority", () => {
     runtime.world.spawn(station);
     tick(runtime, 1);
 
+    const starterHunks = getStarterHunkAmount();
     player.craft(runtime.world, basicGunMagItemId);
     expect(player.inventory.countType(basicGunMagItemId)).toBe(0);
-    expect(player.inventory.getResourceCount(hunkItemId)).toBe(50);
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(starterHunks);
 
     expect(
       player.inventory.grantItemCtor(
@@ -232,7 +250,13 @@ describe("inventory authority", () => {
 
     player.craft(runtime.world, basicGunMagItemId);
     expect(player.inventory.countType(basicGunMagItemId)).toBe(1);
-    expect(player.inventory.getResourceCount(hunkItemId)).toBe(30);
+    const magRecipeHunkCost =
+      getItemContent(basicGunMagItemId)?.recipe?.costs.find(
+        (cost) => cost.typeId === hunkItemId,
+      )?.amount ?? 0;
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(
+      starterHunks - magRecipeHunkCost,
+    );
   });
 
   test("valid inventory move updates hotbar", () => {
