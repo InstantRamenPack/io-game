@@ -1,14 +1,23 @@
 {
   "label": "Crude Bandage",
-  "hint": "Restores 10 HP.",
+  "hint": "Restores 20 HP.",
   "description": "A rough field dressing. Craft at a crafting station.",
   "recipe": {
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 25 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 30
+      }
+    ]
   },
-  "healing": { "amount": 10 },
+  "healing": {
+    "amount": 20
+  },
   "consumable": true,
   "pickupSpawn": {
-    "pools": ["medical"]
+    "pools": [
+      "medical"
+    ]
   }
 }

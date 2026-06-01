@@ -9,7 +9,12 @@
       "item:cleaver",
       "item:scissors"
     ],
-    "uncommon": ["item:carbine", "item:crossbow", "item:machete", "item:taser"],
+    "uncommon": [
+      "item:carbine",
+      "item:crossbow",
+      "item:machete",
+      "item:taser"
+    ],
     "rare": [
       "item:basic_rifle",
       "item:drone_shooter",
@@ -19,7 +24,12 @@
       "item:shotgun",
       "item:spiked_spear"
     ],
-    "epic": ["item:halberd", "item:heavy_pistol", "item:lmg", "item:sniper"]
+    "epic": [
+      "item:halberd",
+      "item:heavy_pistol",
+      "item:lmg",
+      "item:sniper"
+    ]
   },
   "crateLootByTier": {
     "common": [
@@ -155,12 +165,16 @@
     "weaponBlueprintPools": {
       "rareWeapon": {
         "unlockedRarityTier": "rare",
-        "excludeBlueprintTypeIds": ["blueprint:armor"]
+        "excludeBlueprintTypeIds": [
+          "blueprint:armor"
+        ]
       },
       "epicWeapon": {
         "unlockedRarityTier": "epic",
         "requireWeapon": true,
-        "excludeBlueprintTypeIds": ["blueprint:armor"]
+        "excludeBlueprintTypeIds": [
+          "blueprint:armor"
+        ]
       }
     }
   },
@@ -174,8 +188,16 @@
     "extractionVillageHeight": 1728
   },
   "forestCampEnemyTypes": {
-    "corner": ["enemy:police", "enemy:ranger", "enemy:stalker"],
-    "edge": ["enemy:drifter", "enemy:shoota", "enemy:police"]
+    "corner": [
+      "enemy:police",
+      "enemy:ranger",
+      "enemy:stalker"
+    ],
+    "edge": [
+      "enemy:drifter",
+      "enemy:shoota",
+      "enemy:police"
+    ]
   },
   "villageEnemyPools": {
     "civilian": [
@@ -208,9 +230,9 @@
     ]
   },
   "interiorSpawnChances": {
-    "furniture": 0.25,
-    "crate": 0.35,
-    "enemy": 0.3
+    "furniture": 0.3,
+    "crate": 0.5,
+    "enemy": 0.4
   },
   "sectorContent": {
     "home": {
