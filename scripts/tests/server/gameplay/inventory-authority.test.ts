@@ -37,9 +37,9 @@ const armorTier4ItemId = makeResourceId("item", "armor_t4");
 const playerBaseTypeId = makeResourceId("player", "base");
 
 function getStarterHunkAmount(): number {
-  const hunkStack = requirePlayerStarterLoadout(playerBaseTypeId).stackables.find(
-    (stackable) => stackable.typeId === hunkItemId,
-  );
+  const hunkStack = requirePlayerStarterLoadout(
+    playerBaseTypeId,
+  ).stackables.find((stackable) => stackable.typeId === hunkItemId);
   if (!hunkStack) {
     throw new Error("expected starter loadout to include hunk stack");
   }
