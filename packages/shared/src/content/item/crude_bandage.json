@@ -16,8 +16,6 @@
   },
   "consumable": true,
   "pickupSpawn": {
-    "pools": [
-      "medical"
-    ]
+    "pools": ["medical"]
   }
 }
