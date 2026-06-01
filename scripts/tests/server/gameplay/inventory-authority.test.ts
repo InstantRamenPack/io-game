@@ -496,7 +496,10 @@ describe("inventory authority", () => {
       typeId: crudeBandageItemId,
     });
 
-    expect(player.hp).toBe(60);
+    const bandageHealAmount = getItemContent(crudeBandageItemId)?.healing
+      ?.amount;
+    expect(bandageHealAmount).toBeDefined();
+    expect(player.hp).toBe(50 + (bandageHealAmount ?? 0));
     expect(player.inventory.countType(crudeBandageItemId)).toBe(0);
   });
 

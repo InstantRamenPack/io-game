@@ -20,6 +20,11 @@ const spriteMap = JSON.parse(
     "utf8",
   ),
 ) as Record<string, string>;
+const packageJson = JSON.parse(
+  readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+) as {
+  scripts?: Record<string, string>;
+};
 
 describe("mag item content", () => {
   test("legacy item namespace ammo, blueprint, and fists ids are deleted", () => {
@@ -94,5 +99,13 @@ describe("mag item content", () => {
         `${typeId} sprite ${spritePath} should exist`,
       ).toBe(true);
     }
+  });
+
+  test("generated prep runs the single content manifest generator", () => {
+    expect(packageJson.scripts?.["prepare:generated"]).toBe(
+      "bun run generate:content-manifest",
+    );
+    expect(packageJson.scripts?.["generate:mag-items"]).toBeUndefined();
+    expect(packageJson.scripts?.postinstall).toContain("prepare:generated");
   });
 });

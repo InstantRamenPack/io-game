@@ -65,8 +65,8 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(secondEnemy);
     const deadEnemyIds = new Set([firstEnemy.id, secondEnemy.id]);
 
-    firstEnemy.applyDamage(runtime.world, firstEnemy.maxHp, 0);
-    secondEnemy.applyDamage(runtime.world, secondEnemy.maxHp, 0);
+    firstEnemy.applyDamage(runtime.world, firstEnemy.maxHp * 4, 0);
+    secondEnemy.applyDamage(runtime.world, secondEnemy.maxHp * 4, 0);
 
     const pickups = runtime.world.entities
       .all()
@@ -197,6 +197,25 @@ describe("dungeon runtime mechanics", () => {
         isFatal: true,
       },
     });
+  });
+
+  test("reward crates stay inert enemy loot containers", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    const x = runtime.world.gameConfig.worldSize.w / 2;
+    const y = runtime.world.gameConfig.worldSize.h / 2;
+    spawnPlayerLikeDynamic(runtime, x + 80, y);
+    const crate = new Crate(runtime.world.allocEntityId());
+    crate.x = x;
+    crate.y = y;
+    runtime.world.spawn(crate);
+
+    tick(runtime, 30);
+
+    expect(crate.typeId).toBe("enemy:crate");
+    expect(crate.targetId).toBeUndefined();
+    expect(crate.x).toBe(x);
+    expect(crate.y).toBe(y);
   });
 
   test("player melee can break a reward crate and drop its contents", () => {

@@ -1,5 +1,11 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,8 +47,17 @@ type RuntimeHint = {
 };
 
 type RawContentJson = {
-  weapon?: { attackStyle?: string };
+  label?: string;
+  weapon?: {
+    attackStyle?: string;
+    magItemTypeId?: string;
+    projectileTypeId?: string;
+  };
   projectile?: unknown;
+  recipe?: unknown;
+  pickupSpawn?: {
+    pools?: string[];
+  };
   runtime?: RuntimeHint;
 };
 
@@ -220,6 +235,18 @@ const SERVER_SCAN_ROOTS = [
 ] as const;
 const RENDERER_SCAN_ROOTS = ["apps/client/src/render/entity"] as const;
 
+const EXPLICIT_MAG_ICON_PATHS: Record<string, string> = {
+  "mag:basic_gun": "/icons/pistol_ammo.png",
+  "mag:basic_rifle": "/icons/rifle_ammo.png",
+  "mag:sniper": "/icons/sniper_ammo.png",
+};
+
+const GENERATED_MAG_ICON_SOURCES: Record<string, string> = {
+  pistol: "pistol_ammo.png",
+  rifle: "rifle_ammo.png",
+  sniper: "sniper_ammo.png",
+};
+
 function toIdentifier(value: string): string {
   const words = value
     .replace(/\.json$/i, "")
@@ -250,8 +277,69 @@ function toSnakeCase(value: string): string {
     .toLowerCase();
 }
 
+function toTitleCase(resourceName: string): string {
+  return resourceName
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
 function toTypeId(kind: ContentKind, resourceName: string): string {
   return `${kind}:${resourceName}`;
+}
+
+function getResourceName(typeId: string): string {
+  const [, resourceName] = typeId.split(":");
+  if (!resourceName) {
+    throw new Error(`Invalid type id: ${typeId}`);
+  }
+  return resourceName;
+}
+
+function inferMagTypeId(weaponTypeId: string): string {
+  return `mag:${getResourceName(weaponTypeId)}`;
+}
+
+function inferMagIconFamily(
+  typeId: string,
+  weaponTypeIds: readonly string[],
+): string {
+  const haystack = [typeId, ...weaponTypeIds].join(" ");
+  if (haystack.includes("pistol") || haystack.includes("gun")) return "pistol";
+  if (haystack.includes("sniper")) return "sniper";
+  return "rifle";
+}
+
+function buildMagContent(
+  typeId: string,
+  weaponLabels: readonly string[],
+): RawContentJson {
+  const resourceName = getResourceName(typeId);
+  const targetLabel =
+    weaponLabels.length === 1 ? weaponLabels[0] : toTitleCase(resourceName);
+  return {
+    label: `${targetLabel} Magazine`,
+    recipe: {
+      hint: `Fresh magazine for ${targetLabel}.`,
+      outputAmount: 1,
+      costs: [
+        {
+          typeId: "item:hunk",
+          amount: 20,
+        },
+      ],
+    },
+    runtime: {
+      server: {
+        classKind: "magazine",
+      },
+    },
+  };
+}
+
+function formatJson(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 function toImportPath(repoRoot: string, filePath: string): string {
@@ -327,6 +415,137 @@ async function collectContentResources(
   return resources.sort((left, right) =>
     left.typeId.localeCompare(right.typeId),
   );
+}
+
+async function refreshGeneratedMagItems(
+  repoRoot: string,
+  sharedContentRoot: string,
+): Promise<void> {
+  const itemContentDir = path.join(sharedContentRoot, "item");
+  const magContentDir = path.join(sharedContentRoot, "mag");
+  const iconMapPath = path.join(repoRoot, "apps/client/public/item_icons.json");
+  const spriteMapPath = path.join(
+    repoRoot,
+    "apps/client/public/item_sprites.json",
+  );
+  const generatedIconDir = path.join(
+    repoRoot,
+    "apps/client/public/icons/generated",
+  );
+  const generatedSpriteDir = path.join(
+    repoRoot,
+    "apps/client/public/sprites/generated",
+  );
+
+  const itemFileNames = (await readdir(itemContentDir))
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort((left, right) => left.localeCompare(right));
+  const items = new Map<string, { filePath: string; content: RawContentJson }>();
+
+  for (const fileName of itemFileNames) {
+    const filePath = path.join(itemContentDir, fileName);
+    const typeId = `item:${fileName.slice(0, -".json".length)}`;
+    items.set(typeId, {
+      filePath,
+      content: await readJsonFile<RawContentJson>(filePath),
+    });
+  }
+
+  const magFileNames = (await readdir(magContentDir))
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort((left, right) => left.localeCompare(right));
+  for (const fileName of magFileNames) {
+    const filePath = path.join(magContentDir, fileName);
+    const typeId = `mag:${fileName.slice(0, -".json".length)}`;
+    items.set(typeId, {
+      filePath,
+      content: await readJsonFile<RawContentJson>(filePath),
+    });
+  }
+
+  const magWeaponTypeIds = new Map<string, string[]>();
+  const magWeaponLabels = new Map<string, string[]>();
+
+  for (const [typeId, entry] of items) {
+    const weapon = entry.content.weapon;
+    if (weapon?.attackStyle !== "shoot") {
+      continue;
+    }
+
+    if (!weapon.magItemTypeId) {
+      weapon.magItemTypeId = inferMagTypeId(typeId);
+      await writeFile(entry.filePath, formatJson(entry.content));
+    }
+
+    const weaponTypeIds = magWeaponTypeIds.get(weapon.magItemTypeId) ?? [];
+    weaponTypeIds.push(typeId);
+    magWeaponTypeIds.set(weapon.magItemTypeId, weaponTypeIds);
+
+    const weaponLabels = magWeaponLabels.get(weapon.magItemTypeId) ?? [];
+    weaponLabels.push(
+      entry.content.label ?? toTitleCase(getResourceName(typeId)),
+    );
+    magWeaponLabels.set(weapon.magItemTypeId, weaponLabels);
+  }
+
+  for (const [magTypeId, weaponTypeIds] of magWeaponTypeIds) {
+    if (items.has(magTypeId)) {
+      continue;
+    }
+
+    const resourceName = getResourceName(magTypeId);
+    const filePath = path.join(magContentDir, `${resourceName}.json`);
+    const content = buildMagContent(
+      magTypeId,
+      magWeaponLabels.get(magTypeId) ?? weaponTypeIds,
+    );
+    await mkdir(magContentDir, { recursive: true });
+    await writeFile(filePath, formatJson(content));
+    items.set(magTypeId, { filePath, content });
+  }
+
+  const iconMap = await readJsonFile<Record<string, string>>(iconMapPath);
+  const spriteMap = await readJsonFile<Record<string, string>>(spriteMapPath);
+  await mkdir(generatedIconDir, { recursive: true });
+  await mkdir(generatedSpriteDir, { recursive: true });
+  for (const [magTypeId, weaponTypeIds] of magWeaponTypeIds) {
+    const iconFamily = inferMagIconFamily(magTypeId, weaponTypeIds);
+    const explicitPath = EXPLICIT_MAG_ICON_PATHS[magTypeId];
+    const sourceFileName = explicitPath
+      ? explicitPath.slice("/icons/".length)
+      : (GENERATED_MAG_ICON_SOURCES[iconFamily] ?? "rifle_ammo.png");
+    const generatedFileName = `${getResourceName(magTypeId)}.png`;
+    if (!explicitPath) {
+      await copyFile(
+        path.join(repoRoot, "apps/client/public/icons", sourceFileName),
+        path.join(generatedIconDir, generatedFileName),
+      );
+    }
+    await copyFile(
+      path.join(repoRoot, "apps/client/public/icons", sourceFileName),
+      path.join(generatedSpriteDir, generatedFileName),
+    );
+    iconMap[magTypeId] =
+      explicitPath ?? `/icons/generated/${generatedFileName}`;
+    spriteMap[magTypeId] = `/sprites/generated/${generatedFileName}`;
+  }
+
+  const sortedIconMap = Object.fromEntries(
+    Object.entries(iconMap).sort(([left], [right]) => {
+      if (left === "__default__") return -1;
+      if (right === "__default__") return 1;
+      return left.localeCompare(right);
+    }),
+  );
+  await writeFile(iconMapPath, formatJson(sortedIconMap));
+  const sortedSpriteMap = Object.fromEntries(
+    Object.entries(spriteMap).sort(([left], [right]) => {
+      if (left === "__default__") return -1;
+      if (right === "__default__") return 1;
+      return left.localeCompare(right);
+    }),
+  );
+  await writeFile(spriteMapPath, formatJson(sortedSpriteMap));
 }
 
 async function collectTsFiles(directoryPath: string): Promise<string[]> {
@@ -1304,6 +1523,7 @@ async function main(): Promise<void> {
   const scriptPath = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(scriptPath), "..");
   const sharedContentRoot = path.join(repoRoot, "packages/shared/src/content");
+  await refreshGeneratedMagItems(repoRoot, sharedContentRoot);
   const contentResources = await collectContentResources(sharedContentRoot);
   const registryResult = await buildRegistries(repoRoot, contentResources);
 
