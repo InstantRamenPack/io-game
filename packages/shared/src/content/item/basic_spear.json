@@ -21,9 +21,7 @@
     "jabWidth": 24
   },
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rarityTier": "common",
   "rendering": {

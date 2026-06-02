@@ -16,9 +16,7 @@
   },
   "consumable": true,
   "pickupSpawn": {
-    "pools": [
-      "medical"
-    ]
+    "pools": ["medical"]
   },
   "rendering": {
     "assetPath": "/placeholder.png",

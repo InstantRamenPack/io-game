@@ -23,9 +23,7 @@
   },
   "rarityTier": "common",
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rendering": {
     "assetPath": "/weapon/basic_gun.png",

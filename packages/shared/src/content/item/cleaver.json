@@ -11,9 +11,7 @@
     "sweepArcDeg": 90
   },
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rarityTier": "common",
   "recipe": {

@@ -17,11 +17,11 @@ export function syncItemIconSprite(options: {
   const rendering = getItemRendering(typeId);
   const icon = options.icon ??
     rendering?.icon ?? {
-    x: 0,
-    y: 0,
-    rotationDeg: 0,
-    scale: 1,
-  };
+      x: 0,
+      y: 0,
+      rotationDeg: 0,
+      scale: 1,
+    };
   const maxSize = Math.max(1, boxSize - (options.padding ?? 0) * 2);
   const textureWidth = Math.max(1, texture.width);
   const textureHeight = Math.max(1, texture.height);

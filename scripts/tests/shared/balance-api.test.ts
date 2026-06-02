@@ -12,7 +12,10 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
   expect(response.ok).toBe(true);
   const payload = (await response.json()) as {
     rows: unknown[];
-    renderingRows: Array<{ itemTypeId: string; fields: Array<{ key: string }> }>;
+    renderingRows: Array<{
+      itemTypeId: string;
+      fields: Array<{ key: string }>;
+    }>;
     ammoRows: unknown[];
     enemyRows: unknown[];
     worldRows: Array<{ configId: string }>;
@@ -156,8 +159,7 @@ test("balance API accepts negative rendering tuning saves", async () => {
       (row) => row.itemTypeId === "item:basic_gun",
     );
     expect(
-      basicGun?.fields.find((field) => field.key === "itemLike.spriteX")
-        ?.value,
+      basicGun?.fields.find((field) => field.key === "itemLike.spriteX")?.value,
     ).toBe(-12);
   } finally {
     await balanceFetch(

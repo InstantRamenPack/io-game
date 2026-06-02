@@ -114,9 +114,7 @@ export class KatanaEquippedRenderer
 
     const weaponContent = getWeaponContent(context.typeId);
     const comboContent =
-      weaponContent?.attackStyle === "swing"
-        ? weaponContent.combo
-        : undefined;
+      weaponContent?.attackStyle === "swing" ? weaponContent.combo : undefined;
     if (!comboContent) {
       return;
     }
@@ -157,9 +155,7 @@ export class KatanaEquippedRenderer
 
     const weaponContent = getWeaponContent(input.typeId);
     const comboContent =
-      weaponContent?.attackStyle === "swing"
-        ? weaponContent.combo
-        : undefined;
+      weaponContent?.attackStyle === "swing" ? weaponContent.combo : undefined;
     if (!comboContent) {
       return;
     }
@@ -263,10 +259,14 @@ export class KatanaEquippedRenderer
       (input.facingLeft ? Math.PI : 0);
   }
 
-  private resolveStabJabDistance(typeId: EquippedRenderContext["typeId"]): number {
+  private resolveStabJabDistance(
+    typeId: EquippedRenderContext["typeId"],
+  ): number {
     const comboStab = getItemRendering(typeId)?.comboStab;
     if (!comboStab) {
-      throw new Error(`Katana rendering is missing comboStab tuning for ${typeId}.`);
+      throw new Error(
+        `Katana rendering is missing comboStab tuning for ${typeId}.`,
+      );
     }
     return comboStab.jabDistance;
   }

@@ -2,9 +2,7 @@
   "label": "Blueprint: Firecracker Gun",
   "unlocksRecipeTypeId": "item:firecracker_gun",
   "pickupSpawn": {
-    "pools": [
-      "blueprint"
-    ]
+    "pools": ["blueprint"]
   },
   "rendering": {
     "assetPath": "/blueprint/generated/firecracker_gun.png",

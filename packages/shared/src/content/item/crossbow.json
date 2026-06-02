@@ -23,9 +23,7 @@
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": [
-      "weapon"
-    ]
+    "pools": ["weapon"]
   },
   "rendering": {
     "assetPath": "/weapon/crossbow.png",

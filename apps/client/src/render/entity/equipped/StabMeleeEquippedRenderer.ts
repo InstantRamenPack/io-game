@@ -17,8 +17,7 @@ export class StabMeleeEquippedRenderer
   public override syncAnimated(input: EquippedAnimatedSyncInput): void {
     const { container, sprite, renderManifest, progress } = input;
     const pulse = Math.sin(progress * Math.PI);
-    const offsetX =
-      renderManifest.x + renderManifest.jabDistance * pulse;
+    const offsetX = renderManifest.x + renderManifest.jabDistance * pulse;
     const offsetY = renderManifest.y;
     sprite.position.set(input.mirrorSign === 1 ? offsetX : -offsetX, offsetY);
     container.rotation =

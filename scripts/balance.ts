@@ -1185,8 +1185,7 @@ async function loadItemRenderingRows(): Promise<ItemRenderingRow[]> {
           label: "Item Name",
           source: "itemLike" as const,
           path: ["label"],
-          value:
-            typeof file.data.label === "string" ? file.data.label : null,
+          value: typeof file.data.label === "string" ? file.data.label : null,
           kind: "text" as const,
         },
         ...itemRenderingFieldSpecs.map((spec) =>
@@ -1224,7 +1223,9 @@ async function loadItemRenderingRows(): Promise<ItemRenderingRow[]> {
         projectileTypeId,
         projectileFile: projectileFile?.path ?? null,
         assetPath:
-          typeof assetPathValue === "string" ? assetPathValue : "/placeholder.png",
+          typeof assetPathValue === "string"
+            ? assetPathValue
+            : "/placeholder.png",
         fields,
       };
     })
@@ -1826,7 +1827,7 @@ async function saveUpdate(request: Request): Promise<Response> {
               ? typeof body.itemTypeId === "string"
               : source === "projectile" && typeof body.itemTypeId === "string"
                 ? true
-            : typeof body.weaponTypeId === "string";
+                : typeof body.weaponTypeId === "string";
   if (
     ![
       "item",
@@ -1920,7 +1921,8 @@ async function saveUpdate(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
-    const targetPath = source === "projectile" ? row.projectileFile : row.itemFile;
+    const targetPath =
+      source === "projectile" ? row.projectileFile : row.itemFile;
     if (!targetPath) {
       return Response.json(
         { error: "Item has no projectile file." },
@@ -2135,7 +2137,10 @@ async function loadBalancePreviewBundle(): Promise<string> {
     sourcemap: "inline",
   });
   if (!build.success) {
-    throw new AggregateError(build.logs, "Failed to build balance preview bundle");
+    throw new AggregateError(
+      build.logs,
+      "Failed to build balance preview bundle",
+    );
   }
   const output = build.outputs[0];
   if (!output) {

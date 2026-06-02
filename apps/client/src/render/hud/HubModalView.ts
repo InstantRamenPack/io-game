@@ -84,10 +84,14 @@ class RecyclePanelView {
     recycleEnabled: boolean;
     recycleDropHovered: boolean;
     recycleIconProvider:
-      | ((hotbarIndex: number) => { typeId: ResourceId; texture: PIXI.Texture } | null)
+      | ((
+          hotbarIndex: number,
+        ) => { typeId: ResourceId; texture: PIXI.Texture } | null)
       | null;
     recycleChestIconProvider:
-      | ((chestIndex: number) => { typeId: ResourceId; texture: PIXI.Texture } | null)
+      | ((
+          chestIndex: number,
+        ) => { typeId: ResourceId; texture: PIXI.Texture } | null)
       | null;
   }): void {
     this.container.visible = options.visible;

@@ -4,9 +4,7 @@
   "description": "Unlocks the Shotgun recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:shotgun",
   "pickupSpawn": {
-    "pools": [
-      "blueprint"
-    ]
+    "pools": ["blueprint"]
   },
   "rendering": {
     "assetPath": "/blueprint/generated/shotgun.png",

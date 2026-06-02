@@ -4,9 +4,7 @@
   "description": "Unlocks the Fire Axe recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:fire_axe",
   "pickupSpawn": {
-    "pools": [
-      "blueprint"
-    ]
+    "pools": ["blueprint"]
   },
   "rendering": {
     "assetPath": "/blueprint/generated/fire_axe.png",

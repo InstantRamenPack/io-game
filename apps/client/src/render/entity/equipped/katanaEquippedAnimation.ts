@@ -119,7 +119,11 @@ export function katanaChainBreakRecoverRotationOffset(
   fromOffset: number,
   toOffset: number,
 ): number {
-  return lerp(fromOffset, toOffset, easeInQuad(Math.min(1, Math.max(0, progress))));
+  return lerp(
+    fromOffset,
+    toOffset,
+    easeInQuad(Math.min(1, Math.max(0, progress))),
+  );
 }
 
 function lerp(a: number, b: number, t: number): number {

@@ -337,9 +337,9 @@ function buildMagContent(
   };
 }
 
-function defaultItemRendering(assetPath: string): NonNullable<
-  RawContentJson["rendering"]
-> {
+function defaultItemRendering(
+  assetPath: string,
+): NonNullable<RawContentJson["rendering"]> {
   return {
     assetPath,
     sprite: {
@@ -424,8 +424,7 @@ function getCrc32Table(): Uint32Array {
   for (let index = 0; index < table.length; index += 1) {
     let value = index;
     for (let bit = 0; bit < 8; bit += 1) {
-      value =
-        value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
     }
     table[index] = value >>> 0;
   }
@@ -499,8 +498,7 @@ async function writeBlueprintAsset(
         (x + y) % 17 === 0 || (x * 3 + y + (hash & 15)) % 23 === 0;
       const dx = x - 48;
       const dy = y - 48;
-      const emblem =
-        dx * dx + dy * dy < 520 && (((x + y + hash) & 7) < 4);
+      const emblem = dx * dx + dy * dy < 520 && ((x + y + hash) & 7) < 4;
       if (border) return [22, 73, 112, 255];
       if (emblem) return [162, 221, 255, 235];
       if (guideLine) return [47, 129, 184, 180];

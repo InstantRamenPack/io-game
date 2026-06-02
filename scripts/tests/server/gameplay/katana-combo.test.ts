@@ -10,7 +10,10 @@ import {
 import { resolveKatanaChainWindowTicks } from "@shared/gameplay/katanaCombo.ts";
 import type { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 
-function waitForKatanaCooldown(katana: Katana, runtime: GameInstanceRuntime): void {
+function waitForKatanaCooldown(
+  katana: Katana,
+  runtime: GameInstanceRuntime,
+): void {
   const weaponContent = requireSwingWeaponRuntime("item:katana");
   for (let index = 0; index < weaponContent.cooldownTicks; index += 1) {
     katana.tick(runtime.world);

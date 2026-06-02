@@ -14,7 +14,14 @@ import type {
   WeaponContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { Application, Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import {
+  Application,
+  Assets,
+  Container,
+  Graphics,
+  Sprite,
+  Texture,
+} from "pixi.js";
 
 const PREVIEW_WIDTH = 820;
 const PREVIEW_HEIGHT = 520;
@@ -80,9 +87,7 @@ export function fieldString(
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
-function parseAttackStyle(
-  attackStyle: string | null,
-): AttackStyle | null {
+function parseAttackStyle(attackStyle: string | null): AttackStyle | null {
   if (
     attackStyle === "shoot" ||
     attackStyle === "jab" ||
