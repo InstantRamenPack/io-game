@@ -2,7 +2,6 @@ import type {
   ActionMessage,
   InputIntentMessage,
 } from "@shared/net/protocol.ts";
-import type { Chest } from "@server/entities/buildings/Chest.ts";
 import { isContainerEntity } from "@server/content/serverContentCapabilities.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
@@ -56,6 +55,7 @@ export class AntiCheatValidator {
       case "drop":
       case "pickup":
       case "recycle":
+      case "reload":
       case "repair_tower":
       case "useConsumable":
         return true;

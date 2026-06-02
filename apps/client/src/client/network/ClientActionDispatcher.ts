@@ -86,6 +86,12 @@ export class ClientActionDispatcher {
     });
   }
 
+  public queueReloadSelectedWeapon(): void {
+    this.sendAction({
+      action: "reload",
+    });
+  }
+
   public queuePickupNearbyItem(): void {
     this.sendAction({
       action: "pickup",
@@ -169,6 +175,7 @@ export class ClientActionDispatcher {
           };
         }
       | { action: "drop"; dropWholeStack: boolean }
+      | { action: "reload" }
       | { action: "pickup" }
       | { action: "recycle" }
       | { action: "repair_tower"; towerId: number }

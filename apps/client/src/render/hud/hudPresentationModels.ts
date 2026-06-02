@@ -20,6 +20,7 @@ export type CombatHudAmmoModel = {
   magItemTypeId: ResourceId | null;
   ammoInMag: number;
   magSize: number;
+  totalAmmo: number;
   reserveMagCount: number | null;
   reloadTicksRemaining: number | null;
 };
@@ -184,19 +185,22 @@ function buildAmmoModel(
   }
 
   const weaponContent = getWeaponContent(activeSlot.typeId);
+  const ammoInMag =
+    typeof activeSlot.ammoInMag === "number" ? activeSlot.ammoInMag : 0;
+  const reserveMagCount =
+    typeof activeSlot.reserveMagCount === "number"
+      ? activeSlot.reserveMagCount
+      : null;
   return {
     typeId: activeSlot.typeId,
     magItemTypeId:
       weaponContent?.attackStyle === "shoot"
         ? (weaponContent.magItemTypeId ?? null)
         : null,
-    ammoInMag:
-      typeof activeSlot.ammoInMag === "number" ? activeSlot.ammoInMag : 0,
+    ammoInMag,
     magSize: activeSlot.magSize,
-    reserveMagCount:
-      typeof activeSlot.reserveMagCount === "number"
-        ? activeSlot.reserveMagCount
-        : null,
+    totalAmmo: ammoInMag + Math.max(0, reserveMagCount ?? 0) * activeSlot.magSize,
+    reserveMagCount,
     reloadTicksRemaining:
       typeof activeSlot.reloadTicksRemaining === "number" &&
       activeSlot.reloadTicksRemaining > 0

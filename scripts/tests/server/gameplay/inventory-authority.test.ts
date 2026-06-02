@@ -13,6 +13,7 @@ import { Crate } from "@server/entities/enemies/Crate.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
+import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
@@ -103,6 +104,25 @@ describe("inventory authority", () => {
     ).toBe(true);
     expect(inventory.isRecipeUnlocked(heavyPistolItemId)).toBe(true);
     expect(inventory.countType(heavyPistolBlueprintItemId)).toBe(0);
+  });
+
+  test("manual reload spends one magazine to refill a partially spent selected gun", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime, "client-1");
+    player.inventory.clearHotbar();
+    const gun = new BasicGun();
+    gun.ammoInMag = Math.max(0, gun.magSize - 5);
+    expect(player.inventory.addWeapon(gun)).toBe(true);
+    player.inventory.addStackable(basicGunMagItemId, 1);
+
+    enqueueAction(runtime, { t: "action", seq: 1, action: "reload" });
+
+    expect(gun.ammoInMag).toBe(gun.magSize - 5);
+    expect(gun.toSnapshot().reloadTicksRemaining).toBeGreaterThan(0);
+    tick(runtime, gun.reloadTicks);
+
+    expect(gun.ammoInMag).toBe(gun.magSize);
+    expect(player.inventory.countType(basicGunMagItemId)).toBe(0);
   });
 
   test("inventory acquisition transfer unlocks blueprints without storing them", () => {

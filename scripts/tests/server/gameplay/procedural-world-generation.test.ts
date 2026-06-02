@@ -34,6 +34,8 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 const PROCEDURAL_CONTENT = proceduralContentJson as {
+  lootByTier: Record<string, ResourceId[]>;
+  crateLootRarityWeights: Record<string, Record<string, number>>;
   interiorSpawnChances: {
     furniture: number;
     crate: number;
@@ -55,12 +57,27 @@ const ACCESS_SAMPLE_SIZE = 32;
 const PLAYER_CLEARANCE = 24;
 const MIN_REACHABLE_OPEN_RATIO = 0.97;
 
+function villageTierWeaponBlueprintCount(
+  tier: keyof typeof proceduralContentJson.blueprintPlacement.villageTierSlots,
+): number {
+  const slot = proceduralContentJson.blueprintPlacement.villageTierSlots[tier];
+  const extraCount =
+    "extraWeaponBlueprintCount" in slot ? slot.extraWeaponBlueprintCount : 0;
+  return (
+    slot.weaponBlueprintCount + extraCount
+  );
+}
+
 function isWeaponOrBlueprint(typeId: ResourceId): boolean {
   const item = getItemContent(typeId);
   if (!item) {
     return false;
   }
-  return item.weapon !== undefined || item.unlocksRecipeTypeId !== undefined;
+  return (
+    item.weapon !== undefined ||
+    item.armor !== undefined ||
+    item.unlocksRecipeTypeId !== undefined
+  );
 }
 
 describe("procedural survival extraction world", () => {
@@ -200,8 +217,9 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("every village has exactly one blueprint crate and each crate holds one item", () => {
+  test("village blueprint crates follow authored tier slot counts and each crate holds one item", () => {
     const layout = generateProceduralWorldLayout(1337);
+    const blueprintCrateCountByTier = new Map<string, number>();
 
     for (const village of layout.villages) {
       const sector = layout.sectors.find(
@@ -231,10 +249,16 @@ describe("procedural survival extraction world", () => {
           slot.typeId.startsWith("blueprint:"),
         ),
       );
-      expect(
-        blueprintCrates,
-        `${village.id} (${village.lootTier}) should have exactly one blueprint crate`,
-      ).toHaveLength(1);
+      if (blueprintCrates.length > 0) {
+        expect(
+          blueprintCrates,
+          `${village.id} (${village.lootTier}) should have at most one blueprint crate`,
+        ).toHaveLength(1);
+        blueprintCrateCountByTier.set(
+          village.lootTier,
+          (blueprintCrateCountByTier.get(village.lootTier) ?? 0) + 1,
+        );
+      }
 
       for (const crate of villageCrates) {
         expect(
@@ -244,6 +268,19 @@ describe("procedural survival extraction world", () => {
         expect(crate.crateLoot?.[0]?.amount ?? 1).toBe(1);
       }
     }
+    expect(Object.fromEntries(blueprintCrateCountByTier)).toEqual({
+      common:
+        1 +
+        villageTierWeaponBlueprintCount("common"),
+      uncommon:
+        1 +
+        villageTierWeaponBlueprintCount("uncommon"),
+      rare:
+        1 +
+        villageTierWeaponBlueprintCount("rare"),
+      epic:
+        villageTierWeaponBlueprintCount("epic"),
+    });
   });
 
   test("extraction point matches the fortified village helipad feature", () => {
@@ -526,7 +563,7 @@ describe("procedural survival extraction world", () => {
   test("interior spawn chances are authored in procedural content", () => {
     expect(PROCEDURAL_CONTENT.interiorSpawnChances).toEqual({
       furniture: expect.any(Number),
-      crate: expect.any(Number),
+      crate: 0.5,
       enemy: expect.any(Number),
     });
     for (const value of Object.values(
@@ -622,6 +659,50 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
   });
 
+  test("village crate loot rolls authored rarity weights before choosing a weapon", () => {
+    expect(PROCEDURAL_CONTENT.crateLootRarityWeights).toEqual({
+      common: { common: 0.3, uncommon: 0.7, rare: 0, epic: 0 },
+      uncommon: { common: 0, uncommon: 0.3, rare: 0.7, epic: 0 },
+      rare: { common: 0, uncommon: 0, rare: 0.5, epic: 0.5 },
+      epic: { common: 0, uncommon: 0, rare: 0, epic: 1 },
+    });
+
+    const commonVillageLootRarities = new Set<string>();
+    for (const seed of [1337, 1338, 1339, 4242]) {
+      const seededLayout = generateProceduralWorldLayout(seed);
+      for (const village of seededLayout.villages) {
+        if (village.lootTier !== "common") {
+          continue;
+        }
+        const sector = seededLayout.sectors.find(
+          (candidate) => candidate.id === village.sectorId,
+        );
+        if (!sector) {
+          throw new Error(`Missing sector ${village.sectorId}`);
+        }
+        for (const crate of sector.enemies) {
+          if (
+            crate.typeId !== "enemy:crate" ||
+            crate.x < village.minX ||
+            crate.x > village.maxX ||
+            crate.y < village.minY ||
+            crate.y > village.maxY
+          ) {
+            continue;
+          }
+          const slot = crate.crateLoot?.[0];
+          if (!slot || slot.typeId.startsWith("blueprint:")) {
+            continue;
+          }
+          commonVillageLootRarities.add(
+            getItemContent(slot.typeId)?.rarityTier ?? "missing",
+          );
+        }
+      }
+    }
+    expect(commonVillageLootRarities.has("uncommon")).toBe(true);
+  });
+
   test("every sector has content, traversal, rewards, enemies where hostile, and minimap metadata", () => {
     const layout = generateProceduralWorldLayout(1337);
 
@@ -630,7 +711,13 @@ describe("procedural survival extraction world", () => {
       expect(
         sector.structures.length + sector.buildings.length,
       ).toBeGreaterThan(0);
-      expect(sector.loot.length).toBeGreaterThan(0);
+      if (sector.archetype === "dungeon") {
+        expect(
+          sector.enemies.some((enemy) => enemy.typeId === "enemy:crate"),
+        ).toBe(true);
+      } else {
+        expect(sector.loot.length).toBeGreaterThan(0);
+      }
       expect(sector.features.length).toBeGreaterThan(0);
       expect(sector.features.some((feature) => feature.hasReward)).toBe(true);
       expect(sector.features.some((feature) => feature.risk !== "low")).toBe(
@@ -707,26 +794,24 @@ describe("procedural survival extraction world", () => {
           enemy.typeId === "enemy:crate" &&
           enemy.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
       );
-      expect(dungeonBlueprintCrates).toHaveLength(3);
+      expect(dungeonBlueprintCrates).toHaveLength(1);
 
       let dungeonRareBlueprintCount = 0;
       let dungeonEpicBlueprintCount = 0;
       for (const crate of dungeonBlueprintCrates) {
-        const blueprintTypeId = crate.crateLoot?.find((slot) =>
-          slot.typeId.startsWith("blueprint:"),
-        )?.typeId;
-        expect(blueprintTypeId).toBeDefined();
-        if (!blueprintTypeId) {
-          continue;
-        }
-        const unlockedRarity = getItemContent(
-          getItemContent(blueprintTypeId)?.unlocksRecipeTypeId as ResourceId,
-        )?.rarityTier;
-        if (unlockedRarity === "rare") {
-          dungeonRareBlueprintCount += 1;
-        }
-        if (unlockedRarity === "epic") {
-          dungeonEpicBlueprintCount += 1;
+        for (const slot of crate.crateLoot ?? []) {
+          if (!slot.typeId.startsWith("blueprint:")) {
+            continue;
+          }
+          const unlockedRarity = getItemContent(
+            getItemContent(slot.typeId)?.unlocksRecipeTypeId as ResourceId,
+          )?.rarityTier;
+          if (unlockedRarity === "rare") {
+            dungeonRareBlueprintCount += 1;
+          }
+          if (unlockedRarity === "epic") {
+            dungeonEpicBlueprintCount += 1;
+          }
         }
       }
       expect(dungeonRareBlueprintCount).toBe(
@@ -737,7 +822,7 @@ describe("procedural survival extraction world", () => {
         proceduralContentJson.blueprintPlacement.dungeonSlots
           .epicWeaponBlueprintCount,
       );
-      expect(dungeonBlueprintCrates).toHaveLength(
+      expect(dungeonRareBlueprintCount + dungeonEpicBlueprintCount).toBe(
         proceduralContentJson.blueprintPlacement.dungeonSlots
           .rareWeaponBlueprintCount +
           proceduralContentJson.blueprintPlacement.dungeonSlots
@@ -919,6 +1004,119 @@ describe("procedural survival extraction world", () => {
           enemy.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
       ),
     ).toBe(true);
+  });
+
+  test("dungeon crates use authored room pools and keep crate volume near target", () => {
+    const layouts = Array.from({ length: 100 }, (_, index) =>
+      generateProceduralWorldLayout(1337 + index),
+    );
+    let totalCrates = 0;
+    let totalRegularCrates = 0;
+
+    for (const layout of layouts) {
+      const dungeonSector = layout.sectors.find(
+        (sector) => sector.archetype === "dungeon",
+      );
+      expect(dungeonSector).toBeDefined();
+      if (!dungeonSector) {
+        throw new Error("expected dungeon sector");
+      }
+      const dungeonCrates = dungeonSector.enemies.filter(
+        (enemy) => enemy.typeId === "enemy:crate",
+      );
+      expect(dungeonCrates.length).toBeGreaterThanOrEqual(6);
+      totalCrates += dungeonCrates.length;
+
+      const roomByCrate = new Map<
+        (typeof dungeonCrates)[number],
+        (typeof layout.dungeon.rooms)[number]
+      >();
+      for (const crate of dungeonCrates) {
+        const room = layout.dungeon.rooms.find(
+          (candidate) =>
+            crate.x >= candidate.minX &&
+            crate.x <= candidate.maxX &&
+            crate.y >= candidate.minY &&
+            crate.y <= candidate.maxY,
+        );
+        expect(room).toBeDefined();
+        if (room) {
+          roomByCrate.set(crate, room);
+        }
+      }
+
+      const treasureCrates = dungeonCrates.filter(
+        (crate) => roomByCrate.get(crate)?.role === "treasure",
+      );
+      expect(treasureCrates).toHaveLength(3);
+      expect(
+        treasureCrates.filter((crate) =>
+          crate.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
+        ),
+      ).toHaveLength(1);
+      expect(
+        treasureCrates.some((crate) =>
+          crate.crateLoot?.some(
+            (slot) =>
+              !slot.typeId.startsWith("blueprint:") &&
+              getItemContent(slot.typeId)?.rarityTier === "epic",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        treasureCrates.some((crate) =>
+          crate.crateLoot?.some(
+            (slot) => getItemContent(slot.typeId)?.rarityTier === "rare",
+          ),
+        ),
+      ).toBe(true);
+
+      for (const crate of dungeonCrates) {
+        const room = roomByCrate.get(crate);
+        if (!room) {
+          continue;
+        }
+        const hasBlueprint =
+          crate.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")) ??
+          false;
+        if (!hasBlueprint) {
+          totalRegularCrates += 1;
+        }
+        const regularLoot = (crate.crateLoot ?? []).filter(
+          (slot) => !slot.typeId.startsWith("blueprint:"),
+        );
+        if (room.role === "boss") {
+          throw new Error("boss rooms should not contain crates");
+        }
+        if (room.role === "armory") {
+          expect(crate.crateLoot).toEqual([
+            { typeId: "item:armor_t4", kind: "item", amount: 1 },
+          ]);
+        }
+        if (
+          ["entrance", "combat", "enemy_swarm"].includes(room.role) &&
+          regularLoot.length > 0
+        ) {
+          expect(getItemContent(regularLoot[0]!.typeId)?.rarityTier).toBe(
+            "uncommon",
+          );
+        }
+        if (room.role === "trap" && regularLoot.length > 0) {
+          expect(getItemContent(regularLoot[0]!.typeId)?.rarityTier).toBe(
+            "rare",
+          );
+        }
+        if (room.role === "mini_boss" && regularLoot.length > 0) {
+          expect(getItemContent(regularLoot[0]!.typeId)?.rarityTier).toBe(
+            "epic",
+          );
+        }
+      }
+    }
+
+    expect(totalCrates / layouts.length).toBeGreaterThanOrEqual(8.2);
+    expect(totalCrates / layouts.length).toBeLessThanOrEqual(10);
+    expect(totalRegularCrates).toBeGreaterThan(0);
   });
 
   test("dungeon chamber centers are reachable from the two entrances without key doors", () => {

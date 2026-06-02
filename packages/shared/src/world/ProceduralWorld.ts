@@ -147,7 +147,7 @@ export type ProceduralLootSpec = ProceduralPoint & {
 export type ProceduralCrateLootSlot = {
   typeId: ResourceId;
   amount?: number;
-  kind: "stackable" | "weapon";
+  kind: "item" | "stackable" | "weapon";
 };
 
 export type ProceduralMapMarker = ProceduralPoint & {
@@ -293,7 +293,10 @@ type ProceduralContentLoot = ProceduralContentSpawn & {
 type ProceduralContentCrate = {
   offsetX: number;
   offsetY: number;
-  loot: Array<{
+  spawnChance?: number;
+  blueprint?: boolean;
+  randomLootTier?: ProceduralRewardTier;
+  loot?: Array<{
     typeId: string;
     kind: ProceduralCrateLootSlot["kind"];
     amount?: number;
@@ -318,10 +321,7 @@ type ProceduralSectorContent = {
 
 type ProceduralContent = {
   lootByTier: Record<ProceduralRewardTier, readonly ResourceId[]>;
-  crateLootByTier: Record<
-    ProceduralRewardTier,
-    readonly ProceduralCrateLootSlot[]
-  >;
+  crateLootRarityWeights: Record<ProceduralRewardTier, RarityWeightTable>;
   blueprintPlacement: {
     villagesPerDistanceTier: number;
     crateRules: {
@@ -334,6 +334,8 @@ type ProceduralContent = {
         armorBlueprintTypeId?: ResourceId;
         weaponBlueprintPool: string;
         weaponBlueprintCount: number;
+        extraWeaponBlueprintPool?: string;
+        extraWeaponBlueprintCount?: number;
       }
     >;
     dungeonSlots: {
@@ -529,6 +531,17 @@ function assignVillageTierBlueprintSlots(
     shuffledPools,
     poolCounters,
   );
+  if (tierSlot.extraWeaponBlueprintPool && tierSlot.extraWeaponBlueprintCount) {
+    weaponBlueprints.push(
+      ...consumeBlueprintPool(
+        rng,
+        tierSlot.extraWeaponBlueprintPool,
+        tierSlot.extraWeaponBlueprintCount,
+        shuffledPools,
+        poolCounters,
+      ),
+    );
+  }
   for (const blueprintTypeId of weaponBlueprints) {
     const village = villageOrder[villageIndex++];
     if (!village) {
@@ -763,32 +776,32 @@ function assignDeterministicBlueprintPlacements(
     .filter((enemy) => enemy.typeId === "enemy:crate")
     .slice()
     .sort((left, right) => left.x - right.x || left.y - right.y);
+  const dungeonBlueprintCrates = dungeonCrates.filter((crate) =>
+    crate.label?.includes("dungeon_blueprint_crate"),
+  );
 
-  if (dungeonCrates.length < dungeonBlueprints.length) {
+  if (dungeonBlueprintCrates.length !== 1) {
     throw new Error(
-      `Dungeon needs ${dungeonBlueprints.length} crates for blueprint placement.`,
+      `Dungeon needs exactly one blueprint crate, found ${dungeonBlueprintCrates.length}.`,
     );
   }
+  dungeonBlueprintCrates[0]!.crateLoot = dungeonBlueprints.map(
+    (blueprintTypeId) => blueprintCrateLoot(blueprintTypeId)[0]!,
+  );
 
-  for (let index = 0; index < dungeonBlueprints.length; index += 1) {
-    const blueprintTypeId = dungeonBlueprints[index];
-    if (!blueprintTypeId) {
+  for (const crate of dungeonCrates) {
+    if (crate === dungeonBlueprintCrates[0]) {
       continue;
     }
-    dungeonCrates[index]!.crateLoot = blueprintCrateLoot(blueprintTypeId);
-  }
-
-  for (
-    let index = dungeonBlueprints.length;
-    index < dungeonCrates.length;
-    index += 1
-  ) {
-    normalizeCrateLootSpec(dungeonCrates[index]!);
+    normalizeCrateLootSpec(crate);
   }
 
   for (const sector of sectors) {
     for (const enemy of sector.enemies) {
       if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        continue;
+      }
+      if (enemy.label?.includes("dungeon_blueprint_crate")) {
         continue;
       }
       normalizeCrateLootSpec(enemy);
@@ -2559,9 +2572,14 @@ function addDungeonRoomContent(
     offsetX: number,
     offsetY: number,
     crateLoot: ProceduralCrateLootSlot[],
+    label?: string,
   ) => {
     const position = point(offsetX, offsetY);
-    return crateSpawn("enemy:crate", position.x, position.y, crateLoot);
+    const spec = crateSpawn("enemy:crate", position.x, position.y, crateLoot);
+    if (label) {
+      spec.label = label;
+    }
+    return spec;
   };
 
   const content = PROCEDURAL_CONTENT.dungeonRoomContent[room.role];
@@ -2612,22 +2630,56 @@ function addDungeonRoomContent(
     }
   }
   for (const crate of content.crates ?? []) {
+    const crateRng = seedrandom(
+      `${room.id}:crate:${crate.offsetX}:${crate.offsetY}`,
+    );
+    if (crate.spawnChance !== undefined && crateRng() >= crate.spawnChance) {
+      continue;
+    }
+    const crateLoot = crate.blueprint
+      ? []
+      : crate.randomLootTier
+        ? randomCrateLootForRarity(crateRng, crate.randomLootTier)
+        : (crate.loot ?? []).map((slot) => {
+            const typeId = slot.typeId as ResourceId;
+            assertCrateLootTypeId(typeId);
+            return {
+              typeId,
+              kind: slot.kind,
+              amount: slot.amount,
+            };
+          });
     enemies.push(
       roomCrate(
         crate.offsetX,
         crate.offsetY,
-        crate.loot.map((slot) => {
-          const typeId = slot.typeId as ResourceId;
-          assertCrateLootTypeId(typeId);
-          return {
-            typeId,
-            kind: slot.kind,
-            amount: slot.amount,
-          };
-        }),
+        crateLoot,
+        crate.blueprint ? "dungeon_blueprint_crate" : undefined,
       ),
     );
   }
+}
+
+function randomCrateLootForRarity(
+  rng: seedrandom.PRNG,
+  tier: ProceduralRewardTier,
+): ProceduralCrateLootSlot[] {
+  const itemsPerCrate = BLUEPRINT_PLACEMENT.crateRules.itemsPerCrate;
+  const pool = LOOT_BY_TIER[tier];
+  for (const typeId of pool) {
+    assertCrateLootTypeId(typeId);
+  }
+  const typeId = pool[Math.floor(rng() * pool.length)];
+  if (!typeId) {
+    return [];
+  }
+  return [
+    {
+      typeId,
+      kind: getWeaponContent(typeId) ? "weapon" : "item",
+      amount: itemsPerCrate,
+    },
+  ];
 }
 
 function resolveDungeonEnemyTypeId(
@@ -3870,35 +3922,54 @@ function crateLootForTier(
   rng: seedrandom.PRNG,
   tier: ProceduralLootSpec["rewardTier"],
 ): ProceduralCrateLootSlot[] {
-  const explicitPool = PROCEDURAL_CONTENT.crateLootByTier[tier].filter(
-    (slot) => !slot.typeId.startsWith("blueprint:"),
-  );
-  for (const slot of explicitPool) {
-    assertCrateLootTypeId(slot.typeId);
-  }
-  const knownTypeIds = new Set(explicitPool.map((slot) => slot.typeId));
+  const lootTier = selectCrateLootRarityTier(rng, tier);
   const itemsPerCrate = BLUEPRINT_PLACEMENT.crateRules.itemsPerCrate;
-  const derivedPool = LOOT_BY_TIER[tier]
-    .filter((typeId) => {
-      assertCrateLootTypeId(typeId);
-      return true;
-    })
-    .filter((typeId) => !knownTypeIds.has(typeId))
-    .map((typeId) => ({
+  const pool = LOOT_BY_TIER[lootTier];
+  for (const typeId of pool) {
+    assertCrateLootTypeId(typeId);
+  }
+  const typeId = pool[Math.floor(rng() * pool.length)];
+  if (!typeId) {
+    return [];
+  }
+  return [
+    {
       typeId,
-      kind: getWeaponContent(typeId)
-        ? ("weapon" as const)
-        : ("stackable" as const),
-      amount: getWeaponContent(typeId) ? undefined : itemsPerCrate,
-    }));
-  const pool = [...explicitPool, ...derivedPool];
-  const slot = pool[Math.floor(rng() * pool.length)];
-  return slot ? [{ ...slot, amount: itemsPerCrate }] : [];
+      kind: getWeaponContent(typeId) ? "weapon" : "stackable",
+      amount: itemsPerCrate,
+    },
+  ];
+}
+
+function selectCrateLootRarityTier(
+  rng: seedrandom.PRNG,
+  villageTier: ProceduralRewardTier,
+): ProceduralRewardTier {
+  const weights = PROCEDURAL_CONTENT.crateLootRarityWeights[villageTier];
+  const entries = (Object.entries(weights) as Array<
+    [ProceduralRewardTier, number | undefined]
+  >).filter(([, weight]) => (weight ?? 0) > 0);
+  const total = entries.reduce((sum, [, weight]) => sum + (weight ?? 0), 0);
+  if (total <= 0) {
+    throw new Error(`Missing crate loot rarity weights for ${villageTier}.`);
+  }
+  let roll = rng() * total;
+  for (const [tier, weight] of entries) {
+    roll -= weight ?? 0;
+    if (roll <= 0) {
+      return tier;
+    }
+  }
+  return entries.at(-1)![0];
 }
 
 function isCrateLootTypeId(typeId: ResourceId): boolean {
   const item = getItemContent(typeId);
-  return item?.weapon !== undefined || item?.unlocksRecipeTypeId !== undefined;
+  return (
+    item?.weapon !== undefined ||
+    item?.armor !== undefined ||
+    item?.unlocksRecipeTypeId !== undefined
+  );
 }
 
 function assertCrateLootTypeId(typeId: ResourceId): void {

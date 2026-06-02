@@ -48,6 +48,7 @@ import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
 import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import type { Item } from "@server/items/Item.ts";
 import { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
@@ -643,6 +644,13 @@ export class Player extends Entity {
         case "recycle":
           this.recycleSelectedItem(world);
           break;
+        case "reload": {
+          const activeWeapon = this.getActiveWeapon();
+          if (activeWeapon instanceof RangedWeapon) {
+            activeWeapon.requestReload(this);
+          }
+          break;
+        }
         case "useConsumable":
           this.useConsumable(world, actionMessage.typeId);
           break;

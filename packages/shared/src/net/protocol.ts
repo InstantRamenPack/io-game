@@ -169,6 +169,12 @@ const RecycleActionMessageSchema = z.object({
   action: z.literal("recycle"),
 });
 
+const ReloadActionMessageSchema = z.object({
+  t: z.literal("action"),
+  seq: NonNegativeIntSchema,
+  action: z.literal("reload"),
+});
+
 const RepairTowerActionMessageSchema = z.object({
   t: z.literal("action"),
   seq: NonNegativeIntSchema,
@@ -194,6 +200,7 @@ const ActionMessageSchemaOptions = [
   DropActionMessageSchema,
   PickupActionMessageSchema,
   RecycleActionMessageSchema,
+  ReloadActionMessageSchema,
   RepairTowerActionMessageSchema,
   UseConsumableActionMessageSchema,
 ] as const;

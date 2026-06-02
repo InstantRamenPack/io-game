@@ -132,6 +132,7 @@ describe("protocol parser", () => {
       { t: "action", seq: 7, action: "drop", dropWholeStack: false },
       { t: "action", seq: 8, action: "pickup" },
       { t: "action", seq: 9, action: "recycle" },
+      { t: "action", seq: 10, action: "reload" },
     ];
 
     for (const payload of samples) {

@@ -19,6 +19,7 @@ import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
 import {
   generateProceduralWorldLayout,
+  getSectorForPoint,
   type ProceduralDungeonRoom,
   type ProceduralCrateLootSlot,
   type ProceduralLootSpec,
@@ -302,10 +303,6 @@ function loadLobbyLayout(world: World): void {
   });
 }
 
-/**
- * Despawns all loot crates and re-spawns them from the stored procedural layout.
- * Called at dawn so each new day has fresh loot throughout the world.
- */
 export function trySpawnDeferredExtractionLegendaryBoss(
   world: World,
   nightCycle: number,
@@ -323,22 +320,11 @@ export function trySpawnDeferredExtractionLegendaryBoss(
 
 export function refreshLoot(world: World): void {
   if (!world.proceduralLayout) return;
-
-  for (const entity of world.entities.all()) {
-    if (entity.typeId === ("enemy:crate" as ResourceId)) {
-      world.despawn(entity.id);
-    }
-  }
-
-  for (const sector of world.proceduralLayout.sectors) {
-    for (const spec of sector.loot) {
-      spawnProceduralLootCrate(world, spec);
-    }
-  }
+  // Crates are finite per match; dawn should not refill destroyed loot.
 }
 
 /**
- * Respawns procedural layout enemies at dawn, mirroring crate refresh scope.
+ * Respawns a partial set of regular procedural enemies at dawn.
  */
 export function refreshLayoutEnemies(world: World): void {
   if (!world.proceduralLayout) {
@@ -346,21 +332,32 @@ export function refreshLayoutEnemies(world: World): void {
   }
 
   for (const entity of world.entities.all()) {
-    if (entity instanceof Enemy && entity.spawnSource === "layout") {
+    const sector = getSectorForPoint(world.proceduralLayout, entity);
+    if (
+      entity instanceof Enemy &&
+      entity.spawnSource === "layout" &&
+      entity.typeId !== ("enemy:crate" as ResourceId) &&
+      sector?.archetype !== "dungeon"
+    ) {
       world.despawn(entity.id);
     }
   }
 
-  for (const sector of world.proceduralLayout.sectors) {
-    for (const spec of sector.enemies) {
-      if (
-        sector.archetype === "extraction" &&
-        isLegendaryBossTypeId(spec.typeId)
-      ) {
-        continue;
-      }
-      spawnProceduralEntity(world, spec, "layout");
-    }
+  const respawnSpecs = world.proceduralLayout.sectors.flatMap((sector) =>
+    sector.archetype === "dungeon"
+      ? []
+      : sector.enemies.filter(
+          (spec) =>
+            spec.typeId !== ("enemy:crate" as ResourceId) &&
+            !(
+              sector.archetype === "extraction" &&
+              isLegendaryBossTypeId(spec.typeId)
+            ),
+        ),
+  );
+  const respawnCount = Math.floor(respawnSpecs.length * 0.5);
+  for (let index = 0; index < respawnCount; index += 1) {
+    spawnProceduralEntity(world, respawnSpecs[index]!, "layout");
   }
 }
 

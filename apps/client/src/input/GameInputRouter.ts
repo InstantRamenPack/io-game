@@ -176,6 +176,12 @@ export class GameInputRouter {
       return;
     }
 
+    if (key === "r") {
+      event.preventDefault();
+      this.options.dispatch({ type: "reloadSelectedWeapon" });
+      return;
+    }
+
     if (key === "escape") {
       if (context.chestOpen || context.craftingOpen) {
         event.preventDefault();

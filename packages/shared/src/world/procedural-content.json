@@ -14,110 +14,43 @@
       "item:basic_rifle",
       "item:drone_shooter",
       "item:fire_axe",
-      "item:katana",
       "item:machine_pistol",
       "item:shotgun",
       "item:spiked_spear"
     ],
-    "epic": ["item:halberd", "item:heavy_pistol", "item:lmg", "item:sniper"]
-  },
-  "crateLootByTier": {
-    "common": [
-      {
-        "typeId": "item:baseball_bat",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:basic_dagger",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:basic_gun",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:basic_spear",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:basic_sword",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:cleaver",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:scissors",
-        "kind": "weapon"
-      }
-    ],
-    "uncommon": [
-      {
-        "typeId": "item:carbine",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:crossbow",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:machete",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:taser",
-        "kind": "weapon"
-      }
-    ],
-    "rare": [
-      {
-        "typeId": "item:basic_rifle",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:drone_shooter",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:fire_axe",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:katana",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:machine_pistol",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:shotgun",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:spiked_spear",
-        "kind": "weapon"
-      }
-    ],
     "epic": [
-      {
-        "typeId": "item:halberd",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:heavy_pistol",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:lmg",
-        "kind": "weapon"
-      },
-      {
-        "typeId": "item:sniper",
-        "kind": "weapon"
-      }
+      "item:halberd",
+      "item:heavy_pistol",
+      "item:katana",
+      "item:lmg",
+      "item:sniper"
     ]
+  },
+  "crateLootRarityWeights": {
+    "common": {
+      "common": 0.3,
+      "uncommon": 0.7,
+      "rare": 0,
+      "epic": 0
+    },
+    "uncommon": {
+      "common": 0,
+      "uncommon": 0.3,
+      "rare": 0.7,
+      "epic": 0
+    },
+    "rare": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 0.5,
+      "epic": 0.5
+    },
+    "epic": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 0,
+      "epic": 1
+    }
   },
   "blueprintPlacement": {
     "villagesPerDistanceTier": 4,
@@ -134,7 +67,9 @@
       "uncommon": {
         "armorBlueprintTypeId": "blueprint:armor",
         "weaponBlueprintPool": "rareWeapon",
-        "weaponBlueprintCount": 3
+        "weaponBlueprintCount": 2,
+        "extraWeaponBlueprintPool": "epicWeapon",
+        "extraWeaponBlueprintCount": 1
       },
       "rare": {
         "armorBlueprintTypeId": "blueprint:armor",
@@ -210,7 +145,7 @@
   "interiorSpawnChances": {
     "furniture": 0.3,
     "crate": 0.5,
-    "enemy": 0.4
+    "enemy": 0.5
   },
   "sectorContent": {
     "home": {
@@ -286,14 +221,12 @@
           "offsetY": 0
         }
       ],
-      "loot": [
+      "crates": [
         {
-          "typeId": "item:basic_spear",
+          "spawnChance": 0.05,
           "offsetX": 160,
           "offsetY": 0,
-          "kind": "weapon",
-          "rewardTier": "common",
-          "amount": 1
+          "randomLootTier": "uncommon"
         }
       ]
     },
@@ -315,14 +248,12 @@
           "offsetY": 112
         }
       ],
-      "loot": [
+      "crates": [
         {
-          "typeId": "item:basic_spear",
+          "spawnChance": 0.2,
           "offsetX": 0,
           "offsetY": 120,
-          "kind": "weapon",
-          "rewardTier": "common",
-          "amount": 1
+          "randomLootTier": "uncommon"
         }
       ]
     },
@@ -359,38 +290,31 @@
           "offsetY": 220
         }
       ],
-      "loot": [
+      "crates": [
         {
-          "typeId": "item:basic_spear",
+          "spawnChance": 0.05,
           "offsetX": 0,
           "offsetY": 0,
-          "kind": "weapon",
-          "rewardTier": "common",
-          "amount": 1
+          "randomLootTier": "uncommon"
         }
       ]
     },
     "treasure": {
       "crates": [
         {
+          "offsetX": -96,
+          "offsetY": 0,
+          "randomLootTier": "epic"
+        },
+        {
           "offsetX": 0,
           "offsetY": 0,
-          "loot": [
-            {
-              "typeId": "item:sniper",
-              "kind": "weapon"
-            }
-          ]
-        }
-      ],
-      "loot": [
+          "blueprint": true
+        },
         {
-          "typeId": "item:crossbow",
-          "offsetX": 80,
+          "offsetX": 96,
           "offsetY": 0,
-          "kind": "weapon",
-          "rewardTier": "uncommon",
-          "amount": 1
+          "randomLootTier": "rare"
         }
       ]
     },
@@ -438,20 +362,11 @@
           "offsetY": 96,
           "loot": [
             {
-              "typeId": "item:carbine",
-              "kind": "weapon"
+              "typeId": "item:armor_t4",
+              "kind": "item",
+              "amount": 1
             }
           ]
-        }
-      ],
-      "loot": [
-        {
-          "typeId": "item:carbine",
-          "offsetX": 96,
-          "offsetY": 96,
-          "kind": "weapon",
-          "rewardTier": "uncommon",
-          "amount": 1
         }
       ]
     },
@@ -490,14 +405,12 @@
           "orientation": "horizontal"
         }
       ],
-      "loot": [
+      "crates": [
         {
-          "typeId": "item:crossbow",
+          "spawnChance": 0.5,
           "offsetX": 0,
           "offsetY": 128,
-          "kind": "weapon",
-          "rewardTier": "uncommon",
-          "amount": 1
+          "randomLootTier": "rare"
         }
       ]
     },
@@ -509,14 +422,11 @@
           "offsetY": 0
         }
       ],
-      "loot": [
+      "crates": [
         {
-          "typeId": "item:crossbow",
           "offsetX": 0,
           "offsetY": 160,
-          "kind": "weapon",
-          "rewardTier": "rare",
-          "amount": 1
+          "randomLootTier": "epic"
         }
       ]
     },
@@ -536,18 +446,6 @@
           "typeId": "enemy:sniper",
           "offsetX": 220,
           "offsetY": 160
-        }
-      ],
-      "crates": [
-        {
-          "offsetX": 0,
-          "offsetY": 260,
-          "loot": [
-            {
-              "typeId": "item:thanos_rifle",
-              "kind": "weapon"
-            }
-          ]
         }
       ]
     }

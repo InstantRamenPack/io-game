@@ -382,6 +382,10 @@ export class GameClient {
     this.actionDispatcher.queueDropSelectedItem(dropWholeStack);
   }
 
+  public queueReloadSelectedWeapon(): void {
+    this.actionDispatcher.queueReloadSelectedWeapon();
+  }
+
   public queuePickupNearbyItem(): void {
     this.actionDispatcher.queuePickupNearbyItem();
   }
