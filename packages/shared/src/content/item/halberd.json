@@ -18,22 +18,29 @@
     "range": 80,
     "damage": 40,
     "knockback": 20,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 32,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 2,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 90,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "recycle": {
     "hunkValue": 15
   },
-  "rarityTier": "epic"
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/weapon/halberd.png",
+    "sprite": {
+      "x": 32,
+      "y": 0,
+      "rotationDeg": 8,
+      "scale": 1.3,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 90,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": -45,
+      "scale": 1.4
+    }
+  }
 }

@@ -1,7 +1,7 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type {
   AttackStyle,
-  EquippedRender,
+  ItemSpriteRendering,
   WeaponContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -12,7 +12,7 @@ export type EquippedRenderContext = {
   entity: ClientEntity;
   rotation: number;
   weaponContent: WeaponContent;
-  renderManifest: EquippedRender;
+  renderManifest: ItemSpriteRendering;
   typeId: ResourceId;
   attackStyle: AttackStyle;
   facingLeft: boolean;
@@ -64,13 +64,13 @@ export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
     // Orbit/position should flip horizontally when mirrored so the weapon
     // stays on the correct side of the player.
     sprite.position.set(
-      renderManifest.holdOffset.x * (mirrorSign === 1 ? 1 : -1),
-      renderManifest.holdOffset.y,
+      renderManifest.x * (mirrorSign === 1 ? 1 : -1),
+      renderManifest.y,
     );
 
     container.rotation =
       input.rotation +
-      toRadians(renderManifest.holdRotationDeg) +
+      toRadians(renderManifest.rotationDeg) +
       (facingLeft ? Math.PI : 0);
   }
 

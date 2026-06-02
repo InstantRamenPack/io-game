@@ -18,20 +18,27 @@
     "projectileTypeId": "projectile:rifle_bullet",
     "magSize": 12,
     "reloadTicks": 20,
-    "spreadDeg": 8,
-    "magItemTypeId": "mag:basic_rifle",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 18,
-        "y": 3
-      },
-      "holdRotationDeg": -8,
-      "scale": 1.06,
+    "spreadDeg": 4,
+    "magItemTypeId": "mag:basic_rifle"
+  },
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/basic_rifle.png",
+    "sprite": {
+      "x": 33,
+      "y": 0,
+      "rotationDeg": 7,
+      "scale": 1,
       "handedness": "right",
-      "recoilDistance": 12,
+      "recoilDistance": 16,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "rare"
+  }
 }

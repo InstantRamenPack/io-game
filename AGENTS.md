@@ -99,8 +99,9 @@ These rules apply to every task in this repo unless the user explicitly override
 - Wave enemies use finite aggro (not infinite) and spawn near map center so buildings draw aggro when players stay distant.
 - Night ends only when all wave enemies are killed.
 - At night, and when electricity or lights are down, enemies fight at full range and speed with day-time combat nerfs removed.
-- Recycling uses a drag-and-button modal below crafting in the tower UI, not press-E interact.
-- Energy and comms towers are buildings but cannot be obtained through regular gameplay; only three uncraftable starter towers spawn at match start.
+- Recycling uses a standalone drag-and-button panel above the chest column at the hub tower, not press-E interact.
+- Tower hub UI supports dragging items between inventory, chest, and hotbar slots (not the craft list) and drag-crafting from the scrollable recipe list into a chosen slot.
+- Starter `tower:hub`, `tower:energy`, and `tower:comms` are uncraftable; only the three map-placed starters exist in regular gameplay.
 - Saboteurs use `item:basic_sword` and deal normal damage to players but 2× damage to buildings.
 
 ## Learned Workspace Facts
@@ -110,8 +111,11 @@ These rules apply to every task in this repo unless the user explicitly override
 - Dungeon generation forces exactly one boss room; the boss room primary spawn uses `spawnRole: "legendary_boss"` in procedural content.
 - Twelve non-extraction villages are placed randomly one-by-one with reroll on extraction, center, or dungeon overlap; tiers are assigned after placement by distance rank (closest quartile low, middle quartile medium, furthest quartile high).
 - Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
-- Crafting and recycling share one tower; the map starts with three uncraftable starter towers (combined craft/recycle, energy, comms).
+- Crafting and recycling use `tower:hub`; match start places three uncraftable starters (`tower:hub`, `tower:energy`, `tower:comms`). All extend `Building` for enemy targeting, remain in-world at 0 HP when destroyed, and are unusable until repaired with hunk like other towers.
+- In non-production, joining as player name `debug` (`isDebugAdminPlayerName`) enables debug spectator cheats plus per-player unlock of all blueprint-locked recipes, a large hunk grant, and hunk-free crafting/tower repair via `debugPlayerBootstrap.ts` (not lobby-wide blueprint unlock).
 - When night ends, worldgen-placed enemies respawn the same way procedural crates do.
 - Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` blueprints were removed.
 - Armor rarities: Scout common, Field uncommon, Juggernaut rare, Aegis epic.
-- Blueprint placement is deterministic in `procedural-content.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; village crates hold one item and each village has one blueprint plus at least one craft.
+- Blueprint placement is deterministic in `procedural-content.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
+- Village layout tunables live in `procedural-content.json` `villageGeneration`: BSP leaves clamp to the sector, wider house spacing, guaranteed per-village crate via `placeVillageCrateWithRetry`, trees pruned from structure bounding boxes, and extraction fortified keeps houses around the helipad.
+- `bun run balance` item rendering preview must use the in-game Pixi path (`balance-item-rendering-preview.ts` with equipped renderers and `syncItemIconSprite`), not a separate preview implementation.

@@ -16,6 +16,7 @@ import {
 import { AntiCheatValidator } from "@server/net/AntiCheatValidator.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { SnapshotManager } from "@server/net/SnapshotManager.ts";
+import { applyDebugPlayerBootstrap } from "@server/server/debugPlayerBootstrap.ts";
 import {
   applyPlayerNonLobbySpawnLoadout,
   applyPlayerStarterLoadout,
@@ -190,6 +191,7 @@ export class GameInstanceRuntime {
 
     this.world.spawn(playerEntity);
     this.world.applySessionRecipeUnlocks(playerEntity.inventory);
+    applyDebugPlayerBootstrap(playerEntity);
     this.playerIdByClientId.set(clientId, playerId);
     this.lastProcessedInputSequenceByClientId.set(clientId, -1);
     this.lastProcessedActionSequenceByClientId.set(clientId, -1);

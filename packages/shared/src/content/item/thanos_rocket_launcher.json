@@ -7,19 +7,26 @@
     "magSize": 3,
     "reloadTicks": 50,
     "spreadDeg": 0,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 22,
-        "y": 5
-      },
-      "holdRotationDeg": 0,
+    "magItemTypeId": "mag:thanos_rocket_launcher"
+  },
+  "rarityTier": "legendary",
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 22,
+      "y": 5,
+      "rotationDeg": 0,
       "scale": 1.3,
       "handedness": "right",
       "recoilDistance": 18,
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "magItemTypeId": "mag:thanos_rocket_launcher"
-  },
-  "rarityTier": "legendary"
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

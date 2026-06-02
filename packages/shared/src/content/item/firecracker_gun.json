@@ -23,22 +23,29 @@
       "kind": "firecrackerLauncher",
       "selfKnockback": 24
     },
-    "equippedRender": {
-      "holdOffset": {
-        "x": 20,
-        "y": 5
-      },
-      "holdRotationDeg": -4,
+    "magItemTypeId": "mag:firecracker_gun"
+  },
+  "recycle": {
+    "hunkValue": 18
+  },
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/weapon/firecracker_gun.png",
+    "sprite": {
+      "x": 20,
+      "y": 5,
+      "rotationDeg": -4,
       "scale": 1.15,
       "handedness": "right",
       "recoilDistance": 20,
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "magItemTypeId": "mag:firecracker_gun"
-  },
-  "recycle": {
-    "hunkValue": 18
-  },
-  "rarityTier": "epic"
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

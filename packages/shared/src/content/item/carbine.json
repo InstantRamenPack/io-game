@@ -19,25 +19,34 @@
     "magSize": 12,
     "reloadTicks": 20,
     "spreadDeg": 3,
-    "magItemTypeId": "mag:carbine",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 20,
-        "y": 4
-      },
-      "holdRotationDeg": -6,
-      "scale": 1,
-      "handedness": "right",
-      "recoilDistance": 10,
-      "swingAngleDeg": 0,
-      "jabDistance": 0
-    }
+    "magItemTypeId": "mag:carbine"
   },
   "recycle": {
     "hunkValue": 10
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/carbine.png",
+    "sprite": {
+      "x": 20,
+      "y": 5,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 10,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
   }
 }

@@ -34,6 +34,7 @@ import {
   getRepairableCapability,
   isRecyclerEntity,
 } from "@server/content/serverContentCapabilities.ts";
+import { getDebugAdjustedResourceCosts } from "@server/server/debugPlayerBootstrap.ts";
 import {
   requireHitboxEntityBaselineContent,
   requireMovingEntityBaselineContent,
@@ -356,12 +357,13 @@ export class Player extends Entity {
       return;
     }
 
-    if (!this.inventory.hasTypes(recipe.costs)) {
+    const craftCosts = getDebugAdjustedResourceCosts(this, recipe.costs);
+    if (!this.inventory.hasTypes(craftCosts)) {
       if (shouldTrace) {
         world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
           itemTypeId,
           result: "missing_resources",
-          costs: recipe.costs,
+          costs: craftCosts,
         });
       }
       return;
@@ -379,7 +381,7 @@ export class Player extends Entity {
     const canStoreCraftOutput = outputItem.canGrantToInventoryAfterConsuming(
       this.inventory,
       recipe.outputAmount,
-      recipe.costs,
+      craftCosts,
     );
     if (!canStoreCraftOutput && !canStoreTargetedCraftOutput) {
       if (shouldTrace) {
@@ -392,7 +394,7 @@ export class Player extends Entity {
       return;
     }
 
-    this.inventory.consumeTypes(recipe.costs);
+    this.inventory.consumeTypes(craftCosts);
     const grantedToTarget =
       canStoreTargetedCraftOutput &&
       craftTarget !== null &&
@@ -902,13 +904,14 @@ export class Player extends Entity {
       return;
     }
 
-    if (this.inventory.countType(repairable.costItemTypeId) < repairCost) {
+    const repairCosts = getDebugAdjustedResourceCosts(this, [
+      { typeId: repairable.costItemTypeId, amount: repairCost },
+    ]);
+    if (!this.inventory.hasTypes(repairCosts)) {
       return;
     }
 
-    this.inventory.consumeTypes([
-      { typeId: repairable.costItemTypeId, amount: repairCost },
-    ]);
+    this.inventory.consumeTypes(repairCosts);
     tower.hp = tower.maxHp;
     tower.alive = true;
   }

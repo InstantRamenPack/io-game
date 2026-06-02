@@ -19,22 +19,29 @@
     "magSize": 16,
     "reloadTicks": 20,
     "spreadDeg": 10,
-    "magItemTypeId": "mag:machine_pistol",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 28,
-        "y": 8
-      },
-      "holdRotationDeg": 18,
+    "magItemTypeId": "mag:machine_pistol"
+  },
+  "recycle": {
+    "hunkValue": 14
+  },
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/machine_pistol.png",
+    "sprite": {
+      "x": 28,
+      "y": 4,
+      "rotationDeg": 0,
       "scale": 0.95,
       "handedness": "right",
       "recoilDistance": 8,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "recycle": {
-    "hunkValue": 14
-  },
-  "rarityTier": "rare"
+  }
 }

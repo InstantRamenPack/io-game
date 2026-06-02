@@ -8,22 +8,12 @@
     "range": 50,
     "damage": 15,
     "knockback": 25,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 38,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.5,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 100,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "rarityTier": "common",
   "recipe": {
@@ -35,5 +25,24 @@
         "amount": 35
       }
     ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/baseball_bat.png",
+    "sprite": {
+      "x": 0,
+      "y": -40,
+      "rotationDeg": 100,
+      "scale": 1.4,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 100,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 45,
+      "scale": 1.2
+    }
   }
 }

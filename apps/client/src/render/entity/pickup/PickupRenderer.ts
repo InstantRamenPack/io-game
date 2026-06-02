@@ -1,8 +1,10 @@
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import type { EntityRendererOptions } from "@client/render/entity/EntityRenderer.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
 import type { InventorySlotSnapshot } from "@shared/net/snapshots.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { Sprite, Text, TextStyle, Texture, type Graphics } from "pixi.js";
 
 type PickupDisplay = {
@@ -61,14 +63,15 @@ export class PickupRenderer extends BaseEntityRenderer {
       return;
     }
 
-    this.itemSprite.visible = true;
-    this.itemSprite.texture = this.pixiRenderer.getItemSpriteTexture(
-      display.typeId,
-    );
     const iconSize = Math.max(12, visualSize - 10);
-    this.itemSprite.width = iconSize;
-    this.itemSprite.height = iconSize;
-    this.itemSprite.position.set(0, 0);
+    syncItemIconSprite({
+      sprite: this.itemSprite,
+      typeId: display.typeId as ResourceId,
+      texture: this.pixiRenderer.getItemSpriteTexture(display.typeId),
+      boxSize: iconSize,
+      centerX: 0,
+      centerY: 0,
+    });
 
     this.stackCountText.visible = display.count > 1;
     this.stackCountText.text = String(display.count);

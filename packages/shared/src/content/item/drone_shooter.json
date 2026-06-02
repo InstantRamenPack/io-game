@@ -19,19 +19,26 @@
     "magSize": 5,
     "reloadTicks": 30,
     "spreadDeg": 0,
-    "magItemTypeId": "mag:drone_shooter",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 15,
-        "y": 0
-      },
-      "holdRotationDeg": -4,
-      "scale": 0.98,
+    "magItemTypeId": "mag:drone_shooter"
+  },
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/drone_shooter.png",
+    "sprite": {
+      "x": 15,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
       "handedness": "right",
       "recoilDistance": 6,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "rare"
+  }
 }

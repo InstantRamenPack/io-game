@@ -15,6 +15,7 @@ import type {
   EntityCapabilitiesContent,
   EffectContent,
   EntityContent,
+  ItemRendering,
   ItemContent,
   PickupSpawnPool,
   PlayerStarterLoadout,
@@ -90,6 +91,22 @@ export function getItemContent(typeId: ResourceId): ItemContent | undefined {
   return itemContents.get(typeId);
 }
 
+export function getItemRendering(
+  typeId: ResourceId,
+): ItemRendering | undefined {
+  return getItemContent(typeId)?.rendering;
+}
+
+export function getItemRenderingEntries(): ReadonlyArray<
+  readonly [ResourceId, ItemRendering]
+> {
+  return sortResourceEntriesByTypeId(
+    [...itemContents.entries()].map(
+      ([typeId, itemContent]) => [typeId, itemContent.rendering] as const,
+    ),
+  );
+}
+
 export const CRAFTABLE_ITEM_TYPE_IDS = getItemTypeIds(
   (itemContent) => itemContent.recipe !== undefined,
 );
@@ -139,6 +156,12 @@ export function isBlueprintItemTypeId(typeId: ResourceId): boolean {
 
 export function isRecipeBlueprintLocked(typeId: ResourceId): boolean {
   return BLUEPRINT_LOCKED_RECIPE_TYPE_IDS.has(typeId);
+}
+
+export function getBlueprintLockedRecipeTypeIds(): readonly ResourceId[] {
+  return [...BLUEPRINT_LOCKED_RECIPE_TYPE_IDS].sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 export function requireItemContent(typeId: ResourceId): ItemContent {

@@ -19,22 +19,31 @@
     "magSize": 12,
     "reloadTicks": 20,
     "spreadDeg": 5,
-    "magItemTypeId": "mag:basic_gun",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 30,
-        "y": 8
-      },
-      "holdRotationDeg": 0,
+    "magItemTypeId": "mag:basic_gun"
+  },
+  "rarityTier": "common",
+  "pickupSpawn": {
+    "pools": [
+      "weapon"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/basic_gun.png",
+    "sprite": {
+      "x": 30,
+      "y": 11,
+      "rotationDeg": 0,
       "scale": 1,
       "handedness": "right",
       "recoilDistance": 10,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "common",
-  "pickupSpawn": {
-    "pools": ["weapon"]
   }
 }

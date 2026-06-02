@@ -8,6 +8,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 type ContentKind =
   | "building"
@@ -59,6 +60,25 @@ type RawContentJson = {
     pools?: string[];
   };
   runtime?: RuntimeHint;
+  rendering?: {
+    assetPath: string;
+    sprite: {
+      x: number;
+      y: number;
+      rotationDeg: number;
+      scale: number;
+      handedness: "right" | "left";
+      recoilDistance: number;
+      swingAngleDeg: number;
+      jabDistance: number;
+    };
+    icon: {
+      x: number;
+      y: number;
+      rotationDeg: number;
+      scale: number;
+    };
+  };
 };
 
 type ContentCategoryDefinition = {
@@ -235,18 +255,6 @@ const SERVER_SCAN_ROOTS = [
 ] as const;
 const RENDERER_SCAN_ROOTS = ["apps/client/src/render/entity"] as const;
 
-const EXPLICIT_MAG_ICON_PATHS: Record<string, string> = {
-  "mag:basic_gun": "/icons/pistol_ammo.png",
-  "mag:basic_rifle": "/icons/rifle_ammo.png",
-  "mag:sniper": "/icons/sniper_ammo.png",
-};
-
-const GENERATED_MAG_ICON_SOURCES: Record<string, string> = {
-  pistol: "pistol_ammo.png",
-  rifle: "rifle_ammo.png",
-  sniper: "sniper_ammo.png",
-};
-
 function toIdentifier(value: string): string {
   const words = value
     .replace(/\.json$/i, "")
@@ -301,16 +309,6 @@ function inferMagTypeId(weaponTypeId: string): string {
   return `mag:${getResourceName(weaponTypeId)}`;
 }
 
-function inferMagIconFamily(
-  typeId: string,
-  weaponTypeIds: readonly string[],
-): string {
-  const haystack = [typeId, ...weaponTypeIds].join(" ");
-  if (haystack.includes("pistol") || haystack.includes("gun")) return "pistol";
-  if (haystack.includes("sniper")) return "sniper";
-  return "rifle";
-}
-
 function buildMagContent(
   typeId: string,
   weaponLabels: readonly string[],
@@ -334,6 +332,31 @@ function buildMagContent(
       server: {
         classKind: "magazine",
       },
+    },
+    rendering: defaultItemRendering(`/mag/generated/${resourceName}.png`),
+  };
+}
+
+function defaultItemRendering(assetPath: string): NonNullable<
+  RawContentJson["rendering"]
+> {
+  return {
+    assetPath,
+    sprite: {
+      x: 0,
+      y: 0,
+      rotationDeg: 0,
+      scale: 1,
+      handedness: "right",
+      recoilDistance: 0,
+      swingAngleDeg: 0,
+      jabDistance: 0,
+    },
+    icon: {
+      x: 0,
+      y: 0,
+      rotationDeg: 0,
+      scale: 1,
     },
   };
 }
@@ -382,6 +405,110 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
   return JSON.parse(await readTextFile(filePath)) as T;
 }
 
+let crc32Table: Uint32Array | undefined;
+
+function crc32(bytes: Buffer): number {
+  const table = getCrc32Table();
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = table[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function getCrc32Table(): Uint32Array {
+  if (crc32Table) {
+    return crc32Table;
+  }
+  const table = new Uint32Array(256);
+  for (let index = 0; index < table.length; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value =
+        value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[index] = value >>> 0;
+  }
+  crc32Table = table;
+  return table;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBytes = Buffer.from(type, "ascii");
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 0);
+  return Buffer.concat([length, typeBytes, data, checksum]);
+}
+
+function encodePng(
+  width: number,
+  height: number,
+  pixelAt: (x: number, y: number) => readonly [number, number, number, number],
+): Buffer {
+  const rows: Buffer[] = [];
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 4);
+    row[0] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const [r, g, b, a] = pixelAt(x, y);
+      const offset = 1 + x * 4;
+      row[offset] = r;
+      row[offset + 1] = g;
+      row[offset + 2] = b;
+      row[offset + 3] = a;
+    }
+    rows.push(row);
+  }
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(Buffer.concat(rows))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (const char of value) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+async function writeBlueprintAsset(
+  filePath: string,
+  resourceName: string,
+): Promise<void> {
+  const hash = hashString(resourceName);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(
+    filePath,
+    encodePng(96, 96, (x, y) => {
+      const border = x < 5 || y < 5 || x >= 91 || y >= 91;
+      const guideLine =
+        (x + y) % 17 === 0 || (x * 3 + y + (hash & 15)) % 23 === 0;
+      const dx = x - 48;
+      const dy = y - 48;
+      const emblem =
+        dx * dx + dy * dy < 520 && (((x + y + hash) & 7) < 4);
+      if (border) return [22, 73, 112, 255];
+      if (emblem) return [162, 221, 255, 235];
+      if (guideLine) return [47, 129, 184, 180];
+      return [35, 101, 151, 255];
+    }),
+  );
+}
+
 async function getSortedResourceNames(
   directoryPath: string,
 ): Promise<string[]> {
@@ -423,18 +550,9 @@ async function refreshGeneratedMagItems(
 ): Promise<void> {
   const itemContentDir = path.join(sharedContentRoot, "item");
   const magContentDir = path.join(sharedContentRoot, "mag");
-  const iconMapPath = path.join(repoRoot, "apps/client/public/item_icons.json");
-  const spriteMapPath = path.join(
+  const generatedMagDir = path.join(
     repoRoot,
-    "apps/client/public/item_sprites.json",
-  );
-  const generatedIconDir = path.join(
-    repoRoot,
-    "apps/client/public/icons/generated",
-  );
-  const generatedSpriteDir = path.join(
-    repoRoot,
-    "apps/client/public/sprites/generated",
+    "apps/client/public/mag/generated",
   );
 
   const itemFileNames = (await readdir(itemContentDir))
@@ -507,48 +625,61 @@ async function refreshGeneratedMagItems(
     items.set(magTypeId, { filePath, content });
   }
 
-  const iconMap = await readJsonFile<Record<string, string>>(iconMapPath);
-  const spriteMap = await readJsonFile<Record<string, string>>(spriteMapPath);
-  await mkdir(generatedIconDir, { recursive: true });
-  await mkdir(generatedSpriteDir, { recursive: true });
+  await mkdir(generatedMagDir, { recursive: true });
   for (const [magTypeId, weaponTypeIds] of magWeaponTypeIds) {
-    const iconFamily = inferMagIconFamily(magTypeId, weaponTypeIds);
-    const explicitPath = EXPLICIT_MAG_ICON_PATHS[magTypeId];
-    const sourceFileName = explicitPath
-      ? explicitPath.slice("/icons/".length)
-      : (GENERATED_MAG_ICON_SOURCES[iconFamily] ?? "rifle_ammo.png");
-    const generatedFileName = `${getResourceName(magTypeId)}.png`;
-    if (!explicitPath) {
-      await copyFile(
-        path.join(repoRoot, "apps/client/public/icons", sourceFileName),
-        path.join(generatedIconDir, generatedFileName),
-      );
+    const resourceName = getResourceName(magTypeId);
+    const entry = items.get(magTypeId);
+    if (!entry) {
+      continue;
     }
-    await copyFile(
-      path.join(repoRoot, "apps/client/public/icons", sourceFileName),
-      path.join(generatedSpriteDir, generatedFileName),
+    const expectedAssetPath = `/mag/generated/${resourceName}.png`;
+    const expectedAssetFile = path.join(
+      repoRoot,
+      "apps/client/public",
+      expectedAssetPath,
     );
-    iconMap[magTypeId] =
-      explicitPath ?? `/icons/generated/${generatedFileName}`;
-    spriteMap[magTypeId] = `/sprites/generated/${generatedFileName}`;
+    if (!entry.content.rendering) {
+      entry.content.rendering = defaultItemRendering(expectedAssetPath);
+      await writeFile(entry.filePath, formatJson(entry.content));
+    }
+    const firstWeapon = weaponTypeIds
+      .map((weaponTypeId) => items.get(weaponTypeId)?.content.rendering)
+      .find((rendering) => rendering?.assetPath);
+    const sourceAssetPath = firstWeapon?.assetPath;
+    const sourceAssetFile = sourceAssetPath
+      ? path.join(repoRoot, "apps/client/public", sourceAssetPath)
+      : null;
+    if (sourceAssetFile && existsSync(sourceAssetFile)) {
+      await copyFile(sourceAssetFile, expectedAssetFile);
+    } else if (!existsSync(expectedAssetFile)) {
+      await writeBlueprintAsset(expectedAssetFile, resourceName);
+    }
   }
+}
 
-  const sortedIconMap = Object.fromEntries(
-    Object.entries(iconMap).sort(([left], [right]) => {
-      if (left === "__default__") return -1;
-      if (right === "__default__") return 1;
-      return left.localeCompare(right);
-    }),
-  );
-  await writeFile(iconMapPath, formatJson(sortedIconMap));
-  const sortedSpriteMap = Object.fromEntries(
-    Object.entries(spriteMap).sort(([left], [right]) => {
-      if (left === "__default__") return -1;
-      if (right === "__default__") return 1;
-      return left.localeCompare(right);
-    }),
-  );
-  await writeFile(spriteMapPath, formatJson(sortedSpriteMap));
+async function refreshGeneratedBlueprintAssets(
+  repoRoot: string,
+  sharedContentRoot: string,
+): Promise<void> {
+  const blueprintContentDir = path.join(sharedContentRoot, "blueprint");
+  const blueprintFileNames = (await readdir(blueprintContentDir))
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort((left, right) => left.localeCompare(right));
+
+  for (const fileName of blueprintFileNames) {
+    const resourceName = fileName.slice(0, -".json".length);
+    const filePath = path.join(blueprintContentDir, fileName);
+    const content = await readJsonFile<RawContentJson>(filePath);
+    const assetPath = `/blueprint/generated/${resourceName}.png`;
+    if (!content.rendering) {
+      content.rendering = defaultItemRendering(assetPath);
+      await writeFile(filePath, formatJson(content));
+    }
+    await writeBlueprintAsset(
+      path.join(repoRoot, "apps/client/public", assetPath),
+      resourceName,
+    );
+  }
 }
 
 async function collectTsFiles(directoryPath: string): Promise<string[]> {
@@ -1527,6 +1658,7 @@ async function main(): Promise<void> {
   const repoRoot = path.resolve(path.dirname(scriptPath), "..");
   const sharedContentRoot = path.join(repoRoot, "packages/shared/src/content");
   await refreshGeneratedMagItems(repoRoot, sharedContentRoot);
+  await refreshGeneratedBlueprintAssets(repoRoot, sharedContentRoot);
   const contentResources = await collectContentResources(sharedContentRoot);
   const registryResult = await buildRegistries(repoRoot, contentResources);
 

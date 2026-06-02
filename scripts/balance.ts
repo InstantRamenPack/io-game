@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 type JsonObject = Record<string, unknown>;
 
 type BalanceFile = {
@@ -8,7 +11,15 @@ type BalanceFile = {
 type BalanceField = {
   key: string;
   label: string;
-  source: "item" | "weapon" | "projectile" | "enemy" | "mag" | "world" | "json";
+  source:
+    | "item"
+    | "itemLike"
+    | "weapon"
+    | "projectile"
+    | "enemy"
+    | "mag"
+    | "world"
+    | "json";
   path: string[];
   value: string | number | null;
   kind: "number" | "text";
@@ -44,6 +55,18 @@ type AmmoBalanceRow = {
   magTypeId: string;
   magLabel: string;
   magFile: string;
+  fields: BalanceField[];
+};
+
+type ItemRenderingRow = {
+  itemTypeId: string;
+  itemLabel: string;
+  itemKind: "item" | "mag" | "blueprint";
+  attackStyle: string | null;
+  itemFile: string;
+  projectileTypeId: string | null;
+  projectileFile: string | null;
+  assetPath: string;
   fields: BalanceField[];
 };
 
@@ -136,6 +159,26 @@ const weaponFieldSpecs = [
   { key: "knockback", label: "Knockback", path: ["weapon", "knockback"] },
   { key: "sweepArcDeg", label: "Sweep Arc", path: ["weapon", "sweepArcDeg"] },
   { key: "jabWidth", label: "Jab Width", path: ["weapon", "jabWidth"] },
+  {
+    key: "comboChainWindowCooldownMultiplier",
+    label: "Combo Chain Window",
+    path: ["weapon", "combo", "chainWindowCooldownMultiplier"],
+  },
+  {
+    key: "comboStabDamageMultiplier",
+    label: "Combo Stab Damage",
+    path: ["weapon", "combo", "stabDamageMultiplier"],
+  },
+  {
+    key: "comboStabWidth",
+    label: "Combo Stab Width",
+    path: ["weapon", "combo", "stabWidth"],
+  },
+  {
+    key: "comboStabRange",
+    label: "Combo Stab Range",
+    path: ["weapon", "combo", "stabRange"],
+  },
 ] as const;
 
 const projectileFieldSpecs = [
@@ -173,6 +216,65 @@ const itemFieldSpecs = [
     label: "Rarity",
     path: ["rarityTier"],
     kind: "text",
+  },
+] as const;
+
+const itemRenderingFieldSpecs = [
+  {
+    key: "assetPath",
+    label: "Asset Path",
+    path: ["rendering", "assetPath"],
+    kind: "text",
+  },
+  { key: "spriteX", label: "Held X", path: ["rendering", "sprite", "x"] },
+  { key: "spriteY", label: "Held Y", path: ["rendering", "sprite", "y"] },
+  {
+    key: "spriteScale",
+    label: "Held Scale",
+    path: ["rendering", "sprite", "scale"],
+  },
+  {
+    key: "spriteRotationDeg",
+    label: "Held Rotation",
+    path: ["rendering", "sprite", "rotationDeg"],
+  },
+  {
+    key: "spriteHandedness",
+    label: "Handedness",
+    path: ["rendering", "sprite", "handedness"],
+    kind: "text",
+  },
+  {
+    key: "spriteRecoilDistance",
+    label: "Recoil",
+    path: ["rendering", "sprite", "recoilDistance"],
+  },
+  {
+    key: "spriteSwingAngleDeg",
+    label: "Sprite Swing",
+    path: ["rendering", "sprite", "swingAngleDeg"],
+  },
+  {
+    key: "spriteJabDistance",
+    label: "Sprite Jab",
+    path: ["rendering", "sprite", "jabDistance"],
+  },
+  {
+    key: "comboStabJabDistance",
+    label: "Combo Stab Jab",
+    path: ["rendering", "comboStab", "jabDistance"],
+  },
+  { key: "iconX", label: "Icon X", path: ["rendering", "icon", "x"] },
+  { key: "iconY", label: "Icon Y", path: ["rendering", "icon", "y"] },
+  {
+    key: "iconScale",
+    label: "Icon Scale",
+    path: ["rendering", "icon", "scale"],
+  },
+  {
+    key: "iconRotationDeg",
+    label: "Icon Rotation",
+    path: ["rendering", "icon", "rotationDeg"],
   },
 ] as const;
 
@@ -861,6 +963,22 @@ function makeHunkCostField(data: JsonObject): BalanceField {
   };
 }
 
+function makeHunkCostFieldForSource(
+  data: JsonObject,
+  source: "item" | "itemLike",
+): BalanceField {
+  return {
+    key: `${source}.hunkCost`,
+    label: hunkCostFieldSpec.label,
+    source,
+    path: [...hunkCostFieldSpec.path],
+    value: hunkCostAmount(data),
+    kind: "number",
+    editableWhenMissing: true,
+    deleteOnBlank: true,
+  };
+}
+
 function makeMagHunkCostField(
   data: JsonObject | undefined,
   file: string | null,
@@ -1025,6 +1143,97 @@ async function loadAmmoBalanceRows(): Promise<AmmoBalanceRow[]> {
       ],
     }))
     .sort((a, b) => a.magLabel.localeCompare(b.magLabel));
+}
+
+async function loadItemRenderingRows(): Promise<ItemRenderingRow[]> {
+  const [itemFiles, magFiles, blueprintFiles, projectileFiles] =
+    await Promise.all([
+      readContentFiles(itemContentDirectory),
+      readContentFiles(magContentDirectory),
+      readContentFiles("packages/shared/src/content/blueprint"),
+      readContentFiles(projectileContentDirectory),
+    ]);
+  const projectilesByTypeId = new Map(
+    projectileFiles.map((file) => [
+      `projectile:${resourceNameFromPath(file.path)}`,
+      file,
+    ]),
+  );
+  const files = [
+    ...itemFiles.map((file) => ({ file, itemKind: "item" as const })),
+    ...magFiles.map((file) => ({ file, itemKind: "mag" as const })),
+    ...blueprintFiles.map((file) => ({
+      file,
+      itemKind: "blueprint" as const,
+    })),
+  ];
+
+  return files
+    .map(({ file, itemKind }) => {
+      const itemTypeId = `${itemKind}:${resourceNameFromPath(file.path)}`;
+      const weapon = file.data.weapon as JsonObject | undefined;
+      const projectileTypeId =
+        weapon && typeof weapon.projectileTypeId === "string"
+          ? weapon.projectileTypeId
+          : null;
+      const projectileFile = projectileTypeId
+        ? projectilesByTypeId.get(projectileTypeId)
+        : undefined;
+      const fields = [
+        {
+          key: "itemLike.label",
+          label: "Item Name",
+          source: "itemLike" as const,
+          path: ["label"],
+          value:
+            typeof file.data.label === "string" ? file.data.label : null,
+          kind: "text" as const,
+        },
+        ...itemRenderingFieldSpecs.map((spec) =>
+          makeField(spec, "itemLike", file.data),
+        ),
+        ...(weapon
+          ? [
+              makeHunkCostFieldForSource(file.data, "itemLike"),
+              ...weaponFieldSpecs.map((spec) =>
+                makeField(spec, "itemLike", file.data),
+              ),
+            ]
+          : []),
+        ...(projectileFile
+          ? projectileFieldSpecs.map((spec) =>
+              makeField(spec, "projectile", projectileFile.data),
+            )
+          : []),
+      ];
+      const assetPathValue = fields.find(
+        (field) => field.key === "itemLike.assetPath",
+      )?.value;
+      return {
+        itemTypeId,
+        itemLabel:
+          typeof file.data.label === "string"
+            ? file.data.label
+            : resourceNameFromPath(file.path),
+        itemKind,
+        attackStyle:
+          weapon && typeof weapon.attackStyle === "string"
+            ? weapon.attackStyle
+            : null,
+        itemFile: file.path,
+        projectileTypeId,
+        projectileFile: projectileFile?.path ?? null,
+        assetPath:
+          typeof assetPathValue === "string" ? assetPathValue : "/placeholder.png",
+        fields,
+      };
+    })
+    .sort((a, b) => {
+      if (a.itemKind !== b.itemKind) {
+        return a.itemKind.localeCompare(b.itemKind);
+      }
+      return a.itemLabel.localeCompare(b.itemLabel);
+    });
 }
 
 async function loadEnemyBalanceRows(): Promise<EnemyBalanceRow[]> {
@@ -1341,6 +1550,7 @@ async function loadJsonBalanceRows(): Promise<JsonBalanceRow[]> {
 function knownFieldForUpdate(
   row:
     | BalanceRow
+    | ItemRenderingRow
     | AmmoBalanceRow
     | EnemyBalanceRow
     | WorldBalanceRow
@@ -1414,6 +1624,14 @@ function assertKnownTypeId(typeId: string, knownTypeIds: Set<string>): void {
   }
 }
 
+function isSignedRenderingField(field: BalanceField): boolean {
+  return (
+    field.source === "itemLike" &&
+    field.path[0] === "rendering" &&
+    (field.path[1] === "sprite" || field.path[1] === "icon")
+  );
+}
+
 function validateScalarField(
   field: BalanceField,
   value: number | string | boolean | string[] | null,
@@ -1425,6 +1643,7 @@ function validateScalarField(
   if (
     typeof value === "number" &&
     field.key !== "world.targetPriority" &&
+    !isSignedRenderingField(field) &&
     value < 0
   ) {
     throw new Error(`${field.label} must be zero or greater.`);
@@ -1569,6 +1788,7 @@ function knownIdsForTypeId(
 async function balancePayload(): Promise<JsonObject> {
   return {
     rows: await loadBalanceRows(),
+    renderingRows: await loadItemRenderingRows(),
     ammoRows: await loadAmmoBalanceRows(),
     enemyRows: await loadEnemyBalanceRows(),
     worldRows: await loadWorldBalanceRows(),
@@ -1580,6 +1800,7 @@ async function balancePayload(): Promise<JsonObject> {
 async function saveUpdate(request: Request): Promise<Response> {
   const body = (await request.json()) as {
     weaponTypeId?: unknown;
+    itemTypeId?: unknown;
     magTypeId?: unknown;
     enemyTypeId?: unknown;
     configId?: unknown;
@@ -1601,11 +1822,22 @@ async function saveUpdate(request: Request): Promise<Response> {
           : source === "mag"
             ? typeof body.magTypeId === "string" ||
               typeof body.weaponTypeId === "string"
+            : source === "itemLike"
+              ? typeof body.itemTypeId === "string"
+              : source === "projectile" && typeof body.itemTypeId === "string"
+                ? true
             : typeof body.weaponTypeId === "string";
   if (
-    !["item", "weapon", "projectile", "enemy", "mag", "world", "json"].includes(
-      String(body.source),
-    ) ||
+    ![
+      "item",
+      "itemLike",
+      "weapon",
+      "projectile",
+      "enemy",
+      "mag",
+      "world",
+      "json",
+    ].includes(String(body.source)) ||
     !hasValidIdentifier ||
     !Array.isArray(body.path) ||
     !body.path.every((part) => typeof part === "string")
@@ -1666,6 +1898,45 @@ async function saveUpdate(request: Request): Promise<Response> {
     setValue(targetFile.data, body.path, parsedValue);
     await Bun.write(
       field.file,
+      `${JSON.stringify(targetFile.data, null, 2)}\n`,
+    );
+    return Response.json(await balancePayload());
+  }
+  if (
+    source === "itemLike" ||
+    (source === "projectile" && typeof body.itemTypeId === "string")
+  ) {
+    const rows = await loadItemRenderingRows();
+    const row = rows.find(
+      (candidate) => candidate.itemTypeId === body.itemTypeId,
+    );
+    if (!row) {
+      return Response.json({ error: "Unknown item." }, { status: 404 });
+    }
+    const field = knownFieldForUpdate(row, source, body.path);
+    if (!field) {
+      return Response.json(
+        { error: "Unknown editable field." },
+        { status: 400 },
+      );
+    }
+    const targetPath = source === "projectile" ? row.projectileFile : row.itemFile;
+    if (!targetPath) {
+      return Response.json(
+        { error: "Item has no projectile file." },
+        { status: 400 },
+      );
+    }
+    const targetFile = await readJsonFile(targetPath);
+    const parsedValue = parseFieldUpdateValue(field, body.value);
+    validateScalarField(field, parsedValue, knownIds);
+    if (field.key === "itemLike.hunkCost") {
+      setHunkCost(targetFile.data, parsedValue as number | null);
+    } else {
+      setValue(targetFile.data, body.path, parsedValue);
+    }
+    await Bun.write(
+      targetPath,
       `${JSON.stringify(targetFile.data, null, 2)}\n`,
     );
     return Response.json(await balancePayload());
@@ -1847,6 +2118,50 @@ async function saveListUpdate(request: Request): Promise<Response> {
 
 const balancePageHtml = await Bun.file("scripts/balance-page.html").text();
 
+const publicAssetRoot = path.resolve("apps/client/public");
+const pixiModulePath = path.resolve("node_modules/pixi.js/dist/pixi.mjs");
+const balancePreviewEntryPath = path.resolve(
+  "scripts/balance-item-rendering-preview.ts",
+);
+
+let balancePreviewBundlePromise: Promise<string> | null = null;
+
+async function loadBalancePreviewBundle(): Promise<string> {
+  const build = await Bun.build({
+    entrypoints: [balancePreviewEntryPath],
+    target: "browser",
+    format: "esm",
+    minify: false,
+    sourcemap: "inline",
+  });
+  if (!build.success) {
+    throw new AggregateError(build.logs, "Failed to build balance preview bundle");
+  }
+  const output = build.outputs[0];
+  if (!output) {
+    throw new Error("Balance preview bundle produced no output.");
+  }
+  return output.text();
+}
+
+function getBalancePreviewBundle(): Promise<string> {
+  balancePreviewBundlePromise ??= loadBalancePreviewBundle();
+  return balancePreviewBundlePromise;
+}
+
+function contentTypeForPath(filePath: string): string {
+  if (filePath.endsWith(".js") || filePath.endsWith(".mjs")) {
+    return "text/javascript; charset=utf-8";
+  }
+  if (filePath.endsWith(".png")) {
+    return "image/png";
+  }
+  if (filePath.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  return "application/octet-stream";
+}
+
 export async function balanceFetch(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
@@ -1854,6 +2169,35 @@ export async function balanceFetch(request: Request): Promise<Response> {
     return new Response(balancePageHtml, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
+  }
+
+  if (request.method === "GET" && url.pathname === "/vendor/pixi.mjs") {
+    return new Response(Bun.file(pixiModulePath), {
+      headers: { "Content-Type": "text/javascript; charset=utf-8" },
+    });
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/balance-item-rendering-preview.js"
+  ) {
+    const bundle = await getBalancePreviewBundle();
+    return new Response(bundle, {
+      headers: {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  if (request.method === "GET") {
+    const assetPath = path.normalize(decodeURIComponent(url.pathname));
+    const filePath = path.resolve(publicAssetRoot, `.${assetPath}`);
+    if (filePath.startsWith(publicAssetRoot) && existsSync(filePath)) {
+      return new Response(Bun.file(filePath), {
+        headers: { "Content-Type": contentTypeForPath(filePath) },
+      });
+    }
   }
 
   if (request.method === "GET" && url.pathname === "/api/balance") {

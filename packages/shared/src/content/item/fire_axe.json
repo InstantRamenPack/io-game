@@ -18,22 +18,29 @@
     "range": 50,
     "damage": 50,
     "knockback": 24,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 36,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.8,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 95,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "recycle": {
     "hunkValue": 10
   },
-  "rarityTier": "rare"
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/fire_axe.png",
+    "sprite": {
+      "x": 22,
+      "y": -22,
+      "rotationDeg": 45,
+      "scale": 1.8,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 90,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": -15,
+      "y": 5,
+      "rotationDeg": -4,
+      "scale": 1.8
+    }
+  }
 }

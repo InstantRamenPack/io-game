@@ -7,19 +7,26 @@
     "magSize": 8,
     "reloadTicks": 30,
     "spreadDeg": 4,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 20,
-        "y": 4
-      },
-      "holdRotationDeg": -8,
+    "magItemTypeId": "mag:thanos_rifle"
+  },
+  "rarityTier": "legendary",
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 20,
+      "y": 4,
+      "rotationDeg": -8,
       "scale": 1.2,
       "handedness": "right",
       "recoilDistance": 12,
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "magItemTypeId": "mag:thanos_rifle"
-  },
-  "rarityTier": "legendary"
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

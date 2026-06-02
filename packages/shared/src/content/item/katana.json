@@ -14,23 +14,39 @@
   },
   "weapon": {
     "attackStyle": "swing",
-    "cooldownTicks": 8,
+    "cooldownTicks": 6,
     "range": 75,
     "damage": 30,
     "knockback": 18,
     "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 40,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.7,
+    "combo": {
+      "chainWindowCooldownMultiplier": 1.5,
+      "stabDamageMultiplier": 2,
+      "stabWidth": 18,
+      "stabRange": 105
+    }
+  },
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/katana.png",
+    "sprite": {
+      "x": 40,
+      "y": -15,
+      "rotationDeg": 10,
+      "scale": 1.4,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 100,
-      "jabDistance": 26
+      "jabDistance": 0
+    },
+    "comboStab": {
+      "jabDistance": 30
+    },
+    "icon": {
+      "x": 0,
+      "y": -10,
+      "rotationDeg": -45,
+      "scale": 1.5
     }
-  },
-  "rarityTier": "rare"
+  }
 }

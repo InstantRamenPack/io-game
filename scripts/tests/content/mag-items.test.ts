@@ -8,18 +8,6 @@ import {
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 const repoRoot = process.cwd();
-const iconMap = JSON.parse(
-  readFileSync(
-    path.join(repoRoot, "apps/client/public/item_icons.json"),
-    "utf8",
-  ),
-) as Record<string, string>;
-const spriteMap = JSON.parse(
-  readFileSync(
-    path.join(repoRoot, "apps/client/public/item_sprites.json"),
-    "utf8",
-  ),
-) as Record<string, string>;
 const packageJson = JSON.parse(
   readFileSync(path.join(repoRoot, "package.json"), "utf8"),
 ) as {
@@ -74,29 +62,71 @@ describe("mag item content", () => {
     }
   });
 
-  test("magazine pickups have HUD icon and sprite mappings backed by files", () => {
+  test("item-like content owns explicit rendering paths backed by files or placeholder", () => {
     for (const [typeId, item] of getAllItemContentEntries()) {
-      if (!item.pickupSpawn?.pools.includes("mag")) {
+      expect(
+        typeof item.rendering.assetPath,
+        `${typeId} should own an asset path`,
+      ).toBe("string");
+      expect(
+        item.rendering.assetPath.length,
+        `${typeId} should own a non-empty asset path`,
+      ).toBeGreaterThan(0);
+      expect(
+        typeof item.rendering.sprite.x,
+        `${typeId} should own sprite tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.sprite.y,
+        `${typeId} should own sprite tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.sprite.scale,
+        `${typeId} should own sprite tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.sprite.rotationDeg,
+        `${typeId} should own sprite tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.icon.x,
+        `${typeId} should own icon tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.icon.y,
+        `${typeId} should own icon tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.icon.scale,
+        `${typeId} should own icon tuning`,
+      ).toBe("number");
+      expect(
+        typeof item.rendering.icon.rotationDeg,
+        `${typeId} should own icon tuning`,
+      ).toBe("number");
+      expect(
+        existsSync(
+          path.join(repoRoot, "apps/client/public", item.rendering.assetPath),
+        ),
+        `${typeId} asset ${item.rendering.assetPath} should exist`,
+      ).toBe(true);
+    }
+  });
+
+  test("generated mag and blueprint rendering assets use generated public folders", () => {
+    for (const [typeId, item] of getAllItemContentEntries()) {
+      if (!typeId.startsWith("mag:") && !typeId.startsWith("blueprint:")) {
         continue;
       }
-
-      const iconPath = iconMap[typeId];
-      expect(iconPath, `${typeId} should have an item icon`).toBeDefined();
-      if (!iconPath) {
-        throw new Error(`${typeId} should have an item icon`);
-      }
+      const expectedPrefix = typeId.startsWith("mag:")
+        ? "/mag/generated/"
+        : "/blueprint/generated/";
+      expect(item.rendering.assetPath.startsWith(expectedPrefix)).toBe(true);
       expect(
-        existsSync(path.join(repoRoot, "apps/client/public", iconPath)),
-        `${typeId} icon ${iconPath} should exist`,
-      ).toBe(true);
-      const spritePath = spriteMap[typeId];
-      expect(spritePath, `${typeId} should have an item sprite`).toBeDefined();
-      if (!spritePath) {
-        throw new Error(`${typeId} should have an item sprite`);
-      }
-      expect(
-        existsSync(path.join(repoRoot, "apps/client/public", spritePath)),
-        `${typeId} sprite ${spritePath} should exist`,
+        existsSync(
+          path.join(repoRoot, "apps/client/public", item.rendering.assetPath),
+        ),
+        `${typeId} generated asset ${item.rendering.assetPath} should exist`,
       ).toBe(true);
     }
   });

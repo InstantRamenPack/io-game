@@ -19,22 +19,31 @@
     "magSize": 8,
     "reloadTicks": 30,
     "spreadDeg": 2,
-    "magItemTypeId": "mag:crossbow",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 30,
-        "y": 4
-      },
-      "holdRotationDeg": 0,
+    "magItemTypeId": "mag:crossbow"
+  },
+  "rarityTier": "uncommon",
+  "pickupSpawn": {
+    "pools": [
+      "weapon"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/crossbow.png",
+    "sprite": {
+      "x": 30,
+      "y": 4,
+      "rotationDeg": 0,
       "scale": 1.8,
       "handedness": "right",
       "recoilDistance": 7,
       "swingAngleDeg": 0,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "uncommon",
-  "pickupSpawn": {
-    "pools": ["weapon"]
   }
 }

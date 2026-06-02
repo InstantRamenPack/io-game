@@ -4,6 +4,27 @@
   "description": "Unlocks the AK-47 recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:basic_rifle",
   "pickupSpawn": {
-    "pools": ["blueprint"]
+    "pools": [
+      "blueprint"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/blueprint/generated/basic_rifle.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
   }
 }

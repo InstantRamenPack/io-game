@@ -18,19 +18,26 @@
     "range": 100,
     "damage": 24,
     "knockback": 15,
-    "jabWidth": 24,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 35,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
+    "jabWidth": 24
+  },
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/spiked_spear.png",
+    "sprite": {
+      "x": 15,
+      "y": 2,
+      "rotationDeg": 0,
       "scale": 0.8,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 0,
-      "jabDistance": 30
+      "jabDistance": 20
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": -45,
+      "scale": 1.3
     }
-  },
-  "rarityTier": "rare"
+  }
 }

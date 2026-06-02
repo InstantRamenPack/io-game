@@ -4,8 +4,34 @@
   "description": "A proper medical kit. Fully restores health. Craft at a crafting station.",
   "recipe": {
     "outputAmount": 1,
-    "costs": [{ "typeId": "item:hunk", "amount": 100 }]
+    "costs": [
+      {
+        "typeId": "item:hunk",
+        "amount": 100
+      }
+    ]
   },
-  "healing": { "amount": 100 },
-  "consumable": true
+  "healing": {
+    "amount": 100
+  },
+  "consumable": true,
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

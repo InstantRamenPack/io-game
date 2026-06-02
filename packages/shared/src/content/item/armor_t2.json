@@ -9,9 +9,34 @@
   "recipe": {
     "hint": "Upgrade Scout Armor into Field Armor.",
     "costs": [
-      { "typeId": "item:armor_t1", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 40 }
+      {
+        "typeId": "item:armor_t1",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 40
+      }
     ]
   },
-  "rarityTier": "uncommon"
+  "rarityTier": "uncommon",
+  "rendering": {
+    "assetPath": "/armor/armor_t2.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

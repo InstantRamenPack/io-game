@@ -29,18 +29,40 @@ export const RarityTierSchema = z.enum([
   "legendary",
 ]);
 
-export const EquippedRenderSchema = z.object({
-  textureTypeId: ResourceIdSchema.optional(),
-  holdOffset: z.object({
-    x: z.number().finite(),
-    y: z.number().finite(),
-  }),
-  holdRotationDeg: z.number().finite().default(0),
-  scale: z.number().finite().positive().default(1),
+export const ItemSpriteRenderingSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  rotationDeg: z.number().finite().default(0),
+  scale: z.number().finite().default(1),
   handedness: z.enum(["right", "left"]).default("right"),
-  recoilDistance: z.number().finite().nonnegative().default(0),
-  swingAngleDeg: z.number().finite().nonnegative().default(0),
-  jabDistance: z.number().finite().nonnegative().default(0),
+  recoilDistance: z.number().finite().default(0),
+  swingAngleDeg: z.number().finite().default(0),
+  jabDistance: z.number().finite().default(0),
+});
+
+export const ItemIconRenderingSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  rotationDeg: z.number().finite().default(0),
+  scale: z.number().finite().default(1),
+});
+
+export const KatanaComboStabRenderingSchema = z.object({
+  jabDistance: z.number().finite().nonnegative(),
+});
+
+export const ItemRenderingSchema = z.object({
+  assetPath: z.string().min(1),
+  sprite: ItemSpriteRenderingSchema,
+  icon: ItemIconRenderingSchema,
+  comboStab: KatanaComboStabRenderingSchema.optional(),
+});
+
+export const SwingComboWeaponContentSchema = z.object({
+  chainWindowCooldownMultiplier: z.number().finite().positive().default(1.5),
+  stabDamageMultiplier: z.number().finite().positive().default(1.5),
+  stabWidth: z.number().finite().positive().default(18),
+  stabRange: z.number().finite().positive(),
 });
 
 export const WeaponPresentationSchema = z.object({
@@ -67,7 +89,6 @@ export const ShootWeaponContentSchema = z.object({
   reloadTicks: z.number().int().positive(),
   spreadDeg: z.number().finite().nonnegative().default(0),
   magItemTypeId: ResourceIdSchema.optional(),
-  equippedRender: EquippedRenderSchema,
   presentation: WeaponPresentationSchema.optional(),
   special: ShootWeaponSpecialSchema.optional(),
 });
@@ -79,7 +100,7 @@ export const SwingWeaponContentSchema = z.object({
   damage: z.number().finite().nonnegative(),
   knockback: z.number().finite().nonnegative().default(0),
   sweepArcDeg: z.number().finite().positive(),
-  equippedRender: EquippedRenderSchema,
+  combo: SwingComboWeaponContentSchema.optional(),
   presentation: WeaponPresentationSchema.optional(),
 });
 
@@ -90,7 +111,6 @@ export const JabWeaponContentSchema = z.object({
   damage: z.number().finite().nonnegative(),
   knockback: z.number().finite().nonnegative().default(0),
   jabWidth: z.number().finite().positive(),
-  equippedRender: EquippedRenderSchema,
   presentation: WeaponPresentationSchema.optional(),
 });
 
@@ -214,7 +234,7 @@ export const ItemContentSchema = z.object({
   label: z.string().min(1),
   hint: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
-  iconTextureId: ResourceIdSchema.optional(),
+  rendering: ItemRenderingSchema,
   hidden: z.boolean().default(false),
   recipe: ItemRecipeContentSchema.optional(),
   unlocksRecipeTypeId: ResourceIdSchema.optional(),
@@ -302,7 +322,15 @@ export const EffectContentSchema = z.object({
 
 export type AttackStyle = z.infer<typeof AttackStyleSchema>;
 export type RarityTier = z.infer<typeof RarityTierSchema>;
-export type EquippedRender = z.infer<typeof EquippedRenderSchema>;
+export type ItemSpriteRendering = z.infer<typeof ItemSpriteRenderingSchema>;
+export type ItemIconRendering = z.infer<typeof ItemIconRenderingSchema>;
+export type KatanaComboStabRendering = z.infer<
+  typeof KatanaComboStabRenderingSchema
+>;
+export type ItemRendering = z.infer<typeof ItemRenderingSchema>;
+export type SwingComboWeaponContent = z.infer<
+  typeof SwingComboWeaponContentSchema
+>;
 export type WeaponPresentation = z.infer<typeof WeaponPresentationSchema>;
 export type ShootWeaponSpecial = z.infer<typeof ShootWeaponSpecialSchema>;
 export type ShootWeaponContent = z.infer<typeof ShootWeaponContentSchema>;

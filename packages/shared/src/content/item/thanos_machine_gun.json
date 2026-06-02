@@ -7,19 +7,26 @@
     "magSize": 120,
     "reloadTicks": 1,
     "spreadDeg": 0,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 20,
-        "y": 4
-      },
-      "holdRotationDeg": -8,
+    "magItemTypeId": "mag:thanos_machine_gun"
+  },
+  "rarityTier": "legendary",
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 20,
+      "y": 4,
+      "rotationDeg": -8,
       "scale": 1.4,
       "handedness": "right",
       "recoilDistance": 16,
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "magItemTypeId": "mag:thanos_machine_gun"
-  },
-  "rarityTier": "legendary"
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

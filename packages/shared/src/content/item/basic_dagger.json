@@ -15,25 +15,34 @@
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 3,
-    "range": 20,
+    "range": 30,
     "damage": 8,
     "knockback": 6,
-    "jabWidth": 14,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 25,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 0.9,
+    "jabWidth": 14
+  },
+  "pickupSpawn": {
+    "pools": [
+      "weapon"
+    ]
+  },
+  "rarityTier": "common",
+  "rendering": {
+    "assetPath": "/weapon/basic_dagger.png",
+    "sprite": {
+      "x": 15,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 0,
-      "jabDistance": 20
+      "jabDistance": 10
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": -45,
+      "scale": 1
     }
-  },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
-  "rarityTier": "common"
+  }
 }

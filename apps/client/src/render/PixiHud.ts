@@ -21,6 +21,7 @@ import { HudPanel } from "@client/render/hud/HudPanel.ts";
 import { HudTooltipCoordinator } from "@client/render/hud/HudTooltipCoordinator.ts";
 import { HudTooltipView } from "@client/render/hud/HudTooltipView.ts";
 import { HotbarView } from "@client/render/hud/HotbarView.ts";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import type {
   CraftingTabId,
   HudInteractionState,
@@ -1247,17 +1248,22 @@ export class PixiHud {
     const padding = 8;
     const gap = 6;
 
-    this.hunkBadgeIcon.texture = this.gameClient.renderer.getItemTexture(
-      "item:hunk" as ResourceId,
-    );
-    this.hunkBadgeIcon.width = iconSize;
-    this.hunkBadgeIcon.height = iconSize;
-
     this.hunkBadgeText.text = String(hunkCount);
 
     const badgeWidth =
       padding + iconSize + gap + this.hunkBadgeText.width + padding;
     const badgeHeight = this.hotbarView.height;
+
+    syncItemIconSprite({
+      sprite: this.hunkBadgeIcon,
+      typeId: "item:hunk" as ResourceId,
+      texture: this.gameClient.renderer.getItemTexture(
+        "item:hunk" as ResourceId,
+      ),
+      boxSize: iconSize,
+      centerX: padding + iconSize / 2,
+      centerY: badgeHeight / 2,
+    });
 
     this.hunkBadgeBg.clear();
     this.hunkBadgeBg
@@ -1266,7 +1272,6 @@ export class PixiHud {
       .roundRect(0, 0, badgeWidth, badgeHeight, 6)
       .stroke({ width: 2, color: 0x4b4b4b, alpha: 0.7 });
 
-    this.hunkBadgeIcon.position.set(padding, badgeHeight / 2);
     this.hunkBadgeText.position.set(padding + iconSize + gap, badgeHeight / 2);
 
     const hotbarX = this.hotbarView.container.x;
@@ -1309,11 +1314,14 @@ export class PixiHud {
       return;
     }
     this.dragGhostContainer.visible = true;
-    this.dragGhostIcon.texture = this.gameClient.renderer.getItemTexture(
-      item.typeId,
-    );
-    this.dragGhostIcon.width = 34;
-    this.dragGhostIcon.height = 34;
+    syncItemIconSprite({
+      sprite: this.dragGhostIcon,
+      typeId: item.typeId,
+      texture: this.gameClient.renderer.getItemTexture(item.typeId),
+      boxSize: 34,
+      centerX: 17,
+      centerY: 17,
+    });
     this.dragGhostContainer.position.set(
       this.lastPointerScreenX + 12,
       this.lastPointerScreenY + 12,
@@ -1452,12 +1460,18 @@ export class PixiHud {
       recycleIconProvider: (index) => {
         const slot = inventory?.hotbarSlots[index];
         if (!slot || slot.kind === "empty") return null;
-        return this.gameClient.renderer.getItemTexture(slot.typeId);
+        return {
+          typeId: slot.typeId,
+          texture: this.gameClient.renderer.getItemTexture(slot.typeId),
+        };
       },
       recycleChestIconProvider: (index) => {
         const slot = chestSlots?.[index];
         if (!slot || slot.kind === "empty") return null;
-        return this.gameClient.renderer.getItemTexture(slot.typeId);
+        return {
+          typeId: slot.typeId,
+          texture: this.gameClient.renderer.getItemTexture(slot.typeId),
+        };
       },
       chestSlots: chestSlots ?? [],
       hotbarSlots: inventory?.hotbarSlots ?? emptyHotbarSlots(),

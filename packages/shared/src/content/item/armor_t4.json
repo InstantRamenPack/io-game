@@ -10,9 +10,34 @@
   "recipe": {
     "hint": "Upgrade Juggernaut Armor into Aegis Armor.",
     "costs": [
-      { "typeId": "item:armor_t3", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 95 }
+      {
+        "typeId": "item:armor_t3",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 95
+      }
     ]
   },
-  "rarityTier": "epic"
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/armor/armor_t4.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

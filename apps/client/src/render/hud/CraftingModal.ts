@@ -1,4 +1,5 @@
 import * as PIXI from "pixi.js";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { Rect } from "@client/render/renderTypes.ts";
 import type { CraftingTabId } from "@client/render/hud/HudInteractionState.ts";
@@ -102,10 +103,14 @@ class CraftTileView {
       });
 
     const iconSize = Math.max(24, Math.min(width - 24, height - 72));
-    this.icon.texture = texture;
-    this.icon.width = iconSize;
-    this.icon.height = iconSize;
-    this.icon.position.set(width / 2, 18 + iconSize / 2);
+    syncItemIconSprite({
+      sprite: this.icon,
+      typeId: entry.typeId,
+      texture,
+      boxSize: iconSize,
+      centerX: width / 2,
+      centerY: 18 + iconSize / 2,
+    });
     this.icon.alpha = entry.available ? 1 : 0.45;
 
     this.label.text = entry.label;

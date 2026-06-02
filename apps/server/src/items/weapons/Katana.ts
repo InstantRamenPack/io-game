@@ -3,6 +3,12 @@ import {
   doesResolvedRectIntersectSweepArc,
 } from "@shared/geometry/collision.ts";
 import { expandHitboxBounds } from "@shared/geometry/hitbox.ts";
+import type { SwingComboWeaponContent } from "@shared/content/schema.ts";
+import {
+  KATANA_COMBO_LENGTH,
+  KATANA_STAB_STEP_INDEX,
+  shouldResetKatanaCombo,
+} from "@shared/gameplay/katanaCombo.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
@@ -12,32 +18,35 @@ import type { World } from "@server/world/World.ts";
 
 type KatanaAttackMode = "sweep" | "stab";
 
-const COMBO_LENGTH = 3;
-const STAB_STEP_INDEX = 2;
-const STAB_DAMAGE_MULTIPLIER = 1.5;
-const STAB_WIDTH = 18;
-
 /**
  * Three-hit melee combo weapon: two sweep attacks, then a stronger stab finisher.
+ * The combo only continues while attack inputs stay within the authored chain window.
  */
 export class Katana extends MeleeWeapon {
   public static override readonly resourceName = "katana";
 
   private comboStep = 0;
+  private lastAttackTick: number | null = null;
+  private readonly authoredCooldownTicks: number;
+  private readonly comboContent: SwingComboWeaponContent;
   private readonly sweepArcDegrees: number;
-  private readonly stabWidth: number;
   private readonly sweepDamageEffect: DamageEffect;
   private readonly stabDamageEffect: DamageEffect;
   private readonly knockbackEffect: KnockbackEffect | null;
 
   constructor() {
     const weaponContent = requireSwingWeaponRuntime(Katana.typeId);
+    const comboContent = weaponContent.combo;
+    if (!comboContent) {
+      throw new Error(`Katana weapon content is missing combo tuning.`);
+    }
     super(weaponContent.cooldownTicks, weaponContent.range, []);
+    this.authoredCooldownTicks = weaponContent.cooldownTicks;
+    this.comboContent = comboContent;
     this.sweepArcDegrees = weaponContent.sweepArcDeg;
-    this.stabWidth = STAB_WIDTH;
     this.sweepDamageEffect = new DamageEffect(weaponContent.damage);
     this.stabDamageEffect = new DamageEffect(
-      weaponContent.damage * STAB_DAMAGE_MULTIPLIER,
+      weaponContent.damage * comboContent.stabDamageMultiplier,
     );
     this.knockbackEffect =
       weaponContent.knockback > 0
@@ -46,11 +55,41 @@ export class Katana extends MeleeWeapon {
   }
 
   public override hit(world: World, owner: Entity, theta: number): boolean {
-    const didHit = super.hit(world, owner, theta);
-    if (didHit) {
-      this.comboStep = (this.comboStep + 1) % COMBO_LENGTH;
+    if (
+      shouldResetKatanaCombo(
+        this.comboContent,
+        this.authoredCooldownTicks,
+        this.lastAttackTick,
+        world.tick,
+      )
+    ) {
+      this.comboStep = 0;
     }
-    return didHit;
+
+    const didSwing = super.hit(world, owner, theta);
+    if (didSwing) {
+      this.lastAttackTick = world.tick;
+      this.comboStep = (this.comboStep + 1) % KATANA_COMBO_LENGTH;
+    }
+    return didSwing;
+  }
+
+  protected override getAttackReach(
+    owner: Entity,
+    aim: {
+      directionX: number;
+      directionY: number;
+      angle: number;
+    },
+  ): number {
+    const authoredRange =
+      this.getAttackMode() === "stab"
+        ? this.comboContent.stabRange
+        : this.range;
+    return (
+      owner.getHitboxDirectionalExtent(aim.directionX, aim.directionY) +
+      authoredRange
+    );
   }
 
   protected override isTargetInAttackShape(
@@ -95,7 +134,7 @@ export class Katana extends MeleeWeapon {
     }
 
     const attackLength = this.getAttackReach(owner, aim);
-    const halfWidth = this.stabWidth / 2;
+    const halfWidth = this.comboContent.stabWidth / 2;
     const perpendicularX = -aim.directionY;
     const perpendicularY = aim.directionX;
     const endX = owner.x + aim.directionX * attackLength;
@@ -141,7 +180,7 @@ export class Katana extends MeleeWeapon {
   }
 
   private getAttackMode(): KatanaAttackMode {
-    return this.comboStep === STAB_STEP_INDEX ? "stab" : "sweep";
+    return this.comboStep === KATANA_STAB_STEP_INDEX ? "stab" : "sweep";
   }
 
   private isTargetInSweepShape(
@@ -198,7 +237,7 @@ export class Katana extends MeleeWeapon {
           aim.directionX,
           aim.directionY,
           attackLength / 2,
-          this.stabWidth / 2,
+          this.comboContent.stabWidth / 2,
         )
       ) {
         return true;

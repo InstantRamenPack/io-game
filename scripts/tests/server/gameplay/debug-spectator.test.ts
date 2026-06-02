@@ -1,11 +1,21 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import {
+  getBlueprintLockedRecipeTypeIds,
+  getItemContent,
+} from "@shared/content/catalog.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
+import { Hub } from "@server/entities/buildings/Hub.ts";
 import { Player } from "@server/entities/Player.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
   makeRuntime,
   spawnWall,
+  tick,
 } from "@tests/helpers/worldFixtures.ts";
+
+const hunkItemId = makeResourceId("item", "hunk");
+const heavyPistolItemId = makeResourceId("item", "heavy_pistol");
 
 describe("debug spectator player", () => {
   beforeAll(bootstrapTestRegistries);
@@ -81,5 +91,37 @@ describe("debug spectator player", () => {
 
     expect(player.hp).toBe(hpBefore);
     expect(player.alive).toBe(true);
+  });
+
+  test("debug player starts with all blueprint recipes unlocked", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime, "client-1", "debug");
+
+    for (const recipeTypeId of getBlueprintLockedRecipeTypeIds()) {
+      expect(player.inventory.isRecipeUnlocked(recipeTypeId)).toBe(true);
+    }
+  });
+
+  test("debug player crafting does not consume hunk", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime, "client-1", "debug");
+    const station = new Hub(runtime.world.allocEntityId());
+    station.x = player.x;
+    station.y = player.y;
+    runtime.world.spawn(station);
+    tick(runtime, 1);
+
+    const hunksBefore = player.inventory.getResourceCount(hunkItemId);
+    expect(hunksBefore).toBeGreaterThan(0);
+
+    player.craft(runtime.world, heavyPistolItemId);
+    expect(player.inventory.countType(heavyPistolItemId)).toBe(1);
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(hunksBefore);
+
+    const recipeHunkCost =
+      getItemContent(heavyPistolItemId)?.recipe?.costs.find(
+        (cost) => cost.typeId === hunkItemId,
+      )?.amount ?? 0;
+    expect(recipeHunkCost).toBeGreaterThan(0);
   });
 });

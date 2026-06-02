@@ -192,6 +192,54 @@
         padding: 0 8px;
         font: inherit;
       }
+
+      .rendering-panel {
+        display: none;
+        grid-template-columns: minmax(360px, 520px) minmax(520px, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .rendering-panel.active {
+        display: grid;
+      }
+
+      .rendering-controls,
+      .rendering-preview {
+        border: 1px solid #cfd6dc;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 14px;
+      }
+
+      .rendering-controls label {
+        display: grid;
+        gap: 5px;
+        margin-bottom: 10px;
+        color: #40505d;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .rendering-controls input,
+      .rendering-controls select {
+        width: 100%;
+      }
+
+      .rendering-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .rendering-preview canvas {
+        width: 100%;
+        max-width: 820px;
+        height: auto;
+        display: block;
+        background: #101820;
+        border-radius: 6px;
+      }
     </style>
   </head>
   <body>
@@ -213,13 +261,28 @@
             <button class="tab" data-tab="waves">Waves</button>
             <button class="tab" data-tab="world">Worldgen</button>
             <button class="tab" data-tab="loot">Loot</button>
+            <button class="tab" data-tab="item-rendering">
+              Item rendering
+            </button>
             <button class="tab" data-tab="config">Config</button>
             <button class="tab" data-tab="json">All JSON</button>
           </div>
           <div id="status" class="status">Loading...</div>
         </div>
       </header>
-      <div class="table-wrap">
+      <div id="rendering-panel" class="rendering-panel">
+        <div class="rendering-controls">
+          <label>
+            Item
+            <select id="rendering-item-select"></select>
+          </label>
+          <div id="rendering-fields" class="rendering-fields"></div>
+        </div>
+        <div class="rendering-preview">
+          <div id="rendering-canvas"></div>
+        </div>
+      </div>
+      <div id="table-wrap" class="table-wrap">
         <table>
           <thead>
             <tr id="header-row"></tr>
@@ -230,6 +293,8 @@
     </main>
 
     <script type="module">
+      import { createBalanceRenderingPreview } from "/balance-item-rendering-preview.js";
+
       const columns = [
         { kind: "field", key: "item.label" },
         { kind: "meta", key: "weaponTypeId", label: "Weapon Type" },
@@ -319,10 +384,18 @@
       const searchInput = document.querySelector("#search");
       const tabButtons = [...document.querySelectorAll(".tab")];
       const statusElement = document.querySelector("#status");
+      const tableWrap = document.querySelector("#table-wrap");
+      const renderingPanel = document.querySelector("#rendering-panel");
+      const renderingItemSelect = document.querySelector(
+        "#rendering-item-select",
+      );
+      const renderingFields = document.querySelector("#rendering-fields");
+      const renderingCanvas = document.querySelector("#rendering-canvas");
       const rarityTiers = ["common", "uncommon", "rare", "epic", "legendary"];
 
       let rows = [];
       let ammoRows = [];
+      let renderingRows = [];
       let enemyRows = [];
       let worldRows = [];
       let listRows = [];
@@ -331,6 +404,10 @@
       let activeTab = "weapons";
       let sortState = { key: "item.label", direction: "asc" };
       let draggedColumnKey = null;
+      let selectedRenderingItemTypeId = null;
+      let renderingPreview = null;
+      let renderingPreviewReady = null;
+      const renderingSaveTimers = new Map();
 
       function setStatus(message) {
         statusElement.textContent = message;
@@ -750,6 +827,7 @@
             source: field.source,
             path: field.path,
             value,
+            itemTypeId: row.itemTypeId,
             weaponTypeId: row.weaponTypeId ?? row.enemyTypeId,
             enemyTypeId: row.enemyTypeId,
             magTypeId: row.magTypeId,
@@ -765,6 +843,7 @@
         }
 
         rows = payload.rows;
+        renderingRows = payload.renderingRows ?? [];
         ammoRows = payload.ammoRows ?? [];
         enemyRows = payload.enemyRows ?? [];
         worldRows = payload.worldRows ?? [];
@@ -795,6 +874,7 @@
           return;
         }
         rows = payload.rows;
+        renderingRows = payload.renderingRows ?? [];
         ammoRows = payload.ammoRows ?? [];
         enemyRows = payload.enemyRows ?? [];
         worldRows = payload.worldRows ?? [];
@@ -805,7 +885,168 @@
         renderRows();
       }
 
+      function selectedRenderingRow() {
+        if (renderingRows.length === 0) {
+          return null;
+        }
+        return (
+          renderingRows.find(
+            (row) => row.itemTypeId === selectedRenderingItemTypeId,
+          ) ?? renderingRows[0]
+        );
+      }
+
+      function renderingField(row, key) {
+        return row.fields.find((field) => field.key === key);
+      }
+
+      function renderingFieldValue(row, key, fallback) {
+        const value = renderingField(row, key)?.value;
+        return value === null || value === undefined ? fallback : value;
+      }
+
+      function updateRenderingFieldLocal(row, field, value) {
+        const target = renderingField(row, field.key);
+        if (target) {
+          target.value = value;
+        }
+        if (field.key === "itemLike.assetPath" && typeof value === "string") {
+          row.assetPath = value;
+        }
+      }
+
+      async function saveRenderingField(row, field, rawValue) {
+        const value =
+          field.kind === "number"
+            ? rawValue.length === 0
+              ? null
+              : Number(rawValue)
+            : rawValue.length > 0
+              ? rawValue
+              : null;
+        if (
+          field.kind === "number" &&
+          value !== null &&
+          !Number.isFinite(value)
+        ) {
+          setStatus("Invalid number");
+          return;
+        }
+        updateRenderingFieldLocal(row, field, value);
+        void refreshRenderingPreview();
+        const timerKey = `${row.itemTypeId}:${field.key}`;
+        clearTimeout(renderingSaveTimers.get(timerKey));
+        renderingSaveTimers.set(
+          timerKey,
+          setTimeout(async () => {
+            setStatus("Saving...");
+            const response = await fetch("/api/balance", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                source: field.source,
+                path: field.path,
+                value,
+                itemTypeId: row.itemTypeId,
+              }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              setStatus(payload.error ?? "Save failed");
+              return;
+            }
+            rows = payload.rows;
+            renderingRows = payload.renderingRows ?? [];
+            ammoRows = payload.ammoRows ?? [];
+            enemyRows = payload.enemyRows ?? [];
+            worldRows = payload.worldRows ?? [];
+            listRows = payload.listRows ?? [];
+            jsonRows = payload.jsonRows ?? [];
+            refreshFieldLabels();
+            setStatus("Saved");
+            void refreshRenderingPreview();
+          }, 350),
+        );
+      }
+
+      function renderRenderingPanel() {
+        tableWrap.style.display = "none";
+        renderingPanel.classList.add("active");
+        if (renderingRows.length === 0) {
+          renderingFields.textContent = "No item rendering rows";
+          return;
+        }
+        if (
+          !selectedRenderingItemTypeId ||
+          !renderingRows.some(
+            (row) => row.itemTypeId === selectedRenderingItemTypeId,
+          )
+        ) {
+          selectedRenderingItemTypeId = renderingRows[0].itemTypeId;
+        }
+        renderingItemSelect.replaceChildren(
+          ...renderingRows.map((row) => {
+            const option = document.createElement("option");
+            option.value = row.itemTypeId;
+            option.textContent = `${row.itemLabel} (${row.itemTypeId})`;
+            return option;
+          }),
+        );
+        renderingItemSelect.value = selectedRenderingItemTypeId;
+
+        const row = selectedRenderingRow();
+        const editableFields = row.fields.filter(
+          (field) =>
+            field.key.startsWith("itemLike.") ||
+            field.key.startsWith("projectile."),
+        );
+        renderingFields.replaceChildren(
+          ...editableFields.map((field) => {
+            const label = document.createElement("label");
+            label.textContent = field.label;
+            const input = document.createElement("input");
+            input.type = field.kind === "number" ? "number" : "text";
+            input.step = field.kind === "number" ? "0.1" : undefined;
+            input.value = field.value === null ? "" : String(field.value);
+            input.addEventListener("input", () => {
+              void saveRenderingField(row, field, input.value.trim());
+            });
+            label.append(input);
+            return label;
+          }),
+        );
+        void refreshRenderingPreview();
+      }
+
+      async function ensureRenderingPreview() {
+        if (renderingPreview) {
+          return renderingPreview;
+        }
+        if (!renderingPreviewReady) {
+          renderingPreviewReady = createBalanceRenderingPreview(
+            renderingCanvas,
+          );
+        }
+        renderingPreview = await renderingPreviewReady;
+        return renderingPreview;
+      }
+
+      async function refreshRenderingPreview() {
+        const row = selectedRenderingRow();
+        if (!row) {
+          return;
+        }
+        const preview = await ensureRenderingPreview();
+        await preview.update(row);
+      }
+
       function renderRows() {
+        if (activeTab === "item-rendering") {
+          renderRenderingPanel();
+          return;
+        }
+        tableWrap.style.display = "";
+        renderingPanel.classList.remove("active");
         const activeRows =
           activeTab === "json"
             ? jsonRows
@@ -876,6 +1117,9 @@
       }
 
       function columnsForCurrentMode() {
+        if (activeTab === "item-rendering") {
+          return [];
+        }
         if (activeTab === "ammo") {
           return ammoColumns;
         }
@@ -895,6 +1139,7 @@
         fieldLabels = new Map();
         for (const row of [
           ...rows,
+          ...renderingRows,
           ...ammoRows,
           ...enemyRows,
           ...worldRows,
@@ -910,6 +1155,7 @@
         const response = await fetch("/api/balance");
         const payload = await response.json();
         rows = payload.rows;
+        renderingRows = payload.renderingRows ?? [];
         ammoRows = payload.ammoRows ?? [];
         enemyRows = payload.enemyRows ?? [];
         worldRows = payload.worldRows ?? [];
@@ -921,6 +1167,10 @@
       }
 
       searchInput.addEventListener("input", renderRows);
+      renderingItemSelect.addEventListener("change", () => {
+        selectedRenderingItemTypeId = renderingItemSelect.value;
+        renderRenderingPanel();
+      });
       tabButtons.forEach((button) => {
         button.addEventListener("click", () => {
           activeTab = button.dataset.tab;

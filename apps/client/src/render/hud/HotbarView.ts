@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import { getWeaponContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -97,20 +98,15 @@ class HotbarSlotView {
       return;
     }
 
-    this.icon.texture = this.iconProvider(item.typeId);
-    const iconSize = this.slotSize - this.iconPadding * 2;
-    const texW = this.icon.texture.width;
-    const texH = this.icon.texture.height;
-    const aspect = texW > 0 && texH > 0 ? texW / texH : 1;
-    if (aspect >= 1) {
-      this.icon.width = iconSize;
-      this.icon.height = iconSize / aspect;
-    } else {
-      this.icon.height = iconSize;
-      this.icon.width = iconSize * aspect;
-    }
-    this.icon.position.set(this.slotSize / 2, this.slotSize / 2 + 2);
-    this.icon.visible = true;
+    syncItemIconSprite({
+      sprite: this.icon,
+      typeId: item.typeId,
+      texture: this.iconProvider(item.typeId),
+      boxSize: this.slotSize,
+      centerX: this.slotSize / 2,
+      centerY: this.slotSize / 2 + 2,
+      padding: this.iconPadding,
+    });
 
     if (item.count !== null && (item.count > 1 || item.showCountWhenOne)) {
       this.countText.text = String(item.count);

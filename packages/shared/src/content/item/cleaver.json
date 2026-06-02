@@ -8,22 +8,12 @@
     "range": 50,
     "damage": 10,
     "knockback": 10,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 36,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.4,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 95,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "rarityTier": "common",
   "recipe": {
@@ -35,5 +25,24 @@
         "amount": 40
       }
     ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/cleaver.png",
+    "sprite": {
+      "x": 35,
+      "y": 8,
+      "rotationDeg": 4,
+      "scale": 1.2,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 95,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 3,
+      "rotationDeg": -45,
+      "scale": 1.8
+    }
   }
 }

@@ -24,19 +24,7 @@
       "range": 20,
       "damage": 5,
       "knockback": 4,
-      "jabWidth": 18,
-      "equippedRender": {
-        "holdOffset": {
-          "x": 13,
-          "y": 5
-        },
-        "holdRotationDeg": 0,
-        "scale": 1,
-        "handedness": "right",
-        "recoilDistance": 0,
-        "swingAngleDeg": 0,
-        "jabDistance": 14
-      }
+      "jabWidth": 18
     },
     "starterLoadout": {
       "selectedHotbarIndex": 1,

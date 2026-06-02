@@ -19,22 +19,29 @@
     "magSize": 16,
     "reloadTicks": 50,
     "spreadDeg": 4,
-    "magItemTypeId": "mag:lmg",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 14,
-        "y": 2
-      },
-      "holdRotationDeg": -3,
-      "scale": 1.15,
-      "handedness": "right",
-      "recoilDistance": 14,
-      "swingAngleDeg": 0,
-      "jabDistance": 0
-    }
+    "magItemTypeId": "mag:lmg"
   },
   "recycle": {
     "hunkValue": 22
   },
-  "rarityTier": "epic"
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/weapon/lmg.png",
+    "sprite": {
+      "x": 14,
+      "y": 3,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 14,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

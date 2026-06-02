@@ -20,21 +20,28 @@
     "reloadTicks": 50,
     "spreadDeg": 0,
     "magItemTypeId": "mag:sniper",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 22,
-        "y": 2
-      },
-      "holdRotationDeg": -10,
-      "scale": 1.14,
+    "presentation": {
+      "aimGuide": "sniper"
+    }
+  },
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/weapon/sniper.png",
+    "sprite": {
+      "x": 22,
+      "y": 1,
+      "rotationDeg": 10,
+      "scale": 1,
       "handedness": "right",
       "recoilDistance": 18,
       "swingAngleDeg": 0,
       "jabDistance": 0
     },
-    "presentation": {
-      "aimGuide": "sniper"
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "epic"
+  }
 }

@@ -54,8 +54,24 @@ describe("tiered death loot content validation", () => {
           damage: 1,
           knockback: 0,
           jabWidth: 8,
-          equippedRender: {
-            holdOffset: { x: 0, y: 0 },
+        },
+        rendering: {
+          assetPath: "/placeholder.png",
+          sprite: {
+            x: 0,
+            y: 0,
+            rotationDeg: 0,
+            scale: 1,
+            handedness: "right",
+            recoilDistance: 0,
+            swingAngleDeg: 0,
+            jabDistance: 0,
+          },
+          icon: {
+            x: 0,
+            y: 0,
+            rotationDeg: 0,
+            scale: 1,
           },
         },
       }),
@@ -67,7 +83,62 @@ describe("tiered death loot content validation", () => {
       makeParsedItemContentEntry("test_buildable", {
         label: "Test Buildable",
         buildsEntityTypeId: "building:wall",
+        rendering: {
+          assetPath: "/placeholder.png",
+          sprite: {
+            x: 0,
+            y: 0,
+            rotationDeg: 0,
+            scale: 1,
+            handedness: "right",
+            recoilDistance: 0,
+            swingAngleDeg: 0,
+            jabDistance: 0,
+          },
+          icon: {
+            x: 0,
+            y: 0,
+            rotationDeg: 0,
+            scale: 1,
+          },
+        },
       }),
     ).toThrow(/buildable items must define rarityTier/);
+  });
+
+  test("accepts negative item rendering tuning values", () => {
+    expect(() =>
+      makeParsedItemContentEntry("test_negative_rendering", {
+        label: "Test Negative Rendering",
+        rarityTier: "common",
+        weapon: {
+          attackStyle: "jab",
+          cooldownTicks: 1,
+          range: 10,
+          damage: 1,
+          knockback: 0,
+          jabWidth: 8,
+        },
+        rendering: {
+          assetPath: "/placeholder.png",
+          sprite: {
+            x: -12,
+            y: -8,
+            rotationDeg: -45,
+            scale: -1,
+            handedness: "right",
+            recoilDistance: -4,
+            swingAngleDeg: -30,
+            jabDistance: -10,
+          },
+          icon: {
+            x: -3,
+            y: -5,
+            rotationDeg: -20,
+            scale: -0.5,
+          },
+        },
+      }),
+    ).not.toThrow();
   });
 });

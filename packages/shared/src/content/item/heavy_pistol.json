@@ -19,22 +19,29 @@
     "magSize": 8,
     "reloadTicks": 20,
     "spreadDeg": 1,
-    "magItemTypeId": "mag:heavy_pistol",
-    "equippedRender": {
-      "holdOffset": {
-        "x": 26,
-        "y": 6
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.08,
-      "handedness": "right",
-      "recoilDistance": 16,
-      "swingAngleDeg": 0,
-      "jabDistance": 0
-    }
+    "magItemTypeId": "mag:heavy_pistol"
   },
   "recycle": {
     "hunkValue": 16
   },
-  "rarityTier": "epic"
+  "rarityTier": "epic",
+  "rendering": {
+    "assetPath": "/weapon/heavy_pistol.png",
+    "sprite": {
+      "x": 26,
+      "y": 6,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 16,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

@@ -18,12 +18,12 @@ export class StabMeleeEquippedRenderer
     const { container, sprite, renderManifest, progress } = input;
     const pulse = Math.sin(progress * Math.PI);
     const offsetX =
-      renderManifest.holdOffset.x + renderManifest.jabDistance * pulse;
-    const offsetY = renderManifest.holdOffset.y;
+      renderManifest.x + renderManifest.jabDistance * pulse;
+    const offsetY = renderManifest.y;
     sprite.position.set(input.mirrorSign === 1 ? offsetX : -offsetX, offsetY);
     container.rotation =
       input.rotation +
-      toRadians(renderManifest.holdRotationDeg) +
+      toRadians(renderManifest.rotationDeg) +
       (input.facingLeft ? Math.PI : 0);
   }
 }

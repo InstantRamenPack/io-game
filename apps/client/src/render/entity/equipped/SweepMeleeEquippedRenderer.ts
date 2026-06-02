@@ -18,7 +18,7 @@ export class SweepMeleeEquippedRenderer
     const idleOffset = facingLeft ? halfArcRad : -halfArcRad;
     container.rotation =
       input.rotation +
-      toRadians(renderManifest.holdRotationDeg) +
+      toRadians(renderManifest.rotationDeg) +
       idleOffset +
       (facingLeft ? Math.PI : 0);
   }
@@ -51,12 +51,12 @@ export class SweepMeleeEquippedRenderer
       rotationOffset = lerp(endOffset, startOffset, easeInQuad(recoverT));
     }
     sprite.position.set(
-      renderManifest.holdOffset.x * (input.mirrorSign === 1 ? 1 : -1),
-      renderManifest.holdOffset.y,
+      renderManifest.x * (input.mirrorSign === 1 ? 1 : -1),
+      renderManifest.y,
     );
     container.rotation =
       input.rotation +
-      toRadians(renderManifest.holdRotationDeg) +
+      toRadians(renderManifest.rotationDeg) +
       rotationOffset +
       (facingLeft ? Math.PI : 0);
   }

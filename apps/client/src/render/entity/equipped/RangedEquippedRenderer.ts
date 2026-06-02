@@ -25,12 +25,12 @@ export class RangedEquippedRenderer
     } = input;
     const pulse = Math.sin(progress * Math.PI);
     const orbitX =
-      renderManifest.holdOffset.x - renderManifest.recoilDistance * pulse;
-    const orbitY = renderManifest.holdOffset.y;
+      renderManifest.x - renderManifest.recoilDistance * pulse;
+    const orbitY = renderManifest.y;
     sprite.position.set(mirrorSign === 1 ? orbitX : -orbitX, orbitY);
     container.rotation =
       input.rotation +
-      toRadians(renderManifest.holdRotationDeg) +
+      toRadians(renderManifest.rotationDeg) +
       (facingLeft ? Math.PI : 0);
   }
 }

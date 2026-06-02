@@ -4,6 +4,12 @@ import type {
   EquippedRenderContext,
   EquippedItemRenderer,
 } from "@client/render/entity/equipped/EquippedItemRenderer.ts";
+import {
+  buildEquippedRenderContext,
+  prepareEquippedItemSprite,
+  resolveAttackAnimationDurationMs,
+  syncEquippedItemVisual,
+} from "@client/render/entity/equipped/equippedItemVisualSync.ts";
 import { resolveEquippedItemRenderer } from "@client/render/entity/equipped/EquippedItemRendererRegistry.ts";
 import type {
   EntityPresentationState,
@@ -13,18 +19,34 @@ import type {
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import {
   getItemContent,
+  getItemRendering,
   getWeaponContent,
   requireEntityContent,
 } from "@shared/content/catalog.ts";
 import { getHitboxDirectionalExtent } from "@shared/geometry/hitbox.ts";
-import type { WeaponContent } from "@shared/content/schema.ts";
+import type {
+  ItemSpriteRendering,
+  WeaponContent,
+} from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import * as PIXI from "pixi.js";
 
 type EquippedContentCache = {
   typeId: ResourceId;
   weaponContent: WeaponContent;
+  renderManifest: ItemSpriteRendering;
   texture: PIXI.Texture;
+};
+
+const UNARMED_RENDER_MANIFEST: ItemSpriteRendering = {
+  x: 13,
+  y: 5,
+  rotationDeg: 0,
+  scale: 1,
+  handedness: "right",
+  recoilDistance: 0,
+  swingAngleDeg: 0,
+  jabDistance: 14,
 };
 
 const WORLD_STATIC_Z_BUCKET = 1_000_000;
@@ -78,7 +100,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     this.equippedItemContainer = new PIXI.Container();
     this.equippedItemSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-    this.equippedItemSprite.anchor.set(0.5, 0.5);
+    prepareEquippedItemSprite(this.equippedItemSprite);
     this.equippedItemContainer.visible = false;
     this.equippedItemContainer.addChild(this.equippedItemSprite);
     pixiRenderer.entityContainer.addChild(this.equippedItemContainer);
@@ -217,19 +239,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       return;
     }
 
-    const cooldownDurationMs =
-      (weaponContent.cooldownTicks * 1000) / this.pixiRenderer.getTickRate();
-    switch (weaponContent.attackStyle) {
-      case "shoot":
-        this.attackAnimationDurationMs = Math.max(100, cooldownDurationMs);
-        break;
-      case "swing":
-        this.attackAnimationDurationMs = Math.max(100, cooldownDurationMs);
-        break;
-      case "jab":
-        this.attackAnimationDurationMs = 200;
-        break;
-    }
+    this.attackAnimationDurationMs = resolveAttackAnimationDurationMs(
+      weaponContent,
+      this.pixiRenderer.getTickRate(),
+    );
     this.attackAnimationRemainingMs = this.attackAnimationDurationMs;
     this.getEquippedItemRenderer(
       equippedItem.typeId,
@@ -430,13 +443,14 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       equippedItem.typeId,
       weaponContent,
     );
-    renderer.syncStatic({
-      ...context,
+    syncEquippedItemVisual({
+      renderer,
+      context,
       container: this.equippedItemContainer,
       sprite: this.equippedItemSprite,
       texture: content.texture,
     });
-    this.syncEquippedItemAnimation(entity, rotation);
+    this.redrawEquippedHitbox(entity, rotation);
   }
 
   private syncEquippedItemAnimation(
@@ -460,18 +474,19 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       equippedItem.typeId,
       weaponContent.attackStyle,
     );
-    renderer.syncAnimated({
-      ...this.buildEquippedRenderContext(
-        entity,
-        rotation,
-        equippedItem.typeId,
-        weaponContent,
-      ),
+    const context = this.buildEquippedRenderContext(
+      entity,
+      rotation,
+      equippedItem.typeId,
+      weaponContent,
+    );
+    syncEquippedItemVisual({
+      renderer,
+      context,
       container: this.equippedItemContainer,
       sprite: this.equippedItemSprite,
+      texture: content.texture,
     });
-    // Update equipped-weapon debug hitbox each frame so it follows the
-    // current aim/animation state.
     this.redrawEquippedHitbox(entity, rotation);
   }
 
@@ -563,35 +578,20 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     typeId: ResourceId,
     weaponContent: WeaponContent,
   ): EquippedRenderContext {
-    const progress =
-      this.attackAnimationDurationMs <= 0
-        ? 0
-        : 1 -
-          this.attackAnimationRemainingMs /
-            Math.max(1, this.attackAnimationDurationMs);
-    const facingLeft = Math.cos(rotation) < 0;
-    // Consider the item's drawn handedness when deciding whether to mirror the
-    // sprite. Some assets are authored facing right, others facing left. The
-    // equippedRender.handedness field indicates which direction the sprite is
-    // authored for. We compute mirrorSign so that the final displayed sprite
-    // faces the aim direction (pointing right when the player aims right, and
-    // mirrored when aiming left).
-    const renderManifest = weaponContent.equippedRender;
-    const assetFacesRight = renderManifest.handedness === "right";
-    const mirrorSign: 1 | -1 = assetFacesRight === facingLeft ? -1 : 1;
+    const renderManifest =
+      this.equippedContentCache?.typeId === typeId
+        ? this.equippedContentCache.renderManifest
+        : (getItemRendering(typeId)?.sprite ?? UNARMED_RENDER_MANIFEST);
 
-    return {
+    return buildEquippedRenderContext({
       entity,
       rotation,
-      weaponContent,
-      renderManifest: renderManifest,
       typeId,
-      attackStyle: weaponContent.attackStyle,
-      facingLeft,
-      mirrorSign,
-      progress,
+      weaponContent,
+      renderManifest,
+      attackAnimationRemainingMs: this.attackAnimationRemainingMs,
       attackAnimationDurationMs: this.attackAnimationDurationMs,
-    };
+    });
   }
 
   private getEquippedItemRenderer(
@@ -625,6 +625,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
         this.equippedContentCache = {
           typeId,
           weaponContent,
+          renderManifest: UNARMED_RENDER_MANIFEST,
           texture: PIXI.Texture.WHITE,
         };
         return this.equippedContentCache;
@@ -633,14 +634,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       return undefined;
     }
 
-    const textureTypeId =
-      weaponContent.equippedRender.textureTypeId ??
-      itemContent.iconTextureId ??
-      typeId;
+    const itemRendering = itemContent.rendering;
     this.equippedContentCache = {
       typeId,
       weaponContent,
-      texture: this.pixiRenderer.getItemSpriteTexture(textureTypeId),
+      renderManifest: itemRendering.sprite,
+      texture: this.pixiRenderer.getItemSpriteTexture(typeId),
     };
     return this.equippedContentCache;
   }

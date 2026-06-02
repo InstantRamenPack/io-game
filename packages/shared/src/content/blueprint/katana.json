@@ -4,6 +4,27 @@
   "description": "Unlocks the Katana recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:katana",
   "pickupSpawn": {
-    "pools": ["blueprint"]
+    "pools": [
+      "blueprint"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/blueprint/generated/katana.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
   }
 }

@@ -5,25 +5,15 @@
   "weapon": {
     "attackStyle": "jab",
     "cooldownTicks": 6,
-    "range": 20,
+    "range": 30,
     "damage": 8,
     "knockback": 4,
-    "jabWidth": 14,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 24,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 0.85,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 0,
-      "jabDistance": 18
-    }
+    "jabWidth": 14
   },
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "rarityTier": "common",
   "recipe": {
@@ -35,5 +25,24 @@
         "amount": 20
       }
     ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/scissors.png",
+    "sprite": {
+      "x": 10,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 0.85,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 20
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
   }
 }

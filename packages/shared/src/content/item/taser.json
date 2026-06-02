@@ -8,23 +8,13 @@
     "range": 60,
     "damage": 1,
     "knockback": 20,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 10,
-        "y": 5
-      },
-      "holdRotationDeg": 28,
-      "scale": 0.88,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 95,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "rarityTier": "uncommon",
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
   "recipe": {
     "hint": "Short-range stun weapon for controlling rushes.",
@@ -35,5 +25,24 @@
         "amount": 70
       }
     ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/taser.png",
+    "sprite": {
+      "x": 30,
+      "y": 5,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 90,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 2
+    }
   }
 }

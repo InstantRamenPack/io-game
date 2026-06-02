@@ -15,28 +15,37 @@
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 8,
-    "range": 50,
+    "range": 60,
     "damage": 20,
     "knockback": 14,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 38,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
-      "scale": 1.5,
-      "handedness": "right",
-      "recoilDistance": 0,
-      "swingAngleDeg": 100,
-      "jabDistance": 0
-    }
+    "sweepArcDeg": 90
   },
   "recycle": {
     "hunkValue": 6
   },
   "pickupSpawn": {
-    "pools": ["weapon"]
+    "pools": [
+      "weapon"
+    ]
   },
-  "rarityTier": "uncommon"
+  "rarityTier": "uncommon",
+  "rendering": {
+    "assetPath": "/weapon/machete.png",
+    "sprite": {
+      "x": 30,
+      "y": 0,
+      "rotationDeg": 6,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 100,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

@@ -6,19 +6,26 @@
     "range": 100,
     "damage": 100,
     "knockback": 45,
-    "sweepArcDeg": 180,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 20,
-        "y": 6
-      },
-      "holdRotationDeg": 0,
+    "sweepArcDeg": 180
+  },
+  "rarityTier": "legendary",
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 20,
+      "y": 6,
+      "rotationDeg": 0,
       "scale": 1.5,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 130,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "legendary"
+  }
 }

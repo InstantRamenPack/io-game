@@ -9,9 +9,34 @@
   "recipe": {
     "hint": "Upgrade Field Armor into Juggernaut Armor.",
     "costs": [
-      { "typeId": "item:armor_t2", "amount": 1 },
-      { "typeId": "item:hunk", "amount": 65 }
+      {
+        "typeId": "item:armor_t2",
+        "amount": 1
+      },
+      {
+        "typeId": "item:hunk",
+        "amount": 65
+      }
     ]
   },
-  "rarityTier": "rare"
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/armor/armor_t3.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
 }

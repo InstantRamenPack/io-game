@@ -4,6 +4,27 @@
   "description": "Unlocks the Scorpion vz. 61 recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:machine_pistol",
   "pickupSpawn": {
-    "pools": ["blueprint"]
+    "pools": [
+      "blueprint"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/blueprint/generated/machine_pistol.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
   }
 }

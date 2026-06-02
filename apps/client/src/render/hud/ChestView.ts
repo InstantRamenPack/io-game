@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { Rect } from "@client/render/renderTypes.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -60,12 +61,15 @@ class ChestSlotView {
       return;
     }
 
-    const iconSize = this.size - 14;
-    this.icon.texture = this.iconProvider(item.typeId);
-    this.icon.width = iconSize;
-    this.icon.height = iconSize;
-    this.icon.position.set(this.size / 2, this.size / 2 - 1);
-    this.icon.visible = true;
+    syncItemIconSprite({
+      sprite: this.icon,
+      typeId: item.typeId,
+      texture: this.iconProvider(item.typeId),
+      boxSize: this.size,
+      centerX: this.size / 2,
+      centerY: this.size / 2 - 1,
+      padding: 7,
+    });
 
     if (item.count !== null && (item.count > 1 || item.showCountWhenOne)) {
       this.countText.text = String(item.count);

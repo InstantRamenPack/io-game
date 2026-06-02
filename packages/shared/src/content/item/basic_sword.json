@@ -18,22 +18,31 @@
     "range": 50,
     "damage": 15,
     "knockback": 15,
-    "sweepArcDeg": 90,
-    "equippedRender": {
-      "holdOffset": {
-        "x": 40,
-        "y": 0
-      },
-      "holdRotationDeg": 0,
+    "sweepArcDeg": 90
+  },
+  "rarityTier": "common",
+  "pickupSpawn": {
+    "pools": [
+      "weapon"
+    ]
+  },
+  "rendering": {
+    "assetPath": "/weapon/basic_sword.png",
+    "sprite": {
+      "x": 40,
+      "y": 0,
+      "rotationDeg": 0,
       "scale": 1.7,
       "handedness": "right",
       "recoilDistance": 0,
       "swingAngleDeg": 110,
       "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
     }
-  },
-  "rarityTier": "common",
-  "pickupSpawn": {
-    "pools": ["weapon"]
   }
 }

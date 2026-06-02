@@ -12,6 +12,7 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
   expect(response.ok).toBe(true);
   const payload = (await response.json()) as {
     rows: unknown[];
+    renderingRows: Array<{ itemTypeId: string; fields: Array<{ key: string }> }>;
     ammoRows: unknown[];
     enemyRows: unknown[];
     worldRows: Array<{ configId: string }>;
@@ -20,6 +21,14 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
   };
 
   expect(payload.rows.length).toBeGreaterThan(0);
+  expect(payload.renderingRows.length).toBeGreaterThan(0);
+  expect(
+    payload.renderingRows.some(
+      (row) =>
+        row.itemTypeId === "item:basic_gun" &&
+        row.fields.some((field) => field.key === "itemLike.assetPath"),
+    ),
+  ).toBe(true);
   expect(payload.ammoRows.length).toBeGreaterThan(0);
   expect(payload.enemyRows.length).toBeGreaterThan(0);
   expect(payload.worldRows.length).toBeGreaterThan(0);
@@ -87,4 +96,81 @@ test("balance API rejects invalid list and scalar saves before writing content",
   await expect(invalidScalarResponse.json()).resolves.toMatchObject({
     error: "Unknown type id: item:not_real.",
   });
+
+  const invalidRenderingResponse = await balanceFetch(
+    request("/api/balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: "itemLike",
+        itemTypeId: "item:not_real",
+        path: ["rendering", "icon", "x"],
+        value: 2,
+      }),
+    }),
+  );
+  expect(invalidRenderingResponse.status).toBe(404);
+  await expect(invalidRenderingResponse.json()).resolves.toMatchObject({
+    error: "Unknown item.",
+  });
+});
+
+test("balance API accepts negative rendering tuning saves", async () => {
+  const initialResponse = await balanceFetch(request("/api/balance"));
+  const initialPayload = (await initialResponse.json()) as {
+    renderingRows: Array<{
+      itemTypeId: string;
+      fields: Array<{ key: string; value: unknown }>;
+    }>;
+  };
+  const initialBasicGun = initialPayload.renderingRows.find(
+    (row) => row.itemTypeId === "item:basic_gun",
+  );
+  const originalValue = initialBasicGun?.fields.find(
+    (field) => field.key === "itemLike.spriteX",
+  )?.value;
+  expect(typeof originalValue).toBe("number");
+
+  try {
+    const response = await balanceFetch(
+      request("/api/balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "itemLike",
+          itemTypeId: "item:basic_gun",
+          path: ["rendering", "sprite", "x"],
+          value: -12,
+        }),
+      }),
+    );
+
+    expect(response.ok).toBe(true);
+    const payload = (await response.json()) as {
+      renderingRows: Array<{
+        itemTypeId: string;
+        fields: Array<{ key: string; value: unknown }>;
+      }>;
+    };
+    const basicGun = payload.renderingRows.find(
+      (row) => row.itemTypeId === "item:basic_gun",
+    );
+    expect(
+      basicGun?.fields.find((field) => field.key === "itemLike.spriteX")
+        ?.value,
+    ).toBe(-12);
+  } finally {
+    await balanceFetch(
+      request("/api/balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "itemLike",
+          itemTypeId: "item:basic_gun",
+          path: ["rendering", "sprite", "x"],
+          value: originalValue,
+        }),
+      }),
+    );
+  }
 });

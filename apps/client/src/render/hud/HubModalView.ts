@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import type { Rect } from "@client/render/renderTypes.ts";
+import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import {
   CraftingModal,
@@ -82,8 +83,12 @@ class RecyclePanelView {
     recycleItemLabel: string;
     recycleEnabled: boolean;
     recycleDropHovered: boolean;
-    recycleIconProvider: (hotbarIndex: number) => PIXI.Texture | null;
-    recycleChestIconProvider: (chestIndex: number) => PIXI.Texture | null;
+    recycleIconProvider:
+      | ((hotbarIndex: number) => { typeId: ResourceId; texture: PIXI.Texture } | null)
+      | null;
+    recycleChestIconProvider:
+      | ((chestIndex: number) => { typeId: ResourceId; texture: PIXI.Texture } | null)
+      | null;
   }): void {
     this.container.visible = options.visible;
     if (!options.visible) {
@@ -139,18 +144,21 @@ class RecyclePanelView {
       { width: 2, color: dropBorderColor, alpha: 0.9 },
     );
 
-    const texture =
+    const icon =
       options.recycleHotbarIndex !== null
-        ? options.recycleIconProvider(options.recycleHotbarIndex)
+        ? options.recycleIconProvider?.(options.recycleHotbarIndex)
         : options.recycleChestIndex !== null
-          ? options.recycleChestIconProvider(options.recycleChestIndex)
+          ? options.recycleChestIconProvider?.(options.recycleChestIndex)
           : null;
-    if (texture) {
-      this.icon.texture = texture;
-      this.icon.width = 34;
-      this.icon.height = 34;
-      this.icon.position.set(dropX + dropSize / 2, dropY + dropSize / 2);
-      this.icon.visible = true;
+    if (icon) {
+      syncItemIconSprite({
+        sprite: this.icon,
+        typeId: icon.typeId,
+        texture: icon.texture,
+        boxSize: 34,
+        centerX: dropX + dropSize / 2,
+        centerY: dropY + dropSize / 2,
+      });
       this.label.text = options.recycleItemLabel;
     } else {
       this.icon.visible = false;
@@ -249,8 +257,12 @@ export class HubModalView {
     recycleItemLabel: string;
     recycleEnabled: boolean;
     recycleDropHovered: boolean;
-    recycleIconProvider: (hotbarIndex: number) => PIXI.Texture | null;
-    recycleChestIconProvider: (chestIndex: number) => PIXI.Texture | null;
+    recycleIconProvider: (
+      hotbarIndex: number,
+    ) => { typeId: ResourceId; texture: PIXI.Texture } | null;
+    recycleChestIconProvider: (
+      chestIndex: number,
+    ) => { typeId: ResourceId; texture: PIXI.Texture } | null;
   }): void {
     const chestSize = this.chestView.getPreferredSize();
     const recycleSize = this.recyclePanel.getPreferredSize(chestSize.width);

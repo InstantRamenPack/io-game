@@ -24,22 +24,29 @@
       "projectileCount": 10,
       "arcDeg": 60
     },
-    "equippedRender": {
-      "holdOffset": {
-        "x": 18,
-        "y": 5
-      },
-      "holdRotationDeg": -5,
-      "scale": 1.18,
-      "handedness": "right",
-      "recoilDistance": 18,
-      "swingAngleDeg": 0,
-      "jabDistance": 0
-    },
     "magItemTypeId": "mag:shotgun"
   },
   "recycle": {
     "hunkValue": 16
   },
-  "rarityTier": "rare"
+  "rarityTier": "rare",
+  "rendering": {
+    "assetPath": "/weapon/shotgun.png",
+    "sprite": {
+      "x": 18,
+      "y": 4,
+      "rotationDeg": 1,
+      "scale": 1,
+      "handedness": "right",
+      "recoilDistance": 18,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": -3,
+      "y": 6,
+      "rotationDeg": 0,
+      "scale": 1.2
+    }
+  }
 }
