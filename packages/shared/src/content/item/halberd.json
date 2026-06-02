@@ -15,8 +15,8 @@
   "weapon": {
     "attackStyle": "swing",
     "cooldownTicks": 12,
-    "range": 80,
-    "damage": 40,
+    "range": 75,
+    "damage": 50,
     "knockback": 20,
     "sweepArcDeg": 90
   },

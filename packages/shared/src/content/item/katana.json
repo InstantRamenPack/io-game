@@ -16,7 +16,7 @@
     "attackStyle": "swing",
     "cooldownTicks": 6,
     "range": 75,
-    "damage": 30,
+    "damage": 20,
     "knockback": 18,
     "sweepArcDeg": 90,
     "combo": {
