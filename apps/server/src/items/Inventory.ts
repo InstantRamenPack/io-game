@@ -221,7 +221,10 @@ export class Inventory {
   }
 
   public isRecipeUnlocked(typeId: ResourceId): boolean {
-    return this.unlockedRecipeTypeIds.has(typeId);
+    return (
+      this.unlockedRecipeTypeIds.has(typeId) ||
+      this.hasWeaponUnlockingRecipe(typeId)
+    );
   }
 
   public getUnlockedRecipeTypeIds(): readonly ResourceId[] {
@@ -493,6 +496,19 @@ export class Inventory {
       this.unlockedRecipesDirty = false;
     }
     return this.cachedUnlockedRecipeSnapshot;
+  }
+
+  private hasWeaponUnlockingRecipe(typeId: ResourceId): boolean {
+    return this.hotbarSlots.some((slot) => {
+      if (slot?.kind !== "weapon") {
+        return false;
+      }
+      const weaponContent = getWeaponContent(slot.weapon.typeId);
+      return (
+        weaponContent?.attackStyle === "shoot" &&
+        weaponContent.magItemTypeId === typeId
+      );
+    });
   }
 
   private findMatchingBuildableSlotIndex(typeId: ResourceId): number | null {

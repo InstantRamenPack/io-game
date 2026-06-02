@@ -381,6 +381,14 @@ export abstract class Entity {
     return this.damageMultiplier;
   }
 
+  public getOutgoingDamageMultiplierForDamageSource(
+    _world: World,
+    _source: Entity,
+    target: Entity,
+  ): number {
+    return this.getOutgoingDamageMultiplier(target);
+  }
+
   public getDamageReflectionPct(): number {
     return 0;
   }

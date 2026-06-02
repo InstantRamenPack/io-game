@@ -1,4 +1,5 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import {
   getEnemyDeathLootConfig,
   getEnemyDeathMagDropCount,
@@ -130,6 +131,21 @@ export class Enemy extends GoalControlledEntity {
   public override getDamageReflectionPct(): number {
     const armorStats = this.getEquippedArmorStats();
     return armorStats?.reflectDamagePct ?? 0;
+  }
+
+  public override getOutgoingDamageMultiplierForDamageSource(
+    world: World,
+    source: Entity,
+    target: Entity,
+  ): number {
+    const multiplier = super.getOutgoingDamageMultiplierForDamageSource(
+      world,
+      source,
+      target,
+    );
+    return source.typeId.startsWith("projectile:")
+      ? multiplier * enemyTuningConfig.rangedDamageMultiplier
+      : multiplier;
   }
 
   public equipArmorTypeId(typeId: ResourceId): void {
