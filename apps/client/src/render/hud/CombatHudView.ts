@@ -140,8 +140,7 @@ export class CombatHudView {
       sprite.alpha = 0.98;
     }
 
-    this.ammoCountText.text =
-      `${Math.max(0, ammo.ammoInMag)} / ${Math.max(0, ammo.totalAmmo)}`;
+    this.ammoCountText.text = `${Math.max(0, ammo.ammoInMag)} / ${Math.max(0, ammo.totalAmmo)}`;
     this.ammoCountText.position.set(
       bulletStartX + AMMO_ICON_WIDTH + AMMO_TEXT_GAP,
       COMBAT_ROW_HEIGHT / 2,

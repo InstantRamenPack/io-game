@@ -63,9 +63,7 @@ function villageTierWeaponBlueprintCount(
   const slot = proceduralContentJson.blueprintPlacement.villageTierSlots[tier];
   const extraCount =
     "extraWeaponBlueprintCount" in slot ? slot.extraWeaponBlueprintCount : 0;
-  return (
-    slot.weaponBlueprintCount + extraCount
-  );
+  return slot.weaponBlueprintCount + extraCount;
 }
 
 function isWeaponOrBlueprint(typeId: ResourceId): boolean {
@@ -269,17 +267,10 @@ describe("procedural survival extraction world", () => {
       }
     }
     expect(Object.fromEntries(blueprintCrateCountByTier)).toEqual({
-      common:
-        1 +
-        villageTierWeaponBlueprintCount("common"),
-      uncommon:
-        1 +
-        villageTierWeaponBlueprintCount("uncommon"),
-      rare:
-        1 +
-        villageTierWeaponBlueprintCount("rare"),
-      epic:
-        villageTierWeaponBlueprintCount("epic"),
+      common: 1 + villageTierWeaponBlueprintCount("common"),
+      uncommon: 1 + villageTierWeaponBlueprintCount("uncommon"),
+      rare: 1 + villageTierWeaponBlueprintCount("rare"),
+      epic: villageTierWeaponBlueprintCount("epic"),
     });
   });
 
@@ -1077,8 +1068,9 @@ describe("procedural survival extraction world", () => {
           continue;
         }
         const hasBlueprint =
-          crate.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")) ??
-          false;
+          crate.crateLoot?.some((slot) =>
+            slot.typeId.startsWith("blueprint:"),
+          ) ?? false;
         if (!hasBlueprint) {
           totalRegularCrates += 1;
         }

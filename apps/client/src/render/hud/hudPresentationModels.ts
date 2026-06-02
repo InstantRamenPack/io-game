@@ -199,7 +199,8 @@ function buildAmmoModel(
         : null,
     ammoInMag,
     magSize: activeSlot.magSize,
-    totalAmmo: ammoInMag + Math.max(0, reserveMagCount ?? 0) * activeSlot.magSize,
+    totalAmmo:
+      ammoInMag + Math.max(0, reserveMagCount ?? 0) * activeSlot.magSize,
     reserveMagCount,
     reloadTicksRemaining:
       typeof activeSlot.reloadTicksRemaining === "number" &&

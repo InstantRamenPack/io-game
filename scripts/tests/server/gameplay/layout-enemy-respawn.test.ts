@@ -1,7 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { Crate } from "@server/entities/enemies/Crate.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
-import { refreshLayoutEnemies, refreshLoot } from "@server/systems/MapLoader.ts";
+import {
+  refreshLayoutEnemies,
+  refreshLoot,
+} from "@server/systems/MapLoader.ts";
 import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
 import {
   bootstrapTestRegistries,
@@ -75,7 +78,9 @@ describe("layout enemy dawn respawn", () => {
     expect(restoredLayout).toHaveLength(
       Math.floor(eligibleRespawnSpecs.length * 0.5),
     );
-    expect(restoredLayout.some((entity) => entity instanceof Crate)).toBe(false);
+    expect(restoredLayout.some((entity) => entity instanceof Crate)).toBe(
+      false,
+    );
     expect(
       restoredLayout.some((entity) =>
         dungeonSpecKeys.has(`${entity.typeId}@${entity.x},${entity.y}`),

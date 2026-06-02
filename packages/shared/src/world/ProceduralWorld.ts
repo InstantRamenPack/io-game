@@ -3946,9 +3946,9 @@ function selectCrateLootRarityTier(
   villageTier: ProceduralRewardTier,
 ): ProceduralRewardTier {
   const weights = PROCEDURAL_CONTENT.crateLootRarityWeights[villageTier];
-  const entries = (Object.entries(weights) as Array<
-    [ProceduralRewardTier, number | undefined]
-  >).filter(([, weight]) => (weight ?? 0) > 0);
+  const entries = (
+    Object.entries(weights) as Array<[ProceduralRewardTier, number | undefined]>
+  ).filter(([, weight]) => (weight ?? 0) > 0);
   const total = entries.reduce((sum, [, weight]) => sum + (weight ?? 0), 0);
   if (total <= 0) {
     throw new Error(`Missing crate loot rarity weights for ${villageTier}.`);
