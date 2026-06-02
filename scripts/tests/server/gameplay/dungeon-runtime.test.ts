@@ -258,7 +258,7 @@ function simulateWaveAndFirstDeathDrop(seed: number): {
   if (!(waveEnemy instanceof Shoota)) {
     throw new Error("expected first wave shoota spawn");
   }
-  waveEnemy.applyDamage(runtime.world, waveEnemy.maxHp, 0);
+  waveEnemy.applyDamage(runtime.world, waveEnemy.maxHp * 4, 0);
   const pickup = findPickupAt(runtime, waveEnemy.x, waveEnemy.y);
   return {
     firstWaveEnemyX: waveEnemy.x,

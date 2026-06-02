@@ -20,7 +20,7 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
     enemyRows: unknown[];
     worldRows: Array<{ configId: string }>;
     listRows: Array<{ tab: string; label: string }>;
-    jsonRows: unknown[];
+    jsonRows: Array<{ pathLabel: string }>;
   };
 
   expect(payload.rows.length).toBeGreaterThan(0);
@@ -48,7 +48,9 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
     ),
   ).toBe(true);
   expect(
-    payload.listRows.some((row) => row.label.startsWith("Crate loot ")),
+    payload.jsonRows.some((row) =>
+      row.pathLabel.startsWith("crateLootRarityWeights."),
+    ),
   ).toBe(true);
   expect(
     payload.listRows.some(
