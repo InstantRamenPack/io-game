@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import type { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import {
   requireProjectileContent,
@@ -117,6 +118,40 @@ describe("enemy weapon tuning", () => {
     expect(projectile?.typeId).toBe("projectile:basic_bullet");
     expect(projectile?.remainingRange).toBe(
       projectileContent.range * enemyTuningConfig.weaponAttackRangeMultiplier,
+    );
+  });
+
+  test("ranged enemy projectiles use the enemy tuning damage multiplier", () => {
+    bootstrapTestRegistries();
+    const { runtime } = makeRuntime();
+    runtime.world.dayNightSystem.setPhase("day");
+    const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
+    const player = spawnPlayerLikeDynamic(runtime, 160, 100);
+    tick(runtime, 1);
+
+    const weapon = shoota.weapons[0];
+    expect(weapon?.hit(runtime.world, shoota, 0)).toBe(true);
+    const projectile = runtime.world.entities
+      .all()
+      .find((entity) => entity instanceof Projectile) as Projectile | undefined;
+    expect(projectile).toBeDefined();
+    if (!projectile) {
+      throw new Error("expected shoota shot to spawn a projectile");
+    }
+
+    const projectileContent = requireProjectileContent(
+      "projectile:basic_bullet",
+    );
+    const startingHp = player.hp;
+    new DamageEffect(projectileContent.damage).apply(
+      runtime.world,
+      projectile,
+      player,
+    );
+
+    expect(player.hp).toBe(
+      startingHp -
+        projectileContent.damage * enemyTuningConfig.rangedDamageMultiplier,
     );
   });
 

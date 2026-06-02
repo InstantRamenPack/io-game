@@ -12,6 +12,7 @@ import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
 import { Crate } from "@server/entities/enemies/Crate.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
@@ -28,6 +29,8 @@ const speedPotionItemId = makeResourceId("item", "speed_potion");
 const speedEffectId = makeResourceId("effect", "speed");
 const basicGunItemId = makeResourceId("item", "basic_gun");
 const basicGunMagItemId = makeResourceId("mag", "basic_gun");
+const basicRifleItemId = makeResourceId("item", "basic_rifle");
+const basicRifleMagItemId = makeResourceId("mag", "basic_rifle");
 const heavyPistolItemId = makeResourceId("item", "heavy_pistol");
 const heavyPistolBlueprintItemId = makeResourceId("blueprint", "heavy_pistol");
 const armorBlueprintItemId = makeResourceId("blueprint", "armor");
@@ -252,6 +255,39 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(basicGunMagItemId)).toBe(1);
     const magRecipeHunkCost =
       getItemContent(basicGunMagItemId)?.recipe?.costs.find(
+        (cost) => cost.typeId === hunkItemId,
+      )?.amount ?? 0;
+    expect(player.inventory.getResourceCount(hunkItemId)).toBe(
+      starterHunks - magRecipeHunkCost,
+    );
+  });
+
+  test("AK mag crafting stays unlocked while the player holds the AK", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const station = new Hub(runtime.world.allocEntityId());
+    station.x = player.x;
+    station.y = player.y;
+    runtime.world.spawn(station);
+    tick(runtime, 1);
+
+    const akEntry = requireItemLikeTypeEntry(basicRifleItemId);
+    const ak = new akEntry.ctor();
+    if (!ak.isWeaponItem()) {
+      throw new Error("expected AK item entry to construct a weapon");
+    }
+    player.inventory.hotbarSlots[0] = {
+      kind: "weapon",
+      weapon: ak as Weapon,
+    };
+
+    const starterHunks = getStarterHunkAmount();
+    expect(player.inventory.isRecipeUnlocked(basicRifleMagItemId)).toBe(true);
+    player.craft(runtime.world, basicRifleMagItemId);
+
+    expect(player.inventory.countType(basicRifleMagItemId)).toBe(1);
+    const magRecipeHunkCost =
+      getItemContent(basicRifleMagItemId)?.recipe?.costs.find(
         (cost) => cost.typeId === hunkItemId,
       )?.amount ?? 0;
     expect(player.inventory.getResourceCount(hunkItemId)).toBe(

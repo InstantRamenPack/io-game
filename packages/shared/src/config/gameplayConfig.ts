@@ -164,6 +164,7 @@ const RecyclingConfigSchema = z
 
 const EnemyTuningConfigSchema = z.object({
   meleeWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
+  rangedDamageMultiplier: PositiveFiniteNumberSchema,
   rangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
   weaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
   nightRangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,

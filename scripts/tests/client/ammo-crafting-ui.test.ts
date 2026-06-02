@@ -6,13 +6,37 @@ import {
   getAllItemContentEntries,
   getWeaponContent,
 } from "@shared/content/catalog.ts";
+import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import type {
+  InventorySnapshot,
+  InventorySlotSnapshot,
+} from "@shared/net/snapshots.ts";
 
-function makeHud(unlockedRecipeTypeIds: readonly ResourceId[]): PixiHud {
+function makeInventorySnapshot(
+  unlockedRecipeTypeIds: readonly ResourceId[],
+  hotbarSlots: readonly InventorySlotSnapshot[] = [],
+): InventorySnapshot {
+  return {
+    resources: [],
+    hotbarSlots: Array.from(
+      { length: HOTBAR_SLOT_COUNT },
+      (_, index) => hotbarSlots[index] ?? { kind: "empty" },
+    ),
+    selectedHotbarIndex: 0,
+    unlockedRecipeTypeIds: [...unlockedRecipeTypeIds],
+  };
+}
+
+function makeHud(
+  unlockedRecipeTypeIds: readonly ResourceId[],
+  hotbarSlots: readonly InventorySlotSnapshot[] = [],
+): PixiHud {
+  const inventory = makeInventorySnapshot(unlockedRecipeTypeIds, hotbarSlots);
   return new PixiHud({
     gameClient: {} as ConstructorParameters<typeof PixiHud>[0]["gameClient"],
     selectors: {
-      getInventory: () => ({ unlockedRecipeTypeIds }),
+      getInventory: () => inventory,
     } as GameSelectors,
   });
 }
@@ -71,5 +95,20 @@ describe("ammo crafting HUD", () => {
     for (const magTypeId of gunUnlockedMagTypeIds) {
       expect(visibleCraftableTypeIds, magTypeId).toContain(magTypeId);
     }
+  });
+
+  test("shows AK ammo while the player is holding the AK even if the unlock snapshot is stale", () => {
+    const hud = makeHud(
+      [],
+      [
+        {
+          kind: "weapon",
+          typeId: "item:basic_rifle",
+        },
+      ],
+    );
+    const visibleCraftableTypeIds = getVisibleCraftableTypeIds(hud);
+
+    expect(visibleCraftableTypeIds).toContain("mag:basic_rifle");
   });
 });

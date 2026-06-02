@@ -45,6 +45,7 @@ import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getItemContent,
   getItemRecycleHunkValue,
+  getWeaponContent,
   isRecipeBlueprintLocked,
 } from "@shared/content/catalog.ts";
 import { HOTBAR_SLOT_COUNT } from "@shared/gameplay/constants.ts";
@@ -1577,9 +1578,22 @@ export class PixiHud {
   }
 
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {
+    const inventory = this.selectors.getInventory();
     const unlockedRecipeTypeIds = new Set(
-      this.selectors.getInventory()?.unlockedRecipeTypeIds ?? [],
+      inventory?.unlockedRecipeTypeIds ?? [],
     );
+    for (const slot of inventory?.hotbarSlots ?? []) {
+      if (slot.kind !== "weapon") {
+        continue;
+      }
+      const weaponContent = getWeaponContent(slot.typeId);
+      if (
+        weaponContent?.attackStyle === "shoot" &&
+        weaponContent.magItemTypeId
+      ) {
+        unlockedRecipeTypeIds.add(weaponContent.magItemTypeId);
+      }
+    }
 
     return CRAFTABLE_ITEM_TYPE_IDS.filter((itemTypeId) => {
       if (this.isMagRecipeLocked(itemTypeId, unlockedRecipeTypeIds)) {
