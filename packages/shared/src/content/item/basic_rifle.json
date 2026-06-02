@@ -16,7 +16,7 @@
     "attackStyle": "shoot",
     "cooldownTicks": 5,
     "projectileTypeId": "projectile:rifle_bullet",
-    "magSize": 12,
+    "magSize": 30,
     "reloadTicks": 20,
     "spreadDeg": 4,
     "magItemTypeId": "mag:basic_rifle"

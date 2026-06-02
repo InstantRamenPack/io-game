@@ -8,7 +8,7 @@
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 220
+        "amount": 300
       }
     ]
   },
@@ -16,7 +16,7 @@
     "attackStyle": "shoot",
     "cooldownTicks": 1,
     "projectileTypeId": "projectile:lmg_bullet",
-    "magSize": 16,
+    "magSize": 100,
     "reloadTicks": 50,
     "spreadDeg": 4,
     "magItemTypeId": "mag:lmg"
