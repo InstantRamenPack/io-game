@@ -5,9 +5,7 @@ import { Ranger } from "@server/entities/enemies/Ranger.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
-import {
-  getEnemyDeathMagDropCount,
-} from "@server/content/serverContentCapabilities.ts";
+import { getEnemyDeathMagDropCount } from "@server/content/serverContentCapabilities.ts";
 import deathLootConfig from "@shared/content/death_loot.json";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type seedrandom from "seedrandom";
@@ -123,9 +121,9 @@ describe("enemy death mag loot", () => {
     expect(getEnemyDeathMagDropCount("common", () => 0)).toBe(
       deathLootConfig.common.magMin,
     );
-    expect(getEnemyDeathMagDropCount("legendary", () => 0)).toBeGreaterThanOrEqual(
-      deathLootConfig.legendary.magMin,
-    );
+    expect(
+      getEnemyDeathMagDropCount("legendary", () => 0),
+    ).toBeGreaterThanOrEqual(deathLootConfig.legendary.magMin);
     expect(getEnemyDeathMagDropCount("legendary", () => 0)).toBeLessThanOrEqual(
       deathLootConfig.legendary.magMax,
     );
@@ -194,9 +192,9 @@ describe("enemy death mag loot", () => {
     shoota.applyDamage(runtime.world, shoota.maxHp * 4, 0);
 
     const pickup = findPickupAt(runtime, shoota.x, shoota.y);
-    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBeGreaterThan(
-      0,
-    );
+    expect(
+      pickup.contents.countType("item:hunk" as ResourceId),
+    ).toBeGreaterThan(0);
     expect(totalMagCount(pickup, MAG_TYPE_IDS)).toBe(0);
   });
 
