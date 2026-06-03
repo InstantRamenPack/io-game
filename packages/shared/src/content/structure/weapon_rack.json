@@ -1,0 +1,20 @@
+{
+  "label": "Weapon Rack",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 92,
+        "height": 30,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "capabilities": {
+    "visibilityBlocker": {
+      "mode": "none"
+    }
+  }
+}

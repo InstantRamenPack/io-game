@@ -1,0 +1,15 @@
+{
+  "label": "Bone Pile",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 60,
+        "height": 44,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  }
+}

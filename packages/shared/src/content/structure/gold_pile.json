@@ -1,0 +1,15 @@
+{
+  "label": "Gold Pile",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 56,
+        "height": 40,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  }
+}

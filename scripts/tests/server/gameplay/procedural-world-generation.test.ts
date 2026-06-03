@@ -997,6 +997,38 @@ describe("procedural survival extraction world", () => {
     ).toBe(true);
   });
 
+  test("dungeon rooms place role-specific decor structures", () => {
+    const layout = generateProceduralWorldLayout(1337);
+    const dungeonSector = layout.sectors.find(
+      (sector) => sector.id === layout.dungeonSectorId,
+    )!;
+    const decorCounts = new Map<string, number>();
+    for (const spec of dungeonSector.structures) {
+      decorCounts.set(spec.typeId, (decorCounts.get(spec.typeId) ?? 0) + 1);
+    }
+
+    // Each room role contributes its signature props; pruning may drop a few
+    // in tight chambers, but the dungeon as a whole must remain decorated.
+    for (const decorTypeId of [
+      "structure:stone_pillar",
+      "structure:brazier",
+      "structure:barrel",
+      "structure:bone_pile",
+      "structure:gold_pile",
+      "structure:golden_statue",
+      "structure:weapon_rack",
+      "structure:boss_throne",
+    ]) {
+      expect(
+        decorCounts.get(decorTypeId) ?? 0,
+        `expected ${decorTypeId} decor in the dungeon`,
+      ).toBeGreaterThan(0);
+    }
+
+    // The single boss room yields exactly one throne.
+    expect(decorCounts.get("structure:boss_throne")).toBe(1);
+  });
+
   test("dungeon crates use authored room pools and keep crate volume near target", () => {
     const layouts = Array.from({ length: 100 }, (_, index) =>
       generateProceduralWorldLayout(1337 + index),
@@ -1167,7 +1199,11 @@ describe("procedural survival extraction world", () => {
 
   test("dungeon open space is limited to chambers and hallways", () => {
     const layout = generateProceduralWorldLayout(1337);
-    const blockers = collectProceduralDungeonWallBlockers(layout);
+    // Validate the wall inversion only against the dungeon wall geometry.
+    // Room-role decor (pillars, racks, thrones, ...) deliberately adds static
+    // blockers inside chambers, so the full structure set no longer maps 1:1
+    // to "outside rooms"; the wall entity still must.
+    const blockers = collectProceduralDungeonWallStructureBlockers(layout);
     const dungeon = layout.dungeon;
 
     for (
@@ -1812,6 +1848,32 @@ function collectProceduralDungeonWallBlockers(
       maxY: rect.maxY,
     })),
   );
+}
+
+function collectProceduralDungeonWallStructureBlockers(
+  layout: ReturnType<typeof generateProceduralWorldLayout>,
+): Array<{
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}> {
+  const dungeonSector = layout.sectors.find(
+    (sector) => sector.id === layout.dungeonSectorId,
+  );
+  if (!dungeonSector) {
+    throw new Error("expected dungeon sector");
+  }
+  return dungeonSector.structures
+    .filter((spec) => spec.typeId === "structure:dungeon")
+    .flatMap((spec) =>
+      resolveProceduralSpawnHitboxes(spec).map((rect) => ({
+        minX: rect.minX,
+        minY: rect.minY,
+        maxX: rect.maxX,
+        maxY: rect.maxY,
+      })),
+    );
 }
 
 function pointInsideDungeonFromEntrance(

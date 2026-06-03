@@ -309,6 +309,7 @@ type RarityWeightTable = Partial<Record<RarityTier, number>>;
 type ProceduralDungeonRoomContent = {
   enemies?: ProceduralDungeonEnemySpawn[];
   buildings?: ProceduralContentSpawn[];
+  decor?: ProceduralContentSpawn[];
   loot?: ProceduralContentLoot[];
   crates?: ProceduralContentCrate[];
 };
@@ -1234,6 +1235,7 @@ function createSector(
         enemies,
         loot,
         buildings,
+        structures,
         legendaryBossPlacements.dungeon,
       );
     }
@@ -2536,6 +2538,7 @@ function addDungeonRoomContent(
   enemies: ProceduralSpawnSpec[],
   loot: ProceduralLootSpec[],
   buildings: ProceduralSpawnSpec[],
+  structures: ProceduralSpawnSpec[],
   dungeonLegendaryBossTypeId: ResourceId,
 ): void {
   const point = (offsetX: number, offsetY: number, margin = 96) =>
@@ -2615,6 +2618,11 @@ function addDungeonRoomContent(
     } else {
       buildings.push(spec);
     }
+  }
+  for (const decor of content.decor ?? []) {
+    structures.push(
+      roomSpawn(decor.typeId, decor.offsetX, decor.offsetY, decor.margin),
+    );
   }
   for (const roomLootEntry of content.loot ?? []) {
     const spec = roomLoot(

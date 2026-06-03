@@ -209,6 +209,32 @@
   },
   "dungeonRoomContent": {
     "entrance": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -200,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 200,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -200,
+          "offsetY": 120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 200,
+          "offsetY": 120,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:drifter",
@@ -231,6 +257,26 @@
       ]
     },
     "combat": {
+      "decor": [
+        {
+          "typeId": "structure:barrel",
+          "offsetX": -200,
+          "offsetY": -120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 200,
+          "offsetY": -120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 190,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:drifter",
@@ -258,6 +304,32 @@
       ]
     },
     "enemy_swarm": {
+      "decor": [
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -240,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 240,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -180,
+          "offsetY": 200,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 210,
+          "offsetY": 180,
+          "margin": 48
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:drifter",
@@ -300,6 +372,38 @@
       ]
     },
     "treasure": {
+      "decor": [
+        {
+          "typeId": "structure:golden_statue",
+          "offsetX": -230,
+          "offsetY": -40,
+          "margin": 56
+        },
+        {
+          "typeId": "structure:golden_statue",
+          "offsetX": 230,
+          "offsetY": -40,
+          "margin": 56
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": -150,
+          "offsetY": 140,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": 0,
+          "offsetY": 160,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": 150,
+          "offsetY": 140,
+          "margin": 48
+        }
+      ],
       "crates": [
         {
           "offsetX": -96,
@@ -319,6 +423,32 @@
       ]
     },
     "maze": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -180,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 180,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -180,
+          "offsetY": 120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 180,
+          "offsetY": 120,
+          "margin": 48
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:stalker",
@@ -349,6 +479,38 @@
       ]
     },
     "armory": {
+      "decor": [
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": -190,
+          "offsetY": -150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": 190,
+          "offsetY": -150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": -190,
+          "offsetY": 150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": 190,
+          "offsetY": 150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 0,
+          "offsetY": 180,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:police",
@@ -371,6 +533,32 @@
       ]
     },
     "trap": {
+      "decor": [
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -200,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 200,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": -200,
+          "offsetY": 150,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 200,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:police",
@@ -415,6 +603,32 @@
       ]
     },
     "mini_boss": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -200,
+          "offsetY": -150,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 200,
+          "offsetY": -150,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -200,
+          "offsetY": 150,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 200,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "typeId": "enemy:commander",
@@ -431,6 +645,38 @@
       ]
     },
     "boss": {
+      "decor": [
+        {
+          "typeId": "structure:boss_throne",
+          "offsetX": 0,
+          "offsetY": -210,
+          "margin": 72
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -250,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 250,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -250,
+          "offsetY": 120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 250,
+          "offsetY": 120,
+          "margin": 40
+        }
+      ],
       "enemies": [
         {
           "spawnRole": "legendary_boss",

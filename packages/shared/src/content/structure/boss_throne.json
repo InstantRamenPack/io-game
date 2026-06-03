@@ -1,0 +1,15 @@
+{
+  "label": "Throne",
+  "maxHp": 0,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 100,
+        "height": 92,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  }
+}
