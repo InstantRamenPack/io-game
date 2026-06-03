@@ -10,9 +10,9 @@ type RouterOptions = {
 export class GameInputRouter {
   private eItemHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private eItemHoldFired = false;
-  private eRepairHoldTimer: ReturnType<typeof setTimeout> | null = null;
-  private eRepairHoldFired = false;
-  private eRepairHoldTowerId: number | null = null;
+  private rRepairHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private rRepairHoldFired = false;
+  private rRepairHoldTowerId: number | null = null;
 
   constructor(private readonly options: RouterOptions) {}
 
@@ -33,15 +33,18 @@ export class GameInputRouter {
         }
       }
       this.eItemHoldFired = false;
-      if (this.eRepairHoldTimer !== null) {
-        clearTimeout(this.eRepairHoldTimer);
-        this.eRepairHoldTimer = null;
+    }
+
+    if (key === "r") {
+      if (this.rRepairHoldTimer !== null) {
+        clearTimeout(this.rRepairHoldTimer);
+        this.rRepairHoldTimer = null;
       }
-      if (!this.eRepairHoldFired) {
+      if (!this.rRepairHoldFired) {
         this.options.dispatch({ type: "cancelRepairHold" });
       }
-      this.eRepairHoldFired = false;
-      this.eRepairHoldTowerId = null;
+      this.rRepairHoldFired = false;
+      this.rRepairHoldTowerId = null;
     }
   }
 
@@ -120,26 +123,6 @@ export class GameInputRouter {
         });
         return;
       }
-      if (context.nearDamagedTower !== null) {
-        if (this.eRepairHoldTimer !== null) {
-          clearTimeout(this.eRepairHoldTimer);
-        }
-        this.eRepairHoldFired = false;
-        this.eRepairHoldTowerId = context.nearDamagedTower;
-        this.options.dispatch({ type: "startRepairHold" });
-        this.eRepairHoldTimer = setTimeout(() => {
-          this.eRepairHoldTimer = null;
-          this.eRepairHoldFired = true;
-          if (this.eRepairHoldTowerId !== null) {
-            this.options.dispatch({
-              type: "repairTower",
-              towerId: this.eRepairHoldTowerId,
-            });
-          }
-          this.eRepairHoldTowerId = null;
-        }, INTERACT_HOLD_DURATION_MS);
-        return;
-      }
       if (context.selectedUsableTypeId !== null) {
         this.eItemHoldFired = false;
         const typeId = context.selectedUsableTypeId;
@@ -152,6 +135,30 @@ export class GameInputRouter {
         return;
       }
       this.options.dispatch({ type: "pickupNearestItem" });
+      return;
+    }
+
+    if (key === "r") {
+      event.preventDefault();
+      if (context.nearDamagedTower !== null) {
+        if (this.rRepairHoldTimer !== null) {
+          clearTimeout(this.rRepairHoldTimer);
+        }
+        this.rRepairHoldFired = false;
+        this.rRepairHoldTowerId = context.nearDamagedTower;
+        this.options.dispatch({ type: "startRepairHold" });
+        this.rRepairHoldTimer = setTimeout(() => {
+          this.rRepairHoldTimer = null;
+          this.rRepairHoldFired = true;
+          if (this.rRepairHoldTowerId !== null) {
+            this.options.dispatch({
+              type: "repairTower",
+              towerId: this.rRepairHoldTowerId,
+            });
+          }
+          this.rRepairHoldTowerId = null;
+        }, INTERACT_HOLD_DURATION_MS);
+      }
       return;
     }
 

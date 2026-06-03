@@ -28,7 +28,14 @@ import type {
 } from "@client/render/hud/HudInteractionState.ts";
 import { InventoryEditCoordinator } from "@client/render/hud/InventoryEditCoordinator.ts";
 import { InventoryView } from "@client/render/hud/InventoryView.ts";
-import { HoldActionPromptView } from "@client/render/hud/HoldActionPromptView.ts";
+import {
+  HoldActionPromptView,
+  HOLD_PROMPT_HEIGHT,
+} from "@client/render/hud/HoldActionPromptView.ts";
+import {
+  SimplePromptView,
+  SIMPLE_PROMPT_HEIGHT,
+} from "@client/render/hud/SimplePromptView.ts";
 import { SelectedItemToastView } from "@client/render/hud/SelectedItemToastView.ts";
 import {
   computeHotbarActiveIndex,
@@ -92,9 +99,9 @@ export class PixiHud {
   private selectedItemToastView?: SelectedItemToastView;
   private dayNightIndicator?: DayNightIndicator;
   private towerRepairPromptView?: HoldActionPromptView;
-  private itemPickupPromptView?: HoldActionPromptView;
-  private chestPromptView?: HoldActionPromptView;
-  private craftingStationPromptView?: HoldActionPromptView;
+  private itemPickupPromptView?: SimplePromptView;
+  private chestPromptView?: SimplePromptView;
+  private craftingStationPromptView?: SimplePromptView;
   private repairHoldStartMs: number | null = null;
   private useItemHoldStartMs: number | null = null;
   private useItemPromptView?: HoldActionPromptView;
@@ -656,15 +663,11 @@ export class PixiHud {
       this.tooltipView = new HudTooltipView();
       this.selectedItemToastView = new SelectedItemToastView();
       this.dayNightIndicator = new DayNightIndicator(this.dayNightLabelStyle);
-      this.towerRepairPromptView = new HoldActionPromptView("Hold E to repair");
+      this.towerRepairPromptView = new HoldActionPromptView("Hold R to repair");
       this.useItemPromptView = new HoldActionPromptView("Hold E to use");
-      this.itemPickupPromptView = new HoldActionPromptView(
-        "Press E to pick up",
-      );
-      this.chestPromptView = new HoldActionPromptView(
-        "Press E at the tower hub",
-      );
-      this.craftingStationPromptView = new HoldActionPromptView(
+      this.itemPickupPromptView = new SimplePromptView("Press E to pick up");
+      this.chestPromptView = new SimplePromptView("Press E at the tower hub");
+      this.craftingStationPromptView = new SimplePromptView(
         "Press E at the tower hub",
       );
       this.bossHealthBar = new BossHealthBar();
@@ -947,11 +950,21 @@ export class PixiHud {
       this.combatHudView?.container.y !== undefined
         ? this.combatHudView.container.y - 10
         : app.screen.height - 140;
+    // Determine if any E-key prompt is active so R repair can stack above it
+    const ePromptActive =
+      useItemActive || nearPickup || nearChest || nearCraftingStation;
+    const ePromptHeight = useItemActive
+      ? HOLD_PROMPT_HEIGHT
+      : SIMPLE_PROMPT_HEIGHT;
+    const repairAnchorY = ePromptActive
+      ? actionPromptAnchorBottomY - ePromptHeight - 8
+      : actionPromptAnchorBottomY;
+
     this.syncRepairPrompt(
       app.screen.width,
       app.screen.height,
       nowMs,
-      actionPromptAnchorBottomY,
+      repairAnchorY,
     );
     this.syncUseItemPrompt(
       app.screen.width,
@@ -964,13 +977,11 @@ export class PixiHud {
     this.syncItemPickupPrompt(
       app.screen.width,
       app.screen.height,
-      nowMs,
       actionPromptAnchorBottomY,
     );
     this.syncChestPrompt(
       app.screen.width,
       app.screen.height,
-      nowMs,
       nearPickup,
       nearChest,
       actionPromptAnchorBottomY,
@@ -978,7 +989,6 @@ export class PixiHud {
     this.syncCraftingStationPrompt(
       app.screen.width,
       app.screen.height,
-      nowMs,
       nearCraftingStation,
       actionPromptAnchorBottomY,
     );
@@ -1086,7 +1096,7 @@ export class PixiHud {
 
     this.towerRepairPromptView.sync({
       visible: true,
-      text: `Hold E to repair ${towerLabel} (${repairCost} hunk)`,
+      text: `Hold R to repair ${towerLabel} (${repairCost} hunk)`,
       holdStartMs: this.repairHoldStartMs,
       nowMs,
       screenWidth,
@@ -1149,7 +1159,6 @@ export class PixiHud {
   private syncItemPickupPrompt(
     screenWidth: number,
     screenHeight: number,
-    nowMs: number,
     anchorBottomY: number,
   ): void {
     if (!this.itemPickupPromptView) {
@@ -1167,8 +1176,6 @@ export class PixiHud {
     this.itemPickupPromptView.sync({
       visible: nearest !== null,
       text: `Press E to pick up ${itemLabel}`.trim(),
-      holdStartMs: null,
-      nowMs,
       screenWidth,
       screenHeight,
       anchorBottomY,
@@ -1178,7 +1185,6 @@ export class PixiHud {
   private syncChestPrompt(
     screenWidth: number,
     screenHeight: number,
-    nowMs: number,
     nearPickup: boolean,
     nearChest: boolean,
     anchorBottomY: number,
@@ -1189,8 +1195,6 @@ export class PixiHud {
     this.chestPromptView.sync({
       visible: nearChest && !nearPickup,
       text: "Press E at the tower hub",
-      holdStartMs: null,
-      nowMs,
       screenWidth,
       screenHeight,
       anchorBottomY,
@@ -1200,7 +1204,6 @@ export class PixiHud {
   private syncCraftingStationPrompt(
     screenWidth: number,
     screenHeight: number,
-    nowMs: number,
     nearCraftingStation: boolean,
     anchorBottomY: number,
   ): void {
@@ -1210,8 +1213,6 @@ export class PixiHud {
     this.craftingStationPromptView.sync({
       visible: nearCraftingStation,
       text: "Press E at the tower hub",
-      holdStartMs: null,
-      nowMs,
       screenWidth,
       screenHeight,
       anchorBottomY,

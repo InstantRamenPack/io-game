@@ -2,18 +2,21 @@ import * as PIXI from "pixi.js";
 import { INTERACT_HOLD_DURATION_MS } from "@shared/gameplay/constants.ts";
 
 const PANEL_WIDTH = 320;
-const PANEL_HEIGHT = 44;
-const RADIUS = 22;
-const OUTLINE_INSET = 3;
-const OUTLINE_WIDTH = 2;
-const OUTLINE_ACTIVE_WIDTH = 4;
+const PANEL_HEIGHT = 54;
+export const HOLD_PROMPT_HEIGHT = PANEL_HEIGHT;
+const RADIUS = 12;
+const BAR_PADDING_X = 14;
+const BAR_Y = 11;
+const BAR_HEIGHT = 9;
+const BAR_RADIUS = 4.5;
+const TEXT_Y = 39;
 
 export class HoldActionPromptView {
   public readonly container = new PIXI.Container();
   private readonly background = new PIXI.Graphics();
+  private readonly progressBarBg = new PIXI.Graphics();
+  private readonly progressBarFill = new PIXI.Graphics();
   private readonly promptText: PIXI.Text;
-  private readonly outlineBase = new PIXI.Graphics();
-  private readonly outlineProgress = new PIXI.Graphics();
 
   constructor(initialText: string) {
     this.promptText = new PIXI.Text({
@@ -28,8 +31,8 @@ export class HoldActionPromptView {
     this.promptText.anchor.set(0.5, 0.5);
     this.container.addChild(
       this.background,
-      this.outlineBase,
-      this.outlineProgress,
+      this.progressBarBg,
+      this.progressBarFill,
       this.promptText,
     );
     this.container.visible = false;
@@ -62,6 +65,7 @@ export class HoldActionPromptView {
     const progress = isHolding
       ? Math.min(1, (nowMs - holdStartMs) / INTERACT_HOLD_DURATION_MS)
       : 0;
+
     const panelX = screenWidth / 2 - PANEL_WIDTH / 2;
     const panelY = Math.max(
       12,
@@ -74,68 +78,23 @@ export class HoldActionPromptView {
       .roundRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT, RADIUS)
       .fill({ color: 0x2a2f35, alpha: 0.92 });
 
-    this.outlineBase.clear();
-    this.outlineBase
-      .roundRect(
-        OUTLINE_INSET,
-        OUTLINE_INSET,
-        PANEL_WIDTH - OUTLINE_INSET * 2,
-        PANEL_HEIGHT - OUTLINE_INSET * 2,
-        RADIUS - OUTLINE_INSET,
-      )
-      .stroke({
-        width: OUTLINE_WIDTH,
-        color: 0x9098a1,
-        alpha: 0.7,
-        alignment: 1,
-      });
-    this.drawProgressOutline(progress);
+    const barX = BAR_PADDING_X;
+    const barMaxW = PANEL_WIDTH - BAR_PADDING_X * 2;
+
+    this.progressBarBg.clear();
+    this.progressBarBg
+      .roundRect(barX, BAR_Y, barMaxW, BAR_HEIGHT, BAR_RADIUS)
+      .fill({ color: 0x383e47, alpha: 1 });
+
+    this.progressBarFill.clear();
+    if (progress > 0) {
+      const fillW = Math.max(BAR_RADIUS * 2, barMaxW * progress);
+      this.progressBarFill
+        .roundRect(barX, BAR_Y, fillW, BAR_HEIGHT, BAR_RADIUS)
+        .fill({ color: 0x4ade80, alpha: 1 });
+    }
 
     this.promptText.text = text;
-    this.promptText.position.set(PANEL_WIDTH / 2, PANEL_HEIGHT / 2);
-  }
-
-  private drawProgressOutline(progress: number): void {
-    this.outlineProgress.clear();
-    if (progress <= 0) return;
-    const p = Math.max(0, Math.min(1, progress));
-    const x = OUTLINE_INSET;
-    const y = OUTLINE_INSET;
-    const w = PANEL_WIDTH - OUTLINE_INSET * 2;
-    const h = PANEL_HEIGHT - OUTLINE_INSET * 2;
-    const total = 2 * (w + h);
-    const target = total * p;
-    const segments: Array<{
-      fromX: number;
-      fromY: number;
-      toX: number;
-      toY: number;
-      len: number;
-    }> = [
-      { fromX: x, fromY: y, toX: x + w, toY: y, len: w },
-      { fromX: x + w, fromY: y, toX: x + w, toY: y + h, len: h },
-      { fromX: x + w, fromY: y + h, toX: x, toY: y + h, len: w },
-      { fromX: x, fromY: y + h, toX: x, toY: y, len: h },
-    ];
-    this.outlineProgress.stroke({
-      width: OUTLINE_ACTIVE_WIDTH,
-      color: 0xcad2db,
-      alpha: 0.95,
-      alignment: 1,
-    });
-    let remaining = target;
-    for (const segment of segments) {
-      if (remaining <= 0) break;
-      const drawn = Math.min(remaining, segment.len);
-      const t = drawn / segment.len;
-      const dx = segment.toX - segment.fromX;
-      const dy = segment.toY - segment.fromY;
-      this.outlineProgress.moveTo(segment.fromX, segment.fromY);
-      this.outlineProgress.lineTo(
-        segment.fromX + dx * t,
-        segment.fromY + dy * t,
-      );
-      remaining -= drawn;
-    }
+    this.promptText.position.set(PANEL_WIDTH / 2, TEXT_Y);
   }
 }
