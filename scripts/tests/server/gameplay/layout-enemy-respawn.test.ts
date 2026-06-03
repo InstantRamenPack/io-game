@@ -6,11 +6,34 @@ import {
   refreshLoot,
 } from "@server/systems/MapLoader.ts";
 import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
+import { getSectorForPoint } from "@shared/world/ProceduralWorld.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
   tick,
 } from "@tests/helpers/worldFixtures.ts";
+
+function countRegularLayoutEnemies(
+  runtime: ReturnType<typeof makeRuntime>["runtime"],
+): number {
+  const layout = runtime.world.proceduralLayout;
+  if (!layout) {
+    return 0;
+  }
+  return runtime.world.entities.all().filter((entity) => {
+    if (!(entity instanceof Enemy)) {
+      return false;
+    }
+    if (entity.spawnSource !== "layout") {
+      return false;
+    }
+    if (entity.typeId === "enemy:crate") {
+      return false;
+    }
+    const sector = getSectorForPoint(layout, entity);
+    return sector?.archetype !== "dungeon";
+  }).length;
+}
 
 describe("layout enemy dawn respawn", () => {
   beforeAll(bootstrapTestRegistries);
@@ -115,6 +138,28 @@ describe("layout enemy dawn respawn", () => {
         .all()
         .filter((entity): entity is Crate => entity instanceof Crate),
     ).toHaveLength(0);
+  });
+
+  test("refreshLayoutEnemies keeps surviving regular layout enemies in place", () => {
+    const { runtime } = makeRuntime({ worldSeed: 42 });
+    const regularBefore = countRegularLayoutEnemies(runtime);
+    expect(regularBefore).toBeGreaterThan(0);
+
+    const survivorId = runtime.world.entities
+      .all()
+      .find(
+        (entity): entity is Enemy =>
+          entity instanceof Enemy &&
+          entity.spawnSource === "layout" &&
+          entity.typeId !== "enemy:crate",
+      )?.id;
+    expect(survivorId).toBeDefined();
+
+    refreshLayoutEnemies(runtime.world);
+    tick(runtime, 1);
+
+    expect(runtime.world.entities.has(survivorId!)).toBe(true);
+    expect(countRegularLayoutEnemies(runtime)).toBe(regularBefore);
   });
 
   test("refreshLayoutEnemies leaves surviving crates and dungeon enemies in place", () => {

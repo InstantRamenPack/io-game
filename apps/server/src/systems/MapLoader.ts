@@ -323,27 +323,29 @@ export function refreshLoot(world: World): void {
   // Crates are finite per match; dawn should not refill destroyed loot.
 }
 
-/**
- * Respawns a partial set of regular procedural enemies at dawn.
- */
-export function refreshLayoutEnemies(world: World): void {
-  if (!world.proceduralLayout) {
-    return;
-  }
+const LAYOUT_ENEMY_OCCUPANCY_RADIUS = worldgenConfig.tileSize * 8;
 
-  for (const entity of world.entities.all()) {
-    const sector = getSectorForPoint(world.proceduralLayout, entity);
-    if (
-      entity instanceof Enemy &&
-      entity.spawnSource === "layout" &&
-      entity.typeId !== ("enemy:crate" as ResourceId) &&
-      sector?.archetype !== "dungeon"
-    ) {
-      world.despawn(entity.id);
-    }
+function isRegularLayoutEnemy(
+  layout: ProceduralWorldLayout,
+  entity: Entity,
+): entity is Enemy {
+  if (!(entity instanceof Enemy)) {
+    return false;
   }
+  if (entity.spawnSource !== "layout") {
+    return false;
+  }
+  if (entity.typeId === ("enemy:crate" as ResourceId)) {
+    return false;
+  }
+  const sector = getSectorForPoint(layout, entity);
+  return sector?.archetype !== "dungeon";
+}
 
-  const respawnSpecs = world.proceduralLayout.sectors.flatMap((sector) =>
+function collectEligibleLayoutEnemyRespawnSpecs(
+  layout: ProceduralWorldLayout,
+): ProceduralSpawnSpec[] {
+  return layout.sectors.flatMap((sector) =>
     sector.archetype === "dungeon"
       ? []
       : sector.enemies.filter(
@@ -355,9 +357,49 @@ export function refreshLayoutEnemies(world: World): void {
             ),
         ),
   );
-  const respawnCount = Math.floor(respawnSpecs.length * 0.5);
+}
+
+function isLayoutEnemySpecOccupied(
+  spec: ProceduralSpawnSpec,
+  livingEnemies: readonly Enemy[],
+): boolean {
+  const radiusSq = LAYOUT_ENEMY_OCCUPANCY_RADIUS ** 2;
+  for (const enemy of livingEnemies) {
+    const dx = enemy.x - spec.x;
+    const dy = enemy.y - spec.y;
+    if (dx * dx + dy * dy <= radiusSq) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Respawns a partial set of regular procedural enemies at dawn.
+ */
+export function refreshLayoutEnemies(world: World): void {
+  const layout = world.proceduralLayout;
+  if (!layout) {
+    return;
+  }
+
+  const livingRegularLayoutEnemies = world.entities
+    .all()
+    .filter((entity): entity is Enemy => isRegularLayoutEnemy(layout, entity));
+  const respawnSpecs = collectEligibleLayoutEnemyRespawnSpecs(layout);
+  const vacantSpecs = respawnSpecs.filter(
+    (spec) => !isLayoutEnemySpecOccupied(spec, livingRegularLayoutEnemies),
+  );
+  const missingCount = Math.max(
+    0,
+    respawnSpecs.length - livingRegularLayoutEnemies.length,
+  );
+  const respawnCount = Math.min(
+    Math.floor(vacantSpecs.length * 0.5),
+    Math.floor(missingCount * 0.5),
+  );
   for (let index = 0; index < respawnCount; index += 1) {
-    spawnProceduralEntity(world, respawnSpecs[index]!, "layout");
+    spawnProceduralEntity(world, vacantSpecs[index]!, "layout");
   }
 }
 

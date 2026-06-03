@@ -113,7 +113,7 @@ These rules apply to every task in this repo unless the user explicitly override
 - Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
 - Crafting and recycling use `tower:hub`; match start places three uncraftable starters (`tower:hub`, `tower:energy`, `tower:comms`). All extend `Building` for enemy targeting, remain in-world at 0 HP when destroyed, and are unusable until repaired with hunk like other towers.
 - In non-production, joining as player name `debug` (`isDebugAdminPlayerName`) enables debug spectator cheats plus per-player unlock of all blueprint-locked recipes, a large hunk grant, and hunk-free crafting/tower repair via `debugPlayerBootstrap.ts` (not lobby-wide blueprint unlock).
-- When night ends, worldgen-placed enemies respawn the same way procedural crates do.
+- At dawn after night, `refreshLayoutEnemies` keeps surviving regular layout enemies and repopulates half of vacant/killed spawn points only; procedural crates do not respawn (finite per match).
 - Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` blueprints were removed.
 - Armor rarities: Scout common, Field uncommon, Juggernaut rare, Aegis epic.
 - Blueprint placement is deterministic in `procedural-content.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
