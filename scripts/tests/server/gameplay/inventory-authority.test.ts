@@ -5,7 +5,6 @@ import {
   requirePlayerStarterLoadout,
 } from "@shared/content/catalog.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
-import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
 import { Hub } from "@server/entities/tower/Hub.ts";
 import { CommsTower } from "@server/entities/tower/CommsTower.ts";
@@ -445,13 +444,12 @@ describe("inventory authority", () => {
     const tower = new CommsTower(runtime.world.allocEntityId());
     tower.x = player.x + 20;
     tower.y = player.y;
-    tower.hp = 100;
+    tower.hp = 0;
     runtime.world.spawn(tower);
 
+    player.inventory.addStackable(hunkItemId, 100);
     const initialHunks = player.inventory.countType(hunkItemId);
-    const expectedCost = Math.ceil(
-      (tower.maxHp - tower.hp) / TOWER_REPAIR_HP_PER_COST_UNIT,
-    );
+    const expectedCost = 100;
 
     enqueueAction(runtime, {
       t: "action",

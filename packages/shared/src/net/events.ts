@@ -10,6 +10,7 @@ export const NET_EVENT_TYPES = [
   "attack",
   "wither_beam",
   "wither_airstrike_warning",
+  "tesla_shock",
 ] as const;
 
 export const DamageEventPayloadSchema = z.object({
@@ -61,6 +62,13 @@ const WitherAirstrikeWarningEventPayloadSchema = z.object({
   warningTicks: z.number(),
 });
 
+const TeslaShockEventPayloadSchema = z.object({
+  sourceId: NonNegativeIntSchema,
+  x: z.number(),
+  y: z.number(),
+  radius: PositiveFiniteNumberSchema,
+});
+
 /**
  * Serialized gameplay event emitted alongside snapshots.
  * Discrete events ride next to snapshot state instead of being modeled as entities.
@@ -86,6 +94,10 @@ export const NetEventSchema = z.discriminatedUnion("type", [
     type: z.literal("wither_airstrike_warning"),
     payload: WitherAirstrikeWarningEventPayloadSchema,
   }),
+  z.object({
+    type: z.literal("tesla_shock"),
+    payload: TeslaShockEventPayloadSchema,
+  }),
 ]);
 
 export type DamageEventPayload = z.infer<typeof DamageEventPayloadSchema>;
@@ -97,4 +109,5 @@ export type WitherBeamEventPayload = z.infer<
 export type WitherAirstrikeWarningEventPayload = z.infer<
   typeof WitherAirstrikeWarningEventPayloadSchema
 >;
+export type TeslaShockEventPayload = z.infer<typeof TeslaShockEventPayloadSchema>;
 export type NetEvent = z.infer<typeof NetEventSchema>;

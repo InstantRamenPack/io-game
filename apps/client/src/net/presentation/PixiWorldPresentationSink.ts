@@ -105,6 +105,13 @@ export class PixiWorldPresentationSink {
         continue;
       }
 
+      if (event.type === "tesla_shock") {
+        this.renderManager.triggerTeslaShockPulseByEntityId(
+          event.payload.sourceId,
+        );
+        continue;
+      }
+
       if (event.type === "wither_beam") {
         this.renderer.triggerWitherBeamEffect(
           event.payload.x,
@@ -175,7 +182,11 @@ export class PixiWorldPresentationSink {
   ): void {
     const liveKeys = new Set<string>();
     for (const entity of world.entities.values()) {
-      if (!entity.alive || entity.kind !== "player" || !entity.activeEffects) {
+      if (
+        !entity.alive ||
+        !entity.activeEffects?.length ||
+        (entity.kind !== "player" && entity.kind !== "enemy")
+      ) {
         continue;
       }
       for (const effect of entity.activeEffects) {

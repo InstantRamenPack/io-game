@@ -380,6 +380,11 @@ export class ClientEntity {
         } else {
           this.targetId = previousTargetId;
         }
+        if (isFullSnapshot || "activeEffects" in snapshot) {
+          this.activeEffects = snapshot.activeEffects;
+        } else {
+          this.activeEffects = previousEffects;
+        }
         if (isFullSnapshot || "equippedItem" in snapshot) {
           this.equippedItem = snapshot.equippedItem;
         } else {

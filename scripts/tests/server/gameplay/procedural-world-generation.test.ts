@@ -802,6 +802,7 @@ describe("procedural survival extraction world", () => {
         proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
           .epicWeaponBlueprintCount,
       );
+      expect(dungeonEpicBlueprintCount).toBe(2);
       expect(dungeonRareBlueprintCount + dungeonEpicBlueprintCount).toBe(
         proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
           .rareWeaponBlueprintCount +

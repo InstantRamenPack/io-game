@@ -1,4 +1,9 @@
-import { Particle, ParticleContainer } from "pixi.js";
+import {
+  Container as PixiContainer,
+  Graphics,
+  Particle,
+  ParticleContainer,
+} from "pixi.js";
 import type { Container, Texture } from "pixi.js";
 import type {
   ParticleEffectDescriptor,
@@ -16,6 +21,14 @@ type ExplosionParticle = {
   durationMs: number;
 };
 
+type StunSparkParticle = {
+  graphic: Graphics;
+  velocityX: number;
+  velocityY: number;
+  remainingMs: number;
+  durationMs: number;
+};
+
 export class PixiParticleLayer {
   public readonly container = new ParticleContainer({
     dynamicProperties: {
@@ -26,13 +39,18 @@ export class PixiParticleLayer {
     },
   });
 
+  private readonly sparkContainer = new PixiContainer();
   private readonly particles: ExplosionParticle[] = [];
+  private readonly stunSparks: StunSparkParticle[] = [];
   private softCircleTexture: Texture | null = null;
   private ringTexture: Texture | null = null;
 
   public attach(parent: Container): void {
     if (this.container.parent !== parent) {
       parent.addChild(this.container);
+    }
+    if (this.sparkContainer.parent !== parent) {
+      parent.addChild(this.sparkContainer);
     }
   }
 
@@ -60,6 +78,10 @@ export class PixiParticleLayer {
     y: number,
     radius: number,
   ): void {
+    if (typeId === "effect:stunned") {
+      this.triggerStunSparkEffect(x, y, radius);
+      return;
+    }
     this.triggerEffect(this.buildStatusEffect(typeId, x, y, radius));
   }
 
@@ -89,10 +111,25 @@ export class PixiParticleLayer {
   }
 
   public update(deltaMs: number): void {
-    if (this.particles.length === 0) {
+    if (this.particles.length === 0 && this.stunSparks.length === 0) {
       return;
     }
 
+    this.updateSpriteParticles(deltaMs);
+    this.updateStunSparks(deltaMs);
+  }
+
+  public destroy(): void {
+    this.container.removeParticles();
+    this.particles.length = 0;
+    for (const spark of this.stunSparks) {
+      spark.graphic.destroy();
+    }
+    this.sparkContainer.removeChildren();
+    this.stunSparks.length = 0;
+  }
+
+  private updateSpriteParticles(deltaMs: number): void {
     let writeIndex = 0;
     for (let readIndex = 0; readIndex < this.particles.length; readIndex += 1) {
       const entry = this.particles[readIndex];
@@ -119,9 +156,34 @@ export class PixiParticleLayer {
     this.particles.length = writeIndex;
   }
 
-  public destroy(): void {
-    this.container.removeParticles();
-    this.particles.length = 0;
+  private updateStunSparks(deltaMs: number): void {
+    let writeIndex = 0;
+    for (
+      let readIndex = 0;
+      readIndex < this.stunSparks.length;
+      readIndex += 1
+    ) {
+      const entry = this.stunSparks[readIndex];
+      if (!entry) {
+        continue;
+      }
+      entry.remainingMs = Math.max(0, entry.remainingMs - deltaMs);
+      if (entry.remainingMs <= 0) {
+        entry.graphic.parent?.removeChild(entry.graphic);
+        entry.graphic.destroy();
+        continue;
+      }
+
+      const progress = 1 - entry.remainingMs / Math.max(1, entry.durationMs);
+      entry.graphic.x += entry.velocityX * deltaMs;
+      entry.graphic.y += entry.velocityY * deltaMs;
+      entry.graphic.alpha = 1;
+      entry.graphic.scale.set(1 + progress * 0.28);
+      this.stunSparks[writeIndex] = entry;
+      writeIndex += 1;
+    }
+
+    this.stunSparks.length = writeIndex;
   }
 
   private buildExplosionEffect(
@@ -223,7 +285,7 @@ export class PixiParticleLayer {
   ): ParticleEffectDescriptor {
     const style = getStatusEffectParticleStyle(typeId);
     const particles: ParticleEffectParticleDescriptor[] = [];
-    const count = typeId === "effect:stunned" ? 5 : 4;
+    const count = 4;
     for (let index = 0; index < count; index += 1) {
       const phase = (index / count) * Math.PI * 2;
       const angle = phase + ((x + y + index * 17) % 31) * 0.05;
@@ -244,6 +306,32 @@ export class PixiParticleLayer {
     }
 
     return { particles };
+  }
+
+  private triggerStunSparkEffect(x: number, y: number, radius: number): void {
+    const sparkCount = 6;
+    for (let index = 0; index < sparkCount; index += 1) {
+      const phase = (index / sparkCount) * Math.PI * 2;
+      const jitter = ((x * 3 + y * 5 + index * 19) % 37) * 0.03;
+      const angle = phase + jitter;
+      const distance = radius * (0.4 + (index % 3) * 0.16);
+      const sx = x + Math.cos(angle) * distance;
+      const sy = y + Math.sin(angle) * distance * 0.78;
+      const length = radius * (0.65 + (index % 2) * 0.22);
+      const graphic = new Graphics();
+      drawSquigglySpark(graphic, length, index);
+      graphic.x = sx;
+      graphic.y = sy;
+      graphic.rotation = angle + Math.PI / 2;
+      this.sparkContainer.addChild(graphic);
+      this.stunSparks.push({
+        graphic,
+        velocityX: Math.cos(angle) * 0.012,
+        velocityY: Math.sin(angle) * 0.008 - 0.01,
+        remainingMs: 150 + index * 12,
+        durationMs: 150 + index * 12,
+      });
+    }
   }
 
   private spawnParticle(options: {
@@ -335,17 +423,6 @@ function getStatusEffectParticleStyle(typeId: ResourceId): {
         alpha: 0.84,
         ring: false,
       };
-    case "effect:stunned":
-      return {
-        primaryTint: 0x77dfff,
-        secondaryTint: 0xffffff,
-        durationMs: 210,
-        baseScale: 0.14,
-        speed: 0.026,
-        lift: 0.018,
-        alpha: 0.9,
-        ring: true,
-      };
     default:
       return {
         primaryTint: 0xf6f6f6,
@@ -358,4 +435,52 @@ function getStatusEffectParticleStyle(typeId: ResourceId): {
         ring: false,
       };
   }
+}
+
+function drawSquigglySpark(
+  graphic: Graphics,
+  length: number,
+  variant: number,
+): void {
+  const segmentCount = 5;
+  const start = -length / 2;
+  const step = length / segmentCount;
+  const points: Array<{ x: number; y: number }> = [];
+  for (let segment = 0; segment <= segmentCount; segment += 1) {
+    const offset =
+      segment === 0 || segment === segmentCount
+        ? 0
+        : (segment % 2 === 0 ? -1 : 1) *
+          (3.5 + ((variant + segment) % 3) * 1.8);
+    points.push({
+      x: start + step * segment,
+      y: offset,
+    });
+  }
+
+  strokeSparkPath(graphic, points, 6.5, 0xffffff, 1);
+  strokeSparkPath(graphic, points, 3.2, 0xffffff, 1);
+}
+
+function strokeSparkPath(
+  graphic: Graphics,
+  points: readonly { x: number; y: number }[],
+  width: number,
+  color: number,
+  alpha: number,
+): void {
+  const firstPoint = points[0];
+  if (!firstPoint) {
+    return;
+  }
+
+  graphic.moveTo(firstPoint.x, firstPoint.y);
+  for (let index = 1; index < points.length; index += 1) {
+    const point = points[index];
+    if (!point) {
+      continue;
+    }
+    graphic.lineTo(point.x, point.y);
+  }
+  graphic.stroke({ width, color, alpha });
 }

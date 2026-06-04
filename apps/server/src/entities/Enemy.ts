@@ -119,6 +119,7 @@ export class Enemy extends GoalControlledEntity {
       ...snapshot,
       kind: "enemy",
       targetId: this.targetId,
+      activeEffects: this.getActiveEffectSnapshots(),
       equippedItem: this.weapons[0]?.toEquippedItemSnapshot(this),
       armorTypeId: this.equippedArmorTypeId,
       armorTier: this.getEquippedArmorStats()?.tier,

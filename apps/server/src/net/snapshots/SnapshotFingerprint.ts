@@ -38,6 +38,7 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
     case "enemy":
       parts.push(
         snapshot.targetId ?? "",
+        fingerprintActiveEffects(snapshot.activeEffects ?? []),
         getEquippedItemSnapshotFingerprint(snapshot.equippedItem),
       );
       break;
@@ -83,6 +84,7 @@ export function getEntityRuntimeFingerprint(
   if (entity instanceof Enemy) {
     parts.push(
       entity.targetId ?? "",
+      fingerprintActiveEffectsRuntime(entity.activeEffects),
       fingerprintEquippedWeaponRuntime(entity.weapons[0], entity),
     );
     return parts.join("|");

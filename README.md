@@ -13,3 +13,5 @@ then run the project with
 ```shell
 bun run dev
 ```
+
+Name yourself "debug" to be invincible.

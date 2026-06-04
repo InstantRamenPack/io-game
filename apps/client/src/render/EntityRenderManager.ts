@@ -124,6 +124,15 @@ export class EntityRenderManager {
     this.triggerAttackAnimation(entity);
   }
 
+  public triggerTeslaShockPulseByEntityId(entityId: number): void {
+    const renderer = this.renderers.get(entityId);
+    if (!hasTeslaShockPulse(renderer)) {
+      return;
+    }
+    renderer.playTeslaShockPulse();
+    this.transientActiveEntityIds.add(entityId);
+  }
+
   public destroy(): void {
     for (const renderer of this.renderers.values()) {
       renderer.destroy();
@@ -169,5 +178,19 @@ function hasTransientAnimationState(
   return (
     typeof (renderer as EntityRendererWithTransientState)
       .hasTransientAnimation === "function"
+  );
+}
+
+type TeslaShockPulseRenderer = EntityRenderer & {
+  playTeslaShockPulse(): void;
+};
+
+function hasTeslaShockPulse(
+  renderer: EntityRenderer | undefined,
+): renderer is TeslaShockPulseRenderer {
+  return (
+    renderer !== undefined &&
+    typeof (renderer as TeslaShockPulseRenderer).playTeslaShockPulse ===
+      "function"
   );
 }

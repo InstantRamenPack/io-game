@@ -1,0 +1,24 @@
+{
+  "label": "Blueprint: Tesla",
+  "hint": "Crafting schematic for the Tesla.",
+  "description": "Unlocks the Tesla recipe permanently for this session.",
+  "unlocksRecipeTypeId": "item:tesla",
+  "rendering": {
+    "assetPath": "/blueprint/generated/tesla.png",
+    "sprite": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1,
+      "recoilDistance": 0,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
+}

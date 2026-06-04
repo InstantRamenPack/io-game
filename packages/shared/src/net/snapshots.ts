@@ -116,6 +116,7 @@ export const EnemySnapshotSchema = EntitySnapshotBaseSchema.extend({
   kind: z.literal("enemy"),
   targetId: EntityIdSchema.optional(),
   equippedItem: EquippedItemSnapshotSchema.optional(),
+  activeEffects: z.array(ActiveEffectSnapshotSchema).optional(),
   armorTypeId: ResourceIdSchema.optional(),
   armorTier: z
     .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])

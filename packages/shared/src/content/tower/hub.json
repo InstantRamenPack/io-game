@@ -20,7 +20,7 @@
     },
     "repairable": {
       "costItemTypeId": "item:hunk",
-      "hpPerCostUnit": 50
+      "hpPerCostUnit": 6
     }
   }
 }

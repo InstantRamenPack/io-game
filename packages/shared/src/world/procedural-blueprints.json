@@ -32,7 +32,7 @@
       "rareWeaponBlueprintPool": "rareWeapon",
       "rareWeaponBlueprintCount": 2,
       "epicWeaponBlueprintPool": "epicWeapon",
-      "epicWeaponBlueprintCount": 1
+      "epicWeaponBlueprintCount": 2
     },
     "weaponBlueprintPools": {
       "rareWeapon": {
@@ -41,7 +41,6 @@
       },
       "epicWeapon": {
         "unlockedRarityTier": "epic",
-        "requireWeapon": true,
         "excludeBlueprintTypeIds": ["blueprint:armor"]
       }
     }

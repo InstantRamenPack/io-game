@@ -1,19 +1,21 @@
 {
-  "label": "Landmine Item",
-  "buildsEntityTypeId": "building:landmine",
+  "label": "Tesla Item",
+  "hint": "Deployable shock tower.",
+  "description": "Places a tesla that shocks and stuns enemies that touch its energized ring. Requires a blueprint to craft.",
+  "buildsEntityTypeId": "building:tesla",
   "recipe": {
-    "hint": "Hidden trap that explodes when enemies step near it.",
+    "hint": "Deployable shock tower. Blueprint required.",
     "outputAmount": 1,
     "costs": [
       {
         "typeId": "item:hunk",
-        "amount": 15
+        "amount": 150
       }
     ]
   },
-  "rarityTier": "uncommon",
+  "rarityTier": "epic",
   "rendering": {
-    "assetPath": "/buildable/landmine.png",
+    "assetPath": "/buildable/tesla.png",
     "sprite": {
       "x": 0,
       "y": 0,

@@ -1,6 +1,6 @@
 {
   "label": "Wall",
-  "maxHp": 100,
+  "maxHp": 200,
   "collisionMode": "static",
   "hitboxProfiles": {
     "default": [

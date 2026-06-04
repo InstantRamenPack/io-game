@@ -1,0 +1,21 @@
+{
+  "label": "Tesla",
+  "maxHp": 100,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 42,
+        "height": 42,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "runtime": {
+    "renderer": {
+      "symbol": "TeslaRenderer",
+      "importPath": "apps/client/src/render/entity/building/TeslaRenderer.ts"
+    }
+  }
+}

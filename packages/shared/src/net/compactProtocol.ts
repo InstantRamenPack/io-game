@@ -226,6 +226,7 @@ function compactEntity(entity: EntitySnapshot): unknown[] {
         [
           entity.targetId ?? null,
           entity.equippedItem ? compactEquippedItem(entity.equippedItem) : null,
+          (entity.activeEffects ?? []).map(compactActiveEffect),
           entity.armorTypeId ?? null,
           entity.armorTier ?? null,
           entity.armorDamageReductionPct ?? null,
@@ -325,6 +326,7 @@ function expandEntity(value: unknown): EntitySnapshot | null {
       const [
         targetId,
         equippedItem,
+        activeEffects,
         armorTypeId,
         armorTier,
         armorDamageReductionPct,
@@ -336,6 +338,13 @@ function expandEntity(value: unknown): EntitySnapshot | null {
         ...(equippedItem === null
           ? {}
           : { equippedItem: expandEquippedItem(equippedItem) }),
+        ...(Array.isArray(activeEffects)
+          ? {
+              activeEffects: activeEffects
+                .map(expandActiveEffect)
+                .filter(isPresent),
+            }
+          : {}),
         ...(typeof armorTypeId === "string"
           ? { armorTypeId: armorTypeId as ResourceId }
           : {}),
@@ -1047,6 +1056,16 @@ function compactEvents(events: readonly NetEvent[]): unknown[] {
         payload.warningTicks,
       ];
     }
+    if (event.type === "tesla_shock") {
+      const payload = event.payload;
+      return [
+        6,
+        payload.sourceId,
+        q(payload.x),
+        q(payload.y),
+        q(payload.radius),
+      ];
+    }
     const payload = event.payload;
     return [
       3,
@@ -1116,6 +1135,17 @@ function expandEvents(value: unknown): NetEvent[] {
             y: dq(Number(event[2])),
             radius: dq(Number(event[3])),
             warningTicks: Number(event[4]),
+          },
+        } as NetEvent;
+      }
+      if (event[0] === 6) {
+        return {
+          type: "tesla_shock",
+          payload: {
+            sourceId: Number(event[1]),
+            x: dq(Number(event[2])),
+            y: dq(Number(event[3])),
+            radius: dq(Number(event[4])),
           },
         } as NetEvent;
       }

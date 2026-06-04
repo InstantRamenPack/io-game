@@ -10,5 +10,5 @@
   "recyclerInteractPadding": 80,
   "towerInteractPadding": 80,
   "interactHoldDurationMs": 750,
-  "towerRepairHpPerCostUnit": 50
+  "towerRepairHpPerCostUnit": 6
 }
