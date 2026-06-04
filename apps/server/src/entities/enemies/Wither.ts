@@ -7,14 +7,10 @@ import { WitherRotatingBeamGoal } from "@server/goals/builtin/WitherRotatingBeam
 import { WitherAirstrikeGoal } from "@server/goals/builtin/WitherAirstrikeGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
-import {
-  getEnemyDeathLootConfig,
-  getEnemyDeathHunkDropAmount,
-  HUNK_ITEM_TYPE_ID,
-} from "@server/content/serverContentCapabilities.ts";
+import { HUNK_ITEM_TYPE_ID } from "@server/content/serverContentCapabilities.ts";
 import type { World } from "@server/world/World.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+
+const WITHER_HUNK_DROP_AMOUNT = 1000;
 
 export class Wither extends Enemy {
   public static override readonly resourceName = "wither";
@@ -37,34 +33,10 @@ export class Wither extends Enemy {
   }
 
   public override handleDeath(world: World): void {
-    // Always drop the Streaker
-    const streakerEntry = requireItemLikeTypeEntry(
-      "item:streaker" as ResourceId,
-    );
-    if (streakerEntry) {
-      const streakerInventory = new Inventory();
-      streakerInventory.grantItemCtor(streakerEntry.ctor, 1);
-      const streakerPickup = new ItemEntity(
-        world.allocEntityId(),
-        streakerInventory,
-      );
-      streakerPickup.x = this.x;
-      streakerPickup.y = this.y;
-      world.spawn(streakerPickup);
-    }
-
-    // Drop hunk (legendary tier)
-    const lootConfig = getEnemyDeathLootConfig(this.typeId);
     const hunkInventory = new Inventory();
-    hunkInventory.addStackable(
-      HUNK_ITEM_TYPE_ID,
-      getEnemyDeathHunkDropAmount(
-        lootConfig.rarityTier,
-        world.randomNumberGenerator,
-      ),
-    );
+    hunkInventory.addStackable(HUNK_ITEM_TYPE_ID, WITHER_HUNK_DROP_AMOUNT);
     const hunkPickup = new ItemEntity(world.allocEntityId(), hunkInventory);
-    hunkPickup.x = this.x + 30;
+    hunkPickup.x = this.x;
     hunkPickup.y = this.y;
     world.spawn(hunkPickup);
 

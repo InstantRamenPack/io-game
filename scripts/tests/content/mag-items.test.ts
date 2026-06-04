@@ -15,12 +15,13 @@ const packageJson = JSON.parse(
 };
 
 describe("mag item content", () => {
-  test("legacy item namespace ammo, blueprint, and fists ids are deleted", () => {
+  test("legacy item namespace ammo, blueprint, fists, and Streaker ids are deleted", () => {
     const itemTypeIds = new Set(
       getAllItemContentEntries().map(([typeId]) => typeId),
     );
 
     expect(itemTypeIds.has("item:fists" as ResourceId)).toBe(false);
+    expect(itemTypeIds.has("item:streaker" as ResourceId)).toBe(false);
     for (const typeId of itemTypeIds) {
       expect(
         typeId.startsWith("item:blueprint_"),
@@ -31,6 +32,10 @@ describe("mag item content", () => {
         `${typeId} should use the mag:* content namespace`,
       ).toBe(false);
     }
+  });
+
+  test("Streaker charge was removed from the magazine namespace", () => {
+    expect(getItemContent("mag:streaker" as ResourceId)).toBeUndefined();
   });
 
   test("every shooting weapon reloads from its own namespaced magazine resource", () => {

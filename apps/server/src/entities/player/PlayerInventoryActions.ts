@@ -156,7 +156,7 @@ export function recycleSelectedItem(player: Player, world: World): void {
   }
 
   const typeId = slot.kind === "weapon" ? slot.weapon.typeId : slot.typeId;
-  // Allow weapons to provide a charge-aware recycle value (e.g. Streaker)
+  // Allow weapons to provide an instance-aware recycle value.
   const instanceHunk =
     slot.kind === "weapon" ? slot.weapon.getRecycleHunkValue() : undefined;
   const hunkAmount =

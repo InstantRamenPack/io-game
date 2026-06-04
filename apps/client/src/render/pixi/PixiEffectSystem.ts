@@ -2,6 +2,7 @@ import type { Application, Container, Filter, Texture } from "pixi.js";
 import * as PIXI from "pixi.js";
 import { PixiOverlayLayer } from "@client/render/pixi/PixiOverlayLayer.ts";
 import { PixiParticleLayer } from "@client/render/pixi/PixiParticleLayer.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
 
 const TICK_MS = 50; // approx ms per server tick at 20 tps
@@ -101,6 +102,15 @@ export class PixiEffectSystem {
 
   public triggerCrateBreakEffect(x: number, y: number): void {
     this.particleLayer.triggerCrateBreak(x, y);
+  }
+
+  public triggerStatusEffect(
+    typeId: ResourceId,
+    x: number,
+    y: number,
+    radius: number,
+  ): void {
+    this.particleLayer.triggerStatusEffect(typeId, x, y, radius);
   }
 
   public triggerWitherBeam(

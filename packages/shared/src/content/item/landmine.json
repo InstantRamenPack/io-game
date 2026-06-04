@@ -13,7 +13,7 @@
   },
   "rarityTier": "uncommon",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/buildable/landmine.png",
     "sprite": {
       "x": 0,
       "y": 0,

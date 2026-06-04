@@ -8,12 +8,8 @@
     "reflectDamagePct": 0.1
   },
   "recipe": {
-    "hint": "Upgrade Juggernaut Armor into Aegis Armor.",
+    "hint": "Craft Aegis Armor from hunk after unlocking armor blueprints.",
     "costs": [
-      {
-        "typeId": "item:armor_t3",
-        "amount": 1
-      },
       {
         "typeId": "item:hunk",
         "amount": 95

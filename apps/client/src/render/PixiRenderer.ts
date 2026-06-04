@@ -18,6 +18,7 @@ import type {
   InfrastructureSnapshot,
   MapSnapshot,
 } from "@shared/net/snapshots.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 /**
  * Rendering facade for visible entity state.
@@ -314,6 +315,16 @@ export class PixiRenderer {
 
   public triggerCrateBreakEffect(x: number, y: number): void {
     this.effectSystem.triggerCrateBreakEffect(x, y);
+    this.renderScheduler.markDirty();
+  }
+
+  public triggerStatusEffect(
+    typeId: ResourceId,
+    x: number,
+    y: number,
+    radius: number,
+  ): void {
+    this.effectSystem.triggerStatusEffect(typeId, x, y, radius);
     this.renderScheduler.markDirty();
   }
 

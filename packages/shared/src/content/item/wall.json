@@ -13,7 +13,7 @@
   },
   "rarityTier": "common",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/buildable/wall.png",
     "sprite": {
       "x": 0,
       "y": 0,

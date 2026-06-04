@@ -3,6 +3,7 @@ import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { TripwireStructure } from "@server/entities/structures/TripwireStructure.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
+import { Wither } from "@server/entities/enemies/Wither.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
@@ -91,6 +92,21 @@ describe("dungeon runtime mechanics", () => {
       pickup.contents.countType("item:thanos_rifle" as ResourceId) +
       pickup.contents.countType("item:thanos_rocket_launcher" as ResourceId);
     expect(dropCount).toBe(1);
+  });
+
+  test("Wither drops fixed hunk loot instead of a player weapon", () => {
+    const { runtime } = makeRuntime();
+    const wither = new Wither(runtime.world.allocEntityId());
+    wither.x = runtime.world.gameConfig.worldSize.w / 2;
+    wither.y = runtime.world.gameConfig.worldSize.h / 2;
+    runtime.world.spawn(wither);
+
+    wither.applyDamage(runtime.world, wither.maxHp, 0);
+
+    const pickup = findPickupAt(runtime, wither.x, wither.y);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(1000);
+    expect(pickup.contents.countType("item:streaker" as ResourceId)).toBe(0);
+    expect(pickup.contents.countType("mag:streaker" as ResourceId)).toBe(0);
   });
 
   test("tripwire targets players once with bleed, slow, and confusion", () => {

@@ -4,6 +4,7 @@ import type {
   ParticleEffectDescriptor,
   ParticleEffectParticleDescriptor,
 } from "@client/render/pixi/ParticleEffectDescriptor.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ExplosionStyle } from "@shared/net/events.ts";
 
 type ExplosionParticle = {
@@ -51,6 +52,15 @@ export class PixiParticleLayer {
 
   public triggerCrateBreak(x: number, y: number): void {
     this.triggerEffect(this.buildCrateBreakEffect(x, y));
+  }
+
+  public triggerStatusEffect(
+    typeId: ResourceId,
+    x: number,
+    y: number,
+    radius: number,
+  ): void {
+    this.triggerEffect(this.buildStatusEffect(typeId, x, y, radius));
   }
 
   public triggerEffect(effect: ParticleEffectDescriptor): void {
@@ -205,6 +215,37 @@ export class PixiParticleLayer {
     return { particles };
   }
 
+  private buildStatusEffect(
+    typeId: ResourceId,
+    x: number,
+    y: number,
+    radius: number,
+  ): ParticleEffectDescriptor {
+    const style = getStatusEffectParticleStyle(typeId);
+    const particles: ParticleEffectParticleDescriptor[] = [];
+    const count = typeId === "effect:stunned" ? 5 : 4;
+    for (let index = 0; index < count; index += 1) {
+      const phase = (index / count) * Math.PI * 2;
+      const angle = phase + ((x + y + index * 17) % 31) * 0.05;
+      const distance = radius * (0.55 + (index % 2) * 0.22);
+      const px = x + Math.cos(angle) * distance;
+      const py = y + Math.sin(angle) * distance * 0.75;
+      particles.push({
+        kind: index === 0 && style.ring ? "ring" : "soft-circle",
+        x: px,
+        y: py,
+        durationMs: style.durationMs + index * 16,
+        baseScale: style.baseScale + (index % 2) * 0.05,
+        velocityX: Math.cos(angle) * style.speed,
+        velocityY: Math.sin(angle) * style.speed - style.lift,
+        tint: index % 2 === 0 ? style.primaryTint : style.secondaryTint,
+        alpha: style.alpha,
+      });
+    }
+
+    return { particles };
+  }
+
   private spawnParticle(options: {
     texture: Texture;
     x: number;
@@ -236,5 +277,85 @@ export class PixiParticleLayer {
       remainingMs: options.durationMs,
       durationMs: options.durationMs,
     });
+  }
+}
+
+function getStatusEffectParticleStyle(typeId: ResourceId): {
+  primaryTint: number;
+  secondaryTint: number;
+  durationMs: number;
+  baseScale: number;
+  speed: number;
+  lift: number;
+  alpha: number;
+  ring: boolean;
+} {
+  switch (typeId) {
+    case "effect:bleeding":
+      return {
+        primaryTint: 0xb8202e,
+        secondaryTint: 0xff5b66,
+        durationMs: 260,
+        baseScale: 0.16,
+        speed: 0.012,
+        lift: -0.008,
+        alpha: 0.82,
+        ring: false,
+      };
+    case "effect:confusion":
+      return {
+        primaryTint: 0x8e5cff,
+        secondaryTint: 0x54ffd6,
+        durationMs: 340,
+        baseScale: 0.2,
+        speed: 0.018,
+        lift: 0.006,
+        alpha: 0.76,
+        ring: true,
+      };
+    case "effect:fractured":
+      return {
+        primaryTint: 0xf3e2bd,
+        secondaryTint: 0xc49a62,
+        durationMs: 300,
+        baseScale: 0.18,
+        speed: 0.01,
+        lift: 0.01,
+        alpha: 0.78,
+        ring: false,
+      };
+    case "effect:speed":
+      return {
+        primaryTint: 0x40e8ff,
+        secondaryTint: 0xffffff,
+        durationMs: 220,
+        baseScale: 0.15,
+        speed: 0.032,
+        lift: 0.016,
+        alpha: 0.84,
+        ring: false,
+      };
+    case "effect:stunned":
+      return {
+        primaryTint: 0x77dfff,
+        secondaryTint: 0xffffff,
+        durationMs: 210,
+        baseScale: 0.14,
+        speed: 0.026,
+        lift: 0.018,
+        alpha: 0.9,
+        ring: true,
+      };
+    default:
+      return {
+        primaryTint: 0xf6f6f6,
+        secondaryTint: 0xbfd2ff,
+        durationMs: 240,
+        baseScale: 0.16,
+        speed: 0.012,
+        lift: 0.008,
+        alpha: 0.7,
+        ring: false,
+      };
   }
 }

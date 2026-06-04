@@ -797,7 +797,9 @@ async function writeGeneratedMagAsset(
   filePath: string,
   repoRoot: string,
   sourceAssetFile?: string | null,
+  sourceRendering?: NonNullable<RawContentJson["rendering"]> | null,
 ): Promise<void> {
+  const generatedMagScale = 1.5;
   const baseAssetFile = path.join(
     repoRoot,
     "apps/client/public/mag/magazine_base.png",
@@ -805,27 +807,35 @@ async function writeGeneratedMagAsset(
   const image = existsSync(baseAssetFile)
     ? decodePng(await readFile(baseAssetFile))
     : createRgbaPng(96, 96, (x, y) => {
-        const centerX = 48;
-        const centerY = 48;
-        const inBody = Math.abs(x - centerX) < 18 && Math.abs(y - centerY) < 34;
-        if (!inBody) return [0, 0, 0, 0];
-        return x % 9 < 2 ? [34, 38, 48, 255] : [62, 69, 86, 255];
+        const inOuter = x >= 18 && x < 78 && y >= 26 && y < 70;
+        if (!inOuter) return [0, 0, 0, 0];
+        const border = x < 23 || x >= 73 || y < 31 || y >= 65;
+        if (border) return [26, 32, 44, 255];
+        if (x >= 28 && x < 68 && y >= 38 && y < 54) {
+          return [86, 146, 214, 255];
+        }
+        return [48, 58, 78, 255];
       });
   const output = createRgbaPng(96, 96, () => [0, 0, 0, 0]);
   compositeImageFit(output, image, {
     centerX: 48,
     centerY: 49,
-    maxWidth: 74,
-    maxHeight: 74,
+    maxWidth: 74 * generatedMagScale,
+    maxHeight: 74 * generatedMagScale,
   });
-  if (sourceAssetFile && existsSync(sourceAssetFile)) {
-    compositeImageFit(output, decodePng(await readFile(sourceAssetFile)), {
-      centerX: 50,
-      centerY: 32,
-      maxWidth: 56,
-      maxHeight: 34,
-      alpha: 0.95,
-    });
+  if (sourceAssetFile && sourceRendering && existsSync(sourceAssetFile)) {
+    compositeImageFitWithTransform(
+      output,
+      decodePng(await readFile(sourceAssetFile)),
+      {
+        centerX: 50,
+        centerY: 32,
+        maxWidth: 56 * generatedMagScale,
+        maxHeight: 34 * generatedMagScale,
+        alpha: 0.95,
+        transform: sourceRendering.icon,
+      },
+    );
   }
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, encodeRgbaPng(output));
@@ -971,7 +981,12 @@ async function refreshGeneratedMagItems(
     const sourceAssetFile = sourceAssetPath
       ? path.join(repoRoot, "apps/client/public", sourceAssetPath)
       : null;
-    await writeGeneratedMagAsset(expectedAssetFile, repoRoot, sourceAssetFile);
+    await writeGeneratedMagAsset(
+      expectedAssetFile,
+      repoRoot,
+      sourceAssetFile,
+      firstWeapon,
+    );
   }
 }
 

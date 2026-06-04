@@ -204,7 +204,7 @@ describe("armor system", () => {
     expect(droppedArmor).toBe(true);
   });
 
-  test("armor recipes are sequential and blueprint-gated", () => {
+  test("armor recipes are hunk-only after blueprint unlock", () => {
     const armorBlueprintId = makeResourceId("blueprint", "armor");
     const armorBlueprint = getItemContent(armorBlueprintId);
     expect(armorBlueprint?.rarityTier).toBe("rare");
@@ -242,18 +242,11 @@ describe("armor system", () => {
     const t2 = getItemContent(makeResourceId("item", "armor_t2"));
     const t3 = getItemContent(makeResourceId("item", "armor_t3"));
     const t4 = getItemContent(makeResourceId("item", "armor_t4"));
-    expect(t2?.recipe?.costs.some((cost) => cost.typeId === armorTier1Id)).toBe(
-      true,
-    );
-    expect(
-      t3?.recipe?.costs.some(
-        (cost) => cost.typeId === makeResourceId("item", "armor_t2"),
-      ),
-    ).toBe(true);
-    expect(
-      t4?.recipe?.costs.some(
-        (cost) => cost.typeId === makeResourceId("item", "armor_t3"),
-      ),
-    ).toBe(true);
+    for (const armor of [t2, t3, t4]) {
+      expect(armor?.recipe?.costs).toHaveLength(1);
+      expect(armor?.recipe?.costs[0]?.typeId).toBe(
+        makeResourceId("item", "hunk"),
+      );
+    }
   });
 });

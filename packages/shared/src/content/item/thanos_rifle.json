@@ -11,12 +11,12 @@
   },
   "rarityTier": "legendary",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/weapon/thanos_rifle.png",
     "sprite": {
       "x": 20,
       "y": 4,
-      "rotationDeg": -8,
-      "scale": 1.2,
+      "rotationDeg": 0,
+      "scale": 1.8,
       "recoilDistance": 12,
       "swingAngleDeg": 0,
       "jabDistance": 0

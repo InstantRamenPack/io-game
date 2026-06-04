@@ -74,6 +74,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   private attackAnimationDurationMs = 0;
   private lastVisualVersion = -1;
   private lastHealthVersion = -1;
+  private lastArmorVisualKey = "";
   private lastAttackCooldownTicksRemaining = 0;
   private equippedRenderer: EquippedItemRenderer | null = null;
   private equippedRendererTypeId: ResourceId | null = null;
@@ -166,9 +167,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     const visualChanged = this.lastVisualVersion !== entity.visualVersion;
-    if (visualChanged) {
+    const armorVisualKey = this.getArmorVisualKey(entity);
+    const armorVisualChanged = this.lastArmorVisualKey !== armorVisualKey;
+    if (visualChanged || armorVisualChanged) {
       this.redrawPresentation(entity, visualRotation);
       this.lastVisualVersion = entity.visualVersion;
+      this.lastArmorVisualKey = armorVisualKey;
     }
 
     if (visualChanged || this.lastHealthVersion !== entity.healthVersion) {
@@ -652,5 +656,9 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
       child.destroy();
     }
     this.equippedItemSprite.visible = true;
+  }
+
+  private getArmorVisualKey(entity: ClientEntity): string {
+    return `${entity.armorTypeId ?? ""}:${entity.armorTier ?? ""}:${entity.armorDamageReductionPct ?? ""}`;
   }
 }

@@ -16,7 +16,7 @@
   },
   "consumable": true,
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/consumable/medkit.png",
     "sprite": {
       "x": 0,
       "y": 0,

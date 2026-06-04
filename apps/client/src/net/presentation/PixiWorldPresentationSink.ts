@@ -15,6 +15,7 @@ import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
+  private readonly statusEffectParticleCooldownMs = new Map<string, number>();
 
   constructor(
     private readonly renderer: PixiRenderer,
@@ -32,6 +33,7 @@ export class PixiWorldPresentationSink {
   public reset(): void {
     this.renderManager.destroy();
     this.syncedEntityIds.clear();
+    this.statusEffectParticleCooldownMs.clear();
     this.renderer.setConfusionState(false, 0);
     this.renderer.setVisibilityBlockers([]);
   }
@@ -59,6 +61,7 @@ export class PixiWorldPresentationSink {
     this.renderManager.update(deltaMs);
     this.updateVisibility(world);
     this.updateConfusion(world);
+    this.updateStatusEffectParticles(world, deltaMs);
   }
 
   public setPresentationOverride(
@@ -164,6 +167,41 @@ export class PixiWorldPresentationSink {
       confusionEffect.ticksRemaining / fadeOutTicks,
     );
     this.renderer.setConfusionState(true, intensity);
+  }
+
+  private updateStatusEffectParticles(
+    world: ClientWorld,
+    deltaMs: number,
+  ): void {
+    const liveKeys = new Set<string>();
+    for (const entity of world.entities.values()) {
+      if (!entity.alive || entity.kind !== "player" || !entity.activeEffects) {
+        continue;
+      }
+      for (const effect of entity.activeEffects) {
+        const key = `${entity.id}:${effect.typeId}`;
+        liveKeys.add(key);
+        const nextCooldown =
+          (this.statusEffectParticleCooldownMs.get(key) ?? 0) - deltaMs;
+        if (nextCooldown > 0) {
+          this.statusEffectParticleCooldownMs.set(key, nextCooldown);
+          continue;
+        }
+        this.statusEffectParticleCooldownMs.set(key, 180);
+        this.renderer.triggerStatusEffect(
+          effect.typeId,
+          entity.x,
+          entity.y,
+          Math.max(entity.hitboxBounds.width, entity.hitboxBounds.height) / 2,
+        );
+      }
+    }
+
+    for (const key of this.statusEffectParticleCooldownMs.keys()) {
+      if (!liveKeys.has(key)) {
+        this.statusEffectParticleCooldownMs.delete(key);
+      }
+    }
   }
 
   private updateVisibility(world: ClientWorld): void {

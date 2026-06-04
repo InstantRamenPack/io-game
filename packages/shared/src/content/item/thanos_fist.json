@@ -10,7 +10,7 @@
   },
   "rarityTier": "legendary",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/weapon/thanos_fist.png",
     "sprite": {
       "x": 20,
       "y": 6,

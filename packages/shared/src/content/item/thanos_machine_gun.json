@@ -11,11 +11,11 @@
   },
   "rarityTier": "legendary",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/weapon/thanos_machine_gun.png",
     "sprite": {
-      "x": 20,
-      "y": 4,
-      "rotationDeg": -8,
+      "x": 30,
+      "y": 0,
+      "rotationDeg": 0,
       "scale": 1.4,
       "recoilDistance": 16,
       "swingAngleDeg": 0,

@@ -15,7 +15,7 @@
   },
   "rarityTier": "rare",
   "rendering": {
-    "assetPath": "/placeholder.png",
+    "assetPath": "/buildable/cannon.png",
     "sprite": {
       "x": 0,
       "y": 0,
