@@ -342,7 +342,7 @@ export const wavesConfig = parseConfig(
   wavesRaw,
 );
 
-/** Night when extraction's world-gen legendary boss is spawned (matches final tier floor). */
+/** Night when the second extraction Thanos is spawned (matches final tier floor). */
 export function getExtractionLegendaryBossUnlockNightCycle(): number {
   const tierFloors = wavesConfig.randomWaves.tierFloors;
   if (tierFloors.length === 0) {

@@ -110,7 +110,7 @@ These rules apply to every task in this repo unless the user explicitly override
 ## Learned Workspace Facts
 
 - Blueprint unlocks are lobby-wide and permanent for all players in the lobby, including players who join after the pickup.
-- World generation places exactly two legendary-tier enemies (dungeon boss room and extraction), excluded from procedural enemy pools; dungeon generation forces one boss room with `spawnRole: "legendary_boss"`; additional legendary spawns come from boss/night waves (`packages/shared/src/world/legendaryBoss.ts`).
+- World generation places Wither in the dungeon boss room and Thanos at extraction at match init; a second extraction Thanos spawns on night cycle 7 (`trySpawnWaveSevenExtractionThanos`). Legendary bosses are excluded from procedural enemy pools; dungeon boss room uses `spawnRole: "legendary_boss"` (`packages/shared/src/world/legendaryBoss.ts`).
 - Twelve non-extraction villages are placed randomly one-by-one with reroll on extraction, center, or dungeon overlap; tiers are assigned after placement by distance rank; village layout tunables live in `procedural-villages.json` `villageGeneration` (BSP clamp, house spacing, guaranteed crate, tree pruning, extraction fortification).
 - Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
 - Crafting and recycling use `tower:hub`; match start places three uncraftable starters (`tower:hub`, `tower:energy`, `tower:comms`). All extend `Building` for enemy targeting, remain in-world at 0 HP when destroyed, and are unusable until repaired with hunk like other towers.

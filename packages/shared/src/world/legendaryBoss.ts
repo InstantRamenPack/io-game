@@ -1,4 +1,3 @@
-import seedrandom from "seedrandom";
 import { getAllEntityContentEntries } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -6,6 +5,14 @@ export type WorldGenLegendaryBossPlacements = {
   dungeon: ResourceId;
   extraction: ResourceId;
 };
+
+/** Dungeon world-gen boss (boss room). */
+export const DUNGEON_LEGENDARY_BOSS_TYPE_ID =
+  "enemy:wither" as ResourceId;
+
+/** Extraction helipad boss; spawned when night cycle reaches the final tier floor. */
+export const EXTRACTION_LEGENDARY_BOSS_TYPE_ID =
+  "enemy:thanos" as ResourceId;
 
 let cachedLegendaryBossTypeIds: readonly ResourceId[] | null = null;
 
@@ -26,18 +33,27 @@ export function isLegendaryBossTypeId(typeId: ResourceId): boolean {
 }
 
 export function resolveWorldGenLegendaryBossPlacements(
-  seed: number,
+  _seed: number,
 ): WorldGenLegendaryBossPlacements {
-  const pool = [...getLegendaryBossTypeIds()];
-  if (pool.length === 0) {
+  const pool = new Set(getLegendaryBossTypeIds());
+  if (pool.size === 0) {
     throw new Error(
       "No legendary-tier enemies are defined in content for world generation.",
     );
   }
-  const rng = seedrandom(`${seed}:legendary-bosses`);
+  if (!pool.has(DUNGEON_LEGENDARY_BOSS_TYPE_ID)) {
+    throw new Error(
+      `Dungeon legendary boss ${DUNGEON_LEGENDARY_BOSS_TYPE_ID} is missing from content.`,
+    );
+  }
+  if (!pool.has(EXTRACTION_LEGENDARY_BOSS_TYPE_ID)) {
+    throw new Error(
+      `Extraction legendary boss ${EXTRACTION_LEGENDARY_BOSS_TYPE_ID} is missing from content.`,
+    );
+  }
   return {
-    dungeon: pool[Math.floor(rng() * pool.length)]!,
-    extraction: pool[Math.floor(rng() * pool.length)]!,
+    dungeon: DUNGEON_LEGENDARY_BOSS_TYPE_ID,
+    extraction: EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
   };
 }
 

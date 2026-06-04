@@ -31,7 +31,7 @@ describe("wave spawner", () => {
     }
   });
 
-  test("extraction legendary boss unlocks on the final tier floor night", () => {
+  test("second extraction Thanos unlocks on the final tier floor night", () => {
     expect(getExtractionLegendaryBossUnlockNightCycle()).toBe(7);
     expect(isLegendaryBossTypeId("enemy:thanos")).toBe(true);
     expect(Thanos.resourceName).toBe("thanos");

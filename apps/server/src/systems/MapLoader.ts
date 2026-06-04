@@ -26,7 +26,10 @@ import type {
   ProceduralSpawnSpec,
   ProceduralWorldLayout,
 } from "@shared/world/layoutTypes.ts";
-import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
+import {
+  EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
+  isLegendaryBossTypeId,
+} from "@shared/world/legendaryBoss.ts";
 import {
   getExtractionLegendaryBossUnlockNightCycle,
   worldgenConfig,
@@ -249,13 +252,6 @@ function loadProceduralLayout(
       spawnProceduralEntity(world, spec);
     }
     for (const spec of sector.enemies) {
-      if (
-        sector.archetype === "extraction" &&
-        isLegendaryBossTypeId(spec.typeId)
-      ) {
-        world.deferredExtractionLegendaryBoss = spec;
-        continue;
-      }
       spawnProceduralEntity(world, spec, "layout");
     }
     for (const spec of sector.loot) {
@@ -303,19 +299,31 @@ function loadLobbyLayout(world: World): void {
   });
 }
 
-export function trySpawnDeferredExtractionLegendaryBoss(
+/** Spawns a second extraction Thanos when the final tier-floor night begins. */
+export function trySpawnWaveSevenExtractionThanos(
   world: World,
   nightCycle: number,
 ): void {
-  const deferred = world.deferredExtractionLegendaryBoss;
-  if (!deferred) {
+  if (nightCycle !== getExtractionLegendaryBossUnlockNightCycle()) {
     return;
   }
-  if (nightCycle < getExtractionLegendaryBossUnlockNightCycle()) {
+  if (world.waveSevenExtractionThanosSpawned) {
     return;
   }
-  spawnProceduralEntity(world, deferred);
-  world.deferredExtractionLegendaryBoss = null;
+  const layout = world.proceduralLayout;
+  if (!layout) {
+    return;
+  }
+  spawnProceduralEntity(
+    world,
+    {
+      typeId: EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
+      x: layout.extraction.x,
+      y: layout.extraction.y,
+    },
+    "wave",
+  );
+  world.waveSevenExtractionThanosSpawned = true;
 }
 
 export function refreshLoot(world: World): void {

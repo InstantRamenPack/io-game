@@ -67,7 +67,7 @@ export class World {
   public extractionSystem: ExtractionSystem | null = null;
   public infrastructureSystem: InfrastructureSystem | null = null;
   public proceduralLayout: ProceduralWorldLayout | null = null;
-  public deferredExtractionLegendaryBoss: ProceduralSpawnSpec | null = null;
+  public waveSevenExtractionThanosSpawned = false;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;

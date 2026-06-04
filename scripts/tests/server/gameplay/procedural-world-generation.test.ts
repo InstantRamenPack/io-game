@@ -14,9 +14,10 @@ import {
 import { generateProceduralWorldLayout } from "@server/world/generation/generateProceduralWorldLayout.ts";
 import {
   countLegendaryBossSpawns,
+  DUNGEON_LEGENDARY_BOSS_TYPE_ID,
+  EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
   getLegendaryBossTypeIds,
   isLegendaryBossTypeId,
-  resolveWorldGenLegendaryBossPlacements,
 } from "@shared/world/legendaryBoss.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import {
@@ -855,12 +856,16 @@ describe("procedural survival extraction world", () => {
     }
   });
 
-  test("world generation places exactly two legendary bosses in dungeon and extraction", () => {
+  test("world generation places Wither in dungeon and Thanos at extraction only", () => {
     const layout = generateProceduralWorldLayout(1337);
-    const placements = resolveWorldGenLegendaryBossPlacements(1337);
     const allEnemies = layout.sectors.flatMap((sector) => sector.enemies);
 
-    expect(getLegendaryBossTypeIds().length).toBeGreaterThan(0);
+    expect(getLegendaryBossTypeIds()).toEqual(
+      expect.arrayContaining([
+        DUNGEON_LEGENDARY_BOSS_TYPE_ID,
+        EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
+      ]),
+    );
     expect(countLegendaryBossSpawns(allEnemies)).toBe(2);
     expect(
       layout.dungeon.rooms.filter((room) => room.role === "boss"),
@@ -875,14 +880,24 @@ describe("procedural survival extraction world", () => {
 
     expect(
       dungeonSector.enemies.filter(
-        (enemy) => enemy.typeId === placements.dungeon,
+        (enemy) => enemy.typeId === DUNGEON_LEGENDARY_BOSS_TYPE_ID,
       ),
     ).toHaveLength(1);
     expect(
       extractionSector.enemies.filter(
-        (enemy) => enemy.typeId === placements.extraction,
+        (enemy) => enemy.typeId === EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
       ),
     ).toHaveLength(1);
+    expect(
+      dungeonSector.enemies.filter(
+        (enemy) => enemy.typeId === EXTRACTION_LEGENDARY_BOSS_TYPE_ID,
+      ),
+    ).toHaveLength(0);
+    expect(
+      extractionSector.enemies.filter(
+        (enemy) => enemy.typeId === DUNGEON_LEGENDARY_BOSS_TYPE_ID,
+      ),
+    ).toHaveLength(0);
 
     for (const sector of layout.sectors) {
       if (sector.archetype !== "dungeon" && sector.archetype !== "extraction") {
