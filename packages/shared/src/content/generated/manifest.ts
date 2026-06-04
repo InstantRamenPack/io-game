@@ -53,6 +53,7 @@ import enemySniperJson from "@shared/content/enemy/sniper.json";
 import enemyStalkerJson from "@shared/content/enemy/stalker.json";
 import enemyThanosJson from "@shared/content/enemy/thanos.json";
 import enemyWallbreakerJson from "@shared/content/enemy/wallbreaker.json";
+import enemyWitherJson from "@shared/content/enemy/wither.json";
 import itemArmorT1Json from "@shared/content/item/armor_t1.json";
 import itemArmorT2Json from "@shared/content/item/armor_t2.json";
 import itemArmorT3Json from "@shared/content/item/armor_t3.json";
@@ -85,6 +86,7 @@ import itemShotgunJson from "@shared/content/item/shotgun.json";
 import itemSniperJson from "@shared/content/item/sniper.json";
 import itemSpeedPotionJson from "@shared/content/item/speed_potion.json";
 import itemSpikedSpearJson from "@shared/content/item/spiked_spear.json";
+import itemStreakerJson from "@shared/content/item/streaker.json";
 import itemTaserJson from "@shared/content/item/taser.json";
 import itemThanosFistJson from "@shared/content/item/thanos_fist.json";
 import itemThanosMachineGunJson from "@shared/content/item/thanos_machine_gun.json";
@@ -217,6 +219,7 @@ export const enemyContentEntries = [
   makeParsedEntityContentEntry("enemy", "stalker", enemyStalkerJson),
   makeParsedEntityContentEntry("enemy", "thanos", enemyThanosJson),
   makeParsedEntityContentEntry("enemy", "wallbreaker", enemyWallbreakerJson),
+  makeParsedEntityContentEntry("enemy", "wither", enemyWitherJson),
 ] as const;
 
 
@@ -253,6 +256,7 @@ export const itemContentEntries = [
   makeParsedItemContentEntry("sniper", itemSniperJson),
   makeParsedItemContentEntry("speed_potion", itemSpeedPotionJson),
   makeParsedItemContentEntry("spiked_spear", itemSpikedSpearJson),
+  makeParsedItemContentEntry("streaker", itemStreakerJson),
   makeParsedItemContentEntry("taser", itemTaserJson),
   makeParsedItemContentEntry("thanos_fist", itemThanosFistJson),
   makeParsedItemContentEntry("thanos_machine_gun", itemThanosMachineGunJson),

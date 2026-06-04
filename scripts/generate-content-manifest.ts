@@ -1,14 +1,8 @@
 import { existsSync } from "node:fs";
-import {
-  copyFile,
-  mkdir,
-  readdir,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { deflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 
 type ContentKind =
   | "building"
@@ -56,6 +50,8 @@ type RawContentJson = {
   };
   projectile?: unknown;
   recipe?: unknown;
+  unlocksRecipeTypeId?: string;
+  unlocksRecipeTypeIds?: string[];
   runtime?: RuntimeHint;
   rendering?: {
     assetPath: string;
@@ -415,6 +411,12 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
 
 let crc32Table: Uint32Array | undefined;
 
+type RgbaPng = {
+  width: number;
+  height: number;
+  pixels: Buffer;
+};
+
 function crc32(bytes: Buffer): number {
   const table = getCrc32Table();
   let crc = 0xffffffff;
@@ -447,6 +449,93 @@ function pngChunk(type: string, data: Buffer): Buffer {
   const checksum = Buffer.alloc(4);
   checksum.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 0);
   return Buffer.concat([length, typeBytes, data, checksum]);
+}
+
+function decodePng(buffer: Buffer): RgbaPng {
+  const signature = buffer.subarray(0, 8);
+  if (!signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    throw new Error("Invalid PNG signature.");
+  }
+
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlace = 0;
+  const idatChunks: Buffer[] = [];
+
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    offset += 12 + length;
+
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8] ?? 0;
+      colorType = data[9] ?? 0;
+      interlace = data[12] ?? 0;
+    } else if (type === "IDAT") {
+      idatChunks.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+  }
+
+  if (bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
+    throw new Error(
+      `Unsupported PNG format: bitDepth=${bitDepth}, colorType=${colorType}, interlace=${interlace}.`,
+    );
+  }
+
+  const bytesPerPixel = 4;
+  const stride = width * bytesPerPixel;
+  const inflated = inflateSync(Buffer.concat(idatChunks));
+  const pixels = Buffer.alloc(width * height * bytesPerPixel);
+  let readOffset = 0;
+  let previousRow = Buffer.alloc(stride);
+
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[readOffset] ?? 0;
+    readOffset += 1;
+    const row = Buffer.from(inflated.subarray(readOffset, readOffset + stride));
+    readOffset += stride;
+
+    for (let x = 0; x < stride; x += 1) {
+      const left = x >= bytesPerPixel ? row[x - bytesPerPixel]! : 0;
+      const up = previousRow[x] ?? 0;
+      const upLeft = x >= bytesPerPixel ? previousRow[x - bytesPerPixel]! : 0;
+      const raw = row[x] ?? 0;
+      if (filter === 1) {
+        row[x] = (raw + left) & 0xff;
+      } else if (filter === 2) {
+        row[x] = (raw + up) & 0xff;
+      } else if (filter === 3) {
+        row[x] = (raw + Math.floor((left + up) / 2)) & 0xff;
+      } else if (filter === 4) {
+        row[x] = (raw + paethPredictor(left, up, upLeft)) & 0xff;
+      } else if (filter !== 0) {
+        throw new Error(`Unsupported PNG filter: ${filter}.`);
+      }
+    }
+
+    row.copy(pixels, y * stride);
+    previousRow = row;
+  }
+
+  return { width, height, pixels };
+}
+
+function paethPredictor(left: number, up: number, upLeft: number): number {
+  const estimate = left + up - upLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const upDistance = Math.abs(estimate - up);
+  const upLeftDistance = Math.abs(estimate - upLeft);
+  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) return left;
+  if (upDistance <= upLeftDistance) return up;
+  return upLeft;
 }
 
 function encodePng(
@@ -483,6 +572,96 @@ function encodePng(
   ]);
 }
 
+function encodeRgbaPng(image: RgbaPng): Buffer {
+  return encodePng(image.width, image.height, (x, y) => {
+    const index = (y * image.width + x) * 4;
+    return [
+      image.pixels[index] ?? 0,
+      image.pixels[index + 1] ?? 0,
+      image.pixels[index + 2] ?? 0,
+      image.pixels[index + 3] ?? 0,
+    ];
+  });
+}
+
+function createRgbaPng(
+  width: number,
+  height: number,
+  pixelAt: (x: number, y: number) => readonly [number, number, number, number],
+): RgbaPng {
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const [r, g, b, a] = pixelAt(x, y);
+      const index = (y * width + x) * 4;
+      pixels[index] = r;
+      pixels[index + 1] = g;
+      pixels[index + 2] = b;
+      pixels[index + 3] = a;
+    }
+  }
+  return { width, height, pixels };
+}
+
+function compositeImageFit(
+  target: RgbaPng,
+  source: RgbaPng,
+  options: {
+    centerX: number;
+    centerY: number;
+    maxWidth: number;
+    maxHeight: number;
+    alpha?: number;
+  },
+): void {
+  const scale = Math.min(
+    options.maxWidth / source.width,
+    options.maxHeight / source.height,
+  );
+  const width = Math.max(1, Math.round(source.width * scale));
+  const height = Math.max(1, Math.round(source.height * scale));
+  const left = Math.round(options.centerX - width / 2);
+  const top = Math.round(options.centerY - height / 2);
+  const alphaScale = options.alpha ?? 1;
+
+  for (let y = 0; y < height; y += 1) {
+    const targetY = top + y;
+    if (targetY < 0 || targetY >= target.height) continue;
+    const sourceY = Math.min(
+      source.height - 1,
+      Math.floor((y / height) * source.height),
+    );
+    for (let x = 0; x < width; x += 1) {
+      const targetX = left + x;
+      if (targetX < 0 || targetX >= target.width) continue;
+      const sourceX = Math.min(
+        source.width - 1,
+        Math.floor((x / width) * source.width),
+      );
+      const sourceIndex = (sourceY * source.width + sourceX) * 4;
+      const sourceAlpha =
+        ((source.pixels[sourceIndex + 3] ?? 0) / 255) * alphaScale;
+      if (sourceAlpha <= 0) continue;
+
+      const targetIndex = (targetY * target.width + targetX) * 4;
+      const targetAlpha = (target.pixels[targetIndex + 3] ?? 0) / 255;
+      const outAlpha = sourceAlpha + targetAlpha * (1 - sourceAlpha);
+      if (outAlpha <= 0) continue;
+
+      for (let channel = 0; channel < 3; channel += 1) {
+        const sourceValue = source.pixels[sourceIndex + channel] ?? 0;
+        const targetValue = target.pixels[targetIndex + channel] ?? 0;
+        target.pixels[targetIndex + channel] = Math.round(
+          (sourceValue * sourceAlpha +
+            targetValue * targetAlpha * (1 - sourceAlpha)) /
+            outAlpha,
+        );
+      }
+      target.pixels[targetIndex + 3] = Math.round(outAlpha * 255);
+    }
+  }
+}
+
 function hashString(value: string): number {
   let hash = 2166136261;
   for (const char of value) {
@@ -495,24 +674,66 @@ function hashString(value: string): number {
 async function writeBlueprintAsset(
   filePath: string,
   resourceName: string,
+  sourceAssetFile?: string | null,
 ): Promise<void> {
   const hash = hashString(resourceName);
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(
-    filePath,
-    encodePng(96, 96, (x, y) => {
-      const border = x < 5 || y < 5 || x >= 91 || y >= 91;
-      const guideLine =
-        (x + y) % 17 === 0 || (x * 3 + y + (hash & 15)) % 23 === 0;
-      const dx = x - 48;
-      const dy = y - 48;
-      const emblem = dx * dx + dy * dy < 520 && ((x + y + hash) & 7) < 4;
-      if (border) return [22, 73, 112, 255];
-      if (emblem) return [162, 221, 255, 235];
-      if (guideLine) return [47, 129, 184, 180];
-      return [35, 101, 151, 255];
-    }),
+  const image = createRgbaPng(96, 96, (x, y) => {
+    const border = x < 5 || y < 5 || x >= 91 || y >= 91;
+    const guideLine =
+      (x + y) % 17 === 0 || (x * 3 + y + (hash & 15)) % 23 === 0;
+    if (border) return [22, 73, 112, 255];
+    if (guideLine) return [47, 129, 184, 180];
+    return [35, 101, 151, 255];
+  });
+  if (sourceAssetFile && existsSync(sourceAssetFile)) {
+    compositeImageFit(image, decodePng(await readFile(sourceAssetFile)), {
+      centerX: 48,
+      centerY: 49,
+      maxWidth: 66,
+      maxHeight: 58,
+    });
+  }
+  await writeFile(filePath, encodeRgbaPng(image));
+}
+
+async function writeGeneratedMagAsset(
+  filePath: string,
+  repoRoot: string,
+  sourceAssetFile?: string | null,
+): Promise<void> {
+  const baseAssetFile = path.join(
+    repoRoot,
+    "apps/client/public/mag/magazine_base.png",
   );
+  const image = existsSync(baseAssetFile)
+    ? decodePng(await readFile(baseAssetFile))
+    : createRgbaPng(96, 96, (x, y) => {
+        const centerX = 48;
+        const centerY = 48;
+        const inBody =
+          Math.abs(x - centerX) < 18 && Math.abs(y - centerY) < 34;
+        if (!inBody) return [0, 0, 0, 0];
+        return x % 9 < 2 ? [34, 38, 48, 255] : [62, 69, 86, 255];
+      });
+  const output = createRgbaPng(96, 96, () => [0, 0, 0, 0]);
+  compositeImageFit(output, image, {
+    centerX: 48,
+    centerY: 49,
+    maxWidth: 74,
+    maxHeight: 74,
+  });
+  if (sourceAssetFile && existsSync(sourceAssetFile)) {
+    compositeImageFit(output, decodePng(await readFile(sourceAssetFile)), {
+      centerX: 50,
+      centerY: 32,
+      maxWidth: 56,
+      maxHeight: 34,
+      alpha: 0.95,
+    });
+  }
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, encodeRgbaPng(output));
 }
 
 async function getSortedResourceNames(
@@ -655,12 +876,31 @@ async function refreshGeneratedMagItems(
     const sourceAssetFile = sourceAssetPath
       ? path.join(repoRoot, "apps/client/public", sourceAssetPath)
       : null;
-    if (sourceAssetFile && existsSync(sourceAssetFile)) {
-      await copyFile(sourceAssetFile, expectedAssetFile);
-    } else if (!existsSync(expectedAssetFile)) {
-      await writeBlueprintAsset(expectedAssetFile, resourceName);
-    }
+    await writeGeneratedMagAsset(expectedAssetFile, repoRoot, sourceAssetFile);
   }
+}
+
+async function findContentRenderingAssetPath(
+  sharedContentRoot: string,
+  typeId: string,
+): Promise<string | null> {
+  const [kind, resourceName] = typeId.split(":");
+  if (!kind || !resourceName) {
+    return null;
+  }
+  const filePath = path.join(sharedContentRoot, kind, `${resourceName}.json`);
+  if (!existsSync(filePath)) {
+    return null;
+  }
+  const content = await readJsonFile<RawContentJson>(filePath);
+  return content.rendering?.assetPath ?? null;
+}
+
+function getBlueprintPreviewTypeId(content: RawContentJson): string | null {
+  if (typeof content.unlocksRecipeTypeId === "string") {
+    return content.unlocksRecipeTypeId;
+  }
+  return content.unlocksRecipeTypeIds?.[0] ?? null;
 }
 
 async function refreshGeneratedBlueprintAssets(
@@ -681,9 +921,17 @@ async function refreshGeneratedBlueprintAssets(
       content.rendering = defaultItemRendering(assetPath);
       await writeFile(filePath, formatJson(content));
     }
+    const sourceTypeId = getBlueprintPreviewTypeId(content);
+    const sourceAssetPath = sourceTypeId
+      ? await findContentRenderingAssetPath(sharedContentRoot, sourceTypeId)
+      : null;
+    const sourceAssetFile = sourceAssetPath
+      ? path.join(repoRoot, "apps/client/public", sourceAssetPath)
+      : null;
     await writeBlueprintAsset(
       path.join(repoRoot, "apps/client/public", assetPath),
       resourceName,
+      sourceAssetFile,
     );
   }
 }

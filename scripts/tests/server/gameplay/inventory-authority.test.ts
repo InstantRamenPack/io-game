@@ -485,7 +485,7 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(wallItemId)).toBeGreaterThan(0);
   });
 
-  test("stackable non-building pickups auto-collect on overlap", () => {
+  test("stackable pickups wait for explicit pickup input", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const before = player.inventory.countType(hunkItemId);
@@ -501,6 +501,11 @@ describe("inventory authority", () => {
     runtime.world.ensureSpatialIndex();
 
     tick(runtime, 1);
+
+    expect(runtime.world.entities.has(pickup.id)).toBe(true);
+    expect(player.inventory.countType(hunkItemId)).toBe(before);
+
+    enqueueAction(runtime, { t: "action", seq: 1, action: "pickup" });
 
     expect(runtime.world.entities.has(pickup.id)).toBe(false);
     expect(player.inventory.countType(hunkItemId)).toBe(before + 3);
@@ -584,7 +589,7 @@ describe("inventory authority", () => {
     expect(player.inventory.countType(speedPotionItemId)).toBe(0);
   });
 
-  test("weapon and building pickups stay manual", () => {
+  test("weapon and building pickups wait for explicit pickup input", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
     const buildingInventory = new Inventory();
