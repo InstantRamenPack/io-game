@@ -105,19 +105,19 @@ These rules apply to every task in this repo unless the user explicitly override
 - Tower hub UI supports dragging items between inventory, chest, and hotbar slots (not the craft list) and drag-crafting from the scrollable recipe list into a chosen slot.
 - Starter `tower:hub`, `tower:energy`, and `tower:comms` are uncraftable; only the three map-placed starters exist in regular gameplay.
 - Saboteurs use `item:basic_sword` and deal normal damage to players but 2× damage to buildings.
+- Equipped item sprites are authored facing right only; do not reintroduce `handedness` in item `rendering.sprite` content.
 
 ## Learned Workspace Facts
 
 - Blueprint unlocks are lobby-wide and permanent for all players in the lobby, including players who join after the pickup.
-- World generation places exactly two legendary-tier enemies: one in the dungeon boss room and one at extraction; they are excluded from procedural enemy pools, and additional legendary spawns come from boss/night waves (`packages/shared/src/world/legendaryBoss.ts`).
-- Dungeon generation forces exactly one boss room; the boss room primary spawn uses `spawnRole: "legendary_boss"` in procedural content.
+- World generation places exactly two legendary-tier enemies (dungeon boss room and extraction), excluded from procedural enemy pools; dungeon generation forces one boss room with `spawnRole: "legendary_boss"`; additional legendary spawns come from boss/night waves (`packages/shared/src/world/legendaryBoss.ts`).
 - Twelve non-extraction villages are placed randomly one-by-one with reroll on extraction, center, or dungeon overlap; tiers are assigned after placement by distance rank (closest quartile low, middle quartile medium, furthest quartile high).
 - Extraction succeeds only when all alive players are simultaneously on the helipad for 10 consecutive seconds; the extraction point and helipad share the same protected BSP leaf.
 - Crafting and recycling use `tower:hub`; match start places three uncraftable starters (`tower:hub`, `tower:energy`, `tower:comms`). All extend `Building` for enemy targeting, remain in-world at 0 HP when destroyed, and are unusable until repaired with hunk like other towers.
 - In non-production, joining as player name `debug` (`isDebugAdminPlayerName`) enables debug spectator cheats plus per-player unlock of all blueprint-locked recipes, a large hunk grant, and hunk-free crafting/tower repair via `debugPlayerBootstrap.ts` (not lobby-wide blueprint unlock).
+- `Player.placeStructure` accepts only player-building constructors (`isBuildingCtor`); world-gen structures and towers are not player-placeable.
 - At dawn after night, `refreshLayoutEnemies` keeps surviving regular layout enemies and repopulates half of vacant/killed spawn points only; procedural crates do not respawn (finite per match).
-- Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` blueprints were removed.
-- Armor rarities: Scout common, Field uncommon, Juggernaut rare, Aegis epic.
-- Blueprint placement is deterministic in `procedural-blueprints.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
+- Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` were removed. Placement is deterministic in `procedural-blueprints.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
 - Village layout tunables live in `procedural-villages.json` `villageGeneration`: BSP leaves clamp to the sector, wider house spacing, guaranteed per-village crate via `placeVillageCrateWithRetry`, trees pruned from structure bounding boxes, and extraction fortified keeps houses around the helipad.
-- `bun run balance` item rendering preview must use the in-game Pixi path (`balance-item-rendering-preview.ts` with equipped renderers and `syncItemIconSprite`), not a separate preview implementation.
+- Tree lights-out circle blocker radius is owned by `structure/tree.json` `capabilities.visibilityBlocker`; keep it aligned with the Pixi canopy via `packages/shared/src/content/structure/treeVisual.ts`.
+- Dungeon room decor is authored per role in `procedural-content.json` `dungeonRoomContent` (treasure, armory, boss, etc.), not via shared decor renderer switches.

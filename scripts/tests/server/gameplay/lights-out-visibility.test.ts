@@ -143,7 +143,7 @@ describe("lights-out visibility", () => {
       sourceEntityId: 92,
       centerX: 1000,
       centerY: 2000,
-      radius: 40.95,
+      radius: 52.76430801214018,
     });
   });
 

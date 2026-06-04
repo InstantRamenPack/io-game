@@ -38,7 +38,8 @@ const DARKNESS_TEXTURE_FADE_START_RATIO =
   DARKNESS_TEXTURE_FADE_END_RATIO *
   (LIGHTS_OUT_FADE_START_RADIUS / LIGHTS_OUT_FADE_END_RADIUS);
 const DARKNESS_OVERLAY_COLOR = 0x000000;
-const RECT_BLOCKER_SCREEN_EXPANSION_PX = 1;
+/** Extra screen-space cutout around blockers to avoid shadow hairlines at edges. */
+const BLOCKER_CUTOUT_OUTLINE_PX = 0.1;
 const BLOCKER_CULL_MARGIN_SCREEN = 300;
 
 export class PixiLightsOutOverlay {
@@ -443,8 +444,10 @@ function cutVisibilityBlockerFromShadow(
 
   const centerX = blocker.centerX * transform.scaleX + transform.offsetX;
   const centerY = blocker.centerY * transform.scaleY + transform.offsetY;
-  const rx = Math.abs(blocker.radius * transform.scaleX);
-  const ry = Math.abs(blocker.radius * transform.scaleY);
+  const rx =
+    Math.abs(blocker.radius * transform.scaleX) + BLOCKER_CUTOUT_OUTLINE_PX;
+  const ry =
+    Math.abs(blocker.radius * transform.scaleY) + BLOCKER_CUTOUT_OUTLINE_PX;
   context.beginPath();
   context.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI * 2);
   context.fill();
@@ -623,7 +626,7 @@ function getRectBlockerScreenPoints(
   const bounds = getRectBlockerScreenBounds(
     blocker,
     transform,
-    RECT_BLOCKER_SCREEN_EXPANSION_PX,
+    BLOCKER_CUTOUT_OUTLINE_PX,
   );
   return [
     bounds.minX,

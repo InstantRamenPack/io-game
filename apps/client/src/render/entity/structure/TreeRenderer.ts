@@ -1,5 +1,8 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
+import {
+  getTreeCanopyRadiusFromHitboxWidth,
+} from "@shared/content/structure/treeVisual.ts";
 import type * as PIXI from "pixi.js";
 
 const CANOPY_DARK = 0x2d5a27;
@@ -19,6 +22,9 @@ export class TreeRenderer extends BaseEntityRenderer {
     const cx = entity.hitboxBounds.centerX;
     const cy = entity.hitboxBounds.centerY;
     const r = (entity.hitboxBounds.width * Math.SQRT2) / 2;
+    const canopyRadius = getTreeCanopyRadiusFromHitboxWidth(
+      entity.hitboxBounds.width,
+    );
 
     // Shadow beneath canopy
     graphics
@@ -33,25 +39,25 @@ export class TreeRenderer extends BaseEntityRenderer {
       .rect(cx - trunkW / 2, trunkTop, trunkW, trunkH)
       .fill({ color: TRUNK_COLOR, alpha });
 
-    // Canopy base (large dark circle)
+    // Canopy base — centered on hitbox; radius matches lights-out occlusion.
     graphics
-      .circle(cx, cy - r * 0.08, r * 0.82)
+      .circle(cx, cy, canopyRadius)
       .fill({ color: CANOPY_DARK, alpha })
       .stroke({ width: 2.5, color: 0x1a3a14, alpha: lineAlpha * 0.8 });
 
     // Mid-tone cluster — left
     graphics
-      .circle(cx - r * 0.32, cy - r * 0.14, r * 0.52)
+      .circle(cx - r * 0.32, cy - r * 0.06, r * 0.52)
       .fill({ color: CANOPY_MID, alpha });
 
     // Mid-tone cluster — right
     graphics
-      .circle(cx + r * 0.28, cy - r * 0.18, r * 0.48)
+      .circle(cx + r * 0.28, cy - r * 0.1, r * 0.48)
       .fill({ color: CANOPY_MID, alpha });
 
     // Highlight — upper center
     graphics
-      .circle(cx - r * 0.1, cy - r * 0.32, r * 0.35)
+      .circle(cx - r * 0.1, cy - r * 0.24, r * 0.35)
       .fill({ color: CANOPY_HIGHLIGHT, alpha: alpha * 0.85 });
   }
 

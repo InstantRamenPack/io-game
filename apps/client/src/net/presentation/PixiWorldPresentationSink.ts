@@ -9,6 +9,7 @@ import {
   getEntityContent,
   getVisibilityBlockerContent,
 } from "@shared/content/catalog.ts";
+import { getTreeCanopyRadiusFromHitboxWidth } from "@shared/content/structure/treeVisual.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 
 export class PixiWorldPresentationSink {
@@ -266,6 +267,9 @@ export function toVisibilityBlocker(
 function getCircleVisibilityRadius(entity: ClientEntity): number | null {
   const blockerContent = getVisibilityBlockerContent(entity.typeId);
   if (blockerContent?.mode === "circle") {
+    if (entity.typeId === "structure:tree") {
+      return getTreeCanopyRadiusFromHitboxWidth(entity.hitboxBounds.width);
+    }
     return blockerContent.radius;
   }
   return null;
