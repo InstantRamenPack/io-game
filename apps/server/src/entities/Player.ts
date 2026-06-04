@@ -213,10 +213,7 @@ export class Player extends Entity {
     if (selectedSlot?.kind === "weapon") {
       return selectedSlot.weapon;
     }
-    if (selectedSlot === null) {
-      return this.fists;
-    }
-    return undefined;
+    return this.fists;
   }
 
   public override getReloadInventory(): Inventory {
