@@ -660,6 +660,98 @@ function compositeImageFit(
   }
 }
 
+export function compositeImageFitWithTransform(
+  target: RgbaPng,
+  source: RgbaPng,
+  options: {
+    centerX: number;
+    centerY: number;
+    maxWidth: number;
+    maxHeight: number;
+    transform: {
+      x: number;
+      y: number;
+      rotationDeg: number;
+      scale: number;
+    };
+    alpha?: number;
+  },
+): void {
+  const fitScale = Math.min(
+    options.maxWidth / source.width,
+    options.maxHeight / source.height,
+  );
+  compositeImageTransformed(target, source, {
+    centerX: options.centerX + options.transform.x,
+    centerY: options.centerY + options.transform.y,
+    scale: fitScale * options.transform.scale,
+    rotationDeg: options.transform.rotationDeg,
+    alpha: options.alpha,
+  });
+}
+
+function compositeImageTransformed(
+  target: RgbaPng,
+  source: RgbaPng,
+  options: {
+    centerX: number;
+    centerY: number;
+    scale: number;
+    rotationDeg: number;
+    alpha?: number;
+  },
+): void {
+  const radians = (options.rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const inverseScale = 1 / Math.max(1e-6, options.scale);
+  const sourceCenterX = source.width / 2;
+  const sourceCenterY = source.height / 2;
+  const alphaScale = options.alpha ?? 1;
+
+  for (let targetY = 0; targetY < target.height; targetY += 1) {
+    for (let targetX = 0; targetX < target.width; targetX += 1) {
+      const dx = targetX - options.centerX;
+      const dy = targetY - options.centerY;
+      const sourceDx = (dx * cos + dy * sin) * inverseScale;
+      const sourceDy = (-dx * sin + dy * cos) * inverseScale;
+      const sourceX = sourceCenterX + sourceDx;
+      const sourceY = sourceCenterY + sourceDy;
+      if (
+        sourceX < 0 ||
+        sourceY < 0 ||
+        sourceX >= source.width ||
+        sourceY >= source.height
+      ) {
+        continue;
+      }
+
+      const sampleX = Math.floor(sourceX);
+      const sampleY = Math.floor(sourceY);
+      const sourceIndex = (sampleY * source.width + sampleX) * 4;
+      const sourceAlpha =
+        ((source.pixels[sourceIndex + 3] ?? 0) / 255) * alphaScale;
+      if (sourceAlpha <= 0) continue;
+
+      const targetIndex = (targetY * target.width + targetX) * 4;
+      const targetAlpha = (target.pixels[targetIndex + 3] ?? 0) / 255;
+      const outAlpha = sourceAlpha + targetAlpha * (1 - sourceAlpha);
+      if (outAlpha <= 0) continue;
+
+      for (let channel = 0; channel < 3; channel += 1) {
+        const sourceValue = source.pixels[sourceIndex + channel] ?? 0;
+        const targetValue = target.pixels[targetIndex + channel] ?? 0;
+        target.pixels[targetIndex + channel] = Math.round(
+          (sourceValue * sourceAlpha +
+            targetValue * targetAlpha * (1 - sourceAlpha)) /
+            outAlpha,
+        );
+      }
+      target.pixels[targetIndex + 3] = Math.round(outAlpha * 255);
+    }
+  }
+}
+
 function hashString(value: string): number {
   let hash = 2166136261;
   for (const char of value) {
@@ -669,10 +761,11 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
-async function writeBlueprintAsset(
+export async function writeBlueprintAsset(
   filePath: string,
   resourceName: string,
   sourceAssetFile?: string | null,
+  sourceRendering?: NonNullable<RawContentJson["rendering"]> | null,
 ): Promise<void> {
   const hash = hashString(resourceName);
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -684,13 +777,18 @@ async function writeBlueprintAsset(
     if (guideLine) return [47, 129, 184, 180];
     return [35, 101, 151, 255];
   });
-  if (sourceAssetFile && existsSync(sourceAssetFile)) {
-    compositeImageFit(image, decodePng(await readFile(sourceAssetFile)), {
-      centerX: 48,
-      centerY: 49,
-      maxWidth: 66,
-      maxHeight: 58,
-    });
+  if (sourceAssetFile && sourceRendering && existsSync(sourceAssetFile)) {
+    compositeImageFitWithTransform(
+      image,
+      decodePng(await readFile(sourceAssetFile)),
+      {
+        centerX: 48,
+        centerY: 49,
+        maxWidth: 66,
+        maxHeight: 58,
+        transform: sourceRendering.icon,
+      },
+    );
   }
   await writeFile(filePath, encodeRgbaPng(image));
 }
@@ -877,10 +975,10 @@ async function refreshGeneratedMagItems(
   }
 }
 
-async function findContentRenderingAssetPath(
+async function findContentRendering(
   sharedContentRoot: string,
   typeId: string,
-): Promise<string | null> {
+): Promise<NonNullable<RawContentJson["rendering"]> | null> {
   const [kind, resourceName] = typeId.split(":");
   if (!kind || !resourceName) {
     return null;
@@ -890,7 +988,7 @@ async function findContentRenderingAssetPath(
     return null;
   }
   const content = await readJsonFile<RawContentJson>(filePath);
-  return content.rendering?.assetPath ?? null;
+  return content.rendering ?? null;
 }
 
 function getBlueprintPreviewTypeId(content: RawContentJson): string | null {
@@ -919,9 +1017,10 @@ async function refreshGeneratedBlueprintAssets(
       await writeFile(filePath, formatJson(content));
     }
     const sourceTypeId = getBlueprintPreviewTypeId(content);
-    const sourceAssetPath = sourceTypeId
-      ? await findContentRenderingAssetPath(sharedContentRoot, sourceTypeId)
+    const sourceRendering = sourceTypeId
+      ? await findContentRendering(sharedContentRoot, sourceTypeId)
       : null;
+    const sourceAssetPath = sourceRendering?.assetPath ?? null;
     const sourceAssetFile = sourceAssetPath
       ? path.join(repoRoot, "apps/client/public", sourceAssetPath)
       : null;
@@ -929,6 +1028,7 @@ async function refreshGeneratedBlueprintAssets(
       path.join(repoRoot, "apps/client/public", assetPath),
       resourceName,
       sourceAssetFile,
+      sourceRendering,
     );
   }
 }
@@ -2016,4 +2116,6 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}
