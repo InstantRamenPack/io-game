@@ -109,5 +109,7 @@ export type WitherBeamEventPayload = z.infer<
 export type WitherAirstrikeWarningEventPayload = z.infer<
   typeof WitherAirstrikeWarningEventPayloadSchema
 >;
-export type TeslaShockEventPayload = z.infer<typeof TeslaShockEventPayloadSchema>;
+export type TeslaShockEventPayload = z.infer<
+  typeof TeslaShockEventPayloadSchema
+>;
 export type NetEvent = z.infer<typeof NetEventSchema>;

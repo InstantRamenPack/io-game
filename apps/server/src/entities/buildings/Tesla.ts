@@ -109,10 +109,7 @@ export class Tesla extends Building {
     world.events.push(shockEvent);
   }
 
-  private advanceShockWave(
-    world: World,
-    touchingEnemyIds: Set<number>,
-  ): void {
+  private advanceShockWave(world: World, touchingEnemyIds: Set<number>): void {
     if (this.waveStartTick === null) {
       return;
     }
@@ -123,7 +120,8 @@ export class Tesla extends Building {
       elapsedTicks * TESLA_WAVE_SPEED_PX_PER_TICK,
     );
 
-    for (const [enemyId, triggerDistance] of this.waveTriggerDistanceByEnemyId) {
+    for (const [enemyId, triggerDistance] of this
+      .waveTriggerDistanceByEnemyId) {
       if (this.waveHitEnemyIds.has(enemyId)) {
         continue;
       }

@@ -19,10 +19,7 @@ export class TeslaRenderer extends BaseEntityRenderer {
   private readonly pulseRingGraphic: PIXI.Graphics;
   private pulseRemainingMs = 0;
 
-  constructor(
-    pixiRenderer: PixiRenderer,
-    options: EntityRendererOptions = {},
-  ) {
+  constructor(pixiRenderer: PixiRenderer, options: EntityRendererOptions = {}) {
     super(pixiRenderer, options);
     this.pulseRingGraphic = new PIXI.Graphics();
     this.entityContainer.addChildAt(this.pulseRingGraphic, 0);
@@ -121,7 +118,8 @@ export class TeslaRenderer extends BaseEntityRenderer {
 
     const pulseDurationMs = Math.max(
       1,
-      (getTeslaShockWaveDurationTicks() / Math.max(1, this.pixiRenderer.getTickRate())) *
+      (getTeslaShockWaveDurationTicks() /
+        Math.max(1, this.pixiRenderer.getTickRate())) *
         1000,
     );
     const progress = 1 - this.pulseRemainingMs / pulseDurationMs;

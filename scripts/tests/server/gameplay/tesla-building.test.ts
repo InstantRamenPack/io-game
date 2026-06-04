@@ -54,21 +54,12 @@ describe("tesla building", () => {
   test("tesla shocks an enemy once when the expanding ring reaches them", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const tesla = new Tesla(
-      runtime.world.allocEntityId(),
-      1,
-      player.id,
-    );
+    const tesla = new Tesla(runtime.world.allocEntityId(), 1, player.id);
     tesla.x = player.x + 64;
     tesla.y = player.y;
     runtime.world.spawn(tesla);
 
-    const enemy = spawnEnemy(
-      runtime,
-      "shoota",
-      tesla.x + 20,
-      tesla.y,
-    ) as Enemy;
+    const enemy = spawnEnemy(runtime, "shoota", tesla.x + 20, tesla.y) as Enemy;
     const startingHp = enemy.hp;
     const maxTicksBeforeHit = Math.ceil(
       TESLA_SHOCK_RADIUS / TESLA_WAVE_SPEED_PX_PER_TICK,
@@ -99,11 +90,7 @@ describe("tesla building", () => {
   test("tesla emits a tesla_shock event when a shock wave starts", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime);
-    const tesla = new Tesla(
-      runtime.world.allocEntityId(),
-      1,
-      player.id,
-    );
+    const tesla = new Tesla(runtime.world.allocEntityId(), 1, player.id);
     tesla.x = player.x + 64;
     tesla.y = player.y;
     runtime.world.spawn(tesla);
