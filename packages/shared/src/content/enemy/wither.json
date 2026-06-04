@@ -1,6 +1,6 @@
 {
   "label": "Wither",
-  "maxHp": 1000,
+  "maxHp": 2000,
   "moveSpeed": 2,
   "collisionMode": "dynamic",
   "hitboxProfiles": {

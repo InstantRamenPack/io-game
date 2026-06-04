@@ -1,8 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { BaseEntityRenderer } from "@client/render/entity/BaseEntityRenderer.ts";
-import {
-  getTreeCanopyRadiusFromHitboxWidth,
-} from "@shared/content/structure/treeVisual.ts";
+import { getTreeCanopyRadiusFromHitboxWidth } from "@shared/content/structure/treeVisual.ts";
 import type * as PIXI from "pixi.js";
 
 const CANOPY_DARK = 0x2d5a27;
