@@ -7,12 +7,10 @@ export type WorldGenLegendaryBossPlacements = {
 };
 
 /** Dungeon world-gen boss (boss room). */
-export const DUNGEON_LEGENDARY_BOSS_TYPE_ID =
-  "enemy:wither" as ResourceId;
+export const DUNGEON_LEGENDARY_BOSS_TYPE_ID = "enemy:wither" as ResourceId;
 
 /** Extraction helipad boss; spawned when night cycle reaches the final tier floor. */
-export const EXTRACTION_LEGENDARY_BOSS_TYPE_ID =
-  "enemy:thanos" as ResourceId;
+export const EXTRACTION_LEGENDARY_BOSS_TYPE_ID = "enemy:thanos" as ResourceId;
 
 let cachedLegendaryBossTypeIds: readonly ResourceId[] | null = null;
 
