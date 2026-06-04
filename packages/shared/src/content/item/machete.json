@@ -23,9 +23,6 @@
   "recycle": {
     "hunkValue": 6
   },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rarityTier": "uncommon",
   "rendering": {
     "assetPath": "/weapon/machete.png",

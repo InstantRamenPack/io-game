@@ -3,9 +3,6 @@
   "hint": "Crafting schematic for the Spiked Spear.",
   "description": "Unlocks the Spiked Spear recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:spiked_spear",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/spiked_spear.png",
     "sprite": {

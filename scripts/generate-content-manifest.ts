@@ -56,9 +56,6 @@ type RawContentJson = {
   };
   projectile?: unknown;
   recipe?: unknown;
-  pickupSpawn?: {
-    pools?: string[];
-  };
   runtime?: RuntimeHint;
   rendering?: {
     assetPath: string;
@@ -245,8 +242,27 @@ const SCAFFOLD_HEADER =
 const GENERATED_DIAGNOSTICS_DIRECTORY = "scripts/generated";
 const GENERATED_SERVER_REGISTRY_PATH =
   "apps/server/src/registry/generated/runtimeRegistry.ts";
+const GENERATED_STRUCTURE_CTORS_PATH =
+  "apps/server/src/registry/generated/structureCtors.ts";
+const GENERATED_MAG_CTORS_PATH =
+  "apps/server/src/registry/generated/magCtors.ts";
+const GENERATED_BLUEPRINT_CTORS_PATH =
+  "apps/server/src/registry/generated/blueprintCtors.ts";
+const GENERATED_CONTENT_PROJECTILE_CTORS_PATH =
+  "apps/server/src/registry/generated/contentProjectileCtors.ts";
 const GENERATED_RENDERER_REGISTRY_PATH =
   "apps/client/src/render/entity/generated/rendererRegistry.ts";
+
+const HANDWRITTEN_STRUCTURE_RESOURCE_NAMES = new Set([
+  "crate",
+  "dungeon",
+  "dungeon_wall",
+  "tripwire",
+]);
+const BESPOKE_PROJECTILE_RESOURCE_NAMES = new Set([
+  "firecracker_bullet",
+  "homing_drone",
+]);
 
 const SERVER_SCAN_ROOTS = [
   "apps/server/src/entities",
@@ -255,27 +271,19 @@ const SERVER_SCAN_ROOTS = [
 ] as const;
 const RENDERER_SCAN_ROOTS = ["apps/client/src/render/entity"] as const;
 
-function toIdentifier(value: string): string {
-  const words = value
-    .replace(/\.json$/i, "")
-    .split(/[^a-zA-Z0-9]+/g)
-    .filter(Boolean);
-  const [firstWord = "content", ...restWords] = words;
-  const camelCase = [
-    firstWord.toLowerCase(),
-    ...restWords.map(
-      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-    ),
-  ].join("");
-  return `${camelCase}Json`;
-}
-
 function toPascalCase(value: string): string {
   return value
     .split(/[^a-zA-Z0-9]+/g)
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
+}
+
+function toContentImportName(
+  categoryDirectory: string,
+  resourceName: string,
+): string {
+  return `${categoryDirectory}${toPascalCase(resourceName)}Json`;
 }
 
 function toSnakeCase(value: string): string {
@@ -704,13 +712,7 @@ function inferServerKindFromPath(filePath: string): ContentKind | null {
   const normalized = filePath.split(path.sep).join("/");
   if (normalized.endsWith("/Player.ts")) return "player";
   if (normalized.endsWith("/ItemEntity.ts")) return "pickup";
-  if (
-    normalized.endsWith("/Hub.ts") ||
-    normalized.endsWith("/EnergyTower.ts") ||
-    normalized.endsWith("/CommsTower.ts")
-  ) {
-    return "tower";
-  }
+  if (normalized.includes("/entities/tower/")) return "tower";
   if (normalized.includes("/entities/buildings/")) return "building";
   if (normalized.includes("/entities/structures/")) return "structure";
   if (normalized.includes("/entities/enemies/")) return "enemy";
@@ -833,13 +835,11 @@ function resolveRuntimeSymbol(resource: ContentResource): string {
   const hinted = resource.rawContent.runtime?.server?.symbol;
   if (hinted) return hinted;
   const base = toPascalCase(resource.resourceName);
-  if (resource.kind === "projectile") return base;
   if (resource.kind === "effect") return `${base}Effect`;
   if (resource.kind === "mag") return `${base}MagazineItem`;
   if (resource.kind === "blueprint") return `Blueprint${base}Item`;
   if (resource.kind === "item") {
     const classKind = resource.rawContent.runtime?.server?.classKind;
-    if (classKind === "magazine") return `${base}Item`;
     if (classKind === "material") return `${base}Item`;
     return base;
   }
@@ -854,13 +854,6 @@ function resolveRuntimePath(
 ): string {
   const hinted = resource.rawContent.runtime?.server?.importPath;
   if (hinted) return resolveSourcePath(repoRoot, hinted);
-  if (resource.kind === "projectile") {
-    return path.join(
-      repoRoot,
-      "apps/server/src/entities/projectiles",
-      `${symbol}.ts`,
-    );
-  }
   if (resource.kind === "effect") {
     return path.join(
       repoRoot,
@@ -870,13 +863,6 @@ function resolveRuntimePath(
   }
   if (resource.kind === "item") {
     const classKind = resource.rawContent.runtime?.server?.classKind;
-    if (classKind === "magazine") {
-      return path.join(
-        repoRoot,
-        "apps/server/src/items/magazines",
-        `${symbol}.ts`,
-      );
-    }
     if (classKind === "material") {
       return path.join(
         repoRoot,
@@ -891,20 +877,6 @@ function resolveRuntimePath(
         `${symbol}.ts`,
       );
     }
-  }
-  if (resource.kind === "mag") {
-    return path.join(
-      repoRoot,
-      "apps/server/src/items/magazines",
-      `${symbol}.ts`,
-    );
-  }
-  if (resource.kind === "blueprint") {
-    return path.join(
-      repoRoot,
-      "apps/server/src/items/blueprints",
-      `${symbol}.ts`,
-    );
   }
   throw new Error(
     `Missing runtime class for ${resource.typeId}. Add a handwritten class or runtime.server import metadata.`,
@@ -923,28 +895,151 @@ function getRequiredItemClassKind(
   return classKind;
 }
 
+function usesGeneratedRuntimeCtor(resource: ContentResource): boolean {
+  if (
+    resource.kind === "structure" &&
+    !HANDWRITTEN_STRUCTURE_RESOURCE_NAMES.has(resource.resourceName)
+  ) {
+    return true;
+  }
+  if (resource.kind === "mag" || resource.kind === "blueprint") {
+    return true;
+  }
+  if (
+    resource.kind === "projectile" &&
+    !BESPOKE_PROJECTILE_RESOURCE_NAMES.has(resource.resourceName)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resolveGeneratedRuntimeImportPath(resource: ContentResource): string {
+  if (resource.kind === "structure") {
+    return "@server/registry/generated/structureCtors.ts";
+  }
+  if (resource.kind === "mag") {
+    return "@server/registry/generated/magCtors.ts";
+  }
+  if (resource.kind === "blueprint") {
+    return "@server/registry/generated/blueprintCtors.ts";
+  }
+  if (resource.kind === "projectile") {
+    return "@server/registry/generated/contentProjectileCtors.ts";
+  }
+  throw new Error(`No generated runtime import path for ${resource.typeId}.`);
+}
+
+function buildGeneratedCtorEntry(
+  repoRoot: string,
+  resource: ContentResource,
+): SourceClassEntry {
+  return {
+    symbol: resolveRuntimeSymbol(resource),
+    resourceName: resource.resourceName,
+    importPath: resolveGeneratedRuntimeImportPath(resource),
+    filePath: path.join(
+      repoRoot,
+      resolveGeneratedRuntimeImportPath(resource).replace(
+        "@server/",
+        "apps/server/src/",
+      ),
+    ),
+    kind: resource.kind,
+  };
+}
+
+function buildGeneratedCtorExportLine(resource: ContentResource): string {
+  const symbol = resolveRuntimeSymbol(resource);
+  if (resource.kind === "structure") {
+    return `export const ${symbol} = createStructureCtor(${JSON.stringify(resource.resourceName)});`;
+  }
+  if (resource.kind === "mag") {
+    return `export const ${symbol} = createItemLikeCtor("mag", ${JSON.stringify(resource.resourceName)});`;
+  }
+  if (resource.kind === "blueprint") {
+    return `export const ${symbol} = createItemLikeCtor("blueprint", ${JSON.stringify(resource.resourceName)});`;
+  }
+  if (resource.kind === "projectile") {
+    return `export const ${symbol} = createContentProjectileCtor(${JSON.stringify(resource.resourceName)}, ${JSON.stringify(resource.typeId)});`;
+  }
+  throw new Error(`Cannot emit generated ctor for ${resource.typeId}.`);
+}
+
+type GeneratedCtorFileSpec = {
+  outputPath: string;
+  importLine: string;
+  resources: readonly ContentResource[];
+};
+
+async function writeGeneratedCtorFile(
+  repoRoot: string,
+  spec: GeneratedCtorFileSpec,
+): Promise<void> {
+  const outputPath = path.join(repoRoot, spec.outputPath);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(
+    outputPath,
+    [
+      GENERATED_HEADER,
+      spec.importLine,
+      "",
+      ...spec.resources.map(buildGeneratedCtorExportLine),
+      "",
+    ].join("\n"),
+  );
+  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+}
+
+async function writeGeneratedFactoryCtorFiles(
+  repoRoot: string,
+  contentResources: readonly ContentResource[],
+): Promise<void> {
+  const specs: GeneratedCtorFileSpec[] = [
+    {
+      outputPath: GENERATED_STRUCTURE_CTORS_PATH,
+      importLine:
+        'import { createStructureCtor } from "@server/entities/structures/ContentStructure.ts";',
+      resources: contentResources.filter(
+        (resource) =>
+          resource.kind === "structure" &&
+          !HANDWRITTEN_STRUCTURE_RESOURCE_NAMES.has(resource.resourceName),
+      ),
+    },
+    {
+      outputPath: GENERATED_MAG_CTORS_PATH,
+      importLine:
+        'import { createItemLikeCtor } from "@server/items/createItemLikeCtor.ts";',
+      resources: contentResources.filter((resource) => resource.kind === "mag"),
+    },
+    {
+      outputPath: GENERATED_BLUEPRINT_CTORS_PATH,
+      importLine:
+        'import { createItemLikeCtor } from "@server/items/createItemLikeCtor.ts";',
+      resources: contentResources.filter(
+        (resource) => resource.kind === "blueprint",
+      ),
+    },
+    {
+      outputPath: GENERATED_CONTENT_PROJECTILE_CTORS_PATH,
+      importLine:
+        'import { createContentProjectileCtor } from "@server/entities/projectiles/ContentProjectile.ts";',
+      resources: contentResources.filter(
+        (resource) =>
+          resource.kind === "projectile" &&
+          !BESPOKE_PROJECTILE_RESOURCE_NAMES.has(resource.resourceName),
+      ),
+    },
+  ];
+  for (const spec of specs) {
+    await writeGeneratedCtorFile(repoRoot, spec);
+  }
+}
+
 function buildRuntimeScaffold(
   resource: ContentResource,
   symbol: string,
 ): string {
-  if (resource.kind === "projectile") {
-    return [
-      SCAFFOLD_HEADER,
-      'import { createProjectileDefinitionForType } from "@server/combat/contentAdapters.ts";',
-      'import { Projectile, type ProjectileDefinition, type ProjectileSpawnConfig } from "@server/entities/Projectile.ts";',
-      "",
-      `export class ${symbol} extends Projectile {`,
-      `  public static override readonly resourceName = ${JSON.stringify(resource.resourceName)};`,
-      `  public static readonly definition: ProjectileDefinition = createProjectileDefinitionForType(${JSON.stringify(resource.typeId)});`,
-      "",
-      "  constructor(id: number, config: ProjectileSpawnConfig) {",
-      "    super(id, config);",
-      "  }",
-      "}",
-      "",
-    ].join("\n");
-  }
-
   if (resource.kind === "effect") {
     const classKind = resource.rawContent.runtime?.server?.classKind;
     if (classKind !== "effect") {
@@ -969,7 +1064,7 @@ function buildRuntimeScaffold(
     ].join("\n");
   }
 
-  if (resource.kind === "item" || resource.kind === "mag") {
+  if (resource.kind === "item") {
     const classKind = getRequiredItemClassKind(resource);
     if (classKind === "material") {
       return [
@@ -977,17 +1072,6 @@ function buildRuntimeScaffold(
         'import { MaterialItem } from "@server/items/MaterialItem.ts";',
         "",
         `export class ${symbol} extends MaterialItem {`,
-        `  public static override readonly resourceName = ${JSON.stringify(resource.resourceName)};`,
-        "}",
-        "",
-      ].join("\n");
-    }
-    if (classKind === "magazine") {
-      return [
-        SCAFFOLD_HEADER,
-        'import { MagazineItem } from "@server/items/MagazineItem.ts";',
-        "",
-        `export class ${symbol} extends MagazineItem {`,
         `  public static override readonly resourceName = ${JSON.stringify(resource.resourceName)};`,
         "}",
         "",
@@ -1019,18 +1103,6 @@ function buildRuntimeScaffold(
     }
   }
 
-  if (resource.kind === "blueprint") {
-    return [
-      SCAFFOLD_HEADER,
-      'import { BlueprintItem } from "@server/items/BlueprintItem.ts";',
-      "",
-      `export class ${symbol} extends BlueprintItem {`,
-      `  public static override readonly resourceName = ${JSON.stringify(resource.resourceName)};`,
-      "}",
-      "",
-    ].join("\n");
-  }
-
   throw new Error(
     `Cannot scaffold ${resource.typeId}; add a handwritten class.`,
   );
@@ -1044,14 +1116,9 @@ async function ensureRuntimeClass(
 ): Promise<SourceClassEntry> {
   const existing = classIndex.get(resource.typeId);
   if (existing) return existing;
-
-  if (
-    !["item", "mag", "blueprint", "projectile", "effect"].includes(
-      resource.kind,
-    )
-  ) {
+  if (resource.kind !== "item" && resource.kind !== "effect") {
     throw new Error(
-      `Missing handwritten runtime class for ${resource.typeId}.`,
+      `Missing runtime class for ${resource.typeId}. Add runtime.server import metadata or a handwritten class.`,
     );
   }
 
@@ -1141,6 +1208,27 @@ function resolveRendererSymbol(resource: ContentResource): string {
   return `${base}Renderer`;
 }
 
+const RENDERER_DIRECTORY_BY_KIND: Partial<
+  Record<
+    ContentKind,
+    | "building"
+    | "tower"
+    | "structure"
+    | "enemy"
+    | "pickup"
+    | "player"
+    | "projectile"
+  >
+> = {
+  building: "building",
+  tower: "tower",
+  structure: "structure",
+  enemy: "enemy",
+  pickup: "pickup",
+  player: "player",
+  projectile: "projectile",
+};
+
 function resolveRendererPath(
   repoRoot: string,
   resource: ContentResource,
@@ -1148,12 +1236,10 @@ function resolveRendererPath(
 ): string {
   const hinted = resource.rawContent.runtime?.renderer?.importPath;
   if (hinted) return resolveSourcePath(repoRoot, hinted);
-  let directory = "building";
-  if (resource.kind === "tower") directory = "tower";
-  if (resource.kind === "enemy") directory = "enemy";
-  if (resource.kind === "pickup") directory = "pickup";
-  if (resource.kind === "player") directory = "player";
-  if (resource.kind === "projectile") directory = "projectile";
+  const directory = RENDERER_DIRECTORY_BY_KIND[resource.kind];
+  if (!directory) {
+    throw new Error(`No renderer directory mapping for ${resource.typeId}.`);
+  }
   return path.join(
     repoRoot,
     "apps/client/src/render/entity",
@@ -1367,12 +1453,9 @@ async function buildRegistries(
 
   for (const resource of contentResources) {
     if (ENTITY_CONTENT_KINDS.has(resource.kind)) {
-      const entry = await ensureRuntimeClass(
-        repoRoot,
-        resource,
-        classIndex,
-        scaffolded,
-      );
+      const entry = usesGeneratedRuntimeCtor(resource)
+        ? buildGeneratedCtorEntry(repoRoot, resource)
+        : await ensureRuntimeClass(repoRoot, resource, classIndex, scaffolded);
       runtimeRegistry.entityRuntimeCtors.push(entry);
     } else if (resource.kind === "item") {
       const entry = await ensureRuntimeClass(
@@ -1383,21 +1466,13 @@ async function buildRegistries(
       );
       runtimeRegistry.itemRuntimeCtors.push(entry);
     } else if (resource.kind === "mag") {
-      const entry = await ensureRuntimeClass(
-        repoRoot,
-        resource,
-        classIndex,
-        scaffolded,
+      runtimeRegistry.magRuntimeCtors.push(
+        buildGeneratedCtorEntry(repoRoot, resource),
       );
-      runtimeRegistry.magRuntimeCtors.push(entry);
     } else if (resource.kind === "blueprint") {
-      const entry = await ensureRuntimeClass(
-        repoRoot,
-        resource,
-        classIndex,
-        scaffolded,
+      runtimeRegistry.blueprintRuntimeCtors.push(
+        buildGeneratedCtorEntry(repoRoot, resource),
       );
-      runtimeRegistry.blueprintRuntimeCtors.push(entry);
     } else if (resource.kind === "effect") {
       const entry = await ensureRuntimeClass(
         repoRoot,
@@ -1590,7 +1665,7 @@ async function writeContentManifest(
     const directoryPath = path.join(sharedContentRoot, category.directory);
     const resourceNames = await getSortedResourceNames(directoryPath);
     const entries = resourceNames.map((resourceName) => {
-      const importName = `${category.directory}${toIdentifier(resourceName)}`;
+      const importName = toContentImportName(category.directory, resourceName);
       importLines.push(
         `import ${importName} from "@shared/content/${category.directory}/${resourceName}.json";`,
       );
@@ -1658,6 +1733,7 @@ async function main(): Promise<void> {
   await refreshGeneratedMagItems(repoRoot, sharedContentRoot);
   await refreshGeneratedBlueprintAssets(repoRoot, sharedContentRoot);
   const contentResources = await collectContentResources(sharedContentRoot);
+  await writeGeneratedFactoryCtorFiles(repoRoot, contentResources);
   const registryResult = await buildRegistries(repoRoot, contentResources);
 
   await writeGeneratedRuntimeRegistry(repoRoot, registryResult.runtimeRegistry);
@@ -1680,6 +1756,10 @@ async function main(): Promise<void> {
 
   formatGeneratedFiles(repoRoot, [
     GENERATED_SERVER_REGISTRY_PATH,
+    GENERATED_STRUCTURE_CTORS_PATH,
+    GENERATED_MAG_CTORS_PATH,
+    GENERATED_BLUEPRINT_CTORS_PATH,
+    GENERATED_CONTENT_PROJECTILE_CTORS_PATH,
     GENERATED_RENDERER_REGISTRY_PATH,
     contentManifestPath,
     ...registryResult.scaffolded.runtime,

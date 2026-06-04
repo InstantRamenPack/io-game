@@ -10,9 +10,6 @@
     "knockback": 10,
     "sweepArcDeg": 90
   },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rarityTier": "common",
   "recipe": {
     "hint": "Craft Cleaver from scavenged hunks.",

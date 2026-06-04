@@ -1,0 +1,42 @@
+{
+  "label": "Tripwire",
+  "maxHp": 0,
+  "collisionMode": "none",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 220,
+        "height": 16,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "capabilities": {
+    "visibilityBlocker": {
+      "mode": "none"
+    }
+  },
+  "trap": {
+    "initialDamage": 12,
+    "effects": [
+      {
+        "typeId": "effect:bleeding",
+        "ticksRemaining": 90,
+        "pulseIntervalTicks": 10,
+        "pulseTicksRemaining": 10,
+        "pulseDamage": 4
+      },
+      {
+        "typeId": "effect:fractured",
+        "ticksRemaining": 140,
+        "speedMultiplier": 0.55
+      },
+      {
+        "typeId": "effect:confusion",
+        "ticksRemaining": 100,
+        "speedMultiplier": 0.75
+      }
+    ]
+  }
+}

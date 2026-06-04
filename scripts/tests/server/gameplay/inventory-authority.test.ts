@@ -7,9 +7,9 @@ import {
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import { TOWER_REPAIR_HP_PER_COST_UNIT } from "@shared/gameplay/constants.ts";
 import type { ActionMessage } from "@shared/net/protocol.ts";
-import { Hub } from "@server/entities/buildings/Hub.ts";
-import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { Crate } from "@server/entities/enemies/Crate.ts";
+import { Hub } from "@server/entities/tower/Hub.ts";
+import { CommsTower } from "@server/entities/tower/CommsTower.ts";
+import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
@@ -227,7 +227,7 @@ describe("inventory authority", () => {
     const observedBlueprintTypeIds = new Set<ResourceId>();
 
     for (const entity of runtime.world.entities.all()) {
-      if (!(entity instanceof Crate)) {
+      if (!(entity instanceof CrateStructure)) {
         continue;
       }
       for (const blueprintTypeId of expectedBlueprintTypeIds) {

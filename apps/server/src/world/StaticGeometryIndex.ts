@@ -2,6 +2,11 @@ import type {
   HitboxBounds,
   ResolvedHitboxRect,
 } from "@shared/geometry/hitbox.ts";
+import {
+  GridIndex,
+  gridCellSpansMatch,
+  type GridCellSpan,
+} from "@shared/spatial/GridIndex.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 
 export type StaticGeometryBlocker = {
@@ -11,16 +16,6 @@ export type StaticGeometryBlocker = {
   hitboxes: readonly ResolvedHitboxRect[];
 };
 
-type CellSpan = {
-  minCellX: number;
-  maxCellX: number;
-  minCellY: number;
-  maxCellY: number;
-};
-
-const CELL_KEY_OFFSET = 1 << 15;
-const CELL_KEY_STRIDE = 1 << 16;
-
 /**
  * Authoritative server-side index for solid static geometry.
  *
@@ -28,18 +23,15 @@ const CELL_KEY_STRIDE = 1 << 16;
  * consume these blockers so they agree on the same solid rectangles.
  */
 export class StaticGeometryIndex {
-  private readonly cellSize: number;
-  private readonly buckets = new Map<number, StaticGeometryBlocker[]>();
+  private readonly grid: GridIndex<StaticGeometryBlocker>;
   private readonly blockerByEntityId = new Map<number, StaticGeometryBlocker>();
-  private readonly cellSpanByEntityId = new Map<number, CellSpan>();
+  private readonly cellSpanByEntityId = new Map<number, GridCellSpan>();
   private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
-  private readonly visitedEntityIds = new Map<number, number>();
   private syncMarker = 0;
-  private queryMarker = 0;
 
   constructor(cellSize = 64) {
-    this.cellSize = cellSize;
+    this.grid = new GridIndex<StaticGeometryBlocker>(cellSize);
   }
 
   public sync(entities: readonly Entity[]): void {
@@ -73,35 +65,14 @@ export class StaticGeometryIndex {
     result: StaticGeometryBlocker[] = [],
     sortByEntityId = true,
   ): StaticGeometryBlocker[] {
-    result.length = 0;
-    this.queryMarker += 1;
-    if (this.queryMarker >= Number.MAX_SAFE_INTEGER) {
-      this.queryMarker = 1;
-      this.visitedEntityIds.clear();
-    }
-
-    const minCellX = this.toCell(minX);
-    const maxCellX = this.toCell(maxX);
-    const minCellY = this.toCell(minY);
-    const maxCellY = this.toCell(maxY);
-
-    for (let gridX = minCellX; gridX <= maxCellX; gridX += 1) {
-      for (let gridY = minCellY; gridY <= maxCellY; gridY += 1) {
-        const bucket = this.buckets.get(this.makeKey(gridX, gridY));
-        if (!bucket) {
-          continue;
-        }
-        for (const blocker of bucket) {
-          if (
-            this.visitedEntityIds.get(blocker.entityId) === this.queryMarker
-          ) {
-            continue;
-          }
-          this.visitedEntityIds.set(blocker.entityId, this.queryMarker);
-          result.push(blocker);
-        }
-      }
-    }
+    this.grid.queryBox(
+      minX,
+      minY,
+      maxX,
+      maxY,
+      result,
+      (blocker) => blocker.entityId,
+    );
 
     if (sortByEntityId) {
       result.sort((left, right) => left.entityId - right.entityId);
@@ -119,18 +90,18 @@ export class StaticGeometryIndex {
 
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
-    const nextSpan: CellSpan = {
-      minCellX: this.toCell(bounds.minX),
-      maxCellX: this.toCell(bounds.maxX),
-      minCellY: this.toCell(bounds.minY),
-      maxCellY: this.toCell(bounds.maxY),
-    };
+    const nextSpan = this.grid.spanFromBounds(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    );
     const previousSpan = this.cellSpanByEntityId.get(entity.id);
     const previousBlocker = this.blockerByEntityId.get(entity.id);
     if (
       previousBlocker?.entity === entity &&
       previousSpan &&
-      spansMatch(previousSpan, nextSpan)
+      gridCellSpansMatch(previousSpan, nextSpan)
     ) {
       previousBlocker.bounds = bounds;
       previousBlocker.hitboxes = entity.getWorldHitboxes();
@@ -139,7 +110,10 @@ export class StaticGeometryIndex {
 
     const previousKeys = this.cellKeysByEntityId.get(entity.id);
     if (previousKeys) {
-      this.removeFromBuckets(entity.id, previousKeys);
+      this.grid.removeFromCells(
+        previousKeys,
+        (blocker) => blocker.entityId === entity.id,
+      );
     }
 
     const blocker: StaticGeometryBlocker = {
@@ -148,15 +122,8 @@ export class StaticGeometryIndex {
       bounds,
       hitboxes: entity.getWorldHitboxes(),
     };
-    const nextKeys = this.makeCellKeys(nextSpan);
-    for (const key of nextKeys) {
-      let bucket = this.buckets.get(key);
-      if (!bucket) {
-        bucket = [];
-        this.buckets.set(key, bucket);
-      }
-      bucket.push(blocker);
-    }
+    const nextKeys = this.grid.keysFromSpan(nextSpan);
+    this.grid.addToCells(nextKeys, blocker);
 
     this.blockerByEntityId.set(entity.id, blocker);
     this.cellSpanByEntityId.set(entity.id, nextSpan);
@@ -166,61 +133,17 @@ export class StaticGeometryIndex {
   private removeEntity(entityId: number): void {
     const keys = this.cellKeysByEntityId.get(entityId);
     if (keys) {
-      this.removeFromBuckets(entityId, keys);
+      this.grid.removeFromCells(
+        keys,
+        (blocker) => blocker.entityId === entityId,
+      );
     }
     this.blockerByEntityId.delete(entityId);
     this.cellSpanByEntityId.delete(entityId);
     this.cellKeysByEntityId.delete(entityId);
   }
-
-  private removeFromBuckets(entityId: number, keys: readonly number[]): void {
-    for (const key of keys) {
-      const bucket = this.buckets.get(key);
-      if (!bucket) {
-        continue;
-      }
-      const index = bucket.findIndex(
-        (blocker) => blocker.entityId === entityId,
-      );
-      if (index >= 0) {
-        bucket.splice(index, 1);
-      }
-      if (bucket.length === 0) {
-        this.buckets.delete(key);
-      }
-    }
-  }
-
-  private makeCellKeys(span: CellSpan): number[] {
-    const keys: number[] = [];
-    for (let gridX = span.minCellX; gridX <= span.maxCellX; gridX += 1) {
-      for (let gridY = span.minCellY; gridY <= span.maxCellY; gridY += 1) {
-        keys.push(this.makeKey(gridX, gridY));
-      }
-    }
-    return keys;
-  }
-
-  private toCell(value: number): number {
-    return Math.floor(value / this.cellSize);
-  }
-
-  private makeKey(gridX: number, gridY: number): number {
-    return (
-      (gridX + CELL_KEY_OFFSET) * CELL_KEY_STRIDE + (gridY + CELL_KEY_OFFSET)
-    );
-  }
 }
 
 export function isStaticGeometryEntity(entity: Entity): boolean {
   return entity.alive && entity.collisionMode === "static";
-}
-
-function spansMatch(left: CellSpan, right: CellSpan): boolean {
-  return (
-    left.minCellX === right.minCellX &&
-    left.maxCellX === right.maxCellX &&
-    left.minCellY === right.minCellY &&
-    left.maxCellY === right.maxCellY
-  );
 }

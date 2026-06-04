@@ -25,9 +25,6 @@
     "hunkValue": 10
   },
   "rarityTier": "uncommon",
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rendering": {
     "assetPath": "/weapon/carbine.png",
     "sprite": {

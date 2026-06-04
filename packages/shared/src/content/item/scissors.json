@@ -10,9 +10,6 @@
     "knockback": 4,
     "jabWidth": 14
   },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rarityTier": "common",
   "recipe": {
     "hint": "Craft Scissors from scavenged hunks.",

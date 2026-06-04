@@ -22,9 +22,6 @@
     "magItemTypeId": "mag:basic_gun"
   },
   "rarityTier": "common",
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rendering": {
     "assetPath": "/weapon/basic_gun.png",
     "sprite": {

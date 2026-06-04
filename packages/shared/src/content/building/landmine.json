@@ -16,5 +16,8 @@
     "visibilityBlocker": {
       "mode": "none"
     }
+  },
+  "trap": {
+    "triggerRadius": 28
   }
 }

@@ -3,9 +3,6 @@
   "hint": "Crafting schematic for the Fire Axe.",
   "description": "Unlocks the Fire Axe recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:fire_axe",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/fire_axe.png",
     "sprite": {

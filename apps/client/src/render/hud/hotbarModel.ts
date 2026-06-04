@@ -1,4 +1,5 @@
 import type { HotbarSlotItem } from "@client/render/hud/HotbarView.ts";
+import { getRarityPresentation } from "@client/render/hud/hudPresentationModels.ts";
 import type {
   InventorySlotSnapshot,
   InventorySnapshot,
@@ -40,8 +41,11 @@ function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
       magSize: null,
       reserveMagCount: null,
       reloadTicksRemaining: null,
+      rarityBorderColor: null,
     };
   }
+
+  const rarityBorderColor = getRarityPresentation(slot.typeId)?.color ?? null;
 
   if (slot.kind === "buildable") {
     return {
@@ -52,6 +56,7 @@ function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
       magSize: null,
       reserveMagCount: null,
       reloadTicksRemaining: null,
+      rarityBorderColor,
     };
   }
 
@@ -67,5 +72,6 @@ function toSlotItem(slot: InventorySlotSnapshot): HotbarSlotItem {
       typeof slot.reloadTicksRemaining === "number"
         ? slot.reloadTicksRemaining
         : null,
+    rarityBorderColor,
   };
 }

@@ -1,8 +1,8 @@
-import {
-  MAX_CHAT_MESSAGE_LENGTH,
-  MAX_HOTBAR_INDEX,
-  HOTBAR_SLOT_COUNT,
-} from "@shared/gameplay/constants.ts";
+import interactionsRaw from "@shared/config/interactions.json";
+
+const HOTBAR_SLOT_COUNT = interactionsRaw.hotbarSlotCount;
+const MAX_HOTBAR_INDEX = HOTBAR_SLOT_COUNT - 1;
+const MAX_CHAT_MESSAGE_LENGTH = interactionsRaw.maxChatMessageLength;
 import {
   RESOURCE_ID_PATTERN,
   assertResourceId,

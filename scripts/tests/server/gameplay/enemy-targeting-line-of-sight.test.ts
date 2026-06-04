@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
-import { Hub } from "@server/entities/buildings/Hub.ts";
+import { Hub } from "@server/entities/tower/Hub.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,

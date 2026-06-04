@@ -20,9 +20,6 @@
     "knockback": 15,
     "jabWidth": 24
   },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rarityTier": "common",
   "rendering": {
     "assetPath": "/weapon/basic_spear.png",

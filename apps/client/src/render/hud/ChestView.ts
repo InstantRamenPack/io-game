@@ -389,5 +389,6 @@ function emptySlotItem(): HotbarSlotItem {
     magSize: null,
     reserveMagCount: null,
     reloadTicksRemaining: null,
+    rarityBorderColor: null,
   };
 }

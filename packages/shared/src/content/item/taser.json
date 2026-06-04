@@ -11,9 +11,6 @@
     "sweepArcDeg": 90
   },
   "rarityTier": "uncommon",
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "recipe": {
     "hint": "Short-range stun weapon for controlling rushes.",
     "outputAmount": 1,

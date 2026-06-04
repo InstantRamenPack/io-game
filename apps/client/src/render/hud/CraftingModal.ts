@@ -2,6 +2,7 @@ import * as PIXI from "pixi.js";
 import { syncItemIconSprite } from "@client/render/hud/itemIconRendering.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { Rect } from "@client/render/renderTypes.ts";
+import { getRarityPresentation } from "@client/render/hud/hudPresentationModels.ts";
 import type { CraftingTabId } from "@client/render/hud/HudInteractionState.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
@@ -83,7 +84,12 @@ class CraftTileView {
     const { width, height } = this.rect;
     const isActive = selected || previewed;
     const fill = entry.available ? 0x182234 : 0x151517;
-    const border = selected ? 0xf3f6ee : previewed ? 0x6ea8ff : 0x59667a;
+    const rarityColor = getRarityPresentation(entry.typeId)?.color;
+    const border = selected
+      ? 0xf3f6ee
+      : previewed
+        ? 0x6ea8ff
+        : (rarityColor ?? 0x59667a);
 
     this.background.clear();
     this.background

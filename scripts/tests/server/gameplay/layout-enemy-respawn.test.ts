@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Crate } from "@server/entities/enemies/Crate.ts";
+import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import {
   refreshLayoutEnemies,
   refreshLoot,
 } from "@server/systems/MapLoader.ts";
 import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
-import { getSectorForPoint } from "@shared/world/ProceduralWorld.ts";
+import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
@@ -25,9 +25,6 @@ function countRegularLayoutEnemies(
       return false;
     }
     if (entity.spawnSource !== "layout") {
-      return false;
-    }
-    if (entity.typeId === "enemy:crate") {
       return false;
     }
     const sector = getSectorForPoint(layout, entity);
@@ -50,7 +47,6 @@ describe("layout enemy dawn respawn", () => {
         ? []
         : sector.enemies.filter(
             (spec) =>
-              spec.typeId !== "enemy:crate" &&
               !(
                 sector.archetype === "extraction" &&
                 isLegendaryBossTypeId(spec.typeId)
@@ -101,9 +97,9 @@ describe("layout enemy dawn respawn", () => {
     expect(restoredLayout).toHaveLength(
       Math.floor(eligibleRespawnSpecs.length * 0.5),
     );
-    expect(restoredLayout.some((entity) => entity instanceof Crate)).toBe(
-      false,
-    );
+    expect(
+      restoredLayout.some((entity) => entity instanceof CrateStructure),
+    ).toBe(false);
     expect(
       restoredLayout.some((entity) =>
         dungeonSpecKeys.has(`${entity.typeId}@${entity.x},${entity.y}`),
@@ -115,7 +111,9 @@ describe("layout enemy dawn respawn", () => {
     const { runtime } = makeRuntime({ worldSeed: 42 });
     const cratesBefore = runtime.world.entities
       .all()
-      .filter((entity): entity is Crate => entity instanceof Crate);
+      .filter(
+        (entity): entity is CrateStructure => entity instanceof CrateStructure,
+      );
     expect(cratesBefore.length).toBeGreaterThan(0);
 
     for (const crate of cratesBefore) {
@@ -127,7 +125,10 @@ describe("layout enemy dawn respawn", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity): entity is Crate => entity instanceof Crate),
+        .filter(
+          (entity): entity is CrateStructure =>
+            entity instanceof CrateStructure,
+        ),
     ).toHaveLength(0);
 
     refreshLoot(runtime.world);
@@ -136,7 +137,10 @@ describe("layout enemy dawn respawn", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity): entity is Crate => entity instanceof Crate),
+        .filter(
+          (entity): entity is CrateStructure =>
+            entity instanceof CrateStructure,
+        ),
     ).toHaveLength(0);
   });
 
@@ -149,9 +153,7 @@ describe("layout enemy dawn respawn", () => {
       .all()
       .find(
         (entity): entity is Enemy =>
-          entity instanceof Enemy &&
-          entity.spawnSource === "layout" &&
-          entity.typeId !== "enemy:crate",
+          entity instanceof Enemy && entity.spawnSource === "layout",
       )?.id;
     expect(survivorId).toBeDefined();
 
@@ -177,7 +179,9 @@ describe("layout enemy dawn respawn", () => {
     );
     const crate = runtime.world.entities
       .all()
-      .find((entity): entity is Crate => entity instanceof Crate);
+      .find(
+        (entity): entity is CrateStructure => entity instanceof CrateStructure,
+      );
     const dungeonEnemy = runtime.world.entities
       .all()
       .find(

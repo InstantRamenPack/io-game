@@ -1,20 +1,4 @@
-import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import {
-  getItemContent,
-  requireEntityContent,
-  isRecipeBlueprintLocked,
-  getWeaponContent,
-} from "@shared/content/catalog.ts";
-import {
-  CRAFTING_STATION_INTERACT_PADDING,
-  CRAFTING_STATION_QUERY_RADIUS,
-  BUILD_PLACEMENT_MAX_DISTANCE,
-  CHEST_INTERACT_PADDING,
-  CHEST_SLOT_COUNT,
-  HOTBAR_SLOT_COUNT,
-  RECYCLER_INTERACT_PADDING,
-  TOWER_INTERACT_PADDING,
-} from "@shared/gameplay/constants.ts";
+import { requireEntityContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
 import type {
@@ -25,40 +9,28 @@ import type {
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import { Entity } from "@server/entities/Entity.ts";
-import {
-  getRecycleHunkOutput,
-  HUNK_ITEM_TYPE_ID,
-  isContainerEntity,
-  isCraftingStationEntity,
-  isDebugAdminPlayerName,
-  getRepairableCapability,
-  isRecyclerEntity,
-} from "@server/content/serverContentCapabilities.ts";
-import { getDebugAdjustedResourceCosts } from "@server/server/debugPlayerBootstrap.ts";
+import { isDebugAdminPlayerName } from "@server/content/serverContentCapabilities.ts";
 import {
   requireHitboxEntityBaselineContent,
   requireMovingEntityBaselineContent,
 } from "@server/entities/entityBaselineContent.ts";
-import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import { craft } from "@server/entities/player/PlayerCrafting.ts";
+import { placeStructure } from "@server/entities/player/PlayerBuildPlacement.ts";
 import {
-  applyBlueprintPickupWorldEffects,
-  isBlueprintPickup,
-} from "@server/items/blueprintPickupEffects.ts";
+  applyArmorMove,
+  applyChestMove,
+  dropSelectedItem,
+  pickupNearestOverlappingItem,
+  recycleSelectedItem,
+  useConsumable,
+} from "@server/entities/player/PlayerInventoryActions.ts";
+import { repairTower } from "@server/entities/player/PlayerTowerInteraction.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
-import { ConsumableItem } from "@server/items/ConsumableItem.ts";
-import { ArmorItem } from "@server/items/armor/ArmorItem.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
-import type { Item } from "@server/items/Item.ts";
-import { Weapon } from "@server/items/Weapon.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
-import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import type { World } from "@server/world/World.ts";
-import { isBuildingCtor, isStructureCtor } from "@server/runtime/ctorGuards.ts";
-import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
-import type { Hub } from "@server/entities/buildings/Hub.ts";
-import type { Chest } from "@server/entities/buildings/Chest.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";
 
 const DEBUG_SPECTATOR_MOVE_SPEED_MULTIPLIER = 4;
@@ -70,10 +42,6 @@ type PlayerInputIntentState = {
   movement: InputMovement;
   receivedAtMs: number;
 };
-
-type ResolvedCraftTarget =
-  | { source: "hotbar"; index: number }
-  | { source: "chest"; index: number; chest: Chest | Hub };
 
 /**
  * Authoritative player entity driven by held movement state and queued actions.
@@ -235,6 +203,10 @@ export class Player extends Entity {
     return this.equippedArmorTypeId;
   }
 
+  public setEquippedArmorTypeId(typeId: ResourceId | undefined): void {
+    this.equippedArmorTypeId = typeId;
+  }
+
   public getActiveWeapon(): Weapon | undefined {
     const selectedSlot =
       this.inventory.hotbarSlots[this.inventory.selectedHotbarIndex];
@@ -309,191 +281,11 @@ export class Player extends Entity {
     itemTypeId: ResourceId,
     target?: CraftTargetInput,
   ): void {
-    const shouldTrace = world.focusedTrace.matchesEntity(this);
-    const nearbyCraftingStations = this.getNearbyCraftingStations(world);
-    const nearCraftingStation = nearbyCraftingStations.some((station) => {
-      if (!station.alive) {
-        return false;
-      }
-      const bounds = station.getWorldBounds();
-      return (
-        this.x >= bounds.minX - CRAFTING_STATION_INTERACT_PADDING &&
-        this.x <= bounds.maxX + CRAFTING_STATION_INTERACT_PADDING &&
-        this.y >= bounds.minY - CRAFTING_STATION_INTERACT_PADDING &&
-        this.y <= bounds.maxY + CRAFTING_STATION_INTERACT_PADDING
-      );
-    });
-    if (!nearCraftingStation) {
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "not_near_station",
-        });
-      }
-      return;
-    }
-
-    const outputEntry = getItemLikeTypeEntry(itemTypeId);
-    const recipe = outputEntry?.content.recipe;
-    if (!outputEntry || !recipe) {
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "missing_recipe",
-        });
-      }
-      return;
-    }
-
-    if (
-      (isRecipeBlueprintLocked(itemTypeId) || itemTypeId.startsWith("mag:")) &&
-      !this.inventory.isRecipeUnlocked(itemTypeId)
-    ) {
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "recipe_locked",
-        });
-      }
-      return;
-    }
-
-    const craftCosts = getDebugAdjustedResourceCosts(this, recipe.costs);
-    if (!this.inventory.hasTypes(craftCosts)) {
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "missing_resources",
-          costs: craftCosts,
-        });
-      }
-      return;
-    }
-
-    const outputItem = new outputEntry.ctor();
-    const craftTarget = this.resolveCraftTarget(world, target);
-    const canStoreTargetedCraftOutput =
-      craftTarget !== null &&
-      this.canStoreCraftOutputInTarget(
-        outputItem,
-        recipe.outputAmount,
-        craftTarget,
-      );
-    const canStoreCraftOutput = outputItem.canGrantToInventoryAfterConsuming(
-      this.inventory,
-      recipe.outputAmount,
-      craftCosts,
-    );
-    if (!canStoreCraftOutput && !canStoreTargetedCraftOutput) {
-      if (shouldTrace) {
-        world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-          itemTypeId,
-          result: "inventory_full",
-          outputAmount: recipe.outputAmount,
-        });
-      }
-      return;
-    }
-
-    this.inventory.consumeTypes(craftCosts);
-    const grantedToTarget =
-      canStoreTargetedCraftOutput &&
-      craftTarget !== null &&
-      this.grantCraftOutputToTarget(
-        outputItem,
-        recipe.outputAmount,
-        craftTarget,
-      );
-    if (!grantedToTarget) {
-      outputItem.grantToInventory(this.inventory, recipe.outputAmount);
-    }
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", this, {
-        itemTypeId,
-        result: outputItem.getCraftTraceResult(),
-        outputAmount: recipe.outputAmount,
-        totalOwnedAfterCraft: this.inventory.countType(itemTypeId),
-      });
-    }
+    craft(this, world, itemTypeId, target);
   }
 
   public placeStructure(world: World, targetX: number, targetY: number): void {
-    const selectedBuildable = this.inventory.getSelectedBuildable();
-    const itemTypeId = selectedBuildable?.typeId;
-    if (!itemTypeId) {
-      return;
-    }
-
-    const itemEntry = getItemLikeTypeEntry(itemTypeId);
-    const targetEntityTypeId = itemEntry?.content.buildsEntityTypeId;
-    if (!targetEntityTypeId) {
-      return;
-    }
-
-    if (
-      Math.hypot(targetX - this.x, targetY - this.y) >
-      BUILD_PLACEMENT_MAX_DISTANCE
-    ) {
-      return;
-    }
-
-    const targetEntityEntry = entityTypeRegistry.get(targetEntityTypeId);
-    if (!targetEntityEntry) {
-      return;
-    }
-
-    const targetEntityCtor = targetEntityEntry.ctor;
-    const isBuilding = isBuildingCtor(targetEntityCtor);
-    const isStructure = isStructureCtor(targetEntityCtor);
-    if (!isBuilding && !isStructure) {
-      return;
-    }
-
-    const placedEntity = new targetEntityCtor(world.allocEntityId());
-    const snappedTargetX = Math.round(targetX);
-    const snappedTargetY = Math.round(targetY);
-    placedEntity.x = snappedTargetX;
-    placedEntity.y = snappedTargetY;
-    placedEntity.ownerId = this.id;
-    const placedBounds = placedEntity.getWorldBounds();
-
-    if (
-      placedBounds.minX < 0 ||
-      placedBounds.minY < 0 ||
-      placedBounds.maxX > world.gameConfig.worldSize.w ||
-      placedBounds.maxY > world.gameConfig.worldSize.h
-    ) {
-      return;
-    }
-
-    if (this.doHitboxesOverlap(placedEntity, this)) {
-      return;
-    }
-
-    for (const blocker of world.staticGeometry.queryBox(
-      placedBounds.minX,
-      placedBounds.minY,
-      placedBounds.maxX,
-      placedBounds.maxY,
-    )) {
-      if (blocker.entityId === this.id) {
-        continue;
-      }
-      if (
-        doResolvedRectSetsOverlap(
-          placedEntity.getWorldHitboxes(),
-          blocker.hitboxes,
-        )
-      ) {
-        return;
-      }
-    }
-
-    if (!this.inventory.consumeSelectedBuildable(1)) {
-      return;
-    }
-
-    world.spawn(placedEntity);
+    placeStructure(this, world, targetX, targetY);
   }
 
   private applyLatestInputIntent(world: World): boolean {
@@ -610,14 +402,16 @@ export class Player extends Entity {
           this.getActiveWeapon()?.hit(world, this, actionMessage.theta);
           break;
         case "craft":
-          this.craft(
+          craft(
+            this,
             world,
             actionMessage.craft.itemTypeId,
             actionMessage.craft.target,
           );
           break;
         case "build":
-          this.placeStructure(
+          placeStructure(
+            this,
             world,
             actionMessage.build.x,
             actionMessage.build.y,
@@ -630,19 +424,19 @@ export class Player extends Entity {
           );
           break;
         case "armorMove":
-          this.applyArmorMove(actionMessage.armorMove);
+          applyArmorMove(this, actionMessage.armorMove);
           break;
         case "chestMove":
-          this.applyChestMove(world, actionMessage.chestMove);
+          applyChestMove(this, world, actionMessage.chestMove);
           break;
         case "drop":
-          this.dropSelectedItem(world, actionMessage.dropWholeStack);
+          dropSelectedItem(this, world, actionMessage.dropWholeStack);
           break;
         case "pickup":
-          this.pickupNearestOverlappingItem(world);
+          pickupNearestOverlappingItem(this, world);
           break;
         case "recycle":
-          this.recycleSelectedItem(world);
+          recycleSelectedItem(this, world);
           break;
         case "reload": {
           const activeWeapon = this.getActiveWeapon();
@@ -652,10 +446,10 @@ export class Player extends Entity {
           break;
         }
         case "useConsumable":
-          this.useConsumable(world, actionMessage.typeId);
+          useConsumable(this, world, actionMessage.typeId);
           break;
         case "repair_tower":
-          this.repairTower(world, actionMessage.towerId);
+          repairTower(this, world, actionMessage.towerId);
           break;
       }
     }
@@ -666,643 +460,9 @@ export class Player extends Entity {
     }
   }
 
-  private doHitboxesOverlap(leftEntity: Entity, rightEntity: Entity): boolean {
-    return doResolvedRectSetsOverlap(
-      leftEntity.getWorldHitboxes(),
-      rightEntity.getWorldHitboxes(),
-    );
-  }
-
-  private dropSelectedItem(world: World, dropWholeStack: boolean): void {
-    const selectedHotbarIndex = this.inventory.selectedHotbarIndex;
-    const selectedSlot = this.inventory.hotbarSlots[selectedHotbarIndex];
-    if (!selectedSlot && !this.equippedArmorTypeId) {
-      return;
-    }
-
-    const droppedInventory = new Inventory();
-    if (!selectedSlot) {
-      droppedInventory.addStackable(this.equippedArmorTypeId as ResourceId, 1);
-      this.equippedArmorTypeId = undefined;
-    } else if (selectedSlot.kind === "weapon") {
-      this.inventory.hotbarSlots[selectedHotbarIndex] = null;
-      droppedInventory.addWeapon(selectedSlot.weapon);
-    } else {
-      const dropCount = dropWholeStack ? selectedSlot.count : 1;
-      if (dropCount <= 0) {
-        return;
-      }
-      selectedSlot.count -= dropCount;
-      if (selectedSlot.count <= 0) {
-        this.inventory.hotbarSlots[selectedHotbarIndex] = null;
-      }
-      droppedInventory.addStackable(selectedSlot.typeId, dropCount);
-    }
-
-    this.spawnDroppedInventory(world, droppedInventory);
-  }
-
-  private spawnDroppedInventory(
-    world: World,
-    droppedInventory: Inventory,
-  ): void {
-    const pickup = new ItemEntity(world.allocEntityId(), droppedInventory);
-    const dropDistance = 20;
-    const aimX = Math.cos(this.rotation);
-    const aimY = Math.sin(this.rotation);
-    const directionX = Number.isFinite(aimX) ? aimX : 1;
-    const directionY = Number.isFinite(aimY) ? aimY : 0;
-    pickup.x = this.x + directionX * dropDistance;
-    pickup.y = this.y + directionY * dropDistance;
-
-    const bounds = pickup.getWorldBounds();
-    if (bounds.minX < 0) {
-      pickup.x -= bounds.minX;
-    }
-    if (bounds.maxX > world.gameConfig.worldSize.w) {
-      pickup.x -= bounds.maxX - world.gameConfig.worldSize.w;
-    }
-    if (bounds.minY < 0) {
-      pickup.y -= bounds.minY;
-    }
-    if (bounds.maxY > world.gameConfig.worldSize.h) {
-      pickup.y -= bounds.maxY - world.gameConfig.worldSize.h;
-    }
-
-    world.spawn(pickup);
-  }
-
   private getEquippedArmorStats() {
     return this.equippedArmorTypeId
       ? getArmorStats(this.equippedArmorTypeId)
       : null;
-  }
-
-  private pickupNearestOverlappingItem(world: World): void {
-    const bounds = this.getWorldBounds();
-    const playerHitboxes = this.getWorldHitboxes();
-    let nearestPickup: ItemEntity | undefined;
-    let nearestDistanceSquared = Number.POSITIVE_INFINITY;
-
-    for (const candidate of world.spatial.queryBox(
-      bounds.minX,
-      bounds.minY,
-      bounds.maxX,
-      bounds.maxY,
-    )) {
-      if (!(candidate instanceof ItemEntity)) {
-        continue;
-      }
-      if (
-        !doResolvedRectSetsOverlap(playerHitboxes, candidate.getWorldHitboxes())
-      ) {
-        continue;
-      }
-      const distanceSquared =
-        (candidate.x - this.x) * (candidate.x - this.x) +
-        (candidate.y - this.y) * (candidate.y - this.y);
-      if (distanceSquared < nearestDistanceSquared) {
-        nearestDistanceSquared = distanceSquared;
-        nearestPickup = candidate;
-      }
-    }
-
-    if (!nearestPickup) {
-      return;
-    }
-
-    if (
-      !this.inventory.absorbInventoryByAcquisitionRules(nearestPickup.contents)
-    ) {
-      return;
-    }
-
-    if (isBlueprintPickup(nearestPickup)) {
-      applyBlueprintPickupWorldEffects(world, nearestPickup, this);
-    }
-
-    world.despawn(nearestPickup.id);
-  }
-
-  private recycleSelectedItem(world: World): void {
-    if (!this.isNearRecycler(world)) {
-      return;
-    }
-
-    const selectedIndex = this.inventory.selectedHotbarIndex;
-    const slot = this.inventory.hotbarSlots[selectedIndex];
-    if (!slot) {
-      return;
-    }
-
-    const typeId = slot.kind === "weapon" ? slot.weapon.typeId : slot.typeId;
-    const hunkAmount = getRecycleHunkOutput(
-      typeId,
-      world.randomNumberGenerator,
-    );
-    if (hunkAmount === undefined || hunkAmount <= 0) {
-      return;
-    }
-
-    if (slot.kind === "weapon") {
-      this.inventory.hotbarSlots[selectedIndex] = null;
-    } else {
-      slot.count -= 1;
-      if (slot.count <= 0) {
-        this.inventory.hotbarSlots[selectedIndex] = null;
-      }
-    }
-
-    this.inventory.addStackable(HUNK_ITEM_TYPE_ID, hunkAmount);
-  }
-
-  private useConsumable(world: World, typeId: ResourceId): void {
-    const selectedIndex = this.inventory.selectedHotbarIndex;
-    const selectedSlot = this.inventory.hotbarSlots[selectedIndex];
-    if (
-      !selectedSlot ||
-      selectedSlot.kind !== "buildable" ||
-      selectedSlot.typeId !== typeId ||
-      selectedSlot.count <= 0
-    ) {
-      return;
-    }
-    const itemEntry = getItemLikeTypeEntry(typeId);
-    if (!itemEntry) {
-      return;
-    }
-    const item = new itemEntry.ctor();
-    if (item instanceof ArmorItem) {
-      if (this.equippedArmorTypeId) {
-        selectedSlot.typeId = this.equippedArmorTypeId;
-        selectedSlot.count = 1;
-      } else {
-        selectedSlot.count -= 1;
-        if (selectedSlot.count <= 0) {
-          this.inventory.hotbarSlots[selectedIndex] = null;
-        }
-      }
-      this.equippedArmorTypeId = typeId;
-      return;
-    }
-    if (!(item instanceof ConsumableItem)) {
-      return;
-    }
-    selectedSlot.count -= 1;
-    if (selectedSlot.count <= 0) {
-      this.inventory.hotbarSlots[selectedIndex] = null;
-    }
-    item.consume(world, this);
-  }
-
-  private isNearRecycler(world: World): boolean {
-    const bounds = this.getWorldBounds();
-    const pad = RECYCLER_INTERACT_PADDING;
-    for (const candidate of world.spatial.queryBox(
-      bounds.minX - pad,
-      bounds.minY - pad,
-      bounds.maxX + pad,
-      bounds.maxY + pad,
-    )) {
-      if (!isRecyclerEntity(candidate) || !candidate.alive) {
-        continue;
-      }
-      const rb = candidate.getHitboxBounds();
-      if (
-        this.x >= candidate.x + rb.minX - pad &&
-        this.x <= candidate.x + rb.maxX + pad &&
-        this.y >= candidate.y + rb.minY - pad &&
-        this.y <= candidate.y + rb.maxY + pad
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private repairTower(world: World, towerId: number): void {
-    const tower = world.entities.get(towerId);
-    if (!tower) {
-      return;
-    }
-    const repairable = getRepairableCapability(tower);
-    if (!repairable) {
-      return;
-    }
-
-    const missingHp = tower.maxHp - tower.hp;
-    if (missingHp <= 0 && tower.alive) {
-      return;
-    }
-
-    const rb = tower.getHitboxBounds();
-    const pad = TOWER_INTERACT_PADDING;
-    if (
-      this.x < tower.x + rb.minX - pad ||
-      this.x > tower.x + rb.maxX + pad ||
-      this.y < tower.y + rb.minY - pad ||
-      this.y > tower.y + rb.maxY + pad
-    ) {
-      return;
-    }
-
-    const totalMissing = tower.alive ? missingHp : tower.maxHp;
-    const repairCost = Math.ceil(totalMissing / repairable.hpPerCostUnit);
-    if (repairCost <= 0) {
-      return;
-    }
-
-    const repairCosts = getDebugAdjustedResourceCosts(this, [
-      { typeId: repairable.costItemTypeId, amount: repairCost },
-    ]);
-    if (!this.inventory.hasTypes(repairCosts)) {
-      return;
-    }
-
-    this.inventory.consumeTypes(repairCosts);
-    tower.hp = tower.maxHp;
-    tower.alive = true;
-  }
-
-  private applyChestMove(
-    world: World,
-    action: {
-      chestEntityId: number;
-      fromSource: "hotbar" | "chest";
-      fromIndex: number;
-      toSource: "hotbar" | "chest";
-      toIndex: number;
-    },
-  ): void {
-    const { chestEntityId, fromSource, fromIndex, toSource, toIndex } = action;
-
-    const maxHotbar = HOTBAR_SLOT_COUNT - 1;
-    if (fromSource === "hotbar" && (fromIndex < 0 || fromIndex > maxHotbar)) {
-      return;
-    }
-    if (
-      fromSource === "chest" &&
-      (fromIndex < 0 || fromIndex >= CHEST_SLOT_COUNT)
-    ) {
-      return;
-    }
-    if (toSource === "hotbar" && (toIndex < 0 || toIndex > maxHotbar)) {
-      return;
-    }
-    if (toSource === "chest" && (toIndex < 0 || toIndex >= CHEST_SLOT_COUNT)) {
-      return;
-    }
-
-    const chestEntity = world.entities.get(chestEntityId);
-    if (!chestEntity || !isContainerEntity(chestEntity)) {
-      return;
-    }
-    if (!chestEntity.alive) {
-      return;
-    }
-
-    const bounds = chestEntity.getWorldBounds();
-    if (
-      this.x < bounds.minX - CHEST_INTERACT_PADDING ||
-      this.x > bounds.maxX + CHEST_INTERACT_PADDING ||
-      this.y < bounds.minY - CHEST_INTERACT_PADDING ||
-      this.y > bounds.maxY + CHEST_INTERACT_PADDING
-    ) {
-      return;
-    }
-
-    const fromValue = this.extractSlotValue(fromSource, fromIndex, chestEntity);
-    if (fromValue === null) {
-      return;
-    }
-    const toValue = this.extractSlotValue(toSource, toIndex, chestEntity);
-
-    if (
-      fromValue.kind === "buildable" &&
-      toValue?.kind === "buildable" &&
-      fromValue.typeId === toValue.typeId
-    ) {
-      const stacked = fromValue.count + toValue.count;
-      this.writeSlotValue(toSource, toIndex, chestEntity, {
-        kind: "buildable",
-        typeId: toValue.typeId,
-        count: stacked,
-      });
-      this.writeSlotValue(fromSource, fromIndex, chestEntity, null);
-      return;
-    }
-
-    this.writeSlotValue(toSource, toIndex, chestEntity, fromValue);
-    this.writeSlotValue(fromSource, fromIndex, chestEntity, toValue);
-  }
-
-  private applyArmorMove(action: {
-    fromSource: "hotbar" | "armor";
-    fromIndex: number;
-    toSource: "hotbar" | "armor";
-    toIndex: number;
-  }): void {
-    if (action.fromSource === action.toSource) {
-      return;
-    }
-    if (action.fromSource === "hotbar" && action.toSource === "armor") {
-      this.moveHotbarToArmor(action.fromIndex, action.toIndex);
-      return;
-    }
-    this.moveArmorToHotbar(action.fromIndex, action.toIndex);
-  }
-
-  private moveHotbarToArmor(
-    fromHotbarIndex: number,
-    toArmorIndex: number,
-  ): void {
-    if (toArmorIndex !== 0) {
-      return;
-    }
-    const selectedSlot = this.inventory.hotbarSlots[fromHotbarIndex];
-    if (
-      !selectedSlot ||
-      selectedSlot.kind !== "buildable" ||
-      selectedSlot.count <= 0
-    ) {
-      return;
-    }
-    if (!getArmorStats(selectedSlot.typeId)) {
-      return;
-    }
-
-    const incomingArmorTypeId = selectedSlot.typeId;
-    selectedSlot.count -= 1;
-    if (selectedSlot.count <= 0) {
-      this.inventory.hotbarSlots[fromHotbarIndex] = null;
-    }
-
-    if (this.equippedArmorTypeId) {
-      const currentArmorTypeId = this.equippedArmorTypeId;
-      if (
-        selectedSlot &&
-        selectedSlot.kind === "buildable" &&
-        selectedSlot.typeId === currentArmorTypeId
-      ) {
-        selectedSlot.count += 1;
-      } else if (this.inventory.hotbarSlots[fromHotbarIndex] === null) {
-        this.inventory.hotbarSlots[fromHotbarIndex] = {
-          kind: "buildable",
-          typeId: currentArmorTypeId,
-          count: 1,
-        };
-      } else if (!this.inventory.canAddStackable(currentArmorTypeId, 1)) {
-        selectedSlot.count += 1;
-        if (this.inventory.hotbarSlots[fromHotbarIndex] === null) {
-          this.inventory.hotbarSlots[fromHotbarIndex] = selectedSlot;
-        }
-        return;
-      } else {
-        this.inventory.addStackable(currentArmorTypeId, 1);
-      }
-    }
-
-    this.equippedArmorTypeId = incomingArmorTypeId;
-  }
-
-  private moveArmorToHotbar(
-    fromArmorIndex: number,
-    toHotbarIndex: number,
-  ): void {
-    if (fromArmorIndex !== 0 || !this.equippedArmorTypeId) {
-      return;
-    }
-    const slot = this.inventory.hotbarSlots[toHotbarIndex];
-    if (!slot) {
-      this.inventory.hotbarSlots[toHotbarIndex] = {
-        kind: "buildable",
-        typeId: this.equippedArmorTypeId,
-        count: 1,
-      };
-      this.equippedArmorTypeId = undefined;
-      return;
-    }
-    if (slot.kind === "buildable" && getArmorStats(slot.typeId)) {
-      const temp = slot.typeId;
-      slot.typeId = this.equippedArmorTypeId;
-      this.equippedArmorTypeId = temp;
-      return;
-    }
-    // Target slot is occupied by a weapon or non-armor item; find first empty slot
-    const emptyIndex = this.inventory.hotbarSlots.findIndex((s) => s === null);
-    if (emptyIndex === -1) {
-      return;
-    }
-    this.inventory.hotbarSlots[emptyIndex] = {
-      kind: "buildable",
-      typeId: this.equippedArmorTypeId,
-      count: 1,
-    };
-    this.equippedArmorTypeId = undefined;
-  }
-
-  private extractSlotValue(
-    source: "hotbar" | "chest",
-    index: number,
-    chest: Chest | Hub,
-  ): ChestSlot {
-    if (source === "chest") {
-      return chest.getSlot(index);
-    }
-    const slot = this.inventory.hotbarSlots[index] ?? null;
-    if (!slot) {
-      return null;
-    }
-    if (slot.kind === "buildable") {
-      return { kind: "buildable", typeId: slot.typeId, count: slot.count };
-    }
-    return { kind: "weapon", typeId: slot.weapon.typeId };
-  }
-
-  private writeSlotValue(
-    source: "hotbar" | "chest",
-    index: number,
-    chest: Chest | Hub,
-    value: ChestSlot,
-  ): void {
-    if (source === "chest") {
-      chest.setSlot(index, value);
-      return;
-    }
-    if (value === null) {
-      this.inventory.hotbarSlots[index] = null;
-      return;
-    }
-    if (value.kind === "buildable") {
-      this.inventory.hotbarSlots[index] = {
-        kind: "buildable",
-        typeId: value.typeId,
-        count: value.count,
-      };
-      return;
-    }
-    const entry = getItemLikeTypeEntry(value.typeId);
-    if (
-      entry &&
-      getWeaponContent(value.typeId) &&
-      entry.ctor.prototype instanceof Weapon
-    ) {
-      this.inventory.hotbarSlots[index] = {
-        kind: "weapon",
-        weapon: new entry.ctor() as Weapon,
-      };
-    }
-  }
-
-  private resolveCraftTarget(
-    world: World,
-    target?: CraftTargetInput,
-  ): ResolvedCraftTarget | null {
-    if (!target) {
-      return null;
-    }
-    if (
-      target.source === "hotbar" &&
-      target.index >= 0 &&
-      target.index < this.inventory.hotbarSlots.length
-    ) {
-      return { source: "hotbar", index: target.index };
-    }
-    if (target.source !== "chest" || target.chestEntityId === undefined) {
-      return null;
-    }
-    const chestEntity = world.entities.get(target.chestEntityId);
-    if (!chestEntity || !isContainerEntity(chestEntity) || !chestEntity.alive) {
-      return null;
-    }
-    if (target.index < 0 || target.index >= chestEntity.chestSlots.length) {
-      return null;
-    }
-
-    const bounds = chestEntity.getWorldBounds();
-    if (
-      this.x < bounds.minX - CHEST_INTERACT_PADDING ||
-      this.x > bounds.maxX + CHEST_INTERACT_PADDING ||
-      this.y < bounds.minY - CHEST_INTERACT_PADDING ||
-      this.y > bounds.maxY + CHEST_INTERACT_PADDING
-    ) {
-      return null;
-    }
-    return { source: "chest", index: target.index, chest: chestEntity };
-  }
-
-  private canStoreCraftOutputInTarget(
-    outputItem: Item,
-    amount: number,
-    target: ResolvedCraftTarget,
-  ): boolean {
-    if (amount <= 0) {
-      return true;
-    }
-    const currentSlot = this.getCraftTargetSlot(target);
-    if (outputItem.isWeaponItem()) {
-      return amount === 1 && currentSlot === null;
-    }
-    if (!this.isHotbarStoredCraftOutput(outputItem.typeId)) {
-      return false;
-    }
-    return (
-      currentSlot === null ||
-      (currentSlot.kind === "buildable" &&
-        currentSlot.typeId === outputItem.typeId)
-    );
-  }
-
-  private grantCraftOutputToTarget(
-    outputItem: Item,
-    amount: number,
-    target: ResolvedCraftTarget,
-  ): boolean {
-    if (!this.canStoreCraftOutputInTarget(outputItem, amount, target)) {
-      return false;
-    }
-    if (amount <= 0) {
-      return true;
-    }
-    if (outputItem.isWeaponItem()) {
-      this.writeCraftTargetSlot(target, {
-        kind: "weapon",
-        typeId: outputItem.typeId,
-      });
-      return true;
-    }
-
-    const currentSlot = this.getCraftTargetSlot(target);
-    this.writeCraftTargetSlot(target, {
-      kind: "buildable",
-      typeId: outputItem.typeId,
-      count:
-        currentSlot?.kind === "buildable" &&
-        currentSlot.typeId === outputItem.typeId
-          ? currentSlot.count + amount
-          : amount,
-    });
-    return true;
-  }
-
-  private getCraftTargetSlot(target: ResolvedCraftTarget): ChestSlot {
-    if (target.source === "chest") {
-      return target.chest.getSlot(target.index);
-    }
-    const slot = this.inventory.hotbarSlots[target.index] ?? null;
-    if (slot === null) {
-      return null;
-    }
-    return slot.kind === "buildable"
-      ? { kind: "buildable", typeId: slot.typeId, count: slot.count }
-      : { kind: "weapon", typeId: slot.weapon.typeId };
-  }
-
-  private writeCraftTargetSlot(
-    target: ResolvedCraftTarget,
-    value: Exclude<ChestSlot, null>,
-  ): void {
-    if (target.source === "chest") {
-      target.chest.setSlot(target.index, value);
-      return;
-    }
-    if (value.kind === "buildable") {
-      this.inventory.hotbarSlots[target.index] = {
-        kind: "buildable",
-        typeId: value.typeId,
-        count: value.count,
-      };
-      return;
-    }
-    const entry = getItemLikeTypeEntry(value.typeId);
-    if (
-      entry &&
-      getWeaponContent(value.typeId) &&
-      entry.ctor.prototype instanceof Weapon
-    ) {
-      this.inventory.hotbarSlots[target.index] = {
-        kind: "weapon",
-        weapon: new entry.ctor() as Weapon,
-      };
-    }
-  }
-
-  private isHotbarStoredCraftOutput(typeId: ResourceId): boolean {
-    const content = getItemContent(typeId);
-    return Boolean(
-      content?.buildsEntityTypeId || content?.consumable || content?.armor,
-    );
-  }
-
-  private getNearbyCraftingStations(world: World): Entity[] {
-    return world.spatial
-      .queryBox(
-        this.x - CRAFTING_STATION_QUERY_RADIUS,
-        this.y - CRAFTING_STATION_QUERY_RADIUS,
-        this.x + CRAFTING_STATION_QUERY_RADIUS,
-        this.y + CRAFTING_STATION_QUERY_RADIUS,
-      )
-      .filter(isCraftingStationEntity)
-      .filter((station) => station.alive);
   }
 }

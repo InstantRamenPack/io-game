@@ -3,9 +3,6 @@
   "hint": "Crafting schematic for the Drone Shooter.",
   "description": "Unlocks the Drone Shooter recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:drone_shooter",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/drone_shooter.png",
     "sprite": {

@@ -1,0 +1,55 @@
+{
+  "lootByTier": {
+    "common": [
+      "item:baseball_bat",
+      "item:basic_dagger",
+      "item:basic_gun",
+      "item:basic_spear",
+      "item:basic_sword",
+      "item:cleaver",
+      "item:scissors"
+    ],
+    "uncommon": ["item:carbine", "item:crossbow", "item:machete", "item:taser"],
+    "rare": [
+      "item:basic_rifle",
+      "item:drone_shooter",
+      "item:fire_axe",
+      "item:machine_pistol",
+      "item:shotgun",
+      "item:spiked_spear"
+    ],
+    "epic": [
+      "item:halberd",
+      "item:heavy_pistol",
+      "item:katana",
+      "item:lmg",
+      "item:sniper"
+    ]
+  },
+  "crateLootRarityWeights": {
+    "common": {
+      "common": 0.3,
+      "uncommon": 0.7,
+      "rare": 0,
+      "epic": 0
+    },
+    "uncommon": {
+      "common": 0,
+      "uncommon": 0.3,
+      "rare": 0.7,
+      "epic": 0
+    },
+    "rare": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 0.5,
+      "epic": 0.5
+    },
+    "epic": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 0,
+      "epic": 1
+    }
+  }
+}

@@ -1,14 +1,17 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import proceduralContentJson from "@shared/world/procedural-content.json";
+import {
+  proceduralContentConfig,
+  proceduralBlueprintConfig,
+} from "@shared/world/proceduralConfig.ts";
 import {
   PROCEDURAL_GRID_SIZE,
   PROCEDURAL_SECTOR_BANDS,
   PROCEDURAL_TARGET_VILLAGE_COUNT,
   PROCEDURAL_WORLD_SIZE,
   REQUIRED_DUNGEON_ROOM_ROLES,
-  generateProceduralWorldLayout,
   pointInRect,
-} from "@shared/world/ProceduralWorld.ts";
+} from "@shared/world/layoutTypes.ts";
+import { generateProceduralWorldLayout } from "@server/world/generation/generateProceduralWorldLayout.ts";
 import {
   countLegendaryBossSpawns,
   getLegendaryBossTypeIds,
@@ -33,37 +36,20 @@ import {
   makeRuntime,
 } from "@tests/helpers/worldFixtures.ts";
 
-const PROCEDURAL_CONTENT = proceduralContentJson as {
-  lootByTier: Record<string, ResourceId[]>;
-  crateLootRarityWeights: Record<string, Record<string, number>>;
-  interiorSpawnChances: {
-    furniture: number;
-    crate: number;
-    enemy: number;
-  };
-  villageGeneration?: {
-    sectorEdgeMargin: number;
-    bspSplitGap: number;
-    bspMinLeafAxis: number;
-  };
-  forestCampEnemyTypes?: {
-    corner: ResourceId[];
-    edge: ResourceId[];
-  };
-  villageEnemyPools?: Record<string, ResourceId[]>;
-};
+const PROCEDURAL_CONTENT = proceduralContentConfig;
 
 const ACCESS_SAMPLE_SIZE = 32;
 const PLAYER_CLEARANCE = 24;
 const MIN_REACHABLE_OPEN_RATIO = 0.97;
 
 function villageTierWeaponBlueprintCount(
-  tier: keyof typeof proceduralContentJson.blueprintPlacement.villageTierSlots,
+  tier: keyof typeof proceduralBlueprintConfig.blueprintPlacement.villageTierSlots,
 ): number {
-  const slot = proceduralContentJson.blueprintPlacement.villageTierSlots[tier];
+  const slot =
+    proceduralBlueprintConfig.blueprintPlacement.villageTierSlots[tier];
   const extraCount =
     "extraWeaponBlueprintCount" in slot ? slot.extraWeaponBlueprintCount : 0;
-  return slot.weaponBlueprintCount + extraCount;
+  return slot.weaponBlueprintCount + (extraCount ?? 0);
 }
 
 function isWeaponOrBlueprint(typeId: ResourceId): boolean {
@@ -229,9 +215,9 @@ describe("procedural survival extraction world", () => {
       ).toBeDefined();
       if (!sector) continue;
 
-      const villageCrates = sector.enemies.filter(
+      const villageCrates = sector.structures.filter(
         (spawn) =>
-          spawn.typeId === "enemy:crate" &&
+          spawn.typeId === "structure:crate" &&
           spawn.x >= village.minX &&
           spawn.x <= village.maxX &&
           spawn.y >= village.minY &&
@@ -350,9 +336,9 @@ describe("procedural survival extraction world", () => {
       expect(village.maxX).toBeLessThanOrEqual(sector.maxX - margin);
       expect(village.maxY).toBeLessThanOrEqual(sector.maxY - margin);
 
-      const villageCrates = sector.enemies.filter(
+      const villageCrates = sector.structures.filter(
         (spawn) =>
-          spawn.typeId === "enemy:crate" &&
+          spawn.typeId === "structure:crate" &&
           spawn.x >= village.minX &&
           spawn.x <= village.maxX &&
           spawn.y >= village.minY &&
@@ -474,13 +460,14 @@ describe("procedural survival extraction world", () => {
       ].includes(spawn.typeId),
     );
 
-    expect(templateSpawns.some((spawn) => spawn.typeId === "enemy:crate")).toBe(
-      true,
-    );
+    expect(
+      templateSpawns.some((spawn) => spawn.typeId === "structure:crate"),
+    ).toBe(true);
     expect(
       templateSpawns.some(
         (spawn) =>
-          spawn.typeId !== "enemy:crate" && spawn.typeId.startsWith("enemy:"),
+          spawn.typeId !== "structure:crate" &&
+          spawn.typeId.startsWith("enemy:"),
       ),
     ).toBe(true);
     expect(
@@ -610,22 +597,22 @@ describe("procedural survival extraction world", () => {
     const authoredEdgeCampTypes =
       PROCEDURAL_CONTENT.forestCampEnemyTypes?.edge ?? [];
     for (const camp of layout.forestCamps) {
-      const expected: ResourceId[] = isCornerSector(camp.sectorId)
+      const expected: readonly ResourceId[] = isCornerSector(camp.sectorId)
         ? authoredCornerCampTypes
         : authoredEdgeCampTypes;
-      expect(camp.enemyTypes).toEqual(expected);
+      expect(camp.enemyTypes).toEqual([...expected]);
     }
 
     const villageCrates = [layout, generateProceduralWorldLayout(1338)]
       .flatMap((entry) => entry.sectors)
-      .flatMap((sector) => sector.enemies)
+      .flatMap((sector) => sector.structures)
       .filter(
-        (enemy) =>
-          enemy.typeId === "enemy:crate" &&
-          enemy.crateLoot &&
-          enemy.label?.startsWith("village_template:"),
+        (crate) =>
+          crate.typeId === "structure:crate" &&
+          crate.crateLoot &&
+          crate.label?.startsWith("village_template:"),
       )
-      .map((enemy) => enemy.crateLoot!);
+      .map((crate) => crate.crateLoot!);
     expect(villageCrates.length).toBeGreaterThan(0);
     const villageTierPools = new Set(
       villageCrates.map((lootSlots) =>
@@ -671,9 +658,9 @@ describe("procedural survival extraction world", () => {
         if (!sector) {
           throw new Error(`Missing sector ${village.sectorId}`);
         }
-        for (const crate of sector.enemies) {
+        for (const crate of sector.structures) {
           if (
-            crate.typeId !== "enemy:crate" ||
+            crate.typeId !== "structure:crate" ||
             crate.x < village.minX ||
             crate.x > village.maxX ||
             crate.y < village.minY ||
@@ -704,7 +691,9 @@ describe("procedural survival extraction world", () => {
       ).toBeGreaterThan(0);
       if (sector.archetype === "dungeon") {
         expect(
-          sector.enemies.some((enemy) => enemy.typeId === "enemy:crate"),
+          sector.structures.some(
+            (structure) => structure.typeId === "structure:crate",
+          ),
         ).toBe(true);
       } else {
         expect(sector.loot.length).toBeGreaterThan(0);
@@ -744,11 +733,11 @@ describe("procedural survival extraction world", () => {
       const observedBlueprintTypeIds = new Map<ResourceId, number>();
 
       for (const sector of layout.sectors) {
-        for (const enemy of sector.enemies) {
-          if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        for (const crate of sector.structures) {
+          if (crate.typeId !== "structure:crate" || !crate.crateLoot) {
             continue;
           }
-          for (const slot of enemy.crateLoot) {
+          for (const slot of crate.crateLoot) {
             if (!slot.typeId.startsWith("blueprint:")) {
               continue;
             }
@@ -780,10 +769,10 @@ describe("procedural survival extraction world", () => {
         continue;
       }
 
-      const dungeonBlueprintCrates = dungeonSector.enemies.filter(
-        (enemy) =>
-          enemy.typeId === "enemy:crate" &&
-          enemy.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
+      const dungeonBlueprintCrates = dungeonSector.structures.filter(
+        (crate) =>
+          crate.typeId === "structure:crate" &&
+          crate.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
       );
       expect(dungeonBlueprintCrates).toHaveLength(1);
 
@@ -806,17 +795,17 @@ describe("procedural survival extraction world", () => {
         }
       }
       expect(dungeonRareBlueprintCount).toBe(
-        proceduralContentJson.blueprintPlacement.dungeonSlots
+        proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
           .rareWeaponBlueprintCount,
       );
       expect(dungeonEpicBlueprintCount).toBe(
-        proceduralContentJson.blueprintPlacement.dungeonSlots
+        proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
           .epicWeaponBlueprintCount,
       );
       expect(dungeonRareBlueprintCount + dungeonEpicBlueprintCount).toBe(
-        proceduralContentJson.blueprintPlacement.dungeonSlots
+        proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
           .rareWeaponBlueprintCount +
-          proceduralContentJson.blueprintPlacement.dungeonSlots
+          proceduralBlueprintConfig.blueprintPlacement.dungeonSlots
             .epicWeaponBlueprintCount,
       );
     }
@@ -835,11 +824,11 @@ describe("procedural survival extraction world", () => {
             `${loot.typeId} should be valid crate loot because loose generated loot is loaded as a crate`,
           ).toBe(true);
         }
-        for (const enemy of sector.enemies) {
-          if (enemy.typeId !== "enemy:crate" || !enemy.crateLoot) {
+        for (const crate of sector.structures) {
+          if (crate.typeId !== "structure:crate" || !crate.crateLoot) {
             continue;
           }
-          for (const slot of enemy.crateLoot) {
+          for (const slot of crate.crateLoot) {
             expect(
               isWeaponOrBlueprint(slot.typeId),
               `${slot.typeId} should be valid breakable crate loot`,
@@ -949,11 +938,13 @@ describe("procedural survival extraction world", () => {
       expect.arrayContaining(["enemy:megaknight", "enemy:sniper"]),
     );
     expect(
-      dungeonSector?.enemies.some((enemy) => enemy.typeId === "enemy:tripwire"),
+      dungeonSector?.structures.some(
+        (structure) => structure.typeId === "structure:tripwire",
+      ),
     ).toBe(true);
     const dungeonTripwires = Object.values(
       (
-        proceduralContentJson as {
+        proceduralContentConfig as {
           dungeonRoomContent: Record<
             string,
             { buildings?: Array<{ typeId: string; orientation?: string }> }
@@ -962,7 +953,7 @@ describe("procedural survival extraction world", () => {
       ).dungeonRoomContent,
     )
       .flatMap((room) => room.buildings ?? [])
-      .filter((building) => building.typeId === "enemy:tripwire");
+      .filter((building) => building.typeId === "structure:tripwire");
     expect(dungeonTripwires.length).toBeGreaterThan(0);
     expect(
       dungeonTripwires.every(
@@ -989,10 +980,10 @@ describe("procedural survival extraction world", () => {
       expect.arrayContaining(["treasure", "boss"]),
     );
     expect(
-      dungeonSector?.enemies.some(
-        (enemy) =>
-          enemy.typeId === "enemy:crate" &&
-          enemy.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
+      dungeonSector?.structures.some(
+        (crate) =>
+          crate.typeId === "structure:crate" &&
+          crate.crateLoot?.some((slot) => slot.typeId.startsWith("blueprint:")),
       ),
     ).toBe(true);
   });
@@ -1044,8 +1035,8 @@ describe("procedural survival extraction world", () => {
       if (!dungeonSector) {
         throw new Error("expected dungeon sector");
       }
-      const dungeonCrates = dungeonSector.enemies.filter(
-        (enemy) => enemy.typeId === "enemy:crate",
+      const dungeonCrates = dungeonSector.structures.filter(
+        (crate) => crate.typeId === "structure:crate",
       );
       expect(dungeonCrates.length).toBeGreaterThanOrEqual(6);
       totalCrates += dungeonCrates.length;
@@ -1373,16 +1364,19 @@ describe("procedural survival extraction world", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity) => entity.typeId === "enemy:crate").length,
+        .filter((entity) => entity.typeId === "structure:crate").length,
     ).toBeGreaterThan(25);
     const blockers = runtime.world.entities
       .all()
       .filter((entity) => isProceduralStaticBlocker(entity));
     const crates = runtime.world.entities
       .all()
-      .filter((entity) => entity.typeId === "enemy:crate");
+      .filter((entity) => entity.typeId === "structure:crate");
     for (const crate of crates) {
       for (const blocker of blockers) {
+        if (blocker.id === crate.id) {
+          continue;
+        }
         expect(
           doResolvedRectSetsOverlap(
             crate.getWorldHitboxes(),
@@ -1840,14 +1834,20 @@ function collectProceduralDungeonWallBlockers(
   if (!dungeonSector) {
     throw new Error("expected dungeon sector");
   }
-  return dungeonSector.structures.flatMap((spec) =>
-    resolveProceduralSpawnHitboxes(spec).map((rect) => ({
-      minX: rect.minX,
-      minY: rect.minY,
-      maxX: rect.maxX,
-      maxY: rect.maxY,
-    })),
-  );
+  return dungeonSector.structures
+    .filter(
+      (spec) =>
+        spec.typeId !== "structure:crate" &&
+        spec.typeId !== "structure:tripwire",
+    )
+    .flatMap((spec) =>
+      resolveProceduralSpawnHitboxes(spec).map((rect) => ({
+        minX: rect.minX,
+        minY: rect.minY,
+        maxX: rect.maxX,
+        maxY: rect.maxY,
+      })),
+    );
 }
 
 function collectProceduralDungeonWallStructureBlockers(

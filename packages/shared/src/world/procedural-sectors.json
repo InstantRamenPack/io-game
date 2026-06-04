@@ -1,0 +1,66 @@
+{
+  "sectorContent": {
+    "home": {
+      "buildings": [
+        {
+          "typeId": "tower:hub",
+          "offsetX": 0,
+          "offsetY": -250
+        },
+        {
+          "typeId": "tower:energy",
+          "offsetX": -217,
+          "offsetY": 125
+        },
+        {
+          "typeId": "tower:comms",
+          "offsetX": 217,
+          "offsetY": 125
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:basic_spear",
+          "offsetX": -128,
+          "offsetY": 192,
+          "kind": "weapon",
+          "rewardTier": "common",
+          "amount": 1
+        }
+      ]
+    },
+    "extraction": {
+      "enemies": [
+        {
+          "typeId": "enemy:commander",
+          "offsetX": 0,
+          "offsetY": -360
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": -420,
+          "offsetY": -240
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": 420,
+          "offsetY": -240
+        }
+      ],
+      "loot": [
+        {
+          "typeId": "item:basic_rifle",
+          "offsetX": 320,
+          "offsetY": -192,
+          "kind": "weapon",
+          "rewardTier": "rare",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  "forestCampEnemyTypes": {
+    "corner": ["enemy:police", "enemy:ranger", "enemy:stalker"],
+    "edge": ["enemy:drifter", "enemy:shoota", "enemy:police"]
+  }
+}

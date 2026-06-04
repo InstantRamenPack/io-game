@@ -1,6 +1,7 @@
 import { Goal } from "@server/goals/Goal.ts";
 import type { GoalActor } from "@server/goals/GoalActor.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
+import { hashInt } from "@shared/math/hashInt.ts";
 
 type WanderDestination = { x: number; y: number };
 
@@ -128,14 +129,4 @@ export class WanderGoal<
     );
     return MIN_WAIT_TICKS + (seed % WAIT_TICK_VARIANCE);
   }
-}
-
-function hashInt(value: number): number {
-  let hash = value | 0;
-  hash ^= hash >>> 16;
-  hash = Math.imul(hash, 0x7feb352d);
-  hash ^= hash >>> 15;
-  hash = Math.imul(hash, 0x846ca68b);
-  hash ^= hash >>> 16;
-  return hash >>> 0;
 }

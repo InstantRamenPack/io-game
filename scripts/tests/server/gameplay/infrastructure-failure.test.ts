@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { Cannon } from "@server/entities/buildings/Cannon.ts";
-import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
+import { CommsTower } from "@server/entities/tower/CommsTower.ts";
+import { EnergyTower } from "@server/entities/tower/EnergyTower.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,

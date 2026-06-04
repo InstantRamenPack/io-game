@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
+import { EnergyTower } from "@server/entities/tower/EnergyTower.ts";
 import {
   requireProjectileContent,
   requireWeaponContent,
@@ -14,8 +14,9 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("enemy weapon tuning day/night", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("day nerfs soften at night and lift only on daytime power loss", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
     const weapon = shoota.weapons[0] as Enemy["weapons"][number] & {

@@ -53,11 +53,6 @@ test("balance API exposes domain tabs without burying waves and loot in raw JSON
     ),
   ).toBe(true);
   expect(
-    payload.listRows.some(
-      (row) => row.label === "Legacy blueprint pickup order",
-    ),
-  ).toBe(true);
-  expect(
     payload.worldRows.some((row) => row.configId === "blueprintPlacement"),
   ).toBe(true);
   expect(
@@ -76,7 +71,11 @@ test("balance API rejects invalid list and scalar saves before writing content",
         listId:
           "packages/shared/src/config/waves.json:randomWaves.enemyWeights",
         action: "add",
-        value: { entityType: "missing_enemy", tier: "common", weight: 1 },
+        value: {
+          entityTypeId: "enemy:missing_enemy",
+          tier: "common",
+          weight: 1,
+        },
       }),
     }),
   );

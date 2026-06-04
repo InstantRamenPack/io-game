@@ -21,7 +21,7 @@
   "runtime": {
     "renderer": {
       "symbol": "CommsTowerRenderer",
-      "importPath": "apps/client/src/render/entity/building/CommsTowerRenderer.ts"
+      "importPath": "apps/client/src/render/entity/tower/CommsTowerRenderer.ts"
     }
   }
 }

@@ -21,7 +21,7 @@
   "runtime": {
     "renderer": {
       "symbol": "EnergyTowerRenderer",
-      "importPath": "apps/client/src/render/entity/building/EnergyTowerRenderer.ts"
+      "importPath": "apps/client/src/render/entity/tower/EnergyTowerRenderer.ts"
     }
   }
 }

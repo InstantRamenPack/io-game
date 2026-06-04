@@ -1,7 +1,7 @@
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
-import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
+import { CommsTower } from "@server/entities/tower/CommsTower.ts";
+import { EnergyTower } from "@server/entities/tower/EnergyTower.ts";
 import type { InfrastructureSnapshot } from "@shared/net/snapshots.ts";
 
 export class InfrastructureSystem implements System {

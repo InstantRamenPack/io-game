@@ -117,7 +117,7 @@ describe("lights-out visibility", () => {
   test("tripwire trigger hitboxes do not become lights-out blockers", () => {
     const tripwire = new ClientEntity(
       makeEnemySnapshot(91, 1000, 2000, {
-        typeId: "enemy:tripwire",
+        typeId: "structure:tripwire",
         hitboxes: [{ width: 220, height: 16, offsetX: 0, offsetY: 0 }],
         hp: 0,
         maxHp: 0,

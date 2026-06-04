@@ -5,7 +5,6 @@ import {
   extractionConfig,
   GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR,
   interactionsConfig,
-  pickupsConfig,
   recyclingConfig,
   runtimeConfig,
   wavesConfig,
@@ -21,6 +20,7 @@ describe("shared gameplay config", () => {
     expect(runtimeConfig.worldSize.h).toBeGreaterThan(0);
     expect(runtimeConfig.collision.spatialCellSize).toBeGreaterThan(0);
     expect(runtimeConfig.replication.interestRadius).toBeGreaterThan(0);
+    expect(runtimeConfig.network.slotCapacity).toBeGreaterThan(0);
   });
 
   test("interaction limits keep derived slot indexes and ranges valid", () => {
@@ -34,19 +34,6 @@ describe("shared gameplay config", () => {
     expect(interactionsConfig.buildPlacementMaxDistance).toBeGreaterThanOrEqual(
       interactionsConfig.chestInteractRadius,
     );
-  });
-
-  test("pickup cadence and active caps are valid for every spawn pool", () => {
-    for (const pool of [
-      pickupsConfig.mag,
-      pickupsConfig.weapon,
-      pickupsConfig.blueprint,
-      pickupsConfig.medical,
-    ]) {
-      expect(pool.intervalMs).toBeGreaterThan(0);
-      expect(pool.maxActive).toBeGreaterThanOrEqual(0);
-    }
-    expect(pickupsConfig.spawnAttempts).toBeGreaterThan(0);
   });
 
   test("rarity recycling ranges are ordered by tier and internally valid", () => {
@@ -124,12 +111,12 @@ describe("shared gameplay config", () => {
     expect(floorsByNight.get(7)?.floors.epic ?? 0).toBeGreaterThanOrEqual(3);
     expect(
       wavesConfig.randomWaves.enemyWeights.some(
-        (weight) => weight.entityType === "thanos",
+        (weight) => weight.entityTypeId === "enemy:thanos",
       ),
     ).toBe(false);
     expect(
-      wavesConfig.randomWaves.enemyWeights.map((weight) => weight.entityType),
-    ).toEqual(expect.arrayContaining(["saboteur", "wallbreaker"]));
+      wavesConfig.randomWaves.enemyWeights.map((weight) => weight.entityTypeId),
+    ).toEqual(expect.arrayContaining(["enemy:saboteur", "enemy:wallbreaker"]));
   });
 
   test("world generation config keeps the sector grid and world size aligned", () => {

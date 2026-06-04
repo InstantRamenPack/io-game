@@ -265,7 +265,7 @@ export class GameServer {
 
     if (
       this.playgroundRuntime.getPlayerCount() >=
-      this.gameConfig.network.maxPlayers
+      this.gameConfig.network.slotCapacity
     ) {
       this.networkServer.send(
         clientId,

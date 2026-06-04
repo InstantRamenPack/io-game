@@ -4,7 +4,7 @@ import {
   getItemContent,
 } from "@shared/content/catalog.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
-import { Hub } from "@server/entities/buildings/Hub.ts";
+import { Hub } from "@server/entities/tower/Hub.ts";
 import { Player } from "@server/entities/Player.ts";
 import {
   bootstrapTestRegistries,
