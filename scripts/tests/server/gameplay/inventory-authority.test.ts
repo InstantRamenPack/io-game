@@ -426,7 +426,7 @@ describe("inventory authority", () => {
     expect(hub.alive).toBe(false);
     expect(hub.hp).toBe(0);
 
-    player.inventory.addStackable(hunkItemId, 20);
+    player.inventory.addStackable(hunkItemId, 100);
     enqueueAction(runtime, {
       t: "action",
       seq: 1,
