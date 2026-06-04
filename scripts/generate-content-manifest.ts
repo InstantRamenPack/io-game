@@ -711,8 +711,7 @@ async function writeGeneratedMagAsset(
     : createRgbaPng(96, 96, (x, y) => {
         const centerX = 48;
         const centerY = 48;
-        const inBody =
-          Math.abs(x - centerX) < 18 && Math.abs(y - centerY) < 34;
+        const inBody = Math.abs(x - centerX) < 18 && Math.abs(y - centerY) < 34;
         if (!inBody) return [0, 0, 0, 0];
         return x % 9 < 2 ? [34, 38, 48, 255] : [62, 69, 86, 255];
       });

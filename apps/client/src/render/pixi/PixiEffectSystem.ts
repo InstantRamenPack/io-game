@@ -121,7 +121,11 @@ export class PixiEffectSystem {
     gfx.y = y;
     gfx.rotation = angle;
     this.effectContainer.addChild(gfx);
-    this.activeBeams.push({ gfx, remainingMs: durationMs, totalMs: durationMs });
+    this.activeBeams.push({
+      gfx,
+      remainingMs: durationMs,
+      totalMs: durationMs,
+    });
   }
 
   public triggerAirstrikeWarning(

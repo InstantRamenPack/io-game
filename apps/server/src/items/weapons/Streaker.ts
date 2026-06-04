@@ -20,11 +20,11 @@ export class Streaker extends RangedWeapon {
 
   constructor() {
     super(
-      1,      // cooldownTicks: fires every tick
+      1, // cooldownTicks: fires every tick
       "projectile:thanos_bullet" as never, // placeholder; never actually fired
-      2400,   // magSize = 2400 ticks = 2 min uptime
-      99999,  // reloadTicks: impossibly long, canReload() blocks it anyway
-      0,      // spread
+      2400, // magSize = 2400 ticks = 2 min uptime
+      99999, // reloadTicks: impossibly long, canReload() blocks it anyway
+      0, // spread
       undefined, // no magItemTypeId
     );
   }
@@ -53,7 +53,11 @@ export class Streaker extends RangedWeapon {
     const maxY = Math.max(owner.y, owner.y + dy * BEAM_LENGTH) + BEAM_WIDTH / 2;
 
     for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
-      if (!(candidate instanceof Player) || !candidate.alive || candidate.id === owner.id) {
+      if (
+        !(candidate instanceof Player) ||
+        !candidate.alive ||
+        candidate.id === owner.id
+      ) {
         continue;
       }
       if (!DamageEffect.canApply(world, owner, candidate)) continue;
@@ -91,6 +95,8 @@ export class Streaker extends RangedWeapon {
   /** Returns hunk proportional to remaining charge (50 at 0%, 500 at 100%). */
   public override getRecycleHunkValue(): number {
     const ratio = this.magSize > 0 ? this.ammoInMag / this.magSize : 0;
-    return Math.round(STREAKER_EMPTY_HUNK + ratio * (STREAKER_FULL_HUNK - STREAKER_EMPTY_HUNK));
+    return Math.round(
+      STREAKER_EMPTY_HUNK + ratio * (STREAKER_FULL_HUNK - STREAKER_EMPTY_HUNK),
+    );
   }
 }

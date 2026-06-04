@@ -7,7 +7,7 @@ import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 
 const INTERVAL_TICKS = 500; // 25 seconds
-const WARNING_TICKS = 50;   // 2.5 second warning before explosion
+const WARNING_TICKS = 50; // 2.5 second warning before explosion
 const EXPLOSION_RADIUS = 110;
 const EXPLOSION_DAMAGE = 110;
 const STRIKE_COUNT = 14;
@@ -96,7 +96,8 @@ export class WitherAirstrikeGoal<
         strike.y + EXPLOSION_RADIUS,
       )) {
         if (!(candidate instanceof Player) || !candidate.alive) continue;
-        if (!DamageEffect.canApply(world, self as unknown as Entity, candidate)) continue;
+        if (!DamageEffect.canApply(world, self as unknown as Entity, candidate))
+          continue;
 
         const dist = Math.hypot(candidate.x - strike.x, candidate.y - strike.y);
         if (dist <= EXPLOSION_RADIUS) {

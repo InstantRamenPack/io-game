@@ -58,7 +58,10 @@ export class Wither extends Enemy {
     const hunkInventory = new Inventory();
     hunkInventory.addStackable(
       HUNK_ITEM_TYPE_ID,
-      getEnemyDeathHunkDropAmount(lootConfig.rarityTier, world.randomNumberGenerator),
+      getEnemyDeathHunkDropAmount(
+        lootConfig.rarityTier,
+        world.randomNumberGenerator,
+      ),
     );
     const hunkPickup = new ItemEntity(world.allocEntityId(), hunkInventory);
     hunkPickup.x = this.x + 30;

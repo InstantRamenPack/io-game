@@ -4,7 +4,13 @@ import {
   PositiveFiniteNumberSchema,
 } from "@shared/validation/schemas.ts";
 
-export const NET_EVENT_TYPES = ["damage", "explosion", "attack", "wither_beam", "wither_airstrike_warning"] as const;
+export const NET_EVENT_TYPES = [
+  "damage",
+  "explosion",
+  "attack",
+  "wither_beam",
+  "wither_airstrike_warning",
+] as const;
 
 export const DamageEventPayloadSchema = z.object({
   sourceId: NonNegativeIntSchema,
@@ -85,6 +91,10 @@ export const NetEventSchema = z.discriminatedUnion("type", [
 export type DamageEventPayload = z.infer<typeof DamageEventPayloadSchema>;
 export type ExplosionStyle = z.infer<typeof ExplosionStyleSchema>;
 export type AttackEventPayload = z.infer<typeof AttackEventPayloadSchema>;
-export type WitherBeamEventPayload = z.infer<typeof WitherBeamEventPayloadSchema>;
-export type WitherAirstrikeWarningEventPayload = z.infer<typeof WitherAirstrikeWarningEventPayloadSchema>;
+export type WitherBeamEventPayload = z.infer<
+  typeof WitherBeamEventPayloadSchema
+>;
+export type WitherAirstrikeWarningEventPayload = z.infer<
+  typeof WitherAirstrikeWarningEventPayloadSchema
+>;
 export type NetEvent = z.infer<typeof NetEventSchema>;
