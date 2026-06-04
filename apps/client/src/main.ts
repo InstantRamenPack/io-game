@@ -249,6 +249,9 @@ new GameInputRouter({
       case "dropSelectedItem":
         gameClient.queueDropSelectedItem(command.dropWholeStack);
         return;
+      case "reloadSelectedWeapon":
+        gameClient.queueReloadSelectedWeapon();
+        return;
       case "pickupNearestItem":
         gameClient.queuePickupNearbyItem();
         return;

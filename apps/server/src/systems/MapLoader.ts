@@ -19,6 +19,7 @@ import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
 import {
   generateProceduralWorldLayout,
+  getSectorForPoint,
   type ProceduralDungeonRoom,
   type ProceduralCrateLootSlot,
   type ProceduralLootSpec,
@@ -302,10 +303,6 @@ function loadLobbyLayout(world: World): void {
   });
 }
 
-/**
- * Despawns all loot crates and re-spawns them from the stored procedural layout.
- * Called at dawn so each new day has fresh loot throughout the world.
- */
 export function trySpawnDeferredExtractionLegendaryBoss(
   world: World,
   nightCycle: number,
@@ -323,44 +320,86 @@ export function trySpawnDeferredExtractionLegendaryBoss(
 
 export function refreshLoot(world: World): void {
   if (!world.proceduralLayout) return;
+  // Crates are finite per match; dawn should not refill destroyed loot.
+}
 
-  for (const entity of world.entities.all()) {
-    if (entity.typeId === ("enemy:crate" as ResourceId)) {
-      world.despawn(entity.id);
+const LAYOUT_ENEMY_OCCUPANCY_RADIUS = worldgenConfig.tileSize * 8;
+
+function isRegularLayoutEnemy(
+  layout: ProceduralWorldLayout,
+  entity: Entity,
+): entity is Enemy {
+  if (!(entity instanceof Enemy)) {
+    return false;
+  }
+  if (entity.spawnSource !== "layout") {
+    return false;
+  }
+  if (entity.typeId === ("enemy:crate" as ResourceId)) {
+    return false;
+  }
+  const sector = getSectorForPoint(layout, entity);
+  return sector?.archetype !== "dungeon";
+}
+
+function collectEligibleLayoutEnemyRespawnSpecs(
+  layout: ProceduralWorldLayout,
+): ProceduralSpawnSpec[] {
+  return layout.sectors.flatMap((sector) =>
+    sector.archetype === "dungeon"
+      ? []
+      : sector.enemies.filter(
+          (spec) =>
+            spec.typeId !== ("enemy:crate" as ResourceId) &&
+            !(
+              sector.archetype === "extraction" &&
+              isLegendaryBossTypeId(spec.typeId)
+            ),
+        ),
+  );
+}
+
+function isLayoutEnemySpecOccupied(
+  spec: ProceduralSpawnSpec,
+  livingEnemies: readonly Enemy[],
+): boolean {
+  const radiusSq = LAYOUT_ENEMY_OCCUPANCY_RADIUS ** 2;
+  for (const enemy of livingEnemies) {
+    const dx = enemy.x - spec.x;
+    const dy = enemy.y - spec.y;
+    if (dx * dx + dy * dy <= radiusSq) {
+      return true;
     }
   }
-
-  for (const sector of world.proceduralLayout.sectors) {
-    for (const spec of sector.loot) {
-      spawnProceduralLootCrate(world, spec);
-    }
-  }
+  return false;
 }
 
 /**
- * Respawns procedural layout enemies at dawn, mirroring crate refresh scope.
+ * Respawns a partial set of regular procedural enemies at dawn.
  */
 export function refreshLayoutEnemies(world: World): void {
-  if (!world.proceduralLayout) {
+  const layout = world.proceduralLayout;
+  if (!layout) {
     return;
   }
 
-  for (const entity of world.entities.all()) {
-    if (entity instanceof Enemy && entity.spawnSource === "layout") {
-      world.despawn(entity.id);
-    }
-  }
-
-  for (const sector of world.proceduralLayout.sectors) {
-    for (const spec of sector.enemies) {
-      if (
-        sector.archetype === "extraction" &&
-        isLegendaryBossTypeId(spec.typeId)
-      ) {
-        continue;
-      }
-      spawnProceduralEntity(world, spec, "layout");
-    }
+  const livingRegularLayoutEnemies = world.entities
+    .all()
+    .filter((entity): entity is Enemy => isRegularLayoutEnemy(layout, entity));
+  const respawnSpecs = collectEligibleLayoutEnemyRespawnSpecs(layout);
+  const vacantSpecs = respawnSpecs.filter(
+    (spec) => !isLayoutEnemySpecOccupied(spec, livingRegularLayoutEnemies),
+  );
+  const missingCount = Math.max(
+    0,
+    respawnSpecs.length - livingRegularLayoutEnemies.length,
+  );
+  const respawnCount = Math.min(
+    Math.floor(vacantSpecs.length * 0.5),
+    Math.floor(missingCount * 0.5),
+  );
+  for (let index = 0; index < respawnCount; index += 1) {
+    spawnProceduralEntity(world, vacantSpecs[index]!, "layout");
   }
 }
 

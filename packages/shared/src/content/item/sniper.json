@@ -16,7 +16,7 @@
     "attackStyle": "shoot",
     "cooldownTicks": 50,
     "projectileTypeId": "projectile:sniper_bullet",
-    "magSize": 1,
+    "magSize": 5,
     "reloadTicks": 50,
     "spreadDeg": 0,
     "magItemTypeId": "mag:sniper",

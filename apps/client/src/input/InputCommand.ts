@@ -14,6 +14,7 @@ export type InputCommand =
   | { type: "queueSelectedCraft" }
   | { type: "selectHotbarOrdinal"; ordinal: number }
   | { type: "dropSelectedItem"; dropWholeStack: boolean }
+  | { type: "reloadSelectedWeapon" }
   | { type: "pickupNearestItem" }
   | { type: "startRepairHold" }
   | { type: "cancelRepairHold" }

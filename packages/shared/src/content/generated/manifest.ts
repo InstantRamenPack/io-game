@@ -6,20 +6,28 @@ import towercommsJson from "@shared/content/tower/comms.json";
 import towerenergyJson from "@shared/content/tower/energy.json";
 import towerhubJson from "@shared/content/tower/hub.json";
 import structurebarracksJson from "@shared/content/structure/barracks.json";
+import structurebarrelJson from "@shared/content/structure/barrel.json";
+import structurebonePileJson from "@shared/content/structure/bone_pile.json";
+import structurebossThroneJson from "@shared/content/structure/boss_throne.json";
+import structurebrazierJson from "@shared/content/structure/brazier.json";
 import structurecampShelterJson from "@shared/content/structure/camp_shelter.json";
 import structurecommandPostJson from "@shared/content/structure/command_post.json";
 import structuredungeonJson from "@shared/content/structure/dungeon.json";
 import structuredungeonWallJson from "@shared/content/structure/dungeon_wall.json";
 import structurefenceHJson from "@shared/content/structure/fence_h.json";
 import structurefenceVJson from "@shared/content/structure/fence_v.json";
+import structuregoldPileJson from "@shared/content/structure/gold_pile.json";
+import structuregoldenStatueJson from "@shared/content/structure/golden_statue.json";
 import structureguardTowerJson from "@shared/content/structure/guard_tower.json";
 import structurehouseLJson from "@shared/content/structure/house_l.json";
 import structurehouseMJson from "@shared/content/structure/house_m.json";
 import structurehouseSJson from "@shared/content/structure/house_s.json";
 import structurehouseXlJson from "@shared/content/structure/house_xl.json";
 import structuremarketStallJson from "@shared/content/structure/market_stall.json";
+import structurestonePillarJson from "@shared/content/structure/stone_pillar.json";
 import structuretreeJson from "@shared/content/structure/tree.json";
 import structurevehicleWreckJson from "@shared/content/structure/vehicle_wreck.json";
+import structureweaponRackJson from "@shared/content/structure/weapon_rack.json";
 import structurewoodenBedJson from "@shared/content/structure/wooden_bed.json";
 import structurewoodenChairJson from "@shared/content/structure/wooden_chair.json";
 import structurewoodenTableJson from "@shared/content/structure/wooden_table.json";
@@ -154,20 +162,28 @@ export const towerContentEntries = [
 
 export const structureContentEntries = [
   makeParsedEntityContentEntry("structure", "barracks", structurebarracksJson),
+  makeParsedEntityContentEntry("structure", "barrel", structurebarrelJson),
+  makeParsedEntityContentEntry("structure", "bone_pile", structurebonePileJson),
+  makeParsedEntityContentEntry("structure", "boss_throne", structurebossThroneJson),
+  makeParsedEntityContentEntry("structure", "brazier", structurebrazierJson),
   makeParsedEntityContentEntry("structure", "camp_shelter", structurecampShelterJson),
   makeParsedEntityContentEntry("structure", "command_post", structurecommandPostJson),
   makeParsedEntityContentEntry("structure", "dungeon", structuredungeonJson),
   makeParsedEntityContentEntry("structure", "dungeon_wall", structuredungeonWallJson),
   makeParsedEntityContentEntry("structure", "fence_h", structurefenceHJson),
   makeParsedEntityContentEntry("structure", "fence_v", structurefenceVJson),
+  makeParsedEntityContentEntry("structure", "gold_pile", structuregoldPileJson),
+  makeParsedEntityContentEntry("structure", "golden_statue", structuregoldenStatueJson),
   makeParsedEntityContentEntry("structure", "guard_tower", structureguardTowerJson),
   makeParsedEntityContentEntry("structure", "house_l", structurehouseLJson),
   makeParsedEntityContentEntry("structure", "house_m", structurehouseMJson),
   makeParsedEntityContentEntry("structure", "house_s", structurehouseSJson),
   makeParsedEntityContentEntry("structure", "house_xl", structurehouseXlJson),
   makeParsedEntityContentEntry("structure", "market_stall", structuremarketStallJson),
+  makeParsedEntityContentEntry("structure", "stone_pillar", structurestonePillarJson),
   makeParsedEntityContentEntry("structure", "tree", structuretreeJson),
   makeParsedEntityContentEntry("structure", "vehicle_wreck", structurevehicleWreckJson),
+  makeParsedEntityContentEntry("structure", "weapon_rack", structureweaponRackJson),
   makeParsedEntityContentEntry("structure", "wooden_bed", structurewoodenBedJson),
   makeParsedEntityContentEntry("structure", "wooden_chair", structurewoodenChairJson),
   makeParsedEntityContentEntry("structure", "wooden_table", structurewoodenTableJson),

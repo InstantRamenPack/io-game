@@ -231,12 +231,11 @@ export class Enemy extends GoalControlledEntity {
     ) {
       const selectedWeapon =
         this.weapons[Math.floor(rng() * this.weapons.length)];
-      if (!selectedWeapon) {
-        return;
-      }
-      const itemEntry = getItemLikeTypeEntry(selectedWeapon.typeId);
-      if (itemEntry) {
-        inventory.grantItemCtor(itemEntry.ctor, 1);
+      if (selectedWeapon) {
+        const itemEntry = getItemLikeTypeEntry(selectedWeapon.typeId);
+        if (itemEntry) {
+          inventory.grantItemCtor(itemEntry.ctor, 1);
+        }
       }
     }
 

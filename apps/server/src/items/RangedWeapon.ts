@@ -122,6 +122,19 @@ export class RangedWeapon extends Weapon {
     return true;
   }
 
+  public requestReload(owner: Entity | undefined): boolean {
+    if (
+      this.ammoInMag >= this.magSize ||
+      this.reloadTicksRemaining > 0 ||
+      !this.canReload(owner)
+    ) {
+      return false;
+    }
+
+    this.reloadTicksRemaining = this.reloadTicks;
+    return true;
+  }
+
   protected fireProjectileAtAngle(
     world: World,
     owner: Entity,

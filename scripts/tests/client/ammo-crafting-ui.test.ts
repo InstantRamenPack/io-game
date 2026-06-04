@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { GameSelectors } from "@client/app/gameSelectors.ts";
 import { PixiHud } from "@client/render/PixiHud.ts";
+import { buildCombatHudModel } from "@client/render/hud/hudPresentationModels.ts";
 import {
   CRAFTABLE_ITEM_TYPE_IDS,
   getAllItemContentEntries,
@@ -110,5 +111,24 @@ describe("ammo crafting HUD", () => {
     const visibleCraftableTypeIds = getVisibleCraftableTypeIds(hud);
 
     expect(visibleCraftableTypeIds).toContain("mag:basic_rifle");
+  });
+
+  test("combat HUD ammo totals loaded rounds plus reserve magazine rounds", () => {
+    const model = buildCombatHudModel({
+      playerEntity: {
+        hp: 100,
+        maxHp: 100,
+      } as Parameters<typeof buildCombatHudModel>[0]["playerEntity"],
+      activeSlot: {
+        kind: "weapon",
+        typeId: "item:basic_rifle",
+        ammoInMag: 30,
+        magSize: 30,
+        reserveMagCount: 4,
+      },
+    });
+
+    expect(model?.ammo?.ammoInMag).toBe(30);
+    expect(model?.ammo?.totalAmmo).toBe(150);
   });
 });

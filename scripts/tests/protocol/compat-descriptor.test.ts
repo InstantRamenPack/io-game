@@ -48,6 +48,7 @@ describe("compat descriptors", () => {
         "action:pickup",
         "action:recycle",
         "action:craft",
+        "action:reload",
         "lobby:join",
         "lobby:joinByCode",
         "lobby:leave",
