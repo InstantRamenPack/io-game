@@ -60,15 +60,7 @@
     }
   },
   "forestCampEnemyTypes": {
-    "corner": [
-      "enemy:police",
-      "enemy:ranger",
-      "enemy:stalker"
-    ],
-    "edge": [
-      "enemy:drifter",
-      "enemy:shoota",
-      "enemy:police"
-    ]
+    "corner": ["enemy:police", "enemy:ranger", "enemy:stalker"],
+    "edge": ["enemy:drifter", "enemy:shoota", "enemy:police"]
   }
 }

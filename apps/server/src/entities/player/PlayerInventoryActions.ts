@@ -264,7 +264,12 @@ export function applyChestMove(
     return;
   }
 
-  const fromValue = extractSlotValue(player, fromSource, fromIndex, chestEntity);
+  const fromValue = extractSlotValue(
+    player,
+    fromSource,
+    fromIndex,
+    chestEntity,
+  );
   if (fromValue === null) {
     return;
   }

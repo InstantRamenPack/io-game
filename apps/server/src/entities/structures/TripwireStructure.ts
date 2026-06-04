@@ -46,9 +46,7 @@ export class TripwireStructure extends DestructibleStructure {
         candidate.applyDamage(world, trap.initialDamage, this.id);
       }
       for (const effect of trap.effects ?? []) {
-        candidate.applyOrRefreshActiveEffect(
-          toActiveEffect(effect, this.id),
-        );
+        candidate.applyOrRefreshActiveEffect(toActiveEffect(effect, this.id));
       }
       this.alive = false;
       world.despawn(this.id);

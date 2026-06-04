@@ -28,7 +28,7 @@ import { repairTower } from "@server/entities/player/PlayerTowerInteraction.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
-import { Weapon } from "@server/items/Weapon.ts";
+import type { Weapon } from "@server/items/Weapon.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import type { World } from "@server/world/World.ts";
 import type { CollisionMode } from "@shared/content/schema.ts";

@@ -191,7 +191,8 @@ export type ProceduralContentConfig = ProceduralLootConfig &
 const proceduralLoot = proceduralLootJson as ProceduralLootConfig;
 const proceduralBlueprints =
   proceduralBlueprintsJson as ProceduralBlueprintConfig;
-const proceduralVillages = proceduralVillagesJson as unknown as ProceduralVillageConfig;
+const proceduralVillages =
+  proceduralVillagesJson as unknown as ProceduralVillageConfig;
 const proceduralDungeon = proceduralDungeonJson as ProceduralDungeonConfig;
 const proceduralSectors = proceduralSectorsJson as ProceduralSectorConfig;
 

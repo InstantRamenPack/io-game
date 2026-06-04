@@ -7,7 +7,10 @@ import {
 } from "@shared/gameplay/rules/buildPlacementValidation.ts";
 import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
-import { offsetHitboxBounds, getHitboxBounds } from "@shared/geometry/hitbox.ts";
+import {
+  offsetHitboxBounds,
+  getHitboxBounds,
+} from "@shared/geometry/hitbox.ts";
 import {
   GridIndex,
   getGridCellSpanFromBounds,
@@ -187,7 +190,7 @@ describe("GridIndex", () => {
     expect(toGridCell(10, 64)).toBe(0);
     expect(makeGridCellKey(0, 0)).toBe(makeGridCellKey(0, 0));
 
-    const result: typeof item[] = [];
+    const result: (typeof item)[] = [];
     grid.queryBox(0, 0, 200, 64, result, (entry) => entry.id);
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe(1);

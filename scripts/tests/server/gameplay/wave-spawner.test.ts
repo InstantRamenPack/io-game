@@ -17,9 +17,7 @@ function pendingEntityTypeIds(
   nightCycle: number,
 ): string[] {
   spawner.onNightStart(nightCycle);
-  return spawner
-    .getPendingSpawnDetails()
-    .map((detail) => detail.entityTypeId);
+  return spawner.getPendingSpawnDetails().map((detail) => detail.entityTypeId);
 }
 
 describe("wave spawner", () => {

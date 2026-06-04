@@ -69,8 +69,13 @@ export class SpatialIndex {
     maxY: number,
     result: Entity[] = [],
   ): Entity[] {
-    return this.grid.queryBox(minX, minY, maxX, maxY, result, (entity) =>
-      entity.id,
+    return this.grid.queryBox(
+      minX,
+      minY,
+      maxX,
+      maxY,
+      result,
+      (entity) => entity.id,
     );
   }
 
@@ -111,10 +116,7 @@ export class SpatialIndex {
   private removeEntity(entityId: number): void {
     const keys = this.cellKeysByEntityId.get(entityId);
     if (keys) {
-      this.grid.removeFromCells(
-        keys,
-        (entity) => entity.id === entityId,
-      );
+      this.grid.removeFromCells(keys, (entity) => entity.id === entityId);
     }
     this.indexedEntityById.delete(entityId);
     this.cellSpanByEntityId.delete(entityId);

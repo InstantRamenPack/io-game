@@ -460,13 +460,14 @@ describe("procedural survival extraction world", () => {
       ].includes(spawn.typeId),
     );
 
-    expect(templateSpawns.some((spawn) => spawn.typeId === "structure:crate")).toBe(
-      true,
-    );
+    expect(
+      templateSpawns.some((spawn) => spawn.typeId === "structure:crate"),
+    ).toBe(true);
     expect(
       templateSpawns.some(
         (spawn) =>
-          spawn.typeId !== "structure:crate" && spawn.typeId.startsWith("enemy:"),
+          spawn.typeId !== "structure:crate" &&
+          spawn.typeId.startsWith("enemy:"),
       ),
     ).toBe(true);
     expect(
@@ -690,7 +691,9 @@ describe("procedural survival extraction world", () => {
       ).toBeGreaterThan(0);
       if (sector.archetype === "dungeon") {
         expect(
-          sector.structures.some((structure) => structure.typeId === "structure:crate"),
+          sector.structures.some(
+            (structure) => structure.typeId === "structure:crate",
+          ),
         ).toBe(true);
       } else {
         expect(sector.loot.length).toBeGreaterThan(0);

@@ -79,10 +79,7 @@ export function validateBuildPlacement(
 
   if (
     input.playerHitboxes &&
-    doResolvedRectSetsOverlap(
-      input.placementHitboxes,
-      input.playerHitboxes,
-    )
+    doResolvedRectSetsOverlap(input.placementHitboxes, input.playerHitboxes)
   ) {
     return { ok: false, reason: "overlaps_player", distance };
   }
@@ -107,7 +104,5 @@ export function isBuildPlacementWithinDefaultRange(input: {
   targetX: number;
   targetY: number;
 }): boolean {
-  return (
-    measureBuildPlacementDistance(input) <= BUILD_PLACEMENT_MAX_DISTANCE
-  );
+  return measureBuildPlacementDistance(input) <= BUILD_PLACEMENT_MAX_DISTANCE;
 }

@@ -927,9 +927,7 @@ function resolveGeneratedRuntimeImportPath(resource: ContentResource): string {
   if (resource.kind === "projectile") {
     return "@server/registry/generated/contentProjectileCtors.ts";
   }
-  throw new Error(
-    `No generated runtime import path for ${resource.typeId}.`,
-  );
+  throw new Error(`No generated runtime import path for ${resource.typeId}.`);
 }
 
 function buildGeneratedCtorEntry(
@@ -1211,7 +1209,16 @@ function resolveRendererSymbol(resource: ContentResource): string {
 }
 
 const RENDERER_DIRECTORY_BY_KIND: Partial<
-  Record<ContentKind, "building" | "tower" | "structure" | "enemy" | "pickup" | "player" | "projectile">
+  Record<
+    ContentKind,
+    | "building"
+    | "tower"
+    | "structure"
+    | "enemy"
+    | "pickup"
+    | "player"
+    | "projectile"
+  >
 > = {
   building: "building",
   tower: "tower",
@@ -1448,12 +1455,7 @@ async function buildRegistries(
     if (ENTITY_CONTENT_KINDS.has(resource.kind)) {
       const entry = usesGeneratedRuntimeCtor(resource)
         ? buildGeneratedCtorEntry(repoRoot, resource)
-        : await ensureRuntimeClass(
-            repoRoot,
-            resource,
-            classIndex,
-            scaffolded,
-          );
+        : await ensureRuntimeClass(repoRoot, resource, classIndex, scaffolded);
       runtimeRegistry.entityRuntimeCtors.push(entry);
     } else if (resource.kind === "item") {
       const entry = await ensureRuntimeClass(

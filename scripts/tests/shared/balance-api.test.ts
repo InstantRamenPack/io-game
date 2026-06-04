@@ -71,7 +71,11 @@ test("balance API rejects invalid list and scalar saves before writing content",
         listId:
           "packages/shared/src/config/waves.json:randomWaves.enemyWeights",
         action: "add",
-        value: { entityTypeId: "enemy:missing_enemy", tier: "common", weight: 1 },
+        value: {
+          entityTypeId: "enemy:missing_enemy",
+          tier: "common",
+          weight: 1,
+        },
       }),
     }),
   );

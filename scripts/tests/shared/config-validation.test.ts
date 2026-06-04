@@ -116,9 +116,7 @@ describe("shared gameplay config", () => {
     ).toBe(false);
     expect(
       wavesConfig.randomWaves.enemyWeights.map((weight) => weight.entityTypeId),
-    ).toEqual(
-      expect.arrayContaining(["enemy:saboteur", "enemy:wallbreaker"]),
-    );
+    ).toEqual(expect.arrayContaining(["enemy:saboteur", "enemy:wallbreaker"]));
   });
 
   test("world generation config keeps the sector grid and world size aligned", () => {

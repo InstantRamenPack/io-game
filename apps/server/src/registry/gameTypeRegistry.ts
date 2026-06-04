@@ -32,7 +32,7 @@ type LegacyTypeEntry =
   | EffectTypeEntry;
 
 class CategoryRegistryView<TEntry extends LegacyTypeEntry> {
-  public constructor(
+  constructor(
     private readonly parent: TypeRegistry<GameTypeEntry>,
     private readonly category: GameTypeCategory,
   ) {}
@@ -117,10 +117,8 @@ export const magTypeRegistry = new CategoryRegistryView<MagTypeEntry>(
   gameTypeRegistry,
   "mag",
 );
-export const blueprintTypeRegistry = new CategoryRegistryView<BlueprintTypeEntry>(
-  gameTypeRegistry,
-  "blueprint",
-);
+export const blueprintTypeRegistry =
+  new CategoryRegistryView<BlueprintTypeEntry>(gameTypeRegistry, "blueprint");
 export const effectTypeRegistry = new CategoryRegistryView<EffectTypeEntry>(
   gameTypeRegistry,
   "effect",

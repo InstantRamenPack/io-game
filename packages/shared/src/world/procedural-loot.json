@@ -9,12 +9,7 @@
       "item:cleaver",
       "item:scissors"
     ],
-    "uncommon": [
-      "item:carbine",
-      "item:crossbow",
-      "item:machete",
-      "item:taser"
-    ],
+    "uncommon": ["item:carbine", "item:crossbow", "item:machete", "item:taser"],
     "rare": [
       "item:basic_rifle",
       "item:drone_shooter",

@@ -187,9 +187,7 @@ export function getArmorContent(typeId: ResourceId):
   return getItemContent(typeId)?.armor;
 }
 
-export function getItemRarityTier(
-  typeId: ResourceId,
-): RarityTier | undefined {
+export function getItemRarityTier(typeId: ResourceId): RarityTier | undefined {
   return getItemContent(typeId)?.rarityTier;
 }
 

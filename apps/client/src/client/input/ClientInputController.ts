@@ -1,7 +1,5 @@
-import {
-  HeldAttackController,
-  type LocalWeaponState,
-} from "@client/client/HeldAttackController.ts";
+import type { HeldAttackController } from "@client/client/HeldAttackController.ts";
+import { type LocalWeaponState } from "@client/client/HeldAttackController.ts";
 import type { PointerAimController } from "@client/client/input/PointerAimController.ts";
 import type { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
 import type { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
@@ -215,10 +213,7 @@ export class ClientInputController {
     const playerEntityId = this.options.getPlayerEntityId();
     const world = this.options.getWorldState()?.clientWorld;
     if (playerEntityId !== undefined && world) {
-      this.options.presentationSink.playAttackAnimation(
-        playerEntityId,
-        world,
-      );
+      this.options.presentationSink.playAttackAnimation(playerEntityId, world);
     }
     this.options.heldAttackController.onAttackSent(now, activeWeapon);
     return true;

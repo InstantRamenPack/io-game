@@ -16,7 +16,10 @@ import {
   resolveWorldGenLegendaryBossPlacements,
   type WorldGenLegendaryBossPlacements,
 } from "@shared/world/legendaryBoss.ts";
-import { extractionConfig, worldgenConfig } from "@shared/config/gameplayConfig.ts";
+import {
+  extractionConfig,
+  worldgenConfig,
+} from "@shared/config/gameplayConfig.ts";
 import { proceduralContentConfig } from "@shared/world/proceduralConfig.ts";
 import type {
   DungeonRoomRole,
@@ -69,8 +72,13 @@ const PROCEDURAL_CONTENT = proceduralContentConfig;
 const PROCEDURAL_CRATE_TYPE_ID = "structure:crate" as ResourceId;
 const PROCEDURAL_TRIPWIRE_TYPE_ID = "structure:tripwire" as ResourceId;
 type RarityWeightTable = Partial<Record<RarityTier, number>>;
-type VillageRoom = ProceduralRect & { center: ProceduralPoint; role: ProceduralVillagePoiRole; };
-function isProceduralCrateSpec(spec: ProceduralSpawnSpec): boolean { return spec.typeId === PROCEDURAL_CRATE_TYPE_ID; }
+type VillageRoom = ProceduralRect & {
+  center: ProceduralPoint;
+  role: ProceduralVillagePoiRole;
+};
+function isProceduralCrateSpec(spec: ProceduralSpawnSpec): boolean {
+  return spec.typeId === PROCEDURAL_CRATE_TYPE_ID;
+}
 
 const EDGE_COORDS = [
   { row: 0, col: 1 },
@@ -963,7 +971,9 @@ function finalizeSectorSpawnCollections(
   enemies: ProceduralSpawnSpec[],
 ): void {
   const crateSpawns = structures.filter(isProceduralCrateSpec);
-  const structureSpawns = structures.filter((spec) => !isProceduralCrateSpec(spec));
+  const structureSpawns = structures.filter(
+    (spec) => !isProceduralCrateSpec(spec),
+  );
   const staticSpawns = pruneOverlappingStaticSpawns([
     ...structureSpawns,
     ...buildings,
@@ -2248,7 +2258,12 @@ function addDungeonRoomContent(
     label?: string,
   ) => {
     const position = point(offsetX, offsetY);
-    const spec = crateSpawn(PROCEDURAL_CRATE_TYPE_ID, position.x, position.y, crateLoot);
+    const spec = crateSpawn(
+      PROCEDURAL_CRATE_TYPE_ID,
+      position.x,
+      position.y,
+      crateLoot,
+    );
     if (label) {
       spec.label = label;
     }

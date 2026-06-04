@@ -89,11 +89,7 @@ type BalanceListRow = {
   label: string;
   file: string;
   path: string[];
-  itemKind:
-    | "waveEnemyWeight"
-    | "tierFloor"
-    | "typeId"
-    | "crateLoot";
+  itemKind: "waveEnemyWeight" | "tierFloor" | "typeId" | "crateLoot";
   entries: BalanceListEntry[];
   addTemplate: string;
 };

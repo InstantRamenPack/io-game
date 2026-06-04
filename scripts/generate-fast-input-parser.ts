@@ -142,7 +142,10 @@ function isInputMovement(
 
 async function main(): Promise<void> {
   assertInputIntentSchemaShape();
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+  );
   const outputPath = path.join(repoRoot, OUTPUT_RELATIVE_PATH);
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, GENERATED_SOURCE);

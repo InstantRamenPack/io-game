@@ -97,9 +97,9 @@ describe("layout enemy dawn respawn", () => {
     expect(restoredLayout).toHaveLength(
       Math.floor(eligibleRespawnSpecs.length * 0.5),
     );
-    expect(restoredLayout.some((entity) => entity instanceof CrateStructure)).toBe(
-      false,
-    );
+    expect(
+      restoredLayout.some((entity) => entity instanceof CrateStructure),
+    ).toBe(false);
     expect(
       restoredLayout.some((entity) =>
         dungeonSpecKeys.has(`${entity.typeId}@${entity.x},${entity.y}`),
@@ -111,7 +111,9 @@ describe("layout enemy dawn respawn", () => {
     const { runtime } = makeRuntime({ worldSeed: 42 });
     const cratesBefore = runtime.world.entities
       .all()
-      .filter((entity): entity is CrateStructure => entity instanceof CrateStructure);
+      .filter(
+        (entity): entity is CrateStructure => entity instanceof CrateStructure,
+      );
     expect(cratesBefore.length).toBeGreaterThan(0);
 
     for (const crate of cratesBefore) {
@@ -123,7 +125,10 @@ describe("layout enemy dawn respawn", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity): entity is CrateStructure => entity instanceof CrateStructure),
+        .filter(
+          (entity): entity is CrateStructure =>
+            entity instanceof CrateStructure,
+        ),
     ).toHaveLength(0);
 
     refreshLoot(runtime.world);
@@ -132,7 +137,10 @@ describe("layout enemy dawn respawn", () => {
     expect(
       runtime.world.entities
         .all()
-        .filter((entity): entity is CrateStructure => entity instanceof CrateStructure),
+        .filter(
+          (entity): entity is CrateStructure =>
+            entity instanceof CrateStructure,
+        ),
     ).toHaveLength(0);
   });
 
@@ -171,7 +179,9 @@ describe("layout enemy dawn respawn", () => {
     );
     const crate = runtime.world.entities
       .all()
-      .find((entity): entity is CrateStructure => entity instanceof CrateStructure);
+      .find(
+        (entity): entity is CrateStructure => entity instanceof CrateStructure,
+      );
     const dungeonEnemy = runtime.world.entities
       .all()
       .find(

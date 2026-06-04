@@ -345,9 +345,9 @@ function collectEligibleLayoutEnemyRespawnSpecs(
   return layout.sectors.flatMap((sector) =>
     sector.archetype === "dungeon"
       ? []
-        : sector.enemies.filter(
-            (spec) =>
-              !(
+      : sector.enemies.filter(
+          (spec) =>
+            !(
               sector.archetype === "extraction" &&
               isLegendaryBossTypeId(spec.typeId)
             ),

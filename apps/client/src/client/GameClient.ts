@@ -556,7 +556,9 @@ export class GameClient {
     this.resolveWelcomeFromSnapshot();
     this.sessionLifecycle.setLatestExtractionState(snapshot.extraction);
     this.sessionLifecycle.setLatestInfrastructureState(snapshot.infrastructure);
-    this.sessionLifecycle.setLatestMinimapPlayers(snapshot.minimapPlayers ?? []);
+    this.sessionLifecycle.setLatestMinimapPlayers(
+      snapshot.minimapPlayers ?? [],
+    );
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
     if (snapshot.map !== undefined) {
