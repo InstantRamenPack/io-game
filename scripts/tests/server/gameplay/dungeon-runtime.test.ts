@@ -169,14 +169,7 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(crate);
 
     expect(crate.typeId).toBe("structure:crate");
-    expect(crate.maxHp).toBe(25);
-
-    crate.applyDamage(runtime.world, 24, 0);
-    expect(crate.alive).toBe(true);
-    expect(runtime.world.entities.has(crate.id)).toBe(true);
-
     crate.applyDamage(runtime.world, 1, 0);
-
     expect(crate.alive).toBe(false);
     expect(runtime.world.entities.has(crate.id)).toBe(false);
     const pickup = findPickupAt(runtime, crate.x, crate.y);
@@ -223,11 +216,7 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(crate);
     runtime.world.ensureSpatialIndex();
 
-    for (let hitCount = 0; hitCount < 8 && crate.alive; hitCount += 1) {
-      expect(new Fists().hit(runtime.world, player, 0)).toBe(true);
-      runtime.world.ensureSpatialIndex();
-    }
-
+    expect(new Fists().hit(runtime.world, player, 0)).toBe(true);
     expect(crate.alive).toBe(false);
     const pickup = findPickupAt(runtime, crate.x, crate.y);
     expect(pickup).toBeInstanceOf(ItemEntity);
