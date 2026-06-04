@@ -317,6 +317,27 @@ export class PixiRenderer {
     this.renderScheduler.markDirty();
   }
 
+  public triggerWitherBeamEffect(
+    x: number,
+    y: number,
+    angle: number,
+    length: number,
+    width: number,
+  ): void {
+    this.effectSystem.triggerWitherBeam(x, y, angle, length, width);
+    this.renderScheduler.markDirty();
+  }
+
+  public triggerAirstrikeWarning(
+    x: number,
+    y: number,
+    radius: number,
+    warningTicks: number,
+  ): void {
+    this.effectSystem.triggerAirstrikeWarning(x, y, radius, warningTicks);
+    this.renderScheduler.markDirty();
+  }
+
   public setConfusionState(active: boolean, intensityRatio: number): void {
     this.effectSystem.setConfusionState(active, intensityRatio);
     this.effectSystem.syncWorldFilters(this.worldView.worldRoot);

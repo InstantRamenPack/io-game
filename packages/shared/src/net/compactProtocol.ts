@@ -1025,6 +1025,28 @@ function compactEvents(events: readonly NetEvent[]): unknown[] {
         payload.style,
       ];
     }
+    if (event.type === "wither_beam") {
+      const payload = event.payload;
+      return [
+        4,
+        payload.sourceId,
+        q(payload.x),
+        q(payload.y),
+        q(payload.angle),
+        q(payload.length),
+        q(payload.width),
+      ];
+    }
+    if (event.type === "wither_airstrike_warning") {
+      const payload = event.payload;
+      return [
+        5,
+        q(payload.x),
+        q(payload.y),
+        q(payload.radius),
+        payload.warningTicks,
+      ];
+    }
     const payload = event.payload;
     return [
       3,
@@ -1070,6 +1092,30 @@ function expandEvents(value: unknown): NetEvent[] {
             y: dq(Number(event[3])),
             radius: dq(Number(event[4])),
             style: String(event[5]) as ExplosionStyle,
+          },
+        } as NetEvent;
+      }
+      if (event[0] === 4) {
+        return {
+          type: "wither_beam",
+          payload: {
+            sourceId: Number(event[1]),
+            x: dq(Number(event[2])),
+            y: dq(Number(event[3])),
+            angle: dq(Number(event[4])),
+            length: dq(Number(event[5])),
+            width: dq(Number(event[6])),
+          },
+        } as NetEvent;
+      }
+      if (event[0] === 5) {
+        return {
+          type: "wither_airstrike_warning",
+          payload: {
+            x: dq(Number(event[1])),
+            y: dq(Number(event[2])),
+            radius: dq(Number(event[3])),
+            warningTicks: Number(event[4]),
           },
         } as NetEvent;
       }

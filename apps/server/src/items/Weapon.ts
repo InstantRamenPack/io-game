@@ -138,6 +138,14 @@ export abstract class Weapon extends Item {
     return undefined;
   }
 
+  /**
+   * Optional override for weapons whose recycle value depends on instance state
+   * (e.g. remaining charge). Returns undefined to fall back to the content-based lookup.
+   */
+  public getRecycleHunkValue(): number | undefined {
+    return undefined;
+  }
+
   public override isWeaponItem(): boolean {
     return true;
   }

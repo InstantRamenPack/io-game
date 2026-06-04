@@ -101,6 +101,27 @@ export class PixiWorldPresentationSink {
         continue;
       }
 
+      if (event.type === "wither_beam") {
+        this.renderer.triggerWitherBeamEffect(
+          event.payload.x,
+          event.payload.y,
+          event.payload.angle,
+          event.payload.length,
+          event.payload.width,
+        );
+        continue;
+      }
+
+      if (event.type === "wither_airstrike_warning") {
+        this.renderer.triggerAirstrikeWarning(
+          event.payload.x,
+          event.payload.y,
+          event.payload.radius,
+          event.payload.warningTicks,
+        );
+        continue;
+      }
+
       if (event.type !== "damage") {
         continue;
       }

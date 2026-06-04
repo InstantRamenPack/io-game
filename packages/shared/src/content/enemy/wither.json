@@ -1,0 +1,19 @@
+{
+  "label": "Wither",
+  "maxHp": 1000,
+  "moveSpeed": 2,
+  "collisionMode": "dynamic",
+  "hitboxProfiles": {
+    "base": [
+      {
+        "width": 64,
+        "height": 64,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  },
+  "activeHitboxProfile": "base",
+  "rarityTier": "legendary",
+  "deathLoot": {}
+}

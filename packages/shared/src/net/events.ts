@@ -4,7 +4,7 @@ import {
   PositiveFiniteNumberSchema,
 } from "@shared/validation/schemas.ts";
 
-export const NET_EVENT_TYPES = ["damage", "explosion", "attack"] as const;
+export const NET_EVENT_TYPES = ["damage", "explosion", "attack", "wither_beam", "wither_airstrike_warning"] as const;
 
 export const DamageEventPayloadSchema = z.object({
   sourceId: NonNegativeIntSchema,
@@ -39,6 +39,22 @@ const AttackEventPayloadSchema = z.object({
   attackStyle: z.enum(["swing", "jab", "shoot"]),
 });
 
+const WitherBeamEventPayloadSchema = z.object({
+  sourceId: NonNegativeIntSchema,
+  x: z.number(),
+  y: z.number(),
+  angle: z.number(),
+  length: z.number(),
+  width: z.number(),
+});
+
+const WitherAirstrikeWarningEventPayloadSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  radius: z.number(),
+  warningTicks: z.number(),
+});
+
 /**
  * Serialized gameplay event emitted alongside snapshots.
  * Discrete events ride next to snapshot state instead of being modeled as entities.
@@ -56,9 +72,19 @@ export const NetEventSchema = z.discriminatedUnion("type", [
     type: z.literal("attack"),
     payload: AttackEventPayloadSchema,
   }),
+  z.object({
+    type: z.literal("wither_beam"),
+    payload: WitherBeamEventPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("wither_airstrike_warning"),
+    payload: WitherAirstrikeWarningEventPayloadSchema,
+  }),
 ]);
 
 export type DamageEventPayload = z.infer<typeof DamageEventPayloadSchema>;
 export type ExplosionStyle = z.infer<typeof ExplosionStyleSchema>;
 export type AttackEventPayload = z.infer<typeof AttackEventPayloadSchema>;
+export type WitherBeamEventPayload = z.infer<typeof WitherBeamEventPayloadSchema>;
+export type WitherAirstrikeWarningEventPayload = z.infer<typeof WitherAirstrikeWarningEventPayloadSchema>;
 export type NetEvent = z.infer<typeof NetEventSchema>;

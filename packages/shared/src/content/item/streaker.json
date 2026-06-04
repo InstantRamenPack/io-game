@@ -1,0 +1,33 @@
+{
+  "label": "Streaker",
+  "hint": "A legendary scepter of condensed energy.",
+  "description": "Fires a devastating beam of pure energy. Charge is finite — once drained, it cannot be recharged. Handle with care.",
+  "weapon": {
+    "attackStyle": "shoot",
+    "cooldownTicks": 1,
+    "projectileTypeId": "projectile:thanos_bullet",
+    "magSize": 2400,
+    "reloadTicks": 99999,
+    "magItemTypeId": "mag:thanos_machine_gun"
+  },
+  "rarityTier": "legendary",
+  "rendering": {
+    "assetPath": "/placeholder.png",
+    "sprite": {
+      "x": 26,
+      "y": 2,
+      "rotationDeg": -5,
+      "scale": 1.2,
+      "handedness": "right",
+      "recoilDistance": 8,
+      "swingAngleDeg": 0,
+      "jabDistance": 0
+    },
+    "icon": {
+      "x": 0,
+      "y": 0,
+      "rotationDeg": 0,
+      "scale": 1
+    }
+  }
+}

@@ -832,7 +832,7 @@ export class PixiHud {
 
     const bossAlive = this.selectors
       .getWorldEntities()
-      .some((e) => e.typeId === "enemy:thanos" && e.alive);
+      .some((e) => e.typeId === "enemy:wither" && e.alive);
 
     const repairActive =
       this.repairHoldStartMs !== null ||
@@ -1219,11 +1219,11 @@ export class PixiHud {
     if (!this.bossHealthBar) return;
     const boss = this.selectors
       .getWorldEntities()
-      .find((e) => e.typeId === "enemy:thanos" && e.alive);
+      .find((e) => e.typeId === "enemy:wither" && e.alive);
     this.bossHealthBar.sync({
       visible: boss !== undefined,
       hp: boss?.hp ?? 0,
-      maxHp: boss?.maxHp ?? 2000,
+      maxHp: boss?.maxHp ?? 1000,
       screenWidth,
       screenHeight,
     });

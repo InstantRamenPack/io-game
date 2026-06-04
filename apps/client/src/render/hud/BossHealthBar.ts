@@ -5,7 +5,7 @@ const BAR_HEIGHT = 18;
 const LABEL_FONT: Partial<PIXI.TextStyle> = {
   fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
   fontSize: 13,
-  fill: 0xd7bde2,
+  fill: 0x7fdbff,
   fontWeight: "bold",
   letterSpacing: 1.5,
 };
@@ -28,7 +28,7 @@ export class BossHealthBar {
     this.bg = new PIXI.Graphics();
     this.track = new PIXI.Graphics();
     this.fill = new PIXI.Graphics();
-    this.label = new PIXI.Text("⚡ THANOS", new PIXI.TextStyle(LABEL_FONT));
+    this.label = new PIXI.Text("☠ WITHER", new PIXI.TextStyle(LABEL_FONT));
     this.hpText = new PIXI.Text("", new PIXI.TextStyle(HP_FONT));
     this.label.anchor.set(0.5, 1);
     this.hpText.anchor.set(0.5, 0);
@@ -63,7 +63,7 @@ export class BossHealthBar {
       .roundRect(-BAR_WIDTH / 2 - 12, -24, BAR_WIDTH + 24, BAR_HEIGHT + 44, 8)
       .fill({ color: 0x0a0a0a, alpha: 0.72 })
       .roundRect(-BAR_WIDTH / 2 - 12, -24, BAR_WIDTH + 24, BAR_HEIGHT + 44, 8)
-      .stroke({ width: 1.5, color: 0x7d3c98, alpha: 0.8 });
+      .stroke({ width: 1.5, color: 0x1a6b8a, alpha: 0.8 });
 
     this.track.clear();
     this.track
@@ -74,7 +74,7 @@ export class BossHealthBar {
     if (ratio > 0) {
       this.fill
         .roundRect(-BAR_WIDTH / 2, 0, BAR_WIDTH * ratio, BAR_HEIGHT, 4)
-        .fill({ color: 0x8e44ad, alpha: 1 });
+        .fill({ color: 0x1a9fc4, alpha: 1 });
     }
 
     this.label.position.set(0, -4);

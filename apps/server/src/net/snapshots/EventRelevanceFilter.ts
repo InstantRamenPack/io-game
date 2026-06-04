@@ -79,6 +79,13 @@ function isEventRelevantForPlayer(
     return deltaX * deltaX + deltaY * deltaY <= eventRadiusSquared;
   }
 
+  if (event.type === "wither_airstrike_warning") {
+    const deltaX = event.payload.x - playerX;
+    const deltaY = event.payload.y - playerY;
+    return deltaX * deltaX + deltaY * deltaY <= eventRadiusSquared;
+  }
+
+  // wither_beam and explosion have sourceId
   if (event.payload.sourceId === playerId) {
     return true;
   }
