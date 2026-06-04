@@ -5,7 +5,7 @@
   "projectile": {
     "speed": 300,
     "range": 1000000,
-    "damage": 100,
+    "damage": 200,
     "maxHits": 10,
     "hitbox": {
       "width": 6,
