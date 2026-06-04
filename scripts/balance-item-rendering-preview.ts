@@ -112,7 +112,6 @@ export function buildPreviewStateFromBalanceRow(
   row: BalanceRenderingPreviewRow,
 ): BalanceRenderingPreviewState {
   const attackStyle = parseAttackStyle(row.attackStyle);
-  const handedness = fieldString(row, "itemLike.spriteHandedness", "right");
   const comboStabJabDistance = fieldNumber(
     row,
     "itemLike.comboStabJabDistance",
@@ -123,7 +122,6 @@ export function buildPreviewStateFromBalanceRow(
     y: fieldNumber(row, "itemLike.spriteY", 0),
     rotationDeg: fieldNumber(row, "itemLike.spriteRotationDeg", 0),
     scale: fieldNumber(row, "itemLike.spriteScale", 1),
-    handedness: handedness === "left" ? "left" : "right",
     recoilDistance: fieldNumber(row, "itemLike.spriteRecoilDistance", 0),
     swingAngleDeg: fieldNumber(row, "itemLike.spriteSwingAngleDeg", 0),
     jabDistance: fieldNumber(row, "itemLike.spriteJabDistance", 0),

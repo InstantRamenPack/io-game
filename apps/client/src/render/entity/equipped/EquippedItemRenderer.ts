@@ -56,7 +56,7 @@ export abstract class BaseEquippedItemRenderer implements EquippedItemRenderer {
     sprite.texture = texture;
 
     // Compute uniform scale so sprites have consistent visual size, then
-    // apply handedness by multiplying X scale with mirrorSign.
+    // mirror right-facing art when the player faces left.
     const desiredSize = 42 * renderManifest.scale;
     const scaleFactor = desiredSize / Math.max(1, texture.height);
     sprite.scale.set(scaleFactor * mirrorSign, scaleFactor);

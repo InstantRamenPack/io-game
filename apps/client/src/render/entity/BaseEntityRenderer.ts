@@ -43,7 +43,6 @@ const UNARMED_RENDER_MANIFEST: ItemSpriteRendering = {
   y: 5,
   rotationDeg: 0,
   scale: 1,
-  handedness: "right",
   recoilDistance: 0,
   swingAngleDeg: 0,
   jabDistance: 14,

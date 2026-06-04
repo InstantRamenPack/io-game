@@ -246,12 +246,6 @@ const itemRenderingFieldSpecs = [
     path: ["rendering", "sprite", "rotationDeg"],
   },
   {
-    key: "spriteHandedness",
-    label: "Handedness",
-    path: ["rendering", "sprite", "handedness"],
-    kind: "text",
-  },
-  {
     key: "spriteRecoilDistance",
     label: "Recoil",
     path: ["rendering", "sprite", "recoilDistance"],

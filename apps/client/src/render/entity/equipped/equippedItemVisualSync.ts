@@ -58,8 +58,7 @@ export function buildEquippedRenderContext(options: {
     attackAnimationDurationMs: options.attackAnimationDurationMs,
   });
   const facingLeft = Math.cos(options.rotation) < 0;
-  const assetFacesRight = options.renderManifest.handedness === "right";
-  const mirrorSign: 1 | -1 = assetFacesRight === facingLeft ? -1 : 1;
+  const mirrorSign: 1 | -1 = facingLeft ? -1 : 1;
 
   return {
     entity: options.entity,

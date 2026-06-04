@@ -60,7 +60,6 @@ type RawContentJson = {
       y: number;
       rotationDeg: number;
       scale: number;
-      handedness: "right" | "left";
       recoilDistance: number;
       swingAngleDeg: number;
       jabDistance: number;
@@ -351,7 +350,6 @@ function defaultItemRendering(
       y: 0,
       rotationDeg: 0,
       scale: 1,
-      handedness: "right",
       recoilDistance: 0,
       swingAngleDeg: 0,
       jabDistance: 0,

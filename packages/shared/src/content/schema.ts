@@ -34,7 +34,6 @@ export const ItemSpriteRenderingSchema = z.object({
   y: z.number().finite(),
   rotationDeg: z.number().finite().default(0),
   scale: z.number().finite().default(1),
-  handedness: z.enum(["right", "left"]).default("right"),
   recoilDistance: z.number().finite().default(0),
   swingAngleDeg: z.number().finite().default(0),
   jabDistance: z.number().finite().default(0),
