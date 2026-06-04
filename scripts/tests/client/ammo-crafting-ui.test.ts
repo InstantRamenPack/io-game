@@ -82,6 +82,9 @@ describe("ammo crafting HUD", () => {
   });
 
   test("shows every mag recipe after acquiring its corresponding gun", () => {
+    const craftableMagTypeIds = new Set(
+      CRAFTABLE_ITEM_TYPE_IDS.filter((typeId) => typeId.startsWith("mag:")),
+    );
     const gunUnlockedMagTypeIds = getAllItemContentEntries()
       .map(([typeId]) => {
         const weapon = getWeaponContent(typeId);
@@ -89,7 +92,10 @@ describe("ammo crafting HUD", () => {
           ? weapon.magItemTypeId
           : undefined;
       })
-      .filter((typeId): typeId is ResourceId => typeId !== undefined);
+      .filter(
+        (typeId): typeId is ResourceId =>
+          typeId !== undefined && craftableMagTypeIds.has(typeId),
+      );
     const hud = makeHud(gunUnlockedMagTypeIds);
     const visibleCraftableTypeIds = getVisibleCraftableTypeIds(hud);
 

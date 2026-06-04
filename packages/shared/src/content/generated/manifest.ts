@@ -104,6 +104,7 @@ import magLmgJson from "@shared/content/mag/lmg.json";
 import magMachinePistolJson from "@shared/content/mag/machine_pistol.json";
 import magShotgunJson from "@shared/content/mag/shotgun.json";
 import magSniperJson from "@shared/content/mag/sniper.json";
+import magStreakerJson from "@shared/content/mag/streaker.json";
 import magThanosMachineGunJson from "@shared/content/mag/thanos_machine_gun.json";
 import magThanosRifleJson from "@shared/content/mag/thanos_rifle.json";
 import magThanosRocketLauncherJson from "@shared/content/mag/thanos_rocket_launcher.json";
@@ -278,6 +279,7 @@ export const magContentEntries = [
   makeParsedMagContentEntry("machine_pistol", magMachinePistolJson),
   makeParsedMagContentEntry("shotgun", magShotgunJson),
   makeParsedMagContentEntry("sniper", magSniperJson),
+  makeParsedMagContentEntry("streaker", magStreakerJson),
   makeParsedMagContentEntry("thanos_machine_gun", magThanosMachineGunJson),
   makeParsedMagContentEntry("thanos_rifle", magThanosRifleJson),
   makeParsedMagContentEntry("thanos_rocket_launcher", magThanosRocketLauncherJson),

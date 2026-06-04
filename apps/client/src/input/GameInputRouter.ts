@@ -158,7 +158,9 @@ export class GameInputRouter {
           }
           this.rRepairHoldTowerId = null;
         }, INTERACT_HOLD_DURATION_MS);
+        return;
       }
+      this.options.dispatch({ type: "reloadSelectedWeapon" });
       return;
     }
 
@@ -180,12 +182,6 @@ export class GameInputRouter {
         type: "dropSelectedItem",
         dropWholeStack: event.ctrlKey,
       });
-      return;
-    }
-
-    if (key === "r") {
-      event.preventDefault();
-      this.options.dispatch({ type: "reloadSelectedWeapon" });
       return;
     }
 
