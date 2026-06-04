@@ -3,9 +3,6 @@
   "hint": "Rare crafting schematic for the Remington 700.",
   "description": "Unlocks the Remington 700 recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:sniper",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/sniper.png",
     "sprite": {

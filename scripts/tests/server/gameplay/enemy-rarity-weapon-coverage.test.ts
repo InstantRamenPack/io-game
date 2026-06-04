@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { Commander } from "@server/entities/enemies/Commander.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
@@ -31,8 +31,9 @@ const ENEMY_CTORS = [
 ] as const;
 
 describe("enemy rarity weapon coverage", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("weapon-bearing enemies only equip weapons from their own rarity tier", () => {
-    bootstrapTestRegistries();
     for (const EnemyCtor of ENEMY_CTORS) {
       const enemyTier = getEntityRarityTier(EnemyCtor.typeId);
       expect(
@@ -57,7 +58,6 @@ describe("enemy rarity weapon coverage", () => {
   });
 
   test("every weapon item is equipped by at least one enemy variant", () => {
-    bootstrapTestRegistries();
     const observedWeaponTypeIds = new Set<ResourceId>();
     for (const EnemyCtor of ENEMY_CTORS) {
       for (let index = 0; index < 24; index += 1) {

@@ -2,10 +2,10 @@ import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import type { CraftingModalEntry } from "@client/render/hud/CraftingModal.ts";
 import {
   getItemContent,
+  getItemRarityTier,
   getProjectileContent,
   getResourceDisplayLabel,
   getWeaponContent,
-  getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
 import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
 import type { RarityTier } from "@shared/content/schema.ts";
@@ -54,6 +54,19 @@ export const RARITY_COLORS: Record<RarityTier, number> = {
   legendary: 0xf59e0b,
 };
 
+export function getRarityPresentation(typeId: ResourceId):
+  | {
+      tier: RarityTier;
+      color: number;
+    }
+  | undefined {
+  const tier = getItemRarityTier(typeId);
+  if (!tier) {
+    return undefined;
+  }
+  return { tier, color: RARITY_COLORS[tier] };
+}
+
 export function buildCombatHudModel(options: {
   playerEntity: ClientEntity | undefined;
   activeSlot: InventorySlotSnapshot | null;
@@ -94,6 +107,7 @@ export function buildInventoryTooltipContent(
   const title = getResourceDisplayLabel(slot.typeId);
   const detail = getItemDetailLine(slot.typeId, slot.kind);
   const lines: string[] = [];
+  const rarity = getRarityPresentation(slot.typeId);
 
   if (slot.kind === "buildable") {
     lines.push(`Stack: ${slot.count}`);
@@ -122,10 +136,7 @@ export function buildInventoryTooltipContent(
 
   return {
     title,
-    titleColor:
-      slot.kind === "weapon"
-        ? RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"]
-        : undefined,
+    titleColor: rarity?.color,
     detail,
     lines,
   };
@@ -146,9 +157,7 @@ export function buildCraftTooltipContent(
   }
   return {
     title: entry.label,
-    titleColor: itemContent?.weapon
-      ? RARITY_COLORS[getWeaponRarityTier(entry.typeId) ?? "common"]
-      : undefined,
+    titleColor: getRarityPresentation(entry.typeId)?.color,
     detail: entry.description,
     lines,
   };
@@ -166,10 +175,10 @@ export function buildSelectedItemLabel(
 export function getSelectedItemLabelColor(
   slot: InventorySlotSnapshot | null | undefined,
 ): number {
-  if (!slot || slot.kind !== "weapon") {
+  if (!slot || slot.kind === "empty") {
     return 0xf3f6ee;
   }
-  return RARITY_COLORS[getWeaponRarityTier(slot.typeId) ?? "common"];
+  return getRarityPresentation(slot.typeId)?.color ?? 0xf3f6ee;
 }
 
 function buildAmmoModel(

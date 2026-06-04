@@ -91,7 +91,7 @@ const HelloMessageSchema = z.object({
   preview: z.boolean().optional(),
 });
 
-const InputIntentMessageSchema = z
+export const InputIntentMessageSchema = z
   .object({
     t: z.literal("input"),
     seq: NonNegativeIntSchema,

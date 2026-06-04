@@ -3,11 +3,12 @@
   "hint": "Unlocks the next armor crafting tier.",
   "description": "Unlocks the next locked armor recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:armor_t2",
-  "unlocksRecipeTypeIds": ["item:armor_t2", "item:armor_t3", "item:armor_t4"],
+  "unlocksRecipeTypeIds": [
+    "item:armor_t2",
+    "item:armor_t3",
+    "item:armor_t4"
+  ],
   "rarityTier": "rare",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/armor.png",
     "sprite": {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Building } from "@server/entities/Building.ts";
-import { Crate } from "@server/entities/enemies/Crate.ts";
+import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
@@ -17,15 +17,15 @@ import { entityTypeRegistry } from "@server/registry/registries.ts";
 import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
-import {
-  generateProceduralWorldLayout,
-  getSectorForPoint,
-  type ProceduralDungeonRoom,
-  type ProceduralCrateLootSlot,
-  type ProceduralLootSpec,
-  type ProceduralSpawnSpec,
-  type ProceduralWorldLayout,
-} from "@shared/world/ProceduralWorld.ts";
+import { generateProceduralWorldLayout } from "@server/world/generation/generateProceduralWorldLayout.ts";
+import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
+import type {
+  ProceduralCrateLootSlot,
+  ProceduralDungeonRoom,
+  ProceduralLootSpec,
+  ProceduralSpawnSpec,
+  ProceduralWorldLayout,
+} from "@shared/world/layoutTypes.ts";
 import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
 import {
   getExtractionLegendaryBossUnlockNightCycle,
@@ -139,20 +139,20 @@ function spawnProceduralEntity(
     entity.spawnSource = spawnSource;
   }
   if (
-    entity instanceof Crate &&
+    entity instanceof CrateStructure &&
     wouldOverlapExistingStructureOrBuilding(world, entity)
   ) {
     world.despawn(entity.id);
     return entity;
   }
-  if (entity instanceof Crate && spec.crateLoot) {
+  if (entity instanceof CrateStructure && spec.crateLoot) {
     fillCrate(entity, spec.crateLoot);
   }
   return entity;
 }
 
 function fillCrate(
-  crate: Crate,
+  crate: CrateStructure,
   lootSlots: readonly ProceduralCrateLootSlot[],
 ): void {
   for (const slot of lootSlots) {
@@ -181,7 +181,7 @@ function spawnProceduralLootCrate(
   world: World,
   spec: ProceduralLootSpec,
 ): void {
-  const entry = entityTypeRegistry.require("enemy:crate" as ResourceId);
+  const entry = entityTypeRegistry.require("structure:crate" as ResourceId);
   if (!isSpawnableEntityCtor(entry.ctor)) {
     throw new Error("Procedural loot crate type is not spawnable.");
   }
@@ -192,7 +192,7 @@ function spawnProceduralLootCrate(
     return;
   }
   world.spawn(entity);
-  if (!(entity instanceof Crate)) {
+  if (!(entity instanceof CrateStructure)) {
     throw new Error("Procedural loot crate type did not create a crate.");
   }
   addLootSlotToInventory(entity.contents, spec);
@@ -335,9 +335,6 @@ function isRegularLayoutEnemy(
   if (entity.spawnSource !== "layout") {
     return false;
   }
-  if (entity.typeId === ("enemy:crate" as ResourceId)) {
-    return false;
-  }
   const sector = getSectorForPoint(layout, entity);
   return sector?.archetype !== "dungeon";
 }
@@ -348,10 +345,9 @@ function collectEligibleLayoutEnemyRespawnSpecs(
   return layout.sectors.flatMap((sector) =>
     sector.archetype === "dungeon"
       ? []
-      : sector.enemies.filter(
-          (spec) =>
-            spec.typeId !== ("enemy:crate" as ResourceId) &&
-            !(
+        : sector.enemies.filter(
+            (spec) =>
+              !(
               sector.archetype === "extraction" &&
               isLegendaryBossTypeId(spec.typeId)
             ),

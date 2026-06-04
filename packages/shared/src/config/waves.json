@@ -7,57 +7,57 @@
     "bucketDelayTicks": [0, 45, 90, 135, 180, 225, 270],
     "enemyWeights": [
       {
-        "entityType": "drifter",
+        "entityTypeId": "enemy:drifter",
         "tier": "common",
         "weight": 6
       },
       {
-        "entityType": "shoota",
+        "entityTypeId": "enemy:shoota",
         "tier": "common",
         "weight": 4
       },
       {
-        "entityType": "police",
+        "entityTypeId": "enemy:police",
         "tier": "uncommon",
         "weight": 3
       },
       {
-        "entityType": "ranger",
+        "entityTypeId": "enemy:ranger",
         "tier": "uncommon",
         "weight": 3
       },
       {
-        "entityType": "bomber",
+        "entityTypeId": "enemy:bomber",
         "tier": "uncommon",
         "weight": 2
       },
       {
-        "entityType": "saboteur",
+        "entityTypeId": "enemy:saboteur",
         "tier": "rare",
         "weight": 2
       },
       {
-        "entityType": "wallbreaker",
+        "entityTypeId": "enemy:wallbreaker",
         "tier": "rare",
         "weight": 2
       },
       {
-        "entityType": "stalker",
+        "entityTypeId": "enemy:stalker",
         "tier": "rare",
         "weight": 2
       },
       {
-        "entityType": "sniper",
+        "entityTypeId": "enemy:sniper",
         "tier": "epic",
         "weight": 1
       },
       {
-        "entityType": "commander",
+        "entityTypeId": "enemy:commander",
         "tier": "epic",
         "weight": 1
       },
       {
-        "entityType": "megaknight",
+        "entityTypeId": "enemy:megaknight",
         "tier": "epic",
         "weight": 1
       }

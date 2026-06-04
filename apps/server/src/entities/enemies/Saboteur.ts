@@ -2,25 +2,14 @@ import { createEnemySpawnWeapons, Enemy } from "@server/entities/Enemy.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { Building } from "@server/entities/Building.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
-import { CommsTower } from "@server/entities/buildings/CommsTower.ts";
-import { Recycler } from "@server/entities/buildings/Recycler.ts";
+import { EnergyTower } from "@server/entities/tower/EnergyTower.ts";
+import { CommsTower } from "@server/entities/tower/CommsTower.ts";
 import { Player } from "@server/entities/Player.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
-import type { Entity } from "@server/entities/Entity.ts";
-
-const BUILDING_DAMAGE_MULTIPLIER = 2;
 
 export class Saboteur extends Enemy {
   public static override readonly resourceName = "saboteur";
-
-  public override getOutgoingDamageMultiplier(target: Entity): number {
-    const baseMultiplier = super.getOutgoingDamageMultiplier(target);
-    return target instanceof Building
-      ? baseMultiplier * BUILDING_DAMAGE_MULTIPLIER
-      : baseMultiplier;
-  }
 
   constructor(id: number) {
     super(id, {
@@ -28,12 +17,7 @@ export class Saboteur extends Enemy {
       goals: [
         new TargetEntityGoal<Enemy>(0, EnergyTower, 1200),
         new TargetEntityGoal<Enemy>(1, CommsTower, 1200),
-        new TargetEntityGoal<Enemy>(
-          2,
-          Building,
-          900,
-          (e) => !(e instanceof Recycler),
-        ),
+        new TargetEntityGoal<Enemy>(2, Building, 900),
         new TargetEntityGoal<Enemy>(3, Player, 600, {
           requireLineOfSight: true,
         }),

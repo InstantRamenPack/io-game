@@ -17,7 +17,6 @@ import type {
   EntityContent,
   ItemRendering,
   ItemContent,
-  PickupSpawnPool,
   PlayerStarterLoadout,
   ProjectileContent,
   VisibilityBlockerContent,
@@ -188,6 +187,12 @@ export function getArmorContent(typeId: ResourceId):
   return getItemContent(typeId)?.armor;
 }
 
+export function getItemRarityTier(
+  typeId: ResourceId,
+): RarityTier | undefined {
+  return getItemContent(typeId)?.rarityTier;
+}
+
 export function getWeaponRarityTier(
   typeId: ResourceId,
 ): RarityTier | undefined {
@@ -251,12 +256,6 @@ export function getItemRecycleHunkValue(
   typeId: ResourceId,
 ): number | undefined {
   return getItemContent(typeId)?.recycle?.hunkValue;
-}
-
-export function getItemPickupSpawnPools(
-  typeId: ResourceId,
-): readonly PickupSpawnPool[] {
-  return getItemContent(typeId)?.pickupSpawn?.pools ?? [];
 }
 
 export function requireProjectileContent(

@@ -1,100 +1,23 @@
 import {
-  getAllItemContentEntries,
   getEntityContent,
   getEntityCapabilities,
   getItemContent,
-  getItemPickupSpawnPools,
   getItemRecycleHunkValue,
   getWeaponRarityTier,
 } from "@shared/content/catalog.ts";
-import {
-  pickupsConfig,
-  recyclingConfig,
-} from "@shared/config/gameplayConfig.ts";
+import { recyclingConfig } from "@shared/config/gameplayConfig.ts";
 import enemyDeathLootBalanceRaw from "@shared/content/death_loot.json";
 import type {
   EntityCapabilitiesContent,
-  ItemContent,
-  PickupSpawnPool,
   RarityTier,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Chest } from "@server/entities/buildings/Chest.ts";
-import { Hub } from "@server/entities/buildings/Hub.ts";
-import { Tower } from "@server/entities/buildings/Tower.ts";
-import { Recycler } from "@server/entities/buildings/Recycler.ts";
+import { Hub } from "@server/entities/tower/Hub.ts";
+import { Tower } from "@server/entities/tower/Tower.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
 export const HUNK_ITEM_TYPE_ID = "item:hunk" as ResourceId;
-
-function getContentTypeIds(
-  predicate: (entry: readonly [ResourceId, ItemContent]) => boolean,
-): readonly ResourceId[] {
-  return Object.freeze(
-    getAllItemContentEntries()
-      .filter((entry) => predicate(entry))
-      .map(([typeId]) => typeId),
-  );
-}
-
-function getPickupSpawnTypeIds(
-  pool: PickupSpawnPool,
-  legacyOrder: readonly ResourceId[],
-): readonly ResourceId[] {
-  const typeIdsByContent = getContentTypeIds(([typeId]) =>
-    getItemPickupSpawnPools(typeId).includes(pool),
-  );
-  const typeIdSet = new Set(typeIdsByContent);
-  const orderedTypeIdSet = new Set<ResourceId>(legacyOrder);
-
-  return Object.freeze([
-    ...legacyOrder.filter((typeId) => typeIdSet.has(typeId)),
-    ...typeIdsByContent.filter((typeId) => !orderedTypeIdSet.has(typeId)),
-  ]);
-}
-
-export const WORLD_BLUEPRINT_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
-  "blueprint",
-  pickupsConfig.legacyOrder.blueprint as readonly ResourceId[],
-);
-
-export const WORLD_MEDICAL_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
-  "medical",
-  pickupsConfig.legacyOrder.medical as readonly ResourceId[],
-);
-
-export const WORLD_MAG_PICKUP_TYPE_IDS = getPickupSpawnTypeIds(
-  "mag",
-  pickupsConfig.legacyOrder.mag as readonly ResourceId[],
-);
-
-const WORLD_WEAPON_PICKUP_TYPE_IDS_BY_CONTENT = getPickupSpawnTypeIds(
-  "weapon",
-  pickupsConfig.legacyOrder.weapon as readonly ResourceId[],
-);
-
-export function getWorldWeaponPickupTypeIds(): readonly ResourceId[] {
-  return WORLD_WEAPON_PICKUP_TYPE_IDS_BY_CONTENT;
-}
-
-export function getRecycleHunkOutput(
-  typeId: ResourceId,
-  randomNumberGenerator: () => number,
-): number | undefined {
-  const itemContent = getItemContent(typeId);
-  if (!itemContent) {
-    return undefined;
-  }
-  if (
-    (itemContent.weapon || itemContent.buildsEntityTypeId) &&
-    itemContent.rarityTier
-  ) {
-    const [min, max] = recyclingConfig.rarityHunkRanges[itemContent.rarityTier];
-    return min + Math.floor(randomNumberGenerator() * (max - min + 1));
-  }
-  return getItemRecycleHunkValue(typeId);
-}
 
 type EnemyDeathLootConfig = {
   rarityTier: RarityTier;
@@ -127,6 +50,24 @@ for (const tier of RARITY_TIERS) {
   if (!value) {
     throw new Error(`Missing enemy death loot balance tier: ${tier}`);
   }
+}
+
+export function getRecycleHunkOutput(
+  typeId: ResourceId,
+  randomNumberGenerator: () => number,
+): number | undefined {
+  const itemContent = getItemContent(typeId);
+  if (!itemContent) {
+    return undefined;
+  }
+  if (
+    (itemContent.weapon || itemContent.buildsEntityTypeId) &&
+    itemContent.rarityTier
+  ) {
+    const [min, max] = recyclingConfig.rarityHunkRanges[itemContent.rarityTier];
+    return min + Math.floor(randomNumberGenerator() * (max - min + 1));
+  }
+  return getItemRecycleHunkValue(typeId);
 }
 
 export function getEnemyDeathLootConfig(
@@ -191,10 +132,7 @@ export function isDebugAdminPlayerName(name: string): boolean {
 }
 
 export function isRecyclerEntity(entity: Entity): boolean {
-  return (
-    entity instanceof Recycler ||
-    getEntityCapabilities(entity.typeId)?.recycler === true
-  );
+  return getEntityCapabilities(entity.typeId)?.recycler === true;
 }
 
 export function isCraftingStationEntity(entity: Entity): boolean {
@@ -205,10 +143,10 @@ export function isTowerEntity(entity: Entity): entity is Tower {
   return entity instanceof Tower;
 }
 
-export function isContainerEntity(entity: Entity): entity is Chest | Hub {
+export function isContainerEntity(entity: Entity): entity is Hub {
   return (
     getEntityCapabilities(entity.typeId)?.container !== undefined &&
-    (entity instanceof Chest || entity instanceof Hub)
+    entity instanceof Hub
   );
 }
 

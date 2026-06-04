@@ -5,12 +5,12 @@ import { worldConfig } from "@shared/config/gameplayConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
-import {
-  getSectorForPoint,
-  type ProceduralForestCamp,
-  type ProceduralSpawnSpec,
-  type ProceduralWorldLayout,
-} from "@shared/world/ProceduralWorld.ts";
+import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
+import type {
+  ProceduralForestCamp,
+  ProceduralSpawnSpec,
+  ProceduralWorldLayout,
+} from "@shared/world/layoutTypes.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
@@ -21,7 +21,6 @@ import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
 import type { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import type { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
-import { NightStormSystem } from "@server/systems/NightStormSystem.ts";
 import { PickupSystem } from "@server/systems/PickupSystem.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
@@ -65,7 +64,6 @@ export class World {
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
-  public nightStormSystem: NightStormSystem;
   public extractionSystem: ExtractionSystem | null = null;
   public infrastructureSystem: InfrastructureSystem | null = null;
   public proceduralLayout: ProceduralWorldLayout | null = null;
@@ -126,11 +124,6 @@ export class World {
       dayDurationMs: gameConfig.dayNight.dayDurationMs,
       nightDurationMs: gameConfig.dayNight.nightDurationMs,
     });
-    this.nightStormSystem = new NightStormSystem({
-      tickRate: gameConfig.tickRate,
-      damage: gameConfig.dayNight.stormDamage.damage,
-      intervalMs: gameConfig.dayNight.stormDamage.intervalMs,
-    });
     this.waveSystem = new WaveSystem({ dayNightSystem: this.dayNightSystem });
     this.focusedTrace = new FocusedServerTrace(gameConfig);
   }
@@ -161,7 +154,6 @@ export class World {
     });
     const waveMs = measurePhase(() => {
       this.waveSystem.update(this, deltaMs);
-      this.nightStormSystem.update(this, deltaMs);
       this.updateForestCampRespawns();
       this.infrastructureSystem?.update(this, deltaMs);
       this.extractionSystem?.update(this, deltaMs);

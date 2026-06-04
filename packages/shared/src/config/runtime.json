@@ -11,7 +11,7 @@
     "maxDynamicCorrectionPerTick": 8
   },
   "network": {
-    "maxPlayers": 64,
+    "slotCapacity": 64,
     "maxPacketBytes": 16384
   },
   "replication": {

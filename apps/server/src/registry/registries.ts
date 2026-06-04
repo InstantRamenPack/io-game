@@ -5,7 +5,6 @@ import type {
   ItemContent,
 } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { TypeRegistry } from "@shared/registry/TypeRegistry.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type {
   Projectile,
@@ -76,8 +75,13 @@ export type EffectTypeEntry = {
   ctor: RegistrableEffectCtor;
 };
 
-export const entityTypeRegistry = new TypeRegistry<EntityTypeEntry>();
-export const itemTypeRegistry = new TypeRegistry<ItemTypeEntry>();
-export const magTypeRegistry = new TypeRegistry<MagTypeEntry>();
-export const blueprintTypeRegistry = new TypeRegistry<BlueprintTypeEntry>();
-export const effectTypeRegistry = new TypeRegistry<EffectTypeEntry>();
+export {
+  blueprintTypeRegistry,
+  effectTypeRegistry,
+  entityTypeRegistry,
+  gameTypeRegistry,
+  itemTypeRegistry,
+  magTypeRegistry,
+  type GameTypeCategory,
+  type GameTypeEntry,
+} from "@server/registry/gameTypeRegistry.ts";

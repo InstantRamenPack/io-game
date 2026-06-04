@@ -93,8 +93,7 @@ type BalanceListRow = {
     | "waveEnemyWeight"
     | "tierFloor"
     | "typeId"
-    | "crateLoot"
-    | "pickupSpawnPool";
+    | "crateLoot";
   entries: BalanceListEntry[];
   addTemplate: string;
 };
@@ -110,17 +109,30 @@ const itemContentDirectory = "packages/shared/src/content/item";
 const magContentDirectory = "packages/shared/src/content/mag";
 const enemyContentDirectory = "packages/shared/src/content/enemy";
 const projectileContentDirectory = "packages/shared/src/content/projectile";
-const proceduralContentPath =
-  "packages/shared/src/world/procedural-content.json";
+const proceduralLootPath = "packages/shared/src/world/procedural-loot.json";
+const proceduralBlueprintsPath =
+  "packages/shared/src/world/procedural-blueprints.json";
+const proceduralVillagesPath =
+  "packages/shared/src/world/procedural-villages.json";
+const proceduralDungeonPath =
+  "packages/shared/src/world/procedural-dungeon.json";
+const proceduralSectorsPath =
+  "packages/shared/src/world/procedural-sectors.json";
+const proceduralContentPaths = [
+  proceduralLootPath,
+  proceduralBlueprintsPath,
+  proceduralVillagesPath,
+  proceduralDungeonPath,
+  proceduralSectorsPath,
+] as const;
 const worldgenConfigPath = "packages/shared/src/config/worldgen.json";
 const wavesConfigPath = "packages/shared/src/config/waves.json";
 const extractionConfigPath = "packages/shared/src/config/extraction.json";
-const pickupsConfigPath = "packages/shared/src/config/pickups.json";
 const jsonEditableRoots = [
   "packages/shared/src/config",
   "packages/shared/src/content",
 ] as const;
-const jsonEditableFiles = [proceduralContentPath] as const;
+const jsonEditableFiles = [...proceduralContentPaths] as const;
 const rarityTiers = [
   "common",
   "uncommon",
@@ -128,7 +140,6 @@ const rarityTiers = [
   "epic",
   "legendary",
 ] as const;
-const pickupSpawnPools = ["mag", "weapon", "blueprint", "medical"] as const;
 
 const weaponFieldSpecs = [
   {
@@ -331,33 +342,6 @@ const worldBalanceSpecs = [
     ],
   },
   {
-    configId: "loot",
-    configLabel: "Loot",
-    file: pickupsConfigPath,
-    fields: [
-      {
-        key: "weaponMaxActive",
-        label: "Weapon Pickups",
-        path: ["weapon", "maxActive"],
-      },
-      {
-        key: "blueprintMaxActive",
-        label: "Blueprint Pickups",
-        path: ["blueprint", "maxActive"],
-      },
-      {
-        key: "medicalMaxActive",
-        label: "Medical Pickups",
-        path: ["medical", "maxActive"],
-      },
-      {
-        key: "spawnAttempts",
-        label: "Spawn Attempts",
-        path: ["spawnAttempts"],
-      },
-    ],
-  },
-  {
     configId: "waves",
     configLabel: "Waves",
     file: wavesConfigPath,
@@ -410,7 +394,7 @@ const worldBalanceSpecs = [
   {
     configId: "villageLoot",
     configLabel: "Village Loot",
-    file: proceduralContentPath,
+    file: proceduralDungeonPath,
     fields: [
       {
         key: "crateChance",
@@ -432,7 +416,7 @@ const worldBalanceSpecs = [
   {
     configId: "blueprintPlacement",
     configLabel: "Blueprint Placement",
-    file: proceduralContentPath,
+    file: proceduralBlueprintsPath,
     fields: [
       {
         key: "villagesPerDistanceTier",
@@ -1266,7 +1250,7 @@ function listEntriesFor(
     if (itemKind === "waveEnemyWeight" && entry && typeof entry === "object") {
       const object = entry as JsonObject;
       return {
-        label: String(object.entityType ?? ""),
+        label: String(object.entityTypeId ?? ""),
         detail: `${String(object.tier ?? "")} / weight ${String(object.weight ?? "")}`,
         value: entry,
       };
@@ -1334,14 +1318,23 @@ function pushListRowIfArray(
 }
 
 async function loadBalanceListRows(): Promise<BalanceListRow[]> {
-  const [wavesFile, proceduralFile, pickupsFile, itemFiles, blueprintFiles] =
-    await Promise.all([
-      readJsonFile(wavesConfigPath),
-      readJsonFile(proceduralContentPath),
-      readJsonFile(pickupsConfigPath),
-      readContentFiles(itemContentDirectory),
-      readContentFiles("packages/shared/src/content/blueprint"),
-    ]);
+  const [
+    wavesFile,
+    proceduralLootFile,
+    proceduralBlueprintsFile,
+    proceduralVillagesFile,
+    proceduralSectorsFile,
+    itemFiles,
+    blueprintFiles,
+  ] = await Promise.all([
+    readJsonFile(wavesConfigPath),
+    readJsonFile(proceduralLootPath),
+    readJsonFile(proceduralBlueprintsPath),
+    readJsonFile(proceduralVillagesPath),
+    readJsonFile(proceduralSectorsPath),
+    readContentFiles(itemContentDirectory),
+    readContentFiles("packages/shared/src/content/blueprint"),
+  ]);
   const rows: BalanceListRow[] = [];
 
   rows.push(
@@ -1352,7 +1345,7 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
       ["randomWaves", "enemyWeights"],
       "waveEnemyWeight",
       getValue(wavesFile.data, ["randomWaves", "enemyWeights"]),
-      '{"entityType":"drifter","tier":"common","weight":1}',
+      '{"entityTypeId":"enemy:drifter","tier":"common","weight":1}',
     ),
     makeListRow(
       "waves",
@@ -1370,20 +1363,20 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
       rows,
       "loot",
       `Loot tier ${tier}`,
-      proceduralContentPath,
+      proceduralLootPath,
       ["lootByTier", tier],
       "typeId",
-      getValue(proceduralFile.data, ["lootByTier", tier]),
+      getValue(proceduralLootFile.data, ["lootByTier", tier]),
       '"item:basic_spear"',
     );
     pushListRowIfArray(
       rows,
       "loot",
       `Crate loot ${tier}`,
-      proceduralContentPath,
+      proceduralLootPath,
       ["crateLootByTier", tier],
       "crateLoot",
-      getValue(proceduralFile.data, ["crateLootByTier", tier]),
+      getValue(proceduralLootFile.data, ["crateLootByTier", tier]),
       '{"typeId":"item:basic_spear","kind":"weapon"}',
     );
   }
@@ -1393,7 +1386,7 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
       rows,
       "loot",
       `Blueprint pool excludes ${poolKey}`,
-      proceduralContentPath,
+      proceduralBlueprintsPath,
       [
         "blueprintPlacement",
         "weaponBlueprintPools",
@@ -1401,7 +1394,7 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
         "excludeBlueprintTypeIds",
       ],
       "typeId",
-      getValue(proceduralFile.data, [
+      getValue(proceduralBlueprintsFile.data, [
         "blueprintPlacement",
         "weaponBlueprintPools",
         poolKey,
@@ -1416,16 +1409,16 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
       makeListRow(
         "loot",
         `Forest camp ${pool} enemies`,
-        proceduralContentPath,
+        proceduralSectorsPath,
         ["forestCampEnemyTypes", pool],
         "typeId",
-        getValue(proceduralFile.data, ["forestCampEnemyTypes", pool]),
+        getValue(proceduralSectorsFile.data, ["forestCampEnemyTypes", pool]),
         '"enemy:drifter"',
       ),
     );
   }
 
-  const villageEnemyPools = getValue(proceduralFile.data, [
+  const villageEnemyPools = getValue(proceduralVillagesFile.data, [
     "villageEnemyPools",
   ]);
   if (villageEnemyPools && typeof villageEnemyPools === "object") {
@@ -1434,40 +1427,11 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
         makeListRow(
           "loot",
           `Village ${pool} enemies`,
-          proceduralContentPath,
+          proceduralVillagesPath,
           ["villageEnemyPools", pool],
           "typeId",
-          getValue(proceduralFile.data, ["villageEnemyPools", pool]),
+          getValue(proceduralVillagesFile.data, ["villageEnemyPools", pool]),
           '"enemy:drifter"',
-        ),
-      );
-    }
-  }
-
-  rows.push(
-    makeListRow(
-      "loot",
-      "Legacy blueprint pickup order",
-      pickupsConfigPath,
-      ["legacyOrder", "blueprint"],
-      "typeId",
-      getValue(pickupsFile.data, ["legacyOrder", "blueprint"]),
-      '"blueprint:halberd"',
-    ),
-  );
-
-  for (const file of [...itemFiles, ...blueprintFiles]) {
-    const pools = getValue(file.data, ["pickupSpawn", "pools"]);
-    if (Array.isArray(pools)) {
-      rows.push(
-        makeListRow(
-          "loot",
-          `${typeIdForContentPath(file.path)} spawn pools`,
-          file.path,
-          ["pickupSpawn", "pools"],
-          "pickupSpawnPool",
-          pools,
-          '"weapon"',
         ),
       );
     }
@@ -1672,10 +1636,10 @@ function validateListEntry(
       throw new Error("Wave enemy weight must be an object.");
     }
     const object = value as JsonObject;
-    if (typeof object.entityType !== "string") {
-      throw new Error("Wave enemy weight requires entityType.");
+    if (typeof object.entityTypeId !== "string") {
+      throw new Error("Wave enemy weight requires entityTypeId.");
     }
-    assertKnownTypeId(`enemy:${object.entityType}`, knownIds.enemyTypeIds);
+    assertKnownTypeId(object.entityTypeId, knownIds.enemyTypeIds);
     if (typeof object.tier !== "string") {
       throw new Error("Wave enemy weight requires tier.");
     }
@@ -1684,7 +1648,7 @@ function validateListEntry(
       throw new Error("Wave enemy weight must be a positive number.");
     }
     return {
-      entityType: object.entityType,
+      entityTypeId: object.entityTypeId,
       tier: object.tier,
       weight: object.weight,
     };
@@ -1756,23 +1720,21 @@ function validateListEntry(
       : { typeId: object.typeId, kind: object.kind, amount: object.amount };
   }
 
-  if (itemKind === "pickupSpawnPool") {
-    if (
-      typeof value !== "string" ||
-      !pickupSpawnPools.includes(value as (typeof pickupSpawnPools)[number])
-    ) {
-      throw new Error("Pickup spawn pool is unknown.");
+  if (itemKind === "typeId") {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new Error("List entry must be a non-empty type id.");
     }
-    return value;
+    const typeId = value.trim();
+    const targetIds = knownIdsForTypeId(typeId, knownIds);
+    assertKnownTypeId(typeId, targetIds);
+    return typeId;
   }
 
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error("List entry must be a non-empty type id.");
   }
   const typeId = value.trim();
-  const targetIds =
-    itemKind === "typeId" ? knownIdsForTypeId(typeId, knownIds) : null;
-  assertKnownTypeId(typeId, targetIds ?? knownIds.itemLikeTypeIds);
+  assertKnownTypeId(typeId, knownIds.itemLikeTypeIds);
   return typeId;
 }
 

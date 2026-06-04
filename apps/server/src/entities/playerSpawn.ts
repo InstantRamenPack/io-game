@@ -1,4 +1,4 @@
-import type { ProceduralWorldLayout } from "@shared/world/ProceduralWorld.ts";
+import type { ProceduralWorldLayout } from "@shared/world/layoutTypes.ts";
 
 const PLAYER_SPAWN_OFFSET_Y = 100;
 const MATCH_BASE_SPAWN_OFFSETS = Object.freeze([

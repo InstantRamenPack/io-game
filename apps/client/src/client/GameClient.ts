@@ -1,17 +1,17 @@
-import { ClientFrameLoop } from "@client/client/ClientFrameLoop.ts";
-import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
+import { ClientFrameController } from "@client/client/ClientFrameController.ts";
 import type {
   PerformanceRateState,
   PointerInput,
 } from "@client/client/clientTypes.ts";
-import {
-  HeldAttackController,
-  type LocalWeaponState,
-} from "@client/client/HeldAttackController.ts";
+import { HeldAttackController } from "@client/client/HeldAttackController.ts";
+import { ClientInputController } from "@client/client/input/ClientInputController.ts";
 import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
 import { PointerAimController } from "@client/client/input/PointerAimController.ts";
 import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
-import { ClientSessionLifecycle } from "@client/client/session/ClientSessionLifecycle.ts";
+import {
+  ClientSessionLifecycle,
+  type SessionLifecycleResetHooks,
+} from "@client/client/session/ClientSessionLifecycle.ts";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
 import { InputBlocker } from "@client/input/InputBlocker.ts";
 import { InputManager } from "@client/input/InputManager.ts";
@@ -31,7 +31,6 @@ import {
 } from "@shared/content/catalog.ts";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { normalizeAngle, shortestAngleDelta } from "@shared/math/angle.ts";
 import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
 import type {
   CraftTargetInput,
@@ -40,21 +39,8 @@ import type {
   GameCompleteMessage,
   GameOverMessage,
 } from "@shared/net/protocol.ts";
-import type {
-  ExtractionSnapshot,
-  InfrastructureSnapshot,
-  WorldSnapshot,
-} from "@shared/net/snapshots.ts";
+import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
-import { normalizePlayerName } from "@shared/playerName.ts";
-
-const INPUT_KEEPALIVE_INTERVAL_MS = 100;
-const INPUT_THETA_EPSILON = 0.0001;
-
-type SentInputIntent = {
-  theta: number;
-  movement: InputMovement;
-};
 
 /**
  * Coordinates the client runtime while gameplay concerns live in focused
@@ -63,17 +49,14 @@ type SentInputIntent = {
  */
 export class GameClient {
   public readonly networkClient: WsClient;
-  public worldState?: ClientWorldState;
   public readonly inputManager: InputManager;
   public readonly renderer: PixiRenderer;
   public readonly gameConfig: GameConfig;
-  public playerEntityId?: number;
   public readonly interpolator: Interpolator;
 
   private inputBound = false;
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
-  private readonly rateMonitor = new ClientRateMonitor();
-  private readonly frameLoop = new ClientFrameLoop();
+  private readonly frameController = new ClientFrameController();
   private readonly heldAttackController = new HeldAttackController({
     tickRate: () => this.gameConfig.tickRate,
   });
@@ -86,36 +69,14 @@ export class GameClient {
     MovementSuppressionReason,
     () => void
   >();
-  private pendingPlayerName: string | null = null;
   private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
-  private lastInputSentAtMs = Number.NEGATIVE_INFINITY;
-  private lastSentInputIntent?: SentInputIntent;
+  private readonly inputController: ClientInputController;
   private sessionReadyHandlers: Array<() => void> = [];
   private worldUpdatedHandlers: Array<() => void> = [];
   private lobbyStateHandlers: Array<(state: LobbyStateMessage) => void> = [];
   private gameCompleteHandlers: Array<(msg: GameCompleteMessage) => void> = [];
   private gameOverHandlers: Array<(msg: GameOverMessage) => void> = [];
-  private lobbyState?: LobbyStateMessage;
-  private spectateEntityId: number | null = null;
-  private latestExtractionState: ExtractionSnapshot | null = null;
-  private latestInfrastructureState: InfrastructureSnapshot = {
-    energyActive: true,
-    commsActive: true,
-  };
-  private currentWorldId: string | undefined = undefined;
-  private latestMinimapPlayers: ReadonlyArray<{
-    id: number;
-    x: number;
-    y: number;
-    alive: boolean;
-  }> = [];
-  private readonly heldMovement: InputMovement = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-  };
 
   constructor(
     gameConfig: GameConfig,
@@ -142,6 +103,20 @@ export class GameClient {
       ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
     });
+    this.inputController = new ClientInputController({
+      inputManager: this.inputManager,
+      networkClient: this.networkClient,
+      pointerAimController: this.pointerAimController,
+      actionDispatcher: this.actionDispatcher,
+      heldAttackController: this.heldAttackController,
+      presentationSink: this.presentationSink,
+      isSessionReady: () => this.isSessionReady(),
+      isTransportConnected: () => this.isTransportConnected(),
+      getLocalPlayerEntity: () => this.getLocalPlayerEntity(),
+      getLocalPlayerVisualPose: () => this.getLocalPlayerVisualPose(),
+      getPlayerEntityId: () => this.playerEntityId,
+      getWorldState: () => this.worldState,
+    });
 
     this.networkClient.onSnapshot((snapshot) => this.onSnapshot(snapshot));
     this.networkClient.onWelcome((entityId, worldId) =>
@@ -151,16 +126,29 @@ export class GameClient {
     this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
     this.networkClient.onGameOver((msg) => this.handleGameOver(msg));
     this.networkClient.onSpectateUpdate((msg) => {
-      this.spectateEntityId = msg.targetEntityId;
+      this.sessionLifecycle.setSpectateEntityId(msg.targetEntityId);
     });
     this.networkClient.onClose(() => this.onDisconnected());
-    this.inputManager.onMoveIntent(({ key, pressed }) => {
-      this.heldMovement[key] = pressed;
-      this.sendInputIntentIfNeeded(performance.now(), true);
-    });
+    this.inputController.bindMoveIntent();
     this.inputBlocker.onChange((blocked) => {
       this.inputManager.setMovementSuppressed(blocked);
     });
+  }
+
+  public get worldState(): ClientWorldState | undefined {
+    return this.sessionLifecycle.getWorldState();
+  }
+
+  public set worldState(worldState: ClientWorldState | undefined) {
+    this.sessionLifecycle.setWorldState(worldState);
+  }
+
+  public get playerEntityId(): number | undefined {
+    return this.sessionLifecycle.getPlayerEntityId();
+  }
+
+  public set playerEntityId(playerEntityId: number | undefined) {
+    this.sessionLifecycle.setPlayerEntityId(playerEntityId);
   }
 
   public bindInput(targetElement: HTMLElement | Window): void {
@@ -202,35 +190,27 @@ export class GameClient {
   }
 
   public isInActiveMatch(): boolean {
-    return (
-      this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null
-    );
+    return this.sessionLifecycle.isInActiveMatch();
   }
 
   public getSpectateTargetName(): string | null {
-    if (this.spectateEntityId === null) {
-      return null;
-    }
-    const entity = this.worldState?.clientWorld?.entities.get(
-      this.spectateEntityId,
-    );
-    return entity?.kind === "player" ? (entity.name ?? null) : null;
+    return this.sessionLifecycle.getSpectateTargetName();
   }
 
   public getSpectateTargetEntityId(): number | null {
-    return this.spectateEntityId;
+    return this.sessionLifecycle.getSpectateEntityId();
   }
 
-  public getLatestExtractionState(): ExtractionSnapshot | null {
-    return this.latestExtractionState;
+  public getLatestExtractionState() {
+    return this.sessionLifecycle.getLatestExtractionState();
   }
 
-  public getLatestInfrastructureState(): InfrastructureSnapshot {
-    return this.latestInfrastructureState;
+  public getLatestInfrastructureState() {
+    return this.sessionLifecycle.getLatestInfrastructureState();
   }
 
   public getLobbyState(): LobbyStateMessage | undefined {
-    return this.lobbyState;
+    return this.sessionLifecycle.getLobbyState();
   }
 
   public requestJoinLobby(): void {
@@ -275,7 +255,7 @@ export class GameClient {
         this.inputManager.updateHoldFireTarget(x, y),
       stopHoldFire: () => this.inputManager.stopHoldFire(),
       onAimChanged: (force) =>
-        this.sendInputIntentIfNeeded(performance.now(), force),
+        this.inputController.sendInputIntentIfNeeded(performance.now(), force),
     });
   }
 
@@ -322,11 +302,7 @@ export class GameClient {
   }
 
   public queueAttack(x: number, y: number): void {
-    const theta = this.computeThetaFromWorldPoint(x, y);
-    if (theta === null) {
-      return;
-    }
-    this.sendAttackAction(theta, performance.now());
+    this.inputController.queueAttackFromWorldPoint(x, y);
   }
 
   public queueCraftItem(
@@ -479,11 +455,11 @@ export class GameClient {
       return;
     }
 
-    this.rateMonitor.reset();
+    this.frameController.reset();
     this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
-    this.pendingPlayerName = connectOptions.playerName;
+    this.sessionLifecycle.setPendingPlayerName(connectOptions.playerName);
     this.startFrameLoop();
 
     this.networkClient.connect(url, {
@@ -497,11 +473,11 @@ export class GameClient {
       return;
     }
 
-    this.rateMonitor.reset();
+    this.frameController.reset();
     this.worldState = this.sessionLifecycle.createWorldState(
       this.gameConfig.interpolation.historySize,
     );
-    this.pendingPlayerName = null;
+    this.sessionLifecycle.setPendingPlayerName(null);
     this.startFrameLoop();
     this.renderer.setPlaygroundMode(true);
 
@@ -525,21 +501,21 @@ export class GameClient {
       const player = this.getLocalPlayerEntity();
       const playerPose = this.getLocalPlayerVisualPose();
 
-      // When dead and spectating, redirect the renderer camera to the spectate target
       const isSpectating =
-        player?.alive === false && this.spectateEntityId !== null;
+        player?.alive === false &&
+        this.sessionLifecycle.getSpectateEntityId() !== null;
       const cameraEntityId = isSpectating
-        ? (this.spectateEntityId ?? this.playerEntityId)
+        ? (this.sessionLifecycle.getSpectateEntityId() ?? this.playerEntityId)
         : this.playerEntityId;
       if (this.renderer.playerEntityId !== cameraEntityId) {
         this.renderer.playerEntityId = cameraEntityId;
       }
 
-      this.syncLocalPlayerAimPresentation(playerPose);
+      this.inputController.syncLocalPlayerAimPresentation(playerPose);
       this.presentationSink.update(deltaMs, world);
       const minimapPlayers: Array<{ x: number; y: number; isSelf: boolean }> =
         [];
-      for (const player of this.latestMinimapPlayers) {
+      for (const player of this.sessionLifecycle.getLatestMinimapPlayers()) {
         if (!player.alive) {
           continue;
         }
@@ -578,9 +554,9 @@ export class GameClient {
     }
 
     this.resolveWelcomeFromSnapshot();
-    this.latestExtractionState = snapshot.extraction;
-    this.latestInfrastructureState = snapshot.infrastructure;
-    this.latestMinimapPlayers = snapshot.minimapPlayers ?? [];
+    this.sessionLifecycle.setLatestExtractionState(snapshot.extraction);
+    this.sessionLifecycle.setLatestInfrastructureState(snapshot.infrastructure);
+    this.sessionLifecycle.setLatestMinimapPlayers(snapshot.minimapPlayers ?? []);
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
     if (snapshot.map !== undefined) {
@@ -592,7 +568,7 @@ export class GameClient {
       preview: true,
     });
     this.renderer.setGridNightBlend(computeClientNightBlend(snapshot.dayNight));
-    this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
+    this.frameController.recordTickSample(snapshot.tick, performance.now());
 
     if (this.worldState?.clientWorld) {
       this.presentationSink.syncWorld(this.worldState.clientWorld);
@@ -608,27 +584,27 @@ export class GameClient {
     if (this.isSessionReady()) {
       const samePlayer = this.playerEntityId === entityId;
       const worldChanged =
-        worldId !== undefined && this.currentWorldId !== undefined
-          ? worldId !== this.currentWorldId
+        worldId !== undefined &&
+        this.sessionLifecycle.getCurrentWorldId() !== undefined
+          ? worldId !== this.sessionLifecycle.getCurrentWorldId()
           : !samePlayer;
       if (!worldChanged) {
         if (worldId !== undefined) {
-          this.currentWorldId = worldId;
+          this.sessionLifecycle.setCurrentWorldId(worldId);
         }
         return;
       }
       this.resetForInstanceMigration();
     }
+
     if (worldId !== undefined) {
-      this.currentWorldId = worldId;
+      this.sessionLifecycle.setCurrentWorldId(worldId);
     }
     this.playerEntityId = entityId;
     this.sessionLifecycle.markSessionReady();
-    this.pendingPlayerName = null;
+    this.sessionLifecycle.setPendingPlayerName(null);
     this.presentationSink.setPlayerEntityId(entityId);
-    const inActiveMatch =
-      this.lobbyState?.inLobby === true && this.lobbyState?.startedAtMs != null;
-    this.renderer.setPlaygroundMode(!inActiveMatch);
+    this.renderer.setPlaygroundMode(!this.sessionLifecycle.isInActiveMatch());
     for (const sessionReadyHandler of this.sessionReadyHandlers) {
       sessionReadyHandler();
     }
@@ -640,7 +616,7 @@ export class GameClient {
   }
 
   public getMeasuredRates(): PerformanceRateState {
-    return this.rateMonitor.getMeasuredRates(performance.now());
+    return this.frameController.getMeasuredRates(performance.now());
   }
 
   public advanceTime(ms: number): void {
@@ -648,10 +624,10 @@ export class GameClient {
     const steps = Math.max(1, Math.round(ms / frameMs));
     for (let index = 0; index < steps; index += 1) {
       const frameTimeMs = performance.now() + index * frameMs;
-      this.refreshPointerTargetFromScreen();
+      this.inputController.refreshPointerTargetFromScreen();
       this.update(frameMs, frameTimeMs);
-      this.refreshPointerTargetFromScreen();
-      this.updateHeldAttack(frameTimeMs);
+      this.inputController.refreshPointerTargetFromScreen();
+      this.inputController.updateHeldAttack(frameTimeMs);
     }
   }
 
@@ -675,11 +651,7 @@ export class GameClient {
   }
 
   public setDebugMovementIntent(movement: Partial<InputMovement>): void {
-    this.heldMovement.up = movement.up ?? false;
-    this.heldMovement.down = movement.down ?? false;
-    this.heldMovement.left = movement.left ?? false;
-    this.heldMovement.right = movement.right ?? false;
-    this.sendInputIntentIfNeeded(performance.now(), true);
+    this.inputController.setDebugMovementIntent(movement);
   }
 
   public getNetcodeDebugMetrics(): Record<string, unknown> {
@@ -732,22 +704,17 @@ export class GameClient {
   }
 
   private startFrameLoop(): void {
-    if (this.frameLoop.isRunning()) {
-      return;
-    }
-
-    this.frameLoop.start((timestampMs, deltaMs) => {
-      if (!this.sessionLifecycle.isStarted()) {
-        this.stopFrameLoop();
-        return;
-      }
-
-      this.rateMonitor.recordFrameSample(timestampMs);
-      this.refreshPointerTargetFromScreen();
-      this.update(deltaMs, timestampMs);
-      this.refreshPointerTargetFromScreen();
-      this.sendInputIntentIfNeeded(timestampMs);
-      this.updateHeldAttack(timestampMs);
+    this.frameController.start({
+      isStarted: () => this.sessionLifecycle.isStarted(),
+      onFrame: (timestampMs, deltaMs) => {
+        this.inputController.refreshPointerTargetFromScreen();
+        this.update(deltaMs, timestampMs);
+      },
+      onAfterFrame: (timestampMs) => {
+        this.inputController.refreshPointerTargetFromScreen();
+        this.inputController.sendInputIntentIfNeeded(timestampMs);
+        this.inputController.updateHeldAttack(timestampMs);
+      },
     });
   }
 
@@ -758,95 +725,72 @@ export class GameClient {
     });
   }
 
-  private stopFrameLoop(): void {
-    this.frameLoop.stop();
-  }
-
   private onDisconnected(): void {
     this.resetSessionState(false);
   }
 
   private onLobbyState(state: LobbyStateMessage): void {
-    this.lobbyState = state;
-    const inActiveMatch = state.inLobby && state.startedAtMs != null;
-    this.renderer.setPlaygroundMode(!inActiveMatch);
-    for (const handler of this.lobbyStateHandlers) {
-      handler(state);
-    }
+    this.sessionLifecycle.notifyLobbyState(state, (nextState) => {
+      this.renderer.setPlaygroundMode(
+        !(nextState.inLobby && nextState.startedAtMs != null),
+      );
+      for (const handler of this.lobbyStateHandlers) {
+        handler(nextState);
+      }
+    });
   }
 
   private handleGameComplete(msg: GameCompleteMessage): void {
-    for (const handler of this.gameCompleteHandlers) {
-      handler(msg);
-    }
+    this.sessionLifecycle.notifyGameComplete(msg, this.gameCompleteHandlers);
   }
 
   private handleGameOver(msg: GameOverMessage): void {
-    for (const handler of this.gameOverHandlers) {
-      handler(msg);
-    }
+    this.sessionLifecycle.notifyGameOver(msg, this.gameOverHandlers);
+  }
+
+  private getSessionResetHooks(): SessionLifecycleResetHooks {
+    return {
+      resetPointerAim: () => this.pointerAimController.reset(),
+      resetHeldAttack: () => this.heldAttackController.reset(),
+      resetInput: () => this.inputController.reset(),
+      resetFrameController: () => {
+        this.frameController.reset();
+        this.syncInterpolatorConfig();
+      },
+      stopFrameLoop: () => this.frameController.stop(),
+      clearMovementSuppressions: () => this.clearMovementSuppressions(),
+      invalidateRendererView: () => this.renderer.invalidateViewRectCache(),
+      resetPresentation: () => {
+        this.presentationSink.setPlayerEntityId(undefined);
+        this.presentationSink.reset();
+      },
+      resetPlacementPreview: () =>
+        this.placementPreviewController.reset(this.renderer),
+      resetRendererWorldState: () => {
+        this.renderer.updateExtractionState(null);
+        this.renderer.updateInfrastructureState(
+          this.sessionLifecycle.getLatestInfrastructureState(),
+        );
+        this.renderer.updateMapState(null);
+        this.renderer.setSniperAimGuide(null);
+      },
+      disconnectTransport: () => this.networkClient.disconnect(),
+    };
   }
 
   private resetForInstanceMigration(): void {
-    this.worldState?.clear();
-    this.worldState = this.sessionLifecycle.createWorldState(
+    this.sessionLifecycle.resetForInstanceMigration(
       this.gameConfig.interpolation.historySize,
+      this.getSessionResetHooks(),
     );
-    this.latestMinimapPlayers = [];
-    this.latestInfrastructureState = { energyActive: true, commsActive: true };
-    this.latestExtractionState = null;
-    this.rateMonitor.reset();
-    this.syncInterpolatorConfig();
-    this.pointerAimController.reset();
-    this.heldAttackController.reset();
-    this.inputManager.stopHoldFire();
-    this.renderer.invalidateViewRectCache();
-    this.presentationSink.setPlayerEntityId(undefined);
-    this.presentationSink.reset();
-    this.clearMovementSuppressions();
-    this.placementPreviewController.reset(this.renderer);
-    this.renderer.updateExtractionState(null);
-    this.renderer.updateInfrastructureState(this.latestInfrastructureState);
-    this.renderer.updateMapState(null);
-    this.renderer.setSniperAimGuide(null);
+    this.worldState = this.sessionLifecycle.getWorldState();
   }
 
   private resetSessionState(disconnectTransport: boolean): void {
-    this.sessionLifecycle.reset();
-    this.pointerAimController.reset();
-    this.heldAttackController.reset();
-    this.rateMonitor.reset();
-    this.stopFrameLoop();
-    this.inputManager.stopHoldFire();
-    this.renderer.invalidateViewRectCache();
-    this.clearMovementSuppressions();
-    this.lobbyState = undefined;
-    this.heldMovement.up = false;
-    this.heldMovement.down = false;
-    this.heldMovement.left = false;
-    this.heldMovement.right = false;
-    this.lastInputSentAtMs = Number.NEGATIVE_INFINITY;
-    this.lastSentInputIntent = undefined;
-
-    if (disconnectTransport) {
-      this.networkClient.disconnect();
-    }
-
-    this.worldState?.clear();
-    this.worldState = undefined;
-    this.playerEntityId = undefined;
-    this.pendingPlayerName = null;
-    this.spectateEntityId = null;
-    this.latestMinimapPlayers = [];
-    this.latestInfrastructureState = { energyActive: true, commsActive: true };
-    this.latestExtractionState = null;
-    this.presentationSink.setPlayerEntityId(undefined);
-    this.presentationSink.reset();
-    this.placementPreviewController.reset(this.renderer);
-    this.renderer.updateExtractionState(null);
-    this.renderer.updateInfrastructureState(this.latestInfrastructureState);
-    this.renderer.updateMapState(null);
-    this.renderer.setSniperAimGuide(null);
+    this.sessionLifecycle.resetSessionState(
+      disconnectTransport,
+      this.getSessionResetHooks(),
+    );
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -858,35 +802,10 @@ export class GameClient {
   }
 
   private resolveWelcomeFromSnapshot(): void {
-    if (this.isSessionReady()) {
-      return;
-    }
-    const pendingName = this.pendingPlayerName;
-    if (!pendingName) {
-      return;
-    }
-    const world = this.worldState?.clientWorld;
-    if (!world) {
-      return;
-    }
-    const normalizedName = normalizePlayerName(pendingName, "");
-    const matches = [...world.entities.values()].filter((entity) => {
-      if (entity.kind !== "player") {
-        return false;
-      }
-      if (normalizedName) {
-        return entity.name === normalizedName;
-      }
-      return entity.name === `player-${entity.id}`;
-    });
-    if (matches.length !== 1) {
-      return;
-    }
-    const [matchedPlayer] = matches;
-    if (!matchedPlayer) {
-      return;
-    }
-    this.onWelcome(matchedPlayer.id);
+    this.sessionLifecycle.resolveWelcomeFromSnapshot(
+      () => this.worldState?.clientWorld?.entities.values(),
+      (entityId) => this.onWelcome(entityId),
+    );
   }
 
   private getLocalPlayerVisualPose(): {
@@ -905,166 +824,11 @@ export class GameClient {
     };
   }
 
-  private syncLocalPlayerAimPresentation(
-    playerPose: { x: number; y: number; rotation: number } | null,
-  ): void {
-    if (this.playerEntityId === undefined) {
-      return;
-    }
-
-    if (!playerPose || !this.getLocalPlayerEntity()?.alive) {
-      this.presentationSink.setPresentationOverride(this.playerEntityId, null);
-      return;
-    }
-
-    const localAimTheta = this.pointerAimController.computeAimThetaFromScreen();
-    if (localAimTheta === null) {
-      this.presentationSink.setPresentationOverride(this.playerEntityId, null);
-      return;
-    }
-
-    this.presentationSink.setPresentationOverride(this.playerEntityId, {
-      x: playerPose.x,
-      y: playerPose.y,
-      rotation: localAimTheta,
-    });
-  }
-
-  private refreshPointerTargetFromScreen(): void {
-    const aimTarget =
-      this.pointerAimController.refreshPointerTargetFromScreen();
-    if (!aimTarget) {
-      return;
-    }
-    this.inputManager.updateHoldFireTarget(aimTarget.x, aimTarget.y);
-  }
-
-  private sendAttackAction(theta: number, now: number): boolean {
-    const activeWeapon = this.getLocalActiveWeapon();
-    if (!activeWeapon) {
-      return false;
-    }
-    if (!this.heldAttackController.canLikelyExecuteAttack(activeWeapon)) {
-      return false;
-    }
-
-    this.actionDispatcher.queueAttack(theta);
-    if (this.playerEntityId !== undefined && this.worldState?.clientWorld) {
-      this.presentationSink.playAttackAnimation(
-        this.playerEntityId,
-        this.worldState.clientWorld,
-      );
-    }
-    this.heldAttackController.onAttackSent(now, activeWeapon);
-    return true;
-  }
-
-  private sendInputIntentIfNeeded(now: number, force = false): void {
-    if (!this.isSessionReady() || !this.isTransportConnected()) {
-      return;
-    }
-
-    const player = this.getLocalPlayerEntity();
-    if (!player?.alive) {
-      return;
-    }
-
-    const visualPose = this.getLocalPlayerVisualPose();
-    const theta =
-      this.pointerAimController.computeAimTheta(visualPose) ??
-      visualPose?.rotation ??
-      player.rotation;
-    const movement = { ...this.heldMovement };
-    const inputChanged = this.hasInputIntentChanged(theta, movement);
-    const keepaliveDue =
-      now - this.lastInputSentAtMs >= INPUT_KEEPALIVE_INTERVAL_MS;
-    if (!force && !inputChanged && !keepaliveDue) {
-      return;
-    }
-
-    const seq = this.inputManager.nextSequence();
-    const clientTimeMs = performance.now();
-    this.networkClient.sendInputIntent(seq, clientTimeMs, theta, movement);
-    this.lastInputSentAtMs = now;
-    this.lastSentInputIntent = {
-      theta,
-      movement,
-    };
-  }
-
-  private hasInputIntentChanged(
-    theta: number,
-    movement: InputMovement,
-  ): boolean {
-    const last = this.lastSentInputIntent;
-    if (!last) {
-      return true;
-    }
-    return (
-      Math.abs(shortestAngleDelta(last.theta, theta)) > INPUT_THETA_EPSILON ||
-      last.movement.up !== movement.up ||
-      last.movement.down !== movement.down ||
-      last.movement.left !== movement.left ||
-      last.movement.right !== movement.right
-    );
-  }
-
-  private updateHeldAttack(now: number): void {
-    const holdFireTarget = this.inputManager.getHoldFireTarget();
-    if (
-      !holdFireTarget ||
-      !this.isSessionReady() ||
-      !this.isTransportConnected()
-    ) {
-      return;
-    }
-
-    const localPlayer = this.getLocalPlayerEntity();
-    const activeWeapon = this.getLocalActiveWeapon();
-    if (!localPlayer?.alive || !activeWeapon) {
-      return;
-    }
-    if (!this.heldAttackController.canSendHeldAttack(now, activeWeapon)) {
-      return;
-    }
-
-    const theta = this.pointerAimController.computeAimTheta(
-      this.getLocalPlayerVisualPose(),
-    );
-    if (theta === null) {
-      return;
-    }
-    this.sendAttackAction(theta, now);
-  }
-
-  private getLocalActiveWeapon(): LocalWeaponState | undefined {
-    const player = this.getLocalPlayerEntity();
-    return player?.equippedItem;
-  }
-
-  private computeThetaFromWorldPoint(
-    x: number,
-    y: number,
-    playerPose = this.getLocalPlayerVisualPose(),
-  ): number | null {
-    if (!playerPose) {
-      return null;
-    }
-
-    const deltaX = x - playerPose.x;
-    const deltaY = y - playerPose.y;
-    if (Math.hypot(deltaX, deltaY) <= Number.EPSILON) {
-      return null;
-    }
-
-    return normalizeAngle(Math.atan2(deltaY, deltaX));
-  }
-
   private syncSniperAimGuide(
     playerPose: { x: number; y: number } | null,
     aimTarget: { x: number; y: number } | undefined,
   ): void {
-    const activeWeapon = this.getLocalActiveWeapon();
+    const activeWeapon = this.getLocalPlayerEntity()?.equippedItem;
     if (
       !playerPose ||
       !aimTarget ||

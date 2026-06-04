@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
-import { EnergyTower } from "@server/entities/buildings/EnergyTower.ts";
+import { EnergyTower } from "@server/entities/tower/EnergyTower.ts";
 import {
   requireProjectileContent,
   requireWeaponContent,
@@ -20,8 +20,9 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("drifter combat content", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("uses full weapon damage with split enemy cadence and range nerfs", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     for (const entity of runtime.world.entities.all()) {
       runtime.world.despawn(entity.id);

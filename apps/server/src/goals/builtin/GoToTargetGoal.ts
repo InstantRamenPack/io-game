@@ -6,6 +6,7 @@ import {
 } from "@server/goals/builtin/GoToPositionGoal.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
+import { hashInt } from "@shared/math/hashInt.ts";
 
 const PURSUIT_OFFSET_MIN_RADIUS = 52;
 const PURSUIT_OFFSET_RADIUS_VARIANCE = 76;
@@ -89,14 +90,4 @@ function getStablePursuitOffset(
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
-}
-
-function hashInt(value: number): number {
-  let hash = value | 0;
-  hash ^= hash >>> 16;
-  hash = Math.imul(hash, 0x7feb352d);
-  hash ^= hash >>> 15;
-  hash = Math.imul(hash, 0x846ca68b);
-  hash ^= hash >>> 16;
-  return hash >>> 0;
 }

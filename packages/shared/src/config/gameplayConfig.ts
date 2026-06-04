@@ -1,8 +1,14 @@
 import { z } from "zod";
 import type { JsonObject } from "@shared/json.ts";
+import { RESOURCE_ID_PATTERN } from "@shared/ids/ResourceId.ts";
+import {
+  NonNegativeFiniteNumberSchema,
+  NonNegativeIntSchema,
+  PositiveFiniteNumberSchema,
+  PositiveIntSchema,
+} from "@shared/validation/schemas.ts";
 import runtimeRaw from "./runtime.json";
 import interactionsRaw from "./interactions.json";
-import pickupsRaw from "./pickups.json";
 import recyclingRaw from "./recycling.json";
 import enemyTuningRaw from "./enemy_tuning.json";
 import extractionRaw from "./extraction.json";
@@ -13,11 +19,7 @@ import infrastructureRaw from "./infrastructure.json";
 import worldRaw from "./world.json";
 import wavesRaw from "./waves.json";
 
-const PositiveFiniteNumberSchema = z.number().finite().positive();
-const NonNegativeFiniteNumberSchema = z.number().finite().nonnegative();
-const PositiveIntSchema = z.number().int().positive();
-const NonNegativeIntSchema = z.number().int().nonnegative();
-const ResourceIdSchema = z.string().regex(/^[a-z][a-z0-9_-]*:[a-z0-9_./-]+$/);
+const ResourceIdSchema = z.string().regex(RESOURCE_ID_PATTERN);
 
 const WorldSizeSchema = z.object({
   w: PositiveFiniteNumberSchema,
@@ -35,7 +37,7 @@ const RuntimeConfigSchema = z
       maxDynamicCorrectionPerTick: PositiveFiniteNumberSchema,
     }),
     network: z.object({
-      maxPlayers: PositiveIntSchema,
+      slotCapacity: PositiveIntSchema,
       maxPacketBytes: PositiveIntSchema,
     }),
     replication: z.object({
@@ -115,25 +117,6 @@ const InteractionsConfigSchema = z.object({
   towerInteractPadding: NonNegativeFiniteNumberSchema,
   interactHoldDurationMs: PositiveIntSchema,
   towerRepairHpPerCostUnit: PositiveFiniteNumberSchema,
-});
-
-const PickupPoolConfigSchema = z.object({
-  intervalMs: PositiveIntSchema,
-  maxActive: NonNegativeIntSchema,
-});
-
-const PickupsConfigSchema = z.object({
-  spawnAttempts: PositiveIntSchema,
-  mag: PickupPoolConfigSchema,
-  weapon: PickupPoolConfigSchema,
-  blueprint: PickupPoolConfigSchema,
-  medical: PickupPoolConfigSchema,
-  legacyOrder: z.object({
-    weapon: z.array(ResourceIdSchema),
-    mag: z.array(ResourceIdSchema),
-    blueprint: z.array(ResourceIdSchema),
-    medical: z.array(ResourceIdSchema),
-  }),
 });
 
 const RarityTierSchema = z.enum([
@@ -247,7 +230,7 @@ const WorldConfigSchema = z.object({
 });
 
 const WaveSpawnConfigSchema = z.object({
-  entityType: z.string().min(1),
+  entityTypeId: ResourceIdSchema,
   x: z.number().finite().optional(),
   y: z.number().finite().optional(),
   delayTicks: NonNegativeIntSchema,
@@ -261,7 +244,7 @@ const NightWaveConfigSchema = z.object({
 });
 
 const RandomWaveEnemyWeightSchema = z.object({
-  entityType: z.string().min(1),
+  entityTypeId: ResourceIdSchema,
   tier: RarityTierSchema,
   weight: PositiveFiniteNumberSchema,
 });
@@ -312,11 +295,6 @@ export const interactionsConfig = parseConfig(
   "interactions.json",
   InteractionsConfigSchema,
   interactionsRaw,
-);
-export const pickupsConfig = parseConfig(
-  "pickups.json",
-  PickupsConfigSchema,
-  pickupsRaw,
 );
 export const recyclingConfig = parseConfig(
   "recycling.json",
@@ -376,7 +354,6 @@ export function getExtractionLegendaryBossUnlockNightCycle(): number {
 export const GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR: JsonObject = Object.freeze({
   runtime: runtimeConfig as JsonObject,
   interactions: interactionsConfig as JsonObject,
-  pickups: pickupsConfig as JsonObject,
   recycling: recyclingConfig as JsonObject,
   enemyTuning: enemyTuningConfig as JsonObject,
   extraction: extractionConfig as JsonObject,
@@ -390,7 +367,6 @@ export const GAMEPLAY_CONFIG_COMPAT_DESCRIPTOR: JsonObject = Object.freeze({
 
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>;
 export type InteractionsConfig = z.infer<typeof InteractionsConfigSchema>;
-export type PickupsConfig = z.infer<typeof PickupsConfigSchema>;
 export type RecyclingConfig = z.infer<typeof RecyclingConfigSchema>;
 export type EnemyTuningConfig = z.infer<typeof EnemyTuningConfigSchema>;
 export type ExtractionConfig = z.infer<typeof ExtractionConfigSchema>;

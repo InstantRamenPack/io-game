@@ -6,25 +6,6 @@ export type ResourceAmountLike = {
   amount: number;
 };
 
-export type BuildPlacementRuleInput = {
-  playerX: number;
-  playerY: number;
-  targetX: number;
-  targetY: number;
-  maxDistance: number;
-};
-
-export type BuildPlacementRuleResult =
-  | {
-      ok: true;
-      distance: number;
-    }
-  | {
-      ok: false;
-      distance: number;
-      reason: "out_of_range";
-    };
-
 export type CraftingStationAccessInput = {
   nearCraftingStation: boolean;
 };

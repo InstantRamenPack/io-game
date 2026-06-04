@@ -1,0 +1,15 @@
+{
+  "label": "Crate",
+  "maxHp": 25,
+  "collisionMode": "static",
+  "hitboxProfiles": {
+    "default": [
+      {
+        "width": 52,
+        "height": 52,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    ]
+  }
+}

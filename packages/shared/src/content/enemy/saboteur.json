@@ -20,6 +20,10 @@
     ]
   },
   "rarityTier": "uncommon",
+  "combat": {
+    "damageMultiplier": 1,
+    "buildingDamageMultiplier": 2
+  },
   "spawnWeapons": {
     "selection": "rotating",
     "typeIds": ["item:basic_sword"]

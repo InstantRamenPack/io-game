@@ -1,5 +1,5 @@
 import { Building } from "@server/entities/Building.ts";
-import { Tower } from "@server/entities/buildings/Tower.ts";
+import { Tower } from "@server/entities/tower/Tower.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
 import { Structure } from "@server/entities/Structure.ts";

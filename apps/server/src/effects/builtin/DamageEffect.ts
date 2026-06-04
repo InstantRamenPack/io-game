@@ -2,6 +2,7 @@ import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
+import { DestructibleStructure } from "@server/entities/structures/DestructibleStructure.ts";
 import { Effect } from "@server/effects/Effect.ts";
 import type { DamageEventPayload, NetEvent } from "@shared/net/events.ts";
 import type { World } from "@server/world/World.ts";
@@ -37,7 +38,11 @@ export class DamageEffect extends Effect {
     }
 
     if (instigator instanceof Player) {
-      return target instanceof Enemy || target instanceof Player;
+      return (
+        target instanceof Enemy ||
+        target instanceof Player ||
+        target instanceof DestructibleStructure
+      );
     }
     if (instigator instanceof Enemy) {
       return target instanceof Player || target instanceof Building;

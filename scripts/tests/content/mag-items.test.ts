@@ -133,7 +133,7 @@ describe("mag item content", () => {
 
   test("generated prep runs the single content manifest generator", () => {
     expect(packageJson.scripts?.["prepare:generated"]).toBe(
-      "bun run generate:content-manifest",
+      "bun run generate:content-manifest && bun run generate:fast-input-parser",
     );
     expect(packageJson.scripts?.["generate:mag-items"]).toBeUndefined();
     expect(packageJson.scripts?.postinstall).toContain("prepare:generated");

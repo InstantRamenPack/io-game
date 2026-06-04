@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import type { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
@@ -19,8 +19,9 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("enemy weapon tuning", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("gun and rifle use degree-based spread with the gun less accurate", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     runtime.world.randomNumberGenerator = Object.assign(() => 1, {
       double: () => 1,
@@ -52,7 +53,6 @@ describe("enemy weapon tuning", () => {
   });
 
   test("saboteur uses the basic sword and doubles damage against buildings", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const saboteur = spawnEnemy(runtime, "saboteur", 100, 100) as Saboteur;
     const player = spawnPlayerLikeDynamic(runtime, 120, 100);
@@ -63,7 +63,6 @@ describe("enemy weapon tuning", () => {
   });
 
   test("shoota carries the regular gun with enemy-only cadence and range nerfs", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     runtime.world.dayNightSystem.setPhase("day");
     const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
@@ -122,7 +121,6 @@ describe("enemy weapon tuning", () => {
   });
 
   test("ranged enemy projectiles use the enemy tuning damage multiplier", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     runtime.world.dayNightSystem.setPhase("day");
     const shoota = spawnEnemy(runtime, "shoota", 100, 100) as Enemy;
@@ -156,7 +154,6 @@ describe("enemy weapon tuning", () => {
   });
 
   test("ranged enemies pursue targets beyond weapon range without firing", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     runtime.world.dayNightSystem.setPhase("day");
     const shoota = spawnEnemy(runtime, "shoota", 6160, 500) as Enemy;

@@ -4,7 +4,6 @@ import {
   getItemContent,
 } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
-import { pickupsConfig } from "@shared/config/gameplayConfig.ts";
 
 describe("rarity crafting and loot rules", () => {
   test("fists are not authored as an inventory item", () => {
@@ -62,42 +61,12 @@ describe("rarity crafting and loot rules", () => {
     }
   });
 
-  test("pickup pools only expose common and uncommon weapons and mags plus rare and epic blueprints", () => {
-    for (const typeId of pickupsConfig.legacyOrder.weapon) {
-      const tier = getItemContent(typeId as ResourceId)?.rarityTier;
-      expect(tier).toBeDefined();
-      expect(["common", "uncommon"]).toContain(tier ?? "");
-    }
-
-    for (const typeId of pickupsConfig.legacyOrder.blueprint) {
-      expect(typeId.startsWith("blueprint:")).toBe(true);
-      const unlockedTypeId = getItemContent(
-        typeId as ResourceId,
-      )?.unlocksRecipeTypeId;
-      expect(unlockedTypeId).toBeDefined();
-      const unlockedRarity = getItemContent(
-        unlockedTypeId as ResourceId,
-      )?.rarityTier;
-      expect(unlockedRarity === "rare" || unlockedRarity === "epic").toBe(true);
-    }
-
-    for (const typeId of pickupsConfig.legacyOrder.mag) {
-      expect(typeId.startsWith("mag:")).toBe(true);
-      const matchingWeapons = getAllItemContentEntries().filter(([, item]) => {
-        const weapon = item.weapon;
-        return (
-          weapon?.attackStyle === "shoot" && weapon.magItemTypeId === typeId
-        );
-      });
-      expect(
-        matchingWeapons.length,
-        `${typeId} should belong to a weapon`,
-      ).toBeGreaterThan(0);
-      expect(
-        matchingWeapons.some(([, item]) =>
-          ["common", "uncommon"].includes(item.rarityTier ?? ""),
-        ),
-      ).toBe(true);
+  test("blueprint items define unlock targets", () => {
+    for (const [typeId, item] of getAllItemContentEntries()) {
+      if (!typeId.startsWith("blueprint:")) {
+        continue;
+      }
+      expect(item.unlocksRecipeTypeId).toBeDefined();
     }
   });
 });

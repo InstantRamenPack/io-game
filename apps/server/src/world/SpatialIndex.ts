@@ -1,26 +1,28 @@
 import type { Entity } from "@server/entities/Entity.ts";
+import {
+  GridIndex,
+  gridCellSpansMatch,
+  type GridCellSpan,
+} from "@shared/spatial/GridIndex.ts";
 
 /**
  * Uniform-grid spatial index for broad-phase proximity queries.
  * Entities are inserted into every cell touched by their composite hitbox bounds.
  */
 export class SpatialIndex {
-  private readonly cellSize: number;
-  private readonly buckets = new Map<number, Entity[]>();
+  private readonly grid: GridIndex<Entity>;
   private readonly indexedEntityById = new Map<number, Entity>();
-  private readonly cellSpanByEntityId = new Map<number, CellSpan>();
+  private readonly cellSpanByEntityId = new Map<number, GridCellSpan>();
   private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
   private syncMarker = 0;
-  private readonly visitedEntityIds = new Map<number, number>();
-  private queryMarker = 0;
 
   /**
    * Creates a grid with the provided cell size in world units.
    * @param cellSize Uniform grid cell size.
    */
   constructor(cellSize = 64) {
-    this.cellSize = cellSize;
+    this.grid = new GridIndex<Entity>(cellSize);
   }
 
   /**
@@ -67,69 +69,39 @@ export class SpatialIndex {
     maxY: number,
     result: Entity[] = [],
   ): Entity[] {
-    result.length = 0;
-    this.queryMarker += 1;
-    if (this.queryMarker >= Number.MAX_SAFE_INTEGER) {
-      this.queryMarker = 1;
-      this.visitedEntityIds.clear();
-    }
-
-    const minCellX = this.toCell(minX);
-    const maxCellX = this.toCell(maxX);
-    const minCellY = this.toCell(minY);
-    const maxCellY = this.toCell(maxY);
-
-    for (let gridX = minCellX; gridX <= maxCellX; gridX += 1) {
-      for (let gridY = minCellY; gridY <= maxCellY; gridY += 1) {
-        const bucket = this.buckets.get(this.makeKey(gridX, gridY));
-        if (!bucket) {
-          continue;
-        }
-        for (const entity of bucket) {
-          if (this.visitedEntityIds.get(entity.id) === this.queryMarker) {
-            continue;
-          }
-          this.visitedEntityIds.set(entity.id, this.queryMarker);
-          result.push(entity);
-        }
-      }
-    }
-
-    return result;
+    return this.grid.queryBox(minX, minY, maxX, maxY, result, (entity) =>
+      entity.id,
+    );
   }
 
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
-    const nextSpan: CellSpan = {
-      minCellX: this.toCell(bounds.minX),
-      maxCellX: this.toCell(bounds.maxX),
-      minCellY: this.toCell(bounds.minY),
-      maxCellY: this.toCell(bounds.maxY),
-    };
+    const nextSpan = this.grid.spanFromBounds(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+    );
     const previousSpan = this.cellSpanByEntityId.get(entity.id);
     const previousEntity = this.indexedEntityById.get(entity.id);
     if (
       previousEntity === entity &&
       previousSpan &&
-      spansMatch(previousSpan, nextSpan)
+      gridCellSpansMatch(previousSpan, nextSpan)
     ) {
       return;
     }
 
     const previousKeys = this.cellKeysByEntityId.get(entity.id);
     if (previousKeys) {
-      this.removeFromBuckets(entity.id, previousKeys);
+      this.grid.removeFromCells(
+        previousKeys,
+        (indexedEntity) => indexedEntity.id === entity.id,
+      );
     }
 
-    const nextKeys = this.makeCellKeys(nextSpan);
-    for (const key of nextKeys) {
-      let bucket = this.buckets.get(key);
-      if (!bucket) {
-        bucket = [];
-        this.buckets.set(key, bucket);
-      }
-      bucket.push(entity);
-    }
+    const nextKeys = this.grid.keysFromSpan(nextSpan);
+    this.grid.addToCells(nextKeys, entity);
 
     this.indexedEntityById.set(entity.id, entity);
     this.cellSpanByEntityId.set(entity.id, nextSpan);
@@ -139,65 +111,13 @@ export class SpatialIndex {
   private removeEntity(entityId: number): void {
     const keys = this.cellKeysByEntityId.get(entityId);
     if (keys) {
-      this.removeFromBuckets(entityId, keys);
+      this.grid.removeFromCells(
+        keys,
+        (entity) => entity.id === entityId,
+      );
     }
     this.indexedEntityById.delete(entityId);
     this.cellSpanByEntityId.delete(entityId);
     this.cellKeysByEntityId.delete(entityId);
   }
-
-  private removeFromBuckets(entityId: number, keys: readonly number[]): void {
-    for (const key of keys) {
-      const bucket = this.buckets.get(key);
-      if (!bucket) {
-        continue;
-      }
-      const index = bucket.findIndex((entity) => entity.id === entityId);
-      if (index >= 0) {
-        bucket.splice(index, 1);
-      }
-      if (bucket.length === 0) {
-        this.buckets.delete(key);
-      }
-    }
-  }
-
-  private makeCellKeys(span: CellSpan): number[] {
-    const keys: number[] = [];
-    for (let gridX = span.minCellX; gridX <= span.maxCellX; gridX += 1) {
-      for (let gridY = span.minCellY; gridY <= span.maxCellY; gridY += 1) {
-        keys.push(this.makeKey(gridX, gridY));
-      }
-    }
-    return keys;
-  }
-
-  private toCell(value: number): number {
-    return Math.floor(value / this.cellSize);
-  }
-
-  private makeKey(gridX: number, gridY: number): number {
-    return (
-      (gridX + CELL_KEY_OFFSET) * CELL_KEY_STRIDE + (gridY + CELL_KEY_OFFSET)
-    );
-  }
 }
-
-type CellSpan = {
-  minCellX: number;
-  maxCellX: number;
-  minCellY: number;
-  maxCellY: number;
-};
-
-function spansMatch(left: CellSpan, right: CellSpan): boolean {
-  return (
-    left.minCellX === right.minCellX &&
-    left.maxCellX === right.maxCellX &&
-    left.minCellY === right.minCellY &&
-    left.maxCellY === right.maxCellY
-  );
-}
-
-const CELL_KEY_OFFSET = 1 << 15;
-const CELL_KEY_STRIDE = 1 << 16;

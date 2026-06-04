@@ -13,7 +13,7 @@ import {
 } from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Building } from "@server/entities/Building.ts";
-import type { ChestSlot } from "@server/entities/buildings/Chest.ts";
+import type { ContainerSlot } from "@server/inventory/ContainerSlot.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -94,7 +94,7 @@ export function getEntityRuntimeFingerprint(
       entity.tier,
       fingerprintChestSlotsRuntime(
         "chestSlots" in entity
-          ? ((entity as { chestSlots?: readonly ChestSlot[] }).chestSlots ??
+          ? ((entity as { chestSlots?: readonly ContainerSlot[] }).chestSlots ??
               undefined)
           : undefined,
       ),
@@ -167,7 +167,7 @@ function fingerprintOptionalChestSlots(
 }
 
 function fingerprintChestSlotsRuntime(
-  chestSlots: readonly ChestSlot[] | undefined,
+  chestSlots: readonly ContainerSlot[] | undefined,
 ): string {
   if (!chestSlots) {
     return "";

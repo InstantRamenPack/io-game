@@ -1,4 +1,5 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
+import { getEntityContent } from "@shared/content/catalog.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -6,12 +7,17 @@ import { LandmineExplosionAreaEffect } from "@server/effects/area/LandmineExplos
 import { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
-const TRIGGER_RADIUS = 28;
+const DEFAULT_TRIGGER_RADIUS = 28;
+
 export class Landmine extends Building {
   public static override readonly resourceName = "landmine";
+  private readonly triggerRadius: number;
 
   constructor(id: number, tier = 1, ownerId?: number) {
     super(id, tier, ownerId);
+    this.triggerRadius =
+      getEntityContent(Landmine.typeId)?.trap?.triggerRadius ??
+      DEFAULT_TRIGGER_RADIUS;
   }
 
   public override getCombatInstigator(world: World): Entity | null {
@@ -30,10 +36,10 @@ export class Landmine extends Building {
     }
 
     for (const candidate of world.spatial.queryBox(
-      this.x - TRIGGER_RADIUS,
-      this.y - TRIGGER_RADIUS,
-      this.x + TRIGGER_RADIUS,
-      this.y + TRIGGER_RADIUS,
+      this.x - this.triggerRadius,
+      this.y - this.triggerRadius,
+      this.x + this.triggerRadius,
+      this.y + this.triggerRadius,
     )) {
       if (!(candidate instanceof Enemy) || !candidate.alive) {
         continue;
@@ -44,7 +50,7 @@ export class Landmine extends Building {
         this.x,
         this.y,
       );
-      if (distanceSquared > TRIGGER_RADIUS * TRIGGER_RADIUS) {
+      if (distanceSquared > this.triggerRadius * this.triggerRadius) {
         continue;
       }
 

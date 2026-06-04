@@ -6,12 +6,8 @@ import {
   type InputIntentMessage,
 } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { BasicBullet } from "@server/entities/projectiles/BasicBullet.ts";
-import { CannonBullet } from "@server/entities/projectiles/CannonBullet.ts";
-import { CrossbowArrow } from "@server/entities/projectiles/CrossbowArrow.ts";
+import { BasicBullet, CannonBullet, CrossbowArrow, RifleBullet, SniperBullet } from "@server/registry/generated/contentProjectileCtors.ts";
 import { HomingDrone } from "@server/entities/projectiles/HomingDrone.ts";
-import { RifleBullet } from "@server/entities/projectiles/RifleBullet.ts";
-import { SniperBullet } from "@server/entities/projectiles/SniperBullet.ts";
 import { Bomber } from "@server/entities/enemies/Bomber.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";

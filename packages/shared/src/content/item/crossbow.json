@@ -22,9 +22,6 @@
     "magItemTypeId": "mag:crossbow"
   },
   "rarityTier": "uncommon",
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rendering": {
     "assetPath": "/weapon/crossbow.png",
     "sprite": {

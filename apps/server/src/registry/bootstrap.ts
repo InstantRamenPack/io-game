@@ -1,16 +1,7 @@
+import { buildGameTypeEntries } from "@server/registry/buildRegistries.ts";
 import {
-  buildBlueprintTypeEntries,
-  buildEffectTypeEntries,
-  buildEntityTypeEntries,
-  buildItemTypeEntries,
-  buildMagTypeEntries,
-} from "@server/registry/buildRegistries.ts";
-import {
-  blueprintTypeRegistry,
-  effectTypeRegistry,
   entityTypeRegistry,
-  itemTypeRegistry,
-  magTypeRegistry,
+  gameTypeRegistry,
 } from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
@@ -24,41 +15,37 @@ export function bootstrapTypeRegistries(): void {
     return;
   }
 
-  entityTypeRegistry.registerAll(buildEntityTypeEntries());
-  itemTypeRegistry.registerAll(buildItemTypeEntries());
-  magTypeRegistry.registerAll(buildMagTypeEntries());
-  blueprintTypeRegistry.registerAll(buildBlueprintTypeEntries());
-  effectTypeRegistry.registerAll(buildEffectTypeEntries());
+  gameTypeRegistry.registerAll(buildGameTypeEntries());
 
   validateRegistryContent();
 
-  entityTypeRegistry.freeze();
-  itemTypeRegistry.freeze();
-  magTypeRegistry.freeze();
-  blueprintTypeRegistry.freeze();
-  effectTypeRegistry.freeze();
+  gameTypeRegistry.freeze();
   registriesBootstrapped = true;
 }
 
 function validateRegistryContent(): void {
-  for (const [, itemEntry] of [
-    ...itemTypeRegistry.entries(),
-    ...magTypeRegistry.entries(),
-    ...blueprintTypeRegistry.entries(),
-  ]) {
+  for (const [, entry] of gameTypeRegistry.entries()) {
     if (
-      itemEntry.content.buildsEntityTypeId &&
-      !entityTypeRegistry.has(itemEntry.content.buildsEntityTypeId)
+      entry.category !== "item" &&
+      entry.category !== "mag" &&
+      entry.category !== "blueprint"
+    ) {
+      continue;
+    }
+
+    if (
+      entry.content.buildsEntityTypeId &&
+      !entityTypeRegistry.has(entry.content.buildsEntityTypeId)
     ) {
       throw new Error(
-        `Item ${itemEntry.typeId} references unknown building type ${itemEntry.content.buildsEntityTypeId}.`,
+        `Item ${entry.typeId} references unknown building type ${entry.content.buildsEntityTypeId}.`,
       );
     }
 
-    for (const cost of itemEntry.content.recipe?.costs ?? []) {
+    for (const cost of entry.content.recipe?.costs ?? []) {
       if (!getItemLikeTypeEntry(cost.typeId)) {
         throw new Error(
-          `Item ${itemEntry.typeId} recipe references unknown item ${cost.typeId}.`,
+          `Item ${entry.typeId} recipe references unknown item ${cost.typeId}.`,
         );
       }
     }

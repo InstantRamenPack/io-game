@@ -3,9 +3,6 @@
   "hint": "Crafting schematic for the M249 SAW.",
   "description": "Unlocks the M249 SAW recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:lmg",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/lmg.png",
     "sprite": {

@@ -5,7 +5,6 @@ import {
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
-import { WORLD_BLUEPRINT_PICKUP_TYPE_IDS } from "@server/content/serverContentCapabilities.ts";
 import type { World } from "@server/world/World.ts";
 
 // Ordered chain of armor blueprint recipe IDs from lowest to highest tier.
@@ -22,9 +21,24 @@ const ARMOR_BLUEPRINT_RECIPE_SET = new Set<ResourceId>(
 );
 
 export function isBlueprintPickup(pickup: ItemEntity): boolean {
-  return WORLD_BLUEPRINT_PICKUP_TYPE_IDS.some(
-    (typeId) => pickup.contents.getStackableCount(typeId) > 0,
-  );
+  for (const [typeId, amount] of pickup.contents.resources.entries()) {
+    if (amount > 0 && getItemContent(typeId)?.unlocksRecipeTypeId) {
+      return true;
+    }
+  }
+
+  for (const slot of pickup.contents.hotbarSlots) {
+    if (
+      slot &&
+      slot.kind !== "weapon" &&
+      slot.count > 0 &&
+      getItemContent(slot.typeId)?.unlocksRecipeTypeId
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function getBlueprintPickupLabel(pickup: ItemEntity): string {

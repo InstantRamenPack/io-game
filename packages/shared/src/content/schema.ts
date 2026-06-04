@@ -155,6 +155,22 @@ export const VisibilityBlockerContentSchema = z.discriminatedUnion("mode", [
 export const EntityCombatContentSchema = z.object({
   damageMultiplier: z.number().finite().nonnegative().default(1),
   attackMinIntervalTicks: z.number().int().nonnegative().default(0),
+  buildingDamageMultiplier: z.number().finite().nonnegative().optional(),
+});
+
+export const TrapEffectContentSchema = z.object({
+  typeId: ResourceIdSchema,
+  ticksRemaining: z.number().int().positive(),
+  pulseIntervalTicks: z.number().int().positive().optional(),
+  pulseTicksRemaining: z.number().int().positive().optional(),
+  pulseDamage: z.number().finite().positive().optional(),
+  speedMultiplier: z.number().finite().positive().optional(),
+});
+
+export const TrapContentSchema = z.object({
+  triggerRadius: z.number().finite().positive().optional(),
+  initialDamage: z.number().finite().nonnegative().optional(),
+  effects: z.array(TrapEffectContentSchema).optional(),
 });
 
 export const EnemySpawnWeaponsContentSchema = z.object({
@@ -189,13 +205,6 @@ export const ItemRecipeContentSchema = z.object({
   outputAmount: z.number().int().positive().default(1),
   costs: z.array(ItemRequirementSchema).min(1),
 });
-
-export const PickupSpawnPoolSchema = z.enum([
-  "mag",
-  "weapon",
-  "blueprint",
-  "medical",
-]);
 
 export const PlayerStarterLoadoutSchema = z.object({
   selectedHotbarIndex: HotbarIndexSchema.default(0),
@@ -263,11 +272,6 @@ export const ItemContentSchema = z.object({
       hunkValue: z.number().int().nonnegative(),
     })
     .optional(),
-  pickupSpawn: z
-    .object({
-      pools: z.array(PickupSpawnPoolSchema).min(1),
-    })
-    .optional(),
   runtime: RuntimeRegistrationSchema,
 });
 
@@ -306,6 +310,7 @@ export const EntityContentSchema = z.object({
     })
     .optional(),
   spawnWeapons: EnemySpawnWeaponsContentSchema.optional(),
+  trap: TrapContentSchema.optional(),
 });
 
 export const EffectContentSchema = z.object({
@@ -350,7 +355,8 @@ export type EntityCapabilitiesContent = z.infer<
 >;
 export type ItemRequirement = z.infer<typeof ItemRequirementSchema>;
 export type ItemRecipeContent = z.infer<typeof ItemRecipeContentSchema>;
-export type PickupSpawnPool = z.infer<typeof PickupSpawnPoolSchema>;
+export type TrapEffectContent = z.infer<typeof TrapEffectContentSchema>;
+export type TrapContent = z.infer<typeof TrapContentSchema>;
 export type PlayerStarterLoadout = z.infer<typeof PlayerStarterLoadoutSchema>;
 export type RuntimeServerClassKind = z.infer<
   typeof RuntimeServerClassKindSchema

@@ -14,9 +14,7 @@ export function getLegendaryBossTypeIds(): readonly ResourceId[] {
     cachedLegendaryBossTypeIds = getAllEntityContentEntries()
       .filter(
         ([typeId, content]) =>
-          typeId.startsWith("enemy:") &&
-          typeId !== "enemy:crate" &&
-          content.rarityTier === "legendary",
+          typeId.startsWith("enemy:") && content.rarityTier === "legendary",
       )
       .map(([typeId]) => typeId);
   }

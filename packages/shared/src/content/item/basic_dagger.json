@@ -20,9 +20,6 @@
     "knockback": 6,
     "jabWidth": 14
   },
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rarityTier": "common",
   "rendering": {
     "assetPath": "/weapon/basic_dagger.png",

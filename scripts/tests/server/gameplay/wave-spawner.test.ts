@@ -12,12 +12,14 @@ import {
   makeRuntime,
 } from "@tests/helpers/worldFixtures.ts";
 
-function pendingEntityTypes(
+function pendingEntityTypeIds(
   spawner: WaveSpawner,
   nightCycle: number,
 ): string[] {
   spawner.onNightStart(nightCycle);
-  return spawner.getPendingSpawnDetails().map((detail) => detail.entityType);
+  return spawner
+    .getPendingSpawnDetails()
+    .map((detail) => detail.entityTypeId);
 }
 
 describe("wave spawner", () => {
@@ -26,8 +28,8 @@ describe("wave spawner", () => {
   test("never schedules legendary bosses in random waves", () => {
     const spawner = WaveSpawner.fromSharedConfig(null);
     for (let nightCycle = 1; nightCycle <= 10; nightCycle += 1) {
-      const entityTypes = pendingEntityTypes(spawner, nightCycle);
-      expect(entityTypes).not.toContain("thanos");
+      const entityTypeIds = pendingEntityTypeIds(spawner, nightCycle);
+      expect(entityTypeIds).not.toContain("enemy:thanos");
     }
   });
 

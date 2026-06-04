@@ -10,6 +10,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type {
   EffectTypeEntry,
   EntityTypeEntry,
+  GameTypeEntry,
   ItemTypeEntry,
   MagTypeEntry,
   BlueprintTypeEntry,
@@ -166,4 +167,24 @@ export function buildEffectTypeEntries(): readonly EffectTypeEntry[] {
     effectRuntimeCtors.map((ctor) => ctor.typeId),
   );
   return effectRuntimeCtors.map(buildEffectTypeEntry);
+}
+
+export function buildGameTypeEntries(): readonly GameTypeEntry[] {
+  return [
+    ...buildEntityTypeEntries().map(
+      (entry): GameTypeEntry => ({ ...entry, category: "entity" }),
+    ),
+    ...buildItemTypeEntries().map(
+      (entry): GameTypeEntry => ({ ...entry, category: "item" }),
+    ),
+    ...buildMagTypeEntries().map(
+      (entry): GameTypeEntry => ({ ...entry, category: "mag" }),
+    ),
+    ...buildBlueprintTypeEntries().map(
+      (entry): GameTypeEntry => ({ ...entry, category: "blueprint" }),
+    ),
+    ...buildEffectTypeEntries().map(
+      (entry): GameTypeEntry => ({ ...entry, category: "effect" }),
+    ),
+  ];
 }

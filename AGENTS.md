@@ -33,7 +33,7 @@ These rules apply to every task in this repo unless the user explicitly override
 ## Validation Shortcuts
 
 - Protocol or compression changes: run `bun run typecheck`, `bun run test:protocol`, `bun run test:netcode`, `bun run benchmark:protocol-compression`, and `bun run benchmark:network-aoi` when relevant.
-- Collision, static geometry, placement, or occlusion changes: prefer `scripts/collision-validation.ts`, the focused gameplay tests under `scripts/tests/gameplay`, and `bun run typecheck`.
+- Collision, static geometry, placement, or occlusion changes: prefer `scripts/tests/server/collision/` and focused gameplay tests under `scripts/tests/server/gameplay/`, plus `bun run typecheck`.
 - Browser/client startup bugs: reproduce in the browser when requested. If Play gets stuck in `Connecting...` with a canvas mounted, inspect renderer/asset startup before rewriting networking.
 - Performance work with hard ceilings should include a benchmark or regression surface, not only ad hoc measurements.
 - Audit/review work should stay read-only unless the user asks for implementation. Use stable numbered findings with evidence, impact, better direction, confidence, top fix order, and validation.
@@ -52,9 +52,11 @@ These rules apply to every task in this repo unless the user explicitly override
 ## Content System Facts
 
 - Shared JSON content plus strict parse-time validation is the source of truth for gameplay data.
+- Procedural world layout types live in `packages/shared/src/world/layoutTypes.ts`; generation is server-owned under `apps/server/src/world/generation/`. Procedural tuning JSON is split under `packages/shared/src/world/procedural-*.json` and loaded via `proceduralConfig.ts`.
+- Entity taxonomy: `building` = player-placeable (wall, cannon, landmine); `tower` = match-start hubs (hub/energy/comms); `structure` = world-gen props (houses, crates, fences). Server paths mirror this: `entities/buildings/`, `entities/tower/`, `entities/structures/`; client renderers under `render/entity/building/`, `render/entity/tower/`, `render/entity/structure/`.
 - For gameplay tuning/config knobs, prefer existing shared `.json` ownership surfaces (especially entity/item content JSON like `packages/shared/src/content/...`) over hardcoded server constants or new one-off config files.
 - Regenerate the content manifest after content schema/catalog changes with `bun run generate:content-manifest` or a command that already invokes it.
-- Enemy death loot balance lives in `packages/shared/src/content/enemy-death-loot-balance.json`.
+- Enemy death loot balance lives in `packages/shared/src/content/death_loot.json`.
 - Rarity is required for enemies, weapons, and buildable items. Recycling rarity behavior is server-owned in `serverContentCapabilities.ts`.
 - Content/rendering registry gaps should fail loudly. Avoid adding fallback renderers or silent generic placeholders unless the user asks for a temporary fallback.
 - New acquisition, pickup, starter-loadout, and inventory behavior should stay on the item/inventory polymorphism path; do not reintroduce removed type-switch grant helpers.
@@ -116,6 +118,6 @@ These rules apply to every task in this repo unless the user explicitly override
 - At dawn after night, `refreshLayoutEnemies` keeps surviving regular layout enemies and repopulates half of vacant/killed spawn points only; procedural crates do not respawn (finite per match).
 - Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` blueprints were removed.
 - Armor rarities: Scout common, Field uncommon, Juggernaut rare, Aegis epic.
-- Blueprint placement is deterministic in `procedural-content.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
-- Village layout tunables live in `procedural-content.json` `villageGeneration`: BSP leaves clamp to the sector, wider house spacing, guaranteed per-village crate via `placeVillageCrateWithRetry`, trees pruned from structure bounding boxes, and extraction fortified keeps houses around the helipad.
+- Blueprint placement is deterministic in `procedural-blueprints.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
+- Village layout tunables live in `procedural-villages.json` `villageGeneration`: BSP leaves clamp to the sector, wider house spacing, guaranteed per-village crate via `placeVillageCrateWithRetry`, trees pruned from structure bounding boxes, and extraction fortified keeps houses around the helipad.
 - `bun run balance` item rendering preview must use the in-game Pixi path (`balance-item-rendering-preview.ts` with equipped renderers and `syncItemIconSprite`), not a separate preview implementation.

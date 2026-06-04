@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { Crate } from "@server/entities/enemies/Crate.ts";
-import { Tripwire } from "@server/entities/enemies/Tripwire.ts";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
+import { TripwireStructure } from "@server/entities/structures/TripwireStructure.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Thanos } from "@server/entities/enemies/Thanos.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
@@ -16,8 +16,9 @@ import {
 } from "@tests/helpers/worldFixtures.ts";
 
 describe("dungeon runtime mechanics", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("enemy death drops tiered hunks and optional tiered matching ammo", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime({ worldSeed: 22 });
     const enemy = new Shoota(runtime.world.allocEntityId());
     enemy.x = runtime.world.gameConfig.worldSize.w / 2;
@@ -41,7 +42,6 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("enemy death loot randomness is repeatable per seed and diverges across seeds", () => {
-    bootstrapTestRegistries();
     const first = simulateWaveAndFirstDeathDrop(1337);
     const second = simulateWaveAndFirstDeathDrop(1337);
     const third = simulateWaveAndFirstDeathDrop(7331);
@@ -51,7 +51,6 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("same-tick multi-kill loot does not reuse dead enemy ids", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime({ worldSeed: 99 });
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
@@ -78,7 +77,6 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("Thanos guaranteed drop yields one random carried weapon on death", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const thanos = new Thanos(runtime.world.allocEntityId());
     thanos.x = runtime.world.gameConfig.worldSize.w / 2;
@@ -96,17 +94,16 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("tripwire targets players once with bleed, slow, and confusion", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
     const player = spawnPlayerLikeDynamic(runtime, x, y);
-    const tripwire = new Tripwire(runtime.world.allocEntityId());
+    const tripwire = new TripwireStructure(runtime.world.allocEntityId());
     tripwire.x = x;
     tripwire.y = y;
     runtime.world.spawn(tripwire);
 
-    expect(tripwire.typeId).toBe("enemy:tripwire");
+    expect(tripwire.typeId).toBe("structure:tripwire");
     expect(tripwire.maxHp).toBe(0);
 
     tick(runtime, 1);
@@ -122,12 +119,11 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("vertical tripwire uses its vertical trigger hitbox", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
     const player = spawnPlayerLikeDynamic(runtime, x, y + 80);
-    const tripwire = new Tripwire(runtime.world.allocEntityId());
+    const tripwire = new TripwireStructure(runtime.world.allocEntityId());
     tripwire.x = x;
     tripwire.y = y;
     tripwire.setHitboxProfileRects("default", [
@@ -144,14 +140,13 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("tripwire is not a building fallback target for enemies", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     for (const entity of runtime.world.entities.all()) {
       runtime.world.despawn(entity.id);
     }
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
-    const tripwire = new Tripwire(runtime.world.allocEntityId());
+    const tripwire = new TripwireStructure(runtime.world.allocEntityId());
     tripwire.x = x;
     tripwire.y = y;
     const wallbreaker = new Wallbreaker(runtime.world.allocEntityId());
@@ -166,15 +161,14 @@ describe("dungeon runtime mechanics", () => {
   });
 
   test("breaking a reward crate drops its contents as a pickup", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
-    const crate = new Crate(runtime.world.allocEntityId());
+    const crate = new CrateStructure(runtime.world.allocEntityId());
     crate.x = runtime.world.gameConfig.worldSize.w / 2;
     crate.y = runtime.world.gameConfig.worldSize.h / 2;
     crate.contents.addStackable("item:hunk" as ResourceId, 12);
     runtime.world.spawn(crate);
 
-    expect(crate.typeId).toBe("enemy:crate");
+    expect(crate.typeId).toBe("structure:crate");
     expect(crate.maxHp).toBe(25);
 
     crate.applyDamage(runtime.world, 24, 0);
@@ -193,38 +187,36 @@ describe("dungeon runtime mechanics", () => {
       type: "damage",
       payload: {
         targetId: crate.id,
-        targetTypeId: "enemy:crate",
+        targetTypeId: "structure:crate",
         isFatal: true,
       },
     });
   });
 
   test("reward crates stay inert enemy loot containers", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
     spawnPlayerLikeDynamic(runtime, x + 80, y);
-    const crate = new Crate(runtime.world.allocEntityId());
+    const crate = new CrateStructure(runtime.world.allocEntityId());
     crate.x = x;
     crate.y = y;
     runtime.world.spawn(crate);
 
     tick(runtime, 30);
 
-    expect(crate.typeId).toBe("enemy:crate");
+    expect(crate.typeId).toBe("structure:crate");
     expect(crate.targetId).toBeUndefined();
     expect(crate.x).toBe(x);
     expect(crate.y).toBe(y);
   });
 
   test("player melee can break a reward crate and drop its contents", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     const x = runtime.world.gameConfig.worldSize.w / 2;
     const y = runtime.world.gameConfig.worldSize.h / 2;
     const player = spawnPlayerLikeDynamic(runtime, x - 45, y);
-    const crate = new Crate(runtime.world.allocEntityId());
+    const crate = new CrateStructure(runtime.world.allocEntityId());
     crate.x = x;
     crate.y = y;
     crate.contents.addStackable("item:hunk" as ResourceId, 12);

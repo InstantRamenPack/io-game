@@ -21,9 +21,6 @@
     "sweepArcDeg": 90
   },
   "rarityTier": "common",
-  "pickupSpawn": {
-    "pools": ["weapon"]
-  },
   "rendering": {
     "assetPath": "/weapon/basic_sword.png",
     "sprite": {

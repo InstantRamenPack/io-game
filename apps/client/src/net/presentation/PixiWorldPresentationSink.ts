@@ -107,7 +107,7 @@ export class PixiWorldPresentationSink {
 
       if (
         event.payload.isFatal &&
-        event.payload.targetTypeId === "enemy:crate"
+        event.payload.targetTypeId === "structure:crate"
       ) {
         this.renderer.triggerCrateBreakEffect(event.payload.x, event.payload.y);
         continue;

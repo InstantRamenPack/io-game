@@ -1,0 +1,537 @@
+{
+  "dungeonRoomContent": {
+    "entrance": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -200,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 200,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -200,
+          "offsetY": 120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 200,
+          "offsetY": 120,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -160,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 160,
+          "offsetY": 0
+        }
+      ],
+      "crates": [
+        {
+          "spawnChance": 0.05,
+          "offsetX": 160,
+          "offsetY": 0,
+          "randomLootTier": "uncommon"
+        }
+      ]
+    },
+    "combat": {
+      "decor": [
+        {
+          "typeId": "structure:barrel",
+          "offsetX": -200,
+          "offsetY": -120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 200,
+          "offsetY": -120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 190,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -120,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": 120,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": 112
+        }
+      ],
+      "crates": [
+        {
+          "spawnChance": 0.2,
+          "offsetX": 0,
+          "offsetY": 120,
+          "randomLootTier": "uncommon"
+        }
+      ]
+    },
+    "enemy_swarm": {
+      "decor": [
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -240,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 240,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -180,
+          "offsetY": 200,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 210,
+          "offsetY": 180,
+          "margin": 48
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": -240,
+          "offsetY": -160
+        },
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": 0,
+          "offsetY": -180
+        },
+        {
+          "typeId": "enemy:drifter",
+          "offsetX": 240,
+          "offsetY": -160
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": -180,
+          "offsetY": 140
+        },
+        {
+          "typeId": "enemy:shoota",
+          "offsetX": 180,
+          "offsetY": 140
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": 220
+        }
+      ],
+      "crates": [
+        {
+          "spawnChance": 0.05,
+          "offsetX": 0,
+          "offsetY": 0,
+          "randomLootTier": "uncommon"
+        }
+      ]
+    },
+    "treasure": {
+      "decor": [
+        {
+          "typeId": "structure:golden_statue",
+          "offsetX": -230,
+          "offsetY": -40,
+          "margin": 56
+        },
+        {
+          "typeId": "structure:golden_statue",
+          "offsetX": 230,
+          "offsetY": -40,
+          "margin": 56
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": -150,
+          "offsetY": 140,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": 0,
+          "offsetY": 160,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:gold_pile",
+          "offsetX": 150,
+          "offsetY": 140,
+          "margin": 48
+        }
+      ],
+      "crates": [
+        {
+          "offsetX": -96,
+          "offsetY": 0,
+          "randomLootTier": "epic"
+        },
+        {
+          "offsetX": 0,
+          "offsetY": 0,
+          "blueprint": true
+        },
+        {
+          "offsetX": 96,
+          "offsetY": 0,
+          "randomLootTier": "rare"
+        }
+      ]
+    },
+    "maze": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -180,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 180,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -180,
+          "offsetY": 120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 180,
+          "offsetY": 120,
+          "margin": 48
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:stalker",
+          "offsetX": -200,
+          "offsetY": -180
+        },
+        {
+          "typeId": "enemy:police",
+          "offsetX": 220,
+          "offsetY": 180
+        }
+      ],
+      "buildings": [
+        {
+          "typeId": "structure:tripwire",
+          "offsetX": -48,
+          "offsetY": -64,
+          "margin": 128,
+          "orientation": "horizontal"
+        },
+        {
+          "typeId": "structure:tripwire",
+          "offsetX": -96,
+          "offsetY": 0,
+          "margin": 128,
+          "orientation": "vertical"
+        }
+      ]
+    },
+    "armory": {
+      "decor": [
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": -190,
+          "offsetY": -150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": 190,
+          "offsetY": -150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": -190,
+          "offsetY": 150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:weapon_rack",
+          "offsetX": 190,
+          "offsetY": 150,
+          "margin": 64
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 0,
+          "offsetY": 180,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:police",
+          "offsetX": 0,
+          "offsetY": -120
+        }
+      ],
+      "crates": [
+        {
+          "offsetX": 0,
+          "offsetY": 96,
+          "loot": [
+            {
+              "typeId": "item:armor_t4",
+              "kind": "item",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "trap": {
+      "decor": [
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": -200,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:bone_pile",
+          "offsetX": 200,
+          "offsetY": -130,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": -200,
+          "offsetY": 150,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:barrel",
+          "offsetX": 200,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:police",
+          "offsetX": -160,
+          "offsetY": 0
+        },
+        {
+          "typeId": "enemy:stalker",
+          "offsetX": 160,
+          "offsetY": 0
+        }
+      ],
+      "buildings": [
+        {
+          "typeId": "structure:tripwire",
+          "offsetX": -56,
+          "offsetY": -64,
+          "margin": 128,
+          "orientation": "horizontal"
+        },
+        {
+          "typeId": "structure:tripwire",
+          "offsetX": 0,
+          "offsetY": 0,
+          "orientation": "vertical"
+        },
+        {
+          "typeId": "structure:tripwire",
+          "offsetX": 56,
+          "offsetY": 64,
+          "margin": 128,
+          "orientation": "horizontal"
+        }
+      ],
+      "crates": [
+        {
+          "spawnChance": 0.5,
+          "offsetX": 0,
+          "offsetY": 128,
+          "randomLootTier": "rare"
+        }
+      ]
+    },
+    "mini_boss": {
+      "decor": [
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -200,
+          "offsetY": -150,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 200,
+          "offsetY": -150,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -200,
+          "offsetY": 150,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 200,
+          "offsetY": 150,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "typeId": "enemy:commander",
+          "offsetX": 0,
+          "offsetY": 0
+        }
+      ],
+      "crates": [
+        {
+          "offsetX": 0,
+          "offsetY": 160,
+          "randomLootTier": "epic"
+        }
+      ]
+    },
+    "boss": {
+      "decor": [
+        {
+          "typeId": "structure:boss_throne",
+          "offsetX": 0,
+          "offsetY": -210,
+          "margin": 72
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": -250,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:stone_pillar",
+          "offsetX": 250,
+          "offsetY": -120,
+          "margin": 48
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": -250,
+          "offsetY": 120,
+          "margin": 40
+        },
+        {
+          "typeId": "structure:brazier",
+          "offsetX": 250,
+          "offsetY": 120,
+          "margin": 40
+        }
+      ],
+      "enemies": [
+        {
+          "spawnRole": "legendary_boss",
+          "offsetX": 0,
+          "offsetY": -80
+        },
+        {
+          "typeId": "enemy:megaknight",
+          "offsetX": -220,
+          "offsetY": 160
+        },
+        {
+          "typeId": "enemy:sniper",
+          "offsetX": 220,
+          "offsetY": 160
+        }
+      ]
+    }
+  },
+  "dungeonEnemyRarityWeights": {
+    "entrance": {
+      "common": 5,
+      "uncommon": 3,
+      "rare": 1
+    },
+    "combat": {
+      "common": 2,
+      "uncommon": 5,
+      "rare": 2
+    },
+    "enemy_swarm": {
+      "common": 3,
+      "uncommon": 4,
+      "rare": 2
+    },
+    "maze": {
+      "uncommon": 4,
+      "rare": 3
+    },
+    "trap": {
+      "uncommon": 3,
+      "rare": 4
+    },
+    "treasure": {
+      "rare": 5,
+      "epic": 2
+    },
+    "armory": {
+      "rare": 4,
+      "epic": 2
+    },
+    "mini_boss": {
+      "rare": 3,
+      "epic": 4
+    },
+    "boss": {
+      "epic": 3,
+      "legendary": 1
+    }
+  },
+  "interiorSpawnChances": {
+    "furniture": 0.3,
+    "crate": 0.5,
+    "enemy": 0.5
+  }
+}

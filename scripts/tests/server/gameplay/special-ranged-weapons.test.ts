@@ -1,9 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { requireProjectileContent } from "@shared/content/catalog.ts";
 import { requireShootWeaponRuntime } from "@server/combat/contentAdapters.ts";
+import { ContentProjectile } from "@server/entities/projectiles/ContentProjectile.ts";
 import { FirecrackerBullet } from "@server/entities/projectiles/FirecrackerBullet.ts";
-import { ShotgunPellet } from "@server/entities/projectiles/ShotgunPellet.ts";
-import { SmallFirecrackerBullet } from "@server/entities/projectiles/SmallFirecrackerBullet.ts";
+import { ShotgunPellet, SmallFirecrackerBullet } from "@server/registry/generated/contentProjectileCtors.ts";
 import { FirecrackerGun } from "@server/items/weapons/FirecrackerGun.ts";
 import { Shotgun } from "@server/items/weapons/Shotgun.ts";
 import {
@@ -18,8 +18,9 @@ function radians(degrees: number): number {
 }
 
 describe("special ranged weapons", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("special ranged behavior follows authored weapon and projectile tuning", () => {
-    bootstrapTestRegistries();
     const shotgunContent = requireShootWeaponRuntime("item:shotgun");
     const firecrackerGunContent = requireShootWeaponRuntime(
       "item:firecracker_gun",
@@ -54,7 +55,7 @@ describe("special ranged weapons", () => {
       expect(shotgun.hit(runtime.world, shotgunPlayer, 0)).toBe(true);
       const pellets = runtime.world.entities
         .all()
-        .filter((entity) => entity instanceof ShotgunPellet) as ShotgunPellet[];
+        .filter((entity) => entity instanceof ShotgunPellet) as ContentProjectile[];
       expect(pellets).toHaveLength(3);
       expect(pellets[0]?.rotation).toBeCloseTo(-Math.PI / 12);
       expect(pellets[2]?.rotation).toBeCloseTo(Math.PI / 12);
@@ -70,7 +71,7 @@ describe("special ranged weapons", () => {
         .all()
         .filter(
           (entity) => entity instanceof SmallFirecrackerBullet,
-        ) as SmallFirecrackerBullet[];
+        ) as ContentProjectile[];
       expect(sparks).toHaveLength(3);
       expect(sparks[0]?.rotation).toBeCloseTo(-Math.PI / 12);
       expect(sparks[2]?.rotation).toBeCloseTo(Math.PI / 12);
@@ -82,7 +83,6 @@ describe("special ranged weapons", () => {
   });
 
   test("shotgun spends one shell to fire the authored pellet fan", () => {
-    bootstrapTestRegistries();
     const weaponContent = requireShootWeaponRuntime("item:shotgun");
     expect(weaponContent.special?.kind).toBe("shotgunFan");
     const special =
@@ -98,7 +98,7 @@ describe("special ranged weapons", () => {
 
     const pellets = runtime.world.entities
       .all()
-      .filter((entity) => entity instanceof ShotgunPellet) as ShotgunPellet[];
+      .filter((entity) => entity instanceof ShotgunPellet) as ContentProjectile[];
     expect(pellets).toHaveLength(special?.projectileCount ?? 0);
     expect(shotgun.ammoInMag).toBe(4);
     expect(pellets[0]?.rotation).toBeCloseTo(
@@ -110,7 +110,6 @@ describe("special ranged weapons", () => {
   });
 
   test("firecracker gun kicks the shooter back and splits at authored range", () => {
-    bootstrapTestRegistries();
     const weaponContent = requireShootWeaponRuntime("item:firecracker_gun");
     const projectileContent = requireProjectileContent(
       "projectile:firecracker_bullet",
@@ -146,7 +145,7 @@ describe("special ranged weapons", () => {
       .all()
       .filter(
         (entity) => entity instanceof SmallFirecrackerBullet,
-      ) as SmallFirecrackerBullet[];
+      ) as ContentProjectile[];
     expect(sparks).toHaveLength(projectileContent.split?.projectileCount ?? 0);
     expect(sparks[0]?.rotation).toBeCloseTo(
       -radians(projectileContent.split?.arcDeg ?? 0) / 2,

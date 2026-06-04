@@ -12,6 +12,7 @@ export type HotbarSlotItem = {
   magSize: number | null;
   reserveMagCount: number | null;
   reloadTicksRemaining: number | null;
+  rarityBorderColor: number | null;
 };
 
 class HotbarSlotView {
@@ -26,6 +27,7 @@ class HotbarSlotView {
   private readonly slotSize: number;
   private readonly iconPadding: number;
   private readonly iconProvider: (typeId: ResourceId) => PIXI.Texture;
+  private rarityBorderColor: number | null = null;
 
   constructor(options: {
     slotSize: number;
@@ -98,6 +100,7 @@ class HotbarSlotView {
       return;
     }
 
+    this.rarityBorderColor = item.rarityBorderColor;
     syncItemIconSprite({
       sprite: this.icon,
       typeId: item.typeId,
@@ -118,9 +121,11 @@ class HotbarSlotView {
     }
 
     this.updateAmmoBar(item);
+    this.drawBase(this.activeOutline.visible);
   }
 
   public clearItem(): void {
+    this.rarityBorderColor = null;
     this.icon.visible = false;
     this.countText.text = "";
     this.countText.visible = false;
@@ -130,7 +135,7 @@ class HotbarSlotView {
 
   private drawBase(active: boolean): void {
     const fill = active ? 0x3a3a3a : 0x262626;
-    const edge = active ? 0xf0f0f0 : 0x8e8e8e;
+    const edge = this.rarityBorderColor ?? (active ? 0xf0f0f0 : 0x8e8e8e);
     const inner = active ? 0x5b5b5b : 0x3a3a3a;
 
     this.base.clear();

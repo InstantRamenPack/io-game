@@ -12,6 +12,7 @@ import {
   type WaveSpawnConfig,
 } from "@shared/config/gameplayConfig.ts";
 import { getLegendaryBossTypeIds } from "@shared/world/legendaryBoss.ts";
+import type { ResourceId } from "@shared/ids/ResourceId.ts";
 
 type WaveChatBroadcaster = {
   broadcastSystemMessage?: (text: string) => void;
@@ -32,9 +33,9 @@ type PendingSpawn = {
  */
 export class WaveSpawner {
   private readonly wavesConfig: WavesConfig;
-  private readonly entityCtorByResourceName: Map<string, SpawnableEntityCtor>;
+  private readonly entityCtorByTypeId: Map<ResourceId, SpawnableEntityCtor>;
   private readonly chatService: WaveChatBroadcaster | null;
-  private readonly legendaryBossResourceNames: ReadonlySet<string>;
+  private readonly legendaryBossTypeIds: ReadonlySet<ResourceId>;
   private pendingSpawns: PendingSpawn[] = [];
   private nightWaveThreatTotal = 0;
 
@@ -50,29 +51,24 @@ export class WaveSpawner {
   ) {
     this.wavesConfig = wavesConfig;
     this.chatService = chatService;
-    this.entityCtorByResourceName = this.buildEntityLookup();
-    this.legendaryBossResourceNames = new Set(
-      getLegendaryBossTypeIds().map((typeId) => typeId.replace(/^enemy:/, "")),
-    );
+    this.entityCtorByTypeId = this.buildEntityLookup();
+    this.legendaryBossTypeIds = new Set(getLegendaryBossTypeIds());
   }
 
   /**
-   * Builds a lookup map from resource names to entity constructors.
+   * Builds a lookup map from type ids to entity constructors.
    * This enables fast entity type resolution during spawning.
    */
-  private buildEntityLookup(): Map<string, SpawnableEntityCtor> {
-    const lookup = new Map<string, SpawnableEntityCtor>();
+  private buildEntityLookup(): Map<ResourceId, SpawnableEntityCtor> {
+    const lookup = new Map<ResourceId, SpawnableEntityCtor>();
 
-    for (const [, entry] of entityTypeRegistry.entries()) {
-      const resourceName = entry.ctor.resourceName ?? "";
-      if (resourceName) {
-        if (!isSpawnableEntityCtor(entry.ctor)) {
-          throw new Error(
-            `Entity type ${entry.typeId} is not spawnable by the wave system.`,
-          );
-        }
-        lookup.set(resourceName, entry.ctor);
+    for (const [typeId, entry] of entityTypeRegistry.entries()) {
+      if (!isSpawnableEntityCtor(entry.ctor)) {
+        throw new Error(
+          `Entity type ${typeId} is not spawnable by the wave system.`,
+        );
       }
+      lookup.set(typeId, entry.ctor);
     }
 
     return lookup;
@@ -131,11 +127,16 @@ export class WaveSpawner {
     }
 
     const hasNonPoliceSpawn = resolvedConfig.spawns.some(
-      (spawn) => spawn.entityType !== "police" && spawn.count > 0,
+      (spawn) =>
+        spawn.entityTypeId !== ("enemy:police" as ResourceId) &&
+        spawn.count > 0,
     );
 
     for (const spawn of resolvedConfig.spawns) {
-      if (spawn.entityType === "police" && !hasNonPoliceSpawn) {
+      if (
+        spawn.entityTypeId === ("enemy:police" as ResourceId) &&
+        !hasNonPoliceSpawn
+      ) {
         continue;
       }
       this.pendingSpawns.push({
@@ -208,13 +209,13 @@ export class WaveSpawner {
    * Spawns wave enemies near map center so buildings draw aggro when players stay distant.
    */
   private spawnEntities(world: World, spawnConfig: WaveSpawnConfig): void {
-    const entityCtor = this.entityCtorByResourceName.get(
-      spawnConfig.entityType,
+    const entityCtor = this.entityCtorByTypeId.get(
+      spawnConfig.entityTypeId as ResourceId,
     );
 
     if (!entityCtor) {
       console.warn(
-        `Wave spawner: no entity registered with resource name "${spawnConfig.entityType}"`,
+        `Wave spawner: no entity registered with type id "${spawnConfig.entityTypeId}"`,
       );
       return;
     }
@@ -269,10 +270,10 @@ export class WaveSpawner {
       randomWaves.enemyWeights,
       (entry) => allowedTierSet.has(entry.tier),
     );
-    const counts = new Map<string, number>();
+    const counts = new Map<ResourceId, number>();
     const rng = this.createNightCycleRandom(nightCycle);
-    const increment = (entityType: string, amount = 1): void => {
-      counts.set(entityType, (counts.get(entityType) ?? 0) + amount);
+    const increment = (entityTypeId: ResourceId, amount = 1): void => {
+      counts.set(entityTypeId, (counts.get(entityTypeId) ?? 0) + amount);
     };
 
     for (const [tier, count] of Object.entries(floorConfig.floors)) {
@@ -303,7 +304,7 @@ export class WaveSpawner {
     const DELAY_BUCKETS = randomWaves.bucketDelayTicks;
     const spawns: WaveSpawnConfig[] = [];
 
-    for (const [entityType, count] of counts) {
+    for (const [entityTypeId, count] of counts) {
       const perBucket = Math.floor(count / DELAY_BUCKETS.length);
       let remainder = count % DELAY_BUCKETS.length;
 
@@ -311,7 +312,7 @@ export class WaveSpawner {
         const batchCount = perBucket + (remainder > 0 ? 1 : 0);
         remainder = Math.max(0, remainder - 1);
         if (batchCount > 0) {
-          spawns.push({ entityType, delayTicks: delay, count: batchCount });
+          spawns.push({ entityTypeId, delayTicks: delay, count: batchCount });
         }
       }
     }
@@ -353,21 +354,23 @@ export class WaveSpawner {
     };
   }
 
-  private filterWaveEnemyWeights<T extends { entityType: string }>(
-    pool: readonly T[],
-    predicate: (entry: T) => boolean,
-  ): T[] {
+  private filterWaveEnemyWeights(
+    pool: readonly WavesConfig["randomWaves"]["enemyWeights"][number][],
+    predicate: (
+      entry: WavesConfig["randomWaves"]["enemyWeights"][number],
+    ) => boolean,
+  ): WavesConfig["randomWaves"]["enemyWeights"][number][] {
     return pool.filter(
       (entry) =>
         predicate(entry) &&
-        !this.legendaryBossResourceNames.has(entry.entityType),
+        !this.legendaryBossTypeIds.has(entry.entityTypeId as ResourceId),
     );
   }
 
   private pickWeightedEntity(
     pool: readonly WavesConfig["randomWaves"]["enemyWeights"][number][],
     randomNumber: () => number,
-  ): string {
+  ): ResourceId {
     if (pool.length === 0) {
       throw new Error("Random wave pool is empty for the selected tier floor.");
     }
@@ -376,14 +379,14 @@ export class WaveSpawner {
     for (const entry of pool) {
       roll -= entry.weight;
       if (roll <= 0) {
-        return entry.entityType;
+        return entry.entityTypeId as ResourceId;
       }
     }
     const fallback = pool[pool.length - 1] ?? pool[0];
     if (!fallback) {
       throw new Error("Random wave pool is empty.");
     }
-    return fallback.entityType;
+    return fallback.entityTypeId as ResourceId;
   }
 
   /**
@@ -399,17 +402,17 @@ export class WaveSpawner {
    * Useful for debugging.
    */
   public getPendingSpawnDetails(): Array<{
-    entityType: string;
+    entityTypeId: ResourceId;
     count: number;
     ticksRemaining: number;
   }> {
     const details = new Map<
-      string,
+      ResourceId,
       { count: number; minTicksRemaining: number }
     >();
 
     for (const pending of this.pendingSpawns) {
-      const key = pending.spawn.entityType;
+      const key = pending.spawn.entityTypeId as ResourceId;
       const existing = details.get(key);
 
       if (existing) {
@@ -426,8 +429,8 @@ export class WaveSpawner {
       }
     }
 
-    return Array.from(details.entries()).map(([entityType, data]) => ({
-      entityType,
+    return Array.from(details.entries()).map(([entityTypeId, data]) => ({
+      entityTypeId,
       count: data.count,
       ticksRemaining: data.minTicksRemaining,
     }));

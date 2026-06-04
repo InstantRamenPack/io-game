@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Ranger } from "@server/entities/enemies/Ranger.ts";
@@ -92,7 +92,6 @@ function estimateMagDropRate(
   trials: number,
   seedPrefix: string,
 ): number {
-  bootstrapTestRegistries();
   const { runtime } = makeRuntime();
   let drops = 0;
 
@@ -116,6 +115,8 @@ function estimateMagDropRate(
 }
 
 describe("enemy death mag loot", () => {
+  beforeAll(bootstrapTestRegistries);
+
   test("getEnemyDeathMagDropCount respects tier mag drop chance and count bounds", () => {
     expect(getEnemyDeathMagDropCount("common", () => 0.99)).toBe(0);
     expect(getEnemyDeathMagDropCount("common", () => 0)).toBe(
@@ -130,7 +131,6 @@ describe("enemy death mag loot", () => {
   });
 
   test("ranged enemies can drop a matching mag on death", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     installQueuedRng(runtime, [
       0.5, // spawn armor roll (no armor)
@@ -154,7 +154,6 @@ describe("enemy death mag loot", () => {
   });
 
   test("melee enemies never drop magazines", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     installQueuedRng(runtime, [
       0.5, // spawn armor roll (no armor)
@@ -175,7 +174,6 @@ describe("enemy death mag loot", () => {
   });
 
   test("failed mag drop chance yields hunk loot without magazines", () => {
-    bootstrapTestRegistries();
     const { runtime } = makeRuntime();
     installQueuedRng(runtime, [
       0.5, // spawn armor roll (no armor)

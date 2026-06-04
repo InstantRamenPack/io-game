@@ -1,0 +1,53 @@
+{
+  "blueprintPlacement": {
+    "villagesPerDistanceTier": 4,
+    "crateRules": {
+      "itemsPerCrate": 1,
+      "ensureVillageHasCrate": true
+    },
+    "villageTierSlots": {
+      "common": {
+        "armorBlueprintTypeId": "blueprint:armor",
+        "weaponBlueprintPool": "rareWeapon",
+        "weaponBlueprintCount": 3
+      },
+      "uncommon": {
+        "armorBlueprintTypeId": "blueprint:armor",
+        "weaponBlueprintPool": "rareWeapon",
+        "weaponBlueprintCount": 2,
+        "extraWeaponBlueprintPool": "epicWeapon",
+        "extraWeaponBlueprintCount": 1
+      },
+      "rare": {
+        "armorBlueprintTypeId": "blueprint:armor",
+        "weaponBlueprintPool": "epicWeapon",
+        "weaponBlueprintCount": 3
+      },
+      "epic": {
+        "weaponBlueprintPool": "epicWeapon",
+        "weaponBlueprintCount": 1
+      }
+    },
+    "dungeonSlots": {
+      "rareWeaponBlueprintPool": "rareWeapon",
+      "rareWeaponBlueprintCount": 2,
+      "epicWeaponBlueprintPool": "epicWeapon",
+      "epicWeaponBlueprintCount": 1
+    },
+    "weaponBlueprintPools": {
+      "rareWeapon": {
+        "unlockedRarityTier": "rare",
+        "excludeBlueprintTypeIds": [
+          "blueprint:armor"
+        ]
+      },
+      "epicWeapon": {
+        "unlockedRarityTier": "epic",
+        "requireWeapon": true,
+        "excludeBlueprintTypeIds": [
+          "blueprint:armor"
+        ]
+      }
+    }
+  }
+}

@@ -3,9 +3,6 @@
   "hint": "Crafting schematic for the Katana.",
   "description": "Unlocks the Katana recipe permanently for this session.",
   "unlocksRecipeTypeId": "item:katana",
-  "pickupSpawn": {
-    "pools": ["blueprint"]
-  },
   "rendering": {
     "assetPath": "/blueprint/generated/katana.png",
     "sprite": {

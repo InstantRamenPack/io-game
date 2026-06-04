@@ -1,5 +1,6 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { Building } from "@server/entities/Building.ts";
 import {
   getEnemyDeathLootConfig,
   getEnemyDeathMagDropCount,
@@ -86,6 +87,7 @@ export class Enemy extends GoalControlledEntity {
   public static readonly kind = "enemy" as const;
   public spawnSource?: EnemySpawnSource;
   private equippedArmorTypeId?: ResourceId;
+  private readonly buildingDamageMultiplier?: number;
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -102,6 +104,7 @@ export class Enemy extends GoalControlledEntity {
       weapon.captureEnemyTuningBaseline();
     }
     this.damageMultiplier = content.combat.damageMultiplier;
+    this.buildingDamageMultiplier = content.combat.buildingDamageMultiplier;
     this.registerGoals([...(config.goals ?? []), new WanderGoal<Enemy>(100)]);
     this.collisionMode = content.collisionMode;
     this.setHitboxProfiles(
@@ -131,6 +134,17 @@ export class Enemy extends GoalControlledEntity {
   public override getDamageReflectionPct(): number {
     const armorStats = this.getEquippedArmorStats();
     return armorStats?.reflectDamagePct ?? 0;
+  }
+
+  public override getOutgoingDamageMultiplier(target: Entity): number {
+    const baseMultiplier = super.getOutgoingDamageMultiplier(target);
+    if (
+      target instanceof Building &&
+      this.buildingDamageMultiplier !== undefined
+    ) {
+      return baseMultiplier * this.buildingDamageMultiplier;
+    }
+    return baseMultiplier;
   }
 
   public override getOutgoingDamageMultiplierForDamageSource(
