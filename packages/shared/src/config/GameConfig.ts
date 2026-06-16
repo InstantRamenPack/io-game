@@ -31,6 +31,17 @@ export class GameConfig {
    * @returns Loaded runtime configuration.
    */
   public static load(): GameConfig {
-    return new GameConfig();
+    const config = new GameConfig();
+    const envTickRate = process.env.TICK_RATE ?? process.env.DEBUG_TICK_RATE;
+    if (envTickRate !== undefined) {
+      const parsedTickRate = Number(envTickRate);
+      if (!Number.isFinite(parsedTickRate) || parsedTickRate <= 0) {
+        throw new Error(
+          `Invalid TICK_RATE "${envTickRate}". Expected a positive number.`,
+        );
+      }
+      config.tickRate = parsedTickRate;
+    }
+    return config;
   }
 }

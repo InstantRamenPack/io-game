@@ -109,7 +109,7 @@ export class PixiRenderer {
 
   public setTickRate(tickRate: number): void {
     if (Number.isFinite(tickRate) && tickRate > 0) {
-      this.tickRate = Math.floor(tickRate);
+      this.tickRate = tickRate;
     }
   }
 

@@ -239,6 +239,16 @@ export class GameInstanceRuntime {
     return this.playerIdByClientId.size;
   }
 
+  /** True when this runtime has connected players or lobby-backdrop preview clients. */
+  public needsSimulation(): boolean {
+    return this.playerIdByClientId.size > 0 || this.previewClientIds.size > 0;
+  }
+
+  /** True when only join-modal preview observers are attached (no active players). */
+  public isPreviewOnly(): boolean {
+    return this.playerIdByClientId.size === 0 && this.previewClientIds.size > 0;
+  }
+
   public isGameComplete(): boolean {
     return this.world.extractionSystem?.isComplete() ?? false;
   }

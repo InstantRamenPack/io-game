@@ -273,7 +273,7 @@ export class GameClient {
       return;
     }
 
-    this.gameConfig.tickRate = Math.floor(tickRate);
+    this.gameConfig.tickRate = tickRate;
     this.syncInterpolatorConfig();
     this.renderer.setTickRate(this.gameConfig.tickRate);
   }

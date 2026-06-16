@@ -57,6 +57,7 @@ export class GameServer {
   private readonly matchLobbyByCode = new Map<string, MatchLobby>();
   private readonly matchLobbyCodeByClientId = new Map<string, string>();
   private readonly lobbyStateCache = new LobbyStateCache();
+  private playgroundPreviewThrottlePhase = 0;
 
   constructor(
     gameConfig: GameConfig,
@@ -110,7 +111,9 @@ export class GameServer {
   }
 
   public tick(): void {
-    this.playgroundRuntime.tick();
+    if (this.shouldTickPlayground()) {
+      this.playgroundRuntime.tick();
+    }
 
     if (!this.enableMatchmaking) {
       return;
@@ -119,7 +122,9 @@ export class GameServer {
     const nowMs = Date.now();
     this.updateMatchLobbies(nowMs);
     for (const lobby of this.matchLobbyByCode.values()) {
-      lobby.runtime?.tick();
+      if (lobby.runtime?.needsSimulation()) {
+        lobby.runtime.tick();
+      }
     }
 
     for (const lobby of this.matchLobbyByCode.values()) {
@@ -726,6 +731,18 @@ export class GameServer {
 
   private getActiveRuntime(clientId: string): GameInstanceRuntime {
     return this.activeRuntimeByClientId.get(clientId) ?? this.playgroundRuntime;
+  }
+
+  private shouldTickPlayground(): boolean {
+    if (!this.playgroundRuntime.needsSimulation()) {
+      return false;
+    }
+    if (!this.playgroundRuntime.isPreviewOnly()) {
+      return true;
+    }
+    this.playgroundPreviewThrottlePhase =
+      (this.playgroundPreviewThrottlePhase + 1) % 2;
+    return this.playgroundPreviewThrottlePhase === 0;
   }
 
   private sendLobbyState(clientId: string, force = false): void {

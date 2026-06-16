@@ -40,10 +40,6 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
       return;
     }
 
-    for (const weapon of this.weapons) {
-      weapon.ownerId = this.id;
-      weapon.tick(world);
-    }
     if (this.isStunned()) {
       this.steerTowardVelocity(0, 0, Number.POSITIVE_INFINITY);
       return;
@@ -51,6 +47,11 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
 
     if (!this.shouldTickGoals(world)) {
       return;
+    }
+
+    for (const weapon of this.weapons) {
+      weapon.ownerId = this.id;
+      weapon.tick(world);
     }
 
     this.goalSelector.tick(this.goalContext.reset(world, this));

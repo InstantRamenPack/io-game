@@ -15,7 +15,7 @@ export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
 
 export const ClientRuntimeConfigSchema = z.object({
   compatHash: z.string().min(1),
-  tickRate: PositiveIntSchema,
+  tickRate: PositiveFiniteNumberSchema,
   worldSize: z.object({
     w: PositiveFiniteNumberSchema,
     h: PositiveFiniteNumberSchema,
