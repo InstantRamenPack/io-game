@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ClientEntity } from "@client/net/ClientEntity.ts";
 import { toVisibilityBlocker } from "@client/net/presentation/PixiWorldPresentationSink.ts";
-import { countVisibilityShadowPolygonsForBenchmark } from "@client/render/pixi/PixiLightsOutOverlay.ts";
+import {
+  buildShadowCoverageRegionForTest,
+  countVisibilityShadowPolygonsForBenchmark,
+  pointInScreenPolygonForTest,
+} from "@client/render/pixi/PixiLightsOutOverlay.ts";
 import { computeLightsOutPresentation } from "@client/render/pixi/PixiWorldView.ts";
 import {
   makeEnemySnapshot,
@@ -171,6 +175,27 @@ describe("lights-out visibility", () => {
     expect(
       countVisibilityShadowPolygonsForBenchmark(visibility, blockers),
     ).toBe(5);
+  });
+
+  test("wall shadow polygon reaches the top screen edge when centered below", () => {
+    const origin = { x: 400, y: 550 };
+    const edgeA = { x: 350, y: 400 };
+    const edgeB = { x: 450, y: 400 };
+    const viewport = [
+      { x: 0, y: 0 },
+      { x: 1180, y: 0 },
+      { x: 1180, y: 880 },
+      { x: 0, y: 880 },
+    ];
+    const region = buildShadowCoverageRegionForTest(
+      origin,
+      edgeA,
+      edgeB,
+      viewport,
+    );
+
+    expect(region.length).toBeGreaterThanOrEqual(3);
+    expect(pointInScreenPolygonForTest({ x: 400, y: 0 }, region)).toBe(true);
   });
 
   test("night lights-out uses the tighter home radius", () => {

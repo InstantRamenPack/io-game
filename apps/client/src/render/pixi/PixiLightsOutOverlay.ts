@@ -1,6 +1,7 @@
 import {
   Container,
   Graphics,
+  RenderTexture,
   Sprite,
   Texture,
   type Application,
@@ -29,7 +30,6 @@ type ScreenTransform = {
 };
 
 const MIN_DISTANCE_EPSILON = 1e-6;
-const WORLD_SHADOW_EXTENSION = 20_000;
 const LIGHTS_OUT_FADE_START_RADIUS = 480;
 const LIGHTS_OUT_FADE_END_RADIUS = 600;
 const LIGHTS_OUT_FALLOFF_TEXTURE_SIZE = 4096;
@@ -41,21 +41,29 @@ const DARKNESS_OVERLAY_COLOR = 0x000000;
 /** Extra screen-space cutout around blockers to avoid shadow hairlines at edges. */
 const BLOCKER_CUTOUT_OUTLINE_PX = 0.1;
 const BLOCKER_CULL_MARGIN_SCREEN = 300;
+const TRANSPARENT_CLEAR: [number, number, number, number] = [0, 0, 0, 0];
 
 export class PixiLightsOutOverlay {
   public readonly container = new Container();
   private readonly backgroundDim = new Graphics();
   private readonly darknessOverlay = new Sprite(Texture.EMPTY);
   private readonly blockerShadows = new Sprite(Texture.EMPTY);
-  private blockerShadowCanvas: HTMLCanvasElement | null = null;
-  private blockerShadowContext: CanvasRenderingContext2D | null = null;
-  private blockerShadowTexture: Texture | null = null;
-  private blockerScratchCanvas: HTMLCanvasElement | null = null;
-  private blockerScratchContext: CanvasRenderingContext2D | null = null;
+  private readonly blockerPassRoot = new Container();
+  private readonly shadowGraphics = new Graphics();
+  private readonly cutoutGraphics = new Graphics();
+  private readonly scratchComposite = new Sprite(Texture.EMPTY);
+  private accumRenderTexture: RenderTexture | null = null;
+  private scratchRenderTexture: RenderTexture | null = null;
   private lastScreenW = -1;
   private lastScreenH = -1;
+  private lastShadowScreenW = -1;
+  private lastShadowScreenH = -1;
 
   constructor() {
+    this.cutoutGraphics.blendMode = "erase";
+    this.blockerPassRoot.cullable = false;
+    this.blockerPassRoot.cullableChildren = false;
+    this.blockerPassRoot.addChild(this.shadowGraphics, this.cutoutGraphics);
     this.container.addChild(
       this.backgroundDim,
       this.darknessOverlay,
@@ -127,14 +135,6 @@ export class PixiLightsOutOverlay {
     blockers: readonly VisibilityBlockerShape[],
     transform: ScreenTransform & { radius: number },
   ): void {
-    const canvas = this.getBlockerShadowCanvas(app);
-    const context = this.blockerShadowContext;
-    const scratchContext = this.getBlockerScratchContext(canvas);
-    if (!context || !scratchContext || !this.blockerShadowTexture) {
-      this.blockerShadows.visible = false;
-      return;
-    }
-
     const sorted = blockers
       .filter((blocker) =>
         blockerIntersectsActiveViewport(blocker, app, transform),
@@ -146,95 +146,100 @@ export class PixiLightsOutOverlay {
           blockerDistanceSq(b, visibility.center),
       );
 
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.globalAlpha = 1;
-    context.globalCompositeOperation = "source-over";
+    const accumTexture = this.ensureAccumRenderTexture(app);
+    const scratchTexture = this.ensureScratchRenderTexture(app);
+    this.blockerPassRoot.filterArea = app.screen;
+    this.scratchComposite.texture = scratchTexture;
+    this.scratchComposite.width = app.screen.width;
+    this.scratchComposite.height = app.screen.height;
+    let drewAny = false;
 
-    const accepted: WorldPoint[][][] = [];
     for (const blocker of sorted) {
       const shadows =
         blocker.kind === "rects"
-          ? buildRectSetBlockerShadows(visibility, blocker.rects)
-          : buildCircleBlockerShadow(visibility, blocker);
+          ? buildRectSetBlockerShadows(
+              visibility,
+              blocker.rects,
+              app,
+              transform,
+            )
+          : buildCircleBlockerShadow(visibility, blocker, app, transform);
       if (shadows.length === 0) {
         continue;
       }
-      if (isBlockerFullyCovered(blocker, accepted)) {
+      if (!populateBlockerShadowGraphics(this.shadowGraphics, shadows)) {
         continue;
       }
-      accepted.push(shadows);
+      populateBlockerCutoutGraphics(this.cutoutGraphics, blocker, transform);
 
-      scratchContext.clearRect(0, 0, canvas.width, canvas.height);
-      scratchContext.save();
-      scratchContext.fillStyle = "#000000";
-      scratchContext.globalAlpha = 1;
-      scratchContext.globalCompositeOperation = "source-over";
-
-      let drewShadow = false;
-      for (let i = 0; i < shadows.length; i += 1) {
-        const points = shadows[i];
-        if (!points || points.length < 3) {
-          continue;
-        }
-        drawCanvasPolygon(scratchContext, toScreenPolygon(points, transform));
-        scratchContext.fill();
-        drewShadow = true;
-      }
-
-      if (!drewShadow) {
-        scratchContext.restore();
-        continue;
-      }
-
-      scratchContext.globalCompositeOperation = "destination-out";
-      cutVisibilityBlockerFromShadow(scratchContext, blocker, transform);
-      scratchContext.restore();
-      context.drawImage(scratchContext.canvas, 0, 0);
+      app.renderer.render({
+        container: this.blockerPassRoot,
+        target: scratchTexture,
+        clear: true,
+        clearColor: TRANSPARENT_CLEAR,
+      });
+      app.renderer.render({
+        container: this.scratchComposite,
+        target: accumTexture,
+        clear: !drewAny,
+        clearColor: TRANSPARENT_CLEAR,
+      });
+      drewAny = true;
     }
 
-    context.restore();
-    this.blockerShadowTexture.source.update();
-    this.blockerShadows.texture = this.blockerShadowTexture;
+    if (!drewAny) {
+      this.blockerShadows.visible = false;
+      return;
+    }
+
+    this.blockerShadows.texture = accumTexture;
+    this.blockerShadows.width = app.screen.width;
+    this.blockerShadows.height = app.screen.height;
     this.blockerShadows.position.set(0, 0);
     this.blockerShadows.visible = true;
   }
 
-  private getBlockerShadowCanvas(app: Application): HTMLCanvasElement {
+  private ensureAccumRenderTexture(app: Application): RenderTexture {
     const width = Math.max(1, Math.ceil(app.screen.width));
     const height = Math.max(1, Math.ceil(app.screen.height));
-    if (!this.blockerShadowCanvas) {
-      this.blockerShadowCanvas = document.createElement("canvas");
-      this.blockerShadowContext = this.blockerShadowCanvas.getContext("2d");
-    }
+    const resolution = app.renderer.resolution;
+
     if (
-      this.blockerShadowCanvas.width !== width ||
-      this.blockerShadowCanvas.height !== height
+      !this.accumRenderTexture ||
+      this.lastShadowScreenW !== width ||
+      this.lastShadowScreenH !== height
     ) {
-      this.blockerShadowCanvas.width = width;
-      this.blockerShadowCanvas.height = height;
-      this.blockerShadowTexture = Texture.from(this.blockerShadowCanvas);
-    } else if (!this.blockerShadowTexture) {
-      this.blockerShadowTexture = Texture.from(this.blockerShadowCanvas);
+      this.accumRenderTexture?.destroy(true);
+      this.accumRenderTexture = RenderTexture.create({
+        width,
+        height,
+        resolution,
+        dynamic: true,
+      });
+      this.lastShadowScreenW = width;
+      this.lastShadowScreenH = height;
     }
-    return this.blockerShadowCanvas;
+
+    return this.accumRenderTexture;
   }
 
-  private getBlockerScratchContext(
-    targetCanvas: HTMLCanvasElement,
-  ): CanvasRenderingContext2D | null {
-    if (!this.blockerScratchCanvas) {
-      this.blockerScratchCanvas = document.createElement("canvas");
-      this.blockerScratchContext = this.blockerScratchCanvas.getContext("2d");
+  private ensureScratchRenderTexture(app: Application): RenderTexture {
+    const width = Math.max(1, Math.ceil(app.screen.width));
+    const height = Math.max(1, Math.ceil(app.screen.height));
+    const resolution = app.renderer.resolution;
+
+    if (!this.scratchRenderTexture) {
+      this.scratchRenderTexture = RenderTexture.create({
+        width,
+        height,
+        resolution,
+        dynamic: true,
+      });
+    } else {
+      this.scratchRenderTexture.resize(width, height, resolution);
     }
-    if (
-      this.blockerScratchCanvas.width !== targetCanvas.width ||
-      this.blockerScratchCanvas.height !== targetCanvas.height
-    ) {
-      this.blockerScratchCanvas.width = targetCanvas.width;
-      this.blockerScratchCanvas.height = targetCanvas.height;
-    }
-    return this.blockerScratchContext;
+
+    return this.scratchRenderTexture;
   }
 
   private getScreenTransform(
@@ -271,6 +276,52 @@ export class PixiLightsOutOverlay {
       ),
     };
   }
+}
+
+function populateBlockerShadowGraphics(
+  graphics: Graphics,
+  shadows: readonly number[][],
+): boolean {
+  graphics.clear();
+  let drewShadow = false;
+  for (let i = 0; i < shadows.length; i += 1) {
+    const screenPoints = shadows[i];
+    if (!screenPoints || screenPoints.length < 6) {
+      continue;
+    }
+    graphics.poly(screenPoints).fill({ color: 0x000000, alpha: 1 });
+    drewShadow = true;
+  }
+  return drewShadow;
+}
+
+function populateBlockerCutoutGraphics(
+  graphics: Graphics,
+  blocker: VisibilityBlockerShape,
+  transform: ScreenTransform,
+): void {
+  graphics.clear();
+  if (blocker.kind === "rects") {
+    for (let i = 0; i < blocker.rects.length; i += 1) {
+      const rect = blocker.rects[i];
+      if (!rect) {
+        continue;
+      }
+      graphics
+        .poly(getRectBlockerScreenPoints(rect, transform))
+        .fill({ color: 0xffffff, alpha: 1 });
+    }
+    return;
+  }
+
+  const centerX = blocker.centerX * transform.scaleX + transform.offsetX;
+  const centerY = blocker.centerY * transform.scaleY + transform.offsetY;
+  const rx =
+    Math.abs(blocker.radius * transform.scaleX) + BLOCKER_CUTOUT_OUTLINE_PX;
+  const ry =
+    Math.abs(blocker.radius * transform.scaleY) + BLOCKER_CUTOUT_OUTLINE_PX;
+  graphics.ellipse(centerX, centerY, rx, ry);
+  graphics.fill({ color: 0xffffff, alpha: 1 });
 }
 
 function blockerDistanceSq(
@@ -342,141 +393,48 @@ function blockerIntersectsActiveViewport(
   return false;
 }
 
-function isBlockerFullyCovered(
-  blocker: VisibilityBlockerShape,
-  existingShadows: readonly WorldPoint[][][],
-): boolean {
-  if (existingShadows.length === 0) {
-    return false;
-  }
-  const vertices: WorldPoint[] =
-    blocker.kind === "circle"
-      ? [
-          { x: blocker.centerX + blocker.radius, y: blocker.centerY },
-          { x: blocker.centerX - blocker.radius, y: blocker.centerY },
-          { x: blocker.centerX, y: blocker.centerY + blocker.radius },
-          { x: blocker.centerX, y: blocker.centerY - blocker.radius },
-        ]
-      : blocker.rects.flatMap((rect) => [
-          { x: rect.minX, y: rect.minY },
-          { x: rect.maxX, y: rect.minY },
-          { x: rect.maxX, y: rect.maxY },
-          { x: rect.minX, y: rect.maxY },
-        ]);
-
-  for (let i = 0; i < vertices.length; i += 1) {
-    const vertex = vertices[i];
-    if (!vertex) {
-      continue;
-    }
-    let covered = false;
-    for (let s = 0; s < existingShadows.length && !covered; s += 1) {
-      const group = existingShadows[s];
-      if (!group) continue;
-      for (let p = 0; p < group.length; p += 1) {
-        const poly = group[p];
-        if (!poly) continue;
-        if (pointInPolygon(vertex, poly)) {
-          covered = true;
-          break;
-        }
-      }
-    }
-    if (!covered) {
-      return false;
-    }
-  }
-
-  return true;
+function getShadowClipViewport(app: Application): ScreenPoint[] {
+  return [
+    { x: 0, y: 0 },
+    { x: app.screen.width, y: 0 },
+    { x: app.screen.width, y: app.screen.height },
+    { x: 0, y: app.screen.height },
+  ];
 }
 
-function pointInPolygon(
+function worldToScreenPoint(
   point: WorldPoint,
-  polygon: readonly WorldPoint[],
-): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
-    const pi = polygon[i];
-    const pj = polygon[j];
-    if (!pi || !pj) continue;
-    const intersect =
-      pi.y > point.y !== pj.y > point.y &&
-      point.x <
-        ((pj.x - pi.x) * (point.y - pi.y)) /
-          (pj.y - pi.y + MIN_DISTANCE_EPSILON) +
-          pi.x;
-    if (intersect) inside = !inside;
-  }
-  return inside;
+  transform: ScreenTransform,
+): ScreenPoint {
+  return {
+    x: point.x * transform.scaleX + transform.offsetX,
+    y: point.y * transform.scaleY + transform.offsetY,
+  };
 }
 
-function toScreenPolygon(
-  points: readonly WorldPoint[],
-  transform: ScreenTransform,
-): number[] {
+function flattenScreenPolygon(points: readonly ScreenPoint[]): number[] {
   const out = new Array<number>(points.length * 2);
   let n = 0;
   for (let i = 0; i < points.length; i += 1) {
     const point = points[i];
     if (!point) continue;
-    out[n++] = point.x * transform.scaleX + transform.offsetX;
-    out[n++] = point.y * transform.scaleY + transform.offsetY;
+    out[n++] = point.x;
+    out[n++] = point.y;
   }
   return out;
-}
-
-function cutVisibilityBlockerFromShadow(
-  context: CanvasRenderingContext2D,
-  blocker: VisibilityBlockerShape,
-  transform: ScreenTransform,
-): void {
-  if (blocker.kind === "rects") {
-    for (let i = 0; i < blocker.rects.length; i += 1) {
-      const rect = blocker.rects[i];
-      if (!rect) {
-        continue;
-      }
-      drawCanvasPolygon(context, getRectBlockerScreenPoints(rect, transform));
-      context.fill();
-    }
-    return;
-  }
-
-  const centerX = blocker.centerX * transform.scaleX + transform.offsetX;
-  const centerY = blocker.centerY * transform.scaleY + transform.offsetY;
-  const rx =
-    Math.abs(blocker.radius * transform.scaleX) + BLOCKER_CUTOUT_OUTLINE_PX;
-  const ry =
-    Math.abs(blocker.radius * transform.scaleY) + BLOCKER_CUTOUT_OUTLINE_PX;
-  context.beginPath();
-  context.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI * 2);
-  context.fill();
-}
-
-function drawCanvasPolygon(
-  context: CanvasRenderingContext2D,
-  points: readonly number[],
-): void {
-  if (points.length < 6) {
-    return;
-  }
-  context.beginPath();
-  context.moveTo(points[0] ?? 0, points[1] ?? 0);
-  for (let i = 2; i < points.length; i += 2) {
-    context.lineTo(points[i] ?? 0, points[i + 1] ?? 0);
-  }
-  context.closePath();
 }
 
 function buildRectSetBlockerShadows(
   visibility: LightsOutVisibilityContext,
   rects: readonly VisibilityBlockerRect[],
-): WorldPoint[][] {
-  const out: WorldPoint[][] = [];
+  app: Application,
+  transform: ScreenTransform,
+): number[][] {
+  const out: number[][] = [];
   for (let i = 0; i < rects.length; i += 1) {
     const rect = rects[i];
     if (!rect) continue;
-    const shadows = buildRectBlockerShadows(visibility, rect);
+    const shadows = buildRectBlockerShadows(visibility, rect, app, transform);
     for (let j = 0; j < shadows.length; j += 1) {
       const shadow = shadows[j];
       if (shadow) {
@@ -507,11 +465,15 @@ export function countVisibilityShadowPolygonsForBenchmark(
 function buildRectBlockerShadows(
   visibility: LightsOutVisibilityContext,
   rect: VisibilityBlockerRect,
-): WorldPoint[][] {
+  app: Application,
+  transform: ScreenTransform,
+): number[][] {
   const origin = visibility.center;
   if (!shouldProjectRectBlockerShadow(visibility, rect)) {
     return [];
   }
+  const originScreen = worldToScreenPoint(origin, transform);
+  const viewportCorners = getShadowClipViewport(app);
   const corners = [
     { x: rect.minX, y: rect.minY },
     { x: rect.maxX, y: rect.minY },
@@ -524,14 +486,21 @@ function buildRectBlockerShadows(
     [corners[2], corners[3]],
     [corners[3], corners[0]],
   ];
-  const out: WorldPoint[][] = [];
+  const out: number[][] = [];
   for (let i = 0; i < edges.length; i += 1) {
     const edge = edges[i];
     if (!edge) continue;
-    const projected = buildProjectedTrapezoid(origin, edge[0], edge[1]);
-    for (let j = 0; j < projected.length; j += 1) {
-      const shape = projected[j];
-      if (shape) out.push(shape);
+    if (!isSilhouetteEdge(origin, edge[0], edge[1])) {
+      continue;
+    }
+    const shadow = buildEdgeShadowPolygon(
+      originScreen,
+      worldToScreenPoint(edge[0], transform),
+      worldToScreenPoint(edge[1], transform),
+      viewportCorners,
+    );
+    if (shadow) {
+      out.push(shadow);
     }
   }
   return out;
@@ -540,7 +509,9 @@ function buildRectBlockerShadows(
 function buildCircleBlockerShadow(
   visibility: LightsOutVisibilityContext,
   blocker: Extract<VisibilityBlockerShape, { kind: "circle" }>,
-): WorldPoint[][] {
+  app: Application,
+  transform: ScreenTransform,
+): number[][] {
   const origin = visibility.center;
   if (!shouldProjectCircleBlockerShadow(visibility, blocker)) {
     return [];
@@ -558,7 +529,13 @@ function buildCircleBlockerShadow(
     x: blocker.centerX - nx * blocker.radius,
     y: blocker.centerY - ny * blocker.radius,
   };
-  return buildProjectedTrapezoid(origin, a, b);
+  const shadow = buildEdgeShadowPolygon(
+    worldToScreenPoint(origin, transform),
+    worldToScreenPoint(a, transform),
+    worldToScreenPoint(b, transform),
+    getShadowClipViewport(app),
+  );
+  return shadow ? [shadow] : [];
 }
 
 function shouldProjectRectBlockerShadow(
@@ -566,6 +543,15 @@ function shouldProjectRectBlockerShadow(
   rect: VisibilityBlockerRect,
 ): boolean {
   return !pointInRect(visibility.center, rect);
+}
+
+function isSilhouetteEdge(
+  origin: WorldPoint,
+  a: WorldPoint,
+  b: WorldPoint,
+): boolean {
+  const cross = (b.x - a.x) * (origin.y - a.y) - (b.y - a.y) * (origin.x - a.x);
+  return cross < 0;
 }
 
 function shouldProjectCircleBlockerShadow(
@@ -580,34 +566,163 @@ function shouldProjectCircleBlockerShadow(
   return distanceSquared > minDistance * minDistance;
 }
 
-function buildProjectedTrapezoid(
-  origin: WorldPoint,
-  a: WorldPoint,
-  b: WorldPoint,
-): WorldPoint[][] {
-  const farA = extendWorldPointFromOrigin(origin, a, WORLD_SHADOW_EXTENSION);
-  const farB = extendWorldPointFromOrigin(origin, b, WORLD_SHADOW_EXTENSION);
-  if (!farA || !farB) {
-    return [];
-  }
-  return [[a, farA, farB, b]];
-}
-
-function extendWorldPointFromOrigin(
-  origin: WorldPoint,
-  point: WorldPoint,
-  distance: number,
-): WorldPoint | null {
-  const dx = point.x - origin.x;
-  const dy = point.y - origin.y;
-  const length = Math.hypot(dx, dy);
-  if (length <= MIN_DISTANCE_EPSILON) {
+function buildEdgeShadowPolygon(
+  origin: ScreenPoint,
+  a: ScreenPoint,
+  b: ScreenPoint,
+  viewportCorners: readonly ScreenPoint[],
+): number[] | null {
+  const poly = getShadowCoverageRegion(viewportCorners, origin, a, b);
+  if (poly.length < 3) {
     return null;
   }
-  return {
-    x: origin.x + (dx / length) * distance,
-    y: origin.y + (dy / length) * distance,
-  };
+  return flattenScreenPolygon(poly);
+}
+
+function getShadowCoverageRegion(
+  viewportCorners: readonly ScreenPoint[],
+  origin: ScreenPoint,
+  a: ScreenPoint,
+  b: ScreenPoint,
+): ScreenPoint[] {
+  if (viewportCorners.length < 3) {
+    return [];
+  }
+
+  let poly = viewportCorners.slice();
+  const edgeCrossOrigin = cross2d(
+    b.x - a.x,
+    b.y - a.y,
+    origin.x - a.x,
+    origin.y - a.y,
+  );
+  if (Math.abs(edgeCrossOrigin) <= MIN_DISTANCE_EPSILON) {
+    return [];
+  }
+
+  poly = clipPolygonAgainstLineSide(
+    poly,
+    a,
+    b,
+    (point) =>
+      edgeCrossOrigin *
+        cross2d(b.x - a.x, b.y - a.y, point.x - a.x, point.y - a.y) <=
+      0,
+  );
+
+  const toA = { x: a.x - origin.x, y: a.y - origin.y };
+  const toB = { x: b.x - origin.x, y: b.y - origin.y };
+  const crossAB = cross2d(toA.x, toA.y, toB.x, toB.y);
+  if (Math.abs(crossAB) <= MIN_DISTANCE_EPSILON) {
+    return poly;
+  }
+
+  poly = clipPolygonAgainstLineSide(poly, origin, a, (point) => {
+    const crossAP = cross2d(
+      toA.x,
+      toA.y,
+      point.x - origin.x,
+      point.y - origin.y,
+    );
+    return crossAP * crossAB >= 0;
+  });
+  poly = clipPolygonAgainstLineSide(poly, origin, b, (point) => {
+    const crossPB = cross2d(
+      point.x - origin.x,
+      point.y - origin.y,
+      toB.x,
+      toB.y,
+    );
+    return crossPB * crossAB >= 0;
+  });
+
+  return poly;
+}
+
+function clipPolygonAgainstLineSide(
+  polygon: readonly ScreenPoint[],
+  lineStart: ScreenPoint,
+  lineEnd: ScreenPoint,
+  inside: (point: ScreenPoint) => boolean,
+): ScreenPoint[] {
+  if (polygon.length === 0) {
+    return [];
+  }
+  const output: ScreenPoint[] = [];
+  let previous = polygon[polygon.length - 1];
+  if (!previous) {
+    return [];
+  }
+  let previousInside = inside(previous);
+
+  for (let i = 0; i < polygon.length; i += 1) {
+    const current = polygon[i];
+    if (!current) continue;
+    const currentInside = inside(current);
+    if (currentInside) {
+      if (!previousInside) {
+        output.push(intersectSegments(previous, current, lineStart, lineEnd));
+      }
+      output.push(current);
+    } else if (previousInside) {
+      output.push(intersectSegments(previous, current, lineStart, lineEnd));
+    }
+    previous = current;
+    previousInside = currentInside;
+  }
+
+  return output;
+}
+
+function intersectSegments(
+  a1: ScreenPoint,
+  a2: ScreenPoint,
+  b1: ScreenPoint,
+  b2: ScreenPoint,
+): ScreenPoint {
+  const dax = a2.x - a1.x;
+  const day = a2.y - a1.y;
+  const dbx = b2.x - b1.x;
+  const dby = b2.y - b1.y;
+  const denom = dax * dby - day * dbx;
+  if (Math.abs(denom) <= MIN_DISTANCE_EPSILON) {
+    return { x: a2.x, y: a2.y };
+  }
+  const t = ((b1.x - a1.x) * dby - (b1.y - a1.y) * dbx) / denom;
+  return { x: a1.x + dax * t, y: a1.y + day * t };
+}
+
+function cross2d(ax: number, ay: number, bx: number, by: number): number {
+  return ax * by - ay * bx;
+}
+
+export function buildShadowCoverageRegionForTest(
+  origin: ScreenPoint,
+  a: ScreenPoint,
+  b: ScreenPoint,
+  viewportCorners: readonly ScreenPoint[],
+): ScreenPoint[] {
+  return getShadowCoverageRegion(viewportCorners, origin, a, b);
+}
+
+export function pointInScreenPolygonForTest(
+  point: ScreenPoint,
+  polygon: readonly ScreenPoint[],
+): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const pi = polygon[i];
+    const pj = polygon[j];
+    if (!pi || !pj) continue;
+    const intersect =
+      pi.y > point.y !== pj.y > point.y &&
+      point.x <
+        ((pj.x - pi.x) * (point.y - pi.y)) /
+          (pj.y - pi.y + MIN_DISTANCE_EPSILON) +
+          pi.x;
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 function pointInRect(point: WorldPoint, rect: VisibilityBlockerRect): boolean {
