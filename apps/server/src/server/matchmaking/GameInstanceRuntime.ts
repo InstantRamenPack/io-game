@@ -387,7 +387,7 @@ export class GameInstanceRuntime {
       clientTimeMs: inputMessage.clientTimeMs,
       theta: inputMessage.theta,
       movement: inputMessage.movement,
-      receivedAtMs: this.world.simulationTimeMs,
+      receivedAtTick: this.world.tick,
     });
     this.lastProcessedInputSequenceByClientId.set(clientId, inputMessage.seq);
 

@@ -906,7 +906,7 @@ export class PixiHud {
         latestTick: this.gameClient.worldState?.latestTick ?? 0,
         infrastructure: this.selectors.getInfrastructure(),
         performanceRates: this.gameClient.getMeasuredRates(),
-        tickRate: this.gameClient.gameConfig.tickRate,
+        tickRate: this.gameClient.getEffectiveSimulationTickRate(),
         inventoryOpen: this.state.inventoryOpen,
         inventory,
         hotbarActiveIndex,
@@ -921,6 +921,8 @@ export class PixiHud {
         dayNight: this.selectors.getDayNight(),
         latestSnapshotReceivedAt:
           this.gameClient.worldState?.latestSnapshotReceivedAt,
+        effectiveSimulationTickRate:
+          this.gameClient.getEffectiveSimulationTickRate(),
       });
     }
 

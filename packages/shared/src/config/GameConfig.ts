@@ -10,6 +10,7 @@ import {
  */
 export class GameConfig {
   public tickRate = runtimeConfig.tickRate;
+  public simulationSpeedMultiplier = runtimeConfig.simulationSpeedMultiplier;
   public worldSize = { ...runtimeConfig.worldSize };
   public collision = { ...runtimeConfig.collision };
   public network = { ...runtimeConfig.network };
@@ -20,8 +21,8 @@ export class GameConfig {
   };
   public interpolation = { ...runtimeConfig.interpolation };
   public dayNight = {
-    dayDurationMs: dayNightConfig.dayDurationMs,
-    nightDurationMs: dayNightConfig.nightDurationMs,
+    dayDurationTicks: dayNightConfig.dayDurationTicks,
+    nightDurationTicks: dayNightConfig.nightDurationTicks,
     stormDamage: { ...dayNightConfig.stormDamage },
   };
   public compatHash = COMPAT_HASH;
@@ -41,6 +42,19 @@ export class GameConfig {
         );
       }
       config.tickRate = parsedTickRate;
+    }
+    const envSimulationSpeed =
+      process.env.SIMULATION_SPEED_MULTIPLIER ??
+      process.env.SIMULATION_SPEED ??
+      process.env.DEBUG_SIMULATION_SPEED;
+    if (envSimulationSpeed !== undefined) {
+      const parsedSimulationSpeed = Number(envSimulationSpeed);
+      if (!Number.isFinite(parsedSimulationSpeed) || parsedSimulationSpeed <= 0) {
+        throw new Error(
+          `Invalid SIMULATION_SPEED "${envSimulationSpeed}". Expected a positive number.`,
+        );
+      }
+      config.simulationSpeedMultiplier = parsedSimulationSpeed;
     }
     return config;
   }

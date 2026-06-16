@@ -2,6 +2,7 @@ import Denque from "denque";
 import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { worldConfig } from "@shared/config/gameplayConfig.ts";
+import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { IdGenerator } from "@shared/math/IdGenerator.ts";
 import type { NetEvent } from "@shared/net/events.ts";
@@ -59,7 +60,6 @@ export type WorldBenchmarkSink = {
  */
 export class World {
   public tick = 0;
-  public simulationTimeMs = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
   public staticGeometry: StaticGeometryIndex;
@@ -127,8 +127,8 @@ export class World {
     this.events = new Denque<NetEvent>();
     this.dayNightSystem = new DayNightSystem({
       tickRate: gameConfig.tickRate,
-      dayDurationMs: gameConfig.dayNight.dayDurationMs,
-      nightDurationMs: gameConfig.dayNight.nightDurationMs,
+      dayDurationTicks: gameConfig.dayNight.dayDurationTicks,
+      nightDurationTicks: gameConfig.dayNight.nightDurationTicks,
     });
     this.waveSystem = new WaveSystem({ dayNightSystem: this.dayNightSystem });
     this.focusedTrace = new FocusedServerTrace(gameConfig);
@@ -152,18 +152,17 @@ export class World {
 
     this.tick += 1;
     this.goalFieldCache.beginTick(this.tick);
-    const deltaMs = 1000 / this.gameConfig.tickRate;
-    this.simulationTimeMs += deltaMs;
+    const simSpeed = this.gameConfig.simulationSpeedMultiplier;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
 
     const dayNightMs = measurePhase(() => {
-      this.dayNightSystem.update(this, deltaMs);
+      this.dayNightSystem.update(this);
     });
     const waveMs = measurePhase(() => {
-      this.waveSystem.update(this, deltaMs);
+      this.waveSystem.update(this);
       this.updateForestCampRespawns();
-      this.infrastructureSystem?.update(this, deltaMs);
-      this.extractionSystem?.update(this, deltaMs);
+      this.infrastructureSystem?.update(this);
+      this.extractionSystem?.update(this);
     });
     const spatialBeforeMs = measurePhase(() => {
       if (this.spatialDirty || this.staticGeometryDirty) {
@@ -196,6 +195,8 @@ export class World {
     });
     this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
+    this.applySimulationSpeedToMovement(tickPhaseEntities);
+
     const collisionMs = measurePhase(() => {
       this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
     });
@@ -212,9 +213,9 @@ export class World {
     this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     const pickupMs = measurePhase(() => {
-      this.pickupSystem.update(this, deltaMs);
+      this.pickupSystem.update(this);
     });
-    this.decayOuterPlayerBuildings(deltaMs);
+    this.decayOuterPlayerBuildings(simSpeed);
     const spatialAfterMs = measurePhase(() => {
       if (this.spatialDirty || this.staticGeometryDirty) {
         this.ensureSpatialIndex();
@@ -483,10 +484,37 @@ export class World {
     return this.sessionUnlockedRecipeTypeIds.has(typeId);
   }
 
-  private decayOuterPlayerBuildings(deltaMs: number): void {
+  private applySimulationSpeedToMovement(entities: readonly Entity[]): void {
+    const simSpeed = this.gameConfig.simulationSpeedMultiplier;
+    if (simSpeed === 1) {
+      return;
+    }
+
+    for (const entity of entities) {
+      if (!this.entities.has(entity.id)) {
+        continue;
+      }
+      if (entity.collisionMode !== "dynamic") {
+        continue;
+      }
+
+      if (entity.typeId.startsWith("projectile:")) {
+        entity.x += entity.vx * (simSpeed - 1);
+        entity.y += entity.vy * (simSpeed - 1);
+      }
+      entity.vx *= simSpeed;
+      entity.vy *= simSpeed;
+    }
+  }
+
+  private decayOuterPlayerBuildings(simSpeed: number): void {
     if (!this.proceduralLayout || this.playerBuildingSpawnTickById.size === 0) {
       return;
     }
+    const decayTicks = scaleAuthoredSimulationTicks(
+      worldConfig.outerPlayerBuildingDecayTicks,
+      this.gameConfig.tickRate,
+    );
     for (const entityId of [...this.playerBuildingSpawnTickById.keys()]) {
       const entity = this.entities.get(entityId);
       if (!entity) {
@@ -495,9 +523,7 @@ export class World {
       }
       const sector = getSectorForPoint(this.proceduralLayout, entity);
       if (sector?.allowsFastBuildingDecay) {
-        const decayDamage =
-          (entity.maxHp * deltaMs) /
-          (worldConfig.outerPlayerBuildingDecaySeconds * 1000);
+        const decayDamage = (entity.maxHp * simSpeed) / decayTicks;
         entity.applyDamage(this, decayDamage, 0);
       } else {
         this.playerBuildingSpawnTickById.delete(entityId);

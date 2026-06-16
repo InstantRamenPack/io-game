@@ -16,7 +16,7 @@ describe("pickup system spawning", () => {
     );
     const system = new PickupSystem();
 
-    system.update(world, 120_000);
+    system.update(world);
 
     expect(world.entities.queryInstances(ItemEntity)).toHaveLength(0);
   });

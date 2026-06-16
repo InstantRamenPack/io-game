@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import type { Player } from "@server/entities/Player.ts";
 import type { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
 import { extractionConfig } from "@shared/config/gameplayConfig.ts";
+import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -76,13 +77,14 @@ describe("extraction helipad", () => {
       runtime.world.gameConfig.replication.interestRadius,
     );
     expect(snapshot.extraction.stage).toBe("active");
-    expect(snapshot.extraction.boardElapsedMs).toBe(0);
+    expect(snapshot.extraction.boardElapsedTicks).toBe(0);
 
-    const ticksForGoal =
-      Math.ceil(
-        extractionConfig.boardTimerGoalMs /
-          (1000 / runtime.world.gameConfig.tickRate),
-      ) + 5;
+    const goalTicks = scaleAuthoredSimulationTicks(
+      extractionConfig.boardTimerGoalTicks,
+      runtime.world.gameConfig.tickRate,
+    );
+    const simSpeed = runtime.world.gameConfig.simulationSpeedMultiplier;
+    const ticksForGoal = Math.ceil(goalTicks / simSpeed) + 5;
     for (let tick = 0; tick < ticksForGoal; tick += 1) {
       parkPlayersOnHelipad(runtime, [first.player, second.player]);
       runtime.tick();
@@ -94,8 +96,8 @@ describe("extraction helipad", () => {
       runtime.world.gameConfig.replication.interestRadius,
     );
     expect(snapshot.extraction.stage).toBe("complete");
-    expect(snapshot.extraction.boardElapsedMs).toBeGreaterThanOrEqual(
-      extractionConfig.boardTimerGoalMs,
+    expect(snapshot.extraction.boardElapsedTicks).toBeGreaterThanOrEqual(
+      goalTicks,
     );
     expect(runtime.world.extractionSystem?.isComplete()).toBe(true);
   });
@@ -125,7 +127,7 @@ describe("extraction helipad", () => {
       runtime.world.gameConfig.replication.interestRadius,
     );
     expect(snapshot.extraction.stage).toBe("active");
-    expect(snapshot.extraction.boardElapsedMs).toBe(0);
+    expect(snapshot.extraction.boardElapsedTicks).toBe(0);
     expect(runtime.world.extractionSystem?.isComplete()).toBe(false);
   });
 });

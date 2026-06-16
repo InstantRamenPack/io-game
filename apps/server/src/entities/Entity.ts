@@ -500,6 +500,7 @@ export abstract class Entity {
       return;
     }
 
+    const simSpeed = world.gameConfig.simulationSpeedMultiplier;
     let writeIndex = 0;
     for (
       let readIndex = 0;
@@ -516,7 +517,7 @@ export abstract class Entity {
         typeof nextEffect.pulseIntervalTicks === "number" &&
         typeof nextEffect.pulseTicksRemaining === "number"
       ) {
-        nextEffect.pulseTicksRemaining -= 1;
+        nextEffect.pulseTicksRemaining -= simSpeed;
         if (nextEffect.pulseTicksRemaining <= 0) {
           if (nextEffect.sourceId !== undefined) {
             this.applyDamagePulse(
@@ -533,7 +534,7 @@ export abstract class Entity {
         return;
       }
 
-      nextEffect.ticksRemaining -= 1;
+      nextEffect.ticksRemaining -= simSpeed;
       if (nextEffect.ticksRemaining > 0) {
         this.activeEffects[writeIndex] = nextEffect;
         writeIndex += 1;

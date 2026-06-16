@@ -658,9 +658,9 @@ function compactDayNight(dayNight: WorldSnapshot["dayNight"]): unknown[] {
   return [
     dayNight.dayCount,
     dayNight.phase === "night" ? 1 : 0,
-    dayNight.phaseElapsedMs,
-    dayNight.dayDurationMs,
-    dayNight.nightDurationMs,
+    dayNight.phaseElapsedTicks,
+    dayNight.dayDurationTicks,
+    dayNight.nightDurationTicks,
     dayNight.waveEnemiesRemaining,
     dayNight.waveSpawnsPending,
     dayNight.waveThreatTotal,
@@ -674,9 +674,9 @@ function expandDayNight(value: unknown): WorldSnapshot["dayNight"] | null {
   const [
     dayCount,
     phase,
-    phaseElapsedMs,
-    dayDurationMs,
-    nightDurationMs,
+    phaseElapsedTicks,
+    dayDurationTicks,
+    nightDurationTicks,
     waveEnemiesRemaining = 0,
     waveSpawnsPending = 0,
     waveThreatTotal = 0,
@@ -684,18 +684,18 @@ function expandDayNight(value: unknown): WorldSnapshot["dayNight"] | null {
   if (
     typeof dayCount !== "number" ||
     typeof phase !== "number" ||
-    typeof phaseElapsedMs !== "number" ||
-    typeof dayDurationMs !== "number" ||
-    typeof nightDurationMs !== "number"
+    typeof phaseElapsedTicks !== "number" ||
+    typeof dayDurationTicks !== "number" ||
+    typeof nightDurationTicks !== "number"
   ) {
     return null;
   }
   return {
     dayCount,
     phase: phase === 1 ? "night" : "day",
-    phaseElapsedMs,
-    dayDurationMs,
-    nightDurationMs,
+    phaseElapsedTicks,
+    dayDurationTicks,
+    nightDurationTicks,
     waveEnemiesRemaining:
       typeof waveEnemiesRemaining === "number" ? waveEnemiesRemaining : 0,
     waveSpawnsPending:
@@ -715,8 +715,9 @@ function compactExtraction(extraction: WorldSnapshot["extraction"]): unknown[] {
   return [
     stageCode,
     extraction.lockedReason === "comms_offline" ? 0 : null,
-    extraction.boardElapsedMs,
-    extraction.chopperElapsedMs,
+    extraction.boardElapsedTicks,
+    extraction.boardTimerGoalTicks,
+    extraction.chopperElapsedTicks,
     extraction.playersOnPad,
     extraction.totalAlivePlayers,
     extraction.enemiesInRadius,
@@ -730,8 +731,9 @@ function expandExtraction(value: unknown): WorldSnapshot["extraction"] | null {
   const [
     stage,
     lockedReason,
-    boardElapsedMs,
-    chopperElapsedMs,
+    boardElapsedTicks,
+    boardTimerGoalTicks,
+    chopperElapsedTicks,
     playersOnPad,
     totalAlivePlayers,
     enemiesInRadius,
@@ -745,8 +747,9 @@ function expandExtraction(value: unknown): WorldSnapshot["extraction"] | null {
   ] as const;
   if (
     typeof stage !== "number" ||
-    typeof boardElapsedMs !== "number" ||
-    typeof chopperElapsedMs !== "number" ||
+    typeof boardElapsedTicks !== "number" ||
+    typeof boardTimerGoalTicks !== "number" ||
+    typeof chopperElapsedTicks !== "number" ||
     typeof playersOnPad !== "number" ||
     typeof totalAlivePlayers !== "number" ||
     typeof enemiesInRadius !== "number"
@@ -756,8 +759,9 @@ function expandExtraction(value: unknown): WorldSnapshot["extraction"] | null {
   return {
     stage: stages[stage] ?? "locked",
     ...(lockedReason === 0 ? { lockedReason: "comms_offline" as const } : {}),
-    boardElapsedMs,
-    chopperElapsedMs,
+    boardElapsedTicks,
+    boardTimerGoalTicks,
+    chopperElapsedTicks,
     playersOnPad,
     totalAlivePlayers,
     enemiesInRadius,

@@ -12,13 +12,15 @@ import { PerPlayerReplicationState } from "@server/net/snapshots/PerPlayerReplic
 import { stripKnownStableEntitySnapshotFields } from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
 import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
 import type { World } from "@server/world/World.ts";
+import { extractionConfig } from "@shared/config/gameplayConfig.ts";
 
 const MAX_DELTA_REMOVED_IDS = 96;
 
 const LOCKED_EXTRACTION: ExtractionSnapshot = {
   stage: "active",
-  boardElapsedMs: 0,
-  chopperElapsedMs: 0,
+  boardElapsedTicks: 0,
+  boardTimerGoalTicks: extractionConfig.boardTimerGoalTicks,
+  chopperElapsedTicks: 0,
   playersOnPad: 0,
   totalAlivePlayers: 0,
   enemiesInRadius: 0,

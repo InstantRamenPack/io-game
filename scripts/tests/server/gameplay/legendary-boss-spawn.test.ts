@@ -105,7 +105,7 @@ describe("legendary boss spawn", () => {
   test("wave system spawns the second extraction Thanos when the seventh night begins", () => {
     const { runtime } = makeRuntime({
       worldSeed: 1337,
-      config: { dayNight: { dayDurationMs: 1, nightDurationMs: 60_000 } },
+      config: { dayNight: { dayDurationTicks: 1, nightDurationTicks: 1200 } },
     });
     const waveSystem = runtime.world.waveSystem;
     expect(waveSystem).toBeDefined();

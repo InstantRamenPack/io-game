@@ -5,6 +5,6 @@
     "radius": 160
   },
   "enemyDangerRadius": 400,
-  "boardTimerGoalMs": 10000,
-  "chopperTimerGoalMs": 20000
+  "boardTimerGoalTicks": 200,
+  "chopperTimerGoalTicks": 400
 }

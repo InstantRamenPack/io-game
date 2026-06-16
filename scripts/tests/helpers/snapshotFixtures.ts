@@ -173,9 +173,9 @@ export function makeDayNightSnapshot(tick = 0): DayNightSnapshot {
   return {
     dayCount: 0,
     phase: "day",
-    phaseElapsedMs: tick * 50,
-    dayDurationMs: 120000,
-    nightDurationMs: 60000,
+    phaseElapsedTicks: tick,
+    dayDurationTicks: 2400,
+    nightDurationTicks: 1200,
     waveEnemiesRemaining: 0,
     waveSpawnsPending: 0,
     waveThreatTotal: 0,
@@ -200,8 +200,9 @@ export function makeSnapshot(
       options.extraction ??
       ({
         stage: "locked",
-        boardElapsedMs: 0,
-        chopperElapsedMs: 0,
+        boardElapsedTicks: 0,
+        boardTimerGoalTicks: 200,
+        chopperElapsedTicks: 0,
         playersOnPad: 0,
         totalAlivePlayers: 0,
         enemiesInRadius: 0,

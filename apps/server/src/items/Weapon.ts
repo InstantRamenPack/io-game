@@ -31,9 +31,12 @@ export abstract class Weapon extends Item {
   }
 
   /** Advances cooldown state by one fixed tick. */
-  public override tick(_world: World): void {
+  public override tick(world: World): void {
     if (this.cooldownTicks > 0) {
-      this.cooldownTicks -= 1;
+      this.cooldownTicks = Math.max(
+        0,
+        this.cooldownTicks - world.gameConfig.simulationSpeedMultiplier,
+      );
     }
   }
 

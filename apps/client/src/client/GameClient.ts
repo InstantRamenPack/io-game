@@ -58,7 +58,8 @@ export class GameClient {
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
   private readonly frameController = new ClientFrameController();
   private readonly heldAttackController = new HeldAttackController({
-    tickRate: () => this.gameConfig.tickRate,
+    tickRate: () =>
+      this.gameConfig.tickRate * this.gameConfig.simulationSpeedMultiplier,
   });
   private readonly sessionLifecycle = new ClientSessionLifecycle();
   private readonly pointerAimController = new PointerAimController();
@@ -276,6 +277,18 @@ export class GameClient {
     this.gameConfig.tickRate = tickRate;
     this.syncInterpolatorConfig();
     this.renderer.setTickRate(this.gameConfig.tickRate);
+  }
+
+  public setSimulationSpeedMultiplier(simulationSpeedMultiplier: number): void {
+    if (
+      !Number.isFinite(simulationSpeedMultiplier) ||
+      simulationSpeedMultiplier <= 0
+    ) {
+      return;
+    }
+
+    this.gameConfig.simulationSpeedMultiplier = simulationSpeedMultiplier;
+    this.renderer.setSimulationSpeedMultiplier(simulationSpeedMultiplier);
   }
 
   public setInterpolationConfig(
@@ -619,6 +632,12 @@ export class GameClient {
 
   public getMeasuredRates(): PerformanceRateState {
     return this.frameController.getMeasuredRates(performance.now());
+  }
+
+  public getEffectiveSimulationTickRate(): number {
+    return (
+      this.gameConfig.tickRate * this.gameConfig.simulationSpeedMultiplier
+    );
   }
 
   public advanceTime(ms: number): void {

@@ -27,7 +27,7 @@ export class InfrastructureSystem implements System {
     this.cachedCommsActive = this.commsTowerId !== null;
   }
 
-  public update(world: World, _deltaMs: number): void {
+  public update(world: World): void {
     if (this.energyTowerId !== null) {
       const entity = world.get(this.energyTowerId);
       this.cachedEnergyActive = entity !== undefined && entity.alive;

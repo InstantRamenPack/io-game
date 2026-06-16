@@ -35,6 +35,7 @@ export class PixiRenderer {
   private hud: PixiHud | null = null;
   private worldSize: WorldSize;
   private tickRate = 20;
+  private simulationSpeedMultiplier = 1;
 
   public playerEntityId?: number;
   public playerX: number | undefined = undefined;
@@ -113,8 +114,22 @@ export class PixiRenderer {
     }
   }
 
+  public setSimulationSpeedMultiplier(simulationSpeedMultiplier: number): void {
+    if (
+      Number.isFinite(simulationSpeedMultiplier) &&
+      simulationSpeedMultiplier > 0
+    ) {
+      this.simulationSpeedMultiplier = simulationSpeedMultiplier;
+    }
+  }
+
   public getTickRate(): number {
     return this.tickRate;
+  }
+
+  /** Authoritative gameplay tick rate for UI timing (e.g. 10 TPS × 2 = 20). */
+  public getEffectiveSimulationTickRate(): number {
+    return this.tickRate * this.simulationSpeedMultiplier;
   }
 
   public async init(
@@ -176,7 +191,12 @@ export class PixiRenderer {
     }
 
     const swimOffset = this.effectSystem.update(app, deltaMs);
-    this.worldView.update(deltaMs, app, swimOffset);
+    this.worldView.update(
+      deltaMs,
+      app,
+      swimOffset,
+      this.getEffectiveSimulationTickRate(),
+    );
     this.effectSystem.syncWorldFilters(this.worldView.worldRoot);
     this.renderScheduler.markDirty();
     this.renderScene();

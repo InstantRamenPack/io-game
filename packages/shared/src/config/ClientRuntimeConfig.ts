@@ -9,6 +9,7 @@ import { z } from "zod";
 export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
   "compatHash",
   "tickRate",
+  "simulationSpeedMultiplier",
   "worldSize",
   "interpolation",
 ]);
@@ -16,6 +17,7 @@ export const CLIENT_RUNTIME_CONFIG_COMPAT_DESCRIPTOR = Object.freeze([
 export const ClientRuntimeConfigSchema = z.object({
   compatHash: z.string().min(1),
   tickRate: PositiveFiniteNumberSchema,
+  simulationSpeedMultiplier: PositiveFiniteNumberSchema,
   worldSize: z.object({
     w: PositiveFiniteNumberSchema,
     h: PositiveFiniteNumberSchema,
@@ -82,6 +84,7 @@ export function makeClientRuntimeConfig(
   return {
     compatHash: gameConfig.compatHash,
     tickRate: gameConfig.tickRate,
+    simulationSpeedMultiplier: gameConfig.simulationSpeedMultiplier,
     worldSize: {
       w: gameConfig.worldSize.w,
       h: gameConfig.worldSize.h,

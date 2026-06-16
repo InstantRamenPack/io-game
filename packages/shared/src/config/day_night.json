@@ -1,9 +1,9 @@
 {
-  "dayDurationMs": 120000,
-  "nightDurationMs": 60000,
+  "dayDurationTicks": 2400,
+  "nightDurationTicks": 1200,
   "stormDamage": {
     "damage": 0,
-    "intervalMs": 2000
+    "intervalTicks": 40
   },
   "fallbackHomeCore": {
     "width": 760,

@@ -30,6 +30,7 @@ const WorldSizeSchema = z.object({
 const RuntimeConfigSchema = z
   .object({
     tickRate: PositiveIntSchema,
+    simulationSpeedMultiplier: PositiveFiniteNumberSchema,
     worldSize: WorldSizeSchema,
     collision: z.object({
       spatialCellSize: PositiveIntSchema,
@@ -155,16 +156,16 @@ const ExtractionConfigSchema = z.object({
     radius: PositiveFiniteNumberSchema,
   }),
   enemyDangerRadius: PositiveFiniteNumberSchema,
-  boardTimerGoalMs: PositiveIntSchema,
-  chopperTimerGoalMs: PositiveIntSchema,
+  boardTimerGoalTicks: PositiveIntSchema,
+  chopperTimerGoalTicks: PositiveIntSchema,
 });
 
 const DayNightConfigSchema = z.object({
-  dayDurationMs: PositiveIntSchema,
-  nightDurationMs: PositiveIntSchema,
+  dayDurationTicks: PositiveIntSchema,
+  nightDurationTicks: PositiveIntSchema,
   stormDamage: z.object({
     damage: NonNegativeFiniteNumberSchema,
-    intervalMs: PositiveIntSchema,
+    intervalTicks: PositiveIntSchema,
   }),
   fallbackHomeCore: z.object({
     width: PositiveFiniteNumberSchema,
@@ -219,7 +220,7 @@ const InfrastructureConfigSchema = z.object({
 });
 
 const WorldConfigSchema = z.object({
-  outerPlayerBuildingDecaySeconds: PositiveFiniteNumberSchema,
+  outerPlayerBuildingDecayTicks: PositiveIntSchema,
   forestCampRespawnRadius: PositiveFiniteNumberSchema,
 });
 

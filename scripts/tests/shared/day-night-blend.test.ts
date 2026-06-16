@@ -8,9 +8,9 @@ function makeNightSnapshot(
   return {
     dayCount: 0,
     phase: "night",
-    phaseElapsedMs: 59_000,
-    dayDurationMs: 300_000,
-    nightDurationMs: 60_000,
+    phaseElapsedTicks: 1_180,
+    dayDurationTicks: 6_000,
+    nightDurationTicks: 1_200,
     waveEnemiesRemaining: 0,
     waveSpawnsPending: 0,
     waveThreatTotal: 10,
@@ -22,7 +22,7 @@ describe("computeClientNightBlend", () => {
   test("stays fully night when wave threat remains after timer elapses", () => {
     const blend = computeClientNightBlend(
       makeNightSnapshot({
-        phaseElapsedMs: 59_999,
+        phaseElapsedTicks: 1_199,
         waveEnemiesRemaining: 3,
       }),
     );
@@ -32,7 +32,7 @@ describe("computeClientNightBlend", () => {
   test("allows dawn transition once wave threat is cleared", () => {
     const blend = computeClientNightBlend(
       makeNightSnapshot({
-        phaseElapsedMs: 59_999,
+        phaseElapsedTicks: 1_199,
         waveEnemiesRemaining: 0,
         waveSpawnsPending: 0,
       }),

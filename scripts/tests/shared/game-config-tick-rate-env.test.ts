@@ -29,4 +29,18 @@ describe("GameConfig TICK_RATE env override", () => {
         .success,
     ).toBe(true);
   });
+
+  test("loads simulation speed multiplier for scaled low-rate servers", () => {
+    delete process.env.TICK_RATE;
+    process.env.TICK_RATE = "10";
+    process.env.SIMULATION_SPEED_MULTIPLIER = "2";
+    const config = GameConfig.load();
+    expect(config.tickRate).toBe(10);
+    expect(config.simulationSpeedMultiplier).toBe(2);
+    const runtimeConfig = makeClientRuntimeConfig(config);
+    expect(runtimeConfig.simulationSpeedMultiplier).toBe(2);
+    expect(
+      ClientRuntimeConfigSchema.safeParse(runtimeConfig).success,
+    ).toBe(true);
+  });
 });

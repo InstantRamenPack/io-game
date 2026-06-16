@@ -250,6 +250,7 @@ export class PixiWorldView {
     deltaMs: number,
     app: Application,
     swimOffset: { x: number; y: number },
+    effectiveSimulationTickRate: number,
   ): void {
     this.viewportController.setSwimOffset(swimOffset.x, swimOffset.y);
     this.viewportController.update(deltaMs, app, this.sceneGraph.worldRoot);
@@ -264,7 +265,11 @@ export class PixiWorldView {
       this.getLightsOutOverlayAlpha(),
     );
     this.redrawMinimap(app);
-    this.helipadOverlay.update(this.pendingExtractionState, deltaMs);
+    this.helipadOverlay.update(
+      this.pendingExtractionState,
+      deltaMs,
+      effectiveSimulationTickRate,
+    );
   }
 
   public updateExtractionState(state: ExtractionSnapshot | null): void {

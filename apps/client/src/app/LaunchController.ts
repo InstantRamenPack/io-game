@@ -138,6 +138,9 @@ export function createLaunchController({
     applyRuntimeConfig(runtimeConfig: ClientRuntimeConfig): void {
       gameConfig.compatHash = runtimeConfig.compatHash;
       gameClient.setTickRate(runtimeConfig.tickRate);
+      gameClient.setSimulationSpeedMultiplier(
+        runtimeConfig.simulationSpeedMultiplier,
+      );
       gameClient.setWorldSize(runtimeConfig.worldSize);
       gameClient.setInterpolationConfig(runtimeConfig.interpolation);
     },

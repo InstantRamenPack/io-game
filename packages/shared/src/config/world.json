@@ -1,4 +1,4 @@
 {
-  "outerPlayerBuildingDecaySeconds": 20,
+  "outerPlayerBuildingDecayTicks": 400,
   "forestCampRespawnRadius": 420
 }

@@ -52,7 +52,7 @@ export class WaveSystem implements System {
     return this.waveSpawner?.getNightWaveThreatTotal() ?? 0;
   }
 
-  public update(world: World, _deltaMs: number): void {
+  public update(world: World): void {
     if (!this.waveSpawner) {
       return;
     }

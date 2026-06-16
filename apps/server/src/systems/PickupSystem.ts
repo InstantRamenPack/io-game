@@ -12,8 +12,7 @@ export class PickupSystem implements System {
   private readonly queryBuffer: Entity[] = [];
   private readonly removedPickupIds = new Set<number>();
 
-  public update(world: World, deltaMs: number): void {
-    void deltaMs;
+  public update(world: World): void {
     this.mergeOverlappingStackablePickups(
       world,
       world.entities.queryInstances(ItemEntity),

@@ -26,7 +26,10 @@ export class TeslaRenderer extends BaseEntityRenderer {
   }
 
   public playTeslaShockPulse(): void {
-    const tickRate = Math.max(1, this.pixiRenderer.getTickRate());
+    const tickRate = Math.max(
+      1,
+      this.pixiRenderer.getEffectiveSimulationTickRate(),
+    );
     this.pulseRemainingMs =
       (getTeslaShockWaveDurationTicks() / tickRate) * 1000;
   }
@@ -119,7 +122,7 @@ export class TeslaRenderer extends BaseEntityRenderer {
     const pulseDurationMs = Math.max(
       1,
       (getTeslaShockWaveDurationTicks() /
-        Math.max(1, this.pixiRenderer.getTickRate())) *
+        Math.max(1, this.pixiRenderer.getEffectiveSimulationTickRate())) *
         1000,
     );
     const progress = 1 - this.pulseRemainingMs / pulseDurationMs;

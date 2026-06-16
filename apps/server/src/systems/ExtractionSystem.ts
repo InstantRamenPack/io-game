@@ -8,6 +8,7 @@ import type {
   ExtractionStage,
 } from "@shared/net/snapshots.ts";
 import { extractionConfig } from "@shared/config/gameplayConfig.ts";
+import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
 
 export const HELIPAD_X = extractionConfig.fallbackHelipad.x;
 export const HELIPAD_Y = extractionConfig.fallbackHelipad.y;
@@ -16,8 +17,9 @@ export const HELIPAD_RADIUS = extractionConfig.fallbackHelipad.radius;
 export class ExtractionSystem implements System {
   private stage: ExtractionStage = "active";
   private lockedReason: ExtractionLockedReason | undefined;
-  private boardElapsedMs = 0;
-  private chopperElapsedMs = 0;
+  private boardElapsedTicks = 0;
+  private chopperElapsedTicks = 0;
+  private boardTimerGoalTicks = 0;
   private completed = false;
 
   private cachedPlayersOnPad = 0;
@@ -31,10 +33,16 @@ export class ExtractionSystem implements System {
     return this.completed;
   }
 
-  public update(world: World, deltaMs: number): void {
+  public update(world: World): void {
     if (this.completed) {
       return;
     }
+    this.boardTimerGoalTicks = scaleAuthoredSimulationTicks(
+      extractionConfig.boardTimerGoalTicks,
+      world.gameConfig.tickRate,
+    );
+    const simStep = world.gameConfig.simulationSpeedMultiplier;
+
     const helipad = world.proceduralLayout?.extraction ?? {
       x: HELIPAD_X,
       y: HELIPAD_Y,
@@ -84,8 +92,8 @@ export class ExtractionSystem implements System {
     ) {
       this.stage = "locked";
       this.lockedReason = "comms_offline";
-      this.boardElapsedMs = 0;
-      this.chopperElapsedMs = 0;
+      this.boardElapsedTicks = 0;
+      this.chopperElapsedTicks = 0;
       return;
     }
 
@@ -100,21 +108,21 @@ export class ExtractionSystem implements System {
       case "active":
         if (allOnPad) {
           this.stage = "board_timer";
-          this.boardElapsedMs = 0;
+          this.boardElapsedTicks = 0;
         }
         break;
 
       case "board_timer":
         if (!allOnPad) {
           this.stage = "active";
-          this.boardElapsedMs = 0;
+          this.boardElapsedTicks = 0;
           break;
         }
-        this.boardElapsedMs = Math.min(
-          this.boardElapsedMs + deltaMs,
-          extractionConfig.boardTimerGoalMs,
+        this.boardElapsedTicks = Math.min(
+          this.boardElapsedTicks + simStep,
+          this.boardTimerGoalTicks,
         );
-        if (this.boardElapsedMs >= extractionConfig.boardTimerGoalMs) {
+        if (this.boardElapsedTicks >= this.boardTimerGoalTicks) {
           this.stage = "complete";
           this.completed = true;
         }
@@ -134,8 +142,9 @@ export class ExtractionSystem implements System {
     return {
       stage: this.stage,
       lockedReason: this.lockedReason,
-      boardElapsedMs: Math.round(this.boardElapsedMs),
-      chopperElapsedMs: Math.round(this.chopperElapsedMs),
+      boardElapsedTicks: Math.round(this.boardElapsedTicks),
+      boardTimerGoalTicks: this.boardTimerGoalTicks,
+      chopperElapsedTicks: Math.round(this.chopperElapsedTicks),
       playersOnPad: this.cachedPlayersOnPad,
       totalAlivePlayers: this.cachedTotalAlivePlayers,
       enemiesInRadius: this.cachedEnemiesInRadius,

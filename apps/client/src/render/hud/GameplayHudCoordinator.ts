@@ -155,10 +155,12 @@ export class GameplayHudCoordinator {
     dayNightIndicator: DayNightIndicator;
     dayNight: DayNightSnapshot | undefined;
     latestSnapshotReceivedAt: number | undefined;
+    effectiveSimulationTickRate: number;
   }): void {
     options.dayNightIndicator.sync(
       options.dayNight,
       options.latestSnapshotReceivedAt,
+      options.effectiveSimulationTickRate,
     );
   }
 

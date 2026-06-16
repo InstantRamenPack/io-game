@@ -55,4 +55,5 @@ export type GameClientHudApi = {
     suppressed: boolean,
   ): void;
   getMeasuredRates(): PerformanceRateState;
+  getEffectiveSimulationTickRate(): number;
 };

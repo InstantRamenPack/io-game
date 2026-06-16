@@ -9,6 +9,7 @@ import type {
 } from "@shared/net/protocol.ts";
 import type { PlayerSnapshot } from "@shared/net/snapshots.ts";
 import { getArmorStats } from "@shared/gameplay/rules/armorRules.ts";
+import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
 import { Entity } from "@server/entities/Entity.ts";
 import { isDebugAdminPlayerName } from "@server/content/serverContentCapabilities.ts";
 import {
@@ -41,7 +42,7 @@ type PlayerInputIntentState = {
   clientTimeMs?: number;
   theta: number;
   movement: InputMovement;
-  receivedAtMs: number;
+  receivedAtTick: number;
 };
 
 /**
@@ -61,7 +62,7 @@ export class Player extends Entity {
     return passiveHealing;
   })();
 
-  private static readonly INPUT_STALE_TIMEOUT_MS = 250;
+  private static readonly INPUT_STALE_TIMEOUT_TICKS = 5;
 
   public name: string;
   public inventory: Inventory;
@@ -137,12 +138,13 @@ export class Player extends Entity {
       return;
     }
 
+    const simSpeed = world.gameConfig.simulationSpeedMultiplier;
     if (
       this.hp < this.maxHp &&
-      world.tick - this.lastDamageTick >=
+      (world.tick - this.lastDamageTick) * simSpeed >=
         Player.PASSIVE_HEALING.outOfCombatTicks
     ) {
-      this.regenAccumulator += Player.PASSIVE_HEALING.hpPerTick;
+      this.regenAccumulator += Player.PASSIVE_HEALING.hpPerTick * simSpeed;
       if (this.regenAccumulator >= 1) {
         const heal = Math.floor(this.regenAccumulator);
         this.hp = Math.min(this.maxHp, this.hp + heal);
@@ -295,10 +297,11 @@ export class Player extends Entity {
     if (!input) {
       return false;
     }
-    if (
-      world.simulationTimeMs - input.receivedAtMs >
-      Player.INPUT_STALE_TIMEOUT_MS
-    ) {
+    const staleThreshold = scaleAuthoredSimulationTicks(
+      Player.INPUT_STALE_TIMEOUT_TICKS,
+      world.gameConfig.tickRate,
+    );
+    if (world.tick - input.receivedAtTick > staleThreshold) {
       if (world.focusedTrace.matchesEntity(this)) {
         world.focusedTrace.recordEntityEvent(
           world,
@@ -307,8 +310,8 @@ export class Player extends Entity {
           {
             seq: input.seq,
             clientTimeMs: input.clientTimeMs ?? null,
-            receivedAtMs: input.receivedAtMs,
-            simulationTimeMs: world.simulationTimeMs,
+            receivedAtTick: input.receivedAtTick,
+            worldTick: world.tick,
           },
         );
       }

@@ -10,7 +10,7 @@ export function getDayNightWaveThreat(dayNight: DayNightSnapshot): number {
  */
 export function computeClientNightBlend(
   dayNight: DayNightSnapshot,
-  driftMs = 0,
+  driftTicks = 0,
 ): number {
   if (dayNight.phase === "night" && getDayNightWaveThreat(dayNight) > 0) {
     return 1;
@@ -18,23 +18,23 @@ export function computeClientNightBlend(
 
   const phaseDuration =
     dayNight.phase === "night"
-      ? dayNight.nightDurationMs
-      : dayNight.dayDurationMs;
+      ? dayNight.nightDurationTicks
+      : dayNight.dayDurationTicks;
   if (phaseDuration <= 0) {
     return dayNight.phase === "night" ? 1 : 0;
   }
 
   const elapsed = Math.max(
     0,
-    Math.min(dayNight.phaseElapsedMs + driftMs, phaseDuration),
+    Math.min(dayNight.phaseElapsedTicks + driftTicks, phaseDuration),
   );
-  const transitionMs = Math.max(
-    1000,
-    Math.min(15000, Math.floor(phaseDuration * 0.2)),
+  const transitionTicks = Math.max(
+    20,
+    Math.min(300, Math.floor(phaseDuration * 0.2)),
   );
 
-  if (elapsed >= phaseDuration - transitionMs) {
-    const t = (elapsed - (phaseDuration - transitionMs)) / transitionMs;
+  if (elapsed >= phaseDuration - transitionTicks) {
+    const t = (elapsed - (phaseDuration - transitionTicks)) / transitionTicks;
     return dayNight.phase === "night" ? 1 - t : t;
   }
 

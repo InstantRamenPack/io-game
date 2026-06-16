@@ -12,7 +12,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: TICK_RATE
-        value: "7.5"
+        value: "10"
+      - key: SIMULATION_SPEED_MULTIPLIER
+        value: "2"
     buildFilter:
       paths:
         - apps/server/**

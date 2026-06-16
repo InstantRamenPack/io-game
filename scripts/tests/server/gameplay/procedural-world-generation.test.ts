@@ -1413,7 +1413,7 @@ describe("procedural survival extraction world", () => {
 
   test("night forest camp respawn repopulates only up to camp caps", () => {
     const { runtime } = makeRuntime({
-      config: { dayNight: { dayDurationMs: 1, nightDurationMs: 180000 } },
+      config: { dayNight: { dayDurationTicks: 1, nightDurationTicks: 3600 } },
     });
     const layout = runtime.world.proceduralLayout;
     expect(layout).not.toBeNull();

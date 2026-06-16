@@ -1,20 +1,19 @@
 import type { DayNightPhase, DayNightSnapshot } from "@shared/net/snapshots.ts";
+import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
 import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 type DayNightSystemConfig = {
   tickRate: number;
-  dayDurationMs: number;
-  nightDurationMs: number;
+  dayDurationTicks: number;
+  nightDurationTicks: number;
   startPhase?: DayNightPhase;
 };
 
 /**
  * Tick-driven day/night cycle system.
- * Durations are quantized to the authoritative server tick clock.
  */
 export class DayNightSystem implements System {
-  private readonly tickRate: number;
   private readonly dayDurationTicks: number;
   private readonly nightDurationTicks: number;
   private phase: DayNightPhase;
@@ -22,14 +21,19 @@ export class DayNightSystem implements System {
   private dayCount = 0;
 
   constructor(config: DayNightSystemConfig) {
-    this.tickRate = Math.max(0.1, config.tickRate);
-    this.dayDurationTicks = this.durationMsToTicks(config.dayDurationMs);
-    this.nightDurationTicks = this.durationMsToTicks(config.nightDurationMs);
+    this.dayDurationTicks = scaleAuthoredSimulationTicks(
+      config.dayDurationTicks,
+      config.tickRate,
+    );
+    this.nightDurationTicks = scaleAuthoredSimulationTicks(
+      config.nightDurationTicks,
+      config.tickRate,
+    );
     this.phase = config.startPhase ?? "day";
   }
 
-  public update(world: World, _deltaMs: number): void {
-    this.phaseElapsedTicks += 1;
+  public update(world: World): void {
+    this.phaseElapsedTicks += world.gameConfig.simulationSpeedMultiplier;
     let phaseDurationTicks = this.getPhaseDurationTicks();
 
     while (this.phaseElapsedTicks >= phaseDurationTicks) {
@@ -69,25 +73,13 @@ export class DayNightSystem implements System {
     return {
       dayCount: this.dayCount,
       phase: this.phase,
-      phaseElapsedMs: this.ticksToMs(this.phaseElapsedTicks),
-      dayDurationMs: this.ticksToMs(this.dayDurationTicks),
-      nightDurationMs: this.ticksToMs(this.nightDurationTicks),
+      phaseElapsedTicks: this.phaseElapsedTicks,
+      dayDurationTicks: this.dayDurationTicks,
+      nightDurationTicks: this.nightDurationTicks,
       waveEnemiesRemaining,
       waveSpawnsPending,
       waveThreatTotal,
     };
-  }
-
-  private durationMsToTicks(durationMs: number): number {
-    const normalizedDurationMs = Math.max(1, Math.floor(durationMs));
-    return Math.max(
-      1,
-      Math.round((normalizedDurationMs * this.tickRate) / 1000),
-    );
-  }
-
-  private ticksToMs(ticks: number): number {
-    return Math.round((ticks * 1000) / this.tickRate);
   }
 
   private getPhaseDurationTicks(): number {

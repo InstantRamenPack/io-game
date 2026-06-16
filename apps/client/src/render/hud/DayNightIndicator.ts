@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
+import { wallMsToEffectiveSimulationTicks } from "@shared/config/simulationTicks.ts";
 import type { DayNightSnapshot } from "@shared/net/snapshots.ts";
 import { drawRoundedRect } from "@client/render/pixi/PixiGraphicUtils.ts";
 import type { TextStyleOptions } from "@client/render/renderTypes.ts";
@@ -30,6 +31,7 @@ export class DayNightIndicator {
   public sync(
     dayNight: DayNightSnapshot | undefined,
     latestSnapshotReceivedAt: number | undefined,
+    effectiveSimulationTickRate: number,
   ): void {
     if (!dayNight) {
       this.container.visible = false;
@@ -42,7 +44,11 @@ export class DayNightIndicator {
       latestSnapshotReceivedAt !== undefined
         ? Math.max(0, performance.now() - latestSnapshotReceivedAt)
         : 0;
-    const nightBlend = computeClientNightBlend(dayNight, driftMs);
+    const driftTicks = wallMsToEffectiveSimulationTicks(
+      driftMs,
+      effectiveSimulationTickRate,
+    );
+    const nightBlend = computeClientNightBlend(dayNight, driftTicks);
     const contrastBlend = this.applyContrastLag(nightBlend);
     const labelColor = this.lerpColor(
       this.textDayColor,
@@ -121,9 +127,9 @@ export class DayNightIndicator {
         .rect(barX, barY, this.barWidth, this.barHeight)
         .fill({ color: 0x3d8b5a, alpha: 0.95 });
     } else {
-      const phaseDuration = dayNight.dayDurationMs;
+      const phaseDuration = dayNight.dayDurationTicks;
       const elapsed = Math.min(
-        dayNight.phaseElapsedMs + driftMs,
+        dayNight.phaseElapsedTicks + driftTicks,
         phaseDuration,
       );
       const progress =

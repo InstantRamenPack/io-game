@@ -244,7 +244,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
     this.attackAnimationDurationMs = resolveAttackAnimationDurationMs(
       weaponContent,
-      this.pixiRenderer.getTickRate(),
+      this.pixiRenderer.getEffectiveSimulationTickRate(),
     );
     this.attackAnimationRemainingMs = this.attackAnimationDurationMs;
     this.getEquippedItemRenderer(

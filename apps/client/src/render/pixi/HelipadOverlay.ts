@@ -3,6 +3,7 @@ import type {
   ExtractionSnapshot,
   ExtractionStage,
 } from "@shared/net/snapshots.ts";
+import { simulationTicksToWallSeconds } from "@shared/config/simulationTicks.ts";
 import { extractionConfig } from "@shared/config/gameplayConfig.ts";
 
 const HELIPAD_VISUAL_RADIUS = extractionConfig.fallbackHelipad.radius - 30;
@@ -71,7 +72,11 @@ export class HelipadOverlay {
     this.container.y = y;
   }
 
-  public update(state: ExtractionSnapshot | null, deltaMs: number): void {
+  public update(
+    state: ExtractionSnapshot | null,
+    deltaMs: number,
+    effectiveSimulationTickRate: number,
+  ): void {
     if (!state || state.stage === "complete") {
       this.container.visible = false;
       return;
@@ -112,10 +117,15 @@ export class HelipadOverlay {
         const allOn =
           state.totalAlivePlayers > 0 &&
           state.playersOnPad >= state.totalAlivePlayers;
-        const remaining = Math.max(
+        const remainingTicks = Math.max(
           0,
-          Math.ceil(
-            (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
+          state.boardTimerGoalTicks - state.boardElapsedTicks,
+        );
+        const remaining = Math.ceil(
+          simulationTicksToWallSeconds(
+            remainingTicks,
+            effectiveSimulationTickRate,
+            1,
           ),
         );
         this.labelText.text = allOn ? "EXTRACTING..." : "RETURN TO HELIPAD";
@@ -128,10 +138,15 @@ export class HelipadOverlay {
       }
 
       case "chopper_incoming": {
-        const remaining = Math.max(
+        const remainingTicks = Math.max(
           0,
-          Math.ceil(
-            (extractionConfig.boardTimerGoalMs - state.boardElapsedMs) / 1000,
+          state.boardTimerGoalTicks - state.boardElapsedTicks,
+        );
+        const remaining = Math.ceil(
+          simulationTicksToWallSeconds(
+            remainingTicks,
+            effectiveSimulationTickRate,
+            1,
           ),
         );
         this.labelText.text = "EXTRACTING...";

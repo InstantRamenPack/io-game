@@ -1,5 +1,6 @@
 {
   "tickRate": 20,
+  "simulationSpeedMultiplier": 1,
   "worldSize": {
     "w": 12800,
     "h": 12800

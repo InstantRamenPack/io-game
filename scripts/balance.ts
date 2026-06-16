@@ -365,14 +365,14 @@ const worldBalanceSpecs = [
         path: ["enemyDangerRadius"],
       },
       {
-        key: "boardTimerGoalMs",
+        key: "boardTimerGoalTicks",
         label: "Board Timer",
-        path: ["boardTimerGoalMs"],
+        path: ["boardTimerGoalTicks"],
       },
       {
-        key: "chopperTimerGoalMs",
+        key: "chopperTimerGoalTicks",
         label: "Chopper Timer",
-        path: ["chopperTimerGoalMs"],
+        path: ["chopperTimerGoalTicks"],
       },
     ],
   },

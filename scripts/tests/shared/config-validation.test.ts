@@ -74,9 +74,9 @@ describe("shared gameplay config", () => {
 
   test("extraction and day-night timers define reachable progression", () => {
     expect("finalWaveCycle" in extractionConfig).toBe(false);
-    expect(extractionConfig.boardTimerGoalMs).toBe(10_000);
-    expect(dayNightConfig.nightDurationMs).toBeLessThan(
-      dayNightConfig.dayDurationMs,
+    expect(extractionConfig.boardTimerGoalTicks).toBe(200);
+    expect(dayNightConfig.nightDurationTicks).toBeLessThan(
+      dayNightConfig.dayDurationTicks,
     );
   });
 
