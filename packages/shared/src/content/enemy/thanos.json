@@ -15,5 +15,20 @@
   },
   "activeHitboxProfile": "base",
   "rarityTier": "legendary",
-  "deathLoot": {}
+  "spawnWeapons": {
+    "selection": "all",
+    "typeIds": [
+      "item:thanos_fist",
+      "item:thanos_rifle",
+      "item:thanos_rocket_launcher",
+      "item:thanos_machine_gun"
+    ]
+  },
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#8e44ad"
+    }
+  }
 }

@@ -3,10 +3,13 @@ import { BUILD_PLACEMENT_MAX_DISTANCE } from "@shared/gameplay/constants.ts";
 import { validateBuildPlacement } from "@shared/gameplay/rules/buildPlacementValidation.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { getGameTypeEntry } from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { isBuildingCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
+import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
+
+const placementBlockerQueryBuffer: StaticGeometryBlocker[] = [];
 
 export function doHitboxesOverlap(
   leftEntity: Entity,
@@ -36,7 +39,7 @@ export function placeStructure(
     return;
   }
 
-  const targetEntityEntry = entityTypeRegistry.get(targetEntityTypeId);
+  const targetEntityEntry = getGameTypeEntry(targetEntityTypeId, "entity");
   if (!targetEntityEntry) {
     return;
   }
@@ -57,6 +60,7 @@ export function placeStructure(
       placedBounds.minY,
       placedBounds.maxX,
       placedBounds.maxY,
+      placementBlockerQueryBuffer,
     )
     .filter((blocker) => blocker.entityId !== player.id)
     .map((blocker) => blocker.hitboxes);

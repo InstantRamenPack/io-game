@@ -13,19 +13,26 @@ import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
+const craftingStationQueryBuffer: Entity[] = [];
+const recyclerQueryBuffer: Entity[] = [];
+
 export function getNearbyCraftingStations(
   player: Player,
   world: World,
 ): Entity[] {
-  return world.spatial
-    .queryBox(
-      player.x - CRAFTING_STATION_QUERY_RADIUS,
-      player.y - CRAFTING_STATION_QUERY_RADIUS,
-      player.x + CRAFTING_STATION_QUERY_RADIUS,
-      player.y + CRAFTING_STATION_QUERY_RADIUS,
-    )
-    .filter(isCraftingStationEntity)
-    .filter((station) => station.alive);
+  const stations: Entity[] = [];
+  for (const candidate of world.spatial.queryBox(
+    player.x - CRAFTING_STATION_QUERY_RADIUS,
+    player.y - CRAFTING_STATION_QUERY_RADIUS,
+    player.x + CRAFTING_STATION_QUERY_RADIUS,
+    player.y + CRAFTING_STATION_QUERY_RADIUS,
+    craftingStationQueryBuffer,
+  )) {
+    if (isCraftingStationEntity(candidate) && candidate.alive) {
+      stations.push(candidate);
+    }
+  }
+  return stations;
 }
 
 export function isNearRecycler(player: Player, world: World): boolean {
@@ -36,6 +43,7 @@ export function isNearRecycler(player: Player, world: World): boolean {
     bounds.minY - pad,
     bounds.maxX + pad,
     bounds.maxY + pad,
+    recyclerQueryBuffer,
   )) {
     if (!isRecyclerEntity(candidate) || !candidate.alive) {
       continue;

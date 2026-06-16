@@ -6,6 +6,7 @@ import {
   type ServerToClientMessage,
   type SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
+import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -134,7 +135,6 @@ export class GameInstanceRuntime {
         centerOverride,
         player?.isDebugSpectatorMode() ?? false,
       );
-      snapshot.lastProcessedSeq = this.getLastProcessedSeq(clientId);
       const snapshotMessage: ServerToClientMessage = {
         t: "snapshot",
         snapshot,
@@ -145,10 +145,14 @@ export class GameInstanceRuntime {
       );
     }
 
+    let previewSnapshot: WorldSnapshot | undefined;
     for (const clientId of this.previewClientIds) {
+      previewSnapshot ??= this.snapshotManager.makeFullSnapshotForObserver(
+        this.world,
+      );
       const snapshotMessage: ServerToClientMessage = {
         t: "snapshot",
-        snapshot: this.snapshotManager.makeFullSnapshotForObserver(this.world),
+        snapshot: previewSnapshot,
       };
       this.networkServer.send(
         clientId,

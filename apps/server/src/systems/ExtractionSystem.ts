@@ -1,4 +1,5 @@
 import type { System } from "@server/systems/System.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 import { Player } from "@server/entities/Player.ts";
 import type {
@@ -22,6 +23,7 @@ export class ExtractionSystem implements System {
   private cachedPlayersOnPad = 0;
   private cachedTotalAlivePlayers = 0;
   private cachedEnemiesInRadius = 0;
+  private readonly enemyQueryBuffer: Entity[] = [];
 
   constructor(_waveSystem?: unknown) {}
 
@@ -60,6 +62,7 @@ export class ExtractionSystem implements System {
       helipad.y - extractionConfig.enemyDangerRadius,
       helipad.x + extractionConfig.enemyDangerRadius,
       helipad.y + extractionConfig.enemyDangerRadius,
+      this.enemyQueryBuffer,
     )) {
       if (!entity.typeId.startsWith("enemy:") || !entity.alive) {
         continue;

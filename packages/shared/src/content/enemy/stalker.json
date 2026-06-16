@@ -24,5 +24,11 @@
     "selection": "rotating",
     "typeIds": ["item:spiked_spear", "item:fire_axe"]
   },
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#226244"
+    }
+  }
 }

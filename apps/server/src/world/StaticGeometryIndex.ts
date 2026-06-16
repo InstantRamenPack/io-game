@@ -34,6 +34,19 @@ export class StaticGeometryIndex {
     this.grid = new GridIndex<StaticGeometryBlocker>(cellSize);
   }
 
+  public syncEntities(entities: readonly Entity[]): void {
+    for (const entity of entities) {
+      if (!isStaticGeometryEntity(entity)) {
+        continue;
+      }
+      this.upsert(entity);
+    }
+  }
+
+  public removeEntity(entityId: number): void {
+    this.removeEntityInternal(entityId);
+  }
+
   public sync(entities: readonly Entity[]): void {
     this.syncMarker += 1;
     if (this.syncMarker >= Number.MAX_SAFE_INTEGER) {
@@ -53,7 +66,7 @@ export class StaticGeometryIndex {
       if (this.syncedEntityIds.get(entityId) === this.syncMarker) {
         continue;
       }
-      this.removeEntity(entityId);
+      this.removeEntityInternal(entityId);
     }
   }
 
@@ -130,7 +143,7 @@ export class StaticGeometryIndex {
     this.cellKeysByEntityId.set(entity.id, nextKeys);
   }
 
-  private removeEntity(entityId: number): void {
+  private removeEntityInternal(entityId: number): void {
     const keys = this.cellKeysByEntityId.get(entityId);
     if (keys) {
       this.grid.removeFromCells(

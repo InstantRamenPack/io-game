@@ -2,7 +2,7 @@ import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { WallbreakerExplosionAreaEffect } from "@server/effects/area/WallbreakerExplosionAreaEffect.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";

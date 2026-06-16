@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import {
   getAllItemContentEntries,
+  getBlueprintUnlockedRecipeTypeIds,
   getItemContent,
   requirePlayerStarterLoadout,
 } from "@shared/content/catalog.ts";
@@ -11,8 +12,8 @@ import { CommsTower } from "@server/entities/tower/CommsTower.ts";
 import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
 import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
@@ -76,6 +77,14 @@ function enqueueAction(
   tick(runtime, 1);
 }
 
+function createBasicGun(): RangedWeapon {
+  const item = new (requireItemLikeTypeEntry(basicGunItemId).ctor)();
+  if (item instanceof RangedWeapon) {
+    return item;
+  }
+  throw new Error("expected item:basic_gun to resolve to a ranged weapon");
+}
+
 describe("inventory authority", () => {
   beforeAll(bootstrapTestRegistries);
 
@@ -109,7 +118,7 @@ describe("inventory authority", () => {
     const { runtime } = makeRuntime();
     const { player } = connectTestClient(runtime, "client-1");
     player.inventory.clearHotbar();
-    const gun = new BasicGun();
+    const gun = createBasicGun();
     gun.ammoInMag = Math.max(0, gun.magSize - 5);
     expect(player.inventory.addWeapon(gun)).toBe(true);
     player.inventory.addStackable(basicGunMagItemId, 1);
@@ -220,7 +229,9 @@ describe("inventory authority", () => {
     const { runtime } = makeRuntime({ worldSeed: 1337 });
     const expectedBlueprintTypeIds = new Set(
       getAllItemContentEntries()
-        .filter(([, item]) => item.unlocksRecipeTypeId)
+        .filter(
+          ([typeId]) => getBlueprintUnlockedRecipeTypeIds(typeId).length > 0,
+        )
         .map(([typeId]) => typeId),
     );
     const observedBlueprintTypeIds = new Set<ResourceId>();

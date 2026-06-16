@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   getAllItemContentEntries,
+  getBlueprintUnlockedRecipeTypeIds,
   getItemContent,
 } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -34,7 +35,9 @@ describe("rarity crafting and loot rules", () => {
   test("legendary weapons are not craftable, while rare and epic blueprint targets require unlock", () => {
     for (const [typeId, item] of getAllItemContentEntries()) {
       const blueprintTypeIds = getAllItemContentEntries()
-        .filter(([, blueprint]) => blueprint.unlocksRecipeTypeId === typeId)
+        .filter(([blueprintTypeId]) =>
+          getBlueprintUnlockedRecipeTypeIds(blueprintTypeId).includes(typeId),
+        )
         .map(([blueprintTypeId]) => blueprintTypeId);
       if (blueprintTypeIds.length === 0) {
         continue;
@@ -66,7 +69,9 @@ describe("rarity crafting and loot rules", () => {
       if (!typeId.startsWith("blueprint:")) {
         continue;
       }
-      expect(item.unlocksRecipeTypeId).toBeDefined();
+      expect(getBlueprintUnlockedRecipeTypeIds(typeId).length).toBeGreaterThan(
+        0,
+      );
     }
   });
 });

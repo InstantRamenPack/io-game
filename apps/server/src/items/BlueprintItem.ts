@@ -1,4 +1,4 @@
-import { getItemContent } from "@shared/content/catalog.ts";
+import { getBlueprintUnlockedRecipeTypeIds } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { Item } from "@server/items/Item.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
@@ -31,19 +31,21 @@ export abstract class BlueprintItem extends Item {
     if (amount <= 0) {
       return true;
     }
-    targetInventory.unlockRecipe(this.getUnlockedRecipeTypeId());
+    for (const recipeTypeId of this.getUnlockedRecipeTypeIds()) {
+      targetInventory.unlockRecipe(recipeTypeId);
+    }
     return true;
   }
 
-  public getUnlockedRecipeTypeId(): ResourceId {
-    const unlockedRecipeTypeId = getItemContent(
+  public getUnlockedRecipeTypeIds(): readonly ResourceId[] {
+    const unlockedRecipeTypeIds = getBlueprintUnlockedRecipeTypeIds(
       this.typeId,
-    )?.unlocksRecipeTypeId;
-    if (!unlockedRecipeTypeId) {
+    );
+    if (unlockedRecipeTypeIds.length === 0) {
       throw new Error(
-        `Blueprint ${this.typeId} is missing unlocksRecipeTypeId.`,
+        `Blueprint ${this.typeId} is missing unlock recipe type ids.`,
       );
     }
-    return unlockedRecipeTypeId;
+    return unlockedRecipeTypeIds;
   }
 }

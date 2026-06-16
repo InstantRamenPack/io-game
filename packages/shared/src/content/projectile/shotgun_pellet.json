@@ -11,5 +11,11 @@
       "width": 8,
       "height": 8
     }
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#e8f2f4"
+    }
   }
 }

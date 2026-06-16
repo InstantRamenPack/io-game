@@ -13,7 +13,7 @@ import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Tesla } from "@server/entities/buildings/Tesla.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { getGameTypeEntry } from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
   bootstrapTestRegistries,
@@ -48,7 +48,7 @@ describe("tesla building", () => {
     expect(blueprint?.unlocksRecipeTypeId).toBe(teslaItemTypeId);
     expect(isRecipeBlueprintLocked(teslaItemTypeId)).toBe(true);
     expect(getItemLikeTypeEntry(teslaItemTypeId)).toBeDefined();
-    expect(entityTypeRegistry.get(teslaBuildingTypeId)).toBeDefined();
+    expect(getGameTypeEntry(teslaBuildingTypeId, "entity")).toBeDefined();
   });
 
   test("tesla shocks an enemy once when the expanding ring reaches them", () => {

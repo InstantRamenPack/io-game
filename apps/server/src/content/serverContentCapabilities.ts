@@ -11,6 +11,7 @@ import type {
   EntityCapabilitiesContent,
   RarityTier,
 } from "@shared/content/schema.ts";
+import { RARITY_TIERS } from "@shared/content/schema.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { Hub } from "@server/entities/tower/Hub.ts";
@@ -21,6 +22,7 @@ export const HUNK_ITEM_TYPE_ID = "item:hunk" as ResourceId;
 
 type EnemyDeathLootConfig = {
   rarityTier: RarityTier;
+  fixedHunks?: number;
 };
 
 type TierBalance = {
@@ -36,14 +38,6 @@ const ENEMY_DEATH_LOOT_BALANCE = enemyDeathLootBalanceRaw as Record<
   RarityTier,
   TierBalance
 >;
-
-const RARITY_TIERS: readonly RarityTier[] = [
-  "common",
-  "uncommon",
-  "rare",
-  "epic",
-  "legendary",
-];
 
 for (const tier of RARITY_TIERS) {
   const value = ENEMY_DEATH_LOOT_BALANCE[tier];
@@ -81,7 +75,10 @@ export function getEnemyDeathLootConfig(
   ) {
     throw new Error(`Enemy ${typeId} is missing required death loot content.`);
   }
-  return { rarityTier: content.rarityTier };
+  return {
+    rarityTier: content.rarityTier,
+    fixedHunks: content.deathLoot.fixedHunks,
+  };
 }
 
 export function getEnemyDeathHunkDropAmount(

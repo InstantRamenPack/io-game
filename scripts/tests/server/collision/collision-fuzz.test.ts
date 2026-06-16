@@ -6,7 +6,7 @@ import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { Inventory } from "@server/items/Inventory.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";

@@ -4,7 +4,7 @@ import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { Goal } from "@server/goals/Goal.ts";
 import { Player } from "@server/entities/Player.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import { isProjectileCtor } from "@server/runtime/ctorGuards.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 
@@ -123,7 +123,7 @@ export class WitherRotatingBeamGoal<
 
   private fireBulletsAtPlayers(ctx: GoalContext<TSelf>): void {
     const { world, self } = ctx;
-    const projectileEntry = entityTypeRegistry.require(BULLET_TYPE_ID);
+    const projectileEntry = requireGameTypeEntry(BULLET_TYPE_ID, "entity");
     if (!isProjectileCtor(projectileEntry.ctor)) return;
     const BulletCtor = projectileEntry.ctor;
 

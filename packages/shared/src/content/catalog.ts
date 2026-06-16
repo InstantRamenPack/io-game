@@ -130,12 +130,6 @@ const BLUEPRINT_LOCKED_RECIPE_TYPE_IDS = new Set<ResourceId>(
   }),
 );
 
-export function getBlueprintUnlockedRecipeTypeId(
-  typeId: ResourceId,
-): ResourceId | undefined {
-  return getItemContent(typeId)?.unlocksRecipeTypeId;
-}
-
 export function getBlueprintUnlockedRecipeTypeIds(
   typeId: ResourceId,
 ): readonly ResourceId[] {

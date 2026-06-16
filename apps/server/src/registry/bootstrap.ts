@@ -1,7 +1,7 @@
 import { buildGameTypeEntries } from "@server/registry/buildRegistries.ts";
 import {
-  entityTypeRegistry,
   gameTypeRegistry,
+  hasGameTypeEntry,
 } from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 
@@ -35,7 +35,7 @@ function validateRegistryContent(): void {
 
     if (
       entry.content.buildsEntityTypeId &&
-      !entityTypeRegistry.has(entry.content.buildsEntityTypeId)
+      !hasGameTypeEntry(entry.content.buildsEntityTypeId, "entity")
     ) {
       throw new Error(
         `Item ${entry.typeId} references unknown building type ${entry.content.buildsEntityTypeId}.`,

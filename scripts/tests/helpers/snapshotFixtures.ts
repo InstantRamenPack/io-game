@@ -187,7 +187,6 @@ export function makeSnapshot(
   entities: EntitySnapshot[],
   options: {
     full?: boolean;
-    lastProcessedSeq?: number;
     removedEntityIds?: number[];
     events?: WorldSnapshot["events"];
     dayNight?: DayNightSnapshot;
@@ -196,7 +195,6 @@ export function makeSnapshot(
 ): WorldSnapshot {
   return {
     tick,
-    lastProcessedSeq: options.lastProcessedSeq ?? tick,
     dayNight: options.dayNight ?? makeDayNightSnapshot(tick),
     extraction:
       options.extraction ??

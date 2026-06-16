@@ -21,5 +21,11 @@
   },
   "activeHitboxProfile": "base",
   "rarityTier": "epic",
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#bf2a2a"
+    }
+  }
 }

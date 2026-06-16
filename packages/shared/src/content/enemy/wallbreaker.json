@@ -14,5 +14,11 @@
     ]
   },
   "rarityTier": "rare",
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#ff6600"
+    }
+  }
 }

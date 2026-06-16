@@ -7,10 +7,11 @@ import { WitherRotatingBeamGoal } from "@server/goals/builtin/WitherRotatingBeam
 import { WitherAirstrikeGoal } from "@server/goals/builtin/WitherAirstrikeGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import { HUNK_ITEM_TYPE_ID } from "@server/content/serverContentCapabilities.ts";
+import {
+  getEnemyDeathLootConfig,
+  HUNK_ITEM_TYPE_ID,
+} from "@server/content/serverContentCapabilities.ts";
 import type { World } from "@server/world/World.ts";
-
-const WITHER_HUNK_DROP_AMOUNT = 1000;
 
 export class Wither extends Enemy {
   public static override readonly resourceName = "wither";
@@ -33,8 +34,12 @@ export class Wither extends Enemy {
   }
 
   public override handleDeath(world: World): void {
+    const fixedHunks = getEnemyDeathLootConfig(this.typeId).fixedHunks;
+    if (fixedHunks === undefined) {
+      throw new Error(`Enemy ${this.typeId} is missing fixed death hunks.`);
+    }
     const hunkInventory = new Inventory();
-    hunkInventory.addStackable(HUNK_ITEM_TYPE_ID, WITHER_HUNK_DROP_AMOUNT);
+    hunkInventory.addStackable(HUNK_ITEM_TYPE_ID, fixedHunks);
     const hunkPickup = new ItemEntity(world.allocEntityId(), hunkInventory);
     hunkPickup.x = this.x;
     hunkPickup.y = this.y;

@@ -11,5 +11,11 @@
       "width": 16,
       "height": 16
     }
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "trail",
+      "color": "#ffb703"
+    }
   }
 }

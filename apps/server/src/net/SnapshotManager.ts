@@ -3,11 +3,10 @@ import type {
   EntitySnapshot,
   ExtractionSnapshot,
   InfrastructureSnapshot,
-  MapSnapshot,
   WorldSnapshot,
 } from "@shared/net/snapshots.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
+import type { Player } from "@server/entities/Player.ts";
 import { EventRelevanceFilter } from "@server/net/snapshots/EventRelevanceFilter.ts";
 import { PerPlayerReplicationState } from "@server/net/snapshots/PerPlayerReplicationState.ts";
 import { stripKnownStableEntitySnapshotFields } from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
@@ -43,6 +42,7 @@ export class SnapshotManager {
   private readonly eventRelevanceFilter = new EventRelevanceFilter();
   private readonly queryBuffer: Entity[] = [];
   private readonly includedEntityMarkers = new Map<number, number>();
+  private cachedObserverSnapshot: WorldSnapshot | null = null;
   private marker = 0;
 
   /**
@@ -50,6 +50,7 @@ export class SnapshotManager {
    */
   public prepareTick(world: World, events: readonly NetEvent[]): void {
     this.tickCache.prepare(world);
+    this.cachedObserverSnapshot = null;
     this.replicationState.pruneMissingPlayers(world);
     this.eventRelevanceFilter.prepare(events);
   }
@@ -77,7 +78,6 @@ export class SnapshotManager {
       this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
     const infrastructure =
       this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
-    const map = makeMapSnapshot(world);
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
@@ -85,7 +85,7 @@ export class SnapshotManager {
         dayNight,
         extraction,
         infrastructure,
-        map,
+        map: this.tickCache.getMapSnapshot(),
         minimapPlayers: [],
         full: true,
         entities: [],
@@ -199,8 +199,8 @@ export class SnapshotManager {
         dayNight,
         extraction,
         infrastructure,
-        map,
-        minimapPlayers: this.collectMinimapPlayers(world),
+        map: this.tickCache.getMapSnapshot(),
+        minimapPlayers: [...this.tickCache.getMinimapPlayers()],
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -219,7 +219,7 @@ export class SnapshotManager {
       extraction,
       infrastructure,
       map: undefined,
-      minimapPlayers: this.collectMinimapPlayers(world),
+      minimapPlayers: [...this.tickCache.getMinimapPlayers()],
       full: false,
       entities: changedEntities,
       removedEntityIds,
@@ -235,6 +235,9 @@ export class SnapshotManager {
   public makeFullSnapshotForObserver(world: World): WorldSnapshot {
     if (this.tickCache.getPreparedTick() !== world.tick) {
       this.prepareTick(world, []);
+    }
+    if (this.cachedObserverSnapshot) {
+      return this.cachedObserverSnapshot;
     }
 
     const dayNight =
@@ -256,18 +259,19 @@ export class SnapshotManager {
       }
     }
 
-    return {
+    this.cachedObserverSnapshot = {
       tick: world.tick,
       dayNight,
       extraction,
       infrastructure,
-      map: makeMapSnapshot(world),
-      minimapPlayers: this.collectMinimapPlayers(world),
+      map: this.tickCache.getMapSnapshot(),
+      minimapPlayers: [...this.tickCache.getMinimapPlayers()],
       full: true,
       entities,
       removedEntityIds: [],
       events: [],
     };
+    return this.cachedObserverSnapshot;
   }
 
   private collectFullEntitiesForPlayer(
@@ -375,75 +379,4 @@ export class SnapshotManager {
   private isIncluded(entityId: number): boolean {
     return this.includedEntityMarkers.get(entityId) === this.marker;
   }
-
-  private collectMinimapPlayers(
-    world: World,
-  ): Array<{ id: number; x: number; y: number; alive: boolean }> {
-    return world.entities.queryInstances(Player).map((player) => ({
-      id: player.id,
-      x: player.x,
-      y: player.y,
-      alive: player.alive,
-    }));
-  }
-}
-
-function makeMapSnapshot(world: World): MapSnapshot | undefined {
-  const layout = world.proceduralLayout;
-  if (!layout) {
-    return undefined;
-  }
-  return {
-    seed: layout.seed,
-    sectorSize: layout.sectorSize,
-    centerSectorId: layout.centerSectorId,
-    extractionSectorId: layout.extractionSectorId,
-    dungeonSectorId: layout.dungeonSectorId,
-    dungeonBounds: {
-      minX: layout.dungeon.minX,
-      minY: layout.dungeon.minY,
-      maxX: layout.dungeon.maxX,
-      maxY: layout.dungeon.maxY,
-    },
-    militarySectorId: layout.militarySectorId,
-    forestSectorId: layout.forestSectorId,
-    sectors: layout.sectors.map((sector) => ({
-      id: sector.id,
-      label: sector.label,
-      archetype: sector.archetype,
-      row: sector.row,
-      col: sector.col,
-      minX: sector.minX,
-      minY: sector.minY,
-      maxX: sector.maxX,
-      maxY: sector.maxY,
-      hasLightsOut: sector.hasLightsOut,
-    })),
-    features: layout.sectors.flatMap((sector) =>
-      sector.features.map((feature) => ({
-        id: feature.id,
-        label: feature.label,
-        role: feature.role,
-        risk: feature.risk,
-        hasReward: feature.hasReward,
-        minX: feature.minX,
-        minY: feature.minY,
-        maxX: feature.maxX,
-        maxY: feature.maxY,
-        centerX: feature.center.x,
-        centerY: feature.center.y,
-      })),
-    ),
-    markers: layout.minimapMarkers.map((marker) => ({
-      id: marker.id,
-      label: marker.label,
-      archetype: marker.archetype,
-      importance: marker.importance,
-      discoveredByDefault: marker.discoveredByDefault,
-      x: marker.x,
-      y: marker.y,
-      ...(marker.risk === undefined ? {} : { risk: marker.risk }),
-      ...(marker.tier === undefined ? {} : { tier: marker.tier }),
-    })),
-  };
 }

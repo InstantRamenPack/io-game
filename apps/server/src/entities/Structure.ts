@@ -1,6 +1,7 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { StructureSnapshot } from "@shared/net/snapshots.ts";
+import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -30,6 +31,10 @@ export class Structure extends GoalControlledEntity {
       kind: "structure",
       label: this.label,
     };
+  }
+
+  public override getCombatTeam(): CombatTeam {
+    return "environment";
   }
 
   public override handleDeath(_world: World): void {

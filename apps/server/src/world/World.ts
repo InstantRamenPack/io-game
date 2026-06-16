@@ -13,9 +13,10 @@ import type {
 } from "@shared/world/layoutTypes.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
+import { GoalFieldCache } from "@server/goals/services/GoalFieldCache.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import CollisionSystem from "@server/systems/CollisionSystem.ts";
 import { DayNightSystem } from "@server/systems/DayNightSystem.ts";
@@ -26,7 +27,10 @@ import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { EntityStore } from "@server/world/EntityStore.ts";
 import { NavGridPathService } from "@server/world/NavGridPathService.ts";
 import { SpatialIndex } from "@server/world/SpatialIndex.ts";
-import { StaticGeometryIndex } from "@server/world/StaticGeometryIndex.ts";
+import {
+  isStaticGeometryEntity,
+  StaticGeometryIndex,
+} from "@server/world/StaticGeometryIndex.ts";
 
 export type WorldBenchmarkTickStats = {
   tick: number;
@@ -71,6 +75,7 @@ export class World {
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
   public readonly focusedTrace: FocusedServerTrace;
+  public readonly goalFieldCache = new GoalFieldCache();
   public benchmarkSink?: WorldBenchmarkSink;
   public broadcastSystemMessage: (text: string) => void = () => {};
 
@@ -103,6 +108,7 @@ export class World {
   private readonly nextForestCampRespawnTickById = new Map<string, number>();
   private readonly sessionUnlockedRecipeTypeIds = new Set<ResourceId>();
   private spatialDirty = true;
+  private staticGeometryDirty = true;
 
   /**
    * Creates a new world with deterministic RNG and empty state indexes.
@@ -145,6 +151,7 @@ export class World {
     };
 
     this.tick += 1;
+    this.goalFieldCache.beginTick(this.tick);
     const deltaMs = 1000 / this.gameConfig.tickRate;
     this.simulationTimeMs += deltaMs;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
@@ -159,7 +166,9 @@ export class World {
       this.extractionSystem?.update(this, deltaMs);
     });
     const spatialBeforeMs = measurePhase(() => {
-      this.ensureSpatialIndex();
+      if (this.spatialDirty || this.staticGeometryDirty) {
+        this.ensureSpatialIndex();
+      }
     });
     const navDirtyMs = measurePhase(() => {
       this.navPathService.updateDirty(this);
@@ -207,7 +216,9 @@ export class World {
     });
     this.decayOuterPlayerBuildings(deltaMs);
     const spatialAfterMs = measurePhase(() => {
-      this.ensureSpatialIndex();
+      if (this.spatialDirty || this.staticGeometryDirty) {
+        this.ensureSpatialIndex();
+      }
     });
     this.focusedTrace.recordWorldPhase(this, "tick_end");
 
@@ -245,7 +256,9 @@ export class World {
       this.playerBuildingSpawnTickById.set(entity.id, this.tick);
     }
     this.navPathService.markEntityDirty(entity);
-    this.markSpatialDirty();
+    if (!this.tryIndexSpawnedEntity(entity)) {
+      this.markEntitySpatialDirty(entity);
+    }
   }
 
   /**
@@ -263,7 +276,13 @@ export class World {
     this.entities.remove(id);
     this.playerBuildingSpawnTickById.delete(id);
     this.entityIdGenerator.free(id);
-    this.markSpatialDirty();
+    if (entity) {
+      if (!this.tryUnindexDespawnedEntity(entity)) {
+        this.markSpatialDirty();
+      }
+    } else {
+      this.markSpatialDirty();
+    }
   }
 
   /**
@@ -285,15 +304,59 @@ export class World {
 
   public markSpatialDirty(): void {
     this.spatialDirty = true;
+    this.staticGeometryDirty = true;
+  }
+
+  public syncMovedDynamicEntities(entities: readonly Entity[]): void {
+    if (entities.length === 0) {
+      return;
+    }
+    this.spatial.syncEntities(entities);
+  }
+
+  private markEntitySpatialDirty(entity: Entity): void {
+    this.spatialDirty = true;
+    if (entity.collisionMode !== "static") {
+      return;
+    }
+    this.staticGeometryDirty = true;
+  }
+
+  private tryIndexSpawnedEntity(entity: Entity): boolean {
+    if (this.spatialDirty || this.staticGeometryDirty) {
+      return false;
+    }
+    this.spatial.syncEntities([entity]);
+    if (isStaticGeometryEntity(entity)) {
+      this.staticGeometry.syncEntities([entity]);
+    }
+    return true;
+  }
+
+  private tryUnindexDespawnedEntity(entity: Entity): boolean {
+    if (this.spatialDirty || this.staticGeometryDirty) {
+      return false;
+    }
+    this.spatial.removeEntity(entity.id);
+    if (entity.collisionMode === "static") {
+      this.staticGeometry.removeEntity(entity.id);
+    }
+    return true;
   }
 
   public ensureSpatialIndex(): void {
-    if (!this.spatialDirty) {
-      return;
+    const entities =
+      this.spatialDirty || this.staticGeometryDirty
+        ? this.entities.all()
+        : null;
+    if (this.spatialDirty && entities) {
+      this.spatial.sync(entities);
+      this.spatialDirty = false;
     }
-    this.spatial.sync(this.entities.all());
-    this.staticGeometry.sync(this.entities.all());
-    this.spatialDirty = false;
+    if (this.staticGeometryDirty && entities) {
+      this.staticGeometry.sync(entities);
+      this.staticGeometryDirty = false;
+    }
   }
 
   public registerDungeonRooms(
@@ -373,7 +436,7 @@ export class World {
     if (!typeId) {
       return;
     }
-    const entry = entityTypeRegistry.require(typeId);
+    const entry = requireGameTypeEntry(typeId, "entity");
     if (!isSpawnableEntityCtor(entry.ctor)) {
       throw new Error(`Forest camp type ${typeId} is not spawnable.`);
     }

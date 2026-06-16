@@ -2,11 +2,12 @@ import seedrandom from "seedrandom";
 import {
   getAllEntityContentEntries,
   getAllItemContentEntries,
+  getBlueprintUnlockedRecipeTypeIds,
   getEntityContent,
   getItemContent,
   getWeaponContent,
 } from "@shared/content/catalog.ts";
-import type { RarityTier } from "@shared/content/schema.ts";
+import { RARITY_TIERS, type RarityTier } from "@shared/content/schema.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
@@ -119,13 +120,9 @@ const VILLAGE_GENERATION = PROCEDURAL_CONTENT.villageGeneration;
 const VILLAGE_CRATE_PLACEMENT_MAX_ATTEMPTS = 256;
 
 function buildEnemyTypeIdsByRarity(): Record<RarityTier, ResourceId[]> {
-  const result: Record<RarityTier, ResourceId[]> = {
-    common: [],
-    uncommon: [],
-    rare: [],
-    epic: [],
-    legendary: [],
-  };
+  const result = Object.fromEntries(
+    RARITY_TIERS.map((tier) => [tier, [] as ResourceId[]]),
+  ) as Record<RarityTier, ResourceId[]>;
   for (const [typeId, content] of getAllEntityContentEntries()) {
     if (!typeId.startsWith("enemy:") || !content.rarityTier) {
       continue;
@@ -161,7 +158,7 @@ function resolveBlueprintPool(poolKey: string): ResourceId[] {
     if (pool.excludeBlueprintTypeIds.includes(typeId)) {
       return false;
     }
-    const unlockedTypeId = getItemContent(typeId)?.unlocksRecipeTypeId;
+    const unlockedTypeId = getBlueprintUnlockedRecipeTypeIds(typeId)[0];
     if (!unlockedTypeId) {
       return false;
     }
@@ -3619,7 +3616,7 @@ function isCrateLootTypeId(typeId: ResourceId): boolean {
   return (
     item?.weapon !== undefined ||
     item?.armor !== undefined ||
-    item?.unlocksRecipeTypeId !== undefined
+    getBlueprintUnlockedRecipeTypeIds(typeId).length > 0
   );
 }
 

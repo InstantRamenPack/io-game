@@ -18,5 +18,11 @@
     "selection": "rotating",
     "typeIds": ["item:basic_gun"]
   },
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#bf2a2a"
+    }
+  }
 }

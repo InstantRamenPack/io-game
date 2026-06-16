@@ -58,8 +58,11 @@ const MAX_STATIC_RECOVERY_STEPS = 8;
 class CollisionSystem implements System {
   private readonly queryBuffer: Entity[] = [];
   private readonly staticQueryBuffer: StaticGeometryBlocker[] = [];
+  private readonly overlappingStaticHitboxBuffer: ResolvedHitboxRect[] = [];
   private readonly worldHitboxCache = new Map<number, ResolvedHitboxRect[]>();
   private readonly worldBoundsCache = new Map<number, HitboxBounds>();
+  private readonly movedEntityBuffer: Entity[] = [];
+  private readonly solverMovedEntityBuffer: Entity[] = [];
 
   public update(world: World): void {
     this.integrateAndResolve(world, world.entities.all());
@@ -70,7 +73,8 @@ class CollisionSystem implements System {
     this.worldBoundsCache.clear();
     world.ensureSpatialIndex();
 
-    let movedEntity = false;
+    const movedEntities = this.movedEntityBuffer;
+    movedEntities.length = 0;
     for (const entity of tickPhaseEntities) {
       if (
         !world.entities.has(entity.id) ||
@@ -81,42 +85,45 @@ class CollisionSystem implements System {
       }
 
       const result = this.integrateDynamicEntityAgainstStatic(world, entity);
-      movedEntity = movedEntity || result.moved;
       if (result.moved) {
+        movedEntities.push(entity);
         this.recordStaticMove(world, entity, result);
       }
     }
 
-    if (movedEntity) {
-      world.markSpatialDirty();
-      world.ensureSpatialIndex();
+    if (movedEntities.length > 0) {
+      world.syncMovedDynamicEntities(movedEntities);
       this.worldHitboxCache.clear();
       this.worldBoundsCache.clear();
     }
 
     const iterations = world.gameConfig.collision.dynamicSolverIterations;
     let resolvedDynamicCollision = false;
+    const solverMovedEntities = this.solverMovedEntityBuffer;
     for (let iteration = 0; iteration < iterations; iteration += 1) {
-      const resolvedThisIteration = this.resolveDynamicPairs(world);
-      if (!resolvedThisIteration) {
+      solverMovedEntities.length = 0;
+      this.resolveDynamicPairs(world, solverMovedEntities);
+      if (solverMovedEntities.length === 0) {
         break;
       }
 
       resolvedDynamicCollision = true;
-      world.markSpatialDirty();
-      world.ensureSpatialIndex();
+      world.syncMovedDynamicEntities(solverMovedEntities);
       this.worldHitboxCache.clear();
       this.worldBoundsCache.clear();
     }
 
     if (resolvedDynamicCollision) {
-      this.enforceDynamicConstraints(world);
-      world.markSpatialDirty();
-      world.ensureSpatialIndex();
+      solverMovedEntities.length = 0;
+      this.enforceDynamicConstraints(world, solverMovedEntities);
+      world.syncMovedDynamicEntities(solverMovedEntities);
     }
   }
 
-  private enforceDynamicConstraints(world: World): void {
+  private enforceDynamicConstraints(
+    world: World,
+    movedEntities: Entity[],
+  ): void {
     for (const entity of world.entities.all()) {
       if (entity.collisionMode !== "dynamic") {
         continue;
@@ -129,8 +136,12 @@ class CollisionSystem implements System {
         entity.x += clip.deltaX;
         entity.y += clip.deltaY;
         this.invalidateEntityCaches(entity);
+        movedEntities.push(entity);
       }
-      this.resolveWorldBounds(entity, world);
+      const boundsClamp = this.resolveWorldBounds(entity, world);
+      if (boundsClamp.clampedX || boundsClamp.clampedY) {
+        movedEntities.push(entity);
+      }
     }
   }
 
@@ -450,7 +461,8 @@ class CollisionSystem implements System {
       false,
     );
     const entityHitboxes = this.getCachedWorldHitboxes(entity);
-    const staticHitboxes: ResolvedHitboxRect[] = [];
+    const staticHitboxes = this.overlappingStaticHitboxBuffer;
+    staticHitboxes.length = 0;
     for (const candidate of candidates) {
       if (candidate.entityId === entity.id) {
         continue;
@@ -520,8 +532,7 @@ class CollisionSystem implements System {
     return { clampedX, clampedY };
   }
 
-  private resolveDynamicPairs(world: World): boolean {
-    let resolvedCollision = false;
+  private resolveDynamicPairs(world: World, movedEntities: Entity[]): void {
     for (const entity of world.entities.dynamic()) {
       if (entity.collisionMode !== "dynamic") {
         continue;
@@ -535,7 +546,6 @@ class CollisionSystem implements System {
         bounds.maxY,
         this.queryBuffer,
       );
-      candidates.sort((left, right) => left.id - right.id);
 
       for (const candidate of candidates) {
         if (
@@ -561,10 +571,11 @@ class CollisionSystem implements System {
           candidate,
           separation,
         );
-        resolvedCollision = resolvedCollision || moved;
+        if (moved) {
+          movedEntities.push(entity, candidate);
+        }
       }
     }
-    return resolvedCollision;
   }
 
   private shouldResolveCollisionPair(

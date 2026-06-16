@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import {
+  COMPACT_ENTITY_BASE_FIELDS,
+  COMPACT_WORLD_SNAPSHOT_FIELDS,
+} from "@shared/net/compactProtocol.ts";
 import { PROTOCOL_COMPAT_DESCRIPTOR } from "@shared/net/protocol.ts";
 import {
   EntitySnapshotBaseSchema,
@@ -84,6 +88,19 @@ describe("compat descriptors", () => {
       "snapshot equipped item",
       SNAPSHOT_COMPAT_DESCRIPTOR.equippedItem,
       schemaKeys(EquippedItemSnapshotSchema),
+    );
+  });
+
+  test("compact tuple descriptors cover positional snapshot keys", () => {
+    expectSameKeys(
+      "compact world snapshot tuple",
+      COMPACT_WORLD_SNAPSHOT_FIELDS,
+      schemaKeys(WorldSnapshotSchema),
+    );
+    expectSameKeys(
+      "compact entity base tuple",
+      COMPACT_ENTITY_BASE_FIELDS,
+      schemaKeys(EntitySnapshotBaseSchema).filter((key) => key !== "kind"),
     );
   });
 });

@@ -9,6 +9,11 @@
     "spreadDeg": 0,
     "magItemTypeId": "mag:thanos_machine_gun"
   },
+  "runtime": {
+    "server": {
+      "classKind": "custom"
+    }
+  },
   "rarityTier": "legendary",
   "rendering": {
     "assetPath": "/weapon/thanos_machine_gun.png",

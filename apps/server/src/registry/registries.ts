@@ -76,12 +76,11 @@ export type EffectTypeEntry = {
 };
 
 export {
-  blueprintTypeRegistry,
-  effectTypeRegistry,
-  entityTypeRegistry,
+  gameTypeEntries,
   gameTypeRegistry,
-  itemTypeRegistry,
-  magTypeRegistry,
+  getGameTypeEntry,
+  hasGameTypeEntry,
+  requireGameTypeEntry,
   type GameTypeCategory,
   type GameTypeEntry,
 } from "@server/registry/gameTypeRegistry.ts";

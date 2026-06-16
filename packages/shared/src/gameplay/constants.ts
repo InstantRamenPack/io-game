@@ -22,5 +22,3 @@ export const RECYCLER_INTERACT_PADDING =
 export const TOWER_INTERACT_PADDING = interactionsConfig.towerInteractPadding;
 export const INTERACT_HOLD_DURATION_MS =
   interactionsConfig.interactHoldDurationMs;
-export const TOWER_REPAIR_HP_PER_COST_UNIT =
-  interactionsConfig.towerRepairHpPerCostUnit;

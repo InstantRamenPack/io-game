@@ -5,14 +5,6 @@ import type { ServerToClientMessage } from "@shared/net/protocol.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
-import type { Entity } from "@server/entities/Entity.ts";
-import { Bomber } from "@server/entities/enemies/Bomber.ts";
-import { Drifter } from "@server/entities/enemies/Drifter.ts";
-import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
-import { Police } from "@server/entities/enemies/Police.ts";
-import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
-import { Shoota } from "@server/entities/enemies/Shoota.ts";
-import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
@@ -21,6 +13,15 @@ import type {
   WorldBenchmarkTickStats,
 } from "@server/world/World.ts";
 import type { NavPathBenchmarkStats } from "@server/world/NavGridPathService.ts";
+import {
+  connectClientsAtSectorCenters,
+  driveSectorClients,
+  readInt,
+  readPositiveInt,
+  readPositiveNumber,
+  spawnLayoutEnemiesMultiplied,
+  type BenchmarkClient,
+} from "@benchmarks/common.ts";
 
 type CliOptions = {
   jsonPath?: string;
@@ -66,28 +67,29 @@ type ServerTickMeasurement = {
   samples: readonly number[];
 };
 
-type BenchmarkEntityCtor = new (id: number) => Entity;
-type BenchmarkEntityFactory = (id: number, index: number) => Entity;
-
 type BenchmarkReport = {
   schemaVersion: 1;
   name: string;
   createdAt: string;
+  effectiveTps: number;
   config: {
-    spawnedEntity: string;
-    spawnedEntityCount: number;
+    worldSeed: number;
+    enemyMultiplier: number;
+    sectorClientCount: number;
     warmupTicks: number;
     sampleTicks: number;
     targetTps: number;
     targetFps: number;
     frameHistoryLimit: number;
+    interestRadius: number;
     worldSize: { w: number; h: number };
   };
   scenario: {
     description: string;
-    playerId: number;
+    sectorClientCount: number;
     entityCount: number;
     enemyCount: number;
+    layoutEnemySpecCount: number;
   };
   server: {
     tick: RateSummary;
@@ -123,34 +125,15 @@ type ComparisonReport = {
   }>;
 };
 
-const ENTITY_COUNT = readPositiveInt(
-  "OPT_ENTITY_COUNT",
-  readPositiveInt("OPT_POLICE_COUNT", 1000),
-);
-const ENTITY_NAME = readString("OPT_ENTITY", "mixed-trio");
+const WORLD_SEED = readInt("OPT_WORLD_SEED", 1337);
+const ENEMY_MULTIPLIER = readPositiveInt("OPT_ENEMY_MULTIPLIER", 5);
 const WARMUP_TICKS = readPositiveInt("OPT_WARMUP_TICKS", 60);
 const SAMPLE_TICKS = readPositiveInt("OPT_SAMPLE_TICKS", 300);
 const TARGET_TPS = readPositiveNumber("OPT_TARGET_TPS", 50);
 const TARGET_FPS = readPositiveNumber("OPT_TARGET_FPS", 60);
 const FRAME_HISTORY_LIMIT = readPositiveInt("OPT_FRAME_HISTORY_LIMIT", 8);
 const DEFAULT_REPORT_DIR = "benchmark-results";
-const MIXED_TRIO_ENTITY_CTORS: readonly BenchmarkEntityCtor[] = [
-  Saboteur,
-  Drifter,
-  Bomber,
-];
-const BENCHMARK_ENTITY_CTORS: ReadonlyMap<string, BenchmarkEntityCtor> =
-  new Map<string, BenchmarkEntityCtor>([
-    ["bomber", Bomber],
-    ["drifter", Drifter],
-    ["megaknight", Megaknight],
-    ["police", Police],
-    ["saboteur", Saboteur],
-    ["shoota", Shoota],
-    ["wallbreaker", Wallbreaker],
-  ]);
-const ENTITY_RESOLUTION = resolveBenchmarkEntityFactory(ENTITY_NAME);
-const BENCHMARK_NAME = `optimization-${ENTITY_COUNT}-${ENTITY_RESOLUTION.label}`;
+const BENCHMARK_NAME = `optimization-realistic-${WORLD_SEED}`;
 
 class CapturingNetworkServer implements NetworkServerLike {
   public readonly snapshots: WorldSnapshot[] = [];
@@ -209,52 +192,73 @@ bootstrapTypeRegistries();
 
 const networkServer = new CapturingNetworkServer();
 const config = makeConfig();
-const runtime = new GameInstanceRuntime(config, networkServer);
+const runtime = new GameInstanceRuntime(config, networkServer, {
+  worldSeed: WORLD_SEED,
+});
 const worldSink = new BenchmarkWorldSink();
 runtime.world.benchmarkSink = worldSink;
 runtime.world.navPathService.benchmarkEnabled = true;
-const playerId = runtime.connectReadyClient(
-  "optimization-client",
-  "optimization-test",
+
+const layout = runtime.world.proceduralLayout;
+if (!layout) {
+  throw new Error("optimization benchmark requires a procedural match layout");
+}
+
+const layoutEnemySpecCount = layout.sectors.reduce(
+  (total, sector) => total + sector.enemies.length,
+  0,
 );
-spawnBenchmarkEntities(runtime, ENTITY_RESOLUTION.factory, ENTITY_COUNT);
+spawnLayoutEnemiesMultiplied(runtime, ENEMY_MULTIPLIER);
+const sectorClients = connectClientsAtSectorCenters(runtime);
 
 console.log(
   [
     `optimization benchmark: ${BENCHMARK_NAME}`,
-    `entity=${ENTITY_NAME}`,
-    `entityCount=${ENTITY_COUNT}`,
+    `worldSeed=${WORLD_SEED}`,
+    `enemyMultiplier=${ENEMY_MULTIPLIER}`,
+    `layoutEnemySpecs=${layoutEnemySpecCount}`,
+    `sectorClients=${sectorClients.length}`,
     `warmupTicks=${WARMUP_TICKS}`,
     `sampleTicks=${SAMPLE_TICKS}`,
   ].join(" "),
 );
 
-const serverTick = measureServerTicks(runtime, networkServer, worldSink);
+const serverTick = measureServerTicks(
+  runtime,
+  networkServer,
+  worldSink,
+  sectorClients,
+);
 const navStats = runtime.world.navPathService.collectAndResetBenchmarkStats();
 networkServer.ensureSnapshotsParsed();
 const clientFrame = measureClientFrames(networkServer.snapshots);
+const effectiveTps = 1000 / serverTick.summary.average;
 
 const report: BenchmarkReport = {
   schemaVersion: 1,
   name: BENCHMARK_NAME,
   createdAt: new Date().toISOString(),
+  effectiveTps,
   config: {
-    spawnedEntity: ENTITY_RESOLUTION.label,
-    spawnedEntityCount: ENTITY_COUNT,
+    worldSeed: WORLD_SEED,
+    enemyMultiplier: ENEMY_MULTIPLIER,
+    sectorClientCount: sectorClients.length,
     warmupTicks: WARMUP_TICKS,
     sampleTicks: SAMPLE_TICKS,
     targetTps: TARGET_TPS,
     targetFps: TARGET_FPS,
     frameHistoryLimit: FRAME_HISTORY_LIMIT,
+    interestRadius: config.replication.interestRadius,
     worldSize: config.worldSize,
   },
   scenario: {
-    description: `One player at world center with ${ENTITY_COUNT} ${ENTITY_RESOLUTION.label} entities spawned on a deterministic grid, forcing dense enemy targeting, movement, collision, snapshot, and headless client interpolation pressure.`,
-    playerId,
+    description: `Full procedural match seed ${WORLD_SEED} with each layout enemy at ${ENEMY_MULTIPLIER}x (${ENEMY_MULTIPLIER - 1} jittered copies per spec, including legendary bosses) and ${sectorClients.length} sector-centered clients driving AOI/snapshot pressure.`,
+    sectorClientCount: sectorClients.length,
     entityCount: runtime.world.entities.all().length,
     enemyCount: runtime.world.entities
       .all()
       .filter((entity) => entity.typeId.startsWith("enemy:")).length,
+    layoutEnemySpecCount,
   },
   server: summarizeServer(serverTick, worldSink.ticks),
   pathfinding: summarizePathfinding(navStats),
@@ -270,11 +274,12 @@ if (cli.comparePath) {
 }
 
 printReport(report);
-validateReport(report);
 
 const jsonPath = cli.jsonPath ?? defaultJsonPath(report);
 writeTextFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
 console.log(`wrote json=${jsonPath}`);
+
+validateReport(report, cli);
 
 if (cli.markdownPath) {
   writeTextFile(cli.markdownPath, renderMarkdown(report));
@@ -284,40 +289,22 @@ if (cli.markdownPath) {
 function makeConfig(): GameConfig {
   const nextConfig = new GameConfig();
   nextConfig.debug.spawnMultiplier = 0;
-  nextConfig.replication.interestRadius = Math.max(
-    nextConfig.worldSize.w,
-    nextConfig.worldSize.h,
+  nextConfig.replication.interestRadius = readPositiveNumber(
+    "OPT_INTEREST_RADIUS",
+    nextConfig.replication.interestRadius,
   );
   nextConfig.interpolation.historySize = FRAME_HISTORY_LIMIT;
   return nextConfig;
-}
-
-function spawnBenchmarkEntities(
-  runtime: GameInstanceRuntime,
-  entityFactory: BenchmarkEntityFactory,
-  count: number,
-): void {
-  const centerX = runtime.world.gameConfig.worldSize.w / 2;
-  const centerY = runtime.world.gameConfig.worldSize.h / 2;
-  const spacing = 20;
-  const columns = Math.ceil(Math.sqrt(count));
-
-  for (let index = 0; index < count; index += 1) {
-    const entity = entityFactory(runtime.world.allocEntityId(), index);
-    const row = Math.floor(index / columns);
-    const column = index % columns;
-    entity.x = centerX + (column - (columns - 1) / 2) * spacing;
-    entity.y = centerY + (row - (columns - 1) / 2) * spacing;
-    runtime.world.spawn(entity);
-  }
 }
 
 function measureServerTicks(
   runtime: GameInstanceRuntime,
   networkServer: CapturingNetworkServer,
   worldSink: BenchmarkWorldSink,
+  clients: readonly BenchmarkClient[],
 ): ServerTickMeasurement {
   for (let index = 0; index < WARMUP_TICKS; index += 1) {
+    driveSectorClients(runtime, clients, index);
     runtime.tick();
   }
   networkServer.snapshots.length = 0;
@@ -328,6 +315,7 @@ function measureServerTicks(
   const samples: number[] = [];
   const startedAt = performance.now();
   for (let index = 0; index < SAMPLE_TICKS; index += 1) {
+    driveSectorClients(runtime, clients, WARMUP_TICKS + index);
     const tickStartedAt = performance.now();
     runtime.tick();
     samples.push(performance.now() - tickStartedAt);
@@ -483,59 +471,72 @@ function compareReports(
   const baseline = JSON.parse(
     readFileSync(baselinePath, "utf8"),
   ) as BenchmarkReport;
+  const baselineEffectiveTps =
+    baseline.effectiveTps ?? 1000 / baseline.server.tick.average;
   const metrics: ComparisonReport["metrics"] = [
+    compareMetric(
+      "effectiveTps",
+      current.effectiveTps,
+      baselineEffectiveTps,
+      "higher-is-better",
+    ),
     compareMetric(
       "server.tick.hz",
       current.server.tick.hz,
-      baseline.server.tick.hz,
+      baseline.server?.tick?.hz,
       "higher-is-better",
     ),
     compareMetric(
       "server.tick.p95Ms",
       current.server.tick.p95,
-      baseline.server.tick.p95,
+      baseline.server?.tick?.p95,
       "lower-is-better",
     ),
     compareMetric(
       "server.enemyTick.p95Ms",
       current.server.enemyTick.p95,
-      baseline.server.enemyTick.p95,
+      baseline.server?.enemyTick?.p95,
       "lower-is-better",
     ),
     compareMetric(
       "pathfinding.searchMs",
       current.pathfinding.searchMs,
-      baseline.pathfinding.searchMs,
+      baseline.pathfinding?.searchMs,
       "lower-is-better",
     ),
     compareMetric(
       "pathfinding.pathSearches",
       current.pathfinding.pathSearches,
-      baseline.pathfinding.pathSearches,
+      baseline.pathfinding?.pathSearches,
       "lower-is-better",
     ),
     compareMetric(
       "client.frame.hz",
       current.client.frame.hz,
-      baseline.client.frame.hz,
+      baseline.client?.frame?.hz,
       "higher-is-better",
     ),
     compareMetric(
       "network.averageBytes",
       current.network.averageBytes,
-      baseline.network.averageBytes,
+      baseline.network?.averageBytes,
       "lower-is-better",
     ),
-  ];
+  ].filter(
+    (metric): metric is ComparisonReport["metrics"][number] => metric !== null,
+  );
   return { baselinePath, metrics };
 }
 
 function compareMetric(
   metric: string,
   current: number,
-  baseline: number,
+  baseline: number | undefined,
   direction: "higher-is-better" | "lower-is-better",
-): ComparisonReport["metrics"][number] {
+): ComparisonReport["metrics"][number] | null {
+  if (baseline === undefined || !Number.isFinite(baseline)) {
+    return null;
+  }
   const delta = current - baseline;
   return {
     metric,
@@ -548,6 +549,11 @@ function compareMetric(
 }
 
 function printReport(report: BenchmarkReport): void {
+  console.log(
+    `effective TPS ${format(report.effectiveTps)} (1000 / server avg ${formatMs(
+      report.server.tick.average,
+    )})`,
+  );
   console.log(
     `server TPS ${format(report.server.tick.hz)} avg=${formatMs(
       report.server.tick.average,
@@ -597,6 +603,7 @@ function printReport(report: BenchmarkReport): void {
 
 function renderMarkdown(report: BenchmarkReport): string {
   const rows = [
+    ["Effective TPS", report.effectiveTps, "higher"],
     ["Server TPS", report.server.tick.hz, "higher"],
     ["Server tick p95 ms", report.server.tick.p95, "lower"],
     ["Enemy tick p95 ms", report.server.enemyTick.p95, "lower"],
@@ -636,41 +643,33 @@ function parseCliOptions(args: readonly string[]): CliOptions {
     } else if (arg === "--compare" && next) {
       options.comparePath = next;
       index += 1;
+    } else if (arg === "--comparePath" && next) {
+      options.comparePath = next;
+      index += 1;
     }
   }
   return options;
 }
 
-function resolveBenchmarkEntityFactory(name: string): {
-  label: string;
-  factory: BenchmarkEntityFactory;
-} {
-  if (name === "mixed-trio" || name === "mixed") {
-    return {
-      label: "mixed-trio",
-      factory: (id, index) =>
-        new MIXED_TRIO_ENTITY_CTORS[index % MIXED_TRIO_ENTITY_CTORS.length]!(
-          id,
-        ),
-    };
+function validateReport(report: BenchmarkReport, cli: CliOptions): void {
+  if (cli.comparePath) {
+    const baseline = JSON.parse(
+      readFileSync(resolve(cli.comparePath), "utf8"),
+    ) as BenchmarkReport;
+    const baselineEffectiveTps =
+      baseline.effectiveTps ?? 1000 / baseline.server.tick.average;
+    const requiredTps = baselineEffectiveTps * 2.5;
+    if (report.effectiveTps >= requiredTps) {
+      console.log(
+        `comparison passed effectiveTps=${format(report.effectiveTps)} >= baseline*2.5=${format(requiredTps)}`,
+      );
+      return;
+    }
+    throw new Error(
+      `effectiveTps=${format(report.effectiveTps)} threshold=${format(requiredTps)} (baseline=${format(baselineEffectiveTps)} * 2.5)`,
+    );
   }
 
-  const ctor = BENCHMARK_ENTITY_CTORS.get(name);
-  if (ctor) {
-    return {
-      label: name,
-      factory: (id) => new ctor(id),
-    };
-  }
-
-  throw new Error(
-    `Unsupported OPT_ENTITY=${name}. Supported values: ${[
-      ...BENCHMARK_ENTITY_CTORS.keys(),
-    ].join(", ")}, mixed-trio`,
-  );
-}
-
-function validateReport(report: BenchmarkReport): void {
   const thresholds = [
     {
       metric: "server.tick.averageMs",
@@ -734,24 +733,6 @@ function writeTextFile(path: string, text: string): void {
   const resolvedPath = resolve(path);
   mkdirSync(dirname(resolvedPath), { recursive: true });
   writeFileSync(resolvedPath, text);
-}
-
-function readPositiveInt(name: string, fallback: number): number {
-  return Math.max(1, Math.floor(readPositiveNumber(name, fallback)));
-}
-
-function readPositiveNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined) {
-    return fallback;
-  }
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function readString(name: string, fallback: string): string {
-  const raw = process.env[name]?.trim();
-  return raw && raw.length > 0 ? raw : fallback;
 }
 
 function sum(values: readonly number[]): number {

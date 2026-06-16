@@ -2,6 +2,12 @@
   "label": "Wooden Chair",
   "maxHp": 0,
   "collisionMode": "static",
+  "runtime": {
+    "renderer": {
+      "symbol": "FurnitureRenderer",
+      "importPath": "apps/client/src/render/entity/structure/FurnitureRenderer.ts"
+    }
+  },
   "hitboxProfiles": {
     "default": [
       {

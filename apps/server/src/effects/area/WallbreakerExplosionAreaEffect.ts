@@ -1,6 +1,6 @@
 import type { Entity } from "@server/entities/Entity.ts";
 import { Player } from "@server/entities/Player.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { ExplosionAreaEffect } from "@server/effects/area/ExplosionAreaEffect.ts";
 import type { RadialAreaEffectHitContext } from "@server/effects/area/RadialAreaEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";

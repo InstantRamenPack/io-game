@@ -7,7 +7,7 @@ import {
   type ProjectileDefinition,
   type ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import { isProjectileCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -52,8 +52,9 @@ export class FirecrackerBullet extends Projectile {
       return;
     }
 
-    const projectileEntry = entityTypeRegistry.require(
+    const projectileEntry = requireGameTypeEntry(
       this.split.projectileTypeId,
+      "entity",
     );
     if (projectileEntry.kind !== "projectile") {
       throw new Error(

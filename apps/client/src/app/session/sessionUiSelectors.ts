@@ -1,4 +1,4 @@
-import type { SessionUiState } from "@client/app/session/SessionUiStore.ts";
+import type { SessionUiState } from "@client/app/session/SessionUiController.ts";
 
 export function isGameplaySession(state: SessionUiState): boolean {
   return state.mode === "playing" || state.mode === "dead";

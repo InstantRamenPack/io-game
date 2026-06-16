@@ -13,6 +13,7 @@ import {
   isContainerEntity,
 } from "@server/content/serverContentCapabilities.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
+import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
 import {
   applyBlueprintPickupWorldEffects,
@@ -27,6 +28,8 @@ import type { ContainerSlot } from "@server/inventory/ContainerSlot.ts";
 import type { Hub } from "@server/entities/tower/Hub.ts";
 import type { World } from "@server/world/World.ts";
 import { isNearRecycler } from "@server/entities/player/PlayerTowerInteraction.ts";
+
+const pickupQueryBuffer: Entity[] = [];
 
 export function dropSelectedItem(
   player: Player,
@@ -109,6 +112,7 @@ export function pickupNearestOverlappingItem(
     bounds.minY,
     bounds.maxX,
     bounds.maxY,
+    pickupQueryBuffer,
   )) {
     if (!(candidate instanceof ItemEntity)) {
       continue;

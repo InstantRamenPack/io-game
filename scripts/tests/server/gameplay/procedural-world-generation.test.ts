@@ -22,11 +22,15 @@ import {
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
 import {
   getAllItemContentEntries,
+  getBlueprintUnlockedRecipeTypeIds,
   getEntityContent,
   getItemContent,
 } from "@shared/content/catalog.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import {
+  getGameTypeEntry,
+  requireGameTypeEntry,
+} from "@server/registry/registries.ts";
 import { getItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { getPlayerSpawnPosition } from "@server/entities/playerSpawn.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -61,7 +65,7 @@ function isWeaponOrBlueprint(typeId: ResourceId): boolean {
   return (
     item.weapon !== undefined ||
     item.armor !== undefined ||
-    item.unlocksRecipeTypeId !== undefined
+    getBlueprintUnlockedRecipeTypeIds(typeId).length > 0
   );
 }
 
@@ -722,7 +726,7 @@ describe("procedural survival extraction world", () => {
     const repeatableArmorBlueprintTypeId = "blueprint:armor" as ResourceId;
     const allBlueprintTypeIds = getAllItemContentEntries()
       .filter(
-        ([, item]) => item.unlocksRecipeTypeId || item.unlocksRecipeTypeIds,
+        ([typeId]) => getBlueprintUnlockedRecipeTypeIds(typeId).length > 0,
       )
       .map(([typeId]) => typeId);
     const uniqueBlueprintTypeIds = allBlueprintTypeIds.filter(
@@ -784,8 +788,11 @@ describe("procedural survival extraction world", () => {
           if (!slot.typeId.startsWith("blueprint:")) {
             continue;
           }
+          const unlockedRecipeTypeId = getBlueprintUnlockedRecipeTypeIds(
+            slot.typeId,
+          )[0];
           const unlockedRarity = getItemContent(
-            getItemContent(slot.typeId)?.unlocksRecipeTypeId as ResourceId,
+            unlockedRecipeTypeId as ResourceId,
           )?.rarityTier;
           if (unlockedRarity === "rare") {
             dungeonRareBlueprintCount += 1;
@@ -1317,7 +1324,7 @@ describe("procedural survival extraction world", () => {
         ...sector.buildings,
         ...sector.enemies,
       ]) {
-        expect(entityTypeRegistry.get(spec.typeId)).toBeDefined();
+        expect(getGameTypeEntry(spec.typeId, "entity")).toBeDefined();
       }
       for (const loot of sector.loot) {
         expect(getItemLikeTypeEntry(loot.typeId)).toBeDefined();
@@ -2008,7 +2015,7 @@ function isProceduralStaticBlocker(entity: Entity): boolean {
   if (entity.collisionMode === "none") {
     return false;
   }
-  const kind = entityTypeRegistry.require(entity.typeId).kind;
+  const kind = requireGameTypeEntry(entity.typeId, "entity").kind;
   return kind === "structure" || kind === "building" || kind === "tower";
 }
 

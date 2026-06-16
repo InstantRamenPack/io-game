@@ -6,8 +6,7 @@
   "scripts": {
     "build:client": "vite build --config apps/client/vite.config.ts",
     "dev:client": "vite --config apps/client/vite.config.ts",
-    "prepare:generated": "bun run generate:content-manifest && bun run generate:fast-input-parser",
-    "generate:fast-input-parser": "bun run scripts/generate-fast-input-parser.ts",
+    "prepare:generated": "bun run generate:content-manifest",
     "balance": "bun run scripts/balance.ts",
     "dev": "bun run prepare:generated && bun run scripts/dev.ts",
     "generate:content-manifest": "bun run scripts/generate-content-manifest.ts",

@@ -13,7 +13,7 @@ const DAMAGEABLE_HOME_TOWER_TYPE_IDS = new Set<ResourceId>([
 ]);
 import { ResourceIdSchema } from "@shared/validation/schemas.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
 import type { World } from "@server/world/World.ts";
@@ -97,7 +97,7 @@ z.object({
 });
 type StaticSpawn = z.infer<typeof StaticSpawnSchema>;
 function spawnMapEntity(world: World, spec: StaticSpawn): Entity {
-  const entry = entityTypeRegistry.require(spec.typeId);
+  const entry = requireGameTypeEntry(spec.typeId, "entity");
   if (!isSpawnableEntityCtor(entry.ctor)) {
     throw new Error(`Map spawn type ${spec.typeId} is not spawnable.`);
   }
@@ -184,7 +184,7 @@ function spawnProceduralLootCrate(
   world: World,
   spec: ProceduralLootSpec,
 ): void {
-  const entry = entityTypeRegistry.require("structure:crate" as ResourceId);
+  const entry = requireGameTypeEntry("structure:crate" as ResourceId, "entity");
   if (!isSpawnableEntityCtor(entry.ctor)) {
     throw new Error("Procedural loot crate type is not spawnable.");
   }
@@ -211,7 +211,7 @@ function wouldOverlapExistingStructureOrBuilding(
     if (candidate.id === entity.id) {
       continue;
     }
-    const candidateKind = entityTypeRegistry.require(candidate.typeId).kind;
+    const candidateKind = requireGameTypeEntry(candidate.typeId, "entity").kind;
     if (
       candidateKind !== "structure" &&
       candidateKind !== "building" &&

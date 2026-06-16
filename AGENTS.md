@@ -97,7 +97,7 @@ These rules apply to every task in this repo unless the user explicitly override
 - Prefer reusing standard base weapons for enemies and tuning per-enemy damage via `combat.damageMultiplier` in enemy content JSON instead of creating enemy-specific item variants.
 - Blueprint world pickups require explicit interact (E) with UI showing which recipe unlocks; do not auto-pickup blueprints on contact.
 - When referring to world-gen “legendary bosses,” select by `rarityTier: "legendary"` rather than hardcoding a specific enemy id.
-- Enemies should target players and buildings with equal priority; do not make chests structures that draw enemy aggro.
+- Enemies prefer a visible in-range player before falling back to a nearer building; loot crates use combat team `enemy` (player-breakable) and must not draw enemy aggro.
 - Wave enemies use finite aggro (not infinite) and spawn near map center so buildings draw aggro when players stay distant.
 - Night ends only when all wave enemies are killed.
 - At night, and when electricity or lights are down, enemies fight at full range and speed with day-time combat nerfs removed.
@@ -119,5 +119,5 @@ These rules apply to every task in this repo unless the user explicitly override
 - At dawn after night, `refreshLayoutEnemies` keeps surviving regular layout enemies and repopulates half of vacant/killed spawn points only; procedural crates do not respawn (finite per match).
 - Sixteen blueprints exist (one per rare/epic craft unlock including cannon); `basic_gun`, `armor_t1`, and `carbine` were removed. Placement is deterministic in `procedural-blueprints.json` `blueprintPlacement` (editable via `bun run balance`): each blueprint once, village tier slots, extraction epic, dungeon 2 rare + 1 epic; each village has one blueprint plus at least one craft; procedural crates hold exactly one loot stack (`crateRules.itemsPerCrate` / `normalizeCrateLootSpec`).
 - `PickupSystem` does not spawn ambient ground pickups; world `ItemEntity` bags come only from player drops, enemy death loot, crate destruction, and world-gen loot specs at match load (removed post-worldgen random spawning and `pickups.json`).
-- Tree lights-out circle blocker radius is owned by `structure/tree.json` `capabilities.visibilityBlocker`; keep it aligned with the Pixi canopy via `packages/shared/src/content/structure/treeVisual.ts`.
-- Dungeon room decor is authored per role in `procedural-dungeon.json` `dungeonRoomContent` (treasure, armory, boss, etc.), not shared decor renderer bases; tripwire and breakable loot crates are `structure:tripwire` / `structure:crate` (not enemy ids).
+- Combat damage uses three teams (`player`/`enemy`/`environment`) via `Entity.getCombatTeam()` and `canTeamDamage()` (`packages/shared/src/combat/CombatTeam.ts`): Player may damage Player or Enemy; Enemy and Environment may damage Player only; `Building`/`Tower` → player, `CrateStructure` → enemy, other destructible structures → environment.
+- `bun run benchmark:optimization` builds a full procedural match, multiplies every layout enemy 5× (including legendary bosses), and simulates nine fake clients at sector centers for realistic server load.

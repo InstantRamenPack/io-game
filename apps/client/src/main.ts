@@ -7,7 +7,6 @@ import { createDeathController } from "@client/app/DeathController.ts";
 import { createGameOverController } from "@client/app/GameOverController.ts";
 import { createLaunchController } from "@client/app/LaunchController.ts";
 import { createLobbyHudController } from "@client/app/LobbyHudController.ts";
-import { createMenuController } from "@client/app/MenuController.ts";
 import { createSessionUiController } from "@client/app/session/SessionUiController.ts";
 import {
   hydratePlayerNameInput,
@@ -83,15 +82,10 @@ const deathController = createDeathController({
   gameClient,
   sessionUiController,
 });
-const menuController = createMenuController({
-  elements,
-  sessionUiController,
-});
 const launchController = createLaunchController({
   elements,
   gameClient,
   gameConfig,
-  menuController,
   sessionUiController,
   hudController,
   chatController,

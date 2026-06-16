@@ -29,5 +29,11 @@
       "item:shotgun"
     ]
   },
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#344c8a"
+    }
+  }
 }

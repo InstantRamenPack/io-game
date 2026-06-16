@@ -2,6 +2,12 @@
   "label": "Command Post",
   "maxHp": 0,
   "collisionMode": "static",
+  "runtime": {
+    "renderer": {
+      "symbol": "HouseRenderer",
+      "importPath": "apps/client/src/render/entity/structure/HouseRenderer.ts"
+    }
+  },
   "hitboxProfiles": {
     "default": [
       {

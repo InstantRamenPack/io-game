@@ -222,6 +222,7 @@ export class Interpolator {
       const sample = entity.samplePosition(
         sampleTick,
         isProjectileExtrapolation ? Infinity : this.maxExtrapolationTicks,
+        isProjectileExtrapolation ? undefined : world.tick,
       );
       if (!sample) {
         entity.updatePosition(entity.serverX, entity.serverY);
@@ -462,7 +463,11 @@ export class Interpolator {
         : world?.entities.get(focusEntityId);
     const sample =
       localPlayer && renderTick !== null
-        ? localPlayer.samplePosition(renderTick, this.maxExtrapolationTicks)
+        ? localPlayer.samplePosition(
+            renderTick,
+            this.maxExtrapolationTicks,
+            world?.tick,
+          )
         : null;
     const snapshotStats = worldState.getSnapshotReceiveStats();
     const frame: InterpolationDebugFrame = {

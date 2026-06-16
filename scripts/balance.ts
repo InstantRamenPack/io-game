@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { RARITY_TIERS } from "@shared/content/schema.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -129,13 +130,7 @@ const jsonEditableRoots = [
   "packages/shared/src/content",
 ] as const;
 const jsonEditableFiles = [...proceduralContentPaths] as const;
-const rarityTiers = [
-  "common",
-  "uncommon",
-  "rare",
-  "epic",
-  "legendary",
-] as const;
+const rarityTiers = RARITY_TIERS;
 
 const weaponFieldSpecs = [
   {
@@ -1740,6 +1735,7 @@ function knownIdsForTypeId(
 
 async function balancePayload(): Promise<JsonObject> {
   return {
+    rarityTiers,
     rows: await loadBalanceRows(),
     renderingRows: await loadItemRenderingRows(),
     ammoRows: await loadAmmoBalanceRows(),

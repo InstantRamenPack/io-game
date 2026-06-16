@@ -1,4 +1,4 @@
-import { Enemy } from "@server/entities/Enemy.ts";
+import { createEnemySpawnWeapons, Enemy } from "@server/entities/Enemy.ts";
 import { AttackAtGoal } from "@server/goals/builtin/AttackAtGoal.ts";
 import { createCombatTargetGoals } from "@server/goals/builtin/combatTargetGoals.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
@@ -6,22 +6,13 @@ import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { RangedAttackGoal } from "@server/goals/builtin/RangedAttackGoal.ts";
 import { RocketAttackGoal } from "@server/goals/builtin/RocketAttackGoal.ts";
 import { SprayAttackGoal } from "@server/goals/builtin/SprayAttackGoal.ts";
-import { ThanosFist } from "@server/items/weapons/ThanosFist.ts";
-import { ThanosMachineGun } from "@server/items/weapons/ThanosMachineGun.ts";
-import { ThanosRifle } from "@server/items/weapons/ThanosRifle.ts";
-import { ThanosRocketLauncher } from "@server/items/weapons/ThanosRocketLauncher.ts";
 
 export class Thanos extends Enemy {
   public static override readonly resourceName = "thanos";
 
   constructor(id: number) {
     super(id, {
-      weapons: [
-        new ThanosFist(), // slot 0 — melee
-        new ThanosRifle(), // slot 1 — rifle
-        new ThanosRocketLauncher(), // slot 2 — rocket launcher
-        new ThanosMachineGun(), // slot 3 — machine gun spray
-      ],
+      weapons: createEnemySpawnWeapons(Thanos.typeId, 0).weapons,
       goals: [
         ...createCombatTargetGoals(0, 1470),
         new LookAtTargetGoal<Enemy>(1),

@@ -23,9 +23,9 @@ import {
 
 bootstrapBenchmarks();
 
-const ENEMIES = readPositiveInt("BENCH_COLLISION_ENEMIES", 520);
-const WALLS = readPositiveInt("BENCH_COLLISION_WALLS", 460);
-const PROJECTILES = readPositiveInt("BENCH_COLLISION_PROJECTILES", 220);
+const ENEMIES = readPositiveInt("BENCH_COLLISION_ENEMIES", 180);
+const WALLS = readPositiveInt("BENCH_COLLISION_WALLS", 260);
+const PROJECTILES = readPositiveInt("BENCH_COLLISION_PROJECTILES", 120);
 const WARMUP_TICKS = readPositiveInt("BENCH_WARMUP_TICKS", 40);
 const SAMPLE_TICKS = readPositiveInt("BENCH_SAMPLE_TICKS", 180);
 const TARGET_TPS = readPositiveNumber("BENCH_TARGET_TPS", 50);

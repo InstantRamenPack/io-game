@@ -2,6 +2,12 @@
   "label": "Dungeon Wall",
   "maxHp": 0,
   "collisionMode": "static",
+  "runtime": {
+    "renderer": {
+      "symbol": "WallRenderer",
+      "importPath": "apps/client/src/render/entity/building/WallRenderer.ts"
+    }
+  },
   "hitboxProfiles": {
     "default": [
       {

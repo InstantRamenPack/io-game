@@ -2,6 +2,12 @@
   "label": "Fence",
   "maxHp": 0,
   "collisionMode": "static",
+  "runtime": {
+    "renderer": {
+      "symbol": "FenceRenderer",
+      "importPath": "apps/client/src/render/entity/structure/FenceRenderer.ts"
+    }
+  },
   "hitboxProfiles": {
     "default": [
       {

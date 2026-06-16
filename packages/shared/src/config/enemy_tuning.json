@@ -4,5 +4,7 @@
   "rangedWeaponCooldownMultiplier": 6,
   "weaponAttackRangeMultiplier": 0.5,
   "nightRangedWeaponCooldownMultiplier": 3,
-  "nightWeaponAttackRangeMultiplier": 0.75
+  "nightWeaponAttackRangeMultiplier": 0.75,
+  "goalLodDistance": 1200,
+  "goalLodTickInterval": 4
 }

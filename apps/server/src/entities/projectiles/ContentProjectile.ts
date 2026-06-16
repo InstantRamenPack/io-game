@@ -4,7 +4,7 @@ import {
   type ProjectileDefinition,
   type ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
-import type { ResourceId } from "@shared/ids/ResourceId.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import type { RegistrableProjectileCtor } from "@server/registry/registries.ts";
 
 const contentProjectileCtorCache = new Map<string, RegistrableProjectileCtor>();
@@ -20,8 +20,8 @@ export class ContentProjectile extends Projectile {
 
 export function createContentProjectileCtor(
   resourceName: string,
-  typeId: ResourceId,
 ): RegistrableProjectileCtor {
+  const typeId = makeResourceId("projectile", resourceName);
   const cached = contentProjectileCtorCache.get(typeId);
   if (cached) {
     return cached;

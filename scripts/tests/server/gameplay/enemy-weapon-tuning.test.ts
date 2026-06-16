@@ -3,7 +3,8 @@ import type { Enemy } from "@server/entities/Enemy.ts";
 import type { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Projectile } from "@server/entities/Projectile.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
-import { BasicGun } from "@server/items/weapons/BasicGun.ts";
+import { RangedWeapon } from "@server/items/RangedWeapon.ts";
+import { requireItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
 import {
   requireProjectileContent,
   requireWeaponContent,
@@ -17,6 +18,14 @@ import {
   spawnWall,
   tick,
 } from "@tests/helpers/worldFixtures.ts";
+
+function createBasicGun(): RangedWeapon {
+  const item = new (requireItemLikeTypeEntry("item:basic_gun").ctor)();
+  if (item instanceof RangedWeapon) {
+    return item;
+  }
+  throw new Error("expected item:basic_gun to resolve to a ranged weapon");
+}
 
 describe("enemy weapon tuning", () => {
   beforeAll(bootstrapTestRegistries);
@@ -40,7 +49,7 @@ describe("enemy weapon tuning", () => {
 
     expect(rifleContent.spreadDeg).toBeGreaterThan(0);
 
-    const gun = new BasicGun();
+    const gun = createBasicGun();
     expect(gun.hit(runtime.world, player, 0)).toBe(true);
 
     const projectile = runtime.world.entities

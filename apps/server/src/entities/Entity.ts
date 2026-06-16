@@ -1,3 +1,4 @@
+import { canTeamDamage, type CombatTeam } from "@shared/combat/CombatTeam.ts";
 import type { CollisionMode, EntityKind } from "@shared/content/schema.ts";
 import type {
   HitboxBounds,
@@ -9,7 +10,7 @@ import type { NetEvent } from "@shared/net/events.ts";
 import type { EntitySnapshotBase } from "@shared/net/snapshots.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { World } from "@server/world/World.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import {
   CompositeHitbox,
   type HitboxProfiles,
@@ -113,7 +114,7 @@ export abstract class Entity {
   public toSnapshot(): EntitySnapshotBase {
     return {
       id: this.id,
-      kind: entityTypeRegistry.require(this.typeId).kind,
+      kind: requireGameTypeEntry(this.typeId, "entity").kind,
       typeId: this.typeId,
       x: this.x,
       y: this.y,
@@ -236,6 +237,14 @@ export abstract class Entity {
 
   public applyDamage(world: World, amount: number, sourceId = 0): void {
     if (!Number.isFinite(amount) || amount <= 0 || !this.alive) {
+      return;
+    }
+
+    const attackerTeam = this.resolveAttackerTeam(world, sourceId);
+    if (
+      attackerTeam === null ||
+      !canTeamDamage(attackerTeam, this.getCombatTeam())
+    ) {
       return;
     }
 
@@ -367,6 +376,10 @@ export abstract class Entity {
    */
   public getCombatInstigator(_world: World): Entity | null {
     return this;
+  }
+
+  public getCombatTeam(): CombatTeam {
+    return "environment";
   }
 
   public getDamageReductionMultiplier(): number {
@@ -543,5 +556,22 @@ export abstract class Entity {
     amount: number,
   ): void {
     this.applyDamage(world, amount, sourceId);
+  }
+
+  private resolveAttackerTeam(
+    world: World,
+    sourceId: number,
+  ): CombatTeam | null {
+    if (sourceId === 0) {
+      return "environment";
+    }
+
+    const source = world.get(sourceId);
+    if (!source) {
+      return null;
+    }
+
+    const instigator = source.getCombatInstigator(world) ?? source;
+    return instigator.getCombatTeam();
   }
 }

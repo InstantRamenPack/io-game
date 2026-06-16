@@ -2,7 +2,6 @@ import type { AppElements } from "@client/app/AppElements.ts";
 import type { HudController } from "@client/app/HudController.ts";
 import type { LobbyHudController } from "@client/app/LobbyHudController.ts";
 import type { ChatController } from "@client/app/ChatController.ts";
-import type { MenuController } from "@client/app/MenuController.ts";
 import type { SessionUiController } from "@client/app/session/SessionUiController.ts";
 import type { GameClient } from "@client/client/GameClient.ts";
 import type { ClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
@@ -16,7 +15,6 @@ type LaunchControllerOptions = {
   elements: AppElements;
   gameClient: GameClient;
   gameConfig: GameConfig;
-  menuController: MenuController;
   sessionUiController: SessionUiController;
   hudController: HudController;
   chatController: ChatController;
@@ -28,7 +26,6 @@ export function createLaunchController({
   elements,
   gameClient,
   gameConfig,
-  menuController,
   sessionUiController,
   hudController,
   chatController,
@@ -36,17 +33,11 @@ export function createLaunchController({
   resolvePlayerName,
 }: LaunchControllerOptions): LaunchController {
   function clearNameError(): void {
-    if (!elements.playerNameError) {
-      return;
-    }
     elements.playerNameError.hidden = true;
     elements.playerNameError.textContent = "";
   }
 
   function showNameError(message: string): void {
-    if (!elements.playerNameError) {
-      return;
-    }
     elements.playerNameError.hidden = false;
     elements.playerNameError.textContent = message;
   }
@@ -55,35 +46,29 @@ export function createLaunchController({
     chatController.setVisible(connected);
     lobbyHudController.setVisible(connected);
 
-    if (elements.launchBtn) {
-      const button = elements.launchBtn as HTMLButtonElement;
-      button.textContent = connected ? "Connected" : "Play";
-      button.disabled = connected;
-    }
+    elements.launchBtn.textContent = connected ? "Connected" : "Play";
+    elements.launchBtn.disabled = connected;
   }
 
   function enterSessionUi(): void {
     applyGameplayShellState(true);
-    menuController.showGameScreen();
+    sessionUiController.showPlaying();
     hudController.refreshUi();
   }
 
   function exitSessionUi(options: { connectionErrorMessage?: string }): void {
     hudController.reset();
     applyGameplayShellState(false);
-    menuController.showMenuScreen();
+    sessionUiController.showMenu();
     if (options.connectionErrorMessage) {
       console.error(options.connectionErrorMessage);
     }
     hudController.refreshUi();
   }
 
-  elements.launchBtn?.addEventListener("click", () => {
+  elements.launchBtn.addEventListener("click", () => {
     clearNameError();
-    if (
-      elements.playerNameInput &&
-      !elements.playerNameInput.reportValidity()
-    ) {
+    if (!elements.playerNameInput.reportValidity()) {
       return;
     }
 
@@ -93,19 +78,13 @@ export function createLaunchController({
       return;
     }
 
-    const button = elements.launchBtn as HTMLButtonElement;
+    const button = elements.launchBtn;
     button.textContent = "Connecting...";
     button.disabled = true;
     sessionUiController.showConnecting();
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-
-    if (!elements.gameRoot) {
-      button.textContent = "Play";
-      button.disabled = false;
-      return;
-    }
 
     void gameClient
       .initRenderer(elements.gameRoot)

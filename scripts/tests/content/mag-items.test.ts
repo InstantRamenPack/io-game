@@ -138,9 +138,10 @@ describe("mag item content", () => {
 
   test("generated prep runs the single content manifest generator", () => {
     expect(packageJson.scripts?.["prepare:generated"]).toBe(
-      "bun run generate:content-manifest && bun run generate:fast-input-parser",
+      "bun run generate:content-manifest",
     );
     expect(packageJson.scripts?.["generate:mag-items"]).toBeUndefined();
+    expect(packageJson.scripts?.["generate:fast-input-parser"]).toBeUndefined();
     expect(packageJson.scripts?.postinstall).toContain("prepare:generated");
   });
 });

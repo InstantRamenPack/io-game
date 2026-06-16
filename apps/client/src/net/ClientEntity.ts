@@ -209,6 +209,7 @@ export class ClientEntity {
   public samplePosition(
     renderTick: number,
     maxExtrapolationTicks: number,
+    stableUntilTick = Number.NEGATIVE_INFINITY,
   ): EntityPositionSample | null {
     const latestFrame =
       this.serverFrameHistory[this.serverFrameHistory.length - 1];
@@ -272,6 +273,13 @@ export class ClientEntity {
       };
     }
 
+    if (renderTick > latestFrame.tick && renderTick <= stableUntilTick) {
+      return {
+        mode: "hold",
+        frame: latestFrame,
+      };
+    }
+
     if (renderTick > latestFrame.tick) {
       return {
         mode: "extrapolate",
@@ -292,19 +300,6 @@ export class ClientEntity {
 
   public getServerFrameHistoryLength(): number {
     return this.serverFrameHistory.length;
-  }
-
-  public pushServerHoldFrame(tick: number): void {
-    this.pushServerFrame(
-      {
-        x: this.serverX,
-        y: this.serverY,
-        vx: this.vx,
-        vy: this.vy,
-        rotation: this.rotation,
-      },
-      tick,
-    );
   }
 
   private applyKindSpecificFields(

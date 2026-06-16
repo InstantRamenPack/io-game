@@ -11,11 +11,7 @@ import { Structure } from "@server/entities/Structure.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import {
-  blueprintTypeRegistry,
-  effectTypeRegistry,
-  entityTypeRegistry,
-  itemTypeRegistry,
-  magTypeRegistry,
+  gameTypeEntries,
   type EntityTypeEntry,
 } from "@server/registry/registries.ts";
 import type { ItemLikeTypeEntry } from "@server/registry/itemLikeRegistry.ts";
@@ -140,7 +136,7 @@ export class ChatContext {
     ctor: new () => Effect;
   } | null {
     const normalized = this.normalizeEntityKey(effectToken);
-    for (const [typeId, entry] of effectTypeRegistry.entries()) {
+    for (const [typeId, entry] of gameTypeEntries("effect")) {
       const candidateKeys = new Set<string>();
       candidateKeys.add(this.normalizeEntityKey(typeId));
       candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));
@@ -158,9 +154,9 @@ export class ChatContext {
   public resolveItemEntry(itemToken: string): ItemLikeTypeEntry | null {
     const normalized = this.normalizeEntityKey(itemToken);
     const itemLikeEntries = [
-      ...itemTypeRegistry.entries(),
-      ...magTypeRegistry.entries(),
-      ...blueprintTypeRegistry.entries(),
+      ...gameTypeEntries("item"),
+      ...gameTypeEntries("mag"),
+      ...gameTypeEntries("blueprint"),
     ];
     for (const [typeId, entry] of itemLikeEntries) {
       if (entry.content.hidden) {
@@ -183,7 +179,7 @@ export class ChatContext {
 
   public resolveEntityEntry(entityToken: string): EntityTypeEntry | null {
     const normalized = this.normalizeEntityKey(entityToken);
-    for (const [typeId, entry] of entityTypeRegistry.entries()) {
+    for (const [typeId, entry] of gameTypeEntries("entity")) {
       const candidateKeys = new Set<string>();
       candidateKeys.add(this.normalizeEntityKey(typeId));
       candidateKeys.add(this.normalizeEntityKey(typeId.split(":")[1] ?? ""));

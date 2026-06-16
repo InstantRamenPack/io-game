@@ -7,11 +7,13 @@ import { Wither } from "@server/entities/enemies/Wither.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Fists } from "@server/items/weapons/Fists.ts";
+import { getEntityContent } from "@shared/content/catalog.ts";
 import deathLootConfig from "@shared/content/death_loot.json";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
   bootstrapTestRegistries,
   makeRuntime,
+  playerDamageSourceId,
   spawnPlayerLikeDynamic,
   tick,
 } from "@tests/helpers/worldFixtures.ts";
@@ -26,7 +28,11 @@ describe("dungeon runtime mechanics", () => {
     enemy.y = runtime.world.gameConfig.worldSize.h / 2;
     runtime.world.spawn(enemy);
 
-    enemy.applyDamage(runtime.world, enemy.maxHp * 4, 0);
+    enemy.applyDamage(
+      runtime.world,
+      enemy.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
     const hunkCount = pickup.contents.countType("item:hunk" as ResourceId);
@@ -65,8 +71,16 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(secondEnemy);
     const deadEnemyIds = new Set([firstEnemy.id, secondEnemy.id]);
 
-    firstEnemy.applyDamage(runtime.world, firstEnemy.maxHp * 4, 0);
-    secondEnemy.applyDamage(runtime.world, secondEnemy.maxHp * 4, 0);
+    firstEnemy.applyDamage(
+      runtime.world,
+      firstEnemy.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
+    secondEnemy.applyDamage(
+      runtime.world,
+      secondEnemy.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickups = runtime.world.entities
       .all()
@@ -84,7 +98,11 @@ describe("dungeon runtime mechanics", () => {
     thanos.y = runtime.world.gameConfig.worldSize.h / 2;
     runtime.world.spawn(thanos);
 
-    thanos.applyDamage(runtime.world, thanos.maxHp, 0);
+    thanos.applyDamage(
+      runtime.world,
+      thanos.maxHp,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, thanos.x, thanos.y);
     const dropCount =
@@ -101,10 +119,21 @@ describe("dungeon runtime mechanics", () => {
     wither.y = runtime.world.gameConfig.worldSize.h / 2;
     runtime.world.spawn(wither);
 
-    wither.applyDamage(runtime.world, wither.maxHp, 0);
+    wither.applyDamage(
+      runtime.world,
+      wither.maxHp,
+      playerDamageSourceId(runtime),
+    );
 
+    const fixedHunks = getEntityContent("enemy:wither" as ResourceId)?.deathLoot
+      ?.fixedHunks;
+    if (fixedHunks === undefined) {
+      throw new Error("expected Wither fixed hunk loot content");
+    }
     const pickup = findPickupAt(runtime, wither.x, wither.y);
-    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(1000);
+    expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(
+      fixedHunks,
+    );
     expect(pickup.contents.countType("item:streaker" as ResourceId)).toBe(0);
     expect(pickup.contents.countType("mag:streaker" as ResourceId)).toBe(0);
   });
@@ -185,7 +214,7 @@ describe("dungeon runtime mechanics", () => {
     runtime.world.spawn(crate);
 
     expect(crate.typeId).toBe("structure:crate");
-    crate.applyDamage(runtime.world, 1, 0);
+    crate.applyDamage(runtime.world, 1, playerDamageSourceId(runtime));
     expect(crate.alive).toBe(false);
     expect(runtime.world.entities.has(crate.id)).toBe(false);
     const pickup = findPickupAt(runtime, crate.x, crate.y);
@@ -255,7 +284,11 @@ function simulateWaveAndFirstDeathDrop(seed: number): {
   if (!(waveEnemy instanceof Shoota)) {
     throw new Error("expected first wave shoota spawn");
   }
-  waveEnemy.applyDamage(runtime.world, waveEnemy.maxHp * 4, 0);
+  waveEnemy.applyDamage(
+    runtime.world,
+    waveEnemy.maxHp * 4,
+    playerDamageSourceId(runtime),
+  );
   const pickup = findPickupAt(runtime, waveEnemy.x, waveEnemy.y);
   return {
     firstWaveEnemyX: waveEnemy.x,

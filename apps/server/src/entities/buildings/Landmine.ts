@@ -1,7 +1,6 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
 import { getEntityContent } from "@shared/content/catalog.ts";
 import { Building } from "@server/entities/Building.ts";
-import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { LandmineExplosionAreaEffect } from "@server/effects/area/LandmineExplosionAreaEffect.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -12,6 +11,7 @@ const DEFAULT_TRIGGER_RADIUS = 28;
 export class Landmine extends Building {
   public static override readonly resourceName = "landmine";
   private readonly triggerRadius: number;
+  private readonly triggerQueryBuffer: Entity[] = [];
 
   constructor(id: number, tier = 1, ownerId?: number) {
     super(id, tier, ownerId);
@@ -40,8 +40,9 @@ export class Landmine extends Building {
       this.y - this.triggerRadius,
       this.x + this.triggerRadius,
       this.y + this.triggerRadius,
+      this.triggerQueryBuffer,
     )) {
-      if (!(candidate instanceof Enemy) || !candidate.alive) {
+      if (candidate.getCombatTeam() !== "enemy" || !candidate.alive) {
         continue;
       }
 

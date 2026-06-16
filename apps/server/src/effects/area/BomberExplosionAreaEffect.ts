@@ -1,5 +1,4 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
 import { ExplosionAreaEffect } from "@server/effects/area/ExplosionAreaEffect.ts";
 import type { RadialAreaEffectHitContext } from "@server/effects/area/RadialAreaEffect.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
@@ -22,11 +21,7 @@ export class BomberExplosionAreaEffect extends ExplosionAreaEffect {
     source: Entity,
     target: Entity,
   ): boolean {
-    return (
-      target.alive &&
-      target instanceof Player &&
-      DamageEffect.canApply(world, source, target)
-    );
+    return target.alive && DamageEffect.canApply(world, source, target);
   }
 
   /**

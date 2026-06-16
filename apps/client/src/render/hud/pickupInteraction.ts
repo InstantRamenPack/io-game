@@ -1,5 +1,5 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import { getItemContent } from "@shared/content/catalog.ts";
+import { getBlueprintUnlockedRecipeTypeIds } from "@shared/content/catalog.ts";
 import { getResourceNamespace, isResourceId } from "@shared/ids/ResourceId.ts";
 
 export function isPlayerNearPickup(
@@ -71,10 +71,9 @@ function formatBlueprintPickupLabel(
     return formatTypeLabel(typeId);
   }
 
-  const blueprintContent = getItemContent(typeId);
-  const recipeTypeId = blueprintContent?.unlocksRecipeTypeId;
-  if (recipeTypeId) {
-    return `blueprint for ${formatTypeLabel(recipeTypeId)}`;
+  const recipeTypeIds = getBlueprintUnlockedRecipeTypeIds(typeId);
+  if (recipeTypeIds.length > 0) {
+    return `blueprint for ${recipeTypeIds.map(formatTypeLabel).join(", ")}`;
   }
 
   return formatTypeLabel(typeId);

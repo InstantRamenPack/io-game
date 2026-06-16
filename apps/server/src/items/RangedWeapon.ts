@@ -6,7 +6,7 @@ import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import {
-  entityTypeRegistry,
+  requireGameTypeEntry,
   type RegistrableProjectileCtor,
 } from "@server/registry/registries.ts";
 import type { ProjectileSpawnConfig } from "@server/entities/Projectile.ts";
@@ -237,7 +237,10 @@ export class RangedWeapon extends Weapon {
   }
 
   protected resolveProjectileType(): RegistrableProjectileCtor {
-    const projectileEntry = entityTypeRegistry.require(this.projectileTypeId);
+    const projectileEntry = requireGameTypeEntry(
+      this.projectileTypeId,
+      "entity",
+    );
     if (projectileEntry.kind !== "projectile") {
       throw new Error(
         `Expected projectile entity type for ${this.projectileTypeId}.`,

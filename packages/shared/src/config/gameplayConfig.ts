@@ -7,6 +7,7 @@ import {
   PositiveFiniteNumberSchema,
   PositiveIntSchema,
 } from "@shared/validation/schemas.ts";
+import { RarityTierSchema } from "@shared/content/schema.ts";
 import runtimeRaw from "./runtime.json";
 import interactionsRaw from "./interactions.json";
 import recyclingRaw from "./recycling.json";
@@ -116,16 +117,7 @@ const InteractionsConfigSchema = z.object({
   recyclerInteractPadding: NonNegativeFiniteNumberSchema,
   towerInteractPadding: NonNegativeFiniteNumberSchema,
   interactHoldDurationMs: PositiveIntSchema,
-  towerRepairHpPerCostUnit: PositiveFiniteNumberSchema,
 });
-
-const RarityTierSchema = z.enum([
-  "common",
-  "uncommon",
-  "rare",
-  "epic",
-  "legendary",
-]);
 
 const RarityRangeSchema = z.tuple([NonNegativeIntSchema, NonNegativeIntSchema]);
 
@@ -152,6 +144,8 @@ const EnemyTuningConfigSchema = z.object({
   weaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
   nightRangedWeaponCooldownMultiplier: PositiveFiniteNumberSchema,
   nightWeaponAttackRangeMultiplier: PositiveFiniteNumberSchema,
+  goalLodDistance: NonNegativeFiniteNumberSchema,
+  goalLodTickInterval: PositiveIntSchema.max(8),
 });
 
 const ExtractionConfigSchema = z.object({

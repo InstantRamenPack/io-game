@@ -1,3 +1,8 @@
+import {
+  MAX_PLAYER_NAME_LENGTH,
+  normalizePlayerName,
+} from "@shared/playerName.ts";
+
 const PLAYER_NAME_STORAGE_KEY = "zombs-player-name";
 
 /**
@@ -17,6 +22,7 @@ export function hydratePlayerNameInput(input: HTMLInputElement | null): void {
     return;
   }
 
+  input.maxLength = MAX_PLAYER_NAME_LENGTH;
   input.value = loadInitialPlayerName();
 }
 
@@ -25,8 +31,7 @@ export function hydratePlayerNameInput(input: HTMLInputElement | null): void {
  * local storage, and mirrors the normalized result back into the input element.
  */
 export function resolvePlayerName(input: HTMLInputElement | null): string {
-  const rawPlayerName = input?.value ?? "";
-  const nextPlayerName = rawPlayerName.trim();
+  const nextPlayerName = normalizePlayerName(input?.value, "");
   if (nextPlayerName) {
     window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, nextPlayerName);
   }

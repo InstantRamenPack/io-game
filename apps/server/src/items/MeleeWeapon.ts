@@ -13,6 +13,7 @@ import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { requireWeaponContent } from "@shared/content/catalog.ts";
 import type { AttackStyle } from "@shared/content/schema.ts";
+import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 
 type MeleeAim = {
   directionX: number;
@@ -40,6 +41,10 @@ export abstract class MeleeWeapon extends Weapon {
   public range: number;
   public hitEffects: Effect[];
   private baselineRange: number;
+  private readonly staticQueryBuffer: StaticGeometryBlocker[] = [];
+  private readonly entityQueryBuffer: Entity[] = [];
+  private readonly targetBuffer: AttackHitCandidate[] = [];
+  private readonly resolvedTargetBuffer: Entity[] = [];
 
   protected constructor(
     cooldownTicks: number,
@@ -182,7 +187,8 @@ export abstract class MeleeWeapon extends Weapon {
   ): Entity[] {
     const bounds = this.getAttackQueryBounds(owner, aim);
     const attackReach = this.getAttackReach(owner, aim);
-    const targets: AttackHitCandidate[] = [];
+    const targets = this.targetBuffer;
+    targets.length = 0;
     let nearestBlockerDistance: number | null = null;
 
     for (const blocker of world.staticGeometry.queryBox(
@@ -190,6 +196,8 @@ export abstract class MeleeWeapon extends Weapon {
       bounds.minY,
       bounds.maxX,
       bounds.maxY,
+      this.staticQueryBuffer,
+      false,
     )) {
       const entryDistance = getBlockerRayEntryDistance(
         blocker,
@@ -214,6 +222,7 @@ export abstract class MeleeWeapon extends Weapon {
       bounds.minY,
       bounds.maxX,
       bounds.maxY,
+      this.entityQueryBuffer,
     )) {
       if (!this.isTargetInAttackShape(owner, entity, aim)) {
         continue;
@@ -260,12 +269,16 @@ export abstract class MeleeWeapon extends Weapon {
         ? null
         : nearestBlockerDistance + COMBAT_OCCLUSION_EPSILON;
 
-    return targets
-      .filter(
-        (candidate) =>
-          maxVisibleDistance === null ||
-          candidate.entryDistance <= maxVisibleDistance,
-      )
-      .map((candidate) => candidate.target);
+    const resolvedTargets = this.resolvedTargetBuffer;
+    resolvedTargets.length = 0;
+    for (const candidate of targets) {
+      if (
+        maxVisibleDistance === null ||
+        candidate.entryDistance <= maxVisibleDistance
+      ) {
+        resolvedTargets.push(candidate.target);
+      }
+    }
+    return resolvedTargets;
   }
 }

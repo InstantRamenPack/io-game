@@ -22,6 +22,7 @@ export type RadialAreaEffectHitContext = {
  */
 export abstract class RadialAreaEffect extends AreaEffect {
   protected abstract readonly radius: number;
+  private readonly candidateBuffer: Entity[] = [];
 
   /**
    * Resolves nearby targets and applies radial hit logic at the provided origin.
@@ -47,6 +48,7 @@ export abstract class RadialAreaEffect extends AreaEffect {
       origin.y - this.radius,
       origin.x + this.radius,
       origin.y + this.radius,
+      this.candidateBuffer,
     );
     for (const target of candidates) {
       if (!this.isTargetEligible(world, source, target)) {

@@ -37,6 +37,20 @@ describe("enemy target line of sight", () => {
     expect(enemy.targetId).toBe(player.id);
   });
 
+  test("drifter prefers a visible player before falling back to a nearer building", () => {
+    const { runtime } = makeRuntime();
+    const player = spawnPlayerLikeDynamic(runtime, 6500, 500);
+    const hub = new Hub(runtime.world.allocEntityId());
+    hub.x = 6100;
+    hub.y = 500;
+    runtime.world.spawn(hub);
+    const enemy = spawnEnemy(runtime, "drifter", 6150, 500) as Enemy;
+
+    tick(runtime, 1);
+
+    expect(enemy.targetId).toBe(player.id);
+  });
+
   test("enemy prefers a visible player before falling back to a nearer building", () => {
     const { runtime } = makeRuntime();
     const player = spawnPlayerLikeDynamic(runtime, 6500, 500);

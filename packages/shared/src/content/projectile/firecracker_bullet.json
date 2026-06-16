@@ -16,5 +16,11 @@
       "projectileCount": 5,
       "arcDeg": 60
     }
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#435063"
+    }
   }
 }

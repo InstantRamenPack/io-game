@@ -3,7 +3,7 @@ import { GameConfig } from "@shared/config/GameConfig.ts";
 import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";

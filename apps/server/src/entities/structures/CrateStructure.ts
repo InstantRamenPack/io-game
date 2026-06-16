@@ -1,11 +1,16 @@
 import { DestructibleStructure } from "@server/entities/structures/DestructibleStructure.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
+import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
 import type { World } from "@server/world/World.ts";
 
 export class CrateStructure extends DestructibleStructure {
   public static override readonly resourceName = "crate";
   public readonly contents = new Inventory();
+
+  public override getCombatTeam(): CombatTeam {
+    return "enemy";
+  }
 
   public override handleDeath(world: World): void {
     this.alive = false;

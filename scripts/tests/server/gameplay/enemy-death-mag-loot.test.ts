@@ -12,6 +12,7 @@ import type seedrandom from "seedrandom";
 import {
   bootstrapTestRegistries,
   makeRuntime,
+  playerDamageSourceId,
 } from "@tests/helpers/worldFixtures.ts";
 import { makeTestRng } from "@tests/helpers/testRng.ts";
 
@@ -102,7 +103,11 @@ function estimateMagDropRate(
     enemy.x = 100 + (trial % 500);
     enemy.y = 200 + Math.floor(trial / 500);
     runtime.world.spawn(enemy);
-    enemy.applyDamage(runtime.world, enemy.maxHp * 4, 0);
+    enemy.applyDamage(
+      runtime.world,
+      enemy.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, enemy.x, enemy.y);
     if (pickupDroppedMag(pickup)) {
@@ -145,7 +150,11 @@ describe("enemy death mag loot", () => {
     shoota.x = 100;
     shoota.y = 100;
     runtime.world.spawn(shoota);
-    shoota.applyDamage(runtime.world, shoota.maxHp * 4, 0);
+    shoota.applyDamage(
+      runtime.world,
+      shoota.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, shoota.x, shoota.y);
     expect(pickup.contents.countType("mag:basic_gun" as ResourceId)).toBe(
@@ -167,7 +176,11 @@ describe("enemy death mag loot", () => {
     drifter.x = 200;
     drifter.y = 200;
     runtime.world.spawn(drifter);
-    drifter.applyDamage(runtime.world, drifter.maxHp * 4, 0);
+    drifter.applyDamage(
+      runtime.world,
+      drifter.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, drifter.x, drifter.y);
     expect(totalMagCount(pickup, MAG_TYPE_IDS)).toBe(0);
@@ -187,7 +200,11 @@ describe("enemy death mag loot", () => {
     shoota.x = 300;
     shoota.y = 300;
     runtime.world.spawn(shoota);
-    shoota.applyDamage(runtime.world, shoota.maxHp * 4, 0);
+    shoota.applyDamage(
+      runtime.world,
+      shoota.maxHp * 4,
+      playerDamageSourceId(runtime),
+    );
 
     const pickup = findPickupAt(runtime, shoota.x, shoota.y);
     expect(

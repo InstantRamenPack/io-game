@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { GameConfig } from "@shared/config/GameConfig.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { Player } from "@server/entities/Player.ts";
 import { World } from "@server/world/World.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";

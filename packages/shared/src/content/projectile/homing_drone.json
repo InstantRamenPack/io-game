@@ -14,5 +14,11 @@
     "presentation": {
       "serverDelayed": true
     }
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "trail",
+      "color": "#ff8c42"
+    }
   }
 }

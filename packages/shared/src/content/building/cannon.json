@@ -11,5 +11,15 @@
         "offsetY": 0
       }
     ]
+  },
+  "capabilities": {
+    "turretWeapon": {
+      "attackStyle": "shoot",
+      "cooldownTicks": 20,
+      "projectileTypeId": "projectile:cannon_bullet",
+      "magSize": 1,
+      "reloadTicks": 36,
+      "spreadDeg": 0
+    }
   }
 }

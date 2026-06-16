@@ -1,9 +1,6 @@
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
 import { getEntityCapabilities } from "@shared/content/catalog.ts";
-import {
-  TOWER_INTERACT_PADDING,
-  TOWER_REPAIR_HP_PER_COST_UNIT,
-} from "@shared/gameplay/constants.ts";
+import { TOWER_INTERACT_PADDING } from "@shared/gameplay/constants.ts";
 
 export function isTowerDamaged(tower: ClientEntity): boolean {
   return !tower.alive || tower.hp < tower.maxHp;
@@ -54,8 +51,9 @@ function isRepairableTower(tower: ClientEntity): boolean {
 }
 
 function getTowerRepairHpPerCostUnit(tower: ClientEntity): number {
-  return (
-    getEntityCapabilities(tower.typeId)?.repairable?.hpPerCostUnit ??
-    TOWER_REPAIR_HP_PER_COST_UNIT
-  );
+  const repairable = getEntityCapabilities(tower.typeId)?.repairable;
+  if (!repairable) {
+    throw new Error(`Missing repairable tower content for ${tower.typeId}.`);
+  }
+  return repairable.hpPerCostUnit;
 }

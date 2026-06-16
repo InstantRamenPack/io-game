@@ -21,13 +21,14 @@ export const CollisionModeSchema = z.enum(["none", "static", "dynamic"]);
 export type CollisionMode = z.infer<typeof CollisionModeSchema>;
 
 export const AttackStyleSchema = z.enum(["shoot", "swing", "jab"]);
-export const RarityTierSchema = z.enum([
+export const RARITY_TIERS = [
   "common",
   "uncommon",
   "rare",
   "epic",
   "legendary",
-]);
+] as const;
+export const RarityTierSchema = z.enum(RARITY_TIERS);
 
 export const ItemSpriteRenderingSchema = z.object({
   x: z.number().finite(),
@@ -191,6 +192,7 @@ export const EntityCapabilitiesContentSchema = z.object({
       hpPerCostUnit: z.number().finite().positive().default(50),
     })
     .optional(),
+  turretWeapon: ShootWeaponContentSchema.optional(),
   visibilityBlocker: VisibilityBlockerContentSchema.optional(),
 });
 
@@ -220,6 +222,8 @@ export const RuntimeServerClassKindSchema = z.enum([
   "custom",
 ]);
 
+export const RuntimeRendererKindSchema = z.enum(["circle", "trail"]);
+
 export const RuntimeRegistrationSchema = z
   .object({
     server: z
@@ -231,6 +235,11 @@ export const RuntimeRegistrationSchema = z
       .optional(),
     renderer: z
       .object({
+        kind: RuntimeRendererKindSchema.optional(),
+        color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/u)
+          .optional(),
         symbol: z.string().min(1).optional(),
         importPath: z.string().min(1).optional(),
       })
@@ -305,7 +314,7 @@ export const EntityContentSchema = z.object({
   rarityTier: RarityTierSchema.optional(),
   deathLoot: z
     .object({
-      // placeholder container for strict enemy death-loot presence
+      fixedHunks: z.number().int().nonnegative().optional(),
     })
     .optional(),
   spawnWeapons: EnemySpawnWeaponsContentSchema.optional(),

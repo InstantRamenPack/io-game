@@ -117,6 +117,10 @@ export class PixiHud {
   private hunkBadgeText?: PIXI.Text;
   private visible = false;
   private dirty = true;
+  private craftableCacheKey = "";
+  private cachedVisibleCraftableTypeIds: readonly ResourceId[] = [];
+  private craftingTabsCacheKey = "";
+  private cachedCraftingTabs: CraftingModalTab[] = [];
   private recycleDropHovered = false;
   private lastLayoutWidth = 0;
   private lastLayoutHeight = 0;
@@ -246,7 +250,12 @@ export class PixiHud {
   }
 
   public queueSelectedCraft(): void {
-    if (!this.describeCraftAvailability(this.state.selectedCraft).enabled) {
+    if (
+      !this.describeCraftAvailability(
+        this.state.selectedCraft,
+        this.getVisibleCraftableTypeIds(),
+      ).enabled
+    ) {
       return;
     }
     this.gameClient.queueCraftItem(this.state.selectedCraft);
@@ -300,7 +309,10 @@ export class PixiHud {
         );
         if (
           hotbarTarget &&
-          this.describeCraftAvailability(craftTypeId).enabled
+          this.describeCraftAvailability(
+            craftTypeId,
+            this.getVisibleCraftableTypeIds(),
+          ).enabled
         ) {
           this.gameClient.queueCraftItem(
             craftTypeId,
@@ -380,7 +392,10 @@ export class PixiHud {
             screenY: pointer.screenY,
             shiftKey: pointer.shiftKey,
             canSubmitCraft: (itemTypeId) =>
-              this.describeCraftAvailability(itemTypeId).enabled,
+              this.describeCraftAvailability(
+                itemTypeId,
+                this.getVisibleCraftableTypeIds(),
+              ).enabled,
             queueCraftItem: (itemTypeId) =>
               this.gameClient.queueCraftItem(itemTypeId),
             isRecycleButtonAtPoint: (screenX, screenY) =>
@@ -1400,6 +1415,7 @@ export class PixiHud {
 
     const craftAvailability = this.describeCraftAvailability(
       this.state.previewedCraft,
+      allVisibleCraftableTypeIds,
     );
 
     const inventory = this.selectors.getInventory();
@@ -1484,11 +1500,14 @@ export class PixiHud {
     return this.craftingHudCoordinator.hasNearbyCraftingStation(this.selectors);
   }
 
-  private describeCraftAvailability(itemTypeId: ResourceId): {
+  private describeCraftAvailability(
+    itemTypeId: ResourceId,
+    visibleCraftableTypeIds: readonly ResourceId[],
+  ): {
     enabled: boolean;
     statusLabel: string;
   } {
-    if (!this.getVisibleCraftableTypeIds().includes(itemTypeId)) {
+    if (!visibleCraftableTypeIds.includes(itemTypeId)) {
       return {
         enabled: false,
         statusLabel: "Blueprint required",
@@ -1576,6 +1595,17 @@ export class PixiHud {
 
   private getVisibleCraftableTypeIds(): readonly ResourceId[] {
     const inventory = this.selectors.getInventory();
+    const cacheKey = [
+      ...(inventory?.unlockedRecipeTypeIds ?? []),
+      "|",
+      ...(inventory?.hotbarSlots ?? []).map((slot) =>
+        slot.kind === "weapon" ? slot.typeId : "",
+      ),
+    ].join(",");
+    if (this.craftableCacheKey === cacheKey) {
+      return this.cachedVisibleCraftableTypeIds;
+    }
+    this.craftableCacheKey = cacheKey;
     const unlockedRecipeTypeIds = new Set(
       inventory?.unlockedRecipeTypeIds ?? [],
     );
@@ -1592,15 +1622,18 @@ export class PixiHud {
       }
     }
 
-    return CRAFTABLE_ITEM_TYPE_IDS.filter((itemTypeId) => {
-      if (this.isMagRecipeLocked(itemTypeId, unlockedRecipeTypeIds)) {
-        return false;
-      }
-      if (!isRecipeBlueprintLocked(itemTypeId)) {
-        return true;
-      }
-      return unlockedRecipeTypeIds.has(itemTypeId);
-    });
+    this.cachedVisibleCraftableTypeIds = CRAFTABLE_ITEM_TYPE_IDS.filter(
+      (itemTypeId) => {
+        if (this.isMagRecipeLocked(itemTypeId, unlockedRecipeTypeIds)) {
+          return false;
+        }
+        if (!isRecipeBlueprintLocked(itemTypeId)) {
+          return true;
+        }
+        return unlockedRecipeTypeIds.has(itemTypeId);
+      },
+    );
+    return this.cachedVisibleCraftableTypeIds;
   }
 
   private isMagRecipeLocked(
@@ -1616,12 +1649,18 @@ export class PixiHud {
   private buildCraftingTabs(
     craftableTypeIds: readonly ResourceId[],
   ): CraftingModalTab[] {
-    return CRAFTING_TABS.map((tab) => ({
+    const cacheKey = craftableTypeIds.join(",");
+    if (this.craftingTabsCacheKey === cacheKey) {
+      return this.cachedCraftingTabs;
+    }
+    this.craftingTabsCacheKey = cacheKey;
+    this.cachedCraftingTabs = CRAFTING_TABS.map((tab) => ({
       ...tab,
       count: craftableTypeIds.filter(
         (typeId) => this.getCraftingTabForItem(typeId) === tab.id,
       ).length,
     }));
+    return this.cachedCraftingTabs;
   }
 
   private getCraftingTabForItem(itemTypeId: ResourceId): CraftingTabId {

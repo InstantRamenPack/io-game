@@ -10,6 +10,7 @@ import { COMBAT_OCCLUSION_EPSILON } from "@server/combat/CombatOcclusion.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Projectile } from "@server/entities/Projectile.ts";
+import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 import type { World } from "@server/world/World.ts";
 
 type ProjectileImpactTarget = {
@@ -28,6 +29,11 @@ export type ProjectileImpactResolution = {
  * Resolves swept projectile impacts against both attackable targets and blockers.
  */
 export class ProjectileImpactResolver {
+  private readonly blockerBuffer: StaticGeometryBlocker[] = [];
+  private readonly entityBuffer: Entity[] = [];
+  private readonly impactBuffer: ProjectileImpactTarget[] = [];
+  private readonly visibleImpactBuffer: ProjectileImpactTarget[] = [];
+
   public resolve(
     world: World,
     projectile: Projectile,
@@ -50,7 +56,8 @@ export class ProjectileImpactResolver {
       projectile.previousY,
       projectile.hitboxes,
     );
-    const impacts: ProjectileImpactTarget[] = [];
+    const impacts = this.impactBuffer;
+    impacts.length = 0;
     let nearestBlockingHitTime: number | null = null;
 
     for (const blocker of world.staticGeometry.queryBox(
@@ -58,6 +65,8 @@ export class ProjectileImpactResolver {
       minY,
       maxX,
       maxY,
+      this.blockerBuffer,
+      false,
     )) {
       const hitTime = getSweptResolvedRectSetIntersectionTime(
         movingHitboxes,
@@ -73,7 +82,13 @@ export class ProjectileImpactResolver {
       }
     }
 
-    for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
+    for (const candidate of world.spatial.queryBox(
+      minX,
+      minY,
+      maxX,
+      maxY,
+      this.entityBuffer,
+    )) {
       const hitTime = this.resolveHitTime(
         projectile,
         candidate,
@@ -126,14 +141,17 @@ export class ProjectileImpactResolver {
       nearestBlockingHitTime === null
         ? null
         : nearestBlockingHitTime + COMBAT_OCCLUSION_EPSILON;
-    const visibleTargets =
-      maxVisibleHitTime === null
-        ? impacts
-        : impacts.filter((impact) => impact.hitTime <= maxVisibleHitTime);
+    const visibleTargets = this.visibleImpactBuffer;
+    visibleTargets.length = 0;
+    for (const impact of impacts) {
+      if (maxVisibleHitTime === null || impact.hitTime <= maxVisibleHitTime) {
+        visibleTargets.push(impact);
+      }
+    }
 
     return {
       blockedByBuilding: nearestBlockingHitTime !== null,
-      targets: visibleTargets,
+      targets: [...visibleTargets],
     };
   }
 

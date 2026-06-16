@@ -6,6 +6,10 @@ import {
   type InputIntentMessage,
 } from "@shared/net/protocol.ts";
 import type { Entity } from "@server/entities/Entity.ts";
+import { Enemy } from "@server/entities/Enemy.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
+import { isSpawnableEntityCtor } from "@server/runtime/ctorGuards.ts";
+import type { ProceduralSpawnSpec } from "@shared/world/layoutTypes.ts";
 import {
   BasicBullet,
   CannonBullet,
@@ -21,7 +25,7 @@ import { Police } from "@server/entities/enemies/Police.ts";
 import { Saboteur } from "@server/entities/enemies/Saboteur.ts";
 import { Shoota } from "@server/entities/enemies/Shoota.ts";
 import { Wallbreaker } from "@server/entities/enemies/Wallbreaker.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { DungeonWall } from "@server/entities/structures/DungeonWall.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
@@ -220,11 +224,14 @@ export function bootstrapBenchmarks(): void {
   bootstrapTypeRegistries();
 }
 
+export type BenchmarkClient = { clientId: string; playerId: number };
+
 export function makeRuntime(
   options: {
     interestRadius?: number;
     spawnMultiplier?: number;
     enableWorldBenchmark?: boolean;
+    worldSeed?: number;
   } = {},
 ): {
   runtime: GameInstanceRuntime;
@@ -236,7 +243,9 @@ export function makeRuntime(
   config.replication.interestRadius =
     options.interestRadius ?? config.replication.interestRadius;
   const network = new CapturingNetworkServer();
-  const runtime = new GameInstanceRuntime(config, network);
+  const runtime = new GameInstanceRuntime(config, network, {
+    worldSeed: options.worldSeed,
+  });
   const sink = new BenchmarkWorldSink();
   if (options.enableWorldBenchmark ?? true) {
     runtime.world.benchmarkSink = sink;
@@ -245,12 +254,86 @@ export function makeRuntime(
   return { runtime, network, sink };
 }
 
+export function spawnLayoutEnemiesMultiplied(
+  runtime: GameInstanceRuntime,
+  multiplier = 5,
+): void {
+  const layout = runtime.world.proceduralLayout;
+  if (!layout) {
+    throw new Error("spawnLayoutEnemiesMultiplied requires proceduralLayout");
+  }
+
+  for (const sector of layout.sectors) {
+    for (
+      let enemyIndex = 0;
+      enemyIndex < sector.enemies.length;
+      enemyIndex += 1
+    ) {
+      const spec = sector.enemies[enemyIndex]!;
+      for (let copyIndex = 1; copyIndex < multiplier; copyIndex += 1) {
+        const { dx, dy } = layoutEnemyJitterOffset(
+          layout.seed,
+          sector.id,
+          enemyIndex,
+          copyIndex,
+        );
+        spawnLayoutEnemy(runtime, spec, spec.x + dx, spec.y + dy);
+      }
+    }
+  }
+}
+
+export function connectClientsAtSectorCenters(
+  runtime: GameInstanceRuntime,
+): BenchmarkClient[] {
+  const layout = runtime.world.proceduralLayout;
+  if (!layout) {
+    throw new Error("connectClientsAtSectorCenters requires proceduralLayout");
+  }
+
+  const clients: BenchmarkClient[] = [];
+  for (let index = 0; index < layout.sectors.length; index += 1) {
+    const sector = layout.sectors[index]!;
+    const clientId = `bench-sector-${sector.id}`;
+    const playerId = runtime.connectReadyClient(clientId, `bench-${sector.id}`);
+    const player = runtime.world.get(playerId);
+    if (player) {
+      player.x = sector.center.x;
+      player.y = sector.center.y;
+    }
+    clients.push({ clientId, playerId });
+  }
+  return clients;
+}
+
+export function driveSectorClients(
+  runtime: GameInstanceRuntime,
+  clients: readonly BenchmarkClient[],
+  tick: number,
+): void {
+  for (let index = 0; index < clients.length; index += 1) {
+    const phase = (tick + index * 7) % 96;
+    runtime.handleInputIntent(clients[index]!.clientId, {
+      t: "input",
+      seq: tick,
+      clientTimeMs: tick * 50,
+      theta: ((index + tick) % 16) * 0.39269908169872414,
+      movement: {
+        up: phase >= 24 && phase < 48,
+        down: phase >= 72,
+        left: phase >= 48 && phase < 72,
+        right: phase < 24,
+      },
+    } satisfies InputIntentMessage);
+  }
+}
+
 export function connectClients(
   runtime: GameInstanceRuntime,
   count: number,
   layout: "clustered" | "spread" = "spread",
-): Array<{ clientId: string; playerId: number }> {
-  const clients: Array<{ clientId: string; playerId: number }> = [];
+): BenchmarkClient[] {
+  const clients: BenchmarkClient[] = [];
   const centerX = runtime.world.gameConfig.worldSize.w / 2;
   const centerY = runtime.world.gameConfig.worldSize.h / 2;
   const columns = Math.ceil(Math.sqrt(count));
@@ -463,13 +546,18 @@ export function summarizeSamples(samples: readonly number[]): SampleSummary {
   };
 }
 
-export function readPositiveInt(name: string, fallback: number): number {
+export function readInt(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) {
     return fallback;
   }
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function readPositiveInt(name: string, fallback: number): number {
+  const parsed = readInt(name, fallback);
+  return parsed > 0 ? parsed : fallback;
 }
 
 export function readPositiveNumber(name: string, fallback: number): number {
@@ -526,6 +614,51 @@ export function printBenchmarkResult(result: BenchmarkResult): void {
 
 export function format(value: number): string {
   return Number.isFinite(value) ? value.toFixed(2) : String(value);
+}
+
+function spawnLayoutEnemy(
+  runtime: GameInstanceRuntime,
+  spec: ProceduralSpawnSpec,
+  x: number,
+  y: number,
+): void {
+  const world = runtime.world;
+  const entry = requireGameTypeEntry(spec.typeId, "entity");
+  if (!isSpawnableEntityCtor(entry.ctor)) {
+    throw new Error(`Layout spawn type ${spec.typeId} is not spawnable.`);
+  }
+
+  const entity = new entry.ctor(world.allocEntityId());
+  entity.x = x;
+  entity.y = y;
+  entity.rotation = spec.rotation ?? 0;
+  if (spec.hitboxRects) {
+    entity.setHitboxProfileRects("default", spec.hitboxRects);
+  }
+  world.spawn(entity);
+  if (entity instanceof Enemy) {
+    entity.spawnSource = "layout";
+  }
+}
+
+function layoutEnemyJitterOffset(
+  layoutSeed: number,
+  sectorId: string,
+  enemyIndex: number,
+  copyIndex: number,
+): { dx: number; dy: number } {
+  let hash = (layoutSeed ^ copyIndex) | 0;
+  for (let index = 0; index < sectorId.length; index += 1) {
+    hash = Math.imul(hash ^ sectorId.charCodeAt(index), 0x0100_0193);
+  }
+  hash = Math.imul(hash ^ enemyIndex, 0x0100_0193);
+  const unsigned = hash >>> 0;
+  const angle = (unsigned % 360) * (Math.PI / 180);
+  const magnitude = 16 + ((unsigned >>> 8) % 17);
+  return {
+    dx: Math.cos(angle) * magnitude,
+    dy: Math.sin(angle) * magnitude,
+  };
 }
 
 function spawnGrid(

@@ -1,5 +1,6 @@
 import { DestructibleStructure } from "@server/entities/structures/DestructibleStructure.ts";
-import { Player } from "@server/entities/Player.ts";
+import type { Entity } from "@server/entities/Entity.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import type { World } from "@server/world/World.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 import { resolveHitboxRects } from "@shared/geometry/hitbox.ts";
@@ -10,6 +11,7 @@ import type { ResourceId } from "@shared/ids/ResourceId.ts";
 export class TripwireStructure extends DestructibleStructure {
   public static override readonly resourceName = "tripwire";
   private triggered = false;
+  private readonly triggerQueryBuffer: Entity[] = [];
 
   public override tick(world: World): void {
     super.tick(world);
@@ -29,8 +31,9 @@ export class TripwireStructure extends DestructibleStructure {
       bounds.minY,
       bounds.maxX,
       bounds.maxY,
+      this.triggerQueryBuffer,
     )) {
-      if (!(candidate instanceof Player) || !candidate.alive) {
+      if (candidate.getCombatTeam() !== "player" || !candidate.alive) {
         continue;
       }
       if (
@@ -43,7 +46,7 @@ export class TripwireStructure extends DestructibleStructure {
       }
       this.triggered = true;
       if (typeof trap.initialDamage === "number" && trap.initialDamage > 0) {
-        candidate.applyDamage(world, trap.initialDamage, this.id);
+        new DamageEffect(trap.initialDamage).apply(world, this, candidate);
       }
       for (const effect of trap.effects ?? []) {
         candidate.applyOrRefreshActiveEffect(toActiveEffect(effect, this.id));

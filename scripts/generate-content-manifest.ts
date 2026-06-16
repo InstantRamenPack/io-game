@@ -32,6 +32,8 @@ type RuntimeServerHint = {
 };
 
 type RuntimeRendererHint = {
+  kind?: "circle" | "trail";
+  color?: string;
   symbol?: string;
   importPath?: string;
 };
@@ -47,7 +49,13 @@ type RawContentJson = {
     attackStyle?: string;
     magItemTypeId?: string;
     projectileTypeId?: string;
+    special?: unknown;
   };
+  buildsEntityTypeId?: string;
+  armor?: unknown;
+  healing?: unknown;
+  activeEffect?: unknown;
+  consumable?: boolean;
   projectile?: unknown;
   recipe?: unknown;
   unlocksRecipeTypeId?: string;
@@ -111,6 +119,12 @@ type RuntimeCoverageEntry = {
 type RendererCoverageEntry = {
   resourceName: string;
   renderer: string;
+  importPath: string;
+};
+
+type ResolvedRendererEntry = RendererCoverageEntry & {
+  expression: string;
+  symbol?: string;
   importPath: string;
 };
 
@@ -237,8 +251,12 @@ const SCAFFOLD_HEADER =
 const GENERATED_DIAGNOSTICS_DIRECTORY = "scripts/generated";
 const GENERATED_SERVER_REGISTRY_PATH =
   "apps/server/src/registry/generated/runtimeRegistry.ts";
+const GENERATED_BUILDING_CTORS_PATH =
+  "apps/server/src/registry/generated/buildingCtors.ts";
 const GENERATED_STRUCTURE_CTORS_PATH =
   "apps/server/src/registry/generated/structureCtors.ts";
+const GENERATED_ITEM_CTORS_PATH =
+  "apps/server/src/registry/generated/itemCtors.ts";
 const GENERATED_MAG_CTORS_PATH =
   "apps/server/src/registry/generated/magCtors.ts";
 const GENERATED_BLUEPRINT_CTORS_PATH =
@@ -253,6 +271,11 @@ const HANDWRITTEN_STRUCTURE_RESOURCE_NAMES = new Set([
   "dungeon",
   "dungeon_wall",
   "tripwire",
+]);
+const HANDWRITTEN_BUILDING_RESOURCE_NAMES = new Set([
+  "cannon",
+  "landmine",
+  "tesla",
 ]);
 const BESPOKE_PROJECTILE_RESOURCE_NAMES = new Set([
   "firecracker_bullet",
@@ -1199,8 +1222,7 @@ function resolveRuntimeSymbol(resource: ContentResource): string {
   if (resource.kind === "mag") return `${base}MagazineItem`;
   if (resource.kind === "blueprint") return `Blueprint${base}Item`;
   if (resource.kind === "item") {
-    const classKind = resource.rawContent.runtime?.server?.classKind;
-    if (classKind === "material") return `${base}Item`;
+    if (getGeneratedItemCtorKind(resource) !== undefined) return `${base}Item`;
     return base;
   }
   if (resource.kind === "enemy" && base === "Sniper") return "SniperEnemy";
@@ -1255,7 +1277,48 @@ function getRequiredItemClassKind(
   return classKind;
 }
 
+function getGeneratedItemCtorKind(
+  resource: ContentResource,
+): "armor" | "material" | "structure" | "rangedWeapon" | undefined {
+  if (resource.kind !== "item") {
+    return undefined;
+  }
+  if (resource.rawContent.runtime?.server?.classKind === "custom") {
+    return undefined;
+  }
+  if (resource.rawContent.armor !== undefined) {
+    return "armor";
+  }
+  if (resource.rawContent.buildsEntityTypeId !== undefined) {
+    return "structure";
+  }
+  if (
+    resource.rawContent.weapon?.attackStyle === "shoot" &&
+    resource.rawContent.weapon.special === undefined
+  ) {
+    return "rangedWeapon";
+  }
+  if (
+    resource.rawContent.weapon === undefined &&
+    resource.rawContent.healing === undefined &&
+    resource.rawContent.activeEffect === undefined &&
+    resource.rawContent.consumable !== true
+  ) {
+    return "material";
+  }
+  return undefined;
+}
+
 function usesGeneratedRuntimeCtor(resource: ContentResource): boolean {
+  if (
+    resource.kind === "building" &&
+    !HANDWRITTEN_BUILDING_RESOURCE_NAMES.has(resource.resourceName)
+  ) {
+    return true;
+  }
+  if (resource.kind === "item" && getGeneratedItemCtorKind(resource)) {
+    return true;
+  }
   if (
     resource.kind === "structure" &&
     !HANDWRITTEN_STRUCTURE_RESOURCE_NAMES.has(resource.resourceName)
@@ -1275,6 +1338,12 @@ function usesGeneratedRuntimeCtor(resource: ContentResource): boolean {
 }
 
 function resolveGeneratedRuntimeImportPath(resource: ContentResource): string {
+  if (resource.kind === "building") {
+    return "@server/registry/generated/buildingCtors.ts";
+  }
+  if (resource.kind === "item") {
+    return "@server/registry/generated/itemCtors.ts";
+  }
   if (resource.kind === "structure") {
     return "@server/registry/generated/structureCtors.ts";
   }
@@ -1311,6 +1380,18 @@ function buildGeneratedCtorEntry(
 
 function buildGeneratedCtorExportLine(resource: ContentResource): string {
   const symbol = resolveRuntimeSymbol(resource);
+  if (resource.kind === "building") {
+    return `export class ${symbol} extends Building { public static override readonly resourceName = ${JSON.stringify(resource.resourceName)}; constructor(id: number, tier = 1, ownerId?: number) { super(id, tier, ownerId); } }`;
+  }
+  if (resource.kind === "item") {
+    const kind = getGeneratedItemCtorKind(resource);
+    if (!kind) {
+      throw new Error(
+        `Cannot emit generated item ctor for ${resource.typeId}.`,
+      );
+    }
+    return `export const ${symbol} = createItemLikeCtor(${JSON.stringify(kind)}, ${JSON.stringify(resource.resourceName)});`;
+  }
   if (resource.kind === "structure") {
     return `export const ${symbol} = createStructureCtor(${JSON.stringify(resource.resourceName)});`;
   }
@@ -1321,7 +1402,7 @@ function buildGeneratedCtorExportLine(resource: ContentResource): string {
     return `export const ${symbol} = createItemLikeCtor("blueprint", ${JSON.stringify(resource.resourceName)});`;
   }
   if (resource.kind === "projectile") {
-    return `export const ${symbol} = createContentProjectileCtor(${JSON.stringify(resource.resourceName)}, ${JSON.stringify(resource.typeId)});`;
+    return `export const ${symbol} = createContentProjectileCtor(${JSON.stringify(resource.resourceName)});`;
   }
   throw new Error(`Cannot emit generated ctor for ${resource.typeId}.`);
 }
@@ -1356,6 +1437,24 @@ async function writeGeneratedFactoryCtorFiles(
   contentResources: readonly ContentResource[],
 ): Promise<void> {
   const specs: GeneratedCtorFileSpec[] = [
+    {
+      outputPath: GENERATED_BUILDING_CTORS_PATH,
+      importLine: 'import { Building } from "@server/entities/Building.ts";',
+      resources: contentResources.filter(
+        (resource) =>
+          resource.kind === "building" &&
+          !HANDWRITTEN_BUILDING_RESOURCE_NAMES.has(resource.resourceName),
+      ),
+    },
+    {
+      outputPath: GENERATED_ITEM_CTORS_PATH,
+      importLine:
+        'import { createItemLikeCtor } from "@server/items/createItemLikeCtor.ts";',
+      resources: contentResources.filter(
+        (resource) =>
+          resource.kind === "item" && getGeneratedItemCtorKind(resource),
+      ),
+    },
     {
       outputPath: GENERATED_STRUCTURE_CTORS_PATH,
       importLine:
@@ -1636,12 +1735,53 @@ function buildRendererScaffold(
   ].join("\n");
 }
 
+function parseRendererColor(resource: ContentResource): number {
+  const color = resource.rawContent.runtime?.renderer?.color;
+  if (!color) {
+    throw new Error(`Generated renderer for ${resource.typeId} needs color.`);
+  }
+  return Number.parseInt(color.slice(1), 16);
+}
+
+function resolveGeneratedRendererExpression(resource: ContentResource): {
+  expression: string;
+  renderer: string;
+} | null {
+  const kind = resource.rawContent.runtime?.renderer?.kind;
+  if (!kind) return null;
+  const color = parseRendererColor(resource);
+  const colorLiteral = `0x${color.toString(16).padStart(6, "0")}`;
+  if (kind === "circle") {
+    return {
+      expression: `createCircleEntityRendererCtor(${colorLiteral})`,
+      renderer: `generated:circle:${colorLiteral}`,
+    };
+  }
+  if (kind === "trail") {
+    return {
+      expression: `createTrailProjectileRendererCtor(${colorLiteral})`,
+      renderer: `generated:trail:${colorLiteral}`,
+    };
+  }
+  throw new Error(`Unsupported renderer kind for ${resource.typeId}: ${kind}.`);
+}
+
 async function ensureRendererClass(
   repoRoot: string,
   resource: ContentResource,
   rendererIndex: Map<string, RendererClassEntry>,
   scaffolded: ScaffoldSummary,
-): Promise<RendererCoverageEntry & { symbol: string; importPath: string }> {
+): Promise<ResolvedRendererEntry> {
+  const generated = resolveGeneratedRendererExpression(resource);
+  if (generated) {
+    return {
+      resourceName: resource.resourceName,
+      renderer: generated.renderer,
+      importPath: "@client/render/entity/createGeneratedEntityRenderer.ts",
+      expression: generated.expression,
+    };
+  }
+
   const symbol = resolveRendererSymbol(resource);
   const existing =
     rendererIndex.get(symbol) ?? rendererIndex.get(resource.resourceName);
@@ -1651,6 +1791,7 @@ async function ensureRendererClass(
       renderer: existing.symbol,
       symbol: existing.symbol,
       importPath: existing.importPath,
+      expression: existing.symbol,
     };
   }
 
@@ -1672,25 +1813,36 @@ async function ensureRendererClass(
     renderer: symbol,
     symbol,
     importPath: entry.importPath,
+    expression: symbol,
   };
 }
 
 async function writeGeneratedRendererRegistry(
   repoRoot: string,
-  rendererEntries: readonly (RendererCoverageEntry & {
-    symbol: string;
-    importPath: string;
-  })[],
+  rendererEntries: readonly ResolvedRendererEntry[],
 ): Promise<void> {
   const outputPath = path.join(repoRoot, GENERATED_RENDERER_REGISTRY_PATH);
+  const importEntries = rendererEntries.filter(
+    (entry): entry is ResolvedRendererEntry & { symbol: string } =>
+      entry.symbol !== undefined,
+  );
+  const usesGeneratedFactories = rendererEntries.some(
+    (entry) => entry.symbol === undefined,
+  );
   const fileContents = [
     GENERATED_HEADER,
     'import type { EntityRendererCtor } from "@client/render/entity/rendererRegistry.ts";',
-    ...buildImportLines(rendererEntries),
+    ...(usesGeneratedFactories
+      ? [
+          'import { createCircleEntityRendererCtor, createTrailProjectileRendererCtor } from "@client/render/entity/createGeneratedEntityRenderer.ts";',
+        ]
+      : []),
+    ...buildImportLines(importEntries),
     "",
     "export const rendererManifests = [",
     ...rendererEntries.map(
-      (entry) => `  [${JSON.stringify(entry.resourceName)}, ${entry.symbol}],`,
+      (entry) =>
+        `  [${JSON.stringify(entry.resourceName)}, ${entry.expression}],`,
     ),
     "] as const satisfies ReadonlyArray<readonly [string, EntityRendererCtor]>;",
     "",
@@ -1789,10 +1941,7 @@ async function buildRegistries(
   contentResources: readonly ContentResource[],
 ): Promise<{
   runtimeRegistry: RuntimeRegistry;
-  rendererEntries: (RendererCoverageEntry & {
-    symbol: string;
-    importPath: string;
-  })[];
+  rendererEntries: ResolvedRendererEntry[];
   runtimeEntries: RuntimeCoverageEntry[];
   scaffolded: ScaffoldSummary;
   staleScaffoldCandidates: string[];
@@ -1818,12 +1967,9 @@ async function buildRegistries(
         : await ensureRuntimeClass(repoRoot, resource, classIndex, scaffolded);
       runtimeRegistry.entityRuntimeCtors.push(entry);
     } else if (resource.kind === "item") {
-      const entry = await ensureRuntimeClass(
-        repoRoot,
-        resource,
-        classIndex,
-        scaffolded,
-      );
+      const entry = usesGeneratedRuntimeCtor(resource)
+        ? buildGeneratedCtorEntry(repoRoot, resource)
+        : await ensureRuntimeClass(repoRoot, resource, classIndex, scaffolded);
       runtimeRegistry.itemRuntimeCtors.push(entry);
     } else if (resource.kind === "mag") {
       runtimeRegistry.magRuntimeCtors.push(
@@ -1844,10 +1990,7 @@ async function buildRegistries(
     }
   }
 
-  const rendererEntries: (RendererCoverageEntry & {
-    symbol: string;
-    importPath: string;
-  })[] = [];
+  const rendererEntries: ResolvedRendererEntry[] = [];
   for (const resource of contentResources.filter((entry) =>
     ENTITY_CONTENT_KINDS.has(entry.kind),
   )) {

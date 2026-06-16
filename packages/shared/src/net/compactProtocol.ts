@@ -22,6 +22,35 @@ import type {
 const POSITION_SCALE = 10;
 const ROTATION_SCALE = 65535 / (Math.PI * 2);
 
+export const COMPACT_WORLD_SNAPSHOT_FIELDS = [
+  "tick",
+  "dayNight",
+  "extraction",
+  "infrastructure",
+  "map",
+  "visibility",
+  "minimapPlayers",
+  "full",
+  "entities",
+  "removedEntityIds",
+  "events",
+] as const satisfies readonly (keyof WorldSnapshot)[];
+
+export const COMPACT_ENTITY_BASE_FIELDS = [
+  "id",
+  "typeId",
+  "x",
+  "y",
+  "vx",
+  "vy",
+  "rotation",
+  "hitboxes",
+  "hp",
+  "maxHp",
+  "alive",
+  "ownerId",
+] as const satisfies readonly (keyof EntitySnapshot)[];
+
 const ENTITY_KIND_TO_CODE = {
   player: 1,
   enemy: 2,
@@ -101,7 +130,6 @@ export function expandServerMessage(value: unknown): unknown {
 function compactWorldSnapshot(snapshot: WorldSnapshot): unknown[] {
   return [
     snapshot.tick,
-    snapshot.lastProcessedSeq ?? null,
     compactDayNight(snapshot.dayNight),
     compactExtraction(snapshot.extraction),
     (snapshot.infrastructure.energyActive ? 1 : 0) |
@@ -129,7 +157,6 @@ function expandWorldSnapshot(value: unknown): WorldSnapshot | null {
   }
   const [
     tick,
-    lastProcessedSeq,
     dayNight,
     extraction,
     infrastructureMask,
@@ -155,7 +182,6 @@ function expandWorldSnapshot(value: unknown): WorldSnapshot | null {
   }
   return {
     tick,
-    ...(typeof lastProcessedSeq === "number" ? { lastProcessedSeq } : {}),
     dayNight: expandedDayNight,
     extraction: expandedExtraction,
     infrastructure: {

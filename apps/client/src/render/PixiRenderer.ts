@@ -155,13 +155,6 @@ export class PixiRenderer {
     this.renderScene(true);
   }
 
-  public async attach(
-    hostElement: HTMLElement,
-    worldSize: WorldSize,
-  ): Promise<void> {
-    await this.init(hostElement, worldSize);
-  }
-
   public getItemTexture(typeId: string): Texture {
     return this.assetStore.getItemTexture(typeId);
   }

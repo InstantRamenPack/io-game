@@ -1,4 +1,4 @@
-import type { SessionUiMode } from "@client/app/session/SessionUiStore.ts";
+import type { SessionUiMode } from "@client/app/session/SessionUiController.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 export type InputContext = {
   sessionMode: SessionUiMode;

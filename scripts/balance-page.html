@@ -391,7 +391,6 @@
       );
       const renderingFields = document.querySelector("#rendering-fields");
       const renderingCanvas = document.querySelector("#rendering-canvas");
-      const rarityTiers = ["common", "uncommon", "rare", "epic", "legendary"];
 
       let rows = [];
       let ammoRows = [];
@@ -400,6 +399,7 @@
       let worldRows = [];
       let listRows = [];
       let jsonRows = [];
+      let rarityTiers = [];
       let fieldLabels = new Map();
       let activeTab = "weapons";
       let sortState = { key: "item.label", direction: "asc" };
@@ -849,6 +849,7 @@
         worldRows = payload.worldRows ?? [];
         listRows = payload.listRows ?? [];
         jsonRows = payload.jsonRows ?? [];
+        rarityTiers = payload.rarityTiers ?? [];
         refreshFieldLabels();
         originalElement.dataset.originalValue = rawValue;
         cell.className = "changed";
@@ -880,6 +881,7 @@
         worldRows = payload.worldRows ?? [];
         listRows = payload.listRows ?? [];
         jsonRows = payload.jsonRows ?? [];
+        rarityTiers = payload.rarityTiers ?? [];
         refreshFieldLabels();
         setStatus("Saved");
         renderRows();
@@ -962,6 +964,7 @@
             worldRows = payload.worldRows ?? [];
             listRows = payload.listRows ?? [];
             jsonRows = payload.jsonRows ?? [];
+            rarityTiers = payload.rarityTiers ?? [];
             refreshFieldLabels();
             setStatus("Saved");
             void refreshRenderingPreview();
@@ -1160,6 +1163,7 @@
         worldRows = payload.worldRows ?? [];
         listRows = payload.listRows ?? [];
         jsonRows = payload.jsonRows ?? [];
+        rarityTiers = payload.rarityTiers ?? [];
         refreshFieldLabels();
         renderHeader();
         renderRows();

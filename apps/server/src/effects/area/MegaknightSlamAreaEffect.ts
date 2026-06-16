@@ -1,5 +1,4 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import { Player } from "@server/entities/Player.ts";
 import {
   RadialAreaEffect,
   type RadialAreaEffectHitContext,
@@ -25,11 +24,7 @@ export class MegaknightSlamAreaEffect extends RadialAreaEffect {
     source: Entity,
     target: Entity,
   ): boolean {
-    return (
-      target.alive &&
-      target instanceof Player &&
-      DamageEffect.canApply(world, source, target)
-    );
+    return target.alive && DamageEffect.canApply(world, source, target);
   }
 
   /**

@@ -14,5 +14,22 @@
     ]
   },
   "rarityTier": "common",
-  "deathLoot": {}
+  "spawnWeapons": {
+    "selection": "rotating",
+    "typeIds": [
+      "item:basic_sword",
+      "item:scissors",
+      "item:baseball_bat",
+      "item:basic_dagger",
+      "item:cleaver",
+      "item:basic_spear"
+    ]
+  },
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#bf2a2a"
+    }
+  }
 }

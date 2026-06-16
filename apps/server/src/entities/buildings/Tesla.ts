@@ -7,7 +7,6 @@ import {
 } from "@shared/gameplay/teslaShock.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import { Building } from "@server/entities/Building.ts";
-import { Enemy } from "@server/entities/Enemy.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
 import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
@@ -19,6 +18,8 @@ export class Tesla extends Building {
   private readonly shockedEnemyIds = new Set<number>();
   private readonly waveHitEnemyIds = new Set<number>();
   private readonly waveTriggerDistanceByEnemyId = new Map<number, number>();
+  private readonly touchingEnemyIds = new Set<number>();
+  private readonly enemyQueryBuffer: Entity[] = [];
   private waveStartTick: number | null = null;
 
   constructor(id: number, tier = 1, ownerId?: number) {
@@ -57,14 +58,16 @@ export class Tesla extends Building {
   }
 
   private collectTouchingEnemyIds(world: World): Set<number> {
-    const touchingEnemyIds = new Set<number>();
+    const touchingEnemyIds = this.touchingEnemyIds;
+    touchingEnemyIds.clear();
     for (const candidate of world.spatial.queryBox(
       this.x - TESLA_SHOCK_RADIUS,
       this.y - TESLA_SHOCK_RADIUS,
       this.x + TESLA_SHOCK_RADIUS,
       this.y + TESLA_SHOCK_RADIUS,
+      this.enemyQueryBuffer,
     )) {
-      if (!(candidate instanceof Enemy) || !candidate.alive) {
+      if (candidate.getCombatTeam() !== "enemy" || !candidate.alive) {
         continue;
       }
 
@@ -88,7 +91,7 @@ export class Tesla extends Building {
     this.waveTriggerDistanceByEnemyId.clear();
     for (const enemyId of touchingEnemyIds) {
       const enemy = world.get(enemyId);
-      if (!(enemy instanceof Enemy) || !enemy.alive) {
+      if (!enemy || enemy.getCombatTeam() !== "enemy" || !enemy.alive) {
         continue;
       }
       this.waveTriggerDistanceByEnemyId.set(
@@ -130,7 +133,11 @@ export class Tesla extends Building {
       }
 
       const candidate = world.get(enemyId);
-      if (!(candidate instanceof Enemy) || !candidate.alive) {
+      if (
+        !candidate ||
+        candidate.getCombatTeam() !== "enemy" ||
+        !candidate.alive
+      ) {
         continue;
       }
 
@@ -144,7 +151,7 @@ export class Tesla extends Building {
     }
   }
 
-  private getEnemyShockDistance(enemy: Enemy): number {
+  private getEnemyShockDistance(enemy: Entity): number {
     return Math.sqrt(
       getDistanceSquaredToResolvedRectSet(
         enemy.getWorldHitboxes(),
@@ -172,7 +179,7 @@ export class Tesla extends Building {
     }
   }
 
-  private applyStunnedEffect(world: World, target: Enemy): void {
+  private applyStunnedEffect(world: World, target: Entity): void {
     new StunnedEffect(TESLA_STUN_TICKS).apply(world, this, target);
   }
 }

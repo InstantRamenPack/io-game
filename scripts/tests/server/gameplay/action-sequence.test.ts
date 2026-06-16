@@ -3,9 +3,6 @@ import type {
   ActionMessage,
   InputIntentMessage,
 } from "@shared/net/protocol.ts";
-import { parseServerToClientMessage } from "@shared/net/protocol.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
-import type { FakeNetworkServer } from "@tests/helpers/fakeNetwork.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -38,64 +35,82 @@ function makeAction(seq: number): ActionMessage {
   };
 }
 
-function latestSnapshot(network: FakeNetworkServer): WorldSnapshot {
-  for (let index = network.sent.length - 1; index >= 0; index -= 1) {
-    const entry = network.sent[index];
-    if (!entry) {
-      continue;
-    }
-    const message = parseServerToClientMessage(entry.data, {
-      validateSnapshots: false,
-    });
-    if (!message || message.t !== "snapshot") {
-      continue;
-    }
-    return message.snapshot as WorldSnapshot;
-  }
-  throw new Error("snapshot not found");
+function makeMovingInput(
+  seq: number,
+  movement: InputIntentMessage["movement"],
+): InputIntentMessage {
+  return {
+    ...makeInput(seq),
+    movement,
+  };
 }
 
 describe("action sequence authority", () => {
   beforeAll(bootstrapTestRegistries);
 
-  test("stale input does not advance lastProcessedSeq", () => {
-    const { runtime, network } = makeRuntime();
-    connectTestClient(runtime);
-    runtime.handleInputIntent("client-1", makeInput(2));
-    runtime.handleInputIntent("client-1", makeInput(1));
+  test("stale input does not replace newer movement intent", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const startX = player.x;
+    runtime.handleInputIntent(
+      "client-1",
+      makeMovingInput(2, {
+        ...emptyMovement,
+        right: true,
+      }),
+    );
+    runtime.handleInputIntent(
+      "client-1",
+      makeMovingInput(1, {
+        ...emptyMovement,
+        left: true,
+      }),
+    );
     runtime.tick();
-    expect(latestSnapshot(network).lastProcessedSeq).toBe(2);
+    expect(player.x).toBeGreaterThan(startX);
   });
 
   test("duplicate action is ignored", () => {
-    const { runtime, network } = makeRuntime();
-    connectTestClient(runtime);
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
     runtime.handleAction("client-1", makeAction(1));
     runtime.handleAction("client-1", makeAction(1));
-    runtime.tick();
-    expect(latestSnapshot(network).lastProcessedSeq).toBe(1);
+    expect(player.getQueuedActionCount()).toBe(1);
   });
 
   test("input and action sequences are independently tracked", () => {
-    const { runtime, network } = makeRuntime();
-    connectTestClient(runtime);
-    runtime.handleInputIntent("client-1", makeInput(2));
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
+    const startX = player.x;
+    runtime.handleInputIntent(
+      "client-1",
+      makeMovingInput(2, {
+        ...emptyMovement,
+        right: true,
+      }),
+    );
     runtime.handleAction("client-1", makeAction(5));
     runtime.tick();
-    expect(latestSnapshot(network).lastProcessedSeq).toBe(5);
+    expect(player.x).toBeGreaterThan(startX);
+    expect(player.inventory.selectedHotbarIndex).toBe(0);
   });
 
-  test("invalid action does not advance lastProcessedSeq", () => {
-    const { runtime, network } = makeRuntime();
-    connectTestClient(runtime);
-    runtime.handleInputIntent("client-1", makeInput(1));
+  test("invalid action does not consume its sequence number", () => {
+    const { runtime } = makeRuntime();
+    const { player } = connectTestClient(runtime);
     runtime.handleAction("client-1", {
       t: "action",
       seq: 2,
       action: "selectHotbar",
       index: 999,
     });
+    runtime.handleAction("client-1", {
+      t: "action",
+      seq: 2,
+      action: "selectHotbar",
+      index: 1,
+    });
     runtime.tick();
-    expect(latestSnapshot(network).lastProcessedSeq).toBe(1);
+    expect(player.inventory.selectedHotbarIndex).toBe(1);
   });
 });

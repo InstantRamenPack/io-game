@@ -15,5 +15,13 @@
   },
   "activeHitboxProfile": "base",
   "rarityTier": "legendary",
-  "deathLoot": {}
+  "deathLoot": {
+    "fixedHunks": 1000
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#1a1a2e"
+    }
+  }
 }

@@ -18,5 +18,11 @@
     "selection": "rotating",
     "typeIds": ["item:carbine", "item:crossbow"]
   },
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#3a8f45"
+    }
+  }
 }

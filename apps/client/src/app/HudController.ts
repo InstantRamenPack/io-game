@@ -4,9 +4,7 @@ import type { HudState, PixiHud } from "@client/render/PixiHud.ts";
 
 export type { HudState };
 
-export type HudRuntime = PixiHud;
-
-export type HudController = HudRuntime;
+export type HudController = PixiHud;
 
 type HudControllerOptions = {
   gameClient: GameClient;

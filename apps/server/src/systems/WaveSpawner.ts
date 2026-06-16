@@ -1,5 +1,5 @@
 import type { World } from "@server/world/World.ts";
-import { entityTypeRegistry } from "@server/registry/registries.ts";
+import { gameTypeEntries } from "@server/registry/registries.ts";
 import {
   isSpawnableEntityCtor,
   type SpawnableEntityCtor,
@@ -62,7 +62,7 @@ export class WaveSpawner {
   private buildEntityLookup(): Map<ResourceId, SpawnableEntityCtor> {
     const lookup = new Map<ResourceId, SpawnableEntityCtor>();
 
-    for (const [typeId, entry] of entityTypeRegistry.entries()) {
+    for (const [typeId, entry] of gameTypeEntries("entity")) {
       if (!isSpawnableEntityCtor(entry.ctor)) {
         throw new Error(
           `Entity type ${typeId} is not spawnable by the wave system.`,

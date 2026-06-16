@@ -53,6 +53,12 @@ export class SpatialIndex {
     }
   }
 
+  public syncEntities(entities: readonly Entity[]): void {
+    for (const entity of entities) {
+      this.upsert(entity);
+    }
+  }
+
   /**
    * Returns entities whose indexed hitboxes touch cells overlapped by the query box.
    * @param minX Left query edge.
@@ -113,7 +119,7 @@ export class SpatialIndex {
     this.cellKeysByEntityId.set(entity.id, nextKeys);
   }
 
-  private removeEntity(entityId: number): void {
+  public removeEntity(entityId: number): void {
     const keys = this.cellKeysByEntityId.get(entityId);
     if (keys) {
       this.grid.removeFromCells(keys, (entity) => entity.id === entityId);

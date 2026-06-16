@@ -14,5 +14,20 @@
     ]
   },
   "rarityTier": "epic",
-  "deathLoot": {}
+  "spawnWeapons": {
+    "selection": "rotating",
+    "typeIds": [
+      "item:sniper",
+      "item:heavy_pistol",
+      "item:lmg",
+      "item:firecracker_gun"
+    ]
+  },
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#6f2abf"
+    }
+  }
 }

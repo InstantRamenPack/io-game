@@ -126,7 +126,6 @@ import blueprintTeslaJson from "@shared/content/blueprint/tesla.json";
 import pickupItemEntityJson from "@shared/content/pickup/item_entity.json";
 import playerBaseJson from "@shared/content/player/base.json";
 import projectileBasicBulletJson from "@shared/content/projectile/basic_bullet.json";
-import projectileBattleRifleBulletJson from "@shared/content/projectile/battle_rifle_bullet.json";
 import projectileCannonBulletJson from "@shared/content/projectile/cannon_bullet.json";
 import projectileCarbineBulletJson from "@shared/content/projectile/carbine_bullet.json";
 import projectileCrossbowArrowJson from "@shared/content/projectile/crossbow_arrow.json";
@@ -135,7 +134,6 @@ import projectileHeavyPistolBulletJson from "@shared/content/projectile/heavy_pi
 import projectileHomingDroneJson from "@shared/content/projectile/homing_drone.json";
 import projectileLmgBulletJson from "@shared/content/projectile/lmg_bullet.json";
 import projectileMachinePistolBulletJson from "@shared/content/projectile/machine_pistol_bullet.json";
-import projectileRevolverBulletJson from "@shared/content/projectile/revolver_bullet.json";
 import projectileRifleBulletJson from "@shared/content/projectile/rifle_bullet.json";
 import projectileShotgunPelletJson from "@shared/content/projectile/shotgun_pellet.json";
 import projectileSmallFirecrackerBulletJson from "@shared/content/projectile/small_firecracker_bullet.json";
@@ -318,7 +316,6 @@ export const playerContentEntries = [
 
 export const projectileContentEntries = [
   makeParsedEntityContentEntry("projectile", "basic_bullet", projectileBasicBulletJson),
-  makeParsedEntityContentEntry("projectile", "battle_rifle_bullet", projectileBattleRifleBulletJson),
   makeParsedEntityContentEntry("projectile", "cannon_bullet", projectileCannonBulletJson),
   makeParsedEntityContentEntry("projectile", "carbine_bullet", projectileCarbineBulletJson),
   makeParsedEntityContentEntry("projectile", "crossbow_arrow", projectileCrossbowArrowJson),
@@ -327,7 +324,6 @@ export const projectileContentEntries = [
   makeParsedEntityContentEntry("projectile", "homing_drone", projectileHomingDroneJson),
   makeParsedEntityContentEntry("projectile", "lmg_bullet", projectileLmgBulletJson),
   makeParsedEntityContentEntry("projectile", "machine_pistol_bullet", projectileMachinePistolBulletJson),
-  makeParsedEntityContentEntry("projectile", "revolver_bullet", projectileRevolverBulletJson),
   makeParsedEntityContentEntry("projectile", "rifle_bullet", projectileRifleBulletJson),
   makeParsedEntityContentEntry("projectile", "shotgun_pellet", projectileShotgunPelletJson),
   makeParsedEntityContentEntry("projectile", "small_firecracker_bullet", projectileSmallFirecrackerBulletJson),

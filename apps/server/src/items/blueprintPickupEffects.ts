@@ -22,7 +22,7 @@ const ARMOR_BLUEPRINT_RECIPE_SET = new Set<ResourceId>(
 
 export function isBlueprintPickup(pickup: ItemEntity): boolean {
   for (const [typeId, amount] of pickup.contents.resources.entries()) {
-    if (amount > 0 && getItemContent(typeId)?.unlocksRecipeTypeId) {
+    if (amount > 0 && getBlueprintUnlockedRecipeTypeIds(typeId).length > 0) {
       return true;
     }
   }
@@ -32,7 +32,7 @@ export function isBlueprintPickup(pickup: ItemEntity): boolean {
       slot &&
       slot.kind !== "weapon" &&
       slot.count > 0 &&
-      getItemContent(slot.typeId)?.unlocksRecipeTypeId
+      getBlueprintUnlockedRecipeTypeIds(slot.typeId).length > 0
     ) {
       return true;
     }

@@ -1,7 +1,7 @@
 import type { Player } from "@server/entities/Player.ts";
 import type { Effect } from "@server/effects/Effect.ts";
 import { ConsumableItem } from "@server/items/ConsumableItem.ts";
-import { effectTypeRegistry } from "@server/registry/registries.ts";
+import { requireGameTypeEntry } from "@server/registry/registries.ts";
 import { getItemContent } from "@shared/content/catalog.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -15,7 +15,7 @@ export class SpeedPotionItem extends ConsumableItem {
     if (!activeEffect) {
       return;
     }
-    const EffectCtor = effectTypeRegistry.require(activeEffect.typeId)
+    const EffectCtor = requireGameTypeEntry(activeEffect.typeId, "effect")
       .ctor as unknown as TimedEffectCtor;
     new EffectCtor(activeEffect.durationTicks).apply(world, player, player);
   }

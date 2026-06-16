@@ -14,7 +14,7 @@ import type { Goal } from "@server/goals/Goal.ts";
 import { WanderGoal } from "@server/goals/builtin/WanderGoal.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Inventory } from "@server/items/Inventory.ts";
-import type { Weapon } from "@server/items/Weapon.ts";
+import type { EnemyWeaponTuningMode, Weapon } from "@server/items/Weapon.ts";
 import {
   getItemLikeTypeEntry,
   requireItemLikeTypeEntry,
@@ -25,6 +25,7 @@ import {
   requireEntityContent,
 } from "@shared/content/catalog.ts";
 import { enemyTuningConfig } from "@shared/config/gameplayConfig.ts";
+import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
 import {
   getArmorStats,
   type ArmorTier,
@@ -88,6 +89,7 @@ export class Enemy extends GoalControlledEntity {
   public spawnSource?: EnemySpawnSource;
   private equippedArmorTypeId?: ResourceId;
   private readonly buildingDamageMultiplier?: number;
+  private enemyWeaponTuningMode: EnemyWeaponTuningMode | undefined;
 
   /**
    * Creates a hostile entity with caller-provided combat and movement defaults.
@@ -125,6 +127,10 @@ export class Enemy extends GoalControlledEntity {
       armorTier: this.getEquippedArmorStats()?.tier,
       armorDamageReductionPct: this.getEquippedArmorStats()?.damageReductionPct,
     };
+  }
+
+  public override getCombatTeam(): CombatTeam {
+    return "enemy";
   }
 
   public override getDamageReductionMultiplier(): number {
@@ -189,12 +195,34 @@ export class Enemy extends GoalControlledEntity {
     super.tick(world);
   }
 
+  protected override getGoalTickInterval(world: World): number {
+    const { goalLodDistance, goalLodTickInterval } = enemyTuningConfig;
+    if (
+      goalLodDistance <= 0 ||
+      goalLodTickInterval <= 1 ||
+      this.targetId !== undefined ||
+      world.goalFieldCache.isEntityNearAnyPlayer(
+        world,
+        this.x,
+        this.y,
+        goalLodDistance,
+      )
+    ) {
+      return 1;
+    }
+    return goalLodTickInterval;
+  }
+
   private syncEnemyWeaponTuning(world: World): void {
     const tuningMode = world.dayNightSystem.isNight()
       ? "night"
       : world.isCombatEmpowered()
         ? "baseline"
         : "day";
+    if (this.enemyWeaponTuningMode === tuningMode) {
+      return;
+    }
+    this.enemyWeaponTuningMode = tuningMode;
     for (const weapon of this.weapons) {
       weapon.syncEnemyTuning(tuningMode, enemyTuningConfig);
     }

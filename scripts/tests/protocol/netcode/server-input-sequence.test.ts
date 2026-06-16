@@ -2,8 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { parseClientToServerMessage } from "@shared/net/protocol.ts";
 import type { InputIntentMessage } from "@shared/net/protocol.ts";
-import { parseFastInputMessage } from "@server/net/FastInputMessageParser.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -68,7 +67,6 @@ describe("server input sequencing", () => {
       movement: emptyMovement,
     });
     expect(parseClientToServerMessage(raw)).toBeNull();
-    expect(parseFastInputMessage(raw).kind).toBe("invalid");
 
     const wsClientSource = readFileSync(
       "apps/client/src/net/WsClient.ts",

@@ -11,5 +11,11 @@
       "width": 20,
       "height": 20
     }
+  },
+  "runtime": {
+    "renderer": {
+      "kind": "trail",
+      "color": "#ff4500"
+    }
   }
 }

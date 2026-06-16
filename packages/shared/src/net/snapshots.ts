@@ -278,7 +278,6 @@ export const MinimapPlayerSnapshotSchema = z.object({
 
 export const WorldSnapshotSchema = z.object({
   tick: NonNegativeIntSchema,
-  lastProcessedSeq: z.number().int().min(-1).optional(),
   dayNight: DayNightSnapshotSchema,
   extraction: ExtractionSnapshotSchema,
   infrastructure: InfrastructureSnapshotSchema,

@@ -2,7 +2,7 @@ import { GameConfig } from "@shared/config/GameConfig.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import { bootstrapTypeRegistries } from "@server/registry/bootstrap.ts";
 import { GameInstanceRuntime } from "@server/server/matchmaking/GameInstanceRuntime.ts";
-import { Wall } from "@server/entities/buildings/Wall.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
 import { Drifter } from "@server/entities/enemies/Drifter.ts";
 import { Megaknight } from "@server/entities/enemies/Megaknight.ts";
 import { Police } from "@server/entities/enemies/Police.ts";
@@ -156,6 +156,14 @@ export function spawnPlayerLikeDynamic(
   player.y = y;
   runtime.world.spawn(player);
   return player;
+}
+
+/** Player instigator id for applyDamage in tests (sourceId 0 = environment team). */
+export function playerDamageSourceId(runtime: GameInstanceRuntime): number {
+  const existing = runtime.world.entities
+    .all()
+    .find((entity): entity is Player => entity instanceof Player);
+  return existing?.id ?? spawnPlayerLikeDynamic(runtime, 0, 0).id;
 }
 
 export function tick(

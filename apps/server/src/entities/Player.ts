@@ -1,6 +1,7 @@
 import { requireEntityContent } from "@shared/content/catalog.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
+import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
 import type {
   ActionMessage,
   CraftTargetInput,
@@ -180,6 +181,10 @@ export class Player extends Entity {
       armorTier: this.getEquippedArmorStats()?.tier,
       armorDamageReductionPct: this.getEquippedArmorStats()?.damageReductionPct,
     };
+  }
+
+  public override getCombatTeam(): CombatTeam {
+    return "player";
   }
 
   public override getDamageReductionMultiplier(): number {

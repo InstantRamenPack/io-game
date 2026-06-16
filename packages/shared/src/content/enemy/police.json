@@ -18,5 +18,11 @@
     "selection": "rotating",
     "typeIds": ["item:taser"]
   },
-  "deathLoot": {}
+  "deathLoot": {},
+  "runtime": {
+    "renderer": {
+      "kind": "circle",
+      "color": "#355cde"
+    }
+  }
 }

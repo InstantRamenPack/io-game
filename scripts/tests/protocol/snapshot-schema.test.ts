@@ -47,10 +47,6 @@ describe("snapshot schema", () => {
       },
       {
         ...makeSnapshot(1, [makePlayerSnapshot(1, 0, 0)]),
-        lastProcessedSeq: -2,
-      },
-      {
-        ...makeSnapshot(1, [makePlayerSnapshot(1, 0, 0)]),
         removedEntityIds: [-4],
       },
       {
