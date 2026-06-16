@@ -635,9 +635,7 @@ export class GameClient {
   }
 
   public getEffectiveSimulationTickRate(): number {
-    return (
-      this.gameConfig.tickRate * this.gameConfig.simulationSpeedMultiplier
-    );
+    return this.gameConfig.tickRate * this.gameConfig.simulationSpeedMultiplier;
   }
 
   public advanceTime(ms: number): void {

@@ -49,7 +49,10 @@ export class GameConfig {
       process.env.DEBUG_SIMULATION_SPEED;
     if (envSimulationSpeed !== undefined) {
       const parsedSimulationSpeed = Number(envSimulationSpeed);
-      if (!Number.isFinite(parsedSimulationSpeed) || parsedSimulationSpeed <= 0) {
+      if (
+        !Number.isFinite(parsedSimulationSpeed) ||
+        parsedSimulationSpeed <= 0
+      ) {
         throw new Error(
           `Invalid SIMULATION_SPEED "${envSimulationSpeed}". Expected a positive number.`,
         );

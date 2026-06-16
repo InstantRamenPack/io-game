@@ -88,11 +88,11 @@ describe("playground idle tick skipping", () => {
       throw new Error("expected preview snapshot");
     }
 
-    expect(WorldSnapshotSchema.safeParse(snapshotMessage.snapshot).success).toBe(
-      true,
-    );
-    expect(snapshotMessage.snapshot.extraction.boardTimerGoalTicks).toBeGreaterThan(
-      0,
-    );
+    expect(
+      WorldSnapshotSchema.safeParse(snapshotMessage.snapshot).success,
+    ).toBe(true);
+    expect(
+      snapshotMessage.snapshot.extraction.boardTimerGoalTicks,
+    ).toBeGreaterThan(0);
   });
 });

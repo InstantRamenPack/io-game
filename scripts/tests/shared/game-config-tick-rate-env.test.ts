@@ -39,8 +39,8 @@ describe("GameConfig TICK_RATE env override", () => {
     expect(config.simulationSpeedMultiplier).toBe(2);
     const runtimeConfig = makeClientRuntimeConfig(config);
     expect(runtimeConfig.simulationSpeedMultiplier).toBe(2);
-    expect(
-      ClientRuntimeConfigSchema.safeParse(runtimeConfig).success,
-    ).toBe(true);
+    expect(ClientRuntimeConfigSchema.safeParse(runtimeConfig).success).toBe(
+      true,
+    );
   });
 });
