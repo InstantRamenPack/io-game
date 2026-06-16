@@ -25,7 +25,8 @@ describe("GameConfig TICK_RATE env override", () => {
     const config = GameConfig.load();
     expect(config.tickRate).toBe(7.5);
     expect(
-      ClientRuntimeConfigSchema.safeParse(makeClientRuntimeConfig(config)).success,
+      ClientRuntimeConfigSchema.safeParse(makeClientRuntimeConfig(config))
+        .success,
     ).toBe(true);
   });
 });
