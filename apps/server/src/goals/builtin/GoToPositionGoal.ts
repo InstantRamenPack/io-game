@@ -9,7 +9,7 @@ type GoalDestinationProvider<TSelf extends GoalActor> = (
 ) => GoalDestination | null;
 type TilePoint = { x: number; y: number };
 
-const DEFAULT_REPATH_INTERVAL_TICKS = 6;
+const DEFAULT_REPATH_INTERVAL_TICKS = 10;
 const REPATH_STAGGER_TICKS = 3;
 const WAYPOINT_REACHED_DISTANCE_SQUARED = 16;
 const STEERING_JITTER_TICKS = 18;
@@ -30,6 +30,8 @@ export class GoToPositionGoal<
   private lastRepathTick = Number.NEGATIVE_INFINITY;
   private nextScheduledRepathTick = Number.NEGATIVE_INFINITY;
   private lastDestinationTile: TilePoint | null = null;
+  private cachedDestinationTick = Number.NEGATIVE_INFINITY;
+  private cachedDestination: GoalDestination | null = null;
 
   /**
    * Creates a reusable direct-steering goal toward a world position.
@@ -57,7 +59,7 @@ export class GoToPositionGoal<
   }
 
   public override tick(ctx: GoalContext<TSelf>): void {
-    const destination = this.destinationProvider(ctx);
+    const destination = this.getDestination(ctx);
     if (!destination) {
       this.stop(ctx);
       return;
@@ -78,11 +80,17 @@ export class GoToPositionGoal<
     );
     const shouldRepath = this.shouldRepath(ctx, destinationTile);
     if (shouldRepath) {
-      this.cachedWaypoint = ctx.world.navPathService.getNextWaypoint(
-        ctx.self.x,
-        ctx.self.y,
+      this.cachedWaypoint = ctx.world.goalFieldCache.getCachedWaypoint(
+        ctx,
         destination.x,
         destination.y,
+        () =>
+          ctx.world.navPathService.getNextWaypoint(
+            ctx.self.x,
+            ctx.self.y,
+            destination.x,
+            destination.y,
+          ),
       );
       this.hasPathSample = true;
       this.lastRepathTick = ctx.world.tick;
@@ -192,7 +200,7 @@ export class GoToPositionGoal<
   }
 
   private hasArrived(ctx: GoalContext<TSelf>): boolean {
-    const destination = this.destinationProvider(ctx);
+    const destination = this.getDestination(ctx);
     if (!destination) {
       return true;
     }
@@ -201,5 +209,14 @@ export class GoToPositionGoal<
     const deltaY = destination.y - ctx.self.y;
     const arrivalDistanceSquared = this.arrivalRadius * this.arrivalRadius;
     return deltaX * deltaX + deltaY * deltaY <= arrivalDistanceSquared;
+  }
+
+  private getDestination(ctx: GoalContext<TSelf>): GoalDestination | null {
+    if (this.cachedDestinationTick === ctx.world.tick) {
+      return this.cachedDestination;
+    }
+    this.cachedDestinationTick = ctx.world.tick;
+    this.cachedDestination = this.destinationProvider(ctx);
+    return this.cachedDestination;
   }
 }

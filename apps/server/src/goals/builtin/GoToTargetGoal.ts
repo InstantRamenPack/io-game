@@ -55,16 +55,10 @@ export class GoToTargetGoal<
         (PURSUIT_OFFSET_FULL_DISTANCE - PURSUIT_OFFSET_ZERO_DISTANCE),
     );
     const offset = getStablePursuitOffset(ctx.self.id, target.id, offsetScale);
-    const destination = {
+    return {
       x: target.x + offset.x,
       y: target.y + offset.y,
     };
-    return (
-      ctx.world.navPathService.getClosestWalkableWorldPoint(
-        destination.x,
-        destination.y,
-      ) ?? destination
-    );
   }
 }
 

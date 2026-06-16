@@ -9,6 +9,8 @@ type EntityCtor<T extends Entity> = abstract new (...args: never[]) => T;
  * Shared target resolution helpers for server AI goals.
  */
 export class GoalTargetResolver {
+  private readonly queryBuffer: Entity[] = [];
+
   private toCombatEntity(actor: GoalActor): Entity {
     return actor as unknown as Entity;
   }
@@ -74,7 +76,7 @@ export class GoalTargetResolver {
     let bestTarget: Entity | null = null;
     let bestDistanceSquared = Number.POSITIVE_INFINITY;
     const seekRadiusSquared = seekRadius * seekRadius;
-    const buffer = queryBuffer ?? [];
+    const buffer = queryBuffer ?? this.queryBuffer;
 
     for (const candidate of ctx.world.spatial.queryBox(
       ctx.self.x - seekRadius,

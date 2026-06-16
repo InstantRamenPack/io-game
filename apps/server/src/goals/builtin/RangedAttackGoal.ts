@@ -6,6 +6,13 @@ import { resolveInterceptPoint } from "@server/goals/math/InterceptSolver.ts";
 import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 import { RangedWeapon } from "@server/items/RangedWeapon.ts";
 
+type TilePoint = { x: number; y: number };
+type Waypoint = { x: number; y: number };
+
+const DEFAULT_REPATH_INTERVAL_TICKS = 6;
+const REPATH_STAGGER_TICKS = 3;
+const WAYPOINT_REACHED_DISTANCE_SQUARED = 16;
+
 /**
  * Strafing ranged attack goal that maintains distance while firing one weapon slot.
  */
@@ -20,6 +27,12 @@ export class RangedAttackGoal<
   private readonly maxFireDistance: number;
   private strafeSign: -1 | 1 = 1;
   private ticksUntilSwap: number;
+  private readonly repathIntervalTicks = DEFAULT_REPATH_INTERVAL_TICKS;
+  private cachedWaypoint: Waypoint | null = null;
+  private hasPathSample = false;
+  private lastRepathTick = Number.NEGATIVE_INFINITY;
+  private nextScheduledRepathTick = Number.NEGATIVE_INFINITY;
+  private lastDestinationTile: TilePoint | null = null;
 
   constructor(
     priority: number,
@@ -47,6 +60,7 @@ export class RangedAttackGoal<
 
   public override start(_ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
+    this.clearPathState();
   }
 
   public override tick(ctx: GoalContext<TSelf>): void {
@@ -92,13 +106,29 @@ export class RangedAttackGoal<
     const maxDistance = this.preferredDistance + this.distanceTolerance;
 
     if (distance > maxDistance) {
-      const waypoint =
-        ctx.world.navPathService.getNextWaypoint(
-          ctx.self.x,
-          ctx.self.y,
+      const destinationTile = ctx.world.navPathService.toTileCoordinate(
+        target.x,
+        target.y,
+      );
+      if (this.shouldRepath(ctx, destinationTile)) {
+        this.cachedWaypoint = ctx.world.goalFieldCache.getCachedWaypoint(
+          ctx,
           target.x,
           target.y,
-        ) ?? target;
+          () =>
+            ctx.world.navPathService.getNextWaypoint(
+              ctx.self.x,
+              ctx.self.y,
+              target.x,
+              target.y,
+            ),
+        );
+        this.hasPathSample = true;
+        this.lastRepathTick = ctx.world.tick;
+        this.nextScheduledRepathTick = this.computeNextScheduledRepathTick(ctx);
+        this.lastDestinationTile = destinationTile;
+      }
+      const waypoint = this.cachedWaypoint ?? target;
       const pathDx = waypoint.x - ctx.self.x;
       const pathDy = waypoint.y - ctx.self.y;
       const pathDist = Math.hypot(pathDx, pathDy);
@@ -111,11 +141,13 @@ export class RangedAttackGoal<
         ctx.self.setDesiredVelocity(0, 0);
       }
     } else if (distance < minDistance) {
+      this.clearPathState();
       ctx.self.setDesiredVelocity(
         -directionX * ctx.self.moveSpeed,
         -directionY * ctx.self.moveSpeed,
       );
     } else {
+      this.clearPathState();
       const strafeVector = this.resolveStrafeVector(
         ctx,
         directionX,
@@ -139,7 +171,62 @@ export class RangedAttackGoal<
 
   public override stop(ctx: GoalContext<TSelf>): void {
     this.ticksUntilSwap = this.strafeSwapTicks;
+    this.clearPathState();
     ctx.self.setDesiredVelocity(0, 0);
+  }
+
+  private shouldRepath(
+    ctx: GoalContext<TSelf>,
+    destinationTile: TilePoint,
+  ): boolean {
+    if (!this.hasPathSample) {
+      return true;
+    }
+    if (this.hasReachedCachedWaypoint(ctx)) {
+      return true;
+    }
+    if (
+      !this.lastDestinationTile ||
+      this.lastDestinationTile.x !== destinationTile.x ||
+      this.lastDestinationTile.y !== destinationTile.y
+    ) {
+      return true;
+    }
+    if (ctx.world.tick < this.nextScheduledRepathTick) {
+      return false;
+    }
+    if (ctx.world.tick - this.lastRepathTick >= this.repathIntervalTicks) {
+      return true;
+    }
+    return false;
+  }
+
+  private hasReachedCachedWaypoint(ctx: GoalContext<TSelf>): boolean {
+    if (!this.cachedWaypoint) {
+      return false;
+    }
+    const waypointDeltaX = this.cachedWaypoint.x - ctx.self.x;
+    const waypointDeltaY = this.cachedWaypoint.y - ctx.self.y;
+    return (
+      waypointDeltaX * waypointDeltaX + waypointDeltaY * waypointDeltaY <=
+      WAYPOINT_REACHED_DISTANCE_SQUARED
+    );
+  }
+
+  private clearPathState(): void {
+    this.hasPathSample = false;
+    this.cachedWaypoint = null;
+    this.lastDestinationTile = null;
+    this.lastRepathTick = Number.NEGATIVE_INFINITY;
+    this.nextScheduledRepathTick = Number.NEGATIVE_INFINITY;
+  }
+
+  private computeNextScheduledRepathTick(ctx: GoalContext<TSelf>): number {
+    return (
+      ctx.world.tick +
+      this.repathIntervalTicks +
+      (ctx.self.id % REPATH_STAGGER_TICKS)
+    );
   }
 
   private resolveTarget(ctx: GoalContext<TSelf>): Entity | null {

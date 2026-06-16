@@ -52,6 +52,7 @@ export class NavGridPathService {
   private readonly nodeState = new Map<number, number>();
   private readonly queryBuffer: StaticGeometryBlocker[] = [];
   private readonly pathCache = new Map<PathCacheKey, CachedPath>();
+  private readonly pathKeysByTile = new Map<number, Set<PathCacheKey>>();
   private readonly benchmarkStats: NavPathBenchmarkStats = {
     requests: 0,
     cacheHits: 0,
@@ -514,9 +515,46 @@ export class NavGridPathService {
   }
 
   private invalidateCacheForRect(rect: TileRect): void {
-    for (const [key, path] of this.pathCache.entries()) {
-      if (doTileRectsOverlap(path.bounds, rect)) {
-        this.pathCache.delete(key);
+    const keysToRemove = new Set<PathCacheKey>();
+    for (let y = rect.minY; y <= rect.maxY; y += 1) {
+      for (let x = rect.minX; x <= rect.maxX; x += 1) {
+        const keys = this.pathKeysByTile.get(this.tileToIndex(x, y));
+        if (!keys) {
+          continue;
+        }
+        for (const key of keys) {
+          keysToRemove.add(key);
+        }
+      }
+    }
+    for (const key of keysToRemove) {
+      this.removePathFromCache(key);
+    }
+  }
+
+  private removePathFromCache(key: PathCacheKey): void {
+    const path = this.pathCache.get(key);
+    if (!path) {
+      return;
+    }
+    this.pathCache.delete(key);
+    for (let y = path.bounds.minY; y <= path.bounds.maxY; y += 1) {
+      for (let x = path.bounds.minX; x <= path.bounds.maxX; x += 1) {
+        this.pathKeysByTile.get(this.tileToIndex(x, y))?.delete(key);
+      }
+    }
+  }
+
+  private indexPathInCache(key: PathCacheKey, path: CachedPath): void {
+    for (let y = path.bounds.minY; y <= path.bounds.maxY; y += 1) {
+      for (let x = path.bounds.minX; x <= path.bounds.maxX; x += 1) {
+        const tileIndex = this.tileToIndex(x, y);
+        let keys = this.pathKeysByTile.get(tileIndex);
+        if (!keys) {
+          keys = new Set();
+          this.pathKeysByTile.set(tileIndex, keys);
+        }
+        keys.add(key);
       }
     }
   }
@@ -645,10 +683,11 @@ export class NavGridPathService {
     if (this.pathCache.size >= PATH_CACHE_MAX_ENTRIES) {
       const oldestKey = this.pathCache.keys().next().value;
       if (oldestKey !== undefined) {
-        this.pathCache.delete(oldestKey);
+        this.removePathFromCache(oldestKey);
       }
     }
     this.pathCache.set(key, path);
+    this.indexPathInCache(key, path);
   }
 }
 

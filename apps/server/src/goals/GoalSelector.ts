@@ -44,15 +44,15 @@ export class GoalSelector<TSelf extends GoalActor = GoalActor> {
     let claimedControlsMask = 0;
 
     for (const goal of this.goals) {
+      const controlMask = this.controlMaskByGoal.get(goal) ?? 0;
+      if ((claimedControlsMask & controlMask) !== 0) {
+        continue;
+      }
+
       const eligible = this.active.has(goal)
         ? goal.shouldContinue(ctx)
         : goal.canStart(ctx);
       if (!eligible) {
-        continue;
-      }
-
-      const controlMask = this.controlMaskByGoal.get(goal) ?? 0;
-      if ((claimedControlsMask & controlMask) !== 0) {
         continue;
       }
 
