@@ -9,11 +9,16 @@ import type { NetEvent } from "@shared/net/events.ts";
 import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
 import type {
   ProceduralForestCamp,
+  ProceduralSector,
   ProceduralSpawnSpec,
   ProceduralWorldLayout,
 } from "@shared/world/layoutTypes.ts";
 import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
+import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
+import { Player } from "@server/entities/Player.ts";
+import { Projectile } from "@server/entities/Projectile.ts";
+import { Structure } from "@server/entities/Structure.ts";
 import { GoalFieldCache } from "@server/goals/services/GoalFieldCache.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -54,6 +59,8 @@ export type WorldBenchmarkSink = {
   recordWorldTick(stats: WorldBenchmarkTickStats): void;
 };
 
+export type WorldKind = "lobby" | "gameplay";
+
 /**
  * Authoritative world container for entities, events, time, and shared world services.
  * This is the main state holder stepped by the server loop.
@@ -78,6 +85,7 @@ export class World {
   public readonly goalFieldCache = new GoalFieldCache();
   public benchmarkSink?: WorldBenchmarkSink;
   public broadcastSystemMessage: (text: string) => void = () => {};
+  public readonly kind: WorldKind;
 
   /** Night or energy-off removes day combat nerfs on enemies. */
   public isCombatEmpowered(): boolean {
@@ -115,8 +123,13 @@ export class World {
    * @param gameConfig Runtime configuration shared with the server.
    * @param randomSeed Seed for random events.
    */
-  constructor(gameConfig: GameConfig, randomSeed: string | number = 1337) {
+  constructor(
+    gameConfig: GameConfig,
+    randomSeed: string | number = 1337,
+    kind: WorldKind = "lobby",
+  ) {
     this.gameConfig = gameConfig;
+    this.kind = kind;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
     this.staticGeometry = new StaticGeometryIndex(
@@ -174,6 +187,9 @@ export class World {
     });
 
     const tickPhaseEntities = this.entities.all();
+    const collisionPhaseEntities = tickPhaseEntities.filter((entity) =>
+      this.shouldRunEntityGoalsAndCollisions(entity),
+    );
     let enemyTickMs = 0;
     let enemyCount = 0;
     const entityTickMs = measurePhase(() => {
@@ -195,10 +211,10 @@ export class World {
     });
     this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
-    this.applySimulationSpeedToMovement(tickPhaseEntities);
+    this.applySimulationSpeedToMovement(collisionPhaseEntities);
 
     const collisionMs = measurePhase(() => {
-      this.collisionSystem.integrateAndResolve(this, tickPhaseEntities);
+      this.collisionSystem.integrateAndResolve(this, collisionPhaseEntities);
     });
     this.focusedTrace.recordWorldPhase(this, "after_collision");
 
@@ -239,6 +255,44 @@ export class World {
       entityCount: tickPhaseEntities.length,
       enemyCount,
     });
+  }
+
+  /**
+   * Selects entities that participate in goals and collision. The lobby is
+   * small enough to simulate fully; gameplay keeps permanent actors active and
+   * wakes other entities in replication range or the center sector.
+   */
+  public shouldRunEntityGoalsAndCollisions(entity: Entity): boolean {
+    if (this.kind === "lobby") {
+      return true;
+    }
+    if (
+      entity instanceof Player ||
+      entity instanceof Building ||
+      entity instanceof Structure ||
+      entity instanceof Projectile ||
+      (entity instanceof Enemy && entity.spawnSource === "wave")
+    ) {
+      return true;
+    }
+    if (
+      this.goalFieldCache.isEntityNearAnyPlayer(
+        this,
+        entity.x,
+        entity.y,
+        this.gameConfig.replication.interestRadius,
+      )
+    ) {
+      return true;
+    }
+
+    const layout = this.proceduralLayout;
+    const centerSector = layout?.sectors.find(
+      (sector) => sector.id === layout.centerSectorId,
+    );
+    return (
+      centerSector !== undefined && pointIsInsideSector(entity, centerSector)
+    );
   }
 
   /**
@@ -534,6 +588,18 @@ export class World {
 
 function isEnemyEntity(entity: Entity): boolean {
   return entity.typeId.startsWith("enemy:");
+}
+
+function pointIsInsideSector(
+  entity: Entity,
+  sector: ProceduralSector,
+): boolean {
+  return (
+    entity.x >= sector.minX &&
+    entity.x <= sector.maxX &&
+    entity.y >= sector.minY &&
+    entity.y <= sector.maxY
+  );
 }
 
 function isPlayerOwnedBuilding(entity: Entity): boolean {

@@ -51,7 +51,7 @@ describe("enemy target line of sight", () => {
     expect(enemy.targetId).toBe(player.id);
   });
 
-  test("enemy prefers a visible player before falling back to a nearer building", () => {
+  test("wave enemy falls back to a nearer building after its player despawns", () => {
     const { runtime } = makeRuntime();
     const player = spawnPlayerLikeDynamic(runtime, 6500, 500);
     const hub = new Hub(runtime.world.allocEntityId());
@@ -59,6 +59,7 @@ describe("enemy target line of sight", () => {
     hub.y = 700;
     runtime.world.spawn(hub);
     const enemy = spawnEnemy(runtime, "police", 6100, 500) as Enemy;
+    enemy.spawnSource = "wave";
 
     tick(runtime, 1);
 

@@ -15,6 +15,7 @@ describe("match spawn placement", () => {
 
   test("match clients spawn in distinct positions inside the home base", () => {
     const { runtime } = makeRuntime();
+    expect(runtime.world.kind).toBe("gameplay");
     const positions = Array.from({ length: 5 }, (_value, index) => {
       const { player } = connectTestClient(
         runtime,
@@ -96,6 +97,7 @@ describe("match spawn placement", () => {
     });
     const { player } = connectTestClient(runtime, "client-1", "playground");
 
+    expect(runtime.world.kind).toBe("lobby");
     expect({ x: player.x, y: player.y }).toEqual(
       getPlayerSpawnPosition(runtime.world.gameConfig.worldSize),
     );

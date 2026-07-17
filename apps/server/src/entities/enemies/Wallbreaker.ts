@@ -31,7 +31,11 @@ export class Wallbreaker extends Enemy {
 
   public override tick(world: World): void {
     super.tick(world);
-    if (!this.alive || !world.entities.has(this.id)) {
+    if (
+      !this.alive ||
+      !world.entities.has(this.id) ||
+      !world.shouldRunEntityGoalsAndCollisions(this)
+    ) {
       return;
     }
 

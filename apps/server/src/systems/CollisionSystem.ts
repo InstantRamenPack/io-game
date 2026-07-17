@@ -63,14 +63,24 @@ class CollisionSystem implements System {
   private readonly worldBoundsCache = new Map<number, HitboxBounds>();
   private readonly movedEntityBuffer: Entity[] = [];
   private readonly solverMovedEntityBuffer: Entity[] = [];
+  private readonly activeEntityIds = new Set<number>();
 
   public update(world: World): void {
-    this.integrateAndResolve(world, world.entities.all());
+    this.integrateAndResolve(
+      world,
+      world.entities
+        .all()
+        .filter((entity) => world.shouldRunEntityGoalsAndCollisions(entity)),
+    );
   }
 
   public integrateAndResolve(world: World, tickPhaseEntities: Entity[]): void {
     this.worldHitboxCache.clear();
     this.worldBoundsCache.clear();
+    this.activeEntityIds.clear();
+    for (const entity of tickPhaseEntities) {
+      this.activeEntityIds.add(entity.id);
+    }
     world.ensureSpatialIndex();
 
     const movedEntities = this.movedEntityBuffer;
@@ -125,7 +135,10 @@ class CollisionSystem implements System {
     movedEntities: Entity[],
   ): void {
     for (const entity of world.entities.all()) {
-      if (entity.collisionMode !== "dynamic") {
+      if (
+        entity.collisionMode !== "dynamic" ||
+        !this.activeEntityIds.has(entity.id)
+      ) {
         continue;
       }
       const clip = this.clipStaticDelta(world, entity, 0, 0, {
@@ -534,7 +547,10 @@ class CollisionSystem implements System {
 
   private resolveDynamicPairs(world: World, movedEntities: Entity[]): void {
     for (const entity of world.entities.dynamic()) {
-      if (entity.collisionMode !== "dynamic") {
+      if (
+        entity.collisionMode !== "dynamic" ||
+        !this.activeEntityIds.has(entity.id)
+      ) {
         continue;
       }
 
@@ -550,7 +566,8 @@ class CollisionSystem implements System {
       for (const candidate of candidates) {
         if (
           candidate.id === entity.id ||
-          candidate.collisionMode !== "dynamic"
+          candidate.collisionMode !== "dynamic" ||
+          !this.activeEntityIds.has(candidate.id)
         ) {
           continue;
         }

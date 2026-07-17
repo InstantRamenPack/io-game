@@ -73,7 +73,11 @@ export class GameInstanceRuntime {
     validatePlayerStarterLoadout();
     this.gameConfig = runtimeConfig;
     this.networkServer = networkServer;
-    this.world = new World(runtimeConfig, options.worldSeed ?? 1337);
+    this.world = new World(
+      runtimeConfig,
+      options.worldSeed ?? 1337,
+      this.isPlayground ? "lobby" : "gameplay",
+    );
     this.snapshotManager = new SnapshotManager();
     this.antiCheatValidator = new AntiCheatValidator();
     this.chatService = new ChatService({

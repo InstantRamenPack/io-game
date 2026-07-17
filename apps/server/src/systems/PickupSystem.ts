@@ -15,7 +15,9 @@ export class PickupSystem implements System {
   public update(world: World): void {
     this.mergeOverlappingStackablePickups(
       world,
-      world.entities.queryInstances(ItemEntity),
+      world.entities
+        .queryInstances(ItemEntity)
+        .filter((pickup) => world.shouldRunEntityGoalsAndCollisions(pickup)),
     );
   }
 
@@ -49,6 +51,7 @@ export class PickupSystem implements System {
         if (
           !(candidate instanceof ItemEntity) ||
           candidate.id === pickup.id ||
+          !world.shouldRunEntityGoalsAndCollisions(candidate) ||
           this.removedPickupIds.has(candidate.id) ||
           !world.entities.has(candidate.id)
         ) {

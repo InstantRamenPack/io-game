@@ -15,7 +15,7 @@ describe("enemy wandering", () => {
   const enemyStart = { x: 6160, y: 500 };
   const outsideAggro = { x: 7000, y: 1400 };
 
-  test("enemy without aggro wanders near its idle anchor", () => {
+  test("outer-sector enemy without a nearby player stays dormant", () => {
     const { runtime } = makeRuntime();
     const enemy = spawnEnemy(runtime, "police", 300, 300) as Enemy;
     const anchor = { x: enemy.x, y: enemy.y };
@@ -26,8 +26,7 @@ describe("enemy wandering", () => {
       enemy.x - anchor.x,
       enemy.y - anchor.y,
     );
-    expect(distanceFromAnchor).toBeGreaterThan(5);
-    expect(distanceFromAnchor).toBeLessThanOrEqual(170);
+    expect(distanceFromAnchor).toBe(0);
     expect(enemy.targetId).toBeUndefined();
   });
 
