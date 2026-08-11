@@ -2,7 +2,7 @@ import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.
 import { getEntityContent } from "@shared/content/catalog.ts";
 import { Building } from "@server/entities/Building.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import { LandmineExplosionAreaEffect } from "@server/effects/area/LandmineExplosionAreaEffect.ts";
+import { landmineExplosion } from "@server/effects/area/areaEffects.ts";
 import { Player } from "@server/entities/Player.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -55,7 +55,7 @@ export class Landmine extends Building {
         continue;
       }
 
-      new LandmineExplosionAreaEffect().apply(world, this, {
+      landmineExplosion.apply(world, this, {
         x: this.x,
         y: this.y,
       });

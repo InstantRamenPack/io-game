@@ -1,4 +1,3 @@
-import type { System } from "@server/systems/System.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { World } from "@server/world/World.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -14,7 +13,7 @@ export const HELIPAD_X = extractionConfig.fallbackHelipad.x;
 export const HELIPAD_Y = extractionConfig.fallbackHelipad.y;
 export const HELIPAD_RADIUS = extractionConfig.fallbackHelipad.radius;
 
-export class ExtractionSystem implements System {
+export class ExtractionSystem {
   private stage: ExtractionStage = "active";
   private lockedReason: ExtractionLockedReason | undefined;
   private boardElapsedTicks = 0;

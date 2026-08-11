@@ -9,7 +9,7 @@ import {
   TESLA_SHOCK_RADIUS,
   TESLA_WAVE_SPEED_PX_PER_TICK,
 } from "@shared/gameplay/teslaShock.ts";
-import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
+import { makeResourceId } from "@shared/ids/ResourceId.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Tesla } from "@server/entities/buildings/Tesla.ts";
@@ -100,7 +100,7 @@ describe("tesla building", () => {
     runtime.world.step();
 
     const shockEvents = runtime.world.events
-      .toArray()
+      .slice()
       .filter(
         (event): event is Extract<NetEvent, { type: "tesla_shock" }> =>
           event.type === "tesla_shock",

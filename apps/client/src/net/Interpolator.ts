@@ -68,7 +68,6 @@ type InterpolationConfig = {
 };
 
 export class Interpolator {
-  private snapDistance = 192;
   private expectedSnapshotMs: number;
   private observedTickMs: number;
   private renderDelayTicks = 2;
@@ -111,7 +110,6 @@ export class Interpolator {
   }
 
   public setConfig(interpolationConfig: InterpolationConfig): void {
-    this.snapDistance = Math.max(0, interpolationConfig.snapDistance);
     this.expectedSnapshotMs = Math.max(
       1,
       interpolationConfig.expectedSnapshotMs,

@@ -25,11 +25,8 @@ export abstract class Tower extends Building {
     return towerSnapshot as unknown as BuildingSnapshot;
   }
 
-  public override handleDeath(world: World): void {
+  public override handleDeath(_world: World): void {
     this.alive = false;
     this.hp = 0;
-    world.focusedTrace.recordEntityEvent(world, "tower_destroyed", this, {
-      kind: (this.constructor as typeof Tower).resourceName,
-    });
   }
 }

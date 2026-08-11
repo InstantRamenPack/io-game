@@ -1,8 +1,6 @@
 import type { Application, Container } from "pixi.js";
-import type { WorldSize } from "@client/render/renderTypes.ts";
 
 export class PixiViewportController {
-  private worldSize: WorldSize;
   private cameraPivotX = 0;
   private cameraPivotY = 0;
   private cameraTargetX = 0;
@@ -25,15 +23,6 @@ export class PixiViewportController {
     width: number;
     height: number;
   } | null = null;
-
-  constructor(worldSize: WorldSize) {
-    this.worldSize = worldSize;
-  }
-
-  public setWorldSize(worldSize: WorldSize): void {
-    this.worldSize = { ...worldSize };
-    this.viewRectCache = null;
-  }
 
   public invalidateViewRectCache(): void {
     this.viewRectCache = null;
@@ -67,7 +56,7 @@ export class PixiViewportController {
     this.viewRectCache = null;
   }
 
-  public update(deltaMs: number, app: Application, worldRoot: Container): void {
+  public update(app: Application, worldRoot: Container): void {
     if (!this.cameraInitialized) {
       return;
     }
@@ -175,7 +164,6 @@ export class PixiViewportController {
   }
 
   public worldToScreen(
-    app: Application,
     worldRoot: Container,
     worldX: number,
     worldY: number,

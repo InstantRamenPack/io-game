@@ -205,8 +205,4 @@ export abstract class Weapon extends Item {
   public override getHotbarSlotsFreedWhenConsumed(amount: number): number {
     return amount;
   }
-
-  public override getCraftTraceResult(): "crafted_weapon" {
-    return "crafted_weapon";
-  }
 }

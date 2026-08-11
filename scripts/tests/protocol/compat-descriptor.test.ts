@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   COMPACT_ENTITY_BASE_FIELDS,
+  COMPACT_MAP_TUPLE_FIELDS,
   COMPACT_WORLD_SNAPSHOT_FIELDS,
 } from "@shared/net/compactProtocol.ts";
 import { PROTOCOL_COMPAT_DESCRIPTOR } from "@shared/net/protocol.ts";
 import {
   EntitySnapshotBaseSchema,
   EquippedItemSnapshotSchema,
+  MapFeatureSnapshotSchema,
+  MapMarkerSnapshotSchema,
+  MapSectorSnapshotSchema,
   SNAPSHOT_COMPAT_DESCRIPTOR,
   WorldSnapshotSchema,
 } from "@shared/net/snapshots.ts";
@@ -101,6 +105,21 @@ describe("compat descriptors", () => {
       "compact entity base tuple",
       COMPACT_ENTITY_BASE_FIELDS,
       schemaKeys(EntitySnapshotBaseSchema).filter((key) => key !== "kind"),
+    );
+    expectSameKeys(
+      "compact map sector tuple",
+      COMPACT_MAP_TUPLE_FIELDS.sector,
+      schemaKeys(MapSectorSnapshotSchema),
+    );
+    expectSameKeys(
+      "compact map feature tuple",
+      COMPACT_MAP_TUPLE_FIELDS.feature,
+      schemaKeys(MapFeatureSnapshotSchema),
+    );
+    expectSameKeys(
+      "compact map marker tuple",
+      COMPACT_MAP_TUPLE_FIELDS.marker,
+      schemaKeys(MapMarkerSnapshotSchema),
     );
   });
 });

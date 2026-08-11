@@ -1,22 +1,17 @@
-import { ClientFrameController } from "@client/client/ClientFrameController.ts";
 import type {
   PerformanceRateState,
   PointerInput,
 } from "@client/client/clientTypes.ts";
 import { HeldAttackController } from "@client/client/HeldAttackController.ts";
+import { ClientRateMonitor } from "@client/client/ClientRateMonitor.ts";
 import { ClientInputController } from "@client/client/input/ClientInputController.ts";
 import { PlacementPreviewController } from "@client/client/building/PlacementPreviewController.ts";
 import { PointerAimController } from "@client/client/input/PointerAimController.ts";
-import { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
-import {
-  ClientSessionLifecycle,
-  type SessionLifecycleResetHooks,
-} from "@client/client/session/ClientSessionLifecycle.ts";
 import type { MovementSuppressionReason } from "@client/input/MovementSuppressionReason.ts";
 import { InputBlocker } from "@client/input/InputBlocker.ts";
 import { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import type { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import {
   Interpolator,
   type InterpolationDebugFrame,
@@ -33,14 +28,26 @@ import type { GameConfig } from "@shared/config/GameConfig.ts";
 import type { ResourceId } from "@shared/ids/ResourceId.ts";
 import { computeClientNightBlend } from "@shared/gameplay/dayNightBlend.ts";
 import type {
+  ActionMessage,
   CraftTargetInput,
   InputMovement,
   LobbyStateMessage,
   GameCompleteMessage,
   GameOverMessage,
 } from "@shared/net/protocol.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import type {
+  ExtractionSnapshot,
+  InfrastructureSnapshot,
+  WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 import type { DebugNetworkProfileName } from "@client/net/DebugNetworkSimulator.ts";
+import { normalizePlayerName } from "@shared/playerName.ts";
+
+type ActionPayload = ActionMessage extends infer Message
+  ? Message extends ActionMessage
+    ? Omit<Message, "t" | "seq">
+    : never
+  : never;
 
 /**
  * Coordinates the client runtime while gameplay concerns live in focused
@@ -56,12 +63,32 @@ export class GameClient {
 
   private inputBound = false;
   private pointerActionHandler?: (pointer: PointerInput) => boolean;
-  private readonly frameController = new ClientFrameController();
+  private animationFrameId: number | undefined;
+  private lastAnimationFrameTime: number | undefined;
+  private readonly rateMonitor = new ClientRateMonitor();
   private readonly heldAttackController = new HeldAttackController({
     tickRate: () =>
       this.gameConfig.tickRate * this.gameConfig.simulationSpeedMultiplier,
   });
-  private readonly sessionLifecycle = new ClientSessionLifecycle();
+  private started = false;
+  private sessionReady = false;
+  private pendingPlayerName: string | null = null;
+  private currentWorldId: string | undefined;
+  private spectateEntityId: number | null = null;
+  private lobbyState: LobbyStateMessage | undefined;
+  private latestExtractionState: ExtractionSnapshot | null = null;
+  private latestInfrastructureState: InfrastructureSnapshot = {
+    energyActive: true,
+    commsActive: true,
+  };
+  private latestMinimapPlayers: ReadonlyArray<{
+    id: number;
+    x: number;
+    y: number;
+    alive: boolean;
+  }> = [];
+  public worldState: ClientWorldState | undefined;
+  public playerEntityId: number | undefined;
   private readonly pointerAimController = new PointerAimController();
   private readonly placementPreviewController =
     new PlacementPreviewController();
@@ -70,7 +97,6 @@ export class GameClient {
     MovementSuppressionReason,
     () => void
   >();
-  private readonly actionDispatcher: ClientActionDispatcher;
   private readonly presentationSink: PixiWorldPresentationSink;
   private readonly inputController: ClientInputController;
   private sessionReadyHandlers: Array<() => void> = [];
@@ -94,12 +120,6 @@ export class GameClient {
       this.renderer,
       options,
     );
-    this.actionDispatcher = new ClientActionDispatcher({
-      networkClient: this.networkClient,
-      inputManager: this.inputManager,
-      isSessionReady: () => this.isSessionReady(),
-      isTransportConnected: () => this.isTransportConnected(),
-    });
     this.interpolator = new Interpolator({
       ...this.gameConfig.interpolation,
       expectedSnapshotMs: 1000 / this.gameConfig.tickRate,
@@ -108,7 +128,7 @@ export class GameClient {
       inputManager: this.inputManager,
       networkClient: this.networkClient,
       pointerAimController: this.pointerAimController,
-      actionDispatcher: this.actionDispatcher,
+      sendAttack: (theta) => this.sendAction({ action: "attack", theta }),
       heldAttackController: this.heldAttackController,
       presentationSink: this.presentationSink,
       isSessionReady: () => this.isSessionReady(),
@@ -127,29 +147,13 @@ export class GameClient {
     this.networkClient.onGameComplete((msg) => this.handleGameComplete(msg));
     this.networkClient.onGameOver((msg) => this.handleGameOver(msg));
     this.networkClient.onSpectateUpdate((msg) => {
-      this.sessionLifecycle.setSpectateEntityId(msg.targetEntityId);
+      this.spectateEntityId = msg.targetEntityId;
     });
     this.networkClient.onClose(() => this.onDisconnected());
     this.inputController.bindMoveIntent();
     this.inputBlocker.onChange((blocked) => {
       this.inputManager.setMovementSuppressed(blocked);
     });
-  }
-
-  public get worldState(): ClientWorldState | undefined {
-    return this.sessionLifecycle.getWorldState();
-  }
-
-  public set worldState(worldState: ClientWorldState | undefined) {
-    this.sessionLifecycle.setWorldState(worldState);
-  }
-
-  public get playerEntityId(): number | undefined {
-    return this.sessionLifecycle.getPlayerEntityId();
-  }
-
-  public set playerEntityId(playerEntityId: number | undefined) {
-    this.sessionLifecycle.setPlayerEntityId(playerEntityId);
   }
 
   public bindInput(targetElement: HTMLElement | Window): void {
@@ -169,7 +173,7 @@ export class GameClient {
   }
 
   public isSessionReady(): boolean {
-    return this.sessionLifecycle.isSessionReady();
+    return this.sessionReady;
   }
 
   public isTransportConnected(): boolean {
@@ -191,27 +195,35 @@ export class GameClient {
   }
 
   public isInActiveMatch(): boolean {
-    return this.sessionLifecycle.isInActiveMatch();
+    return (
+      this.lobbyState?.inLobby === true && this.lobbyState.startedAtMs != null
+    );
   }
 
   public getSpectateTargetName(): string | null {
-    return this.sessionLifecycle.getSpectateTargetName();
+    if (this.spectateEntityId === null) {
+      return null;
+    }
+    const entity = this.worldState?.clientWorld?.entities.get(
+      this.spectateEntityId,
+    );
+    return entity?.kind === "player" ? (entity.name ?? null) : null;
   }
 
   public getSpectateTargetEntityId(): number | null {
-    return this.sessionLifecycle.getSpectateEntityId();
+    return this.spectateEntityId;
   }
 
   public getLatestExtractionState() {
-    return this.sessionLifecycle.getLatestExtractionState();
+    return this.latestExtractionState;
   }
 
   public getLatestInfrastructureState() {
-    return this.sessionLifecycle.getLatestInfrastructureState();
+    return this.latestInfrastructureState;
   }
 
   public getLobbyState(): LobbyStateMessage | undefined {
-    return this.sessionLifecycle.getLobbyState();
+    return this.lobbyState;
   }
 
   public requestJoinLobby(): void {
@@ -247,7 +259,7 @@ export class GameClient {
     this.renderer.invalidateViewRectCache();
     this.pointerAimController.bind({
       renderer: this.renderer,
-      isStarted: () => this.sessionLifecycle.isStarted(),
+      isStarted: () => this.started,
       getPlayerPose: () => this.getLocalPlayerVisualPose(),
       handlePointerInput: (pointer) =>
         this.pointerActionHandler?.(pointer) ?? false,
@@ -322,15 +334,18 @@ export class GameClient {
     itemTypeId: ResourceId,
     target?: CraftTargetInput,
   ): void {
-    this.actionDispatcher.queueCraftItem(itemTypeId, target);
+    this.sendAction({ action: "craft", craft: { itemTypeId, target } });
   }
 
   public queueBuildPlacement(x: number, y: number): void {
-    this.actionDispatcher.queueBuildPlacement(x, y);
+    this.sendAction({ action: "build", build: { x, y } });
   }
 
   public queueInventoryMove(fromSlotIndex: number, toSlotIndex: number): void {
-    this.actionDispatcher.queueInventoryMove(fromSlotIndex, toSlotIndex);
+    this.sendAction({
+      action: "inventoryMove",
+      inventoryMove: { fromSlotIndex, toSlotIndex },
+    });
   }
 
   public queueChestMove(
@@ -340,13 +355,10 @@ export class GameClient {
     toSource: "hotbar" | "chest",
     toIndex: number,
   ): void {
-    this.actionDispatcher.queueChestMove(
-      chestEntityId,
-      fromSource,
-      fromIndex,
-      toSource,
-      toIndex,
-    );
+    this.sendAction({
+      action: "chestMove",
+      chestMove: { chestEntityId, fromSource, fromIndex, toSource, toIndex },
+    });
   }
 
   public queueArmorMove(
@@ -355,52 +367,55 @@ export class GameClient {
     toSource: "hotbar" | "armor",
     toIndex: number,
   ): void {
-    this.actionDispatcher.queueArmorMove(
-      fromSource,
-      fromIndex,
-      toSource,
-      toIndex,
-    );
+    this.sendAction({
+      action: "armorMove",
+      armorMove: { fromSource, fromIndex, toSource, toIndex },
+    });
   }
 
   public queueSelectHotbarIndex(index: number): void {
-    this.actionDispatcher.queueSelectHotbarIndex(index);
+    this.sendAction({ action: "selectHotbar", index });
   }
 
   public queueDropSelectedItem(dropWholeStack: boolean): void {
-    this.actionDispatcher.queueDropSelectedItem(dropWholeStack);
+    this.sendAction({ action: "drop", dropWholeStack });
   }
 
   public queueReloadSelectedWeapon(): void {
-    this.actionDispatcher.queueReloadSelectedWeapon();
+    this.sendAction({ action: "reload" });
   }
 
   public queuePickupNearbyItem(): void {
-    this.actionDispatcher.queuePickupNearbyItem();
+    this.sendAction({ action: "pickup" });
   }
 
   public queueRecycle(): void {
-    this.actionDispatcher.queueRecycle();
+    this.sendAction({ action: "recycle" });
   }
 
   public queueRecycleHotbarIndex(index: number): void {
-    this.actionDispatcher.queueRecycleHotbarIndex(index);
+    this.queueSelectHotbarIndex(index);
+    this.queueRecycle();
   }
 
   public queueRepairTower(towerId: number): void {
-    this.actionDispatcher.queueRepairTower(towerId);
+    this.sendAction({ action: "repair_tower", towerId });
   }
 
   public queueUseConsumable(typeId: ResourceId): void {
-    this.actionDispatcher.queueUseConsumable(typeId);
+    this.sendAction({ action: "useConsumable", typeId });
   }
 
   public requestRespawn(): void {
-    this.actionDispatcher.requestRespawn();
+    if (this.canSend()) {
+      this.networkClient.sendRespawn();
+    }
   }
 
   public sendChat(text: string): void {
-    this.actionDispatcher.sendChat(text);
+    if (this.canSend()) {
+      this.networkClient.sendChat(text);
+    }
   }
 
   public acquireMovementSuppression(
@@ -461,18 +476,18 @@ export class GameClient {
   }
 
   public start(url: string, connectOptions: { playerName: string }): void {
-    if (this.sessionLifecycle.isStarted() && !this.isSessionReady()) {
+    if (this.started && !this.isSessionReady()) {
       this.resetSessionState(true);
     }
-    if (!this.sessionLifecycle.begin()) {
+    if (!this.beginSession()) {
       return;
     }
 
-    this.frameController.reset();
-    this.worldState = this.sessionLifecycle.createWorldState(
+    this.rateMonitor.reset();
+    this.worldState = new ClientWorldState(
       this.gameConfig.interpolation.historySize,
     );
-    this.sessionLifecycle.setPendingPlayerName(connectOptions.playerName);
+    this.pendingPlayerName = connectOptions.playerName;
     this.startFrameLoop();
 
     this.networkClient.connect(url, {
@@ -482,15 +497,15 @@ export class GameClient {
   }
 
   public startLobbyPreview(url: string): void {
-    if (!this.sessionLifecycle.begin()) {
+    if (!this.beginSession()) {
       return;
     }
 
-    this.frameController.reset();
-    this.worldState = this.sessionLifecycle.createWorldState(
+    this.rateMonitor.reset();
+    this.worldState = new ClientWorldState(
       this.gameConfig.interpolation.historySize,
     );
-    this.sessionLifecycle.setPendingPlayerName(null);
+    this.pendingPlayerName = null;
     this.startFrameLoop();
     this.renderer.setPlaygroundMode(true);
 
@@ -515,10 +530,9 @@ export class GameClient {
       const playerPose = this.getLocalPlayerVisualPose();
 
       const isSpectating =
-        player?.alive === false &&
-        this.sessionLifecycle.getSpectateEntityId() !== null;
+        player?.alive === false && this.spectateEntityId !== null;
       const cameraEntityId = isSpectating
-        ? (this.sessionLifecycle.getSpectateEntityId() ?? this.playerEntityId)
+        ? (this.spectateEntityId ?? this.playerEntityId)
         : this.playerEntityId;
       if (this.renderer.playerEntityId !== cameraEntityId) {
         this.renderer.playerEntityId = cameraEntityId;
@@ -528,7 +542,7 @@ export class GameClient {
       this.presentationSink.update(deltaMs, world);
       const minimapPlayers: Array<{ x: number; y: number; isSelf: boolean }> =
         [];
-      for (const player of this.sessionLifecycle.getLatestMinimapPlayers()) {
+      for (const player of this.latestMinimapPlayers) {
         if (!player.alive) {
           continue;
         }
@@ -567,11 +581,9 @@ export class GameClient {
     }
 
     this.resolveWelcomeFromSnapshot();
-    this.sessionLifecycle.setLatestExtractionState(snapshot.extraction);
-    this.sessionLifecycle.setLatestInfrastructureState(snapshot.infrastructure);
-    this.sessionLifecycle.setLatestMinimapPlayers(
-      snapshot.minimapPlayers ?? [],
-    );
+    this.latestExtractionState = snapshot.extraction;
+    this.latestInfrastructureState = snapshot.infrastructure;
+    this.latestMinimapPlayers = snapshot.minimapPlayers ?? [];
     this.renderer.updateExtractionState(snapshot.extraction);
     this.renderer.updateInfrastructureState(snapshot.infrastructure);
     if (snapshot.map !== undefined) {
@@ -583,7 +595,7 @@ export class GameClient {
       preview: true,
     });
     this.renderer.setGridNightBlend(computeClientNightBlend(snapshot.dayNight));
-    this.frameController.recordTickSample(snapshot.tick, performance.now());
+    this.rateMonitor.recordTickSample(snapshot.tick, performance.now());
 
     if (this.worldState?.clientWorld) {
       this.presentationSink.syncWorld(this.worldState.clientWorld);
@@ -599,13 +611,12 @@ export class GameClient {
     if (this.isSessionReady()) {
       const samePlayer = this.playerEntityId === entityId;
       const worldChanged =
-        worldId !== undefined &&
-        this.sessionLifecycle.getCurrentWorldId() !== undefined
-          ? worldId !== this.sessionLifecycle.getCurrentWorldId()
+        worldId !== undefined && this.currentWorldId !== undefined
+          ? worldId !== this.currentWorldId
           : !samePlayer;
       if (!worldChanged) {
         if (worldId !== undefined) {
-          this.sessionLifecycle.setCurrentWorldId(worldId);
+          this.currentWorldId = worldId;
         }
         return;
       }
@@ -613,13 +624,13 @@ export class GameClient {
     }
 
     if (worldId !== undefined) {
-      this.sessionLifecycle.setCurrentWorldId(worldId);
+      this.currentWorldId = worldId;
     }
     this.playerEntityId = entityId;
-    this.sessionLifecycle.markSessionReady();
-    this.sessionLifecycle.setPendingPlayerName(null);
+    this.sessionReady = true;
+    this.pendingPlayerName = null;
     this.presentationSink.setPlayerEntityId(entityId);
-    this.renderer.setPlaygroundMode(!this.sessionLifecycle.isInActiveMatch());
+    this.renderer.setPlaygroundMode(!this.isInActiveMatch());
     for (const sessionReadyHandler of this.sessionReadyHandlers) {
       sessionReadyHandler();
     }
@@ -631,7 +642,7 @@ export class GameClient {
   }
 
   public getMeasuredRates(): PerformanceRateState {
-    return this.frameController.getMeasuredRates(performance.now());
+    return this.rateMonitor.getMeasuredRates(performance.now());
   }
 
   public getEffectiveSimulationTickRate(): number {
@@ -723,18 +734,42 @@ export class GameClient {
   }
 
   private startFrameLoop(): void {
-    this.frameController.start({
-      isStarted: () => this.sessionLifecycle.isStarted(),
-      onFrame: (timestampMs, deltaMs) => {
-        this.inputController.refreshPointerTargetFromScreen();
-        this.update(deltaMs, timestampMs);
-      },
-      onAfterFrame: (timestampMs) => {
-        this.inputController.refreshPointerTargetFromScreen();
-        this.inputController.sendInputIntentIfNeeded(timestampMs);
-        this.inputController.updateHeldAttack(timestampMs);
-      },
-    });
+    if (this.animationFrameId !== undefined) {
+      return;
+    }
+    const tick = (timestampMs: number): void => {
+      if (this.animationFrameId === undefined) {
+        return;
+      }
+      if (!this.started) {
+        this.stopFrameLoop();
+        return;
+      }
+      const deltaMs =
+        this.lastAnimationFrameTime === undefined
+          ? 0
+          : timestampMs - this.lastAnimationFrameTime;
+      this.lastAnimationFrameTime = timestampMs;
+      this.rateMonitor.recordFrameSample(timestampMs);
+      this.inputController.refreshPointerTargetFromScreen();
+      this.update(deltaMs, timestampMs);
+      this.inputController.refreshPointerTargetFromScreen();
+      this.inputController.sendInputIntentIfNeeded(timestampMs);
+      this.inputController.updateHeldAttack(timestampMs);
+      if (this.started) {
+        this.animationFrameId = window.requestAnimationFrame(tick);
+      }
+    };
+    this.lastAnimationFrameTime = undefined;
+    this.animationFrameId = window.requestAnimationFrame(tick);
+  }
+
+  private stopFrameLoop(): void {
+    if (this.animationFrameId !== undefined) {
+      window.cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = undefined;
+    }
+    this.lastAnimationFrameTime = undefined;
   }
 
   private syncInterpolatorConfig(): void {
@@ -749,67 +784,77 @@ export class GameClient {
   }
 
   private onLobbyState(state: LobbyStateMessage): void {
-    this.sessionLifecycle.notifyLobbyState(state, (nextState) => {
-      this.renderer.setPlaygroundMode(
-        !(nextState.inLobby && nextState.startedAtMs != null),
-      );
-      for (const handler of this.lobbyStateHandlers) {
-        handler(nextState);
-      }
-    });
+    this.lobbyState = state;
+    this.renderer.setPlaygroundMode(
+      !(state.inLobby && state.startedAtMs != null),
+    );
+    for (const handler of this.lobbyStateHandlers) {
+      handler(state);
+    }
   }
 
   private handleGameComplete(msg: GameCompleteMessage): void {
-    this.sessionLifecycle.notifyGameComplete(msg, this.gameCompleteHandlers);
+    for (const handler of this.gameCompleteHandlers) {
+      handler(msg);
+    }
   }
 
   private handleGameOver(msg: GameOverMessage): void {
-    this.sessionLifecycle.notifyGameOver(msg, this.gameOverHandlers);
-  }
-
-  private getSessionResetHooks(): SessionLifecycleResetHooks {
-    return {
-      resetPointerAim: () => this.pointerAimController.reset(),
-      resetHeldAttack: () => this.heldAttackController.reset(),
-      resetInput: () => this.inputController.reset(),
-      resetFrameController: () => {
-        this.frameController.reset();
-        this.syncInterpolatorConfig();
-      },
-      stopFrameLoop: () => this.frameController.stop(),
-      clearMovementSuppressions: () => this.clearMovementSuppressions(),
-      invalidateRendererView: () => this.renderer.invalidateViewRectCache(),
-      resetPresentation: () => {
-        this.presentationSink.setPlayerEntityId(undefined);
-        this.presentationSink.reset();
-      },
-      resetPlacementPreview: () =>
-        this.placementPreviewController.reset(this.renderer),
-      resetRendererWorldState: () => {
-        this.renderer.updateExtractionState(null);
-        this.renderer.updateInfrastructureState(
-          this.sessionLifecycle.getLatestInfrastructureState(),
-        );
-        this.renderer.updateMapState(null);
-        this.renderer.setSniperAimGuide(null);
-      },
-      disconnectTransport: () => this.networkClient.disconnect(),
-    };
+    for (const handler of this.gameOverHandlers) {
+      handler(msg);
+    }
   }
 
   private resetForInstanceMigration(): void {
-    this.sessionLifecycle.resetForInstanceMigration(
+    this.worldState?.clear();
+    this.worldState = new ClientWorldState(
       this.gameConfig.interpolation.historySize,
-      this.getSessionResetHooks(),
     );
-    this.worldState = this.sessionLifecycle.getWorldState();
+    this.latestMinimapPlayers = [];
+    this.latestInfrastructureState = { energyActive: true, commsActive: true };
+    this.latestExtractionState = null;
+    this.resetRuntimeState();
+    this.resetPresentationState();
   }
 
   private resetSessionState(disconnectTransport: boolean): void {
-    this.sessionLifecycle.resetSessionState(
-      disconnectTransport,
-      this.getSessionResetHooks(),
-    );
+    this.started = false;
+    this.sessionReady = false;
+    this.resetRuntimeState();
+    this.stopFrameLoop();
+    this.lobbyState = undefined;
+    if (disconnectTransport) {
+      this.networkClient.disconnect();
+    }
+    this.worldState?.clear();
+    this.worldState = undefined;
+    this.playerEntityId = undefined;
+    this.pendingPlayerName = null;
+    this.spectateEntityId = null;
+    this.latestMinimapPlayers = [];
+    this.latestInfrastructureState = { energyActive: true, commsActive: true };
+    this.latestExtractionState = null;
+    this.resetPresentationState();
+  }
+
+  private resetRuntimeState(): void {
+    this.pointerAimController.reset();
+    this.heldAttackController.reset();
+    this.rateMonitor.reset();
+    this.syncInterpolatorConfig();
+    this.inputController.reset();
+    this.renderer.invalidateViewRectCache();
+    this.clearMovementSuppressions();
+  }
+
+  private resetPresentationState(): void {
+    this.presentationSink.setPlayerEntityId(undefined);
+    this.presentationSink.reset();
+    this.placementPreviewController.reset(this.renderer);
+    this.renderer.updateExtractionState(null);
+    this.renderer.updateInfrastructureState(this.latestInfrastructureState);
+    this.renderer.updateMapState(null);
+    this.renderer.setSniperAimGuide(null);
   }
 
   private getLocalPlayerEntity(): ClientEntity | undefined {
@@ -821,10 +866,46 @@ export class GameClient {
   }
 
   private resolveWelcomeFromSnapshot(): void {
-    this.sessionLifecycle.resolveWelcomeFromSnapshot(
-      () => this.worldState?.clientWorld?.entities.values(),
-      (entityId) => this.onWelcome(entityId),
+    if (this.sessionReady || !this.pendingPlayerName) {
+      return;
+    }
+    const entities = this.worldState?.clientWorld?.entities.values();
+    if (!entities) {
+      return;
+    }
+    const name = normalizePlayerName(this.pendingPlayerName, "");
+    const matches = [...entities].filter(
+      (entity) =>
+        entity.kind === "player" &&
+        entity.name === (name || `player-${entity.id}`),
     );
+    if (matches.length === 1) {
+      this.onWelcome(matches[0]!.id);
+    }
+  }
+
+  private beginSession(): boolean {
+    if (this.started) {
+      return false;
+    }
+    this.started = true;
+    this.sessionReady = false;
+    return true;
+  }
+
+  private canSend(): boolean {
+    return this.isSessionReady() && this.isTransportConnected();
+  }
+
+  private sendAction(payload: ActionPayload): void {
+    if (!this.canSend()) {
+      return;
+    }
+    this.networkClient.sendAction({
+      t: "action",
+      seq: this.inputManager.nextSequence(),
+      ...payload,
+    } as ActionMessage);
   }
 
   private getLocalPlayerVisualPose(): {

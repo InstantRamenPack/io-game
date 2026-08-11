@@ -65,7 +65,7 @@ describe("rarity crafting and loot rules", () => {
   });
 
   test("blueprint items define unlock targets", () => {
-    for (const [typeId, item] of getAllItemContentEntries()) {
+    for (const [typeId] of getAllItemContentEntries()) {
       if (!typeId.startsWith("blueprint:")) {
         continue;
       }

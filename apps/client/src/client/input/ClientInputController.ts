@@ -1,7 +1,6 @@
 import type { HeldAttackController } from "@client/client/HeldAttackController.ts";
 import { type LocalWeaponState } from "@client/client/HeldAttackController.ts";
 import type { PointerAimController } from "@client/client/input/PointerAimController.ts";
-import type { ClientActionDispatcher } from "@client/client/network/ClientActionDispatcher.ts";
 import type { PixiWorldPresentationSink } from "@client/net/presentation/PixiWorldPresentationSink.ts";
 import type { InputManager } from "@client/input/InputManager.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
@@ -22,7 +21,7 @@ type ClientInputControllerOptions = {
   inputManager: InputManager;
   networkClient: WsClient;
   pointerAimController: PointerAimController;
-  actionDispatcher: ClientActionDispatcher;
+  sendAttack: (theta: number) => void;
   heldAttackController: HeldAttackController;
   presentationSink: PixiWorldPresentationSink;
   isSessionReady: () => boolean;
@@ -209,7 +208,7 @@ export class ClientInputController {
       return false;
     }
 
-    this.options.actionDispatcher.queueAttack(theta);
+    this.options.sendAttack(theta);
     const playerEntityId = this.options.getPlayerEntityId();
     const world = this.options.getWorldState()?.clientWorld;
     if (playerEntityId !== undefined && world) {

@@ -47,6 +47,10 @@ export class SnapshotManager {
   private readonly replicationState = new PerPlayerReplicationState();
   private readonly eventRelevanceFilter = new EventRelevanceFilter();
   private readonly queryBuffer: Entity[] = [];
+  private envelope: Pick<
+    WorldSnapshot,
+    "tick" | "dayNight" | "extraction" | "infrastructure" | "minimapPlayers"
+  > | null = null;
   private includedDenseEntityMarkers = new Uint32Array(2_048);
   private readonly includedSparseEntityMarkers = new Map<number, number>();
   private cachedObserverSnapshot: WorldSnapshot | null = null;
@@ -57,6 +61,14 @@ export class SnapshotManager {
    */
   public prepareTick(world: World, events: readonly NetEvent[]): void {
     this.tickCache.prepare(world);
+    this.envelope = {
+      tick: world.tick,
+      dayNight: this.tickCache.getDayNightSnapshot()!,
+      extraction: this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION,
+      infrastructure:
+        this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE,
+      minimapPlayers: [...this.tickCache.getMinimapPlayers()],
+    };
     this.cachedObserverSnapshot = null;
     this.replicationState.pruneMissingPlayers(world);
     this.eventRelevanceFilter.prepare(events);
@@ -74,24 +86,11 @@ export class SnapshotManager {
     }
 
     const player = world.get<Player>(playerId);
-    const dayNight =
-      this.tickCache.getDayNightSnapshot() ??
-      world.dayNightSystem.toSnapshot(
-        world.waveSystem.countAliveWaveEnemies(world),
-        world.waveSystem.getPendingWaveSpawnCount(),
-        world.waveSystem.getNightWaveThreatTotal(),
-      );
-    const extraction =
-      this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
-    const infrastructure =
-      this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
+    const envelope = this.envelope!;
     if (!player) {
       this.replicationState.forgetPlayer(playerId);
       return {
-        tick: world.tick,
-        dayNight,
-        extraction,
-        infrastructure,
+        ...envelope,
         map: this.tickCache.getMapSnapshot(),
         minimapPlayers: [],
         full: true,
@@ -158,13 +157,8 @@ export class SnapshotManager {
 
     if (full) {
       const fullEntities = this.collectFullEntitiesForPlayer(
-        world,
         playerId,
-        minX,
-        minY,
-        maxX,
-        maxY,
-        includeAllEntities,
+        relevantEntities,
       );
 
       knownEntities.clear();
@@ -179,12 +173,8 @@ export class SnapshotManager {
       }
 
       return {
-        tick: world.tick,
-        dayNight,
-        extraction,
-        infrastructure,
+        ...envelope,
         map: this.tickCache.getMapSnapshot(),
-        minimapPlayers: [...this.tickCache.getMinimapPlayers()],
         full: true,
         entities: fullEntities,
         removedEntityIds: [],
@@ -198,12 +188,8 @@ export class SnapshotManager {
     }
 
     return {
-      tick: world.tick,
-      dayNight,
-      extraction,
-      infrastructure,
+      ...envelope,
       map: undefined,
-      minimapPlayers: [...this.tickCache.getMinimapPlayers()],
       full: false,
       entities: changedEntities,
       removedEntityIds,
@@ -224,17 +210,6 @@ export class SnapshotManager {
       return this.cachedObserverSnapshot;
     }
 
-    const dayNight =
-      this.tickCache.getDayNightSnapshot() ??
-      world.dayNightSystem.toSnapshot(
-        world.waveSystem.countAliveWaveEnemies(world),
-        world.waveSystem.getPendingWaveSpawnCount(),
-        world.waveSystem.getNightWaveThreatTotal(),
-      );
-    const extraction =
-      this.tickCache.getExtractionSnapshot() ?? LOCKED_EXTRACTION;
-    const infrastructure =
-      this.tickCache.getInfrastructureSnapshot() ?? FULL_INFRASTRUCTURE;
     const entities: EntitySnapshot[] = [];
     for (const entity of world.entities.all()) {
       const snapshot = this.tickCache.getSnapshot(entity.id);
@@ -244,12 +219,8 @@ export class SnapshotManager {
     }
 
     this.cachedObserverSnapshot = {
-      tick: world.tick,
-      dayNight,
-      extraction,
-      infrastructure,
+      ...this.envelope!,
       map: this.tickCache.getMapSnapshot(),
-      minimapPlayers: [...this.tickCache.getMinimapPlayers()],
       full: true,
       entities,
       removedEntityIds: [],
@@ -259,13 +230,8 @@ export class SnapshotManager {
   }
 
   private collectFullEntitiesForPlayer(
-    world: World,
     playerId: number,
-    minX: number,
-    minY: number,
-    maxX: number,
-    maxY: number,
-    includeAllEntities: boolean,
+    relevantEntities: readonly Entity[],
   ): EntitySnapshot[] {
     const entities: EntitySnapshot[] = [];
     this.bumpMarker();
@@ -275,16 +241,6 @@ export class SnapshotManager {
       entities.push(playerSnapshot);
       this.markIncluded(playerId);
     }
-
-    const relevantEntities = includeAllEntities
-      ? world.entities.all()
-      : world.aoiSpatial.queryBoxExact(
-          minX,
-          minY,
-          maxX,
-          maxY,
-          this.queryBuffer,
-        );
 
     for (const entity of relevantEntities) {
       if (this.isIncluded(entity.id)) {

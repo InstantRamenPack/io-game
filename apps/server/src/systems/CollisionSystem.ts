@@ -13,35 +13,18 @@ import {
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
 import { Player } from "@server/entities/Player.ts";
-import type { System } from "@server/systems/System.ts";
 import type { StaticGeometryBlocker } from "@server/world/StaticGeometryIndex.ts";
 import type { World } from "@server/world/World.ts";
 
 type AxisNormal = { x: -1 | 0 | 1; y: -1 | 0 | 1 };
 type AxisName = "x" | "y";
-type MotionSnapshot = { x: number; y: number; vx: number; vy: number };
-type StaticMoveResult = {
-  moved: boolean;
-  blockedX: boolean;
-  blockedY: boolean;
-  initialOverlapRecovered: boolean;
-  blockerIds: number[];
-  requestedDeltaX: number;
-  requestedDeltaY: number;
-  resolvedDeltaX: number;
-  resolvedDeltaY: number;
-};
 type StaticClipOptions = {
   clipVelocity?: boolean;
   recoverInitialOverlap?: boolean;
-  blockerIds?: Set<number> | null;
 };
 type StaticClipResult = {
   deltaX: number;
   deltaY: number;
-  blockedX: boolean;
-  blockedY: boolean;
-  initialOverlapRecovered: boolean;
 };
 
 const STATIC_SWEEP_SKIN = 0.001;
@@ -55,7 +38,7 @@ const MAX_STATIC_RECOVERY_STEPS = 8;
  * Dynamic entities are integrated through static blockers first, then remaining
  * dynamic/dynamic overlaps use the legacy even-split behavior.
  */
-class CollisionSystem implements System {
+class CollisionSystem {
   private readonly queryBuffer: Entity[] = [];
   private readonly staticQueryBuffer: StaticGeometryBlocker[] = [];
   private readonly overlappingStaticHitboxBuffer: ResolvedHitboxRect[] = [];
@@ -94,10 +77,8 @@ class CollisionSystem implements System {
         continue;
       }
 
-      const result = this.integrateDynamicEntityAgainstStatic(world, entity);
-      if (result.moved) {
+      if (this.integrateDynamicEntityAgainstStatic(world, entity)) {
         movedEntities.push(entity);
-        this.recordStaticMove(world, entity, result);
       }
     }
 
@@ -161,7 +142,7 @@ class CollisionSystem implements System {
   private integrateDynamicEntityAgainstStatic(
     world: World,
     entity: Entity,
-  ): StaticMoveResult {
+  ): boolean {
     const startX = entity.x;
     const startY = entity.y;
     const requestedDeltaX = entity.vx;
@@ -171,19 +152,8 @@ class CollisionSystem implements System {
       entity.y += requestedDeltaY;
       this.invalidateEntityCaches(entity);
       this.resolveWorldBounds(entity, world);
-      return {
-        moved: entity.x !== startX || entity.y !== startY,
-        blockedX: false,
-        blockedY: false,
-        initialOverlapRecovered: false,
-        blockerIds: [],
-        requestedDeltaX,
-        requestedDeltaY,
-        resolvedDeltaX: entity.x - startX,
-        resolvedDeltaY: entity.y - startY,
-      };
+      return entity.x !== startX || entity.y !== startY;
     }
-    const blockerIds = world.focusedTrace.enabled ? new Set<number>() : null;
     const clip = this.clipStaticDelta(
       world,
       entity,
@@ -192,7 +162,6 @@ class CollisionSystem implements System {
       {
         clipVelocity: true,
         recoverInitialOverlap: true,
-        blockerIds,
       },
     );
 
@@ -200,29 +169,8 @@ class CollisionSystem implements System {
     entity.y += clip.deltaY;
     this.invalidateEntityCaches(entity);
 
-    let blockedX = clip.blockedX;
-    let blockedY = clip.blockedY;
-    const clamped = this.resolveWorldBounds(entity, world);
-    if (clamped.clampedX) {
-      blockedX = true;
-    }
-    if (clamped.clampedY) {
-      blockedY = true;
-    }
-
-    return {
-      moved: entity.x !== startX || entity.y !== startY,
-      blockedX,
-      blockedY,
-      initialOverlapRecovered: clip.initialOverlapRecovered,
-      blockerIds: blockerIds
-        ? [...blockerIds].sort((left, right) => left - right)
-        : [],
-      requestedDeltaX,
-      requestedDeltaY,
-      resolvedDeltaX: entity.x - startX,
-      resolvedDeltaY: entity.y - startY,
-    };
+    this.resolveWorldBounds(entity, world);
+    return entity.x !== startX || entity.y !== startY;
   }
 
   private clipStaticDelta(
@@ -236,29 +184,18 @@ class CollisionSystem implements System {
       return {
         deltaX: requestedDeltaX,
         deltaY: requestedDeltaY,
-        blockedX: false,
-        blockedY: false,
-        initialOverlapRecovered: false,
       };
     }
 
     const startX = entity.x;
     const startY = entity.y;
-    const blockerIds = options.blockerIds ?? null;
-    let initialOverlapRecovered = false;
     let recoveredDeltaX = 0;
     let recoveredDeltaY = 0;
-    let blockedX = false;
-    let blockedY = false;
 
     if (options.recoverInitialOverlap !== false) {
       const beforeX = entity.x;
       const beforeY = entity.y;
-      initialOverlapRecovered = this.recoverInitialStaticOverlap(
-        world,
-        entity,
-        blockerIds,
-      );
+      this.recoverInitialStaticOverlap(world, entity);
       recoveredDeltaX = entity.x - beforeX;
       recoveredDeltaY = entity.y - beforeY;
     }
@@ -271,11 +208,9 @@ class CollisionSystem implements System {
         entity,
         "x",
         requestedDeltaX,
-        blockerIds,
       );
       entity.x += resolvedDeltaX;
       if (resolvedDeltaX !== requestedDeltaX) {
-        blockedX = true;
         if (options.clipVelocity === true) {
           entity.clipVelocityAgainstNormal({
             x: Math.sign(requestedDeltaX) as -1 | 0 | 1,
@@ -292,11 +227,9 @@ class CollisionSystem implements System {
         entity,
         "y",
         requestedDeltaY,
-        blockerIds,
       );
       entity.y += resolvedDeltaY;
       if (resolvedDeltaY !== requestedDeltaY) {
-        blockedY = true;
         if (options.clipVelocity === true) {
           entity.clipVelocityAgainstNormal({
             x: 0,
@@ -314,24 +247,13 @@ class CollisionSystem implements System {
     return {
       deltaX: recoveredDeltaX + resolvedDeltaX,
       deltaY: recoveredDeltaY + resolvedDeltaY,
-      blockedX,
-      blockedY,
-      initialOverlapRecovered,
     };
   }
 
-  private recoverInitialStaticOverlap(
-    world: World,
-    entity: Entity,
-    blockerIds: Set<number> | null,
-  ): boolean {
+  private recoverInitialStaticOverlap(world: World, entity: Entity): boolean {
     let recovered = false;
     for (let step = 0; step < MAX_STATIC_RECOVERY_STEPS; step += 1) {
-      const staticHitboxes = this.getOverlappingStaticHitboxes(
-        world,
-        entity,
-        blockerIds,
-      );
+      const staticHitboxes = this.getOverlappingStaticHitboxes(world, entity);
       if (staticHitboxes.length === 0) {
         return recovered;
       }
@@ -368,7 +290,6 @@ class CollisionSystem implements System {
     entity: Entity,
     axis: AxisName,
     delta: number,
-    blockerIds: Set<number> | null,
   ): number {
     if (delta === 0) {
       return 0;
@@ -436,30 +357,12 @@ class CollisionSystem implements System {
       0,
       Math.min(1, earliestHitTime - STATIC_SWEEP_SKIN),
     );
-    for (const candidate of candidates) {
-      if (candidate.entityId === entity.id) {
-        continue;
-      }
-      const hitTime = getSweptResolvedRectSetIntersectionTime(
-        movingHitboxes,
-        deltaX,
-        deltaY,
-        candidate.hitboxes,
-      );
-      if (
-        hitTime !== null &&
-        Math.abs(hitTime - earliestHitTime) <= STATIC_SWEEP_TOUCH_EPSILON
-      ) {
-        blockerIds?.add(candidate.entityId);
-      }
-    }
     return delta * safeHitTime;
   }
 
   private getOverlappingStaticHitboxes(
     world: World,
     entity: Entity,
-    blockerIds: Set<number> | null,
   ): ResolvedHitboxRect[] {
     const bounds = this.expandBounds(
       this.getCachedWorldBounds(entity),
@@ -484,7 +387,6 @@ class CollisionSystem implements System {
       if (!doResolvedRectSetsOverlap(entityHitboxes, candidateHitboxes)) {
         continue;
       }
-      blockerIds?.add(candidate.entityId);
       staticHitboxes.push(...candidateHitboxes);
     }
     return staticHitboxes;
@@ -499,7 +401,6 @@ class CollisionSystem implements System {
     const maxX = Math.max(minX, world.gameConfig.worldSize.w - bounds.maxX);
     const minY = -bounds.minY;
     const maxY = Math.max(minY, world.gameConfig.worldSize.h - bounds.maxY);
-    const before = this.snapshotMotion(entity);
     let clampedX = false;
     let clampedY = false;
 
@@ -524,21 +425,6 @@ class CollisionSystem implements System {
     }
 
     if (clampedX || clampedY) {
-      world.focusedTrace.recordEntityEvent(
-        world,
-        "world_bounds_clamp",
-        entity,
-        {
-          before,
-          after: this.snapshotMotion(entity),
-          clampedX,
-          clampedY,
-          minX,
-          maxX,
-          minY,
-          maxY,
-        },
-      );
       this.invalidateEntityCaches(entity);
     }
 
@@ -622,8 +508,6 @@ class CollisionSystem implements System {
     rightEntity: Entity,
     separation: AxisSeparation,
   ): boolean {
-    const leftBefore = this.snapshotMotion(leftEntity);
-    const rightBefore = this.snapshotMotion(rightEntity);
     const correction = this.getDynamicCorrection(world, separation.translation);
     let leftRequestedX = 0;
     let leftRequestedY = 0;
@@ -677,34 +561,6 @@ class CollisionSystem implements System {
       rightClip.deltaX !== 0 ||
       rightClip.deltaY !== 0;
 
-    world.focusedTrace.recordEntityEvent(
-      world,
-      "entity_collision_resolved",
-      leftEntity,
-      {
-        mode: "dynamic_dynamic",
-        separation,
-        before: leftBefore,
-        after: this.snapshotMotion(leftEntity),
-        counterpart: this.describeEntityRef(rightEntity),
-        counterpartBefore: rightBefore,
-        counterpartAfter: this.snapshotMotion(rightEntity),
-      },
-    );
-    world.focusedTrace.recordEntityEvent(
-      world,
-      "entity_collision_resolved",
-      rightEntity,
-      {
-        mode: "dynamic_dynamic",
-        separation: this.invertSeparation(separation),
-        before: rightBefore,
-        after: this.snapshotMotion(rightEntity),
-        counterpart: this.describeEntityRef(leftEntity),
-        counterpartBefore: leftBefore,
-        counterpartAfter: this.snapshotMotion(leftEntity),
-      },
-    );
     return moved;
   }
 
@@ -726,53 +582,6 @@ class CollisionSystem implements System {
     return getResolvedRectSetSeparation(
       this.getCachedWorldHitboxes(leftEntity),
       this.getCachedWorldHitboxes(rightEntity),
-    );
-  }
-
-  private recordStaticMove(
-    world: World,
-    entity: Entity,
-    result: StaticMoveResult,
-  ): void {
-    if (!world.focusedTrace.enabled) {
-      return;
-    }
-    if (
-      !result.blockedX &&
-      !result.blockedY &&
-      !result.initialOverlapRecovered &&
-      result.blockerIds.length === 0
-    ) {
-      return;
-    }
-
-    world.focusedTrace.recordEntityEvent(
-      world,
-      "entity_collision_resolved",
-      entity,
-      {
-        mode: "dynamic_static",
-        blockerIds: result.blockerIds,
-        requestedDelta: {
-          x: result.requestedDeltaX,
-          y: result.requestedDeltaY,
-        },
-        resolvedDelta: {
-          x: result.resolvedDeltaX,
-          y: result.resolvedDeltaY,
-        },
-        normal: {
-          x:
-            result.blockedX && result.requestedDeltaX !== 0
-              ? Math.sign(result.requestedDeltaX)
-              : 0,
-          y:
-            result.blockedY && result.requestedDeltaY !== 0
-              ? Math.sign(result.requestedDeltaY)
-              : 0,
-        },
-        initialOverlapRecovered: result.initialOverlapRecovered,
-      },
     );
   }
 
@@ -828,13 +637,6 @@ class CollisionSystem implements System {
     };
   }
 
-  private invertSeparation(separation: AxisSeparation): AxisSeparation {
-    return {
-      axis: separation.axis,
-      translation: -separation.translation,
-    };
-  }
-
   private getNormalFromTranslation(separation: AxisSeparation): AxisNormal {
     if (separation.axis === "x") {
       return {
@@ -854,32 +656,6 @@ class CollisionSystem implements System {
       (translation / 2) * world.gameConfig.collision.dynamicPushScale;
     const max = world.gameConfig.collision.maxDynamicCorrectionPerTick;
     return Math.max(-max, Math.min(max, scaled));
-  }
-
-  private snapshotMotion(entity: Entity): MotionSnapshot {
-    return {
-      x: entity.x,
-      y: entity.y,
-      vx: entity.vx,
-      vy: entity.vy,
-    };
-  }
-
-  private describeEntityRef(entity: Entity): {
-    id: number;
-    typeId: string;
-    className: string;
-    kind: string | null;
-  } {
-    const ctor = entity.constructor as typeof Entity & {
-      readonly kind?: string;
-    };
-    return {
-      id: entity.id,
-      typeId: entity.typeId,
-      className: entity.constructor.name,
-      kind: ctor.kind ?? null,
-    };
   }
 
   private getCachedWorldHitboxes(entity: Entity): ResolvedHitboxRect[] {

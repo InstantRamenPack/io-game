@@ -61,8 +61,4 @@ export class Item {
   public getHotbarSlotsFreedWhenConsumed(_amount: number): number {
     return 0;
   }
-
-  public getCraftTraceResult(): "crafted_stackable" | "crafted_weapon" {
-    return "crafted_stackable";
-  }
 }

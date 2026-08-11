@@ -3,7 +3,7 @@ import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Wall } from "@server/registry/generated/buildingCtors.ts";
-import { WallbreakerExplosionAreaEffect } from "@server/effects/area/WallbreakerExplosionAreaEffect.ts";
+import { wallbreakerExplosion } from "@server/effects/area/areaEffects.ts";
 import { GoToTargetGoal } from "@server/goals/builtin/GoToTargetGoal.ts";
 import { LookAtTargetGoal } from "@server/goals/builtin/LookAtTargetGoal.ts";
 import { TargetEntityGoal } from "@server/goals/builtin/TargetEntityGoal.ts";
@@ -58,7 +58,7 @@ export class Wallbreaker extends Enemy {
       return;
     }
 
-    new WallbreakerExplosionAreaEffect().apply(world, this, {
+    wallbreakerExplosion.apply(world, this, {
       x: this.x,
       y: this.y,
     });

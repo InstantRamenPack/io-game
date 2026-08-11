@@ -1,4 +1,4 @@
-import { COMPAT_HASH } from "@shared/config/compat.ts";
+import { COMPAT_HASH } from "@shared/config/compatManifest.ts";
 import {
   dayNightConfig,
   runtimeConfig,
@@ -15,10 +15,7 @@ export class GameConfig {
   public collision = { ...runtimeConfig.collision };
   public network = { ...runtimeConfig.network };
   public replication = { ...runtimeConfig.replication };
-  public debug = {
-    spawnMultiplier: runtimeConfig.debug.spawnMultiplier,
-    focusedTrace: { ...runtimeConfig.debug.focusedTrace },
-  };
+  public debug = { ...runtimeConfig.debug };
   public interpolation = { ...runtimeConfig.interpolation };
   public dayNight = {
     dayDurationTicks: dayNightConfig.dayDurationTicks,

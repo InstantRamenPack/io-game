@@ -18,36 +18,36 @@ import {
   toGridCell,
 } from "@shared/spatial/GridIndex.ts";
 
-describe("build placement validation", () => {
-  const wallProfile = [makeHitboxRect(32, 32)];
+const wallProfile = [makeHitboxRect(32, 32)];
 
-  test("accepts in-range placement with no blockers", () => {
-    const snapped = snapBuildPlacementTarget(120.4, 80.6);
-    const placementHitboxes = resolveHitboxRects(
-      snapped.x,
-      snapped.y,
-      wallProfile,
-    );
-    const placementBounds = offsetHitboxBounds(
+function validateAt(
+  targetX: number,
+  targetY: number,
+  overrides: Partial<Parameters<typeof validateBuildPlacement>[0]> = {},
+) {
+  const snapped = snapBuildPlacementTarget(targetX, targetY);
+  return validateBuildPlacement({
+    playerX: 100,
+    playerY: 100,
+    targetX,
+    targetY,
+    maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
+    worldWidth: 12800,
+    worldHeight: 12800,
+    placementHitboxes: resolveHitboxRects(snapped.x, snapped.y, wallProfile),
+    placementBounds: offsetHitboxBounds(
       getHitboxBounds(wallProfile),
       snapped.x,
       snapped.y,
-    );
+    ),
+    blockerHitboxes: [],
+    ...overrides,
+  });
+}
 
-    const result = validateBuildPlacement({
-      playerX: 100,
-      playerY: 100,
-      targetX: 120.4,
-      targetY: 80.6,
-      maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
-      worldWidth: 12800,
-      worldHeight: 12800,
-      placementHitboxes,
-      placementBounds,
-      blockerHitboxes: [],
-    });
-
-    expect(result).toEqual({
+describe("build placement validation", () => {
+  test("accepts in-range placement with no blockers", () => {
+    expect(validateAt(120.4, 80.6)).toEqual({
       ok: true,
       snappedX: 120,
       snappedY: 81,
@@ -60,82 +60,18 @@ describe("build placement validation", () => {
     });
   });
 
-  test("rejects out-of-range placement", () => {
-    const snapped = snapBuildPlacementTarget(900, 100);
-    const placementHitboxes = resolveHitboxRects(
-      snapped.x,
-      snapped.y,
-      wallProfile,
-    );
-    const placementBounds = offsetHitboxBounds(
-      getHitboxBounds(wallProfile),
-      snapped.x,
-      snapped.y,
-    );
-
-    const result = validateBuildPlacement({
-      playerX: 100,
-      playerY: 100,
-      targetX: 900,
-      targetY: 100,
-      maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
-      worldWidth: 12800,
-      worldHeight: 12800,
-      placementHitboxes,
-      placementBounds,
-      blockerHitboxes: [],
+  for (const [label, x, reason] of [
+    ["out-of-range placement", 900, "out_of_range"],
+    ["placement outside world bounds", -5, "out_of_bounds"],
+  ] as const) {
+    test(`rejects ${label}`, () => {
+      const result = validateAt(x, 100);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe(reason);
     });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("out_of_range");
-    }
-  });
-
-  test("rejects placement outside world bounds", () => {
-    const snapped = snapBuildPlacementTarget(-5, 100);
-    const placementHitboxes = resolveHitboxRects(
-      snapped.x,
-      snapped.y,
-      wallProfile,
-    );
-    const placementBounds = offsetHitboxBounds(
-      getHitboxBounds(wallProfile),
-      snapped.x,
-      snapped.y,
-    );
-
-    const result = validateBuildPlacement({
-      playerX: 100,
-      playerY: 100,
-      targetX: -5,
-      targetY: 100,
-      maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
-      worldWidth: 12800,
-      worldHeight: 12800,
-      placementHitboxes,
-      placementBounds,
-      blockerHitboxes: [],
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("out_of_bounds");
-    }
-  });
+  }
 
   test("rejects overlap with player and static blockers", () => {
-    const snapped = snapBuildPlacementTarget(100, 100);
-    const placementHitboxes = resolveHitboxRects(
-      snapped.x,
-      snapped.y,
-      wallProfile,
-    );
-    const placementBounds = offsetHitboxBounds(
-      getHitboxBounds(wallProfile),
-      snapped.x,
-      snapped.y,
-    );
     const playerHitboxes = resolveHitboxRects(100, 100, [
       makeHitboxRect(24, 24),
     ]);
@@ -143,34 +79,16 @@ describe("build placement validation", () => {
       resolveHitboxRects(130, 100, [makeHitboxRect(32, 32)]),
     ];
 
-    const playerOverlap = validateBuildPlacement({
-      playerX: 100,
-      playerY: 100,
-      targetX: 100,
-      targetY: 100,
-      maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
-      worldWidth: 12800,
-      worldHeight: 12800,
-      placementHitboxes,
-      placementBounds,
+    const playerOverlap = validateAt(100, 100, {
       playerHitboxes,
-      blockerHitboxes: [],
     });
     expect(playerOverlap.ok).toBe(false);
     if (!playerOverlap.ok) {
       expect(playerOverlap.reason).toBe("overlaps_player");
     }
 
-    const blockerOverlap = validateBuildPlacement({
+    const blockerOverlap = validateAt(100, 100, {
       playerX: 50,
-      playerY: 100,
-      targetX: 100,
-      targetY: 100,
-      maxDistance: BUILD_PLACEMENT_MAX_DISTANCE,
-      worldWidth: 12800,
-      worldHeight: 12800,
-      placementHitboxes,
-      placementBounds,
       blockerHitboxes,
     });
     expect(blockerOverlap.ok).toBe(false);

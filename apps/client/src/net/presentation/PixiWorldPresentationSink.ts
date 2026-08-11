@@ -1,6 +1,6 @@
 import type { ClientWorld } from "@client/net/ClientWorld.ts";
 import type { ClientEntity } from "@client/net/ClientEntity.ts";
-import type { WorldPresentationEvent } from "@client/net/presentation/WorldPresentationEvent.ts";
+import type { NetEvent } from "@shared/net/events.ts";
 import { EntityRenderManager } from "@client/render/EntityRenderManager.ts";
 import type { EntityPresentationState } from "@client/render/entity/EntityRenderer.ts";
 import type { PixiRenderer } from "@client/render/PixiRenderer.ts";
@@ -86,7 +86,7 @@ export class PixiWorldPresentationSink {
     this.renderManager.triggerAttackAnimation(entity);
   }
 
-  public applyEvents(events: readonly WorldPresentationEvent[]): void {
+  public applyEvents(events: readonly NetEvent[]): void {
     for (const event of events) {
       if (event.type === "explosion") {
         this.renderer.triggerExplosionEffect(

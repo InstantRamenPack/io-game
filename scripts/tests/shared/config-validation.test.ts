@@ -10,7 +10,7 @@ import {
   wavesConfig,
   worldgenConfig,
 } from "@shared/config/gameplayConfig.ts";
-import { COMPAT_MANIFEST } from "@shared/config/compat.ts";
+import { COMPAT_MANIFEST } from "@shared/config/compatManifest.ts";
 import { getLegendaryBossTypeIds } from "@shared/world/legendaryBoss.ts";
 
 describe("shared gameplay config", () => {

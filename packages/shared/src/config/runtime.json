@@ -19,11 +19,7 @@
     "interestRadius": 1440
   },
   "debug": {
-    "spawnMultiplier": 1,
-    "focusedTrace": {
-      "entityId": null,
-      "playerName": ""
-    }
+    "spawnMultiplier": 1
   },
   "interpolation": {
     "snapDistance": 192,

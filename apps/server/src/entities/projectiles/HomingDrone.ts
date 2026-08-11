@@ -5,7 +5,7 @@ import {
   type ProjectileDefinition,
   type ProjectileSpawnConfig,
 } from "@server/entities/Projectile.ts";
-import { DroneExplosionAreaEffect } from "@server/effects/area/DroneExplosionAreaEffect.ts";
+import { droneExplosion } from "@server/effects/area/areaEffects.ts";
 import { HomingTargetGoal } from "@server/goals/builtin/HomingTargetGoal.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -25,7 +25,7 @@ export class HomingDrone extends Projectile {
   }
 
   protected override applyImpact(world: World, _target: Entity): void {
-    new DroneExplosionAreaEffect().apply(world, this, {
+    droneExplosion.apply(world, this, {
       x: this.x,
       y: this.y,
     });

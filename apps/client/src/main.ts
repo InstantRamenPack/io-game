@@ -12,7 +12,6 @@ import {
   hydratePlayerNameInput,
   resolvePlayerName,
 } from "@client/app/playerName.ts";
-import { installDebugBridge } from "@client/app/installDebugBridge.ts";
 import { GameClient } from "@client/client/GameClient.ts";
 import { DEBUG_HITBOX, DEBUG_INTERPOLATION_MODE } from "@client/debug.ts";
 import { GameInputRouter } from "@client/input/GameInputRouter.ts";
@@ -135,12 +134,6 @@ gameClient.networkClient.onError(() => {
   deathController.sync();
 });
 if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-  installDebugBridge({
-    gameClient,
-    selectors,
-    hudController,
-    sessionUiController,
-  });
   window.gameClient = gameClient;
 }
 

@@ -2,11 +2,7 @@ import type {
   HitboxBounds,
   ResolvedHitboxRect,
 } from "@shared/geometry/hitbox.ts";
-import {
-  GridIndex,
-  gridCellSpansMatch,
-  type GridCellSpan,
-} from "@shared/spatial/GridIndex.ts";
+import { GridIndex } from "@shared/spatial/GridIndex.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 
 export type StaticGeometryBlocker = {
@@ -24,9 +20,6 @@ export type StaticGeometryBlocker = {
  */
 export class StaticGeometryIndex {
   private readonly grid: GridIndex<StaticGeometryBlocker>;
-  private readonly blockerByEntityId = new Map<number, StaticGeometryBlocker>();
-  private readonly cellSpanByEntityId = new Map<number, GridCellSpan>();
-  private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
   private syncMarker = 0;
 
@@ -44,7 +37,7 @@ export class StaticGeometryIndex {
   }
 
   public removeEntity(entityId: number): void {
-    this.removeEntityInternal(entityId);
+    this.grid.remove(entityId);
   }
 
   public sync(entities: readonly Entity[]): void {
@@ -62,11 +55,11 @@ export class StaticGeometryIndex {
       this.upsert(entity);
     }
 
-    for (const entityId of [...this.blockerByEntityId.keys()]) {
+    for (const entityId of [...this.grid.ids()]) {
       if (this.syncedEntityIds.get(entityId) === this.syncMarker) {
         continue;
       }
-      this.removeEntityInternal(entityId);
+      this.grid.remove(entityId);
     }
   }
 
@@ -94,66 +87,35 @@ export class StaticGeometryIndex {
   }
 
   public hasBlockers(): boolean {
-    return this.blockerByEntityId.size > 0;
+    return this.grid.size > 0;
   }
 
   public isBlocker(entity: Entity): boolean {
-    return this.blockerByEntityId.has(entity.id);
+    return this.grid.get(entity.id)?.entity === entity;
   }
 
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
-    const nextSpan = this.grid.spanFromBounds(
+    let blocker = this.grid.get(entity.id);
+    if (blocker?.entity === entity) {
+      blocker.bounds = bounds;
+      blocker.hitboxes = entity.getWorldHitboxes();
+    } else {
+      blocker = {
+        entity,
+        entityId: entity.id,
+        bounds,
+        hitboxes: entity.getWorldHitboxes(),
+      };
+    }
+    this.grid.upsert(
+      entity.id,
+      blocker,
       bounds.minX,
       bounds.minY,
       bounds.maxX,
       bounds.maxY,
     );
-    const previousSpan = this.cellSpanByEntityId.get(entity.id);
-    const previousBlocker = this.blockerByEntityId.get(entity.id);
-    if (
-      previousBlocker?.entity === entity &&
-      previousSpan &&
-      gridCellSpansMatch(previousSpan, nextSpan)
-    ) {
-      previousBlocker.bounds = bounds;
-      previousBlocker.hitboxes = entity.getWorldHitboxes();
-      return;
-    }
-
-    const previousKeys = this.cellKeysByEntityId.get(entity.id);
-    if (previousKeys) {
-      this.grid.removeFromCells(
-        previousKeys,
-        (blocker) => blocker.entityId === entity.id,
-      );
-    }
-
-    const blocker: StaticGeometryBlocker = {
-      entity,
-      entityId: entity.id,
-      bounds,
-      hitboxes: entity.getWorldHitboxes(),
-    };
-    const nextKeys = this.grid.keysFromSpan(nextSpan);
-    this.grid.addToCells(nextKeys, blocker);
-
-    this.blockerByEntityId.set(entity.id, blocker);
-    this.cellSpanByEntityId.set(entity.id, nextSpan);
-    this.cellKeysByEntityId.set(entity.id, nextKeys);
-  }
-
-  private removeEntityInternal(entityId: number): void {
-    const keys = this.cellKeysByEntityId.get(entityId);
-    if (keys) {
-      this.grid.removeFromCells(
-        keys,
-        (blocker) => blocker.entityId === entityId,
-      );
-    }
-    this.blockerByEntityId.delete(entityId);
-    this.cellSpanByEntityId.delete(entityId);
-    this.cellKeysByEntityId.delete(entityId);
   }
 }
 

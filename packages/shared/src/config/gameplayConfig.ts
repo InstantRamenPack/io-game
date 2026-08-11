@@ -47,10 +47,6 @@ const RuntimeConfigSchema = z
     }),
     debug: z.object({
       spawnMultiplier: NonNegativeFiniteNumberSchema,
-      focusedTrace: z.object({
-        entityId: NonNegativeIntSchema.nullable(),
-        playerName: z.string(),
-      }),
     }),
     interpolation: z.object({
       snapDistance: NonNegativeFiniteNumberSchema,

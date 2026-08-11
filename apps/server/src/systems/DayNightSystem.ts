@@ -1,6 +1,5 @@
 import type { DayNightPhase, DayNightSnapshot } from "@shared/net/snapshots.ts";
 import { scaleAuthoredSimulationTicks } from "@shared/config/simulationTicks.ts";
-import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 
 type DayNightSystemConfig = {
@@ -13,7 +12,7 @@ type DayNightSystemConfig = {
 /**
  * Tick-driven day/night cycle system.
  */
-export class DayNightSystem implements System {
+export class DayNightSystem {
   private readonly dayDurationTicks: number;
   private readonly nightDurationTicks: number;
   private phase: DayNightPhase;

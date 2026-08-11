@@ -39,7 +39,6 @@ const enableDebugHitbox =
   (process.env.VITE_DEBUG_HITBOX ?? process.env.DEBUG_HITBOX) === "1";
 
 function spawnChild(
-  name: "server" | "client",
   command: string[],
   env: Record<string, string | undefined>,
 ): Bun.Subprocess {
@@ -90,7 +89,6 @@ async function pipeOutput(
 }
 
 const serverProcess = spawnChild(
-  "server",
   [bunExecutable, "run", "apps/server/index.ts"],
   {
     ...sharedEnv,
@@ -101,7 +99,6 @@ const serverProcess = spawnChild(
   },
 );
 const clientProcess = spawnChild(
-  "client",
   [
     bunExecutable,
     "run",

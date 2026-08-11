@@ -1,5 +1,14 @@
-import { ChatCommandRouter } from "@server/chat/ChatCommandRouter.ts";
+import {
+  CHAT_COMMAND_SCHEMAS,
+  resolveChatCommandAlias,
+  type ChatCommandId,
+  validateChatCommandSchema,
+} from "@shared/chat/commandSchema.ts";
+import { parseChatCommand } from "@shared/chat/commandParser.ts";
 import { ChatContext } from "@server/chat/ChatContext.ts";
+import { createAdminCommandHandlers } from "@server/chat/commands/adminCommands.ts";
+import { createSocialCommandHandlers } from "@server/chat/commands/socialCommands.ts";
+import type { ChatCommandHandler } from "@server/chat/commands/types.ts";
 import type { NetworkServerLike } from "@server/net/NetworkServerLike.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -21,7 +30,7 @@ export class ChatService {
   private readonly maxMessageLength = 240;
   private readonly blockedTerms: readonly string[];
   private readonly context: ChatContext;
-  private readonly commandRouter: ChatCommandRouter;
+  private readonly commandHandlers: Record<ChatCommandId, ChatCommandHandler>;
 
   constructor({
     networkServer,
@@ -35,7 +44,16 @@ export class ChatService {
       playerIdByClientId,
       filterText: (text) => this.applyNsfwFilter(text),
     });
-    this.commandRouter = new ChatCommandRouter(this.context);
+    this.commandHandlers = {
+      ...createSocialCommandHandlers(this.context),
+      ...createAdminCommandHandlers(this.context),
+    } as Record<ChatCommandId, ChatCommandHandler>;
+    validateChatCommandSchema();
+    for (const command of CHAT_COMMAND_SCHEMAS) {
+      if (!this.commandHandlers[command.id]) {
+        throw new Error(`Missing chat command handler for ${command.id}.`);
+      }
+    }
   }
 
   /**
@@ -53,7 +71,7 @@ export class ChatService {
     }
 
     if (sanitized.startsWith("/")) {
-      this.commandRouter.route(clientId, player, sanitized);
+      this.routeCommand(clientId, player, sanitized);
       return;
     }
 
@@ -70,6 +88,35 @@ export class ChatService {
    */
   public broadcastSystemMessage(text: string): void {
     this.context.broadcast(text, "system");
+  }
+
+  private routeCommand(
+    clientId: string,
+    player: Parameters<ChatCommandHandler>[1],
+    commandLine: string,
+  ): void {
+    const trimmed = commandLine.slice(1).trim();
+    if (!trimmed) {
+      this.context.sendSystem(clientId, "Type /help for available commands.");
+      return;
+    }
+    const parsed = parseChatCommand(trimmed);
+    if (!parsed) {
+      this.context.sendSystem(
+        clientId,
+        "Malformed command. Check quotes and try again.",
+      );
+      return;
+    }
+    const commandId = resolveChatCommandAlias(parsed.command);
+    if (!commandId) {
+      this.context.sendSystem(
+        clientId,
+        `Unknown command "${parsed.command}". Type /help for help.`,
+      );
+      return;
+    }
+    this.commandHandlers[commandId](clientId, player, parsed.args);
   }
 
   private sanitizeMessage(rawText: string): string {

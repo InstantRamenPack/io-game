@@ -51,21 +51,13 @@ import {
   PROCEDURAL_TILE_SIZE,
   PROCEDURAL_WORLD_SEED,
   PROCEDURAL_WORLD_SIZE,
-  REQUIRED_DUNGEON_ROOM_ROLES,
   pointInRect,
   sectorKey,
 } from "@shared/world/layoutTypes.ts";
 import type {
-  ProceduralContentCrate,
-  ProceduralContentLoot,
   ProceduralContentSpawn,
   ProceduralDungeonEnemySpawn,
-  ProceduralDungeonRoomContent,
   VillageRoomTemplate,
-  VillageTemplateEnemy,
-  VillageTemplateOffset,
-  VillageTemplateStructure,
-  VillageTemplateStructureSpawn,
 } from "@shared/world/proceduralConfig.ts";
 
 const PROCEDURAL_CONTENT = proceduralContentConfig;
@@ -629,7 +621,6 @@ export function generateProceduralWorldLayout(
       sectors.push(
         createSector(
           seed,
-          rng,
           row,
           col,
           archetype,
@@ -697,7 +688,6 @@ export function generateProceduralWorldLayout(
 
 function createSector(
   seed: number,
-  worldRng: seedrandom.PRNG,
   row: number,
   col: number,
   archetype: SectorArchetype,
@@ -837,7 +827,7 @@ function createSector(
       false,
     );
   } else if (archetype === "dungeon") {
-    addDungeonArchitecture(structures, buildings, dungeon);
+    addDungeonArchitecture(structures, dungeon);
     addFeature(
       features,
       markers,
@@ -912,12 +902,10 @@ function createSector(
       rng,
       archetype,
       rect,
-      center,
       sectorKey(row, col),
       isCornerCoord(row, col),
       structures,
       enemies,
-      loot,
       features,
       markers,
       forestCamps,
@@ -1310,18 +1298,28 @@ function splitBspLeafAlongAxis(
   }
   const halfGap = VILLAGE_GENERATION.bspSplitGap / 2;
   const ratio = 0.42 + rng() * 0.16;
-  if (vertical) {
-    const splitX = snapEdge(leaf.minX + width * ratio);
-    return [
-      { ...leaf, maxX: splitX - halfGap },
-      { ...leaf, minX: splitX + halfGap },
-    ];
-  }
-  const splitY = snapEdge(leaf.minY + height * ratio);
-  return [
-    { ...leaf, maxY: splitY - halfGap },
-    { ...leaf, minY: splitY + halfGap },
-  ];
+  return splitRectAlongAxis(leaf, vertical, ratio, halfGap);
+}
+
+function splitRectAlongAxis(
+  rect: ProceduralRect,
+  vertical: boolean,
+  ratio: number,
+  halfGap: number,
+): [ProceduralRect, ProceduralRect] {
+  const edge = snapEdge(
+    (vertical ? rect.minX : rect.minY) +
+      rectAxisLength(rect, vertical ? "x" : "y") * ratio,
+  );
+  return vertical
+    ? [
+        { ...rect, maxX: edge - halfGap },
+        { ...rect, minX: edge + halfGap },
+      ]
+    : [
+        { ...rect, maxY: edge - halfGap },
+        { ...rect, minY: edge + halfGap },
+      ];
 }
 
 function trySplitBspLeaf(
@@ -1687,19 +1685,9 @@ function createBspDungeonRoomLayouts(
     const splitRatios = [0.34, 0.42, 0.5, 0.58, 0.66];
     const splitRatio = splitRatios[Math.floor(rng() * splitRatios.length)]!;
     const splitGap = snapEdge(32 + Math.floor(rng() * 3) * 16);
-    if (splitVertical) {
-      const splitX = snapEdge(leaf.minX + width * splitRatio);
-      leaves.push(
-        { ...leaf, maxX: splitX - splitGap },
-        { ...leaf, minX: splitX + splitGap },
-      );
-    } else {
-      const splitY = snapEdge(leaf.minY + height * splitRatio);
-      leaves.push(
-        { ...leaf, maxY: splitY - splitGap },
-        { ...leaf, minY: splitY + splitGap },
-      );
-    }
+    leaves.push(
+      ...splitRectAlongAxis(leaf, splitVertical, splitRatio, splitGap),
+    );
   }
 
   const orderedLeaves = [...leaves].sort((left, right) => {
@@ -2483,7 +2471,6 @@ function dungeonRoomRisk(role: DungeonRoomRole): ProceduralPoiFeature["risk"] {
 
 function addDungeonArchitecture(
   structures: ProceduralSpawnSpec[],
-  buildings: ProceduralSpawnSpec[],
   dungeon: ProceduralDungeonPlan,
 ): void {
   structures.push({
@@ -2498,12 +2485,10 @@ function addVillageAndForestSectorContent(
   rng: seedrandom.PRNG,
   archetype: SectorArchetype,
   rect: ProceduralRect,
-  center: ProceduralPoint,
   sectorId: string,
   isCorner: boolean,
   structures: ProceduralSpawnSpec[],
   enemies: ProceduralSpawnSpec[],
-  loot: ProceduralLootSpec[],
   features: ProceduralPoiFeature[],
   markers: ProceduralMapMarker[],
   forestCamps: ProceduralForestCamp[],
@@ -2576,11 +2561,11 @@ function placeAndBuildVillages(
 
   for (let index = 0; index < guaranteedCount; index += 1) {
     placed.push(
-      placeVillageInSector(context, guaranteedSectors[index]!, placed, index),
+      placeVillage(context, placed, index, guaranteedSectors[index]!),
     );
   }
   for (let index = guaranteedCount; index < randomVillageCount; index += 1) {
-    placed.push(placeRandomVillage(context, placed, index));
+    placed.push(placeVillage(context, placed, index));
   }
 
   const extractionSector = requireSector(context.sectors, "extraction");
@@ -2637,56 +2622,26 @@ function listRandomVillageEligibleSectors(
   );
 }
 
-function placeVillageInSector(
+function placeVillage(
   context: VillagePlacementContext,
-  sector: ProceduralSector,
   placed: readonly ProceduralVillagePlan[],
   index: number,
+  pinnedSector?: ProceduralSector,
 ): ProceduralVillagePlan {
   for (
     let attempt = 0;
     attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
     attempt += 1
   ) {
-    const center = randomVillageCenterInSector(context.rng, sector);
-    const village = createVillagePlan(
-      sector.id,
-      villageKindForArchetype(
-        sector.archetype,
-        isCornerCoord(sector.row, sector.col),
-      ),
-      sector,
-      center,
-      isCornerCoord(sector.row, sector.col),
-      index,
-    );
-    if (placed.some((existing) => villagesOverlap(existing, village))) {
-      continue;
-    }
-    return village;
-  }
-  throw new Error(
-    `Failed to place village ${index} in ${sector.id} for seed ${context.seed} after ${VILLAGE_PLACEMENT_MAX_ATTEMPTS} attempts`,
-  );
-}
-
-function placeRandomVillage(
-  context: VillagePlacementContext,
-  placed: readonly ProceduralVillagePlan[],
-  index: number,
-): ProceduralVillagePlan {
-  for (
-    let attempt = 0;
-    attempt < VILLAGE_PLACEMENT_MAX_ATTEMPTS;
-    attempt += 1
-  ) {
-    const center = snapPoint({
-      x: context.rng() * PROCEDURAL_WORLD_SIZE.w,
-      y: context.rng() * PROCEDURAL_WORLD_SIZE.h,
-    });
-    const sector = context.sectors.find((candidate) =>
-      pointInRect(center, candidate),
-    );
+    const center = pinnedSector
+      ? randomVillageCenterInSector(context.rng, pinnedSector)
+      : snapPoint({
+          x: context.rng() * PROCEDURAL_WORLD_SIZE.w,
+          y: context.rng() * PROCEDURAL_WORLD_SIZE.h,
+        });
+    const sector =
+      pinnedSector ??
+      context.sectors.find((candidate) => pointInRect(center, candidate));
     if (!sector || isForbiddenRandomVillageSector(sector.id, context)) {
       continue;
     }
@@ -2707,7 +2662,7 @@ function placeRandomVillage(
     return village;
   }
   throw new Error(
-    `Failed to place village ${index} for seed ${context.seed} after ${VILLAGE_PLACEMENT_MAX_ATTEMPTS} attempts`,
+    `Failed to place village ${index}${pinnedSector ? ` in ${pinnedSector.id}` : ""} for seed ${context.seed} after ${VILLAGE_PLACEMENT_MAX_ATTEMPTS} attempts`,
   );
 }
 

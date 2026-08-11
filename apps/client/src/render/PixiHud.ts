@@ -957,7 +957,7 @@ export class PixiHud {
       });
     }
 
-    this.syncBossHealthBar(app.screen.width, app.screen.height);
+    this.syncBossHealthBar(app.screen.width);
     this.syncTooltip(app.screen.width, app.screen.height, craftEntries);
     const actionPromptAnchorBottomY =
       this.combatHudView?.container.y !== undefined
@@ -1232,7 +1232,7 @@ export class PixiHud {
     });
   }
 
-  private syncBossHealthBar(screenWidth: number, screenHeight: number): void {
+  private syncBossHealthBar(screenWidth: number): void {
     if (!this.bossHealthBar) return;
     const boss = this.selectors
       .getWorldEntities()
@@ -1242,7 +1242,6 @@ export class PixiHud {
       hp: boss?.hp ?? 0,
       maxHp: boss?.maxHp ?? 1000,
       screenWidth,
-      screenHeight,
     });
   }
 

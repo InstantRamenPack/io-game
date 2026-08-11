@@ -221,7 +221,7 @@ describe("dungeon runtime mechanics", () => {
     expect(pickup).toBeInstanceOf(ItemEntity);
     expect(pickup.id).not.toBe(crate.id);
     expect(pickup.contents.countType("item:hunk" as ResourceId)).toBe(12);
-    expect(runtime.world.events.peekBack()).toMatchObject({
+    expect(runtime.world.events.at(-1)).toMatchObject({
       type: "damage",
       payload: {
         targetId: crate.id,

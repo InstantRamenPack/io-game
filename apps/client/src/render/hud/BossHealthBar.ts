@@ -48,9 +48,8 @@ export class BossHealthBar {
     maxHp: number;
     visible: boolean;
     screenWidth: number;
-    screenHeight: number;
   }): void {
-    const { hp, maxHp, visible, screenWidth, screenHeight } = options;
+    const { hp, maxHp, visible, screenWidth } = options;
     this.container.visible = visible;
     if (!visible) return;
 

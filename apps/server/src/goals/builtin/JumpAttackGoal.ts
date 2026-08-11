@@ -2,7 +2,7 @@ import { makeHitboxRect } from "@shared/geometry/hitbox.ts";
 import type { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
 import { Goal } from "@server/goals/Goal.ts";
-import { MegaknightSlamAreaEffect } from "@server/effects/area/MegaknightSlamAreaEffect.ts";
+import { megaknightSlam } from "@server/effects/area/areaEffects.ts";
 import type { GoalContext } from "@server/goals/GoalContext.ts";
 import { goalTargetResolver } from "@server/goals/services/GoalTargetResolver.ts";
 
@@ -169,7 +169,7 @@ export class JumpAttackGoal<TSelf extends Enemy = Enemy> extends Goal<TSelf> {
   }
 
   private applyAoeDamage(ctx: GoalContext<TSelf>): void {
-    new MegaknightSlamAreaEffect().apply(ctx.world, ctx.self, {
+    megaknightSlam.apply(ctx.world, ctx.self, {
       x: ctx.self.x,
       y: ctx.self.y,
     });

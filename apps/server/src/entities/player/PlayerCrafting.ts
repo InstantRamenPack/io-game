@@ -30,7 +30,6 @@ export function craft(
   itemTypeId: ResourceId,
   target?: CraftTargetInput,
 ): void {
-  const shouldTrace = world.focusedTrace.matchesEntity(player);
   const nearbyCraftingStations = getNearbyCraftingStations(player, world);
   const nearCraftingStation = nearbyCraftingStations.some((station) => {
     if (!station.alive) {
@@ -45,24 +44,12 @@ export function craft(
     );
   });
   if (!nearCraftingStation) {
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-        itemTypeId,
-        result: "not_near_station",
-      });
-    }
     return;
   }
 
   const outputEntry = getItemLikeTypeEntry(itemTypeId);
   const recipe = outputEntry?.content.recipe;
   if (!outputEntry || !recipe) {
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-        itemTypeId,
-        result: "missing_recipe",
-      });
-    }
     return;
   }
 
@@ -70,24 +57,11 @@ export function craft(
     (isRecipeBlueprintLocked(itemTypeId) || itemTypeId.startsWith("mag:")) &&
     !player.inventory.isRecipeUnlocked(itemTypeId)
   ) {
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-        itemTypeId,
-        result: "recipe_locked",
-      });
-    }
     return;
   }
 
   const craftCosts = getDebugAdjustedResourceCosts(player, recipe.costs);
   if (!player.inventory.hasTypes(craftCosts)) {
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-        itemTypeId,
-        result: "missing_resources",
-        costs: craftCosts,
-      });
-    }
     return;
   }
 
@@ -107,13 +81,6 @@ export function craft(
     craftCosts,
   );
   if (!canStoreCraftOutput && !canStoreTargetedCraftOutput) {
-    if (shouldTrace) {
-      world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-        itemTypeId,
-        result: "inventory_full",
-        outputAmount: recipe.outputAmount,
-      });
-    }
     return;
   }
 
@@ -129,14 +96,6 @@ export function craft(
     );
   if (!grantedToTarget) {
     outputItem.grantToInventory(player.inventory, recipe.outputAmount);
-  }
-  if (shouldTrace) {
-    world.focusedTrace.recordEntityEvent(world, "craft_attempt", player, {
-      itemTypeId,
-      result: outputItem.getCraftTraceResult(),
-      outputAmount: recipe.outputAmount,
-      totalOwnedAfterCraft: player.inventory.countType(itemTypeId),
-    });
   }
 }
 

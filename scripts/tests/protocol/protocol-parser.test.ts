@@ -142,7 +142,6 @@ describe("protocol parser", () => {
   });
 
   test("action messages reject invalid payloads", () => {
-    const buildableId = makeResourceId("item", "wall");
     const invalidPayloads = [
       { t: "action", seq: -1, action: "attack", theta: 0 },
       { t: "action", seq: 1, action: "attack" },

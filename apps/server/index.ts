@@ -102,31 +102,6 @@ export function main(): void {
         );
       }
 
-      if (url.pathname === "/debug-log" && req.method === "GET") {
-        return new Response(
-          JSON.stringify({
-            tick: gameServer.world.tick,
-            focusedTrace: gameServer.world.focusedTrace.getSnapshot(),
-          }),
-          {
-            headers: {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            },
-          },
-        );
-      }
-
-      if (url.pathname === "/debug-log" && req.method === "DELETE") {
-        gameServer.world.focusedTrace.clear();
-        return new Response(null, {
-          status: 204,
-          headers: {
-            "cache-control": "no-store",
-          },
-        });
-      }
-
       if (canServeClient) {
         const clientAsset = renderClientAsset(url.pathname);
         if (clientAsset) {

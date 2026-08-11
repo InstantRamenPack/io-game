@@ -1,6 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
 import { ItemEntity } from "@server/entities/ItemEntity.ts";
-import type { System } from "@server/systems/System.ts";
 import type { World } from "@server/world/World.ts";
 import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
 
@@ -8,7 +7,7 @@ import { doResolvedRectSetsOverlap } from "@shared/geometry/collision.ts";
  * Merges stackable pickups. Item collection is intentionally explicit through
  * the pickup action so every dropped item requires player input.
  */
-export class PickupSystem implements System {
+export class PickupSystem {
   private readonly queryBuffer: Entity[] = [];
   private readonly removedPickupIds = new Set<number>();
 

@@ -10,7 +10,6 @@ export type ChatCommandId =
   | "killall"
   | "effect"
   | "give"
-  | "map"
   | "time";
 
 export type ChatAutocompleteSource =
@@ -166,31 +165,6 @@ export const CHAT_COMMAND_SCHEMAS = [
       {
         argIndex: 1,
         sources: ["item"],
-      },
-    ],
-  },
-  {
-    id: "map",
-    primaryAlias: "map",
-    aliases: ["map"],
-    usage: "/map <place|erase|fill|tag|undo|redo|export> ...",
-    summary: "dev structure editor tools",
-    autocomplete: [
-      {
-        argIndex: 1,
-        sources: ["entity"],
-        whenArgEquals: {
-          index: 0,
-          value: "place",
-        },
-      },
-      {
-        argIndex: 1,
-        sources: ["entity"],
-        whenArgEquals: {
-          index: 0,
-          value: "fill",
-        },
       },
     ],
   },

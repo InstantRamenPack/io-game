@@ -66,6 +66,10 @@ export class GridIndex<T> {
   private readonly buckets = new Map<number, T[]>();
   private readonly visitedDenseItemIds = new Uint32Array(MAX_DENSE_ITEM_ID + 1);
   private readonly visitedSparseItemIds = new Map<number, number>();
+  private readonly tracked = new Map<
+    number,
+    { item: T; span: GridCellSpan; keys: number[] }
+  >();
   private queryMarker = 0;
 
   constructor(cellSize: number) {
@@ -127,6 +131,46 @@ export class GridIndex<T> {
     }
   }
 
+  public upsert(
+    id: number,
+    item: T,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+  ): void {
+    const span = this.spanFromBounds(minX, minY, maxX, maxY);
+    const previous = this.tracked.get(id);
+    if (previous?.item === item && gridCellSpansMatch(previous.span, span)) {
+      return;
+    }
+    if (previous) {
+      this.removeFromCells(previous.keys, (entry) => entry === previous.item);
+    }
+    const keys = this.keysFromSpan(span);
+    this.addToCells(keys, item);
+    this.tracked.set(id, { item, span, keys });
+  }
+
+  public get(id: number): T | undefined {
+    return this.tracked.get(id)?.item;
+  }
+
+  public remove(id: number): void {
+    const previous = this.tracked.get(id);
+    if (!previous) return;
+    this.removeFromCells(previous.keys, (entry) => entry === previous.item);
+    this.tracked.delete(id);
+  }
+
+  public ids(): IterableIterator<number> {
+    return this.tracked.keys();
+  }
+
+  public get size(): number {
+    return this.tracked.size;
+  }
+
   public queryBox(
     minX: number,
     minY: number,
@@ -173,6 +217,7 @@ export class GridIndex<T> {
 
   public clear(): void {
     this.buckets.clear();
+    this.tracked.clear();
     this.visitedDenseItemIds.fill(0);
     this.visitedSparseItemIds.clear();
     this.queryMarker = 0;

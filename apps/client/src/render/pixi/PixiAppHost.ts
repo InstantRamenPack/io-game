@@ -2,7 +2,6 @@ import { Application } from "pixi.js";
 
 export class PixiAppHost {
   private app: Application | null = null;
-  private hostElement: HTMLElement | null = null;
 
   public async attach(
     hostElement: HTMLElement,
@@ -14,8 +13,6 @@ export class PixiAppHost {
       resolution: number;
     },
   ): Promise<Application> {
-    this.hostElement = hostElement;
-
     if (!this.app) {
       this.app = new Application();
       await this.app.init({

@@ -1,6 +1,5 @@
 import type { World } from "@server/world/World.ts";
 import type { DayNightSystem } from "@server/systems/DayNightSystem.ts";
-import type { System } from "@server/systems/System.ts";
 import { trySpawnWaveSevenExtractionThanos } from "@server/systems/MapLoader.ts";
 import { WaveSpawner } from "@server/systems/WaveSpawner.ts";
 
@@ -12,7 +11,7 @@ type WaveSystemConfig = {
 /**
  * Tick-driven wave spawns driven by the day/night phase.
  */
-export class WaveSystem implements System {
+export class WaveSystem {
   private readonly dayNightSystem: DayNightSystem;
   private readonly waveSpawner: WaveSpawner | null;
   private lastIsNight: boolean;

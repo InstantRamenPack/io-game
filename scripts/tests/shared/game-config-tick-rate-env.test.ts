@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { GameConfig } from "@shared/config/GameConfig.ts";
 import { makeClientRuntimeConfig } from "@shared/config/ClientRuntimeConfig.ts";
 import { ClientRuntimeConfigSchema } from "@shared/config/ClientRuntimeConfig.ts";
 
 const originalTickRate = process.env.TICK_RATE;
 const originalDebugTickRate = process.env.DEBUG_TICK_RATE;
+const originalSimulationSpeed = process.env.SIMULATION_SPEED_MULTIPLIER;
 
 afterEach(() => {
   if (originalTickRate === undefined) {
@@ -16,6 +19,11 @@ afterEach(() => {
     delete process.env.DEBUG_TICK_RATE;
   } else {
     process.env.DEBUG_TICK_RATE = originalDebugTickRate;
+  }
+  if (originalSimulationSpeed === undefined) {
+    delete process.env.SIMULATION_SPEED_MULTIPLIER;
+  } else {
+    process.env.SIMULATION_SPEED_MULTIPLIER = originalSimulationSpeed;
   }
 });
 
@@ -42,5 +50,14 @@ describe("GameConfig TICK_RATE env override", () => {
     expect(ClientRuntimeConfigSchema.safeParse(runtimeConfig).success).toBe(
       true,
     );
+  });
+
+  test("Render deploys the server at 20 real-time TPS", () => {
+    const blueprint = readFileSync(
+      resolve(import.meta.dir, "../../../render.yaml"),
+      "utf8",
+    );
+    expect(blueprint).toMatch(/key: TICK_RATE\s+value: "20"/);
+    expect(blueprint).toMatch(/key: SIMULATION_SPEED_MULTIPLIER\s+value: "1"/);
   });
 });

@@ -1,60 +1,60 @@
 import { getDistanceSquaredToResolvedRectSet } from "@shared/geometry/collision.ts";
+import type { ExplosionStyle, NetEvent } from "@shared/net/events.ts";
 import type { Entity } from "@server/entities/Entity.ts";
-import {
-  AreaEffect,
-  type AreaEffectOrigin,
-} from "@server/effects/area/AreaEffect.ts";
+import { DamageEffect } from "@server/effects/builtin/DamageEffect.ts";
+import { KnockbackEffect } from "@server/effects/builtin/KnockbackEffect.ts";
+import { StunnedEffect } from "@server/effects/builtin/StunnedEffect.ts";
 import type { World } from "@server/world/World.ts";
 
-/**
- * Per-target hit data derived from a radial area effect query.
- */
-export type RadialAreaEffectHitContext = {
-  originX: number;
-  originY: number;
+export type AreaEffectOrigin = { x: number; y: number };
+export type RadialAreaEffectConfig = {
   radius: number;
-  distance: number;
-  distanceRatio: number;
+  damage: number | ((target: Entity) => number);
+  knockback?: number;
+  falloff?: boolean;
+  stun?: boolean;
+  style?: ExplosionStyle;
 };
 
-/**
- * Shared radial AoE executor that resolves nearby targets from the spatial index.
- */
-export abstract class RadialAreaEffect extends AreaEffect {
-  protected abstract readonly radius: number;
-  private readonly candidateBuffer: Entity[] = [];
+/** Applies one content-like radial damage record without per-weapon subclasses. */
+export class RadialAreaEffect {
+  private readonly candidates: Entity[] = [];
 
-  /**
-   * Resolves nearby targets and applies radial hit logic at the provided origin.
-   */
-  public override apply(
-    world: World,
-    source: Entity,
-    origin: AreaEffectOrigin,
-  ): void {
+  constructor(private readonly config: RadialAreaEffectConfig) {}
+
+  public apply(world: World, source: Entity, origin: AreaEffectOrigin): void {
+    const { radius, style } = this.config;
     if (
       !Number.isFinite(origin.x) ||
       !Number.isFinite(origin.y) ||
-      !Number.isFinite(this.radius) ||
-      this.radius <= 0
+      radius <= 0
     ) {
       return;
     }
+    if (style) {
+      const instigator = source.getCombatInstigator(world);
+      world.events.push({
+        type: "explosion",
+        payload: {
+          sourceId: instigator?.id ?? source.id,
+          x: origin.x,
+          y: origin.y,
+          radius,
+          style,
+        },
+      } satisfies NetEvent);
+    }
 
-    this.beforeApply(world, source, origin);
-
-    const candidates = world.spatial.queryBox(
-      origin.x - this.radius,
-      origin.y - this.radius,
-      origin.x + this.radius,
-      origin.y + this.radius,
-      this.candidateBuffer,
-    );
-    for (const target of candidates) {
-      if (!this.isTargetEligible(world, source, target)) {
+    for (const target of world.spatial.queryBox(
+      origin.x - radius,
+      origin.y - radius,
+      origin.x + radius,
+      origin.y + radius,
+      this.candidates,
+    )) {
+      if (!target.alive || !DamageEffect.canApply(world, source, target)) {
         continue;
       }
-
       const distance = Math.sqrt(
         getDistanceSquaredToResolvedRectSet(
           target.getWorldHitboxes(),
@@ -62,58 +62,29 @@ export abstract class RadialAreaEffect extends AreaEffect {
           origin.y,
         ),
       );
-      if (distance > this.radius) {
-        continue;
+      if (distance > radius) continue;
+
+      const scale = this.config.falloff ? 1 - distance / radius : 1;
+      if (scale <= 0) continue;
+      if (this.config.knockback) {
+        new KnockbackEffect(this.config.knockback * scale).apply(
+          world,
+          source,
+          target,
+        );
       }
-
-      this.applyToTarget(world, source, target, {
-        originX: origin.x,
-        originY: origin.y,
-        radius: this.radius,
-        distance,
-        distanceRatio: Math.min(1, distance / this.radius),
-      });
+      const baseDamage =
+        typeof this.config.damage === "function"
+          ? this.config.damage(target)
+          : this.config.damage;
+      new DamageEffect(
+        this.config.falloff
+          ? Math.max(1, Math.round(baseDamage * scale))
+          : baseDamage,
+      ).apply(world, source, target);
+      if (this.config.stun) {
+        new StunnedEffect().apply(world, source, target);
+      }
     }
-
-    this.afterApply(world, source, origin);
   }
-
-  /**
-   * Optional hook run before any target resolution occurs.
-   */
-  protected beforeApply(
-    _world: World,
-    _source: Entity,
-    _origin: AreaEffectOrigin,
-  ): void {}
-
-  /**
-   * Optional hook run after the target loop completes.
-   */
-  protected afterApply(
-    _world: World,
-    _source: Entity,
-    _origin: AreaEffectOrigin,
-  ): void {}
-
-  /**
-   * Returns whether a queried entity should be affected.
-   */
-  protected isTargetEligible(
-    _world: World,
-    _source: Entity,
-    target: Entity,
-  ): boolean {
-    return target.alive;
-  }
-
-  /**
-   * Applies this effect's per-target logic once a hit has been resolved.
-   */
-  protected abstract applyToTarget(
-    world: World,
-    source: Entity,
-    target: Entity,
-    hitContext: RadialAreaEffectHitContext,
-  ): void;
 }

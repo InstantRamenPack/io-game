@@ -64,7 +64,7 @@ export class TeslaRenderer extends BaseEntityRenderer {
 
   protected drawEntityShape(
     graphics: PIXI.Graphics,
-    entity: ClientEntity,
+    _entity: ClientEntity,
     fillColor: number,
     alpha: number,
     lineAlpha = 1,

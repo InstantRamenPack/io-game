@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { WsClient } from "@client/net/WsClient.ts";
-import { COMPAT_HASH } from "@shared/config/compat.ts";
+import { COMPAT_HASH } from "@shared/config/compatManifest.ts";
 import {
   makeSnapshot,
   makePlayerSnapshot,

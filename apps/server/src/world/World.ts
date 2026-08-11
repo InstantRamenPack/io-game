@@ -1,4 +1,3 @@
-import Denque from "denque";
 import seedrandom from "seedrandom";
 import type { GameConfig } from "@shared/config/GameConfig.ts";
 import { worldConfig } from "@shared/config/gameplayConfig.ts";
@@ -10,10 +9,8 @@ import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
 import type {
   ProceduralForestCamp,
   ProceduralSector,
-  ProceduralSpawnSpec,
   ProceduralWorldLayout,
 } from "@shared/world/layoutTypes.ts";
-import { FocusedServerTrace } from "@server/debug/FocusedServerTrace.ts";
 import { Building } from "@server/entities/Building.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -72,7 +69,7 @@ export class World {
   public aoiSpatial: SpatialIndex;
   public staticGeometry: StaticGeometryIndex;
   public randomNumberGenerator: seedrandom.PRNG;
-  public events: Denque<NetEvent>;
+  public events: NetEvent[];
   public gameConfig: GameConfig;
   public dayNightSystem: DayNightSystem;
   public waveSystem: WaveSystem;
@@ -82,7 +79,6 @@ export class World {
   public waveSevenExtractionThanosSpawned = false;
   public enemyCount = 0;
   public readonly navPathService: NavGridPathService;
-  public readonly focusedTrace: FocusedServerTrace;
   public readonly goalFieldCache = new GoalFieldCache();
   public benchmarkSink?: WorldBenchmarkSink;
   public broadcastSystemMessage: (text: string) => void = () => {};
@@ -148,14 +144,13 @@ export class World {
     );
     this.navPathService = new NavGridPathService(gameConfig.worldSize);
     this.randomNumberGenerator = seedrandom(String(randomSeed));
-    this.events = new Denque<NetEvent>();
+    this.events = [];
     this.dayNightSystem = new DayNightSystem({
       tickRate: gameConfig.tickRate,
       dayDurationTicks: gameConfig.dayNight.dayDurationTicks,
       nightDurationTicks: gameConfig.dayNight.nightDurationTicks,
     });
     this.waveSystem = new WaveSystem({ dayNightSystem: this.dayNightSystem });
-    this.focusedTrace = new FocusedServerTrace(gameConfig);
   }
 
   /**
@@ -178,7 +173,6 @@ export class World {
     this.beginSimulationActivityCache();
     this.goalFieldCache.beginTick(this.tick);
     const simSpeed = this.gameConfig.simulationSpeedMultiplier;
-    this.focusedTrace.recordWorldPhase(this, "tick_start");
 
     const dayNightMs = measurePhase(() => {
       this.dayNightSystem.update(this);
@@ -232,14 +226,12 @@ export class World {
         }
       }
     });
-    this.focusedTrace.recordWorldPhase(this, "after_entity_tick");
 
     this.applySimulationSpeedToMovement(collisionPhaseEntities);
 
     const collisionMs = measurePhase(() => {
       this.collisionSystem.integrateAndResolve(this, collisionPhaseEntities);
     });
-    this.focusedTrace.recordWorldPhase(this, "after_collision");
 
     const afterMovementMs = measurePhase(() => {
       for (const entity of this.entities.all()) {
@@ -249,7 +241,6 @@ export class World {
         entity.afterMovement(this);
       }
     });
-    this.focusedTrace.recordWorldPhase(this, "after_after_movement");
 
     const pickupMs = measurePhase(() => {
       this.pickupSystem.update(this);
@@ -260,7 +251,6 @@ export class World {
         this.ensureSpatialIndex();
       }
     });
-    this.focusedTrace.recordWorldPhase(this, "tick_end");
 
     benchmarkSink?.recordWorldTick({
       tick: this.tick,

@@ -1309,16 +1309,12 @@ async function loadBalanceListRows(): Promise<BalanceListRow[]> {
     proceduralBlueprintsFile,
     proceduralVillagesFile,
     proceduralSectorsFile,
-    itemFiles,
-    blueprintFiles,
   ] = await Promise.all([
     readJsonFile(wavesConfigPath),
     readJsonFile(proceduralLootPath),
     readJsonFile(proceduralBlueprintsPath),
     readJsonFile(proceduralVillagesPath),
     readJsonFile(proceduralSectorsPath),
-    readContentFiles(itemContentDirectory),
-    readContentFiles("packages/shared/src/content/blueprint"),
   ]);
   const rows: BalanceListRow[] = [];
 

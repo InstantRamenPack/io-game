@@ -11,7 +11,7 @@ import {
   encodeClientToServerMessage,
   parseServerToClientMessage,
 } from "@shared/net/protocol.ts";
-import { COMPAT_HASH } from "@shared/config/compat.ts";
+import { COMPAT_HASH } from "@shared/config/compatManifest.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import {
   DebugNetworkSimulator,

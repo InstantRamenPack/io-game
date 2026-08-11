@@ -9,8 +9,8 @@ import {
 
 const SNAPSHOT_MS = 50;
 
-type FakePixiApp = Parameters<PixiViewportController["update"]>[1];
-type FakePixiContainer = Parameters<PixiViewportController["update"]>[2];
+type FakePixiApp = Parameters<PixiViewportController["update"]>[0];
+type FakePixiContainer = Parameters<PixiViewportController["update"]>[1];
 
 function makeFakeApp(): FakePixiApp {
   return {
@@ -112,14 +112,14 @@ describe("current netcode scope", () => {
   });
 
   test("camera is stable during idle and smooth during constant movement", () => {
-    const viewport = new PixiViewportController({ w: 10000, h: 7000 });
+    const viewport = new PixiViewportController();
     const app = makeFakeApp();
     const root = makeFakeContainer();
     viewport.setCameraTarget(500, 500);
     const idleDeltas: number[] = [];
     for (let frame = 0; frame < 240; frame += 1) {
       viewport.setCameraTarget(500, 500);
-      viewport.update(1000 / 60, app, root);
+      viewport.update(app, root);
       if (frame >= 60) {
         const state = viewport.getCameraDebugState(app);
         idleDeltas.push(Math.hypot(state.screenDeltaX, state.screenDeltaY));
@@ -131,7 +131,7 @@ describe("current netcode scope", () => {
     for (let frame = 0; frame < 240; frame += 1) {
       const timeMs = frame * (1000 / 60);
       viewport.setCameraTarget(500 + timeMs * 0.3, 500);
-      viewport.update(1000 / 60, app, root);
+      viewport.update(app, root);
       if (frame >= 60) {
         const state = viewport.getCameraDebugState(app);
         samples.push({ time: timeMs, x: state.x });

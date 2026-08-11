@@ -114,8 +114,7 @@ export class GameInstanceRuntime {
     const wasNightBeforeStep = this.world.dayNightSystem.isNight();
     this.world.step();
     this.postStepProcessing(wasNightBeforeStep);
-    const drainedEvents = this.world.events.toArray();
-    this.world.events.clear();
+    const drainedEvents = this.world.events.splice(0);
     this.snapshotManager.prepareTick(this.world, drainedEvents);
 
     for (const [clientId, playerId] of this.playerIdByClientId) {
@@ -377,12 +376,11 @@ export class GameInstanceRuntime {
     const lastProcessedSeq =
       this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1;
     if (inputMessage.seq <= lastProcessedSeq) {
-      this.ignoreInput(clientId, player, "stale_input", inputMessage);
       return;
     }
 
     if (!this.antiCheatValidator.validateInputIntent(inputMessage, player)) {
-      this.rejectInput(clientId, player, "invalid_input", inputMessage);
+      this.rejectInput(clientId, "invalid_input");
       return;
     }
 
@@ -394,21 +392,6 @@ export class GameInstanceRuntime {
       receivedAtTick: this.world.tick,
     });
     this.lastProcessedInputSequenceByClientId.set(clientId, inputMessage.seq);
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "input_intent_applied",
-        player,
-        {
-          clientId,
-          seq: inputMessage.seq,
-          clientTimeMs: inputMessage.clientTimeMs ?? null,
-          theta: inputMessage.theta,
-          movement: { ...inputMessage.movement },
-        },
-      );
-    }
   }
 
   public handleAction(clientId: string, actionMessage: ActionMessage): void {
@@ -420,32 +403,18 @@ export class GameInstanceRuntime {
     const lastProcessedSeq =
       this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1;
     if (actionMessage.seq <= lastProcessedSeq) {
-      this.ignoreInput(clientId, player, "stale_input", actionMessage);
       return;
     }
 
     if (
       !this.antiCheatValidator.validateAction(actionMessage, player, this.world)
     ) {
-      this.rejectInput(clientId, player, "invalid_input", actionMessage);
+      this.rejectInput(clientId, "invalid_input");
       return;
     }
 
     player.enqueueAction(actionMessage);
     this.lastProcessedActionSequenceByClientId.set(clientId, actionMessage.seq);
-
-    if (this.world.focusedTrace.matchesEntity(player)) {
-      this.world.focusedTrace.recordEntityEvent(
-        this.world,
-        "action_enqueued",
-        player,
-        {
-          clientId,
-          normalizedInput: structuredClone(actionMessage),
-          queueLength: player.getQueuedActionCount(),
-        },
-      );
-    }
   }
 
   public handleRespawn(clientId: string): void {
@@ -497,58 +466,10 @@ export class GameInstanceRuntime {
     return slot;
   }
 
-  private rejectInput(
-    clientId: string,
-    player: Player,
-    reason: "stale_input" | "invalid_input",
-    payload: ActionMessage | InputIntentMessage,
-  ): void {
+  private rejectInput(clientId: string, reason: "invalid_input"): void {
     this.networkServer.send(
       clientId,
       encodeServerToClientMessage({ t: "error", message: reason }),
-    );
-    if (!this.world.focusedTrace.matchesEntity(player)) {
-      return;
-    }
-    this.world.focusedTrace.recordEntityEvent(
-      this.world,
-      "input_rejected",
-      player,
-      {
-        reason,
-        clientId,
-        rawInput: structuredClone(payload),
-        lastAcceptedSequence: this.getLastProcessedSeq(clientId),
-      },
-    );
-  }
-
-  private ignoreInput(
-    clientId: string,
-    player: Player,
-    reason: "stale_input",
-    payload: ActionMessage | InputIntentMessage,
-  ): void {
-    if (!this.world.focusedTrace.matchesEntity(player)) {
-      return;
-    }
-    this.world.focusedTrace.recordEntityEvent(
-      this.world,
-      "input_ignored",
-      player,
-      {
-        reason,
-        clientId,
-        rawInput: structuredClone(payload),
-        lastAcceptedSequence: this.getLastProcessedSeq(clientId),
-      },
-    );
-  }
-
-  private getLastProcessedSeq(clientId: string): number {
-    return Math.max(
-      this.lastProcessedInputSequenceByClientId.get(clientId) ?? -1,
-      this.lastProcessedActionSequenceByClientId.get(clientId) ?? -1,
     );
   }
 }

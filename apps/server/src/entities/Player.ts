@@ -227,7 +227,7 @@ export class Player extends Entity {
     return this.inventory;
   }
 
-  public override handleDeath(world: World): void {
+  public override handleDeath(_world: World): void {
     this.alive = false;
     this.hp = 0;
     this.activeEffects = [];
@@ -237,21 +237,9 @@ export class Player extends Entity {
     this.latestInputIntent = undefined;
     this.collisionMode = "none";
     this.resetMovement();
-    world.focusedTrace.recordEntityEvent(world, "player_died", this, {
-      x: this.x,
-      y: this.y,
-    });
   }
 
   public respawn(world: World, position?: { x: number; y: number }): void {
-    const before = {
-      x: this.x,
-      y: this.y,
-      vx: this.vx,
-      vy: this.vy,
-      hp: this.hp,
-      alive: this.alive,
-    };
     this.alive = true;
     this.hp = this.maxHp;
     this.activeEffects = [];
@@ -267,17 +255,6 @@ export class Player extends Entity {
       ? "none"
       : this.defaultCollisionMode;
     this.resetMovement();
-    world.focusedTrace.recordEntityEvent(world, "player_respawn", this, {
-      before,
-      after: {
-        x: this.x,
-        y: this.y,
-        vx: this.vx,
-        vy: this.vy,
-        hp: this.hp,
-        alive: this.alive,
-      },
-    });
   }
 
   public craft(
@@ -302,19 +279,6 @@ export class Player extends Entity {
       world.gameConfig.tickRate,
     );
     if (world.tick - input.receivedAtTick > staleThreshold) {
-      if (world.focusedTrace.matchesEntity(this)) {
-        world.focusedTrace.recordEntityEvent(
-          world,
-          "input_intent_stale",
-          this,
-          {
-            seq: input.seq,
-            clientTimeMs: input.clientTimeMs ?? null,
-            receivedAtTick: input.receivedAtTick,
-            worldTick: world.tick,
-          },
-        );
-      }
       return false;
     }
 
@@ -323,21 +287,6 @@ export class Player extends Entity {
     const desiredVelocity = this.computeDesiredVelocity(input.movement);
     this.setDesiredVelocity(desiredVelocity.x, desiredVelocity.y);
 
-    if (world.focusedTrace.matchesEntity(this)) {
-      world.focusedTrace.recordEntityEvent(
-        world,
-        "input_intent_tick_applied",
-        this,
-        {
-          seq: input.seq,
-          clientTimeMs: input.clientTimeMs ?? null,
-          movement: { ...input.movement },
-          desiredVx: desiredVelocity.x,
-          desiredVy: desiredVelocity.y,
-          theta: input.theta,
-        },
-      );
-    }
     return true;
   }
 

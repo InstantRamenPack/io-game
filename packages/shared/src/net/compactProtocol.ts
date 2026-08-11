@@ -78,6 +78,125 @@ type MinimapPlayerSnapshot = NonNullable<
   WorldSnapshot["minimapPlayers"]
 >[number];
 
+const INVALID_TUPLE_FIELD = Symbol("invalid tuple field");
+const RISK_VALUES = ["low", "medium", "high", "boss"] as const;
+type TupleFieldKind =
+  | "string"
+  | "number"
+  | "position"
+  | "flag"
+  | { values: readonly string[]; optional?: boolean };
+type TupleField<T> = readonly [keyof T, TupleFieldKind];
+
+function positionalCodec<T extends object>(
+  fields: readonly TupleField<T>[],
+  trimTrailingNulls = false,
+): {
+  compact(value: T): unknown[];
+  expand(value: unknown): T | null;
+} {
+  return {
+    compact(value) {
+      const tuple = fields.map(([key, kind]) => {
+        const field = value[key];
+        if (kind === "position") {
+          return q(Number(field));
+        }
+        if (kind === "flag") {
+          return field ? 1 : 0;
+        }
+        if (typeof kind === "object") {
+          return field === undefined
+            ? null
+            : kind.values.indexOf(String(field));
+        }
+        return field;
+      });
+      if (trimTrailingNulls) {
+        while (tuple.at(-1) === null) {
+          tuple.pop();
+        }
+      }
+      return tuple;
+    },
+    expand(value) {
+      if (!Array.isArray(value)) {
+        return null;
+      }
+      const result = {} as T;
+      for (const [index, [key, kind]] of fields.entries()) {
+        const field = value[index];
+        let decoded: unknown;
+        if (kind === "string" || kind === "number") {
+          decoded = typeof field === kind ? field : INVALID_TUPLE_FIELD;
+        } else if (kind === "position") {
+          decoded = dq(Number(field));
+        } else if (kind === "flag") {
+          decoded = field === 1;
+        } else if (typeof field !== "number") {
+          decoded = kind.optional ? undefined : INVALID_TUPLE_FIELD;
+        } else {
+          decoded = kind.values[field] ?? kind.values[0];
+        }
+        if (decoded === INVALID_TUPLE_FIELD) {
+          return null;
+        }
+        if (decoded !== undefined) {
+          result[key] = decoded as T[typeof key];
+        }
+      }
+      return result;
+    },
+  };
+}
+
+const sectorFields = [
+  ["id", "string"],
+  ["label", "string"],
+  ["archetype", "string"],
+  ["row", "number"],
+  ["col", "number"],
+  ["minX", "position"],
+  ["minY", "position"],
+  ["maxX", "position"],
+  ["maxY", "position"],
+  ["hasLightsOut", "flag"],
+] as const satisfies readonly TupleField<MapSectorSnapshot>[];
+const featureFields = [
+  ["id", "string"],
+  ["label", "string"],
+  ["role", "string"],
+  ["risk", { values: RISK_VALUES }],
+  ["hasReward", "flag"],
+  ["minX", "position"],
+  ["minY", "position"],
+  ["maxX", "position"],
+  ["maxY", "position"],
+  ["centerX", "position"],
+  ["centerY", "position"],
+] as const satisfies readonly TupleField<MapFeatureSnapshot>[];
+const markerFields = [
+  ["id", "string"],
+  ["label", "string"],
+  ["archetype", "string"],
+  ["importance", { values: ["sector", "major", "reward", "route"] }],
+  ["discoveredByDefault", "flag"],
+  ["x", "position"],
+  ["y", "position"],
+  ["risk", { values: RISK_VALUES, optional: true }],
+  ["tier", { values: ["common", "uncommon", "rare", "epic"], optional: true }],
+] as const satisfies readonly TupleField<MapMarkerSnapshot>[];
+
+const sectorCodec = positionalCodec<MapSectorSnapshot>(sectorFields);
+const featureCodec = positionalCodec<MapFeatureSnapshot>(featureFields);
+const markerCodec = positionalCodec<MapMarkerSnapshot>(markerFields, true);
+
+export const COMPACT_MAP_TUPLE_FIELDS = Object.freeze({
+  sector: sectorFields.map(([key]) => key),
+  feature: featureFields.map(([key]) => key),
+  marker: markerFields.map(([key]) => key),
+});
+
 export function compactInputMessage(message: InputIntentMessage): unknown[] {
   return [
     message.seq,
@@ -800,9 +919,9 @@ function compactMap(map: MapSnapshot): unknown[] {
     ],
     map.militarySectorId,
     map.forestSectorId,
-    map.sectors.map(compactSector),
-    map.features.map(compactFeature),
-    map.markers.map(compactMarker),
+    map.sectors.map(sectorCodec.compact),
+    map.features.map(featureCodec.compact),
+    map.markers.map(markerCodec.compact),
   ];
 }
 
@@ -850,180 +969,15 @@ function expandMap(value: unknown): MapSnapshot | undefined {
     militarySectorId,
     forestSectorId,
     sectors: Array.isArray(sectors)
-      ? sectors.map(expandSector).filter(isPresent)
+      ? sectors.map(sectorCodec.expand).filter(isPresent)
       : [],
     features: Array.isArray(features)
-      ? features.map(expandFeature).filter(isPresent)
+      ? features.map(featureCodec.expand).filter(isPresent)
       : [],
     markers: Array.isArray(markers)
-      ? markers.map(expandMarker).filter(isPresent)
+      ? markers.map(markerCodec.expand).filter(isPresent)
       : [],
   };
-}
-
-function compactSector(sector: MapSectorSnapshot): unknown[] {
-  return [
-    sector.id,
-    sector.label,
-    sector.archetype,
-    sector.row,
-    sector.col,
-    q(sector.minX),
-    q(sector.minY),
-    q(sector.maxX),
-    q(sector.maxY),
-    sector.hasLightsOut ? 1 : 0,
-  ];
-}
-
-function expandSector(value: unknown): MapSectorSnapshot | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  const [id, label, archetype, row, col, minX, minY, maxX, maxY, hasLightsOut] =
-    value;
-  return typeof id === "string" &&
-    typeof label === "string" &&
-    typeof archetype === "string" &&
-    typeof row === "number" &&
-    typeof col === "number"
-    ? {
-        id,
-        label,
-        archetype,
-        row,
-        col,
-        minX: dq(Number(minX)),
-        minY: dq(Number(minY)),
-        maxX: dq(Number(maxX)),
-        maxY: dq(Number(maxY)),
-        hasLightsOut: hasLightsOut === 1,
-      }
-    : null;
-}
-
-function compactFeature(feature: MapFeatureSnapshot): unknown[] {
-  const riskCode = { low: 0, medium: 1, high: 2, boss: 3 }[feature.risk];
-  return [
-    feature.id,
-    feature.label,
-    feature.role,
-    riskCode,
-    feature.hasReward ? 1 : 0,
-    q(feature.minX),
-    q(feature.minY),
-    q(feature.maxX),
-    q(feature.maxY),
-    q(feature.centerX),
-    q(feature.centerY),
-  ];
-}
-
-function expandFeature(value: unknown): MapFeatureSnapshot | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  const [
-    id,
-    label,
-    role,
-    risk,
-    hasReward,
-    minX,
-    minY,
-    maxX,
-    maxY,
-    centerX,
-    centerY,
-  ] = value;
-  const risks = ["low", "medium", "high", "boss"] as const;
-  return typeof id === "string" &&
-    typeof label === "string" &&
-    typeof role === "string" &&
-    typeof risk === "number"
-    ? {
-        id,
-        label,
-        role,
-        risk: risks[risk] ?? "low",
-        hasReward: hasReward === 1,
-        minX: dq(Number(minX)),
-        minY: dq(Number(minY)),
-        maxX: dq(Number(maxX)),
-        maxY: dq(Number(maxY)),
-        centerX: dq(Number(centerX)),
-        centerY: dq(Number(centerY)),
-      }
-    : null;
-}
-
-function compactMarker(marker: MapMarkerSnapshot): unknown[] {
-  const importanceCode = {
-    sector: 0,
-    major: 1,
-    reward: 2,
-    route: 3,
-  }[marker.importance];
-  const compacted: unknown[] = [
-    marker.id,
-    marker.label,
-    marker.archetype,
-    importanceCode,
-    marker.discoveredByDefault ? 1 : 0,
-    q(marker.x),
-    q(marker.y),
-  ];
-  if (marker.risk !== undefined || marker.tier !== undefined) {
-    compacted.push(
-      marker.risk === undefined
-        ? null
-        : ({ low: 0, medium: 1, high: 2, boss: 3 } as const)[marker.risk],
-      marker.tier === undefined
-        ? null
-        : ({ common: 0, uncommon: 1, rare: 2, epic: 3 } as const)[marker.tier],
-    );
-  }
-  return compacted;
-}
-
-function expandMarker(value: unknown): MapMarkerSnapshot | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  const [
-    id,
-    label,
-    archetype,
-    importance,
-    discoveredByDefault,
-    x,
-    y,
-    risk,
-    tier,
-  ] = value;
-  const importanceValues = ["sector", "major", "reward", "route"] as const;
-  const riskValues = ["low", "medium", "high", "boss"] as const;
-  const tierValues = ["common", "uncommon", "rare", "epic"] as const;
-  return typeof id === "string" &&
-    typeof label === "string" &&
-    typeof archetype === "string" &&
-    typeof importance === "number"
-    ? {
-        id,
-        label,
-        archetype,
-        importance: importanceValues[importance] ?? "sector",
-        discoveredByDefault: discoveredByDefault === 1,
-        x: dq(Number(x)),
-        y: dq(Number(y)),
-        ...(typeof risk === "number" && riskValues[risk] !== undefined
-          ? { risk: riskValues[risk] }
-          : {}),
-        ...(typeof tier === "number" && tierValues[tier] !== undefined
-          ? { tier: tierValues[tier] }
-          : {}),
-      }
-    : null;
 }
 
 function expandVisibility(value: unknown): WorldSnapshot["visibility"] {

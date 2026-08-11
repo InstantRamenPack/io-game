@@ -1,9 +1,5 @@
 import type { Entity } from "@server/entities/Entity.ts";
-import {
-  GridIndex,
-  gridCellSpansMatch,
-  type GridCellSpan,
-} from "@shared/spatial/GridIndex.ts";
+import { GridIndex } from "@shared/spatial/GridIndex.ts";
 
 /**
  * Uniform-grid spatial index for broad-phase proximity queries.
@@ -11,13 +7,10 @@ import {
  */
 export class SpatialIndex {
   private readonly grid: GridIndex<Entity>;
-  private readonly indexedEntityById = new Map<number, Entity>();
   private readonly boundsByEntityId = new Map<
     number,
     ReturnType<Entity["getWorldBounds"]>
   >();
-  private readonly cellSpanByEntityId = new Map<number, GridCellSpan>();
-  private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
   private syncMarker = 0;
 
@@ -49,7 +42,7 @@ export class SpatialIndex {
       this.upsert(entity);
     }
 
-    for (const entityId of [...this.indexedEntityById.keys()]) {
+    for (const entityId of [...this.grid.ids()]) {
       if (this.syncedEntityIds.get(entityId) === this.syncMarker) {
         continue;
       }
@@ -119,47 +112,19 @@ export class SpatialIndex {
 
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
-    const nextSpan = this.grid.spanFromBounds(
+    this.boundsByEntityId.set(entity.id, bounds);
+    this.grid.upsert(
+      entity.id,
+      entity,
       bounds.minX,
       bounds.minY,
       bounds.maxX,
       bounds.maxY,
     );
-    const previousSpan = this.cellSpanByEntityId.get(entity.id);
-    const previousEntity = this.indexedEntityById.get(entity.id);
-    this.boundsByEntityId.set(entity.id, bounds);
-    if (
-      previousEntity === entity &&
-      previousSpan &&
-      gridCellSpansMatch(previousSpan, nextSpan)
-    ) {
-      return;
-    }
-
-    const previousKeys = this.cellKeysByEntityId.get(entity.id);
-    if (previousKeys) {
-      this.grid.removeFromCells(
-        previousKeys,
-        (indexedEntity) => indexedEntity.id === entity.id,
-      );
-    }
-
-    const nextKeys = this.grid.keysFromSpan(nextSpan);
-    this.grid.addToCells(nextKeys, entity);
-
-    this.indexedEntityById.set(entity.id, entity);
-    this.cellSpanByEntityId.set(entity.id, nextSpan);
-    this.cellKeysByEntityId.set(entity.id, nextKeys);
   }
 
   public removeEntity(entityId: number): void {
-    const keys = this.cellKeysByEntityId.get(entityId);
-    if (keys) {
-      this.grid.removeFromCells(keys, (entity) => entity.id === entityId);
-    }
-    this.indexedEntityById.delete(entityId);
+    this.grid.remove(entityId);
     this.boundsByEntityId.delete(entityId);
-    this.cellSpanByEntityId.delete(entityId);
-    this.cellKeysByEntityId.delete(entityId);
   }
 }
