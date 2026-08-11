@@ -29,6 +29,11 @@ type ScreenTransform = {
   offsetY: number;
 };
 
+type BlockerLayer = {
+  shadow: Graphics;
+  cutout: Graphics;
+};
+
 const MIN_DISTANCE_EPSILON = 1e-6;
 const LIGHTS_OUT_FADE_START_RADIUS = 480;
 const LIGHTS_OUT_FADE_END_RADIUS = 600;
@@ -48,22 +53,17 @@ export class PixiLightsOutOverlay {
   private readonly backgroundDim = new Graphics();
   private readonly darknessOverlay = new Sprite(Texture.EMPTY);
   private readonly blockerShadows = new Sprite(Texture.EMPTY);
-  private readonly blockerPassRoot = new Container();
-  private readonly shadowGraphics = new Graphics();
-  private readonly cutoutGraphics = new Graphics();
-  private readonly scratchComposite = new Sprite(Texture.EMPTY);
+  private readonly blockerBatchRoot = new Container();
+  private readonly blockerLayers: BlockerLayer[] = [];
   private accumRenderTexture: RenderTexture | null = null;
-  private scratchRenderTexture: RenderTexture | null = null;
   private lastScreenW = -1;
   private lastScreenH = -1;
   private lastShadowScreenW = -1;
   private lastShadowScreenH = -1;
 
   constructor() {
-    this.cutoutGraphics.blendMode = "erase";
-    this.blockerPassRoot.cullable = false;
-    this.blockerPassRoot.cullableChildren = false;
-    this.blockerPassRoot.addChild(this.shadowGraphics, this.cutoutGraphics);
+    this.blockerBatchRoot.cullable = false;
+    this.blockerBatchRoot.cullableChildren = false;
     this.container.addChild(
       this.backgroundDim,
       this.darknessOverlay,
@@ -142,17 +142,13 @@ export class PixiLightsOutOverlay {
       .slice()
       .sort(
         (a, b) =>
-          blockerDistanceSq(a, visibility.center) -
-          blockerDistanceSq(b, visibility.center),
+          blockerDistanceSq(b, visibility.center) -
+          blockerDistanceSq(a, visibility.center),
       );
 
     const accumTexture = this.ensureAccumRenderTexture(app);
-    const scratchTexture = this.ensureScratchRenderTexture(app);
-    this.blockerPassRoot.filterArea = app.screen;
-    this.scratchComposite.texture = scratchTexture;
-    this.scratchComposite.width = app.screen.width;
-    this.scratchComposite.height = app.screen.height;
-    let drewAny = false;
+    this.blockerBatchRoot.filterArea = app.screen;
+    let layerCount = 0;
 
     for (const blocker of sorted) {
       const shadows =
@@ -167,36 +163,55 @@ export class PixiLightsOutOverlay {
       if (shadows.length === 0) {
         continue;
       }
-      if (!populateBlockerShadowGraphics(this.shadowGraphics, shadows)) {
+      const layer = this.getBlockerLayer(layerCount);
+      if (!populateBlockerShadowGraphics(layer.shadow, shadows)) {
         continue;
       }
-      populateBlockerCutoutGraphics(this.cutoutGraphics, blocker, transform);
-
-      app.renderer.render({
-        container: this.blockerPassRoot,
-        target: scratchTexture,
-        clear: true,
-        clearColor: TRANSPARENT_CLEAR,
-      });
-      app.renderer.render({
-        container: this.scratchComposite,
-        target: accumTexture,
-        clear: !drewAny,
-        clearColor: TRANSPARENT_CLEAR,
-      });
-      drewAny = true;
+      populateBlockerCutoutGraphics(layer.cutout, blocker, transform);
+      layer.shadow.visible = true;
+      layer.cutout.visible = true;
+      layerCount += 1;
     }
 
-    if (!drewAny) {
+    for (let i = layerCount; i < this.blockerLayers.length; i += 1) {
+      const layer = this.blockerLayers[i];
+      if (!layer) continue;
+      layer.shadow.visible = false;
+      layer.cutout.visible = false;
+    }
+
+    if (layerCount === 0) {
       this.blockerShadows.visible = false;
       return;
     }
+
+    app.renderer.render({
+      container: this.blockerBatchRoot,
+      target: accumTexture,
+      clear: true,
+      clearColor: TRANSPARENT_CLEAR,
+    });
 
     this.blockerShadows.texture = accumTexture;
     this.blockerShadows.width = app.screen.width;
     this.blockerShadows.height = app.screen.height;
     this.blockerShadows.position.set(0, 0);
     this.blockerShadows.visible = true;
+  }
+
+  private getBlockerLayer(index: number): BlockerLayer {
+    const existing = this.blockerLayers[index];
+    if (existing) {
+      return existing;
+    }
+    const layer = {
+      shadow: new Graphics(),
+      cutout: new Graphics(),
+    };
+    layer.cutout.blendMode = "erase";
+    this.blockerLayers.push(layer);
+    this.blockerBatchRoot.addChild(layer.shadow, layer.cutout);
+    return layer;
   }
 
   private ensureAccumRenderTexture(app: Application): RenderTexture {
@@ -221,25 +236,6 @@ export class PixiLightsOutOverlay {
     }
 
     return this.accumRenderTexture;
-  }
-
-  private ensureScratchRenderTexture(app: Application): RenderTexture {
-    const width = Math.max(1, Math.ceil(app.screen.width));
-    const height = Math.max(1, Math.ceil(app.screen.height));
-    const resolution = app.renderer.resolution;
-
-    if (!this.scratchRenderTexture) {
-      this.scratchRenderTexture = RenderTexture.create({
-        width,
-        height,
-        resolution,
-        dynamic: true,
-      });
-    } else {
-      this.scratchRenderTexture.resize(width, height, resolution);
-    }
-
-    return this.scratchRenderTexture;
   }
 
   private getScreenTransform(

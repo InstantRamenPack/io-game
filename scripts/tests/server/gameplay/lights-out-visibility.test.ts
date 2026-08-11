@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ClientEntity } from "@client/net/ClientEntity.ts";
-import { toVisibilityBlocker } from "@client/net/presentation/PixiWorldPresentationSink.ts";
+import type { ClientWorld } from "@client/net/ClientWorld.ts";
+import {
+  PixiWorldPresentationSink,
+  toVisibilityBlocker,
+} from "@client/net/presentation/PixiWorldPresentationSink.ts";
 import {
   buildShadowCoverageRegionForTest,
   countVisibilityShadowPolygonsForBenchmark,
@@ -116,6 +120,37 @@ describe("lights-out visibility", () => {
         },
       ],
     });
+  });
+
+  test("visibility blockers rebuild once per authoritative world version", () => {
+    const wall = new ClientEntity(makeStructureSnapshot(93, 1000, 2000), 1, 4);
+    const blockerCounts: number[] = [];
+    const sink = Object.assign(
+      Object.create(PixiWorldPresentationSink.prototype),
+      {
+        renderer: {
+          playerX: 1000,
+          playerY: 2000,
+          playerEntityId: undefined,
+          setLightsOutSuppressed() {},
+          setVisibilityBlockers(blockers: readonly unknown[]) {
+            blockerCounts.push(blockers.length);
+          },
+        },
+        visibilityWorldVersion: -1,
+      },
+    ) as unknown as { updateVisibility(world: ClientWorld): void };
+    const world = {
+      version: 7,
+      entities: new Map([[wall.id, wall]]),
+    } as ClientWorld;
+
+    sink.updateVisibility(world);
+    sink.updateVisibility(world);
+    world.version += 1;
+    sink.updateVisibility(world);
+
+    expect(blockerCounts).toEqual([1, 1]);
   });
 
   test("tripwire trigger hitboxes do not become lights-out blockers", () => {

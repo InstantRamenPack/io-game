@@ -16,6 +16,7 @@ export class PixiWorldPresentationSink {
   private readonly renderManager: EntityRenderManager;
   private readonly syncedEntityIds = new Set<number>();
   private readonly statusEffectParticleCooldownMs = new Map<string, number>();
+  private visibilityWorldVersion = -1;
 
   constructor(
     private readonly renderer: PixiRenderer,
@@ -34,11 +35,13 @@ export class PixiWorldPresentationSink {
     this.renderManager.destroy();
     this.syncedEntityIds.clear();
     this.statusEffectParticleCooldownMs.clear();
+    this.visibilityWorldVersion = -1;
     this.renderer.setConfusionState(false, 0);
     this.renderer.setVisibilityBlockers([]);
   }
 
   public setPlayerEntityId(entityId: number | undefined): void {
+    this.visibilityWorldVersion = -1;
     this.renderer.setPlayerEntityId(entityId);
   }
 
@@ -220,8 +223,15 @@ export class PixiWorldPresentationSink {
       this.renderer.playerX === undefined ||
       this.renderer.playerY === undefined
     ) {
-      this.renderer.setLightsOutSuppressed(false);
-      this.renderer.setVisibilityBlockers([]);
+      if (this.visibilityWorldVersion !== -1) {
+        this.visibilityWorldVersion = -1;
+        this.renderer.setLightsOutSuppressed(false);
+        this.renderer.setVisibilityBlockers([]);
+      }
+      return;
+    }
+
+    if (this.visibilityWorldVersion === world.version) {
       return;
     }
 
@@ -233,20 +243,23 @@ export class PixiWorldPresentationSink {
       player?.name?.toLowerCase() === "debug",
     );
 
-    const blockers: VisibilityBlockerShape[] = [];
-
-    for (const entity of world.entities.values()) {
-      if (!isVisibilityBlockerEntity(entity)) {
-        continue;
-      }
-      const blocker = toVisibilityBlocker(entity);
-      if (blocker) {
-        blockers.push(blocker);
-      }
-    }
-
-    this.renderer.setVisibilityBlockers(blockers);
+    this.renderer.setVisibilityBlockers(
+      collectVisibilityBlockers(world.entities.values()),
+    );
+    this.visibilityWorldVersion = world.version;
   }
+}
+
+export function collectVisibilityBlockers(
+  entities: Iterable<ClientEntity>,
+): VisibilityBlockerShape[] {
+  const blockers: VisibilityBlockerShape[] = [];
+  for (const entity of entities) {
+    if (!isVisibilityBlockerEntity(entity)) continue;
+    const blocker = toVisibilityBlocker(entity);
+    if (blocker) blockers.push(blocker);
+  }
+  return blockers;
 }
 
 function isVisibilityBlockerEntity(entity: ClientEntity): boolean {
