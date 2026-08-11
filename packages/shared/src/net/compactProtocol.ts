@@ -21,6 +21,8 @@ import type {
 
 const POSITION_SCALE = 10;
 const ROTATION_SCALE = 65535 / (Math.PI * 2);
+const compactEntityTuples = new WeakMap<EntitySnapshot, unknown[]>();
+const compactEntityTupleSet = new WeakSet<unknown[]>();
 
 export const COMPACT_WORLD_SNAPSHOT_FIELDS = [
   "tick",
@@ -127,7 +129,7 @@ export function expandServerMessage(value: unknown): unknown {
   return expanded ? { t: "snapshot", snapshot: expanded } : value;
 }
 
-function compactWorldSnapshot(snapshot: WorldSnapshot): unknown[] {
+export function compactWorldSnapshot(snapshot: WorldSnapshot): unknown[] {
   return [
     snapshot.tick,
     compactDayNight(snapshot.dayNight),
@@ -206,7 +208,22 @@ function expandWorldSnapshot(value: unknown): WorldSnapshot | null {
   };
 }
 
-function compactEntity(entity: EntitySnapshot): unknown[] {
+export function compactEntity(entity: EntitySnapshot): unknown[] {
+  const cached = compactEntityTuples.get(entity);
+  if (cached) {
+    return cached;
+  }
+  const tuple = compactEntityUncached(entity);
+  compactEntityTuples.set(entity, tuple);
+  compactEntityTupleSet.add(tuple);
+  return tuple;
+}
+
+export function isCompactEntityTuple(value: unknown[]): boolean {
+  return compactEntityTupleSet.has(value);
+}
+
+function compactEntityUncached(entity: EntitySnapshot): unknown[] {
   const base = [
     entity.id,
     entity.typeId ?? null,

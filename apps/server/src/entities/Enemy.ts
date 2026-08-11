@@ -195,6 +195,24 @@ export class Enemy extends GoalControlledEntity {
     super.tick(world);
   }
 
+  public canSkipDormantTick(world: World): boolean {
+    if (
+      this.spawnSource !== "layout" ||
+      this.activeEffects.length !== 0 ||
+      this.vx !== 0 ||
+      this.vy !== 0 ||
+      world.shouldRunEntityGoalsAndCollisions(this)
+    ) {
+      return false;
+    }
+    for (const weapon of this.weapons) {
+      if (!weapon.canHit()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   protected override getGoalTickInterval(world: World): number {
     const { goalLodDistance, goalLodTickInterval } = enemyTuningConfig;
     if (

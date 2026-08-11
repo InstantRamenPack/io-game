@@ -50,6 +50,7 @@ export abstract class GoalControlledEntity extends Entity implements GoalActor {
     }
 
     if (!world.shouldRunEntityGoalsAndCollisions(this)) {
+      this.resetDriveVelocity();
       return;
     }
     if (!this.shouldTickGoals(world)) {

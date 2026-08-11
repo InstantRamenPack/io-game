@@ -129,6 +129,22 @@ describe("snapshot manager delta/full behavior", () => {
     );
   });
 
+  test("movement below wire precision does not emit a redundant delta", () => {
+    const { runtime } = makeRuntime();
+    const { player, playerId } = connectTestClient(runtime);
+    const wall = spawnWall(runtime, player.x + 40, player.y);
+    for (let i = 0; i < 6; i += 1) {
+      stepAndSnapshot(runtime, playerId, 200);
+    }
+
+    wall.x = Math.round(wall.x * 10) / 10 + 0.01;
+    runtime.world.markSpatialDirty();
+    const snapshot = stepAndSnapshot(runtime, playerId, 200);
+    expect(snapshot.entities.some((entity) => entity.id === wall.id)).toBe(
+      false,
+    );
+  });
+
   test("hitbox changes force a full entity snapshot", () => {
     const { runtime } = makeRuntime();
     const { player, playerId } = connectTestClient(runtime);

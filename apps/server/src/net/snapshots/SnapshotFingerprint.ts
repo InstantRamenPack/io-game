@@ -5,8 +5,9 @@ import type {
   InventorySnapshot,
   WeaponSnapshot,
 } from "@shared/net/snapshots.ts";
+import type { HitboxRect } from "@shared/geometry/hitbox.ts";
+import { normalizeAngle } from "@shared/math/angle.ts";
 import {
-  getEntityRuntimeBaseFingerprintParts,
   getEntitySnapshotBaseFingerprintParts,
   getEquippedItemSnapshotFingerprint,
   getHitboxFingerprint,
@@ -20,6 +21,10 @@ import { Player } from "@server/entities/Player.ts";
 import { Structure } from "@server/entities/Structure.ts";
 import type { Inventory } from "@server/items/Inventory.ts";
 import type { Weapon } from "@server/items/Weapon.ts";
+
+export type RuntimeFingerprintPart = string | number | null;
+const hitboxFingerprintCache = new WeakMap<readonly HitboxRect[], string>();
+const ROTATION_SCALE = 65535 / (Math.PI * 2);
 
 export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
   const parts = getEntitySnapshotBaseFingerprintParts(snapshot);
@@ -65,60 +70,93 @@ export function getEntitySnapshotFingerprint(snapshot: EntitySnapshot): string {
 
 export function getEntityRuntimeFingerprint(
   entity: Entity,
-  hitboxFingerprint = getEntityHitboxFingerprint(entity),
-): string {
-  const parts = getEntityRuntimeBaseFingerprintParts(entity, hitboxFingerprint);
+  hitboxFingerprint: string = getEntityHitboxFingerprint(entity),
+  parts: RuntimeFingerprintPart[] = [],
+): RuntimeFingerprintPart[] {
+  parts.length = 0;
+  const ctor = entity.constructor as typeof Entity & {
+    readonly kind?: string;
+  };
+  parts.push(
+    entity.id,
+    ctor.kind ?? entity.constructor.name,
+    entity.typeId,
+    quantizeTenth(entity.x),
+    quantizeTenth(entity.y),
+    quantizeTenth(entity.vx),
+    quantizeTenth(entity.vy),
+    Math.round(normalizeAngle(entity.rotation) * ROTATION_SCALE) & 0xffff,
+    entity.hp,
+    entity.maxHp,
+    entity.alive ? 1 : 0,
+    entity.ownerId ?? null,
+  );
+  parts.push(hitboxFingerprint);
 
   if (entity instanceof Player) {
-    parts.push(
-      entity.name,
-      entity.moveSpeed,
-      fingerprintInventoryRuntime(entity.inventory, entity),
-      fingerprintActiveEffectsRuntime(entity.activeEffects),
-      fingerprintEquippedWeaponRuntime(entity.getActiveWeapon(), entity),
-      entity.getEquippedArmorTypeId() ?? "",
-    );
-    return parts.join("|");
+    parts.push(entity.name, quantizeTenth(entity.moveSpeed));
+    appendInventoryRuntime(parts, entity.inventory, entity);
+    appendActiveEffectsRuntime(parts, entity.activeEffects);
+    appendEquippedWeaponRuntime(parts, entity.getActiveWeapon(), entity);
+    parts.push(entity.getEquippedArmorTypeId() ?? null);
+    return parts;
   }
 
   if (entity instanceof Enemy) {
-    parts.push(
-      entity.targetId ?? "",
-      fingerprintActiveEffectsRuntime(entity.activeEffects),
-      fingerprintEquippedWeaponRuntime(entity.weapons[0], entity),
-    );
-    return parts.join("|");
+    parts.push(entity.targetId ?? null);
+    appendActiveEffectsRuntime(parts, entity.activeEffects);
+    appendEquippedWeaponRuntime(parts, entity.weapons[0], entity);
+    return parts;
   }
 
   if (entity instanceof Building) {
-    parts.push(
-      entity.label,
-      entity.tier,
-      fingerprintChestSlotsRuntime(
-        "chestSlots" in entity
-          ? ((entity as { chestSlots?: readonly ContainerSlot[] }).chestSlots ??
-              undefined)
-          : undefined,
-      ),
+    parts.push(entity.label, entity.tier);
+    appendChestSlotsRuntime(
+      parts,
+      "chestSlots" in entity
+        ? ((entity as { chestSlots?: readonly ContainerSlot[] }).chestSlots ??
+            undefined)
+        : undefined,
     );
-    return parts.join("|");
+    return parts;
   }
 
   if (entity instanceof Structure) {
     parts.push(entity.label);
-    return parts.join("|");
+    return parts;
   }
 
   if (entity instanceof ItemEntity) {
-    parts.push(fingerprintInventoryRuntime(entity.contents));
-    return parts.join("|");
+    appendInventoryRuntime(parts, entity.contents);
+    return parts;
   }
 
-  return parts.join("|");
+  return parts;
 }
 
 export function getEntityHitboxFingerprint(entity: Entity): string {
-  return getHitboxFingerprint(entity.hitboxes);
+  const hitboxes = entity.hitboxes;
+  let fingerprint = hitboxFingerprintCache.get(hitboxes);
+  if (fingerprint === undefined) {
+    fingerprint = getHitboxFingerprint(hitboxes);
+    hitboxFingerprintCache.set(hitboxes, fingerprint);
+  }
+  return fingerprint;
+}
+
+export function runtimeFingerprintsMatch(
+  left: readonly RuntimeFingerprintPart[] | undefined,
+  right: readonly RuntimeFingerprintPart[],
+): boolean {
+  if (!left || left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function fingerprintInventory(inventory: InventorySnapshot): string {
@@ -142,23 +180,6 @@ function fingerprintInventorySlot(slot: InventorySlotSnapshot): string {
   return `weapon:${fingerprintWeapon(slot)}`;
 }
 
-function fingerprintInventorySlotRuntime(
-  slot:
-    | { kind: "buildable"; typeId: string; count: number }
-    | { kind: "weapon"; weapon: Weapon }
-    | null
-    | undefined,
-  owner: Entity | undefined,
-): string {
-  if (!slot) {
-    return "empty";
-  }
-  if (slot.kind === "buildable") {
-    return `buildable:${slot.typeId}:${slot.count}`;
-  }
-  return `weapon:${fingerprintWeaponRuntime(slot.weapon, owner)}`;
-}
-
 function fingerprintOptionalChestSlots(
   chestSlots: readonly InventorySlotSnapshot[] | undefined,
 ): string {
@@ -168,23 +189,24 @@ function fingerprintOptionalChestSlots(
   return chestSlots.map(fingerprintInventorySlot).join(";");
 }
 
-function fingerprintChestSlotsRuntime(
+function appendChestSlotsRuntime(
+  parts: RuntimeFingerprintPart[],
   chestSlots: readonly ContainerSlot[] | undefined,
-): string {
+): void {
   if (!chestSlots) {
-    return "";
+    parts.push(0);
+    return;
   }
-  return chestSlots
-    .map((slot) => {
-      if (!slot) {
-        return "empty";
-      }
-      if (slot.kind === "buildable") {
-        return `buildable:${slot.typeId}:${slot.count}`;
-      }
-      return `weapon:${fingerprintWeapon({ typeId: slot.typeId } as WeaponSnapshot)}`;
-    })
-    .join(";");
+  parts.push(chestSlots.length);
+  for (const slot of chestSlots) {
+    if (!slot) {
+      parts.push(0);
+    } else if (slot.kind === "buildable") {
+      parts.push(1, slot.typeId, slot.count);
+    } else {
+      parts.push(2, slot.typeId);
+    }
+  }
 }
 
 function fingerprintWeapon(weapon: WeaponSnapshot): string {
@@ -200,21 +222,22 @@ function fingerprintWeapon(weapon: WeaponSnapshot): string {
   ].join(",");
 }
 
-function fingerprintWeaponRuntime(
+function appendWeaponRuntime(
+  parts: RuntimeFingerprintPart[],
   weapon: Weapon,
   owner: Entity | undefined,
-): string {
+): void {
   const snapshot = weapon.toSnapshot();
-  return [
+  parts.push(
     snapshot.typeId,
-    snapshot.ownerId ?? "",
-    snapshot.cooldownTicksRemaining,
-    snapshot.ammoInMag ?? "",
-    snapshot.magSize ?? "",
-    weapon.getReserveMagCount(owner) ?? "",
-    snapshot.reloadTicks ?? "",
-    snapshot.reloadTicksRemaining ?? "",
-  ].join(",");
+    snapshot.ownerId ?? null,
+    snapshot.cooldownTicksRemaining ?? null,
+    snapshot.ammoInMag ?? null,
+    snapshot.magSize ?? null,
+    weapon.getReserveMagCount(owner) ?? null,
+    snapshot.reloadTicks ?? null,
+    snapshot.reloadTicksRemaining ?? null,
+  );
 }
 
 function fingerprintActiveEffects(
@@ -228,50 +251,88 @@ function fingerprintActiveEffects(
     .join(";");
 }
 
-function fingerprintActiveEffectsRuntime(
+function appendActiveEffectsRuntime(
+  parts: RuntimeFingerprintPart[],
   activeEffects: readonly {
     typeId: string;
     ticksRemaining: number;
     preventsAction?: boolean;
     speedMultiplier?: number;
   }[],
-): string {
-  return activeEffects
-    .map(
-      (effect) =>
-        `${effect.typeId}:${effect.ticksRemaining}:${effect.preventsAction ? 1 : 0}:${effect.speedMultiplier ?? ""}`,
-    )
-    .join(";");
+): void {
+  parts.push(activeEffects.length);
+  for (const effect of activeEffects) {
+    parts.push(
+      effect.typeId,
+      effect.ticksRemaining,
+      effect.preventsAction ? 1 : 0,
+      effect.speedMultiplier === undefined
+        ? null
+        : quantizeTenth(effect.speedMultiplier),
+    );
+  }
 }
 
-function fingerprintEquippedWeaponRuntime(
+function quantizeTenth(value: number): number {
+  return Math.round(value * 10);
+}
+
+function appendEquippedWeaponRuntime(
+  parts: RuntimeFingerprintPart[],
   weapon: Weapon | undefined,
   owner: Entity | undefined,
-): string {
+): void {
   if (!weapon) {
-    return "";
+    parts.push(0);
+    return;
   }
   const equippedItem = weapon.toEquippedItemSnapshot(owner);
-  return getEquippedItemSnapshotFingerprint(equippedItem);
+  parts.push(
+    1,
+    equippedItem.typeId,
+    equippedItem.attackStyle,
+    equippedItem.cooldownTicksRemaining,
+    equippedItem.ammoInMag ?? null,
+    equippedItem.magSize ?? null,
+    equippedItem.reserveMagCount ?? null,
+    equippedItem.reloadTicks ?? null,
+    equippedItem.reloadTicksRemaining ?? null,
+  );
 }
 
-function fingerprintInventoryRuntime(
+function appendInventoryRuntime(
+  parts: RuntimeFingerprintPart[],
   inventory: Inventory,
   owner?: Entity,
-): string {
-  const resourceEntries = [...inventory.resources.entries()]
-    .filter(([, amount]) => amount > 0)
-    .sort(([leftTypeId], [rightTypeId]) =>
-      leftTypeId.localeCompare(rightTypeId),
-    )
-    .map(([typeId, amount]) => `${typeId}:${amount}`);
+): void {
+  parts.push(inventory.selectedHotbarIndex);
+  const resourceCountIndex = parts.length;
+  parts.push(0);
+  let resourceCount = 0;
+  for (const [typeId, amount] of inventory.resources) {
+    if (amount <= 0) {
+      continue;
+    }
+    parts.push(typeId, amount);
+    resourceCount += 1;
+  }
+  parts[resourceCountIndex] = resourceCount;
 
-  return [
-    inventory.selectedHotbarIndex,
-    resourceEntries.join(";"),
-    inventory.hotbarSlots
-      .map((slot) => fingerprintInventorySlotRuntime(slot, owner))
-      .join(";"),
-    inventory.getUnlockedRecipeTypeIds().join(";"),
-  ].join("|");
+  parts.push(inventory.hotbarSlots.length);
+  for (const slot of inventory.hotbarSlots) {
+    if (!slot) {
+      parts.push(0);
+    } else if (slot.kind === "buildable") {
+      parts.push(1, slot.typeId, slot.count);
+    } else {
+      parts.push(2);
+      appendWeaponRuntime(parts, slot.weapon, owner);
+    }
+  }
+
+  const unlockedRecipeTypeIds = inventory.getUnlockedRecipeTypeIds();
+  parts.push(unlockedRecipeTypeIds.length);
+  for (const typeId of unlockedRecipeTypeIds) {
+    parts.push(typeId);
+  }
 }

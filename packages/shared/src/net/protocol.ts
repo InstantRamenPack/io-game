@@ -3,7 +3,10 @@ import {
   MAX_CHEST_INDEX,
 } from "@shared/gameplay/constants.ts";
 import { normalizeAngle } from "@shared/math/angle.ts";
-import { WorldSnapshotSchema } from "@shared/net/snapshots.ts";
+import {
+  WorldSnapshotSchema,
+  type WorldSnapshot,
+} from "@shared/net/snapshots.ts";
 import { parseJsonValue } from "@shared/json.ts";
 import {
   ChatTextSchema,
@@ -21,8 +24,10 @@ import {
 import {
   compactInputMessage,
   compactServerMessage,
+  compactWorldSnapshot,
   expandInputMessage,
   expandServerMessage,
+  isCompactEntityTuple,
 } from "@shared/net/compactProtocol.ts";
 import {
   recordProtocolDecodeFailure,
@@ -32,6 +37,209 @@ import {
 const PACKET_KIND_OBJECT = 0;
 const PACKET_KIND_INPUT = 1;
 const PACKET_KIND_SERVER = 2;
+const utf8Encoder = new TextEncoder();
+const encodedStrings = new Map<string, Uint8Array>();
+const encodedEntityTuples = new WeakMap<unknown[], Uint8Array>();
+const MAX_CACHED_STRINGS = 4_096;
+
+class SnapshotMessagePackEncoder {
+  private bytes = new Uint8Array(65_536);
+  private view = new DataView(this.bytes.buffer);
+  private offset = 0;
+
+  public encode(snapshot: WorldSnapshot): Uint8Array {
+    this.offset = 0;
+    this.writeArrayHeader(2);
+    this.writeNumber(PACKET_KIND_SERVER);
+    this.writeMapHeader(2);
+    this.writeString("t");
+    this.writeString("snapshot");
+    this.writeString("s");
+    this.write(compactWorldSnapshot(snapshot));
+    return this.bytes.slice(0, this.offset);
+  }
+
+  private ensure(length: number): void {
+    const required = this.offset + length;
+    if (required <= this.bytes.byteLength) {
+      return;
+    }
+    let capacity = this.bytes.byteLength * 2;
+    while (capacity < required) {
+      capacity *= 2;
+    }
+    const bytes = new Uint8Array(capacity);
+    bytes.set(this.bytes);
+    this.bytes = bytes;
+    this.view = new DataView(bytes.buffer);
+  }
+
+  private writeByte(value: number): void {
+    this.ensure(1);
+    this.bytes[this.offset] = value;
+    this.offset += 1;
+  }
+
+  private writeUint16(value: number): void {
+    this.ensure(2);
+    this.view.setUint16(this.offset, value);
+    this.offset += 2;
+  }
+
+  private writeUint32(value: number): void {
+    this.ensure(4);
+    this.view.setUint32(this.offset, value);
+    this.offset += 4;
+  }
+
+  private writeNumber(value: number): void {
+    if (!Number.isSafeInteger(value)) {
+      this.ensure(9);
+      this.bytes[this.offset] = 0xcb;
+      this.view.setFloat64(this.offset + 1, value);
+      this.offset += 9;
+      return;
+    }
+    if (value >= 0) {
+      if (value < 0x80) {
+        this.writeByte(value);
+      } else if (value < 0x100) {
+        this.ensure(2);
+        this.bytes[this.offset] = 0xcc;
+        this.bytes[this.offset + 1] = value;
+        this.offset += 2;
+      } else if (value < 0x1_0000) {
+        this.writeByte(0xcd);
+        this.writeUint16(value);
+      } else if (value < 0x1_0000_0000) {
+        this.writeByte(0xce);
+        this.writeUint32(value);
+      } else {
+        this.ensure(9);
+        this.bytes[this.offset] = 0xcf;
+        this.view.setUint32(this.offset + 1, Math.floor(value / 0x1_0000_0000));
+        this.view.setUint32(this.offset + 5, value >>> 0);
+        this.offset += 9;
+      }
+      return;
+    }
+    if (value >= -0x20) {
+      this.writeByte(0xe0 | (value + 0x20));
+    } else if (value >= -0x80) {
+      this.ensure(2);
+      this.bytes[this.offset] = 0xd0;
+      this.view.setInt8(this.offset + 1, value);
+      this.offset += 2;
+    } else if (value >= -0x8000) {
+      this.writeByte(0xd1);
+      this.ensure(2);
+      this.view.setInt16(this.offset, value);
+      this.offset += 2;
+    } else if (value >= -0x8000_0000) {
+      this.writeByte(0xd2);
+      this.ensure(4);
+      this.view.setInt32(this.offset, value);
+      this.offset += 4;
+    } else {
+      this.ensure(9);
+      this.bytes[this.offset] = 0xd3;
+      this.view.setBigInt64(this.offset + 1, BigInt(value));
+      this.offset += 9;
+    }
+  }
+
+  private writeString(value: string): void {
+    let encoded = encodedStrings.get(value);
+    if (!encoded) {
+      encoded = utf8Encoder.encode(value);
+      if (encodedStrings.size >= MAX_CACHED_STRINGS) {
+        encodedStrings.clear();
+      }
+      encodedStrings.set(value, encoded);
+    }
+    const length = encoded.byteLength;
+    if (length < 32) {
+      this.writeByte(0xa0 + length);
+    } else if (length < 0x100) {
+      this.writeByte(0xd9);
+      this.writeByte(length);
+    } else if (length < 0x1_0000) {
+      this.writeByte(0xda);
+      this.writeUint16(length);
+    } else {
+      this.writeByte(0xdb);
+      this.writeUint32(length);
+    }
+    this.ensure(length);
+    this.bytes.set(encoded, this.offset);
+    this.offset += length;
+  }
+
+  private writeArrayHeader(length: number): void {
+    if (length < 16) {
+      this.writeByte(0x90 + length);
+    } else if (length < 0x1_0000) {
+      this.writeByte(0xdc);
+      this.writeUint16(length);
+    } else {
+      this.writeByte(0xdd);
+      this.writeUint32(length);
+    }
+  }
+
+  private writeMapHeader(length: number): void {
+    if (length < 16) {
+      this.writeByte(0x80 + length);
+    } else if (length < 0x1_0000) {
+      this.writeByte(0xde);
+      this.writeUint16(length);
+    } else {
+      this.writeByte(0xdf);
+      this.writeUint32(length);
+    }
+  }
+
+  private writeArray(value: unknown[]): void {
+    const cacheable = isCompactEntityTuple(value);
+    const cached = cacheable ? encodedEntityTuples.get(value) : undefined;
+    if (cached) {
+      this.ensure(cached.byteLength);
+      this.bytes.set(cached, this.offset);
+      this.offset += cached.byteLength;
+      return;
+    }
+    const start = this.offset;
+    this.writeArrayHeader(value.length);
+    for (const item of value) {
+      this.write(item);
+    }
+    if (cacheable) {
+      encodedEntityTuples.set(value, this.bytes.slice(start, this.offset));
+    }
+  }
+
+  private write(value: unknown): void {
+    if (value === null || value === undefined) {
+      this.writeByte(0xc0);
+    } else if (value === false) {
+      this.writeByte(0xc2);
+    } else if (value === true) {
+      this.writeByte(0xc3);
+    } else if (typeof value === "number") {
+      this.writeNumber(value);
+    } else if (typeof value === "string") {
+      this.writeString(value);
+    } else if (Array.isArray(value)) {
+      this.writeArray(value);
+    } else {
+      throw new TypeError(
+        `Unsupported compact snapshot value: ${String(value)}`,
+      );
+    }
+  }
+}
+
+const snapshotMessagePackEncoder = new SnapshotMessagePackEncoder();
 
 const MoveIntentKeySchema = z.enum(["up", "down", "left", "right"]);
 
@@ -483,10 +691,14 @@ export function encodeServerToClientMessage(
   message: ServerToClientMessage,
 ): Uint8Array {
   const startedAt = performance.now();
-  const encoded = encodeMsgpack([
-    PACKET_KIND_SERVER,
-    isCompactProtocolEnabled() ? compactServerMessage(message) : message,
-  ]);
+  const compact = isCompactProtocolEnabled();
+  const encoded =
+    compact && message.t === "snapshot"
+      ? snapshotMessagePackEncoder.encode(message.snapshot)
+      : encodeMsgpack([
+          PACKET_KIND_SERVER,
+          compact ? compactServerMessage(message) : message,
+        ]);
   recordProtocolMetric(
     "server_encode",
     encoded.byteLength,

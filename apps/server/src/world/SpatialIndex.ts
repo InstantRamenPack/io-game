@@ -12,6 +12,10 @@ import {
 export class SpatialIndex {
   private readonly grid: GridIndex<Entity>;
   private readonly indexedEntityById = new Map<number, Entity>();
+  private readonly boundsByEntityId = new Map<
+    number,
+    ReturnType<Entity["getWorldBounds"]>
+  >();
   private readonly cellSpanByEntityId = new Map<number, GridCellSpan>();
   private readonly cellKeysByEntityId = new Map<number, number[]>();
   private readonly syncedEntityIds = new Map<number, number>();
@@ -85,6 +89,34 @@ export class SpatialIndex {
     );
   }
 
+  public queryBoxExact(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+    result: Entity[] = [],
+  ): Entity[] {
+    this.queryBox(minX, minY, maxX, maxY, result);
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < result.length; readIndex += 1) {
+      const entity = result[readIndex]!;
+      const bounds = this.boundsByEntityId.get(entity.id);
+      if (
+        !bounds ||
+        bounds.maxX < minX ||
+        bounds.minX > maxX ||
+        bounds.maxY < minY ||
+        bounds.minY > maxY
+      ) {
+        continue;
+      }
+      result[writeIndex] = entity;
+      writeIndex += 1;
+    }
+    result.length = writeIndex;
+    return result;
+  }
+
   private upsert(entity: Entity): void {
     const bounds = entity.getWorldBounds();
     const nextSpan = this.grid.spanFromBounds(
@@ -95,6 +127,7 @@ export class SpatialIndex {
     );
     const previousSpan = this.cellSpanByEntityId.get(entity.id);
     const previousEntity = this.indexedEntityById.get(entity.id);
+    this.boundsByEntityId.set(entity.id, bounds);
     if (
       previousEntity === entity &&
       previousSpan &&
@@ -125,6 +158,7 @@ export class SpatialIndex {
       this.grid.removeFromCells(keys, (entity) => entity.id === entityId);
     }
     this.indexedEntityById.delete(entityId);
+    this.boundsByEntityId.delete(entityId);
     this.cellSpanByEntityId.delete(entityId);
     this.cellKeysByEntityId.delete(entityId);
   }

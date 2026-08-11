@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { GameConfig } from "@shared/config/GameConfig.ts";
-import type { ServerToClientMessage } from "@shared/net/protocol.ts";
+import { parseServerToClientMessage } from "@shared/net/protocol.ts";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { ClientWorldState } from "@client/net/ClientWorldState.ts";
 import { Interpolator } from "@client/net/Interpolator.ts";
@@ -138,7 +138,7 @@ const BENCHMARK_NAME = `optimization-realistic-${WORLD_SEED}`;
 class CapturingNetworkServer implements NetworkServerLike {
   public readonly snapshots: WorldSnapshot[] = [];
   public readonly snapshotBytes: number[] = [];
-  private readonly rawSnapshotMessages: string[] = [];
+  private readonly rawMessages: Array<string | Uint8Array> = [];
   private parsedSnapshots = false;
 
   public onOpen(): void {}
@@ -146,14 +146,11 @@ class CapturingNetworkServer implements NetworkServerLike {
   public onClose(): void {}
 
   public send(_clientId: string, data: string | Uint8Array): void {
-    if (typeof data !== "string") {
-      return;
-    }
-    this.snapshotBytes.push(data.length);
-    if (data.startsWith('{"t":"snapshot"')) {
-      this.rawSnapshotMessages.push(data);
-      this.parsedSnapshots = false;
-    }
+    this.snapshotBytes.push(
+      typeof data === "string" ? data.length : data.byteLength,
+    );
+    this.rawMessages.push(data);
+    this.parsedSnapshots = false;
   }
 
   public broadcast(): void {}
@@ -164,13 +161,22 @@ class CapturingNetworkServer implements NetworkServerLike {
       return;
     }
     this.snapshots.length = 0;
-    for (const data of this.rawSnapshotMessages) {
-      const message = JSON.parse(data) as ServerToClientMessage;
-      if (message.t === "snapshot") {
+    for (const data of this.rawMessages) {
+      const message = parseServerToClientMessage(data, {
+        validateSnapshots: false,
+      });
+      if (message?.t === "snapshot") {
         this.snapshots.push(message.snapshot);
       }
     }
     this.parsedSnapshots = true;
+  }
+
+  public reset(): void {
+    this.snapshots.length = 0;
+    this.snapshotBytes.length = 0;
+    this.rawMessages.length = 0;
+    this.parsedSnapshots = false;
   }
 }
 
@@ -307,8 +313,7 @@ function measureServerTicks(
     driveSectorClients(runtime, clients, index);
     runtime.tick();
   }
-  networkServer.snapshots.length = 0;
-  networkServer.snapshotBytes.length = 0;
+  networkServer.reset();
   runtime.world.navPathService.collectAndResetBenchmarkStats();
   worldSink.reset();
 
@@ -652,6 +657,17 @@ function parseCliOptions(args: readonly string[]): CliOptions {
 }
 
 function validateReport(report: BenchmarkReport, cli: CliOptions): void {
+  const expectedSnapshots = SAMPLE_TICKS * report.scenario.sectorClientCount;
+  if (
+    report.network.snapshots !== expectedSnapshots ||
+    report.network.totalBytes <= 0 ||
+    report.network.totalEntities <= 0 ||
+    report.client.simulatedFrames <= 0
+  ) {
+    throw new Error(
+      `incomplete workload evidence snapshots=${report.network.snapshots}/${expectedSnapshots} bytes=${report.network.totalBytes} entities=${report.network.totalEntities} frames=${report.client.simulatedFrames}`,
+    );
+  }
   if (cli.comparePath) {
     const baseline = JSON.parse(
       readFileSync(resolve(cli.comparePath), "utf8"),

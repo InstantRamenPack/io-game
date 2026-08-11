@@ -8,7 +8,10 @@ import type {
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Player } from "@server/entities/Player.ts";
 import { EventRelevanceFilter } from "@server/net/snapshots/EventRelevanceFilter.ts";
-import { PerPlayerReplicationState } from "@server/net/snapshots/PerPlayerReplicationState.ts";
+import {
+  PerPlayerReplicationState,
+  type EntityReplicationState,
+} from "@server/net/snapshots/PerPlayerReplicationState.ts";
 import { stripKnownStableEntitySnapshotFields } from "@server/net/snapshots/EntitySnapshotDescriptor.ts";
 import { SnapshotTickCache } from "@server/net/snapshots/SnapshotTickCache.ts";
 import type { World } from "@server/world/World.ts";
@@ -33,6 +36,7 @@ const FULL_INFRASTRUCTURE: InfrastructureSnapshot = {
 const MAX_DELTA_ENTITY_UPDATES = 1024;
 const FULL_ENTITY_RELIABILITY_SENDS = 4;
 const FULL_ENTITY_REFRESH_TICKS = 600;
+const MAX_DENSE_ENTITY_ID = 65_535;
 
 /**
  * Serializes authoritative world state after each completed server tick.
@@ -43,7 +47,8 @@ export class SnapshotManager {
   private readonly replicationState = new PerPlayerReplicationState();
   private readonly eventRelevanceFilter = new EventRelevanceFilter();
   private readonly queryBuffer: Entity[] = [];
-  private readonly includedEntityMarkers = new Map<number, number>();
+  private includedDenseEntityMarkers = new Uint32Array(2_048);
+  private readonly includedSparseEntityMarkers = new Map<number, number>();
   private cachedObserverSnapshot: WorldSnapshot | null = null;
   private marker = 0;
 
@@ -102,35 +107,28 @@ export class SnapshotManager {
     const minY = centerY - interestRadius;
     const maxX = centerX + interestRadius;
     const maxY = centerY + interestRadius;
-    const knownEntityVersions =
-      this.replicationState.getKnownEntityVersions(playerId);
-    const knownEntityHitboxVersions =
-      this.replicationState.getKnownEntityHitboxVersions(playerId);
-    const knownEntitySnapshots =
-      this.replicationState.getKnownEntitySnapshots(playerId);
-    const fullEntitySnapshotCounts =
-      this.replicationState.getFullEntitySnapshotCounts(playerId);
-    const lastFullEntitySnapshotTicks =
-      this.replicationState.getLastFullEntitySnapshotTicks(playerId);
+    const knownEntities = this.replicationState.getEntities(playerId);
     const changedEntities: EntitySnapshot[] = [];
     const removedEntityIds: number[] = [];
-    const firstSnapshotForPlayer = knownEntityVersions.size === 0;
+    const firstSnapshotForPlayer = knownEntities.size === 0;
 
     this.bumpMarker();
     this.recordVisibleEntityForPlayer(
       playerId,
-      knownEntityVersions,
-      knownEntityHitboxVersions,
-      knownEntitySnapshots,
-      fullEntitySnapshotCounts,
-      lastFullEntitySnapshotTicks,
+      knownEntities,
       changedEntities,
       world.tick,
     );
 
     const relevantEntities = includeAllEntities
       ? world.entities.all()
-      : world.spatial.queryBox(minX, minY, maxX, maxY, this.queryBuffer);
+      : world.aoiSpatial.queryBoxExact(
+          minX,
+          minY,
+          maxX,
+          maxY,
+          this.queryBuffer,
+        );
 
     for (const entity of relevantEntities) {
       if (this.isIncluded(entity.id)) {
@@ -138,25 +136,17 @@ export class SnapshotManager {
       }
       this.recordVisibleEntityForPlayer(
         entity.id,
-        knownEntityVersions,
-        knownEntityHitboxVersions,
-        knownEntitySnapshots,
-        fullEntitySnapshotCounts,
-        lastFullEntitySnapshotTicks,
+        knownEntities,
         changedEntities,
         world.tick,
       );
     }
 
-    for (const knownEntityId of knownEntityVersions.keys()) {
+    for (const knownEntityId of knownEntities.keys()) {
       if (this.isIncluded(knownEntityId)) {
         continue;
       }
-      knownEntityVersions.delete(knownEntityId);
-      knownEntityHitboxVersions.delete(knownEntityId);
-      knownEntitySnapshots.delete(knownEntityId);
-      fullEntitySnapshotCounts.delete(knownEntityId);
-      lastFullEntitySnapshotTicks.delete(knownEntityId);
+      knownEntities.delete(knownEntityId);
       removedEntityIds.push(knownEntityId);
     }
 
@@ -177,23 +167,15 @@ export class SnapshotManager {
         includeAllEntities,
       );
 
-      knownEntityVersions.clear();
-      knownEntityHitboxVersions.clear();
-      knownEntitySnapshots.clear();
-      fullEntitySnapshotCounts.clear();
-      lastFullEntitySnapshotTicks.clear();
+      knownEntities.clear();
       for (const entity of fullEntities) {
-        knownEntityVersions.set(
-          entity.id,
-          this.tickCache.getSnapshotVersion(entity.id),
-        );
-        knownEntityHitboxVersions.set(
-          entity.id,
-          this.tickCache.getHitboxVersion(entity.id),
-        );
-        knownEntitySnapshots.set(entity.id, entity);
-        fullEntitySnapshotCounts.set(entity.id, FULL_ENTITY_RELIABILITY_SENDS);
-        lastFullEntitySnapshotTicks.set(entity.id, world.tick);
+        knownEntities.set(entity.id, {
+          version: this.tickCache.getSnapshotVersion(entity.id),
+          hitboxVersion: this.tickCache.getHitboxVersion(entity.id),
+          snapshot: entity,
+          fullSnapshotCount: FULL_ENTITY_RELIABILITY_SENDS,
+          lastFullSnapshotTick: world.tick,
+        });
       }
 
       return {
@@ -296,7 +278,13 @@ export class SnapshotManager {
 
     const relevantEntities = includeAllEntities
       ? world.entities.all()
-      : world.spatial.queryBox(minX, minY, maxX, maxY, this.queryBuffer);
+      : world.aoiSpatial.queryBoxExact(
+          minX,
+          minY,
+          maxX,
+          maxY,
+          this.queryBuffer,
+        );
 
     for (const entity of relevantEntities) {
       if (this.isIncluded(entity.id)) {
@@ -315,11 +303,7 @@ export class SnapshotManager {
 
   private recordVisibleEntityForPlayer(
     entityId: number,
-    knownEntityVersions: Map<number, number>,
-    knownEntityHitboxVersions: Map<number, number>,
-    knownEntitySnapshots: Map<number, EntitySnapshot>,
-    fullEntitySnapshotCounts: Map<number, number>,
-    lastFullEntitySnapshotTicks: Map<number, number>,
+    knownEntities: Map<number, EntityReplicationState>,
     changedEntities: EntitySnapshot[],
     tick: number,
   ): void {
@@ -330,15 +314,16 @@ export class SnapshotManager {
 
     const snapshotVersion = this.tickCache.getSnapshotVersion(entityId);
     const snapshotHitboxVersion = this.tickCache.getHitboxVersion(entityId);
-    const knownVersion = knownEntityVersions.get(entityId);
-    const knownHitboxVersion = knownEntityHitboxVersions.get(entityId);
-    const knownSnapshot = knownEntitySnapshots.get(entityId);
+    const known = knownEntities.get(entityId);
+    const knownVersion = known?.version;
+    const knownHitboxVersion = known?.hitboxVersion;
+    const knownSnapshot = known?.snapshot;
     const fullSnapshotCount =
       knownHitboxVersion === snapshotHitboxVersion
-        ? (fullEntitySnapshotCounts.get(entityId) ?? 0)
+        ? (known?.fullSnapshotCount ?? 0)
         : 0;
     const lastFullSnapshotTick =
-      lastFullEntitySnapshotTicks.get(entityId) ?? Number.NEGATIVE_INFINITY;
+      known?.lastFullSnapshotTick ?? Number.NEGATIVE_INFINITY;
     const shouldSendFullEntity =
       !knownSnapshot ||
       knownHitboxVersion !== snapshotHitboxVersion ||
@@ -352,33 +337,63 @@ export class SnapshotManager {
           : stripKnownStableEntitySnapshotFields(snapshot, knownSnapshot),
       );
       if (shouldSendFullEntity) {
-        fullEntitySnapshotCounts.set(
-          entityId,
-          Math.min(FULL_ENTITY_RELIABILITY_SENDS, fullSnapshotCount + 1),
-        );
-        lastFullEntitySnapshotTicks.set(entityId, tick);
+        if (known) {
+          known.fullSnapshotCount = Math.min(
+            FULL_ENTITY_RELIABILITY_SENDS,
+            fullSnapshotCount + 1,
+          );
+          known.lastFullSnapshotTick = tick;
+        }
       }
     }
 
-    knownEntityVersions.set(entityId, snapshotVersion);
-    knownEntityHitboxVersions.set(entityId, snapshotHitboxVersion);
-    knownEntitySnapshots.set(entityId, snapshot);
+    if (known) {
+      known.version = snapshotVersion;
+      known.hitboxVersion = snapshotHitboxVersion;
+      known.snapshot = snapshot;
+    } else {
+      knownEntities.set(entityId, {
+        version: snapshotVersion,
+        hitboxVersion: snapshotHitboxVersion,
+        snapshot,
+        fullSnapshotCount: shouldSendFullEntity ? 1 : 0,
+        lastFullSnapshotTick: shouldSendFullEntity
+          ? tick
+          : Number.NEGATIVE_INFINITY,
+      });
+    }
     this.markIncluded(entityId);
   }
 
   private bumpMarker(): void {
-    this.marker += 1;
-    if (this.marker >= Number.MAX_SAFE_INTEGER) {
+    this.marker = (this.marker + 1) >>> 0;
+    if (this.marker === 0) {
       this.marker = 1;
-      this.includedEntityMarkers.clear();
+      this.includedDenseEntityMarkers.fill(0);
+      this.includedSparseEntityMarkers.clear();
     }
   }
 
   private markIncluded(entityId: number): void {
-    this.includedEntityMarkers.set(entityId, this.marker);
+    if (entityId > MAX_DENSE_ENTITY_ID) {
+      this.includedSparseEntityMarkers.set(entityId, this.marker);
+      return;
+    }
+    if (entityId >= this.includedDenseEntityMarkers.length) {
+      let capacity = this.includedDenseEntityMarkers.length;
+      while (capacity <= entityId) {
+        capacity *= 2;
+      }
+      const markers = new Uint32Array(capacity);
+      markers.set(this.includedDenseEntityMarkers);
+      this.includedDenseEntityMarkers = markers;
+    }
+    this.includedDenseEntityMarkers[entityId] = this.marker;
   }
 
   private isIncluded(entityId: number): boolean {
-    return this.includedEntityMarkers.get(entityId) === this.marker;
+    return entityId <= MAX_DENSE_ENTITY_ID
+      ? this.includedDenseEntityMarkers[entityId] === this.marker
+      : this.includedSparseEntityMarkers.get(entityId) === this.marker;
   }
 }

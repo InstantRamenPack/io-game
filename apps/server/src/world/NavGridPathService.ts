@@ -4,7 +4,7 @@ import type { World } from "@server/world/World.ts";
 
 type TilePoint = { x: number; y: number };
 type TileRect = { minX: number; minY: number; maxX: number; maxY: number };
-type CachedPath = { points: readonly TilePoint[]; bounds: TileRect };
+type CachedPath = { points: readonly TilePoint[] };
 type OpenHeapEntry = { node: number; score: number };
 type PathCacheKey = number;
 export type NavPathBenchmarkStats = {
@@ -46,10 +46,12 @@ export class NavGridPathService {
   private readonly dirtyRects: TileRect[] = [];
   private readonly openHeapNodes: number[] = [];
   private readonly openHeapScores: number[] = [];
-  private readonly gScore = new Map<number, number>();
-  private readonly fScore = new Map<number, number>();
-  private readonly cameFrom = new Map<number, number>();
-  private readonly nodeState = new Map<number, number>();
+  private readonly gScore: Float64Array;
+  private readonly fScore: Float64Array;
+  private readonly cameFrom: Int32Array;
+  private readonly nodeState: Uint8Array;
+  private readonly nodeGeneration: Uint32Array;
+  private searchGeneration = 0;
   private readonly queryBuffer: StaticGeometryBlocker[] = [];
   private readonly pathCache = new Map<PathCacheKey, CachedPath>();
   private readonly pathKeysByTile = new Map<number, Set<PathCacheKey>>();
@@ -67,6 +69,12 @@ export class NavGridPathService {
   constructor(worldSize: { w: number; h: number }) {
     this.widthTiles = Math.max(1, Math.ceil(worldSize.w / this.tileSize));
     this.heightTiles = Math.max(1, Math.ceil(worldSize.h / this.tileSize));
+    const tileCount = this.widthTiles * this.heightTiles;
+    this.gScore = new Float64Array(tileCount);
+    this.fScore = new Float64Array(tileCount);
+    this.cameFrom = new Int32Array(tileCount);
+    this.nodeState = new Uint8Array(tileCount);
+    this.nodeGeneration = new Uint32Array(tileCount);
     this.markDirty({
       minX: 0,
       minY: 0,
@@ -167,10 +175,7 @@ export class NavGridPathService {
     }
 
     if (!cached) {
-      this.storePathInCache(cacheKey, {
-        points: path,
-        bounds: computeTilePathBounds(path),
-      });
+      this.storePathInCache(cacheKey, { points: path });
     }
 
     const next = this.resolveLookaheadWaypoint(path, fromX, fromY);
@@ -258,12 +263,12 @@ export class NavGridPathService {
 
     this.resetOpenHeap();
     this.touchNode(startIndex);
-    this.gScore.set(startIndex, 0);
+    this.gScore[startIndex] = 0;
     const startFScore =
       octileDistance(start.x, start.y, goal.x, goal.y) * PATH_HEURISTIC_WEIGHT;
-    this.fScore.set(startIndex, startFScore);
-    this.cameFrom.set(startIndex, -1);
-    this.nodeState.set(startIndex, NavGridPathService.NODE_STATE_OPEN);
+    this.fScore[startIndex] = startFScore;
+    this.cameFrom[startIndex] = -1;
+    this.nodeState[startIndex] = NavGridPathService.NODE_STATE_OPEN;
     this.pushOpenHeap(startIndex, startFScore);
 
     let iterations = 0;
@@ -277,16 +282,13 @@ export class NavGridPathService {
         continue;
       }
       const current = currentOpen.node;
-      if (this.nodeState.get(current) !== NavGridPathService.NODE_STATE_OPEN) {
+      if (this.nodeState[current] !== NavGridPathService.NODE_STATE_OPEN) {
         continue;
       }
-      if (
-        currentOpen.score >
-        (this.fScore.get(current) ?? Number.POSITIVE_INFINITY)
-      ) {
+      if (currentOpen.score > this.fScore[current]!) {
         continue;
       }
-      this.nodeState.set(current, NavGridPathService.NODE_STATE_CLOSED);
+      this.nodeState[current] = NavGridPathService.NODE_STATE_CLOSED;
 
       if (current === goalIndex) {
         if (this.benchmarkEnabled) {
@@ -320,27 +322,25 @@ export class NavGridPathService {
         const nextIndex = this.tileToIndex(nextX, nextY);
         this.touchNode(nextIndex);
         if (
-          this.nodeState.get(nextIndex) === NavGridPathService.NODE_STATE_CLOSED
+          this.nodeState[nextIndex] === NavGridPathService.NODE_STATE_CLOSED
         ) {
           continue;
         }
 
-        const currentScore =
-          this.gScore.get(current) ?? Number.POSITIVE_INFINITY;
-        const nextScore =
-          this.gScore.get(nextIndex) ?? Number.POSITIVE_INFINITY;
+        const currentScore = this.gScore[current]!;
+        const nextScore = this.gScore[nextIndex]!;
         const tentative = currentScore + neighbor.cost;
         if (tentative >= nextScore) {
           continue;
         }
 
-        this.cameFrom.set(nextIndex, current);
-        this.gScore.set(nextIndex, tentative);
+        this.cameFrom[nextIndex] = current;
+        this.gScore[nextIndex] = tentative;
         const nextFScore =
           tentative +
           octileDistance(nextX, nextY, goal.x, goal.y) * PATH_HEURISTIC_WEIGHT;
-        this.fScore.set(nextIndex, nextFScore);
-        this.nodeState.set(nextIndex, NavGridPathService.NODE_STATE_OPEN);
+        this.fScore[nextIndex] = nextFScore;
+        this.nodeState[nextIndex] = NavGridPathService.NODE_STATE_OPEN;
         this.pushOpenHeap(nextIndex, nextFScore);
       }
     }
@@ -354,20 +354,22 @@ export class NavGridPathService {
   }
 
   private beginSearch(): void {
-    this.gScore.clear();
-    this.fScore.clear();
-    this.cameFrom.clear();
-    this.nodeState.clear();
+    this.searchGeneration = (this.searchGeneration + 1) >>> 0;
+    if (this.searchGeneration === 0) {
+      this.searchGeneration = 1;
+      this.nodeGeneration.fill(0);
+    }
   }
 
   private touchNode(nodeIndex: number): void {
-    if (this.nodeState.has(nodeIndex)) {
+    if (this.nodeGeneration[nodeIndex] === this.searchGeneration) {
       return;
     }
-    this.gScore.set(nodeIndex, Number.POSITIVE_INFINITY);
-    this.fScore.set(nodeIndex, Number.POSITIVE_INFINITY);
-    this.cameFrom.set(nodeIndex, -1);
-    this.nodeState.set(nodeIndex, NavGridPathService.NODE_STATE_UNSEEN);
+    this.nodeGeneration[nodeIndex] = this.searchGeneration;
+    this.gScore[nodeIndex] = Number.POSITIVE_INFINITY;
+    this.fScore[nodeIndex] = Number.POSITIVE_INFINITY;
+    this.cameFrom[nodeIndex] = -1;
+    this.nodeState[nodeIndex] = NavGridPathService.NODE_STATE_UNSEEN;
   }
 
   private resetOpenHeap(): void {
@@ -538,24 +540,54 @@ export class NavGridPathService {
       return;
     }
     this.pathCache.delete(key);
-    for (let y = path.bounds.minY; y <= path.bounds.maxY; y += 1) {
-      for (let x = path.bounds.minX; x <= path.bounds.maxX; x += 1) {
-        this.pathKeysByTile.get(this.tileToIndex(x, y))?.delete(key);
+    for (let index = 0; index < path.points.length; index += 1) {
+      const point = path.points[index];
+      if (!point) {
+        continue;
+      }
+      this.removePathKeyFromTile(point.x, point.y, key);
+      const previous = path.points[index - 1];
+      if (previous && point.x !== previous.x && point.y !== previous.y) {
+        this.removePathKeyFromTile(point.x, previous.y, key);
+        this.removePathKeyFromTile(previous.x, point.y, key);
       }
     }
   }
 
   private indexPathInCache(key: PathCacheKey, path: CachedPath): void {
-    for (let y = path.bounds.minY; y <= path.bounds.maxY; y += 1) {
-      for (let x = path.bounds.minX; x <= path.bounds.maxX; x += 1) {
-        const tileIndex = this.tileToIndex(x, y);
-        let keys = this.pathKeysByTile.get(tileIndex);
-        if (!keys) {
-          keys = new Set();
-          this.pathKeysByTile.set(tileIndex, keys);
-        }
-        keys.add(key);
+    for (let index = 0; index < path.points.length; index += 1) {
+      const point = path.points[index];
+      if (!point) {
+        continue;
       }
+      this.addPathKeyToTile(point.x, point.y, key);
+      const previous = path.points[index - 1];
+      if (previous && point.x !== previous.x && point.y !== previous.y) {
+        this.addPathKeyToTile(point.x, previous.y, key);
+        this.addPathKeyToTile(previous.x, point.y, key);
+      }
+    }
+  }
+
+  private addPathKeyToTile(x: number, y: number, key: PathCacheKey): void {
+    const tileIndex = this.tileToIndex(x, y);
+    let keys = this.pathKeysByTile.get(tileIndex);
+    if (!keys) {
+      keys = new Set();
+      this.pathKeysByTile.set(tileIndex, keys);
+    }
+    keys.add(key);
+  }
+
+  private removePathKeyFromTile(x: number, y: number, key: PathCacheKey): void {
+    const tileIndex = this.tileToIndex(x, y);
+    const keys = this.pathKeysByTile.get(tileIndex);
+    if (!keys) {
+      return;
+    }
+    keys.delete(key);
+    if (keys.size === 0) {
+      this.pathKeysByTile.delete(tileIndex);
     }
   }
 
@@ -696,7 +728,7 @@ function isStaticNavBlocker(entity: Entity): boolean {
 }
 
 function reconstructPath(
-  cameFrom: ReadonlyMap<number, number>,
+  cameFrom: Int32Array,
   current: number,
   widthTiles: number,
 ): TilePoint[] {
@@ -704,7 +736,7 @@ function reconstructPath(
   let cursor = current;
   while (cursor >= 0) {
     path.push({ x: cursor % widthTiles, y: Math.floor(cursor / widthTiles) });
-    cursor = cameFrom.get(cursor) ?? -1;
+    cursor = cameFrom[cursor] ?? -1;
   }
   path.reverse();
   return path;
@@ -721,25 +753,6 @@ function octileDistance(
   const diagonal = Math.min(dx, dy);
   const straight = Math.max(dx, dy) - diagonal;
   return diagonal * Math.SQRT2 + straight;
-}
-
-function computeTilePathBounds(path: readonly TilePoint[]): TileRect {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const point of path) {
-    minX = Math.min(minX, point.x);
-    minY = Math.min(minY, point.y);
-    maxX = Math.max(maxX, point.x);
-    maxY = Math.max(maxY, point.y);
-  }
-  return {
-    minX: Number.isFinite(minX) ? minX : 0,
-    minY: Number.isFinite(minY) ? minY : 0,
-    maxX: Number.isFinite(maxX) ? maxX : 0,
-    maxY: Number.isFinite(maxY) ? maxY : 0,
-  };
 }
 
 function doTileRectsOverlap(left: TileRect, right: TileRect): boolean {

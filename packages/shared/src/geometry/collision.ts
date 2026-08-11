@@ -31,6 +31,9 @@ export function doResolvedRectSetsOverlap(
   leftRects: readonly ResolvedHitboxRect[],
   rightRects: readonly ResolvedHitboxRect[],
 ): boolean {
+  if (leftRects.length === 1 && rightRects.length === 1) {
+    return doResolvedRectsOverlap(leftRects[0]!, rightRects[0]!);
+  }
   for (const leftRect of leftRects) {
     for (const rightRect of rightRects) {
       if (doResolvedRectsOverlap(leftRect, rightRect)) {
@@ -70,25 +73,20 @@ export function getResolvedRectSetSeparation(
     return null;
   }
 
-  const candidates: AxisSeparation[] = [
-    { axis: "x", translation: moveLeft },
-    { axis: "x", translation: moveRight },
-    { axis: "y", translation: moveUp },
-    { axis: "y", translation: moveDown },
-  ];
-  const [firstCandidate, ...remainingCandidates] = candidates;
-  if (!firstCandidate) {
-    return null;
+  let axis: AxisSeparation["axis"] = "x";
+  let translation = moveLeft;
+  if (Math.abs(moveRight) < Math.abs(translation)) {
+    translation = moveRight;
   }
-
-  let bestCandidate = firstCandidate;
-  for (const candidate of remainingCandidates) {
-    if (Math.abs(candidate.translation) < Math.abs(bestCandidate.translation)) {
-      bestCandidate = candidate;
-    }
+  if (Math.abs(moveUp) < Math.abs(translation)) {
+    axis = "y";
+    translation = moveUp;
   }
-
-  return bestCandidate;
+  if (Math.abs(moveDown) < Math.abs(translation)) {
+    axis = "y";
+    translation = moveDown;
+  }
+  return { axis, translation };
 }
 
 function getClosestPointOnResolvedRect(
@@ -272,35 +270,51 @@ function getSweptResolvedRectIntersectionTime(
   let entryTime = 0;
   let exitTime = maxTime;
 
-  const xResult = updateAxisSweepIntersection(
-    movingRect.centerX,
-    deltaX,
-    targetRect.minX - movingRect.width / 2,
-    targetRect.maxX + movingRect.width / 2,
-    entryTime,
-    exitTime,
-    maxTime,
-  );
-  if (!xResult) {
-    return null;
-  }
-  entryTime = xResult.entryTime;
-  exitTime = xResult.exitTime;
-
-  const yResult = updateAxisSweepIntersection(
-    movingRect.centerY,
-    deltaY,
-    targetRect.minY - movingRect.height / 2,
-    targetRect.maxY + movingRect.height / 2,
-    entryTime,
-    exitTime,
-    maxTime,
-  );
-  if (!yResult) {
-    return null;
+  const xMin = targetRect.minX - movingRect.width / 2;
+  const xMax = targetRect.maxX + movingRect.width / 2;
+  if (Math.abs(deltaX) < Number.EPSILON) {
+    if (movingRect.centerX < xMin || movingRect.centerX > xMax) {
+      return null;
+    }
+  } else {
+    const inverseDelta = 1 / deltaX;
+    let axisEntryTime = (xMin - movingRect.centerX) * inverseDelta;
+    let axisExitTime = (xMax - movingRect.centerX) * inverseDelta;
+    if (axisEntryTime > axisExitTime) {
+      const swap = axisEntryTime;
+      axisEntryTime = axisExitTime;
+      axisExitTime = swap;
+    }
+    entryTime = Math.max(entryTime, axisEntryTime);
+    exitTime = Math.min(exitTime, axisExitTime);
+    if (entryTime > exitTime || exitTime < 0 || entryTime > maxTime) {
+      return null;
+    }
   }
 
-  return yResult.entryTime;
+  const yMin = targetRect.minY - movingRect.height / 2;
+  const yMax = targetRect.maxY + movingRect.height / 2;
+  if (Math.abs(deltaY) < Number.EPSILON) {
+    if (movingRect.centerY < yMin || movingRect.centerY > yMax) {
+      return null;
+    }
+  } else {
+    const inverseDelta = 1 / deltaY;
+    let axisEntryTime = (yMin - movingRect.centerY) * inverseDelta;
+    let axisExitTime = (yMax - movingRect.centerY) * inverseDelta;
+    if (axisEntryTime > axisExitTime) {
+      const swap = axisEntryTime;
+      axisEntryTime = axisExitTime;
+      axisExitTime = swap;
+    }
+    entryTime = Math.max(entryTime, axisEntryTime);
+    exitTime = Math.min(exitTime, axisExitTime);
+    if (entryTime > exitTime || exitTime < 0 || entryTime > maxTime) {
+      return null;
+    }
+  }
+
+  return entryTime;
 }
 
 export function getSweptResolvedRectSetIntersectionTime(
@@ -310,6 +324,15 @@ export function getSweptResolvedRectSetIntersectionTime(
   targetRects: readonly ResolvedHitboxRect[],
   maxTime = 1,
 ): number | null {
+  if (movingRects.length === 1 && targetRects.length === 1) {
+    return getSweptResolvedRectIntersectionTime(
+      movingRects[0]!,
+      deltaX,
+      deltaY,
+      targetRects[0]!,
+      maxTime,
+    );
+  }
   let bestHitTime: number | null = null;
 
   for (const movingRect of movingRects) {
@@ -549,43 +572,4 @@ function unwrapAngleToReference(angle: number, reference: number): number {
     unwrappedAngle -= Math.PI * 2;
   }
   return unwrappedAngle;
-}
-
-function updateAxisSweepIntersection(
-  origin: number,
-  delta: number,
-  min: number,
-  max: number,
-  currentEntryTime: number,
-  currentExitTime: number,
-  maxTime: number,
-): { entryTime: number; exitTime: number } | null {
-  if (Math.abs(delta) < Number.EPSILON) {
-    if (origin < min || origin > max) {
-      return null;
-    }
-    return {
-      entryTime: currentEntryTime,
-      exitTime: currentExitTime,
-    };
-  }
-
-  const inverseDelta = 1 / delta;
-  let axisEntryTime = (min - origin) * inverseDelta;
-  let axisExitTime = (max - origin) * inverseDelta;
-
-  if (axisEntryTime > axisExitTime) {
-    [axisEntryTime, axisExitTime] = [axisExitTime, axisEntryTime];
-  }
-
-  const entryTime = Math.max(currentEntryTime, axisEntryTime);
-  const exitTime = Math.min(currentExitTime, axisExitTime);
-  if (entryTime > exitTime || exitTime < 0 || entryTime > maxTime) {
-    return null;
-  }
-
-  return {
-    entryTime,
-    exitTime,
-  };
 }

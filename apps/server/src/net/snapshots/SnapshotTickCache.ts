@@ -8,6 +8,8 @@ import type {
 import {
   getEntityHitboxFingerprint,
   getEntityRuntimeFingerprint,
+  runtimeFingerprintsMatch,
+  type RuntimeFingerprintPart,
 } from "@server/net/snapshots/SnapshotFingerprint.ts";
 import type { World } from "@server/world/World.ts";
 import type { Entity } from "@server/entities/Entity.ts";
@@ -26,14 +28,23 @@ export class SnapshotTickCache {
   private preparedExtraction: ExtractionSnapshot | null = null;
   private preparedInfrastructure: InfrastructureSnapshot | null = null;
   private preparedMapSnapshot: MapSnapshot | undefined = undefined;
+  private preparedMapLayout: World["proceduralLayout"] = null;
   private preparedMinimapPlayers: MinimapPlayerSnapshot[] = [];
   private preparedWorld: World | null = null;
   private readonly snapshotByEntityId = new Map<number, EntitySnapshot>();
-  private readonly previousFingerprintByEntityId = new Map<number, string>();
+  private readonly previousFingerprintByEntityId = new Map<
+    number,
+    RuntimeFingerprintPart[]
+  >();
+  private readonly scratchFingerprintByEntityId = new Map<
+    number,
+    RuntimeFingerprintPart[]
+  >();
   private readonly previousSnapshotByEntityId = new Map<
     number,
     EntitySnapshot
   >();
+  private readonly previousEntityById = new Map<number, Entity>();
   private readonly snapshotVersionByEntityId = new Map<number, number>();
   private readonly previousHitboxFingerprintByEntityId = new Map<
     number,
@@ -53,25 +64,40 @@ export class SnapshotTickCache {
     this.preparedInfrastructure =
       world.infrastructureSystem?.toSnapshot() ?? null;
     this.preparedWorld = world;
-    this.preparedMapSnapshot = makeMapSnapshot(world);
+    if (this.preparedMapLayout !== world.proceduralLayout) {
+      this.preparedMapLayout = world.proceduralLayout;
+      this.preparedMapSnapshot = makeMapSnapshot(world);
+    }
     this.preparedMinimapPlayers = collectMinimapPlayers(world);
     this.snapshotByEntityId.clear();
 
-    const activeEntityIds = new Set<number>();
-    for (const entity of world.entities.all()) {
-      activeEntityIds.add(entity.id);
-      this.syncEntityVersion(entity);
-      if (!this.snapshotByEntityId.has(entity.id)) {
-        const snapshot = entity.toSnapshot() as EntitySnapshot;
-        this.snapshotByEntityId.set(entity.id, snapshot);
-        this.previousSnapshotByEntityId.set(entity.id, snapshot);
+    if (world.tick % 100 === 0) {
+      for (const [entityId, entity] of this.previousEntityById) {
+        if (world.get(entityId) !== entity) {
+          this.deleteEntityState(entityId);
+        }
       }
     }
+  }
 
-    for (const entityId of this.snapshotVersionByEntityId.keys()) {
-      if (!activeEntityIds.has(entityId)) {
-        this.deleteEntityState(entityId);
+  private prepareEntity(entity: Entity): EntitySnapshot {
+    this.syncEntityVersion(entity);
+    let snapshot = this.snapshotByEntityId.get(entity.id);
+    if (!snapshot) {
+      snapshot = entity.toSnapshot() as EntitySnapshot;
+      this.snapshotByEntityId.set(entity.id, snapshot);
+      this.previousSnapshotByEntityId.set(entity.id, snapshot);
+    }
+    return snapshot;
+  }
+
+  private trackEntityIdentity(entity: Entity): void {
+    const previousEntity = this.previousEntityById.get(entity.id);
+    if (previousEntity !== entity) {
+      if (previousEntity) {
+        this.deleteEntityState(entity.id);
       }
+      this.previousEntityById.set(entity.id, entity);
     }
   }
 
@@ -109,34 +135,19 @@ export class SnapshotTickCache {
       this.deleteEntityState(entityId);
       return undefined;
     }
-    this.syncEntityVersion(entity);
-    const snapshot = entity.toSnapshot() as EntitySnapshot;
-    this.snapshotByEntityId.set(entityId, snapshot);
-    this.previousSnapshotByEntityId.set(entityId, snapshot);
-    return snapshot;
+    return this.prepareEntity(entity);
   }
 
   public getSnapshotVersion(entityId: number): number {
-    const entity = this.preparedWorld?.get(entityId);
-    if (entity) {
-      this.syncEntityVersion(entity);
-    } else {
-      this.deleteEntityState(entityId);
-    }
     return this.snapshotVersionByEntityId.get(entityId) ?? 0;
   }
 
   public getHitboxVersion(entityId: number): number {
-    const entity = this.preparedWorld?.get(entityId);
-    if (entity) {
-      this.syncEntityVersion(entity);
-    } else {
-      this.deleteEntityState(entityId);
-    }
     return this.hitboxVersionByEntityId.get(entityId) ?? 0;
   }
 
   private syncEntityVersion(entity: Entity): void {
+    this.trackEntityIdentity(entity);
     if (this.fingerprintedTickByEntityId.get(entity.id) === this.preparedTick) {
       return;
     }
@@ -146,6 +157,7 @@ export class SnapshotTickCache {
     const nextFingerprint = getEntityRuntimeFingerprint(
       entity,
       nextHitboxFingerprint,
+      this.scratchFingerprintByEntityId.get(entity.id),
     );
     const previousFingerprint = this.previousFingerprintByEntityId.get(
       entity.id,
@@ -165,26 +177,36 @@ export class SnapshotTickCache {
       );
     }
 
-    if (previousFingerprint === nextFingerprint && previousSnapshot) {
+    const fingerprintChanged = !runtimeFingerprintsMatch(
+      previousFingerprint,
+      nextFingerprint,
+    );
+    if (!fingerprintChanged && previousSnapshot) {
+      this.scratchFingerprintByEntityId.set(entity.id, nextFingerprint);
       this.snapshotByEntityId.set(entity.id, previousSnapshot);
       return;
     }
 
-    if (previousFingerprint !== nextFingerprint) {
+    if (fingerprintChanged) {
       this.previousSnapshotByEntityId.delete(entity.id);
       this.snapshotVersionByEntityId.set(entity.id, previousVersion + 1);
     }
     this.previousFingerprintByEntityId.set(entity.id, nextFingerprint);
+    if (previousFingerprint) {
+      this.scratchFingerprintByEntityId.set(entity.id, previousFingerprint);
+    }
   }
 
   private deleteEntityState(entityId: number): void {
     this.snapshotByEntityId.delete(entityId);
     this.snapshotVersionByEntityId.delete(entityId);
     this.previousFingerprintByEntityId.delete(entityId);
+    this.scratchFingerprintByEntityId.delete(entityId);
     this.previousSnapshotByEntityId.delete(entityId);
     this.previousHitboxFingerprintByEntityId.delete(entityId);
     this.hitboxVersionByEntityId.delete(entityId);
     this.fingerprintedTickByEntityId.delete(entityId);
+    this.previousEntityById.delete(entityId);
   }
 }
 

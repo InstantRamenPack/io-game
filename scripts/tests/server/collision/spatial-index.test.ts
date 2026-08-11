@@ -40,6 +40,15 @@ describe("spatial index", () => {
     expect(result).toHaveLength(1);
   });
 
+  test("dense and sparse entity ids are each returned once", () => {
+    const index = new SpatialIndex(10);
+    const dense = new TestEntity(2_500, 15, 15, 30);
+    const sparse = new TestEntity(100_000, 15, 15, 30);
+    index.sync([dense, sparse]);
+    const result = index.queryBox(0, 0, 40, 40);
+    expect(result).toEqual([dense, sparse]);
+  });
+
   test("query empty region returns empty", () => {
     const index = new SpatialIndex(10);
     const entity = new TestEntity(1, 15, 15, 10);

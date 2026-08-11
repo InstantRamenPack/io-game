@@ -121,13 +121,20 @@ export function stripKnownStableEntitySnapshotFields(
   const deltaSnapshot = { ...snapshot };
   delete deltaSnapshot.hitboxes;
 
-  for (const descriptor of BASE_FIELD_DESCRIPTORS) {
-    if (
-      descriptor.stripWhenStable &&
-      snapshot[descriptor.key] === knownSnapshot[descriptor.key]
-    ) {
-      delete deltaSnapshot[descriptor.key];
-    }
+  if (snapshot.typeId === knownSnapshot.typeId) {
+    delete deltaSnapshot.typeId;
+  }
+  if (snapshot.hp === knownSnapshot.hp) {
+    delete deltaSnapshot.hp;
+  }
+  if (snapshot.maxHp === knownSnapshot.maxHp) {
+    delete deltaSnapshot.maxHp;
+  }
+  if (snapshot.alive === knownSnapshot.alive) {
+    delete deltaSnapshot.alive;
+  }
+  if (snapshot.ownerId === knownSnapshot.ownerId) {
+    delete deltaSnapshot.ownerId;
   }
 
   if (deltaSnapshot.kind === "enemy" && knownSnapshot.kind === "enemy") {
@@ -135,8 +142,10 @@ export function stripKnownStableEntitySnapshotFields(
       delete deltaSnapshot.targetId;
     }
     if (
-      getEquippedItemSnapshotFingerprint(deltaSnapshot.equippedItem) ===
-      getEquippedItemSnapshotFingerprint(knownSnapshot.equippedItem)
+      equippedItemSnapshotsMatch(
+        deltaSnapshot.equippedItem,
+        knownSnapshot.equippedItem,
+      )
     ) {
       delete deltaSnapshot.equippedItem;
     }
@@ -155,6 +164,25 @@ export function stripKnownStableEntitySnapshotFields(
   }
 
   return deltaSnapshot as EntitySnapshot;
+}
+
+function equippedItemSnapshotsMatch(
+  leftItem: EquippedItemSnapshot | undefined,
+  rightItem: EquippedItemSnapshot | undefined,
+): boolean {
+  return (
+    leftItem === rightItem ||
+    (leftItem !== undefined &&
+      rightItem !== undefined &&
+      leftItem.typeId === rightItem.typeId &&
+      leftItem.attackStyle === rightItem.attackStyle &&
+      leftItem.cooldownTicksRemaining === rightItem.cooldownTicksRemaining &&
+      leftItem.ammoInMag === rightItem.ammoInMag &&
+      leftItem.magSize === rightItem.magSize &&
+      leftItem.reserveMagCount === rightItem.reserveMagCount &&
+      leftItem.reloadTicks === rightItem.reloadTicks &&
+      leftItem.reloadTicksRemaining === rightItem.reloadTicksRemaining)
+  );
 }
 
 export function getHitboxFingerprint(hitboxes: readonly HitboxRect[]): string {

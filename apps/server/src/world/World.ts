@@ -69,6 +69,7 @@ export class World {
   public tick = 0;
   public entities: EntityStore;
   public spatial: SpatialIndex;
+  public aoiSpatial: SpatialIndex;
   public staticGeometry: StaticGeometryIndex;
   public randomNumberGenerator: seedrandom.PRNG;
   public events: Denque<NetEvent>;
@@ -115,6 +116,15 @@ export class World {
   private readonly playerBuildingSpawnTickById = new Map<number, number>();
   private readonly nextForestCampRespawnTickById = new Map<string, number>();
   private readonly sessionUnlockedRecipeTypeIds = new Set<ResourceId>();
+  private readonly collisionPhaseEntities: Entity[] = [];
+  private simulationActivityMarkers = new Uint32Array(2_048);
+  private simulationActivityValues = new Uint8Array(2_048);
+  private readonly sparseSimulationActivity = new Map<
+    number,
+    { marker: number; active: boolean }
+  >();
+  private simulationActivityMarker = 0;
+  private simulationActivityCacheEnabled = false;
   private spatialDirty = true;
   private staticGeometryDirty = true;
 
@@ -132,6 +142,7 @@ export class World {
     this.kind = kind;
     this.entities = new EntityStore();
     this.spatial = new SpatialIndex(gameConfig.collision.spatialCellSize);
+    this.aoiSpatial = new SpatialIndex(512);
     this.staticGeometry = new StaticGeometryIndex(
       gameConfig.collision.spatialCellSize,
     );
@@ -164,6 +175,7 @@ export class World {
     };
 
     this.tick += 1;
+    this.beginSimulationActivityCache();
     this.goalFieldCache.beginTick(this.tick);
     const simSpeed = this.gameConfig.simulationSpeedMultiplier;
     this.focusedTrace.recordWorldPhase(this, "tick_start");
@@ -187,9 +199,17 @@ export class World {
     });
 
     const tickPhaseEntities = this.entities.all();
-    const collisionPhaseEntities = tickPhaseEntities.filter((entity) =>
-      this.shouldRunEntityGoalsAndCollisions(entity),
-    );
+    const collisionPhaseEntities = this.collisionPhaseEntities;
+    collisionPhaseEntities.length = 0;
+    for (const entity of tickPhaseEntities) {
+      if (
+        (entity.collisionMode === "dynamic" ||
+          (entity instanceof Player && entity.isDebugSpectatorMode())) &&
+        this.shouldRunEntityGoalsAndCollisions(entity)
+      ) {
+        collisionPhaseEntities.push(entity);
+      }
+    }
     let enemyTickMs = 0;
     let enemyCount = 0;
     const entityTickMs = measurePhase(() => {
@@ -197,7 +217,10 @@ export class World {
         if (!this.entities.has(entity.id)) {
           continue;
         }
-        const isEnemy = entity.typeId.startsWith("enemy:");
+        if (entity instanceof Enemy && entity.canSkipDormantTick(this)) {
+          continue;
+        }
+        const isEnemy = entity instanceof Enemy;
         const entityStartedAt =
           benchmarkSink && isEnemy ? performance.now() : 0;
         entity.tick(this);
@@ -255,6 +278,7 @@ export class World {
       entityCount: tickPhaseEntities.length,
       enemyCount,
     });
+    this.simulationActivityCacheEnabled = false;
   }
 
   /**
@@ -263,29 +287,70 @@ export class World {
    * wakes other entities in replication range or the center sector.
    */
   public shouldRunEntityGoalsAndCollisions(entity: Entity): boolean {
-    if (this.kind === "lobby") {
-      return true;
+    const cached = this.getCachedSimulationActivity(entity.id);
+    if (cached !== undefined) {
+      return cached;
     }
-    if (
+    const active =
+      this.kind === "lobby" ||
       entity instanceof Player ||
       entity instanceof Building ||
       entity instanceof Structure ||
       entity instanceof Projectile ||
-      (entity instanceof Enemy && entity.spawnSource === "wave")
-    ) {
-      return true;
-    }
-    if (
+      (entity instanceof Enemy && entity.spawnSource === "wave") ||
       this.goalFieldCache.isEntityNearAnyPlayer(
         this,
         entity.x,
         entity.y,
         this.gameConfig.replication.interestRadius,
-      )
-    ) {
-      return true;
-    }
+      ) ||
+      this.isInsideCenterSector(entity);
+    this.cacheSimulationActivity(entity.id, active);
+    return active;
+  }
 
+  private beginSimulationActivityCache(): void {
+    this.simulationActivityCacheEnabled = true;
+    this.simulationActivityMarker = (this.simulationActivityMarker + 1) >>> 0;
+    if (this.simulationActivityMarker === 0) {
+      this.simulationActivityMarker = 1;
+      this.simulationActivityMarkers.fill(0);
+      this.sparseSimulationActivity.clear();
+    }
+  }
+
+  private getCachedSimulationActivity(entityId: number): boolean | undefined {
+    if (!this.simulationActivityCacheEnabled) {
+      return undefined;
+    }
+    if (entityId >= this.simulationActivityMarkers.length) {
+      const cached = this.sparseSimulationActivity.get(entityId);
+      return cached?.marker === this.simulationActivityMarker
+        ? cached.active
+        : undefined;
+    }
+    return this.simulationActivityMarkers[entityId] ===
+      this.simulationActivityMarker
+      ? this.simulationActivityValues[entityId] === 1
+      : undefined;
+  }
+
+  private cacheSimulationActivity(entityId: number, active: boolean): void {
+    if (!this.simulationActivityCacheEnabled) {
+      return;
+    }
+    if (entityId >= this.simulationActivityMarkers.length) {
+      this.sparseSimulationActivity.set(entityId, {
+        marker: this.simulationActivityMarker,
+        active,
+      });
+      return;
+    }
+    this.simulationActivityMarkers[entityId] = this.simulationActivityMarker;
+    this.simulationActivityValues[entityId] = active ? 1 : 0;
+  }
+
+  private isInsideCenterSector(entity: Entity): boolean {
     const layout = this.proceduralLayout;
     const centerSector = layout?.sectors.find(
       (sector) => sector.id === layout.centerSectorId,
@@ -367,6 +432,7 @@ export class World {
       return;
     }
     this.spatial.syncEntities(entities);
+    this.aoiSpatial.syncEntities(entities);
   }
 
   private markEntitySpatialDirty(entity: Entity): void {
@@ -382,6 +448,7 @@ export class World {
       return false;
     }
     this.spatial.syncEntities([entity]);
+    this.aoiSpatial.syncEntities([entity]);
     if (isStaticGeometryEntity(entity)) {
       this.staticGeometry.syncEntities([entity]);
     }
@@ -393,6 +460,7 @@ export class World {
       return false;
     }
     this.spatial.removeEntity(entity.id);
+    this.aoiSpatial.removeEntity(entity.id);
     if (entity.collisionMode === "static") {
       this.staticGeometry.removeEntity(entity.id);
     }
@@ -406,6 +474,7 @@ export class World {
         : null;
     if (this.spatialDirty && entities) {
       this.spatial.sync(entities);
+      this.aoiSpatial.sync(entities);
       this.spatialDirty = false;
     }
     if (this.staticGeometryDirty && entities) {

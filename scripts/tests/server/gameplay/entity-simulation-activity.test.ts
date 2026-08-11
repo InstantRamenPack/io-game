@@ -68,6 +68,7 @@ describe("entity simulation activity", () => {
   test("gameplay uses the replication radius for goals while base effects keep ticking", () => {
     const world = makeGameplayWorld();
     const enemy = spawnDrifter(world, 100, 100);
+    enemy.spawnSource = "layout";
     const player = spawnPlayer(world, 3000, 100);
     let goalTicks = 0;
     let weaponTicks = 0;
@@ -96,6 +97,25 @@ describe("entity simulation activity", () => {
     expect(goalTicks).toBe(1);
     expect(weaponTicks).toBe(2);
     expect(enemy.getActiveEffectSnapshots()[0]?.ticksRemaining).toBe(1);
+  });
+
+  test("idle layout enemies sleep outside the active simulation area", () => {
+    const world = makeGameplayWorld();
+    const enemy = spawnDrifter(world, 100, 100);
+    enemy.spawnSource = "layout";
+    const player = spawnPlayer(world, 3000, 100);
+    let weaponTicks = 0;
+    enemy.weapons[0]!.tick = () => {
+      weaponTicks += 1;
+    };
+
+    world.step();
+    expect(weaponTicks).toBe(0);
+
+    player.x = enemy.x;
+    player.y = enemy.y;
+    world.step();
+    expect(weaponTicks).toBe(1);
   });
 
   test("projectiles keep moving outside player range and the center sector", () => {

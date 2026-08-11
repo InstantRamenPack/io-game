@@ -1,5 +1,6 @@
 export const GRID_CELL_KEY_OFFSET = 1 << 15;
 export const GRID_CELL_KEY_STRIDE = 1 << 16;
+const MAX_DENSE_ITEM_ID = 65_535;
 
 export type GridCellSpan = {
   minCellX: number;
@@ -63,7 +64,8 @@ export function gridCellSpansMatch(
 export class GridIndex<T> {
   private readonly cellSize: number;
   private readonly buckets = new Map<number, T[]>();
-  private readonly visitedItemIds = new Map<number, number>();
+  private readonly visitedDenseItemIds = new Uint32Array(MAX_DENSE_ITEM_ID + 1);
+  private readonly visitedSparseItemIds = new Map<number, number>();
   private queryMarker = 0;
 
   constructor(cellSize: number) {
@@ -134,10 +136,11 @@ export class GridIndex<T> {
     getItemId: (item: T) => number,
   ): T[] {
     result.length = 0;
-    this.queryMarker += 1;
-    if (this.queryMarker >= Number.MAX_SAFE_INTEGER) {
+    this.queryMarker = (this.queryMarker + 1) >>> 0;
+    if (this.queryMarker === 0) {
       this.queryMarker = 1;
-      this.visitedItemIds.clear();
+      this.visitedDenseItemIds.fill(0);
+      this.visitedSparseItemIds.clear();
     }
 
     const span = this.spanFromBounds(minX, minY, maxX, maxY);
@@ -149,10 +152,17 @@ export class GridIndex<T> {
         }
         for (const item of bucket) {
           const itemId = getItemId(item);
-          if (this.visitedItemIds.get(itemId) === this.queryMarker) {
-            continue;
+          if (itemId >= 0 && itemId <= MAX_DENSE_ITEM_ID) {
+            if (this.visitedDenseItemIds[itemId] === this.queryMarker) {
+              continue;
+            }
+            this.visitedDenseItemIds[itemId] = this.queryMarker;
+          } else {
+            if (this.visitedSparseItemIds.get(itemId) === this.queryMarker) {
+              continue;
+            }
+            this.visitedSparseItemIds.set(itemId, this.queryMarker);
           }
-          this.visitedItemIds.set(itemId, this.queryMarker);
           result.push(item);
         }
       }
@@ -163,7 +173,8 @@ export class GridIndex<T> {
 
   public clear(): void {
     this.buckets.clear();
-    this.visitedItemIds.clear();
+    this.visitedDenseItemIds.fill(0);
+    this.visitedSparseItemIds.clear();
     this.queryMarker = 0;
   }
 }
