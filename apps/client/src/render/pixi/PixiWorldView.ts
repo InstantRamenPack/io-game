@@ -153,6 +153,10 @@ export class PixiWorldView {
   private readonly helipadOverlay = new HelipadOverlay();
   private readonly lightsOutOverlay = new PixiLightsOutOverlay();
   private readonly minimapGraphic = new Graphics();
+  private readonly minimapBackground = new Graphics();
+  private minimapBackgroundDirty = true;
+  private minimapWidth = -1;
+  private minimapHeight = -1;
   private readonly minimapLabel = new Text({
     text: "",
     style: new TextStyle({
@@ -190,7 +194,11 @@ export class PixiWorldView {
     this.sceneGraph.placementLayer.addChild(this.sniperAimGuide);
     this.sceneGraph.entityLayer.addChild(this.helipadOverlay.container);
     this.sceneGraph.overlayLayer.addChild(this.lightsOutOverlay.container);
-    this.sceneGraph.hudLayer.addChild(this.minimapGraphic, this.minimapLabel);
+    this.sceneGraph.hudLayer.addChild(
+      this.minimapBackground,
+      this.minimapGraphic,
+      this.minimapLabel,
+    );
   }
 
   public get entityContainer(): Container {
@@ -231,6 +239,7 @@ export class PixiWorldView {
   }
 
   public setWorldSize(worldSize: WorldSize): void {
+    this.minimapBackgroundDirty = true;
     this.worldSize = { ...worldSize };
     this.cullingController.updateWorldSize(this.worldSize);
     this.invalidateGridLineCache();
@@ -276,6 +285,8 @@ export class PixiWorldView {
   }
 
   public updateInfrastructureState(state: InfrastructureSnapshot | null): void {
+    if (this.infrastructureState.commsActive !== (state?.commsActive ?? true))
+      this.minimapBackgroundDirty = true;
     this.infrastructureState = state ?? {
       energyActive: true,
       commsActive: true,
@@ -284,6 +295,7 @@ export class PixiWorldView {
   }
 
   public updateMapState(map: MapSnapshot | null): void {
+    if (this.mapState !== map) this.minimapBackgroundDirty = true;
     const seed = map?.seed ?? null;
     if (seed === this.lastMapSeed) {
       this.mapState = map;
@@ -746,9 +758,18 @@ export class PixiWorldView {
     g.stroke({ width: 1, color: 0xffffff, alpha: 1 });
   }
 
-  private redrawMinimap(app: Application): void {
+  private redrawMinimapBackground(app: Application): void {
+    if (
+      !this.minimapBackgroundDirty &&
+      this.minimapWidth === app.screen.width &&
+      this.minimapHeight === app.screen.height
+    )
+      return;
+    this.minimapBackgroundDirty = false;
+    this.minimapWidth = app.screen.width;
+    this.minimapHeight = app.screen.height;
     const map = this.mapState;
-    const g = this.minimapGraphic;
+    const g = this.minimapBackground;
     g.clear();
     this.minimapLabel.text = "";
     if (!map) {
@@ -800,6 +821,20 @@ export class PixiWorldView {
       });
     }
 
+    this.minimapLabel.text = "MAP";
+    this.minimapLabel.x = x + 8;
+    this.minimapLabel.y = y + 6;
+  }
+
+  private redrawMinimap(app: Application): void {
+    this.redrawMinimapBackground(app);
+    const g = this.minimapGraphic;
+    g.clear();
+    if (!this.mapState || !this.infrastructureState.commsActive) return;
+    const x = app.screen.width - MINIMAP_SIZE - MINIMAP_PADDING;
+    const y = MINIMAP_PADDING;
+    const scaleX = MINIMAP_SIZE / this.worldSize.w;
+    const scaleY = MINIMAP_SIZE / this.worldSize.h;
     if (this.visibilityState?.restricted) {
       const vx = x + this.visibilityState.center.x * scaleX;
       const vy = y + this.visibilityState.center.y * scaleY;
@@ -839,10 +874,6 @@ export class PixiWorldView {
         alpha: 0.9,
       });
     }
-
-    this.minimapLabel.text = "MAP";
-    this.minimapLabel.x = x + 8;
-    this.minimapLabel.y = y + 6;
   }
 
   private syncCullViewport(app: Application): void {

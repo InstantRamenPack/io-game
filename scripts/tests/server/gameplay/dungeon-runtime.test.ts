@@ -244,7 +244,7 @@ describe("dungeon runtime mechanics", () => {
     tick(runtime, 30);
 
     expect(crate.typeId).toBe("structure:crate");
-    expect(crate.targetId).toBeUndefined();
+    expect("goalSelector" in crate).toBe(false);
     expect(crate.x).toBe(x);
     expect(crate.y).toBe(y);
   });

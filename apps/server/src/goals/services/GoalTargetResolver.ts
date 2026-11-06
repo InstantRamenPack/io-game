@@ -11,10 +11,6 @@ type EntityCtor<T extends Entity> = abstract new (...args: never[]) => T;
 export class GoalTargetResolver {
   private readonly queryBuffer: Entity[] = [];
 
-  private toCombatEntity(actor: GoalActor): Entity {
-    return actor as unknown as Entity;
-  }
-
   public resolveTrackedLivingTarget<
     TSelf extends GoalActor,
     TTarget extends Entity = Entity,
@@ -42,13 +38,7 @@ export class GoalTargetResolver {
     if (!target) {
       return null;
     }
-    return DamageEffect.canApply(
-      ctx.world,
-      this.toCombatEntity(ctx.self),
-      target,
-    )
-      ? target
-      : null;
+    return DamageEffect.canApply(ctx.world, ctx.self, target) ? target : null;
   }
 
   public resolveTrackedCombatTargetOfType<
@@ -59,13 +49,7 @@ export class GoalTargetResolver {
     if (!target) {
       return null;
     }
-    return DamageEffect.canApply(
-      ctx.world,
-      this.toCombatEntity(ctx.self),
-      target,
-    )
-      ? target
-      : null;
+    return DamageEffect.canApply(ctx.world, ctx.self, target) ? target : null;
   }
 
   public findNearestCombatTargetInRange<TSelf extends GoalActor>(
@@ -87,11 +71,7 @@ export class GoalTargetResolver {
     )) {
       if (
         !candidate.alive ||
-        !DamageEffect.canApply(
-          ctx.world,
-          this.toCombatEntity(ctx.self),
-          candidate,
-        )
+        !DamageEffect.canApply(ctx.world, ctx.self, candidate)
       ) {
         continue;
       }

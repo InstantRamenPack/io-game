@@ -70,8 +70,7 @@ export class WitherRotatingBeamGoal<
 
       for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
         if (!(candidate instanceof Player) || !candidate.alive) continue;
-        if (!DamageEffect.canApply(world, self as unknown as Entity, candidate))
-          continue;
+        if (!DamageEffect.canApply(world, self, candidate)) continue;
 
         const relX = candidate.x - self.x;
         const relY = candidate.y - self.y;
@@ -79,11 +78,7 @@ export class WitherRotatingBeamGoal<
         const perp = Math.abs(relX * perpDx + relY * perpDy);
 
         if (along >= 0 && along <= BEAM_LENGTH && perp <= BEAM_WIDTH / 2) {
-          new DamageEffect(BEAM_DAMAGE_PER_TICK).apply(
-            world,
-            self as unknown as Entity,
-            candidate,
-          );
+          new DamageEffect(BEAM_DAMAGE_PER_TICK).apply(world, self, candidate);
         }
       }
 
@@ -134,8 +129,7 @@ export class WitherRotatingBeamGoal<
       self.y + BULLET_SEEK_RADIUS,
     )) {
       if (!(candidate instanceof Player) || !candidate.alive) continue;
-      if (!DamageEffect.canApply(world, self as unknown as Entity, candidate))
-        continue;
+      if (!DamageEffect.canApply(world, self, candidate)) continue;
 
       const dist = Math.hypot(candidate.x - self.x, candidate.y - self.y);
       if (dist > BULLET_SEEK_RADIUS) continue;

@@ -9,7 +9,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default [
   {
-    ignores: ["apps/client/dist/**"],
+    ignores: ["apps/client/dist/**", "benchmark-results/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -16,6 +16,15 @@ export class EntityRenderManager {
   >();
   private readonly dirtyEntityIds = new Set<number>();
   private readonly transientActiveEntityIds = new Set<number>();
+  private readonly staticSyncState = new Map<
+    number,
+    {
+      version: number;
+      x: number;
+      y: number;
+      rotation: number;
+    }
+  >();
 
   constructor(
     private readonly pixiRenderer: PixiRenderer,
@@ -28,26 +37,48 @@ export class EntityRenderManager {
       return;
     }
     this.entitiesById.set(entity.id, entity);
+    const presentation = this.presentationByEntityId.get(entity.id);
+    if (
+      entity.kind === "structure" ||
+      entity.kind === "building" ||
+      entity.kind === "tower"
+    ) {
+      const x = presentation?.x ?? entity.x;
+      const y = presentation?.y ?? entity.y;
+      const rotation = presentation?.rotation ?? entity.rotation;
+      const previous = this.staticSyncState.get(entity.id);
+      if (
+        previous &&
+        previous.version === entity.stateVersion &&
+        previous.x === x &&
+        previous.y === y &&
+        previous.rotation === rotation &&
+        !this.dirtyEntityIds.has(entity.id) &&
+        !this.transientActiveEntityIds.has(entity.id)
+      )
+        return;
+      this.staticSyncState.set(entity.id, {
+        version: entity.stateVersion,
+        x,
+        y,
+        rotation,
+      });
+    }
     const renderer = this.requireRenderer(entity);
-    renderer.sync(entity, this.presentationByEntityId.get(entity.id));
+    renderer.sync(entity, presentation);
     this.syncTransientActivity(entity.id, renderer);
   }
 
   public update(deltaMs: number): void {
     // Keep renderer transforms in lock-step with interpolated entity state each
     // frame; snapshot sync alone only updates at tick boundaries.
-    for (const [entityId, entity] of this.entitiesById) {
-      const renderer = this.renderers.get(entityId);
-      if (!renderer) {
-        continue;
-      }
-      renderer.sync(entity, this.presentationByEntityId.get(entityId));
-      this.syncTransientActivity(entityId, renderer);
+    for (const entity of this.entitiesById.values()) {
+      this.syncEntity(entity);
     }
 
     this.dirtyEntityIds.clear();
 
-    for (const entityId of [...this.transientActiveEntityIds]) {
+    for (const entityId of this.transientActiveEntityIds) {
       const entity = this.entitiesById.get(entityId);
       const renderer = this.renderers.get(entityId);
       if (!entity || !renderer) {
@@ -82,6 +113,7 @@ export class EntityRenderManager {
   }
 
   public removeEntity(entityId: number): void {
+    this.staticSyncState.delete(entityId);
     const renderer = this.renderers.get(entityId);
     if (!renderer) {
       this.entitiesById.delete(entityId);
@@ -134,6 +166,7 @@ export class EntityRenderManager {
   }
 
   public destroy(): void {
+    this.staticSyncState.clear();
     for (const renderer of this.renderers.values()) {
       renderer.destroy();
     }

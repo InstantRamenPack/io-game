@@ -54,12 +54,12 @@ const EQUIPPED_ITEM_Z_OFFSET = 0.1;
 export abstract class BaseEntityRenderer implements EntityRenderer {
   protected readonly entityContainer: PIXI.Container;
   protected readonly entityGraphic: PIXI.Graphics;
-  protected readonly equippedItemContainer: PIXI.Container;
-  protected readonly equippedItemSprite: PIXI.Sprite;
+  private equippedItemContainer?: PIXI.Container;
+  private equippedItemSprite?: PIXI.Sprite;
   protected readonly damageFlashGraphic: PIXI.Graphics;
-  protected readonly healthBarContainer: PIXI.Container;
-  protected readonly healthBarTrackGraphic: PIXI.Graphics;
-  protected readonly healthBarFillGraphic: PIXI.Graphics;
+  private healthBarContainer?: PIXI.Container;
+  private healthBarTrackGraphic?: PIXI.Graphics;
+  private healthBarFillGraphic?: PIXI.Graphics;
   protected readonly hitboxContainer?: PIXI.Container;
   protected readonly hitboxGraphic?: PIXI.Graphics;
   // Graphics used to render equipped-weapon attack shapes (swing/jab) behind
@@ -98,24 +98,10 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     this.entityGraphic.visible = debugInterpolationMode !== 2;
     this.entityContainer.addChild(this.entityGraphic);
 
-    this.equippedItemContainer = new PIXI.Container();
-    this.equippedItemSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-    prepareEquippedItemSprite(this.equippedItemSprite);
-    this.equippedItemContainer.visible = false;
-    this.equippedItemContainer.addChild(this.equippedItemSprite);
-    pixiRenderer.entityContainer.addChild(this.equippedItemContainer);
-
     this.damageFlashGraphic = new PIXI.Graphics();
     this.damageFlashGraphic.alpha = 0;
     this.damageFlashGraphic.visible = false;
     this.entityContainer.addChild(this.damageFlashGraphic);
-
-    this.healthBarContainer = new PIXI.Container();
-    this.healthBarTrackGraphic = new PIXI.Graphics();
-    this.healthBarFillGraphic = new PIXI.Graphics();
-    this.healthBarContainer.addChild(this.healthBarTrackGraphic);
-    this.healthBarContainer.addChild(this.healthBarFillGraphic);
-    this.entityContainer.addChild(this.healthBarContainer);
 
     if (debugHitbox) {
       this.hitboxContainer = new PIXI.Container();
@@ -146,9 +132,20 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const visualY = presentation?.y ?? entity.y;
     const visualRotation = presentation?.rotation ?? entity.rotation;
     this.entityContainer.position.set(visualX, visualY);
-    this.equippedItemContainer.position.set(visualX, visualY);
+    if (entity.equippedItem && !this.equippedItemContainer) {
+      this.equippedItemContainer = new PIXI.Container();
+      this.equippedItemSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+      prepareEquippedItemSprite(this.equippedItemSprite);
+      this.equippedItemContainer.visible = false;
+      this.equippedItemContainer.addChild(this.equippedItemSprite);
+      this.pixiRenderer.entityContainer!.addChild(this.equippedItemContainer);
+
+      this.equippedItemContainer.alpha = this.entityContainer.alpha;
+    }
+    this.equippedItemContainer?.position.set(visualX, visualY);
     this.entityContainer.zIndex = this.getEntityZIndex(entity, visualY);
-    this.equippedItemContainer.zIndex = visualY + EQUIPPED_ITEM_Z_OFFSET;
+    if (this.equippedItemContainer)
+      this.equippedItemContainer.zIndex = visualY + EQUIPPED_ITEM_Z_OFFSET;
 
     if (this.hitboxContainer) {
       this.hitboxContainer.position.set(entity.x, entity.y);
@@ -270,7 +267,8 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   public setVisibilityAlpha(alpha: number): void {
     const clampedAlpha = Math.max(0, Math.min(1, alpha));
     this.entityContainer.alpha = clampedAlpha;
-    this.equippedItemContainer.alpha = clampedAlpha;
+    if (this.equippedItemContainer)
+      this.equippedItemContainer.alpha = clampedAlpha;
     if (this.hitboxContainer) {
       this.hitboxContainer.alpha = clampedAlpha;
     }
@@ -292,7 +290,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
     if (
       this.pixiRenderer.entityContainer &&
-      this.equippedItemContainer.parent
+      this.equippedItemContainer?.parent
     ) {
       this.pixiRenderer.entityContainer.removeChild(this.equippedItemContainer);
     }
@@ -304,12 +302,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     }
 
     this.entityGraphic.destroy();
-    this.equippedItemSprite.destroy();
-    this.equippedItemContainer.destroy();
+    this.equippedItemSprite?.destroy();
+    this.equippedItemContainer?.destroy();
     this.damageFlashGraphic.destroy();
-    this.healthBarTrackGraphic.destroy();
-    this.healthBarFillGraphic.destroy();
-    this.healthBarContainer.destroy();
+    this.healthBarTrackGraphic?.destroy();
+    this.healthBarFillGraphic?.destroy();
+    this.healthBarContainer?.destroy();
     this.entityContainer.destroy();
     this.hitboxGraphic?.destroy();
     this.equippedHitboxGraphic?.destroy();
@@ -374,11 +372,19 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
 
   private redrawHealthBar(entity: ClientEntity): void {
     const canShow = entity.kind !== "structure" && entity.maxHp > 0;
-    this.healthBarContainer.visible = canShow;
+    if (this.healthBarContainer) this.healthBarContainer.visible = canShow;
     if (!canShow) {
       return;
     }
 
+    if (!this.healthBarContainer) {
+      this.healthBarContainer = new PIXI.Container();
+      this.healthBarTrackGraphic = new PIXI.Graphics();
+      this.healthBarFillGraphic = new PIXI.Graphics();
+      this.healthBarContainer.addChild(this.healthBarTrackGraphic);
+      this.healthBarContainer.addChild(this.healthBarFillGraphic);
+      this.entityContainer.addChild(this.healthBarContainer);
+    }
     const width = Math.max(20, entity.hitboxBounds.width);
     const height = 5;
     const ratio = Math.max(
@@ -388,12 +394,12 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     const left = entity.hitboxBounds.centerX - width / 2;
     const top = entity.hitboxBounds.minY - 12;
 
-    drawRoundedRect(this.healthBarTrackGraphic, left, top, width, height, 3, {
+    drawRoundedRect(this.healthBarTrackGraphic!, left, top, width, height, 3, {
       color: 0x1b1b1b,
       alpha: 0.85,
     });
     drawRoundedRect(
-      this.healthBarFillGraphic,
+      this.healthBarFillGraphic!,
       left,
       top,
       width * ratio,
@@ -413,6 +419,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   private syncEquippedItem(entity: ClientEntity, rotation: number): void {
+    if (!this.equippedItemContainer || !this.equippedItemSprite) return;
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       this.equippedItemContainer.visible = false;
@@ -460,6 +467,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
     entity: ClientEntity,
     rotation: number,
   ): void {
+    if (!this.equippedItemContainer || !this.equippedItemSprite) return;
     const equippedItem = entity.equippedItem;
     if (!equippedItem) {
       this.equippedItemContainer.visible = false;
@@ -648,6 +656,7 @@ export abstract class BaseEntityRenderer implements EntityRenderer {
   }
 
   private resetEquippedItemContainerChildren(): void {
+    if (!this.equippedItemContainer || !this.equippedItemSprite) return;
     for (const child of [...this.equippedItemContainer.children]) {
       if (child === this.equippedItemSprite) {
         continue;

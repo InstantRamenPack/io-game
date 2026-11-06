@@ -50,7 +50,7 @@ export class SpatialIndex {
     }
   }
 
-  public syncEntities(entities: readonly Entity[]): void {
+  public syncEntities(entities: Iterable<Entity>): void {
     for (const entity of entities) {
       this.upsert(entity);
     }
@@ -125,6 +125,7 @@ export class SpatialIndex {
 
   public removeEntity(entityId: number): void {
     this.grid.remove(entityId);
+    this.syncedEntityIds.delete(entityId);
     this.boundsByEntityId.delete(entityId);
   }
 }

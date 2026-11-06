@@ -23,6 +23,22 @@ class TestEntity extends Entity {
 describe("static geometry index", () => {
   beforeAll(bootstrapTypeRegistries);
 
+  test("sync bookkeeping is pruned when static entities disappear", () => {
+    const index = new StaticGeometryIndex(20);
+    for (let id = 70_000; id < 70_100; id++)
+      index.sync([new TestEntity(id, 5, 5, "static")]);
+    expect(
+      (index as unknown as { syncedEntityIds: Map<number, number> })
+        .syncedEntityIds.size,
+    ).toBe(1);
+    index.sync([]);
+    expect(
+      (index as unknown as { syncedEntityIds: Map<number, number> })
+        .syncedEntityIds.size,
+    ).toBe(0);
+    expect(index.queryBox(0, 0, 20, 20)).toEqual([]);
+  });
+
   test("static-only entities indexed", () => {
     const index = new StaticGeometryIndex(10);
     const staticEntity = new TestEntity(1, 10, 10, "static");

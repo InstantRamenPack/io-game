@@ -41,6 +41,24 @@ function spawnDrifter(world: World, x: number, y: number): Drifter {
 describe("entity simulation activity", () => {
   beforeAll(bootstrapTypeRegistries);
 
+  test("despawn releases sparse simulation activity without recycling entity IDs", () => {
+    const world = makeGameplayWorld();
+    const internals = world as unknown as {
+      beginSimulationActivityCache(): void;
+      sparseSimulationActivity: Map<number, unknown>;
+    };
+    internals.beginSimulationActivityCache();
+    for (let id = 70_000; id < 70_100; id++) {
+      const enemy = new Drifter(id);
+      world.spawn(enemy);
+      world.shouldRunEntityGoalsAndCollisions(enemy);
+      expect(internals.sparseSimulationActivity.has(id)).toBe(true);
+      world.despawn(id);
+      expect(internals.sparseSimulationActivity.has(id)).toBe(false);
+    }
+    expect(internals.sparseSimulationActivity.size).toBe(0);
+  });
+
   test("gameplay always activates players, buildings, towers, structures, projectiles, and wave enemies", () => {
     const world = makeGameplayWorld();
     const player = spawnPlayer(world, 0, 0);

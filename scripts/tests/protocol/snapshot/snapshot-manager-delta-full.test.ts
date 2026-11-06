@@ -1,5 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { WorldSnapshot } from "@shared/net/snapshots.ts";
+import { ClientWorldState } from "@client/net/ClientWorldState.ts";
+import { Wall } from "@server/registry/generated/buildingCtors.ts";
+import {
+  encodeServerToClientMessage,
+  parseServerToClientMessage,
+} from "@shared/net/protocol.ts";
 import {
   bootstrapTestRegistries,
   connectTestClient,
@@ -23,6 +29,76 @@ function stepAndSnapshot(
 
 describe("snapshot manager delta/full behavior", () => {
   beforeAll(bootstrapTestRegistries);
+
+  test("snapshot inclusion markers are bounded after high-ID entity churn", () => {
+    const { runtime } = makeRuntime();
+    const { player, playerId } = connectTestClient(runtime);
+    for (let id = 70_000; id < 70_020; id++) {
+      const wall = new Wall(id);
+      wall.x = player.x + 100;
+      wall.y = player.y;
+      runtime.world.spawn(wall);
+      stepAndSnapshot(runtime, playerId, 300);
+      runtime.world.despawn(id);
+    }
+    stepAndSnapshot(runtime, playerId, 300);
+    expect(
+      (
+        runtime.snapshotManager as unknown as {
+          includedSparseEntityMarkers: Map<number, number>;
+        }
+      ).includedSparseEntityMarkers.size,
+    ).toBe(0);
+  });
+
+  test("repeated full entity sends recover a dropped AOI spawn and periodic refresh repairs later loss", () => {
+    const { runtime } = makeRuntime();
+    const { player, playerId } = connectTestClient(runtime);
+    const state = new ClientWorldState(8);
+    const deliver = (snapshot: WorldSnapshot) => {
+      const message = parseServerToClientMessage(
+        encodeServerToClientMessage({ t: "snapshot", snapshot }),
+      );
+      if (message?.t !== "snapshot")
+        throw new Error("Expected binary snapshot round-trip");
+      state.pushSnapshot(message.snapshot, message.snapshot.tick * 200);
+    };
+    for (let i = 0; i < 8; i++)
+      deliver(stepAndSnapshot(runtime, playerId, 300));
+    const wall = spawnWall(runtime, player.x + 100, player.y);
+    // Lose the first three complete spawn records at 5 TPS.
+    for (let i = 0; i < 3; i++) stepAndSnapshot(runtime, playerId, 300);
+    expect(state.clientWorld!.entities.has(wall.id)).toBe(false);
+    deliver(stepAndSnapshot(runtime, playerId, 300));
+    expect(state.clientWorld!.entities.get(wall.id)?.hp).toBe(wall.hp);
+    wall.hp -= 1;
+    stepAndSnapshot(runtime, playerId, 300); // Lose a state change as well.
+    const missingHp = state.clientWorld!.entities.get(wall.id)!.hp;
+    expect(missingHp).not.toBe(wall.hp);
+    runtime.world.tick += 600;
+    runtime.snapshotManager.prepareTick(runtime.world, []);
+    deliver(
+      runtime.snapshotManager.makeSnapshotForPlayer(
+        runtime.world,
+        playerId,
+        300,
+      ),
+    );
+    expect(state.clientWorld!.entities.get(wall.id)?.hp).toBe(wall.hp);
+  });
+
+  test("preview observers share one immutable encoded snapshot per tick", () => {
+    const { runtime, network } = makeRuntime();
+    runtime.connectPreviewClient("preview-a");
+    runtime.connectPreviewClient("preview-b");
+    runtime.tick();
+    expect(network.sent).toHaveLength(2);
+    expect(network.sent[0]!.data).toBe(network.sent[1]!.data);
+    const firstBytes = network.sent[0]!.data;
+    runtime.tick();
+    expect(network.sent[2]!.data).not.toBe(firstBytes);
+    expect(network.sent[2]!.data).toBe(network.sent[3]!.data);
+  });
 
   test("early ticks are full snapshots", () => {
     const { runtime } = makeRuntime();

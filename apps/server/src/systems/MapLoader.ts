@@ -326,11 +326,6 @@ export function trySpawnWaveSevenExtractionThanos(
   world.waveSevenExtractionThanosSpawned = true;
 }
 
-export function refreshLoot(world: World): void {
-  if (!world.proceduralLayout) return;
-  // Crates are finite per match; dawn should not refill destroyed loot.
-}
-
 const LAYOUT_ENEMY_OCCUPANCY_RADIUS = worldgenConfig.tileSize * 8;
 
 function isRegularLayoutEnemy(

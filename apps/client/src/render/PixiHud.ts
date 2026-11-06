@@ -796,14 +796,13 @@ export class PixiHud {
       this.markDirty();
     }
 
-    const hubStillNearby =
-      findNearestChest(
-        this.selectors.getPlayerEntity(),
-        this.selectors.getChests(),
-      ) !== null;
+    const nearestChest = findNearestChest(
+      this.selectors.getPlayerEntity(),
+      this.selectors.getChests(),
+    );
     if (
       (this.state.craftingMenuOpen || this.state.chestOpen) &&
-      !hubStillNearby
+      nearestChest === null
     ) {
       this.closeHubTower();
     }
@@ -834,10 +833,6 @@ export class PixiHud {
     );
     const nearPickup = nearestPickup !== null;
 
-    const nearestChest = findNearestChest(
-      this.selectors.getPlayerEntity(),
-      this.selectors.getChests(),
-    );
     const nearChest =
       nearestChest !== null &&
       !this.state.chestOpen &&

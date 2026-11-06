@@ -1,4 +1,4 @@
-import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
+import { Entity } from "@server/entities/Entity.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
 import type { StructureSnapshot } from "@shared/net/snapshots.ts";
 import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
@@ -7,7 +7,7 @@ import type { World } from "@server/world/World.ts";
 /**
  * Shared static world-structure base for map-generated collision geometry.
  */
-export class Structure extends GoalControlledEntity {
+export class Structure extends Entity {
   public static readonly kind = "structure" as const;
   public label: string;
 

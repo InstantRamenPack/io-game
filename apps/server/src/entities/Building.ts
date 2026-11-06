@@ -1,6 +1,6 @@
 import { GoalControlledEntity } from "@server/entities/GoalControlledEntity.ts";
 import { requireHitboxEntityBaselineContent } from "@server/entities/entityBaselineContent.ts";
-import type { BuildingSnapshot } from "@shared/net/snapshots.ts";
+import type { BuildingSnapshot, TowerSnapshot } from "@shared/net/snapshots.ts";
 import type { CombatTeam } from "@shared/combat/CombatTeam.ts";
 import type { World } from "@server/world/World.ts";
 
@@ -28,7 +28,7 @@ export class Building extends GoalControlledEntity {
     );
   }
 
-  public override toSnapshot(): BuildingSnapshot {
+  public override toSnapshot(): BuildingSnapshot | TowerSnapshot {
     const snapshot = super.toSnapshot();
     return {
       ...snapshot,

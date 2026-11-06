@@ -231,10 +231,6 @@ export class PixiWorldPresentationSink {
       return;
     }
 
-    if (this.visibilityWorldVersion === world.version) {
-      return;
-    }
-
     const player =
       this.renderer.playerEntityId === undefined
         ? undefined
@@ -243,10 +239,14 @@ export class PixiWorldPresentationSink {
       player?.name?.toLowerCase() === "debug",
     );
 
+    if (this.visibilityWorldVersion === world.geometryVersion) {
+      return;
+    }
+
     this.renderer.setVisibilityBlockers(
       collectVisibilityBlockers(world.entities.values()),
     );
-    this.visibilityWorldVersion = world.version;
+    this.visibilityWorldVersion = world.geometryVersion;
   }
 }
 

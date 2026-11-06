@@ -5,10 +5,7 @@ import {
   getResourceDisplayLabel,
 } from "@shared/content/catalog.ts";
 import type { ItemRecipeContent } from "@shared/content/schema.ts";
-import {
-  getResourceNamespace,
-  getResourcePath,
-} from "@shared/ids/ResourceId.ts";
+import { getResourcePath } from "@shared/ids/ResourceId.ts";
 import type {
   DayNightSnapshot,
   InfrastructureSnapshot,
@@ -44,6 +41,7 @@ type GameClientSelectorsSource = {
       entities: Map<number, ClientEntity>;
       dayNight: DayNightSnapshot;
       infrastructure: InfrastructureSnapshot;
+      membershipVersion?: number;
     };
   };
 };
@@ -51,6 +49,35 @@ type GameClientSelectorsSource = {
 export function createGameSelectors(
   gameClient: GameClientSelectorsSource,
 ): GameSelectors {
+  let cachedWorld: object | undefined;
+  let cachedMembership = -1;
+  let worldEntities: ClientEntity[] = [];
+  let buildings: ClientEntity[] = [];
+  let hubs: ClientEntity[] = [];
+  let stations: ClientEntity[] = [];
+  let pickups: ClientEntity[] = [];
+
+  function refreshEntityViews(): void {
+    const world = gameClient.worldState?.clientWorld;
+    if (
+      world === cachedWorld &&
+      world?.membershipVersion !== undefined &&
+      world.membershipVersion === cachedMembership
+    )
+      return;
+    cachedWorld = world;
+    cachedMembership = world?.membershipVersion ?? -1;
+    worldEntities = [...(world?.entities.values() ?? [])];
+    buildings = worldEntities.filter(
+      (entity) => entity.kind === "building" || entity.kind === "tower",
+    );
+    hubs = buildings.filter((entity) => entity.typeId === "tower:hub");
+    stations = buildings.filter(
+      (entity) =>
+        getEntityCapabilities(entity.typeId)?.craftingStation === true,
+    );
+    pickups = worldEntities.filter((entity) => entity.kind === "pickup");
+  }
   function getTypePath(typeId: string): string {
     return getResourcePath(typeId) || typeId;
   }
@@ -60,7 +87,8 @@ export function createGameSelectors(
   }
 
   function getWorldEntities(): ClientEntity[] {
-    return [...(gameClient.worldState?.clientWorld?.entities.values() ?? [])];
+    refreshEntityViews();
+    return worldEntities;
   }
 
   function getPlayerEntity(): ClientEntity | undefined {
@@ -81,23 +109,18 @@ export function createGameSelectors(
   }
 
   function getTrackedBuildings(): ClientEntity[] {
-    return getWorldEntities().filter((entity) => {
-      const namespace = getResourceNamespace(entity.typeId);
-      return namespace === "building" || namespace === "tower";
-    });
+    refreshEntityViews();
+    return buildings;
   }
 
   function getCraftingStations(): ClientEntity[] {
-    return getTrackedBuildings().filter(
-      (entity) =>
-        getEntityCapabilities(entity.typeId)?.craftingStation === true,
-    );
+    refreshEntityViews();
+    return stations;
   }
 
   function getHubs(): ClientEntity[] {
-    return getTrackedBuildings().filter(
-      (entity) => entity.typeId === "tower:hub",
-    );
+    refreshEntityViews();
+    return hubs;
   }
 
   function getChests(): ClientEntity[] {
@@ -109,7 +132,8 @@ export function createGameSelectors(
   }
 
   function getPickups(): ClientEntity[] {
-    return getWorldEntities().filter((entity) => entity.kind === "pickup");
+    refreshEntityViews();
+    return pickups;
   }
 
   function getInventory(): InventorySnapshot | undefined {

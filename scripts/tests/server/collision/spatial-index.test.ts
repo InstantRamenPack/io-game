@@ -23,6 +23,22 @@ class TestEntity extends Entity {
 describe("spatial index", () => {
   beforeAll(bootstrapTypeRegistries);
 
+  test("sync bookkeeping follows live entities rather than lifetime IDs", () => {
+    const index = new SpatialIndex(20);
+    for (let id = 70_000; id < 70_100; id++)
+      index.sync([new TestEntity(id, 5, 5)]);
+    expect(
+      (index as unknown as { syncedEntityIds: Map<number, number> })
+        .syncedEntityIds.size,
+    ).toBe(1);
+    index.sync([]);
+    expect(
+      (index as unknown as { syncedEntityIds: Map<number, number> })
+        .syncedEntityIds.size,
+    ).toBe(0);
+    expect(index.queryBox(0, 0, 20, 20)).toEqual([]);
+  });
+
   test("entity in one cell queried", () => {
     const index = new SpatialIndex(20);
     const entity = new TestEntity(1, 5, 5, 6);

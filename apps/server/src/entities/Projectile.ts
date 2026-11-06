@@ -51,7 +51,7 @@ export abstract class Projectile extends GoalControlledEntity {
   protected remainingHits: number | null;
   private readonly hitTargetIds = new Set<number>();
 
-  protected constructor(id: number, config: ProjectileSpawnConfig) {
+  constructor(id: number, config: ProjectileSpawnConfig) {
     const baseline = requireEntityBaselineContent(
       (new.target as typeof Projectile).typeId,
     );

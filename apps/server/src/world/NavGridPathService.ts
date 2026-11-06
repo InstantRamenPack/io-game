@@ -54,6 +54,8 @@ export class NavGridPathService {
   private searchGeneration = 0;
   private readonly queryBuffer: StaticGeometryBlocker[] = [];
   private readonly pathCache = new Map<PathCacheKey, CachedPath>();
+  private readonly failedPaths = new Map<PathCacheKey, number>();
+  private currentTick = 0;
   private readonly pathKeysByTile = new Map<number, Set<PathCacheKey>>();
   private readonly benchmarkStats: NavPathBenchmarkStats = {
     requests: 0,
@@ -92,11 +94,14 @@ export class NavGridPathService {
   }
 
   public updateDirty(world: World): void {
+    this.currentTick = world.tick ?? 0;
     if (this.dirtyRects.length === 0) {
       return;
     }
 
     const startedAt = this.benchmarkEnabled ? performance.now() : 0;
+    // Failed routes have no path tiles to index; any geometry change can open one.
+    this.failedPaths.clear();
     const merged = mergeTileRects(
       this.dirtyRects,
       this.widthTiles,
@@ -156,6 +161,11 @@ export class NavGridPathService {
     }
 
     const cacheKey = this.makePathKey(fromIndex, targetIndex);
+    if ((this.failedPaths.get(cacheKey) ?? -1) > this.currentTick) {
+      if (this.benchmarkEnabled) this.benchmarkStats.cacheHits += 1;
+      return null;
+    }
+    this.failedPaths.delete(cacheKey);
     const cached = this.pathCache.get(cacheKey);
     if (cached) {
       if (this.benchmarkEnabled) {
@@ -168,6 +178,10 @@ export class NavGridPathService {
       cached?.points ??
       this.findPath(fromTile, targetTile, fromIndex, targetIndex);
     if (!path) {
+      if (this.failedPaths.size >= PATH_CACHE_MAX_ENTRIES) {
+        this.failedPaths.delete(this.failedPaths.keys().next().value!);
+      }
+      this.failedPaths.set(cacheKey, this.currentTick + 10);
       return null;
     }
     if (path.length < 2) {

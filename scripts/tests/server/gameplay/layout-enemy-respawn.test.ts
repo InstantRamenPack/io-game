@@ -1,10 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { CrateStructure } from "@server/entities/structures/CrateStructure.ts";
 import { Enemy } from "@server/entities/Enemy.ts";
-import {
-  refreshLayoutEnemies,
-  refreshLoot,
-} from "@server/systems/MapLoader.ts";
+import { refreshLayoutEnemies } from "@server/systems/MapLoader.ts";
 import { isLegendaryBossTypeId } from "@shared/world/legendaryBoss.ts";
 import { getSectorForPoint } from "@shared/world/layoutTypes.ts";
 import {
@@ -107,7 +104,7 @@ describe("layout enemy dawn respawn", () => {
     ).toBe(false);
   });
 
-  test("refreshLoot leaves destroyed crates gone so dawn does not refill loot", () => {
+  test("dawn leaves destroyed crates gone instead of refilling loot", () => {
     const { runtime } = makeRuntime({ worldSeed: 42 });
     const cratesBefore = runtime.world.entities
       .all()
@@ -131,8 +128,13 @@ describe("layout enemy dawn respawn", () => {
         ),
     ).toHaveLength(0);
 
-    refreshLoot(runtime.world);
+    runtime.world.dayNightSystem.setPhase("night");
+    runtime.world.canEndNight = () => true;
+    const night = runtime.world.dayNightSystem.toSnapshot();
+    runtime.world.gameConfig.simulationSpeedMultiplier =
+      night.nightDurationTicks;
     tick(runtime, 1);
+    expect(runtime.world.dayNightSystem.isNight()).toBe(false);
 
     expect(
       runtime.world.entities

@@ -1,4 +1,8 @@
 import { ClientEntity } from "@client/net/ClientEntity.ts";
+import {
+  getEntityContent,
+  getVisibilityBlockerContent,
+} from "@shared/content/catalog.ts";
 import type { NetEvent } from "@shared/net/events.ts";
 import type {
   DayNightSnapshot,
@@ -18,6 +22,8 @@ export class ClientWorld {
   public extraction: ExtractionSnapshot;
   public infrastructure: InfrastructureSnapshot;
   public version = 1;
+  public membershipVersion = 1;
+  public geometryVersion = 1;
 
   private readonly serverFrameHistoryLimit: number;
   private readonly dirtyEntityIds = new Set<number>();
@@ -53,6 +59,8 @@ export class ClientWorld {
 
   public destroy(): void {
     this.entities.clear();
+    this.membershipVersion += 1;
+    this.geometryVersion += 1;
     this.events = [];
   }
 
@@ -80,6 +88,7 @@ export class ClientWorld {
         existingEntity.updateFromSnapshot(entitySnapshot, tick, isFullSnapshot);
         if (existingEntity.stateVersion !== previousStateVersion) {
           worldChanged = true;
+          this.invalidateGeometry(existingEntity);
         }
       } else {
         if (!isFullSnapshot && !isCompleteNewEntitySnapshot(entitySnapshot)) {
@@ -91,6 +100,8 @@ export class ClientWorld {
           this.serverFrameHistoryLimit,
         );
         this.entities.set(entitySnapshot.id, entity);
+        this.membershipVersion += 1;
+        this.invalidateGeometry(entity);
         worldChanged = true;
       }
     }
@@ -98,7 +109,9 @@ export class ClientWorld {
     if (isFullSnapshot) {
       for (const [entityId] of this.entities) {
         if (!this.dirtyEntityIds.has(entityId)) {
+          this.invalidateGeometry(this.entities.get(entityId)!);
           this.entities.delete(entityId);
+          this.membershipVersion += 1;
           worldChanged = true;
         }
       }
@@ -109,7 +122,9 @@ export class ClientWorld {
           if (!this.entities.has(removedEntityId)) {
             continue;
           }
+          this.invalidateGeometry(this.entities.get(removedEntityId)!);
           this.entities.delete(removedEntityId);
+          this.membershipVersion += 1;
           worldChanged = true;
         }
       }
@@ -117,6 +132,15 @@ export class ClientWorld {
 
     if (worldChanged) {
       this.version += 1;
+    }
+  }
+
+  private invalidateGeometry(entity: ClientEntity): void {
+    if (
+      getEntityContent(entity.typeId)?.collisionMode === "static" ||
+      getVisibilityBlockerContent(entity.typeId) !== undefined
+    ) {
+      this.geometryVersion += 1;
     }
   }
 }

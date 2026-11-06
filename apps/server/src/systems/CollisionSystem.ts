@@ -93,7 +93,7 @@ class CollisionSystem {
     const solverMovedEntities = this.solverMovedEntityBuffer;
     for (let iteration = 0; iteration < iterations; iteration += 1) {
       solverMovedEntities.length = 0;
-      this.resolveDynamicPairs(world, solverMovedEntities);
+      this.resolveDynamicPairs(world, tickPhaseEntities, solverMovedEntities);
       if (solverMovedEntities.length === 0) {
         break;
       }
@@ -106,19 +106,24 @@ class CollisionSystem {
 
     if (resolvedDynamicCollision) {
       solverMovedEntities.length = 0;
-      this.enforceDynamicConstraints(world, solverMovedEntities);
+      this.enforceDynamicConstraints(
+        world,
+        tickPhaseEntities,
+        solverMovedEntities,
+      );
       world.syncMovedDynamicEntities(solverMovedEntities);
     }
   }
 
   private enforceDynamicConstraints(
     world: World,
+    entities: readonly Entity[],
     movedEntities: Entity[],
   ): void {
-    for (const entity of world.entities.all()) {
+    for (const entity of entities) {
       if (
         entity.collisionMode !== "dynamic" ||
-        !this.activeEntityIds.has(entity.id)
+        !world.entities.has(entity.id)
       ) {
         continue;
       }
@@ -431,11 +436,15 @@ class CollisionSystem {
     return { clampedX, clampedY };
   }
 
-  private resolveDynamicPairs(world: World, movedEntities: Entity[]): void {
-    for (const entity of world.entities.dynamic()) {
+  private resolveDynamicPairs(
+    world: World,
+    entities: readonly Entity[],
+    movedEntities: Entity[],
+  ): void {
+    for (const entity of entities) {
       if (
         entity.collisionMode !== "dynamic" ||
-        !this.activeEntityIds.has(entity.id)
+        !world.entities.has(entity.id)
       ) {
         continue;
       }

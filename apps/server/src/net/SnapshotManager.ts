@@ -322,11 +322,11 @@ export class SnapshotManager {
   }
 
   private bumpMarker(): void {
+    this.includedSparseEntityMarkers.clear();
     this.marker = (this.marker + 1) >>> 0;
     if (this.marker === 0) {
       this.marker = 1;
       this.includedDenseEntityMarkers.fill(0);
-      this.includedSparseEntityMarkers.clear();
     }
   }
 

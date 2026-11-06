@@ -157,6 +157,7 @@ export class GridIndex<T> {
   }
 
   public remove(id: number): void {
+    this.visitedSparseItemIds.delete(id);
     const previous = this.tracked.get(id);
     if (!previous) return;
     this.removeFromCells(previous.keys, (entry) => entry === previous.item);
@@ -180,11 +181,11 @@ export class GridIndex<T> {
     getItemId: (item: T) => number,
   ): T[] {
     result.length = 0;
+    this.visitedSparseItemIds.clear();
     this.queryMarker = (this.queryMarker + 1) >>> 0;
     if (this.queryMarker === 0) {
       this.queryMarker = 1;
       this.visitedDenseItemIds.fill(0);
-      this.visitedSparseItemIds.clear();
     }
 
     const span = this.spanFromBounds(minX, minY, maxX, maxY);

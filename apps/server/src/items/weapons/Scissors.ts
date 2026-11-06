@@ -1,8 +1,4 @@
 import { BleedingEffect } from "@server/effects/builtin/BleedingEffect.ts";
-import {
-  createMeleeHitEffectsForWeapon,
-  requireJabWeaponRuntime,
-} from "@server/combat/contentAdapters.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 import type { World } from "@server/world/World.ts";
@@ -16,16 +12,6 @@ export class Scissors extends StabMeleeWeapon {
   public static override readonly resourceName = "scissors";
 
   private readonly bleedingEffect = new BleedingEffect();
-
-  constructor() {
-    const weaponContent = requireJabWeaponRuntime(Scissors.typeId);
-    super(
-      weaponContent.cooldownTicks,
-      weaponContent.range,
-      createMeleeHitEffectsForWeapon(Scissors.typeId),
-      weaponContent.jabWidth,
-    );
-  }
 
   protected override applyHitEffects(
     world: World,

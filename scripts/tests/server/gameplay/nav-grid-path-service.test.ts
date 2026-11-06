@@ -25,6 +25,33 @@ class TestBlocker extends Entity {
 describe("navigation path cache", () => {
   beforeAll(bootstrapTypeRegistries);
 
+  test("failed routes are bounded retries and reopen immediately after geometry changes", () => {
+    const service = new NavGridPathService({ w: 128, h: 128 });
+    const staticGeometry = new StaticGeometryIndex(16);
+    const world = { staticGeometry, tick: 1 } as World;
+    const wall = Array.from(
+      { length: 8 },
+      (_, y) => new TestBlocker(y + 1, 3, y),
+    );
+    staticGeometry.sync(wall);
+    service.updateDirty(world);
+    service.benchmarkEnabled = true;
+    for (let i = 0; i < 20; i++)
+      expect(service.getNextWaypoint(24, 24, 104, 104)).toBeNull();
+    expect(service.collectAndResetBenchmarkStats()).toMatchObject({
+      pathSearches: 1,
+      cacheHits: 19,
+    });
+    world.tick += 10;
+    service.updateDirty(world);
+    expect(service.getNextWaypoint(24, 24, 104, 104)).toBeNull();
+    expect(service.collectAndResetBenchmarkStats().pathSearches).toBe(1);
+    staticGeometry.removeEntity(wall[3]!.id);
+    service.markEntityDirty(wall[3]!);
+    service.updateDirty(world);
+    expect(service.getNextWaypoint(24, 24, 104, 104)).not.toBeNull();
+  });
+
   test("invalidates a cached diagonal path when a corner tile becomes blocked", () => {
     const service = new NavGridPathService({ w: 128, h: 128 });
     const staticGeometry = new StaticGeometryIndex(16);

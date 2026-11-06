@@ -1,6 +1,6 @@
 import { Building } from "@server/entities/Building.ts";
 import { makeResourceId, type ResourceId } from "@shared/ids/ResourceId.ts";
-import type { BuildingSnapshot, TowerSnapshot } from "@shared/net/snapshots.ts";
+import type { TowerSnapshot } from "@shared/net/snapshots.ts";
 import type { World } from "@server/world/World.ts";
 
 /**
@@ -16,13 +16,13 @@ export abstract class Tower extends Building {
     super(id, tier, ownerId);
   }
 
-  public override toSnapshot(): BuildingSnapshot {
+  public override toSnapshot(): TowerSnapshot {
     const snapshot = super.toSnapshot();
     const towerSnapshot: TowerSnapshot = {
       ...snapshot,
       kind: "tower",
     };
-    return towerSnapshot as unknown as BuildingSnapshot;
+    return towerSnapshot;
   }
 
   public override handleDeath(_world: World): void {

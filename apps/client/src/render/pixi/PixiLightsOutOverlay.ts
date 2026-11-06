@@ -60,6 +60,9 @@ export class PixiLightsOutOverlay {
   private lastScreenH = -1;
   private lastShadowScreenW = -1;
   private lastShadowScreenH = -1;
+  private lastShadowResolution = -1;
+  private lastShadowBlockers: readonly VisibilityBlockerShape[] | null = null;
+  private lastShadowInputs: number[] = [];
 
   constructor() {
     this.blockerBatchRoot.cullable = false;
@@ -135,11 +138,29 @@ export class PixiLightsOutOverlay {
     blockers: readonly VisibilityBlockerShape[],
     transform: ScreenTransform & { radius: number },
   ): void {
+    const inputs = [
+      app.screen.width,
+      app.screen.height,
+      app.renderer.resolution,
+      visibility.center.x,
+      visibility.center.y,
+      visibility.radius,
+      transform.scaleX,
+      transform.scaleY,
+      transform.offsetX,
+      transform.offsetY,
+    ];
+    if (
+      this.lastShadowBlockers === blockers &&
+      inputs.every((value, index) => value === this.lastShadowInputs[index])
+    )
+      return;
+    this.lastShadowBlockers = blockers;
+    this.lastShadowInputs = inputs;
     const sorted = blockers
       .filter((blocker) =>
         blockerIntersectsActiveViewport(blocker, app, transform),
       )
-      .slice()
       .sort(
         (a, b) =>
           blockerDistanceSq(b, visibility.center) -
@@ -222,7 +243,8 @@ export class PixiLightsOutOverlay {
     if (
       !this.accumRenderTexture ||
       this.lastShadowScreenW !== width ||
-      this.lastShadowScreenH !== height
+      this.lastShadowScreenH !== height ||
+      this.lastShadowResolution !== resolution
     ) {
       this.accumRenderTexture?.destroy(true);
       this.accumRenderTexture = RenderTexture.create({
@@ -233,6 +255,7 @@ export class PixiLightsOutOverlay {
       });
       this.lastShadowScreenW = width;
       this.lastShadowScreenH = height;
+      this.lastShadowResolution = resolution;
     }
 
     return this.accumRenderTexture;

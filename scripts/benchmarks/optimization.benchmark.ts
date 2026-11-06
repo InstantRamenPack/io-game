@@ -106,6 +106,7 @@ type BenchmarkReport = {
     averageNodesPerSearch: number;
   };
   client: {
+    measurement?: string;
     frame: RateSummary;
     simulatedFrames: number;
   };
@@ -269,6 +270,8 @@ const report: BenchmarkReport = {
   server: summarizeServer(serverTick, worldSink.ticks),
   pathfinding: summarizePathfinding(navStats),
   client: {
+    measurement:
+      "interpolation-only (excludes Pixi, HUD, minimap and lighting)",
     frame: clientFrame,
     simulatedFrames: clientFrame.count,
   },
@@ -581,7 +584,7 @@ function printReport(report: BenchmarkReport): void {
     )}`,
   );
   console.log(
-    `client FPS ${format(report.client.frame.hz)} avg=${formatMs(
+    `interpolation-only frames/s ${format(report.client.frame.hz)} avg=${formatMs(
       report.client.frame.average,
     )} p95=${formatMs(report.client.frame.p95)} stable=${formatPercent(
       report.client.frame.stableRatio,
@@ -615,7 +618,7 @@ function renderMarkdown(report: BenchmarkReport): string {
     ["Collision p95 ms", report.server.collision.p95, "lower"],
     ["Pathfinding search ms", report.pathfinding.searchMs, "lower"],
     ["Pathfinding searches", report.pathfinding.pathSearches, "lower"],
-    ["Client FPS", report.client.frame.hz, "higher"],
+    ["Interpolation-only frames/s", report.client.frame.hz, "higher"],
     ["Network avg bytes", report.network.averageBytes, "lower"],
   ] as const;
   return [
@@ -709,7 +712,7 @@ function validateReport(report: BenchmarkReport, cli: CliOptions): void {
       ),
     },
     {
-      metric: "client.frame.p95Ms",
+      metric: "interpolation.frame.p95Ms",
       value: report.client.frame.p95,
       threshold: readPositiveNumber(
         "OPT_MAX_CLIENT_FRAME_P95_MS",
@@ -726,7 +729,7 @@ function validateReport(report: BenchmarkReport, cli: CliOptions): void {
         thresholds[1]!.threshold,
       )} serverAvg<=${formatMs(thresholds[0]!.threshold)} worldP95<=${formatMs(
         thresholds[2]!.threshold,
-      )} clientP95<=${formatMs(thresholds[3]!.threshold)}`,
+      )} interpolationP95<=${formatMs(thresholds[3]!.threshold)}`,
     );
     return;
   }

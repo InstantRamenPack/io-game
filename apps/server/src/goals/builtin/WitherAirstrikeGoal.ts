@@ -96,16 +96,11 @@ export class WitherAirstrikeGoal<
         strike.y + EXPLOSION_RADIUS,
       )) {
         if (!(candidate instanceof Player) || !candidate.alive) continue;
-        if (!DamageEffect.canApply(world, self as unknown as Entity, candidate))
-          continue;
+        if (!DamageEffect.canApply(world, self, candidate)) continue;
 
         const dist = Math.hypot(candidate.x - strike.x, candidate.y - strike.y);
         if (dist <= EXPLOSION_RADIUS) {
-          new DamageEffect(EXPLOSION_DAMAGE).apply(
-            world,
-            self as unknown as Entity,
-            candidate,
-          );
+          new DamageEffect(EXPLOSION_DAMAGE).apply(world, self, candidate);
         }
       }
 

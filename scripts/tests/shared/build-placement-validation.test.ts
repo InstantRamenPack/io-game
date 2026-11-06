@@ -99,6 +99,22 @@ describe("build placement validation", () => {
 });
 
 describe("GridIndex", () => {
+  test("sparse query markers do not retain despawned IDs or earlier queries", () => {
+    const grid = new GridIndex<{ id: number }>(64);
+    const result: { id: number }[] = [];
+    for (let id = 70_000; id < 71_000; id++) {
+      grid.upsert(id, { id }, 0, 0, 128, 128);
+      grid.queryBox(0, 0, 128, 128, result, (item) => item.id);
+      expect(result).toHaveLength(1);
+      grid.remove(id);
+    }
+    grid.queryBox(0, 0, 128, 128, result, (item) => item.id);
+    expect(result).toHaveLength(0);
+    expect(
+      (grid as unknown as { visitedSparseItemIds: Map<number, number> })
+        .visitedSparseItemIds.size,
+    ).toBe(0);
+  });
   test("indexes items across overlapping cells and deduplicates query results", () => {
     const grid = new GridIndex<{ id: number; minX: number; maxX: number }>(64);
     const item = { id: 1, minX: 10, maxX: 130 };

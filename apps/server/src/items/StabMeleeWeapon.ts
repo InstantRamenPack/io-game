@@ -1,6 +1,9 @@
 import { doesResolvedRectIntersectOrientedBox } from "@shared/geometry/collision.ts";
 import type { Entity } from "@server/entities/Entity.ts";
 import type { Effect } from "@server/effects/Effect.ts";
+import { requireJabWeaponRuntime } from "@server/combat/contentAdapters.ts";
+import { createMeleeWeaponHitEffects } from "@server/combat/effectFactories.ts";
+import type { JabWeaponContent } from "@shared/content/schema.ts";
 import { MeleeWeapon } from "@server/items/MeleeWeapon.ts";
 
 /**
@@ -10,13 +13,15 @@ export class StabMeleeWeapon extends MeleeWeapon {
   public stabWidth: number;
 
   constructor(
-    cooldownTicks: number,
-    range: number,
-    hitEffects: Effect[],
-    stabWidth: number,
+    extraEffects: readonly Effect[] = [],
+    content: JabWeaponContent = requireJabWeaponRuntime(new.target.typeId),
   ) {
-    super(cooldownTicks, range, hitEffects);
-    this.stabWidth = stabWidth;
+    super(
+      content.cooldownTicks,
+      content.range,
+      createMeleeWeaponHitEffects(content, extraEffects),
+    );
+    this.stabWidth = content.jabWidth;
   }
 
   protected override isTargetInAttackShape(

@@ -6,7 +6,6 @@ import {
   type ServerToClientMessage,
   type SpectateUpdateMessage,
 } from "@shared/net/protocol.ts";
-import type { WorldSnapshot } from "@shared/net/snapshots.ts";
 import { normalizePlayerName } from "@shared/playerName.ts";
 import { ChatService } from "@server/chat/ChatService.ts";
 import { Player } from "@server/entities/Player.ts";
@@ -25,11 +24,7 @@ import {
 } from "@server/server/starterLoadout.ts";
 import { ExtractionSystem } from "@server/systems/ExtractionSystem.ts";
 import { InfrastructureSystem } from "@server/systems/InfrastructureSystem.ts";
-import {
-  loadMap,
-  refreshLayoutEnemies,
-  refreshLoot,
-} from "@server/systems/MapLoader.ts";
+import { loadMap, refreshLayoutEnemies } from "@server/systems/MapLoader.ts";
 import { WaveSystem } from "@server/systems/WaveSystem.ts";
 import { World } from "@server/world/World.ts";
 
@@ -148,19 +143,13 @@ export class GameInstanceRuntime {
       );
     }
 
-    let previewSnapshot: WorldSnapshot | undefined;
+    let previewMessage: Uint8Array | undefined;
     for (const clientId of this.previewClientIds) {
-      previewSnapshot ??= this.snapshotManager.makeFullSnapshotForObserver(
-        this.world,
-      );
-      const snapshotMessage: ServerToClientMessage = {
+      previewMessage ??= encodeServerToClientMessage({
         t: "snapshot",
-        snapshot: previewSnapshot,
-      };
-      this.networkServer.send(
-        clientId,
-        encodeServerToClientMessage(snapshotMessage),
-      );
+        snapshot: this.snapshotManager.makeFullSnapshotForObserver(this.world),
+      });
+      this.networkServer.send(clientId, previewMessage);
     }
   }
 
@@ -269,7 +258,6 @@ export class GameInstanceRuntime {
     const isDawn = !this.isPlayground && wasNightBeforeStep && !isNightNow;
 
     if (isDawn) {
-      refreshLoot(this.world);
       refreshLayoutEnemies(this.world);
 
       // Respawn all dead players at the start of a new day

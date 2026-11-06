@@ -118,7 +118,11 @@ type ProjectileCtor = new (
 
 export class CapturingNetworkServer implements NetworkServerLike {
   public readonly bytesByClientId = new Map<string, number[]>();
-  public readonly jsonBaselineBytesByClientId = new Map<string, number[]>();
+  private readonly pendingMessages: {
+    clientId: string;
+    data: string | Uint8Array;
+  }[] = [];
+  private readonly jsonBaselineBytesByClientId = new Map<string, number[]>();
   private readonly clientIds = new Set<string>();
   private readonly entityCounts: number[] = [];
   private readonly removedEntityCounts: number[] = [];
@@ -139,6 +143,10 @@ export class CapturingNetworkServer implements NetworkServerLike {
     bytes.push(typeof data === "string" ? data.length : data.byteLength);
     this.bytesByClientId.set(clientId, bytes);
 
+    this.pendingMessages.push({ clientId, data });
+  }
+
+  private analyzeMessage(clientId: string, data: string | Uint8Array): void {
     const message = parseServerToClientMessage(data, {
       validateSnapshots: false,
     });
@@ -163,6 +171,7 @@ export class CapturingNetworkServer implements NetworkServerLike {
   }
 
   public reset(): void {
+    this.pendingMessages.length = 0;
     this.bytesByClientId.clear();
     this.jsonBaselineBytesByClientId.clear();
     this.clientIds.clear();
@@ -178,6 +187,10 @@ export class CapturingNetworkServer implements NetworkServerLike {
   }
 
   public allJsonBaselineBytes(): number[] {
+    // Decode and build the JSON comparison outside the timed server loop.
+    for (const { clientId, data } of this.pendingMessages)
+      this.analyzeMessage(clientId, data);
+    this.pendingMessages.length = 0;
     return [...this.jsonBaselineBytesByClientId.values()].flat();
   }
 

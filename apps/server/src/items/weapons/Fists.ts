@@ -1,6 +1,5 @@
 import { requireEntityContent } from "@shared/content/catalog.ts";
 import type { EquippedItemSnapshot } from "@shared/net/snapshots.ts";
-import { createMeleeWeaponHitEffects } from "@server/combat/effectFactories.ts";
 import { StabMeleeWeapon } from "@server/items/StabMeleeWeapon.ts";
 
 /**
@@ -12,13 +11,7 @@ export class Fists extends StabMeleeWeapon {
   public static readonly unarmedTypeId = "player:unarmed" as const;
 
   constructor() {
-    const weaponContent = Fists.getUnarmedAttackContent();
-    super(
-      weaponContent.cooldownTicks,
-      weaponContent.range,
-      createMeleeWeaponHitEffects(weaponContent),
-      weaponContent.jabWidth,
-    );
+    super([], Fists.getUnarmedAttackContent());
   }
 
   public override toEquippedItemSnapshot(): EquippedItemSnapshot {

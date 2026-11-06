@@ -1,11 +1,12 @@
 import type { LobbyStateMessage } from "@shared/net/protocol.ts";
 
 type LobbyStateWithoutServerNow = Omit<LobbyStateMessage, "serverNowMs">;
+const LOBBY_STATE_REFRESH_MS = 5_000;
 
 export class LobbyStateCache {
-  private readonly serializedStateWithoutNowByClientId = new Map<
+  private readonly stateByClientId = new Map<
     string,
-    string
+    { fingerprint: string; sentAtMs: number }
   >();
 
   public shouldSend(
@@ -14,22 +15,30 @@ export class LobbyStateCache {
     force: boolean,
   ): boolean {
     const fingerprint = this.serializeWithoutServerNow(state);
+    const previous = this.stateByClientId.get(clientId);
+    const elapsedMs = state.serverNowMs - (previous?.sentAtMs ?? 0);
     if (
       !force &&
-      this.serializedStateWithoutNowByClientId.get(clientId) === fingerprint
+      previous?.fingerprint === fingerprint &&
+      elapsedMs >= 0 &&
+      elapsedMs < LOBBY_STATE_REFRESH_MS
     ) {
       return false;
     }
-    this.serializedStateWithoutNowByClientId.set(clientId, fingerprint);
+    // A dropped control message must not leave the lobby UI stale indefinitely.
+    this.stateByClientId.set(clientId, {
+      fingerprint,
+      sentAtMs: state.serverNowMs,
+    });
     return true;
   }
 
   public clear(clientId: string): void {
-    this.serializedStateWithoutNowByClientId.delete(clientId);
+    this.stateByClientId.delete(clientId);
   }
 
   public clearAll(): void {
-    this.serializedStateWithoutNowByClientId.clear();
+    this.stateByClientId.clear();
   }
 
   private serializeWithoutServerNow(state: LobbyStateMessage): string {

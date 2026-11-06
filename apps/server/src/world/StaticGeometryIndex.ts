@@ -38,6 +38,7 @@ export class StaticGeometryIndex {
 
   public removeEntity(entityId: number): void {
     this.grid.remove(entityId);
+    this.syncedEntityIds.delete(entityId);
   }
 
   public sync(entities: readonly Entity[]): void {
@@ -59,7 +60,7 @@ export class StaticGeometryIndex {
       if (this.syncedEntityIds.get(entityId) === this.syncMarker) {
         continue;
       }
-      this.grid.remove(entityId);
+      this.removeEntity(entityId);
     }
   }
 

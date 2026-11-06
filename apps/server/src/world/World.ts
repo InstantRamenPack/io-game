@@ -113,6 +113,7 @@ export class World {
   private readonly nextForestCampRespawnTickById = new Map<string, number>();
   private readonly sessionUnlockedRecipeTypeIds = new Set<ResourceId>();
   private readonly collisionPhaseEntities: Entity[] = [];
+  private readonly movedEntities = new Set<Entity>();
   private simulationActivityMarkers = new Uint32Array(2_048);
   private simulationActivityValues = new Uint8Array(2_048);
   private readonly sparseSimulationActivity = new Map<
@@ -234,7 +235,7 @@ export class World {
     });
 
     const afterMovementMs = measurePhase(() => {
-      for (const entity of this.entities.all()) {
+      for (const entity of this.entities.queryInstances(Projectile)) {
         if (!this.entities.has(entity.id)) {
           continue;
         }
@@ -376,6 +377,7 @@ export class World {
    * @param id Entity id to despawn.
    */
   public despawn(id: number): void {
+    this.sparseSimulationActivity.delete(id);
     const entity = this.entities.get(id);
     if (entity) {
       this.navPathService.markEntityDirty(entity);
@@ -421,8 +423,11 @@ export class World {
     if (entities.length === 0) {
       return;
     }
-    this.spatial.syncEntities(entities);
-    this.aoiSpatial.syncEntities(entities);
+    this.movedEntities.clear();
+    for (const entity of entities) this.movedEntities.add(entity);
+    this.spatial.syncEntities(this.movedEntities);
+    this.aoiSpatial.syncEntities(this.movedEntities);
+    this.movedEntities.clear();
   }
 
   private markEntitySpatialDirty(entity: Entity): void {

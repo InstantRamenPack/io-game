@@ -11,9 +11,6 @@ type EntityInstanceCtor<T extends Entity> = abstract new (
 export class EntityStore {
   public byId = new Map<number, Entity>();
   private allCache?: Entity[];
-  private dynamicCache?: Entity[];
-  private collidableCache?: Entity[];
-  private nonCollidableCache?: Entity[];
   private readonly queryInstancesCache = new Map<
     EntityInstanceCtor<Entity>,
     Entity[]
@@ -24,8 +21,10 @@ export class EntityStore {
    * @param entity Entity to add.
    */
   public add(entity: Entity): void {
+    const previous = this.byId.get(entity.id);
+    if (previous) this.invalidateViews(previous);
     this.byId.set(entity.id, entity);
-    this.invalidateViews();
+    this.invalidateViews(entity);
   }
 
   /**
@@ -33,8 +32,9 @@ export class EntityStore {
    * @param id Entity id to remove.
    */
   public remove(id: number): void {
+    const entity = this.byId.get(id);
     if (this.byId.delete(id)) {
-      this.invalidateViews();
+      this.invalidateViews(entity!);
     }
   }
 
@@ -92,38 +92,10 @@ export class EntityStore {
     return this.allCache;
   }
 
-  public dynamic(): Entity[] {
-    if (!this.dynamicCache) {
-      this.dynamicCache = this.all().filter(
-        (entity) => entity.collisionMode === "dynamic",
-      );
-    }
-    return this.dynamicCache;
-  }
-
-  public collidable(): Entity[] {
-    if (!this.collidableCache) {
-      this.collidableCache = this.all().filter(
-        (entity) => entity.collisionMode !== "none",
-      );
-    }
-    return this.collidableCache;
-  }
-
-  public nonCollidable(): Entity[] {
-    if (!this.nonCollidableCache) {
-      this.nonCollidableCache = this.all().filter(
-        (entity) => entity.collisionMode === "none",
-      );
-    }
-    return this.nonCollidableCache;
-  }
-
-  private invalidateViews(): void {
+  private invalidateViews(entity: Entity): void {
     this.allCache = undefined;
-    this.dynamicCache = undefined;
-    this.collidableCache = undefined;
-    this.nonCollidableCache = undefined;
-    this.queryInstancesCache.clear();
+    for (const ctor of this.queryInstancesCache.keys()) {
+      if (entity instanceof ctor) this.queryInstancesCache.delete(ctor);
+    }
   }
 }

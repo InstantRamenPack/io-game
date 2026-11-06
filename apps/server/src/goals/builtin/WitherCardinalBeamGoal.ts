@@ -55,8 +55,7 @@ export class WitherCardinalBeamGoal<
 
       for (const candidate of world.spatial.queryBox(minX, minY, maxX, maxY)) {
         if (!(candidate instanceof Player) || !candidate.alive) continue;
-        if (!DamageEffect.canApply(world, self as unknown as Entity, candidate))
-          continue;
+        if (!DamageEffect.canApply(world, self, candidate)) continue;
 
         // Check candidate is within the beam rectangle using projection
         const relX = candidate.x - self.x;
@@ -65,11 +64,7 @@ export class WitherCardinalBeamGoal<
         const perp = Math.abs(relX * perpDx + relY * perpDy);
 
         if (along >= 0 && along <= BEAM_LENGTH && perp <= BEAM_WIDTH / 2) {
-          new DamageEffect(BEAM_DAMAGE).apply(
-            world,
-            self as unknown as Entity,
-            candidate,
-          );
+          new DamageEffect(BEAM_DAMAGE).apply(world, self, candidate);
         }
       }
 

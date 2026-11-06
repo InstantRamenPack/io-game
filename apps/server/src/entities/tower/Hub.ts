@@ -1,7 +1,6 @@
 import type { ContainerSlot } from "@server/inventory/ContainerSlot.ts";
 import { Tower } from "@server/entities/tower/Tower.ts";
 import type {
-  BuildingSnapshot,
   InventorySlotSnapshot,
   TowerSnapshot,
 } from "@shared/net/snapshots.ts";
@@ -29,8 +28,8 @@ export class Hub extends Tower {
     }
   }
 
-  public override toSnapshot(): BuildingSnapshot {
-    const snapshot = super.toSnapshot() as unknown as TowerSnapshot;
+  public override toSnapshot(): TowerSnapshot {
+    const snapshot = super.toSnapshot();
     const towerSnapshot: TowerSnapshot = {
       ...snapshot,
       kind: "tower",
@@ -43,6 +42,6 @@ export class Hub extends Tower {
               : { kind: "weapon", typeId: slot.typeId },
       ),
     };
-    return towerSnapshot as unknown as BuildingSnapshot;
+    return towerSnapshot;
   }
 }

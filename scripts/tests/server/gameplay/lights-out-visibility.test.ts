@@ -122,7 +122,7 @@ describe("lights-out visibility", () => {
     });
   });
 
-  test("visibility blockers rebuild once per authoritative world version", () => {
+  test("visibility blockers rebuild for geometry changes, not ordinary snapshots", () => {
     const wall = new ClientEntity(makeStructureSnapshot(93, 1000, 2000), 1, 4);
     const blockerCounts: number[] = [];
     const sink = Object.assign(
@@ -142,12 +142,17 @@ describe("lights-out visibility", () => {
     ) as unknown as { updateVisibility(world: ClientWorld): void };
     const world = {
       version: 7,
+      geometryVersion: 3,
       entities: new Map([[wall.id, wall]]),
     } as ClientWorld;
 
     sink.updateVisibility(world);
     sink.updateVisibility(world);
     world.version += 1;
+    sink.updateVisibility(world);
+
+    expect(blockerCounts).toEqual([1]);
+    world.geometryVersion += 1;
     sink.updateVisibility(world);
 
     expect(blockerCounts).toEqual([1, 1]);

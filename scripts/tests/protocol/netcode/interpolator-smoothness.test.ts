@@ -124,6 +124,35 @@ function simulateCustomDeliveries(options: {
 }
 
 describe("interpolator smoothness", () => {
+  for (const serverTickMs of [50, 100, 200, 500]) {
+    for (const profileName of ["perfect", "mild", "bad"] as const) {
+      test(`${1000 / serverTickMs} TPS remains smooth with ${profileName} networking`, () => {
+        const result = simulateNetworkedSnapshotStream({
+          profileName,
+          seed: 37,
+          durationMs: 20_000,
+          serverTickMs,
+          frameMs: 1000 / 60,
+          entityId: 1,
+          positionAtTick: (tick) => ({
+            x: tick * serverTickMs * 0.12,
+            y: 0,
+            vx: serverTickMs * 0.12,
+            vy: 0,
+          }),
+        });
+        assertSmoothness(profileName, 37, result, () => {
+          expect(result.metrics.sampleCount).toBeGreaterThan(1000);
+          expect(result.metrics.reverseFrameCount).toBe(0);
+          expect(result.modeSummary.snapCount).toBe(0);
+          expect(result.metrics.positionMaxStep).toBeLessThan(4);
+          expect(result.metrics.velocityMean).toBeGreaterThan(110);
+          expect(result.metrics.velocityMean).toBeLessThan(125);
+          expect(result.modeSummary.holdRatio).toBeLessThan(0.05);
+        });
+      });
+    }
+  }
   test("perfect network produces stable remote velocity", () => {
     const result = simulateNetworkedSnapshotStream({
       profileName: "perfect",

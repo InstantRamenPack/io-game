@@ -1,3 +1,4 @@
+import { format, getFileInfo, resolveConfig } from "prettier";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -813,7 +814,7 @@ export async function writeBlueprintAsset(
       },
     );
   }
-  await writeFile(filePath, encodeRgbaPng(image));
+  await writeGeneratedFile(filePath, encodeRgbaPng(image));
 }
 
 async function writeGeneratedMagAsset(
@@ -861,7 +862,7 @@ async function writeGeneratedMagAsset(
     );
   }
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, encodeRgbaPng(output));
+  await writeGeneratedFile(filePath, encodeRgbaPng(output));
 }
 
 async function getSortedResourceNames(
@@ -950,7 +951,7 @@ async function refreshGeneratedMagItems(
 
     if (!weapon.magItemTypeId) {
       weapon.magItemTypeId = inferMagTypeId(typeId);
-      await writeFile(entry.filePath, formatJson(entry.content));
+      await writeGeneratedFile(entry.filePath, formatJson(entry.content));
     }
 
     const weaponTypeIds = magWeaponTypeIds.get(weapon.magItemTypeId) ?? [];
@@ -976,7 +977,7 @@ async function refreshGeneratedMagItems(
       magWeaponLabels.get(magTypeId) ?? weaponTypeIds,
     );
     await mkdir(magContentDir, { recursive: true });
-    await writeFile(filePath, formatJson(content));
+    await writeGeneratedFile(filePath, formatJson(content));
     items.set(magTypeId, { filePath, content });
   }
 
@@ -995,7 +996,7 @@ async function refreshGeneratedMagItems(
     );
     if (!entry.content.rendering) {
       entry.content.rendering = defaultItemRendering(expectedAssetPath);
-      await writeFile(entry.filePath, formatJson(entry.content));
+      await writeGeneratedFile(entry.filePath, formatJson(entry.content));
     }
     const firstWeapon = weaponTypeIds
       .map((weaponTypeId) => items.get(weaponTypeId)?.content.rendering)
@@ -1052,7 +1053,7 @@ async function refreshGeneratedBlueprintAssets(
     const assetPath = `/blueprint/generated/${resourceName}.png`;
     if (!content.rendering) {
       content.rendering = defaultItemRendering(assetPath);
-      await writeFile(filePath, formatJson(content));
+      await writeGeneratedFile(filePath, formatJson(content));
     }
     const sourceTypeId = getBlueprintPreviewTypeId(content);
     const sourceRendering = sourceTypeId
@@ -1419,7 +1420,7 @@ async function writeGeneratedCtorFile(
 ): Promise<void> {
   const outputPath = path.join(repoRoot, spec.outputPath);
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(
+  const changed = await writeGeneratedFile(
     outputPath,
     [
       GENERATED_HEADER,
@@ -1429,7 +1430,8 @@ async function writeGeneratedCtorFile(
       "",
     ].join("\n"),
   );
-  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  if (changed)
+    process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
 }
 
 async function writeGeneratedFactoryCtorFiles(
@@ -1584,8 +1586,13 @@ async function ensureRuntimeClass(
   const symbol = resolveRuntimeSymbol(resource);
   const filePath = resolveRuntimePath(repoRoot, resource, symbol);
   if (!existsSync(filePath)) {
+    if (!process.argv.includes("--scaffold")) {
+      throw new Error(
+        `Missing runtime class for ${resource.typeId}. Add the implementation, or explicitly run bun run scaffold:content.`,
+      );
+    }
     await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, buildRuntimeScaffold(resource, symbol));
+    await writeGeneratedFile(filePath, buildRuntimeScaffold(resource, symbol));
     scaffolded.runtime.push(path.relative(repoRoot, filePath));
   }
   const entry: SourceClassEntry = {
@@ -1656,8 +1663,9 @@ async function writeGeneratedRuntimeRegistry(
     "",
   ].join("\n");
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, fileContents);
-  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  const changed = await writeGeneratedFile(outputPath, fileContents);
+  if (changed)
+    process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
 }
 
 function resolveRendererSymbol(resource: ContentResource): string {
@@ -1797,8 +1805,13 @@ async function ensureRendererClass(
 
   const filePath = resolveRendererPath(repoRoot, resource, symbol);
   if (!existsSync(filePath)) {
+    if (!process.argv.includes("--scaffold")) {
+      throw new Error(
+        `Missing renderer class for ${resource.typeId}. Add the implementation, or explicitly run bun run scaffold:content.`,
+      );
+    }
     await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, buildRendererScaffold(resource, symbol));
+    await writeGeneratedFile(filePath, buildRendererScaffold(resource, symbol));
     scaffolded.renderer.push(path.relative(repoRoot, filePath));
   }
   const entry: RendererClassEntry = {
@@ -1848,8 +1861,9 @@ async function writeGeneratedRendererRegistry(
     "",
   ].join("\n");
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, fileContents);
-  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  const changed = await writeGeneratedFile(outputPath, fileContents);
+  if (changed)
+    process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
 }
 
 function sortedUnique(values: Iterable<string>): string[] {
@@ -1895,8 +1909,12 @@ async function writeCoverageDiagnostics(
     "content-coverage.json",
   );
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${JSON.stringify(diagnostics, null, 2)}\n`);
-  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  const changed = await writeGeneratedFile(
+    outputPath,
+    `${JSON.stringify(diagnostics, null, 2)}\n`,
+  );
+  if (changed)
+    process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
 }
 
 async function isScaffoldedFile(filePath: string): Promise<boolean> {
@@ -2144,16 +2162,38 @@ async function runCoverageChecks(
   assertCoverageGroupPasses("entity renderers", diagnostics.renderer);
 }
 
-function formatGeneratedFiles(repoRoot: string, filePaths: string[]): void {
-  const prettier = Bun.spawnSync({
-    cmd: ["bunx", "prettier", "--write", ...filePaths],
-    cwd: repoRoot,
-    stderr: "inherit",
-    stdout: "inherit",
-  });
-  if (prettier.exitCode !== 0) {
-    throw new Error("Failed to format generated files.");
+export async function writeGeneratedFile(
+  filePath: string,
+  content: string | Uint8Array,
+): Promise<boolean> {
+  const output =
+    typeof content === "string" &&
+    filePath.endsWith(".ts") &&
+    !(
+      await getFileInfo(filePath, {
+        ignorePath: path.resolve(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "../.prettierignore",
+        ),
+      })
+    ).ignored
+      ? await format(content, {
+          ...(await resolveConfig(filePath)),
+          filepath: filePath,
+        })
+      : content;
+  const bytes = Buffer.from(output);
+  let previous: Buffer;
+  try {
+    previous = await readFile(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    await writeFile(filePath, bytes);
+    return true;
   }
+  if (previous.equals(bytes)) return false;
+  await writeFile(filePath, bytes);
+  return true;
 }
 
 async function writeContentManifest(
@@ -2197,8 +2237,9 @@ async function writeContentManifest(
   ].join("\n");
 
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, fileContents);
-  process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
+  const changed = await writeGeneratedFile(outputPath, fileContents);
+  if (changed)
+    process.stdout.write(`Updated ${path.relative(repoRoot, outputPath)}\n`);
   return path.relative(repoRoot, outputPath);
 }
 
@@ -2252,22 +2293,8 @@ async function main(): Promise<void> {
     registryResult.scaffolded,
     registryResult.staleScaffoldCandidates,
   );
-  const contentManifestPath = await writeContentManifest(
-    repoRoot,
-    sharedContentRoot,
-  );
+  await writeContentManifest(repoRoot, sharedContentRoot);
 
-  formatGeneratedFiles(repoRoot, [
-    GENERATED_SERVER_REGISTRY_PATH,
-    GENERATED_STRUCTURE_CTORS_PATH,
-    GENERATED_MAG_CTORS_PATH,
-    GENERATED_BLUEPRINT_CTORS_PATH,
-    GENERATED_CONTENT_PROJECTILE_CTORS_PATH,
-    GENERATED_RENDERER_REGISTRY_PATH,
-    contentManifestPath,
-    ...registryResult.scaffolded.runtime,
-    ...registryResult.scaffolded.renderer,
-  ]);
   printScaffoldSummary(
     registryResult.scaffolded,
     registryResult.staleScaffoldCandidates,
